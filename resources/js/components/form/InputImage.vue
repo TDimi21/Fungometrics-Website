@@ -34,7 +34,11 @@ let value = computed({
 
 
 const onFileChange = (e) => {
-  image.src = URL.createObjectURL(e.target.files[0])
+  const file = e.target.files[0]
+  if (file) {
+    image.src = URL.createObjectURL(file)
+    emit('update:modelValue', file)
+  }
 }
 
 const resetInputFile = (file) => {

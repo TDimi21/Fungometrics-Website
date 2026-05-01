@@ -17,12 +17,13 @@ class UploadS3File
      */
     public static function getUrl(mixed $file, string $folder = '/'): string
     {
-        $url = config('services.default.logo_default');
+        $url = config('services.images.logo', 'https://fungometrics.s3.amazonaws.com/logo.png');
         try {
             $filename = "fungo-".time().'.'.$file->extension();
-            $image = Storage::disk('s3')->putFileAs($folder, $file, $filename);
+            $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+            $image = Storage::disk($disk)->putFileAs(ltrim($folder, '/'), $file, $filename);
             if (isset($image)) {
-                $url = Storage::disk('s3')->url($image);
+                $url = Storage::disk($disk)->url($image);
             }
             return $url;
         } catch (Exception $exception) {

@@ -210,7 +210,7 @@ onMounted(() => {
               type="button"
               class="ml-4 lg:ml-14 hover:text-fungo-darkblue-hover"
             >
-              ADD PLAYER
+              ADD PLAYERS
             </button>
             <button
               @click="isChange = true"

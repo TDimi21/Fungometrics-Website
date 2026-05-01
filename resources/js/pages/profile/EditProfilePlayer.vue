@@ -49,14 +49,13 @@ const submitUpdate = async () => {
     })
   }else{
     isLoading.status =!isLoading.status;
-    const imageTemp = player.avatar.files[0]
     let dataForm = new FormData();
     dataForm.append('email', player.email)
     dataForm.append('phone', player.mobileNumber)
-    if(imageTemp != undefined && imageTemp != userData.avatar){
-      dataForm.append('picture', imageTemp)
+    if(player.avatar instanceof File){
+      dataForm.append('picture', player.avatar)
     }else{
-      dataForm.append('picture', userData.avatar)
+      dataForm.append('picture', userData.avatar ?? '')
     }
 
     dataForm.append('profile[name][first]', player.firstName)

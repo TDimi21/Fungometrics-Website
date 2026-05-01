@@ -53,54 +53,73 @@
 </script>
 <template>
   <div
-    class="flex flex-row w-full h-full border
-    bg-white w-[230px] h-[75px]
-    md:w-[295px] h-[110px] m-[2px]
-    place-items-center relative
-    card-player text-fungo-darkblue cursor-pointer
-    p-2 gap-3.5" @click="showModal()"
+    class="card-player flex flex-col items-center cursor-pointer relative"
+    @click="showModal()"
   >
-    <div class="flex-grow-0">
-      <div
-        class="h-[45px] w-[45px] md:h-[55px]
-        md:w-[55px] rounded-full
-        ring-[7px] ring-fungo-gray6
-        mx-1">
-        <template v-if="item.avatar != null">
-          <img :src="item.avatar" alt="" class="h-[45px] w-[45px] md:h-[55px] md:w-[55px] rounded-full">
-        </template>
-        <img v-else src="../assets/img/layout/logofungo-nav.png" alt="" class="h-[45px] w-[45px] md:h-[55px] md:w-[55px] rounded-full">
-      </div>
+    <!-- Player Name -->
+    <div class="w-full text-center text-white font-fungo-800 text-[13px] py-1 px-2 truncate">
+      {{ item.name.full }}
     </div>
-    <div class="flex-grow">
-      <div class="flex flex-col text-[14px] items-start">
-        <div class="font-fungo-800 ">{{item.name.full}}</div>
-        <div class="">Jersey: <span class="text-fungo-red font-fungo-800">{{item.shirt_number}}</span></div>
-        <div class="">Position:</div>
+
+    <!-- Avatar with number badge -->
+    <div class="relative mx-auto">
+      <template v-if="item.avatar != null">
+        <img :src="item.avatar" alt="" class="player-avatar object-cover">
+      </template>
+      <img v-else src="../assets/img/layout/logofungo-nav.png" alt="" class="player-avatar object-cover">
+      <!-- Number badge -->
+      <div class="number-badge">#{{ item.shirt_number ?? '-' }}</div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="flex flex-row justify-around w-full mt-2 pb-2 px-2">
+      <div class="text-center">
+        <div class="text-[10px] text-gray-400 font-fungo-700 uppercase tracking-wide">Velo</div>
+        <div class="text-white font-fungo-800 text-[14px]">{{ dataScore?.velo ?? '-' }}</div>
       </div>
-      <div
-        class="absolute
-        bottom-0 right-1
-        md:right-3
-        bg-fungo-lightblue
-        text-[14px]
-        md:text-[20px]
-        px-1.5 md:px-2.5
-        card-player-chip">{{ item.positions != null && item.positions.length > 0 ? item.positions[0].position : "T"}}</div>
+      <div class="border-l border-gray-600"></div>
+      <div class="text-center">
+        <div class="text-[10px] text-gray-400 font-fungo-700 uppercase tracking-wide">EV</div>
+        <div class="text-white font-fungo-800 text-[14px]">{{ dataScore?.ev ?? '-' }}</div>
+      </div>
     </div>
   </div>
   <ModalPlayer @closeModal="close()" :isOpen="isOpenModal" :item="item" :response="dataMetric" :score="dataScore" v-if="isOpenModal"></ModalPlayer>
-
 </template>
 <style scoped>
 .card-player {
-  border-top-right-radius: 10px;
-  border-top-left-radius: 10px;
-  border-bottom: 3px solid #d9d9d9;
+  background: linear-gradient(160deg, #1a2a4a 0%, #0d1b35 100%);
+  border-radius: 12px;
+  width: 140px;
+  min-height: 190px;
+  margin: 6px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.card-player-chip {
-  border-top-right-radius: 5px;
-  border-top-left-radius: 5px;
+.card-player:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+}
+.player-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.15);
+  display: block;
+  margin: 0 auto;
+}
+.number-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  background: #c0392b;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 10px;
+  padding: 1px 6px;
+  border: 1px solid rgba(255,255,255,0.3);
 }
 
 ::-webkit-scrollbar {
