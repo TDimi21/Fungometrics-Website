@@ -1,0 +1,106 @@
+version: '3.9'
+
+services:
+#  nginx:
+#    container_name: "${PROJECT_NAME}_nginx"
+#    build:
+#      context: .
+#      dockerfile: ./docker/nginx/Dockerfile
+#    ports:
+#      - '443:443'
+#      - '80:80'
+#    depends_on:
+#      - app
+#    volumes:
+#      - './:/var/www/vhost/html:cached'
+#      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+#      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+#    working_dir: /var/www/vhost/html
+#    networks:
+#      - net_project
+
+#  app:
+#    user: 1000:1000
+#    container_name: "${PROJECT_NAME}_php"
+#    build:
+#      context: .
+#      dockerfile: ./docker/php/Dockerfile
+#    environment:
+#      PHP_IDE_CONFIG: 'serverName=debug${PROJECT_NAME}'
+#
+#    volumes:
+#      - './:/var/www/vhost/html:cached'
+#      - './docker/php/config/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini'
+#
+#    working_dir: '/var/www/vhost/html'
+#    ports:
+#      - '9003:9003'
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#    depends_on:
+#      - db
+#      - redis
+#      - s3
+#    networks:
+#      - net_project
+
+#  redis:
+#    image: redis:latest
+#    container_name: "${PROJECT_NAME}_redis"
+#    ports:
+#      - '6379:6379'
+#    volumes:
+#      - 'vol_redis:/data'
+#    networks:
+#      - net_project
+
+  db:
+    image: mariadb:latest
+    container_name: "${PROJECT_NAME}_database"
+    environment:
+      MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+      MYSQL_DATABASE: '${DB_DATABASE}'
+      MYSQL_USER: '${DB_USERNAME}'
+      MYSQL_PASSWORD: '${DB_PASSWORD}'
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+      command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+#    restart: always
+    volumes:
+      - 'vol_dbdata:/data'
+    ports:
+      - '${DB_PORT:-4406}:3306'
+    networks:
+      - net_project
+#  s3:
+#    image: minio/minio
+#    container_name: "${PROJECT_NAME}_minio"
+#    command: server /data --console-address ":9001"
+#    ports:
+#      - "9000:9000"
+#      - "9001:9001"
+#    environment:
+#      MINIO_ACCESS_KEY: "${AWS_ACCESS_KEY_ID}"
+#      MINIO_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY}"
+#    volumes:
+#      - 'vol_minio:/data'
+#    networks:
+#      - net_project
+
+networks:
+  net_project:
+    name: "${PROJECT_NAME}"
+    driver: bridge
+
+volumes:
+  vol_dbdata:
+    name: "${PROJECT_NAME}_dbdata"
+#    driver: local,
+    external: true
+
+  vol_redis:
+    name: "${PROJECT_NAME}_redis"
+#    driver: local
+    external: true
+
+

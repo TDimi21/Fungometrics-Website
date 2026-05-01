@@ -1,0 +1,1 @@
+const d=()=>{function i(o,e,s){const p=(u,n)=>e.split(".").reduce((r,t)=>r&&r[t],u)<e.split(".").reduce((r,t)=>r&&r[t],n)?s==="asc"?-1:1:e.split(".").reduce((r,t)=>r&&r[t],u)>e.split(".").reduce((r,t)=>r&&r[t],n)?s==="asc"?1:-1:0;return o.sort(p)}return{ordenarElementos:i}};export{d as u};

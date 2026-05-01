@@ -1,0 +1,1 @@
+import{o as e,c as a,t as n}from"./app.99aa1b81.js";const _={class:"text-fungo-red text-2xl md:text-[40px] text-center mt-9 mb-6 font-fungo-700"},s={__name:"PracticeTitle",props:{title:{type:String,required:!0}},setup(t){return(c,o)=>(e(),a("h1",_,n(t.title),1))}};export{s as _};
