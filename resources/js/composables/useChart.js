@@ -3,7 +3,6 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team.js'
 import { usePlayerStore } from '@/store/players.js'
 import {useUserStore} from "../store/user";
-import {toast} from "@/utils/AlertPlugin"
 
 const useChart = () => {
   const { axiosGet, axiosPost } = useAxiosAuth()
@@ -77,10 +76,6 @@ const useChart = () => {
     } catch (error) {
       if (error.response.data.data.length === 0) {
         seriesDinamicChart.value = []
-        toast.fire({
-          icon: 'warning',
-          title: 'No found data',
-        })
       }
     } finally {
       isloading.value != isloading.value

@@ -180,8 +180,8 @@ import {useRouter} from "vue-router"
             leave-to="opacity-0 scale-95"
           >
             <DialogPanel
-              class="max-w-[90%] min-w-[75%] h-max max-h-[70%] transform overflow-y-auto rounded-lg
-              bg-fungo-gray2 text-left align-middle shadow-xl transition-all">
+              class="w-full max-w-lg h-[90vh] transform overflow-y-auto rounded-xl
+              bg-[#111827] text-left align-middle shadow-xl transition-all">
 
               <div>
                 <div class="absolute top-5 right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]" @click="emit('closeModal')">

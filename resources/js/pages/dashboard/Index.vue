@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import {Carousel, Navigation, Pagination, Slide} from 'vue3-carousel'
 import Layout from "../../layout/Layout.vue"
 import {useUserStore} from "../../store/user";
 import {usePlayerStore} from "../../store/players";
+import {useTeamStore} from "../../store/team";
 import PlayerCard from "../../components/PlayerCard.vue";
 import { ChartCard, IndicatorChart, FeedsTable, TopTable } from '@/components/dashboard'
 import { LabelField } from '@/components/form'
@@ -15,6 +16,15 @@ import { SearchIcon } from '@/components/icons'
 
 const user = useUserStore();
 const players = usePlayerStore();
+const { team } = useTeamStore();
+
+const playerSearch = ref('')
+const filteredPlayers = computed(() =>
+  players.players?.filter(p => p.name?.full?.toLowerCase().includes(playerSearch.value.toLowerCase())) ?? []
+)
+const totalSessions = computed(() => players.players?.reduce((acc, p) => acc + (p.sessions_count ?? 0), 0) ?? 0)
+const openAddPlayersModal = () => window.dispatchEvent(new Event('open-add-player-modal'))
+const openChangeTeamModal = () => window.dispatchEvent(new Event('open-change-team-modal'))
 
 const {
   ballStrike, ballStrikeSeries, isloading, directional,
@@ -53,17 +63,6 @@ const ranges = [
   { text: '1 Month', value: 1 }
 ]
 
-const chartToShow = [
-  { text: 'Avg Exit Velocity for each Session', value: 1 },
-  { text: 'Max Exit Velocity for each session', value: 2 },
-  { text: 'Max Cage Distance', value: 3 },
-  { text: 'Total strike percentage per session', value: 4 },
-  { text: 'Max FB Velocity for each session', value: 5 },
-  { text: 'Average throw velocity for each weight', value: 6 },
-  { text: 'Max distance throw with 0 hops per session', value: 7 },
-  { text: 'Average Training Exit Velo per Session', value: 8 },
-]
-
 const optionsPlayer = ref()
 
 const setPlayerData = () => {
@@ -84,270 +83,194 @@ onMounted(() => {
 </script>
 <template>
   <Layout>
+    <div class="min-h-screen bg-fungo-darkblue text-white relative">
 
+      <div class="relative z-10 px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-10">
 
-    <div class="flex flex-row flex-wrap min-h-screen w-full font-fungo-poppins">
-      <div v-if="user.userData.type === 'coach'" class="basis-full dash-header border">
-        <div class="w-[90%] h-[75%]">
-          <h1 class="text-fungo-red font-fungo-800 text-2xl">TEAM</h1>
-          <carousel :breakpoints="breakpoints">
-            <slide v-for="item in players.players" :key="item">
-              <PlayerCard :item="item"/>
-            </slide>
+        <!-- Team + Players Row -->
+        <div v-if="user.userData.type === 'coach'" class="mb-8 grid grid-cols-1 xl:grid-cols-[minmax(380px,1fr)_2fr] gap-5 items-start">
+          <div class="space-y-4">
+            <div
+              class="relative overflow-hidden rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl p-4 lg:p-5 cursor-pointer hover:bg-white/15 transition min-h-[210px]"
+              @click="openChangeTeamModal"
+              title="Click to switch team"
+            >
+              <div
+                v-if="team?.logo"
+                class="absolute inset-0 bg-cover bg-center opacity-25"
+                :style="{ backgroundImage: `url(${team.logo})` }"
+              ></div>
+              <div class="absolute inset-0 bg-[#0b1022]/75"></div>
 
-            <template #addons>
-              <navigation/>
-              <pagination/>
-            </template>
-          </carousel>
+              <div class="relative z-10 flex flex-col h-full justify-between gap-4">
+                <div class="flex items-center gap-4">
+                  <div class="h-16 w-16 overflow-hidden rounded-xl border border-white/20 bg-slate-950 shadow-lg shrink-0">
+                    <img v-if="team?.logo" :src="team.logo" alt="Team" class="h-full w-full object-cover" />
+                    <div v-else class="h-full w-full flex items-center justify-center text-2xl font-black text-white/30">FM</div>
+                  </div>
+                  <div>
+                    <h1 class="text-2xl font-black leading-tight text-white md:text-3xl">{{ team?.name ?? 'My Team' }}</h1>
+                    <p class="mt-1 text-xs md:text-sm text-white/60">Player development tracking · Sessions · Stats</p>
+                  </div>
+                </div>
 
-        </div>
-      </div>
-      <div class="basis-full dash-body border m-5 flex flex-col">
-        <div class="h-max mb-10">
-          <section class="bg-fungo-gray4 rounded-xl shadow-xl px-11 py-4 my-11">
-            <form @submit.prevent="getFilteredDataChart" class="grid grid-cols-1 xl:grid-cols-4 gap-x-8" v-if="!isloading">
-              <div>
-                <label-field text="Chart to show"/>
-                <select class="bg-white h-10 bg-none w-full rounded-[5px]" v-model="formModel.type" @change="getFilteredDataChart">
-                  <option v-for="chart in chartToShow" :key="chart.value" :value="chart.value">{{ chart.text }}</option>
-                </select>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    class="col-span-2 rounded-xl border border-red-400/60 bg-red-500/20 p-2 text-center text-xs font-black tracking-wider text-red-200 hover:bg-red-500/30 transition"
+                    @click.stop="openAddPlayersModal"
+                  >
+                    + ADD PLAYERS
+                  </button>
+                  <div class="rounded-xl border border-white/10 bg-white/10 p-3 text-center">
+                    <div class="text-[10px] font-bold uppercase tracking-widest text-white/45">Players</div>
+                    <div class="mt-1 text-2xl font-black text-white">{{ players.players?.length ?? 0 }}</div>
+                  </div>
+                  <div class="rounded-xl border border-white/10 bg-white/10 p-3 text-center">
+                    <div class="text-[10px] font-bold uppercase tracking-widest text-white/45">Sessions</div>
+                    <div class="mt-1 text-2xl font-black text-white">{{ totalSessions }}</div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label-field text="Date"/>
-                <select class="bg-white h-10 bg-none w-full rounded-[5px]" v-model="formModel.range" @change="getFilteredDataChart">
-                  <option v-for="range in ranges" :key="range.value" :value="range.value">{{ range.text }}</option>
-                </select>
-              </div>
-              <div>
-                <label-field text="Player"/>
-                <DropDownMultiple v-model="formModel.players" :options="optionsPlayer" :isSelectAll="true"/>
-              </div>
-              <!-- <div class="place-self-end">
-                <button type="submit" role="submit" class="bg-fungo-red inline-flex rounded-lg w-10 h-10 items-center justify-center">
-                  <SearchIcon />
-                </button>
-              </div> -->
-            </form>
-          </section>
-          <section class="main-chart" ref="mainChart">
-            <apexchart width="100%" type="line" height="600px" :options="dinamicChartoptions(formModel.range, monthsShow)" :series="seriesDinamicChart"/>
-          </section>
-        </div>
-        <div>
-          <div class="grid grid-cols-1 xl:grid-cols-2 xl:space-x-8 space-y-14 xl:space-y-0">
-            <section class="grid grid-cols-1 xl:grid-cols-2 xl:space-x-8 space-y-14 xl:space-y-0">
-              <div v-if="isloading">
-                <h2>Load...</h2>
-              </div>
-              <template v-else>
-                <article class="space-y-14">
-                  <h3 class="text-fungo-red text-2xl font-fungo-700">Team Statistics </h3>
-                  <chart-card
-                    firstTitle="Contact vs Ball/Strikes"
-                    secondTitle="Hitter Awareness"
-                    thirdTitle="VS Ball / Strikes"
-                  >
-                    <template v-slot:chart-body>
-                      <apexchart width="100%" type="donut" :options="donutChartOptions" :series="ballStrikeSeries"></apexchart>
-                      <indicator-chart
-                        :labelTitle="`Strikes ${ballStrike.strikes.count}`"
-                        :labelValue="ballStrike.strikes.percent"
-                        color="#01F1E3"
-                      />
-                      <indicator-chart
-                        :labelTitle="`Balls ${ballStrike.balls.count}`"
-                        :labelValue="ballStrike.balls.percent"
-                        color="#8676FF"
-                      />
-                    </template>
-                  </chart-card>
+            </div>
 
-                  <chart-card
-                    firstTitle="Batting & LiveAB"
-                    secondTitle="Contact"
-                    thirdTitle="Batting / LiveAB"
-                  >
-                    <template v-slot:chart-body>
-                      <section class="mt-5 flex flex-col space-y-4">
-                        <indicator-chart
-                          :labelTitle="`GB ${typeHitsBatting.GB.count}`"
-                          :labelValue="typeHitsBatting.GB.percent"
-                          color="#F8A488"
-                        />
-                        <indicator-chart
-                          :labelTitle="`LD ${typeHitsBatting.LD.count}`"
-                          :labelValue="typeHitsBatting.LD.percent"
-                          color="#ADE8F4"
-                        />
-                        <indicator-chart
-                          :labelTitle="`FLY ${typeHitsBatting.FLY.count}`"
-                          :labelValue="typeHitsBatting.FLY.percent"
-                          color="#8676FF"
-                        />
-                        <indicator-chart
-                          :labelTitle="`SM/F ${typeHitsBatting['SM/F'].count}`"
-                          :labelValue="typeHitsBatting['SM/F'].percent"
-                          color="#FFB457"
-                        />
-                        <indicator-chart
-                          :labelTitle="`TAKE ${typeHitsBatting.TAKE.count}`"
-                          :labelValue="typeHitsBatting.TAKE.percent"
-                          color="#03F1E3"
-                        />
-                      </section>
-                    </template>
-                  </chart-card>
-
-                  <chart-card
-                    firstTitle="LiveAB & Bullpen"
-                    secondTitle="Pitches Thrown"
-                    thirdTitle="LiveAB / Bullpen"
-                  >
-                    <template v-slot:chart-body>
-                      <apexchart
-                        width="100%" type="bar" height="350"
-                        :options="barChartOptions(pitchThrows.totals)"
-                        :series="[{ name: 'Thrown', data: [pitchThrows.totals, pitchThrows.FB, pitchThrows.CH, pitchThrows.CB, pitchThrows.SL, pitchThrows.OTHER ] }]">
-                      </apexchart>
-                    </template>
-                  </chart-card>
-
-                  <chart-card
-                    firstTitle="LiveAB"
-                    secondTitle="S/M Take"
-                    thirdTitle="LiveAB"
-                  >
-                    <template v-slot:chart-body>
-                      <apexchart
-                        width="100%" type="bar" height="350"
-                        :options="barChartOptions(smTake.totals, 1, 2,)"
-                        :series="[{ name: 'S/M', data: [ smTake.FB.SM, smTake.CH.SM, smTake.CB.SM, smTake.SL.SM, smTake.OTHER.SM ]},
-                                  { name: 'Take', data: [ smTake.FB.TAKE, smTake.CH.TAKE, smTake.CB.TAKE, smTake.SL.TAKE, smTake.OTHER.TAKE ]}]">
-                      </apexchart>
-                    </template>
-                  </chart-card>
-
-                </article>
-
-                <article class="space-y-8">
-                  <chart-card
-                    firstTitle="Batting Practice"
-                    secondTitle="Directional"
-                    thirdTitle="Left / Middle / Right"
-                  >
-                    <template v-slot:chart-body>
-                      <apexchart width="100%" type="radialBar"
-                        :options="radiaChartOptions"
-                        :series="[directional.RIGHT.percent, directional.MIDDLE.percent, directional.LEFT.percent]">
-                      </apexchart>
-                    </template>
-                  </chart-card>
-
-                  <chart-card
-                    firstTitle="LiveAB & Bullpen"
-                    secondTitle="Average Pitch Velocity"
-                    thirdTitle="LiveAB / Bullpen"
-                  >
-                    <template v-slot:chart-body>
-                      <apexchart
-                        width="100%" type="bar" height="350"
-                        :options="barChartOptions(pitchVelocityAverage.totals / 5, 2, 2)"
-                        :series="[{ name: 'Average', data: [pitchVelocityAverage.FB, pitchVelocityAverage.CH, pitchVelocityAverage.CB, pitchVelocityAverage.SL, pitchVelocityAverage.OTHER ] }]">
-                      </apexchart>
-                    </template>
-                  </chart-card>
-
-                  <chart-card
-                    firstTitle="Pitching & LiveAB"
-                    secondTitle="Contact"
-                    thirdTitle="Pitching / LiveAB"
-                  >
-                    <template v-slot:chart-body>
-                      <section class="mt-5 flex flex-col space-y-4">
-                        <indicator-chart
-                          :labelTitle="`GB ${typeHitsPitching.GB.count}`"
-                          :labelValue="typeHitsPitching.GB.percent"
-                          color="#F8A488"
-                        />
-                        <indicator-chart
-                          :labelTitle="`FLY ${typeHitsPitching.FLY.count}`"
-                          :labelValue="typeHitsPitching.FLY.percent"
-                          color="#8676FF"
-                        />
-                        <indicator-chart
-                          :labelTitle="`LD ${typeHitsPitching.LD.count}`"
-                          :labelValue="typeHitsPitching.LD.percent"
-                          color="#ADE8F4"
-                        />
-                        <indicator-chart
-                          :labelTitle="`SM/F ${typeHitsPitching['SM'].count}`"
-                          :labelValue="typeHitsPitching['SM'].percent"
-                          color="#FFB457"
-                        />
-                      </section>
-                    </template>
-                  </chart-card>
-
-                  <chart-card
-                    firstTitle="Cage Mode"
-                    secondTitle="Launch Angle Average Velocity"
-                  >
-                    <template v-slot:chart-body>
-                      <apexchart
-                        width="100%" type="bar" height="350"
-                        :options="barChartOptions(pitchThrows.totals, 1, 4)"
-                        :series="[
-                        {
-                          name: 'Average',
-                          data: [
-                            launchAngleAverage['-0'],
-                            launchAngleAverage['0-6'],
-                            launchAngleAverage['6-15'],
-                            launchAngleAverage['15-24'],
-                            launchAngleAverage['24-40'],
-                            launchAngleAverage['40-55'],
-                            launchAngleAverage['55+']
-                          ]
-                        }
-                      ]">
-                      </apexchart>
-                    </template>
-                  </chart-card>
-
-                </article>
-              </template>
-            </section>
-
-            <div class="flex items-center flex-col space-y-8">
-              <top-table />
+            <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
               <feeds-table />
             </div>
           </div>
+
+          <div class="min-w-0">
+            <div class="mb-3 flex items-center justify-between">
+              <h2 class="text-xl font-black text-white md:text-2xl">Players</h2>
+              <div class="relative w-full max-w-xs ml-4">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/35" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input v-model="playerSearch" placeholder="Search players" class="w-full rounded-full border border-white/10 bg-white/10 py-2.5 pl-10 pr-4 text-sm font-semibold text-white placeholder:text-white/35 outline-none backdrop-blur-xl" />
+              </div>
+            </div>
+            <div class="player-cards-scroll flex flex-nowrap gap-4 overflow-x-scroll pb-3 snap-x snap-mandatory">
+              <div class="flex-none w-[220px] snap-start" v-for="item in filteredPlayers" :key="item.id">
+                <PlayerCard :item="item" />
+              </div>
+            </div>
+          </div>
         </div>
+
+        <!-- Charts + Stats layout -->
+        <div class="mt-2">
+          <!-- Stats grid -->
+          <div class="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
+
+            <!-- Charts column -->
+            <div v-if="!isloading" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <!-- Each chart wrapped in glass card -->
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+                <h3 class="text-sm font-black uppercase tracking-widest text-red-400 mb-3">Contact vs Ball/Strikes</h3>
+                <apexchart width="100%" type="donut" :options="donutChartOptions" :series="ballStrikeSeries"></apexchart>
+                <indicator-chart :labelTitle="`Strikes ${ballStrike.strikes.count}`" :labelValue="ballStrike.strikes.percent" color="#01F1E3"/>
+                <indicator-chart :labelTitle="`Balls ${ballStrike.balls.count}`" :labelValue="ballStrike.balls.percent" color="#8676FF"/>
+              </div>
+
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+                <h3 class="text-sm font-black uppercase tracking-widest text-red-400 mb-3">Batting &amp; LiveAB Contact</h3>
+                <div class="flex flex-col space-y-3 mt-2">
+                  <indicator-chart :labelTitle="`GB ${typeHitsBatting.GB.count}`" :labelValue="typeHitsBatting.GB.percent" color="#F8A488"/>
+                  <indicator-chart :labelTitle="`LD ${typeHitsBatting.LD.count}`" :labelValue="typeHitsBatting.LD.percent" color="#ADE8F4"/>
+                  <indicator-chart :labelTitle="`FLY ${typeHitsBatting.FLY.count}`" :labelValue="typeHitsBatting.FLY.percent" color="#8676FF"/>
+                  <indicator-chart :labelTitle="`SM/F ${typeHitsBatting['SM/F'].count}`" :labelValue="typeHitsBatting['SM/F'].percent" color="#FFB457"/>
+                  <indicator-chart :labelTitle="`TAKE ${typeHitsBatting.TAKE.count}`" :labelValue="typeHitsBatting.TAKE.percent" color="#03F1E3"/>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+                <h3 class="text-sm font-black uppercase tracking-widest text-red-400 mb-3">Pitches Thrown</h3>
+                <apexchart width="100%" type="bar" height="300" :options="barChartOptions(pitchThrows.totals)" :series="[{ name: 'Thrown', data: [pitchThrows.totals, pitchThrows.FB, pitchThrows.CH, pitchThrows.CB, pitchThrows.SL, pitchThrows.OTHER] }]"/>
+              </div>
+
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+                <h3 class="text-sm font-black uppercase tracking-widest text-red-400 mb-3">Directional</h3>
+                <apexchart width="100%" type="radialBar" :options="radiaChartOptions" :series="[directional.RIGHT.percent, directional.MIDDLE.percent, directional.LEFT.percent]"/>
+              </div>
+
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+                <h3 class="text-sm font-black uppercase tracking-widest text-red-400 mb-3">Average Pitch Velocity</h3>
+                <apexchart width="100%" type="bar" height="300" :options="barChartOptions(pitchVelocityAverage.totals / 5, 2, 2)" :series="[{ name: 'Average', data: [pitchVelocityAverage.FB, pitchVelocityAverage.CH, pitchVelocityAverage.CB, pitchVelocityAverage.SL, pitchVelocityAverage.OTHER] }]"/>
+              </div>
+
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+                <h3 class="text-sm font-black uppercase tracking-widest text-red-400 mb-3">Launch Angle Avg Velocity</h3>
+                <apexchart width="100%" type="bar" height="300" :options="barChartOptions(pitchThrows.totals, 1, 4)" :series="[{ name: 'Average', data: [launchAngleAverage['-0'], launchAngleAverage['0-6'], launchAngleAverage['6-15'], launchAngleAverage['15-24'], launchAngleAverage['24-40'], launchAngleAverage['40-55'], launchAngleAverage['55+']] }]"/>
+              </div>
+
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+                <h3 class="text-sm font-black uppercase tracking-widest text-red-400 mb-3">S/M Take</h3>
+                <apexchart width="100%" type="bar" height="300" :options="barChartOptions(smTake.totals, 1, 2)" :series="[{ name: 'S/M', data: [smTake.FB.SM, smTake.CH.SM, smTake.CB.SM, smTake.SL.SM, smTake.OTHER.SM]}, { name: 'Take', data: [smTake.FB.TAKE, smTake.CH.TAKE, smTake.CB.TAKE, smTake.SL.TAKE, smTake.OTHER.TAKE]}]"/>
+              </div>
+
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+                <h3 class="text-sm font-black uppercase tracking-widest text-red-400 mb-3">Pitching &amp; LiveAB Contact</h3>
+                <div class="flex flex-col space-y-3 mt-2">
+                  <indicator-chart :labelTitle="`GB ${typeHitsPitching.GB.count}`" :labelValue="typeHitsPitching.GB.percent" color="#F8A488"/>
+                  <indicator-chart :labelTitle="`FLY ${typeHitsPitching.FLY.count}`" :labelValue="typeHitsPitching.FLY.percent" color="#8676FF"/>
+                  <indicator-chart :labelTitle="`LD ${typeHitsPitching.LD.count}`" :labelValue="typeHitsPitching.LD.percent" color="#ADE8F4"/>
+                  <indicator-chart :labelTitle="`SM/F ${typeHitsPitching['SM'].count}`" :labelValue="typeHitsPitching['SM'].percent" color="#FFB457"/>
+                </div>
+              </div>
+            </div>
+            <div v-else class="text-white/50 text-center py-20">Loading charts...</div>
+
+            <!-- Right sidebar: Live Stats + Tables -->
+            <aside class="space-y-5 lg:sticky lg:top-24 lg:h-fit">
+              <!-- Live Stats -->
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                  <h2 class="text-lg font-black text-white">Live Stats</h2>
+                  <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                </div>
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/10 px-4 py-3">
+                    <span class="text-sm font-bold text-white/55">Strike %</span>
+                    <span class="text-2xl font-black text-white">{{ ballStrike.strikes.percent ?? '--' }}%</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/10 px-4 py-3">
+                    <span class="text-sm font-bold text-white/55">Avg Pitch Velo</span>
+                    <span class="text-2xl font-black text-white">{{ pitchVelocityAverage?.FB ?? '--' }}</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/10 px-4 py-3">
+                    <span class="text-sm font-bold text-white/55">Total Pitches</span>
+                    <span class="text-2xl font-black text-white">{{ pitchThrows?.totals ?? '--' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+                <top-table />
+              </div>
+            </aside>
+          </div>
+        </div>
+
       </div>
     </div>
   </Layout>
 </template>
+
 <style scoped>
-
-.dash-arrows-container {
-  position: relative;
-  top: 0;
-  left: 0;
-  display: flex;
-  justify-content: space-between;
-  align-content: center;
-  flex-wrap: nowrap;
+.player-cards-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: #e10600 rgba(255, 255, 255, 0.15);
 }
 
-.dash-header {
-  @apply bg-[#F7F8F9] h-[23%] w-full  flex flex-col justify-center items-center;
+.player-cards-scroll::-webkit-scrollbar {
+  height: 10px;
 }
 
-
-.dash-body {
-  @apply bg-[#E7EAEE] min-h-[80%]  w-full;
+.player-cards-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
 }
 
+.player-cards-scroll::-webkit-scrollbar-thumb {
+  background: #e10600;
+  border-radius: 9999px;
+}
 </style>

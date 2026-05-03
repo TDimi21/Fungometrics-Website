@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted } from "vue";
 import { useUserStore } from "../store/user";
 import { useTeamStore } from "../store/team";
 import NavSidebar from "./NavigationSidebar.vue";
@@ -63,8 +63,6 @@ let player = reactive({
   confirmPassword: "",
   mobileNumber: "",
 });
-const userName = ref(userData.name ? userData.name.full : "");
-const typeUser = ref(userData.type);
 let hasSidebar = reactive({ active: true });
 const toggleSidebar = () =>
   hasSidebar.active ? (hasSidebar.active = false) : (hasSidebar.active = true);
@@ -202,9 +200,20 @@ const changeTeam = async (info) => {
   }
 };
 
+const openChangeTeamModal = () => {
+  isChange.value = true;
+};
+
 onMounted(() => {
   getTeamsWithPalyers();
   if (screen.width < 1024) hasSidebar.active = false;
+  window.addEventListener("open-add-player-modal", openModal);
+  window.addEventListener("open-change-team-modal", openChangeTeamModal);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("open-add-player-modal", openModal);
+  window.removeEventListener("open-change-team-modal", openChangeTeamModal);
 });
 </script>
 
@@ -212,10 +221,10 @@ onMounted(() => {
   <Loader v-show="!isLoading.status" />
   <div>
     <nav
-      class="bg-white border-b border-gray-200 fixed z-30 w-full duration-500"
+      class="fixed z-30 w-full duration-500 border-b border-white/10 bg-[#0a1e50]/40 backdrop-blur-xl"
       :class="hasSidebar.active ? 'pl-0 lg:pl-64' : 'pl-0'"
     >
-      <div class="flex items-center justify-between h-20">
+      <div class="flex items-center justify-between h-20 px-2 lg:px-4">
         <div class="flex items-center justify-start">
           <button
             class="w-20 h-20"
@@ -232,99 +241,14 @@ onMounted(() => {
               class="mx-auto"
             />
           </button>
-          <div
-            v-if="userData.type === 'coach'"
-            class="text-fungo-darkblue text-xs lg:text-base"
-          >
-            <button
-              @click="openModal"
-              type="button"
-              class="ml-4 lg:ml-14 hover:text-fungo-darkblue-hover"
-            >
-              ADD PLAYERS
-            </button>
-            <button
-              @click="isChange = true"
-              type="button"
-              class="ml-4 lg:ml-14 hover:text-fungo-darkblue-hover"
-            >
-              {{ team.name }} (change)
-            </button>
-          </div>
-          <div
-            v-if="userData.type === 'player'"
-            class="text-fungo-darkblue text-xs lg:text-base"
-          >
-            <button
-              type="button"
-              class="ml-4 lg:ml-14 hover:text-fungo-darkblue-hover"
-            >
-              <RouterLink to="/change-password">CHANGE PASSWORD</RouterLink>
-            </button>
+
+          <div v-if="userData.type === 'coach'" class="flex items-center gap-3 ml-4 lg:ml-8"></div>
+
+          <div v-if="userData.type === 'player'" class="ml-4 lg:ml-8">
+            <RouterLink to="/change-password" class="top-action-btn">CHANGE PASSWORD</RouterLink>
           </div>
         </div>
 
-        <div class="flex items-center h-full divide-x divide-[#D3D3D3]">
-          <img
-            src="../assets/img/layout/logofungo-nav.png"
-            alt="Logo fungo white"
-            width="100"
-            height="65"
-            class="pr-3 hidden md:block"
-          />
-          <div class="flex flex-col px-2 lg:px-5 h-min">
-            <p
-              class="text-fungo-darkblue font-fungo-700 text-[7px] lg:text-base"
-            >
-              Welcome {{ typeUser }}!
-            </p>
-            <p
-              class="text-fungo-darkblue font-fungo-300 text-[7px] lg:text-base"
-            >
-              {{ userName }}
-            </p>
-          </div>
-          <div class="flex items-center justify-center px-2 lg:px-5 h-full">
-            <RouterLink
-              :to="userData.type === 'player' ? '/profile-player' : '/profile'"
-              method="post"
-              as="button"
-              type="button"
-              class="bg-fungo-lightblue rounded-lg lg:p-1.5 p-0.5"
-            >
-              <img
-                src="../assets/img/icons/i-edit.svg"
-                alt=""
-                class="w-[3em] lg:w-[2em]"
-              />
-            </RouterLink>
-          </div>
-          <div
-            class="hidden md:grid grid-cols-1 px-2 lg:px-5 h-full content-center justify-items-center"
-          >
-            <img
-              src="../assets/img/layout/crown.png"
-              alt=""
-              width="30"
-              height="30"
-              v-if="typeUser === 'coach'"
-            />
-            <img
-              src="../assets/img/login/assteslogin/ballbutton.png"
-              alt="Ball image"
-              width="30"
-              height="30"
-            />
-          </div>
-          <div @click="logout" class="btn-logout">
-            <span class=""><strong>Logout</strong> </span>
-            <img
-              src="../assets/img/icons/i-cancel_red.svg"
-              alt="Image circle red with x for close session"
-              class=""
-            />
-          </div>
-        </div>
       </div>
     </nav>
 
@@ -352,10 +276,10 @@ onMounted(() => {
                 type="button"
               >
                 <img
-                  src="../assets/img/login/assteslogin/logo-fungo.png"
+                  src="../assets/img/login/assteslogin/updatedlogo.png"
                   alt="Main fungo logo"
-                  width="130"
-                  height="126"
+                  width="230"
+                  height="226"
                   class="mx-auto"
                 />
               </RouterLink>
@@ -364,6 +288,17 @@ onMounted(() => {
               ></div>
             </div>
             <NavSidebar :collapse="hasSidebar.active" />
+            <div class="px-4 pb-6 space-y-2 border-t border-white/10 pt-4">
+              <RouterLink
+                :to="userData.type === 'player' ? '/profile-player' : '/profile'"
+                class="sidebar-action"
+              >
+                EDIT PROFILE
+              </RouterLink>
+              <button @click="logout" type="button" class="sidebar-action sidebar-action-danger">
+                LOG OUT
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -373,7 +308,7 @@ onMounted(() => {
         :class="hasSidebar.active ? 'ml-0 lg:ml-64' : 'ml-0'"
       >
         <main
-          class="min-h-[94vh] pt-6 pb-24 px-4 overflow-hidden bg-fungo-gray2"
+          class="min-h-[94vh] pt-6 pb-24 px-0 overflow-hidden bg-[#070b18]"
           v-if="userData.type === 'coach'"
         >
           <slot />
@@ -661,6 +596,54 @@ onMounted(() => {
 
 .size-icon {
   @apply w-2 h-2;
+}
+
+.top-action-btn {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  color: #fff;
+  transition: 0.2s ease;
+}
+
+.team-switch-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.5rem 1rem;
+  transition: 0.2s ease;
+}
+
+.sidebar-action {
+  display: block;
+  width: 100%;
+  text-align: center;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.5rem;
+  color: #fff;
+  font-size: 0.875rem;
+  transition: 0.2s ease;
+}
+
+.sidebar-action-danger {
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+}
+
+.top-action-btn:hover,
+.team-switch-card:hover,
+.sidebar-action:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.sidebar-action-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
 }
 
 .btn-logout {
