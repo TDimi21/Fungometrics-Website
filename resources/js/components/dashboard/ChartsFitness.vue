@@ -390,6 +390,7 @@ const onChange = (event) => {
         <apexchart width="100%" type="line" height="500px" :options="dinamicChartOptionsFitness(entriesModelYAxis.title, categoriesMonths)" :series="series"/>
       </div>
     </div>
+
   </div>
 </template>
 

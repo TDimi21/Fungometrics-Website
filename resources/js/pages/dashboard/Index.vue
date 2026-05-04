@@ -8,6 +8,7 @@ import {useTeamStore} from "../../store/team";
 import PlayerCard from "../../components/PlayerCard.vue";
 import { ChartCard, IndicatorChart, FeedsTable, TopTable } from '@/components/dashboard'
 import DashboardSprayChart from '@/components/dashboard/DashboardSprayChart.vue'
+import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
 import PlayerCompare from '@/components/dashboard/PlayerCompare.vue'
 import { LabelField } from '@/components/form'
 import { DropDownMultiple } from '@/components/shared'
@@ -242,6 +243,10 @@ onMounted(() => {
                 <indicator-chart :labelTitle="`LD ${typeHitsPitching.LD.count}`" :labelValue="typeHitsPitching.LD.percent" color="#ADE8F4"/>
                 <indicator-chart :labelTitle="`SM/F ${typeHitsPitching['SM'].count}`" :labelValue="typeHitsPitching['SM'].percent" color="#FFB457"/>
               </div>
+            </div>
+
+            <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+              <VelocityZoneChart />
             </div>
           </div>
           <div v-else class="text-white/50 text-center py-20">Loading charts...</div>
