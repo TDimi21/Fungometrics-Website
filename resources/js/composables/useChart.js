@@ -19,6 +19,7 @@ const useChart = () => {
   const pitchVelocityAverage = ref(null)
   const launchAngleAverage = ref()
   const smTake = ref()
+  const contactSpray = ref({ strikes: [], balls: [] })
   const seriesDinamicChart = ref([])
   const optionsPlayer = ref()
   const {userData} = useUserStore();
@@ -43,6 +44,7 @@ const useChart = () => {
       pitchVelocityAverage.value = data.data.pitch_velocity_average
       launchAngleAverage.value = data.data.launch_angle_average_velocity
       smTake.value = data.data.swing_miss_take_percents
+      contactSpray.value = data.data.contact_spray ?? { strikes: [], balls: [] }
     } catch (error) {
       console.log(error);
     } finally {
@@ -253,6 +255,7 @@ const useChart = () => {
     typeHitsPitching,
     launchAngleAverage,
     smTake,
+    contactSpray,
     seriesDinamicChart,
     monthsShow,
 

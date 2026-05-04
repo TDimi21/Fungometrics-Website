@@ -34,7 +34,8 @@ class GetDataGraphics extends Controller
                     'pitch_throws'=>$dataGraphs->pitchesThrowData(),
                     'type_hits_pitching_percents'=>$dataGraphs->getHitTypePitchingData(),
                     'launch_angle_average_velocity'=>$dataGraphs->launchAngleAverageVelocityData(),
-                    'swing_miss_take_percents'=>$dataGraphs->pitchThrowResult()
+                    'swing_miss_take_percents'=>$dataGraphs->pitchThrowResult(),
+                    'contact_spray'=>$dataGraphs->getContactSprayData(),
                 ],
             ];
             return response()->json($response, HttpCodes::HTTP_OK);

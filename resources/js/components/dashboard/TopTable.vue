@@ -150,36 +150,37 @@ onMounted(() => {
 })
 </script>
 <template>
-  <section class="bg-white rounded-3xl py-9 px-3 w-full">
-    <h2 class="text-fungo-red font-fungo-700 text-3xl">Top 10</h2>
-    <div class="mx-auto">
-      <div class="my-4 inline-flex items-center space-x-4">
+  <section class="w-full">
+    <div class="mb-4">
+      <div class="mb-3 inline-flex items-center space-x-2 text-white/40">
         <filter-icon />
-        <p class="text-fungo-darkblue text-lg">Filter</p>
+        <p class="text-xs uppercase tracking-widest font-bold">Filter</p>
       </div>
-      <form @submit.prevent="getTopTable" class="flex flex-row justify-between space-x-5">
-        <select v-model="formModels.range" class="w-[45%]">
+      <form @submit.prevent="getTopTable" class="flex flex-row gap-3">
+        <select v-model="formModels.range" class="top-select flex-1">
           <option v-for="opt in timerOption" :key="opt.value" :value="opt.value">{{ opt.text }}</option>
         </select>
-        <select v-model="formModels.option" class="w-[45%]">
+        <select v-model="formModels.option" class="top-select flex-1">
           <option v-for="opt in selectOption" :key="opt.value" :value="opt.value">{{ opt.text }}</option>
         </select>
-        <button type="submit" role="submit" class="bg-fungo-red inline-flex rounded-lg w-10 h-10 items-center justify-center">
+        <button type="submit" role="submit" class="bg-[#C00000] hover:bg-[#A00000] transition-colors inline-flex rounded-lg w-10 h-10 items-center justify-center flex-shrink-0">
           <SearchIcon />
         </button>
       </form>
     </div>
     <tab-group>
       <div class="overflow-x-auto w-auto">
-        <tab-list class="flex justify-center items-center py-4 w-max">
+        <tab-list class="flex items-center py-2 w-max gap-1">
           <tab
             as="template"
             v-slot="{ selected }"
             v-for="head in navTabHeadings"
           >
             <button
-              class="outline-none py-2 px-6 !mx-0"
-              :class="{ ' text-fungo-red font-fungo-500 border-b-[3px] border-fungo-red': selected, 'text-fungo-darkblue': !selected }"
+              class="outline-none py-1.5 px-4 rounded-full text-xs font-bold uppercase tracking-wide transition-all"
+              :class="selected
+                ? 'bg-[#C00000] text-white'
+                : 'text-white/40 hover:text-white/70'"
             >
               {{ head }}
             </button>
@@ -420,7 +421,29 @@ onMounted(() => {
 </template>
 
 <style scoped>
-form select {
-  border-radius: 5px;
+.top-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(0, 32, 96, 0.6);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12px;
+  padding-left: 10px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  outline: none;
+  cursor: pointer;
+}
+.top-select option {
+  background: #001440;
+  color: #fff;
+}
+.top-select:focus {
+  border-color: rgba(192, 0, 0, 0.6);
 }
 </style>

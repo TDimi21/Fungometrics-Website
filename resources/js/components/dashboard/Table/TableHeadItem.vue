@@ -5,7 +5,7 @@ const props = defineProps({
 </script>
 
 <template>
-  <th scope="col" class="py-3 font-fungo-500">
+  <th scope="col" class="py-3 text-xs font-black uppercase tracking-wider text-white/60">
     <div class="text-center">
       {{ props.item.title }}
     </div>

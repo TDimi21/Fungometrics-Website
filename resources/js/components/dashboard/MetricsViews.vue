@@ -96,82 +96,54 @@ import { TableTop, TableTotal } from './index'
 
   const boolTop = ref(false);
   const boolTotal = ref(false);
+
+  // Returns { raw, pct, dir: 'good'|'bad'|'same' } over last 6 months
+  // lowerBetter: weight, dash times
+  const getChange = (key, lowerBetter = false) => {
+    if (!props.data?.length) return null
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    const valid = props.data
+      .filter(r => r[key] != null && parseFloat(r[key]) > 0)
+      .slice()
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const inWindow = valid.filter(r => new Date(r.created_at) >= sixMonthsAgo)
+    if (inWindow.length < 2) return null
+    const oldest = parseFloat(inWindow[0][key])
+    const latest = parseFloat(inWindow[inWindow.length - 1][key])
+    if (oldest === 0) return null
+    const raw = latest - oldest
+    const pct = Math.abs(raw / oldest * 100).toFixed(1)
+    const improved = lowerBetter ? raw < 0 : raw > 0
+    return { raw, pct, dir: raw === 0 ? 'same' : (improved ? 'good' : 'bad') }
+  }
 </script>
 
 <template>
   <!-- METRICS TAB -->
   <div v-if="view == 'home'" class="metrics-container">
 
-    <!-- Player header card -->
-    <div class="player-header">
-      <div class="player-header-left">
-        <div class="avatar-wrap">
-          <template v-if="item.avatar != null">
-            <img :src="player.avatar" alt="" class="avatar-img">
-          </template>
-          <img v-else src="../../assets/img/layout/logofungo-nav.png" alt="" class="avatar-img">
-        </div>
-        <div class="player-info">
-          <div class="player-name">{{ player.name }}</div>
-          <div class="player-detail">Positions: <span class="detail-value">{{ item.positions?.length > 0 ? item.positions.map(p => p.position).join(', ') : '-' }}</span></div>
-          <div class="player-detail">Jersey #: <span class="detail-value">{{ item.shirt_number ?? '-' }}</span></div>
-          <div class="player-detail">Pitch: <span class="detail-value">{{ item.throw_side ?? item.player?.throw_side ?? '-' }}</span></div>
-          <div class="player-detail">Hits: <span class="detail-value">{{ item.hit_side ?? item.player?.hit_side ?? '-' }}</span></div>
-          <div class="edit-profile-link" @click="$emit('goEdit')">✏️ Edit Profile</div>
-        </div>
-      </div>
-      <div class="score-box" v-if="score">
-        <div class="score-value">{{ score.overall ?? '—' }}</div>
-        <div class="score-label">{{ score.level ?? 'DEVELOPING' }}</div>
-      </div>
-    </div>
-
-    <!-- Last updated -->
-    <div class="last-updated" v-if="data?.length > 0">
-      Last updated: {{ new Date(data[data.length-1]?.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) }}
-    </div>
-
     <!-- Metrics grid -->
     <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-label">WEIGHT</div>
-        <div class="metric-date" v-if="data?.length > 0">Updated: {{ new Date(data[data.length-1]?.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) }}</div>
-        <div class="metric-value">{{ dataFitness.body_weight || '—' }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">FRONT SQUAT</div>
-        <div class="metric-date" v-if="data?.length > 0">Updated: {{ new Date(data[data.length-1]?.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) }}</div>
-        <div class="metric-value">{{ dataFitness.front_squat || '—' }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">BENCH PRESS</div>
-        <div class="metric-date" v-if="data?.length > 0">Updated: {{ new Date(data[data.length-1]?.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) }}</div>
-        <div class="metric-value">{{ dataFitness.bench_press || '—' }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">DEADLIFT</div>
-        <div class="metric-date" v-if="data?.length > 0">Updated: {{ new Date(data[data.length-1]?.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) }}</div>
-        <div class="metric-value">{{ dataFitness.dead_lift || '—' }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">BACK SQUAT</div>
-        <div class="metric-date" v-if="data?.length > 0">Updated: {{ new Date(data[data.length-1]?.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) }}</div>
-        <div class="metric-value">{{ dataFitness.back_squat || '—' }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">POWER CLEAN</div>
-        <div class="metric-date" v-if="data?.length > 0">Updated: {{ new Date(data[data.length-1]?.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) }}</div>
-        <div class="metric-value">{{ dataFitness.power_clean || '—' }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">40 TIME</div>
-        <div class="metric-date" v-if="data?.length > 0">Updated: {{ new Date(data[data.length-1]?.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) }}</div>
-        <div class="metric-value">{{ dataFitness.yd_40_dash || '—' }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">60 TIME</div>
-        <div class="metric-date" v-if="data?.length > 0">Updated: {{ new Date(data[data.length-1]?.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) }}</div>
-        <div class="metric-value">{{ dataFitness.yd_60_dash || '—' }}</div>
+      <div class="metric-card" v-for="m in [
+        { key:'body_weight',  label:'Weight',      unit:'lb', lowerBetter:true  },
+        { key:'front_squat',  label:'Front Squat', unit:'lb', lowerBetter:false },
+        { key:'bench_press',  label:'Bench Press', unit:'lb', lowerBetter:false },
+        { key:'dead_lift',    label:'Deadlift',    unit:'lb', lowerBetter:false },
+        { key:'back_squat',   label:'Back Squat',  unit:'lb', lowerBetter:false },
+        { key:'power_clean',  label:'Power Clean', unit:'lb', lowerBetter:false },
+        { key:'yd_40_dash',   label:'40 Time',     unit:'s',  lowerBetter:true  },
+        { key:'yd_60_dash',   label:'60 Time',     unit:'s',  lowerBetter:true  },
+      ]" :key="m.key">
+        <div class="metric-label">{{ m.label }}</div>
+        <div class="metric-date" v-if="data?.length > 0">
+          Updated: {{ new Date(data.filter(r=>r[m.key]>0).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0]?.created_at ?? data[data.length-1]?.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) }}
+        </div>
+        <div class="metric-value">{{ dataFitness[m.key] || '—' }} <span v-if="dataFitness[m.key]" class="metric-unit">{{ m.unit }}</span></div>
+        <div v-if="getChange(m.key, m.lowerBetter)" class="metric-change" :class="'change-' + getChange(m.key, m.lowerBetter).dir">
+          {{ getChange(m.key, m.lowerBetter).raw > 0 ? '+' : '' }}{{ getChange(m.key, m.lowerBetter).raw.toFixed(1) }}
+        </div>
+        <div v-else-if="data?.length > 1" class="metric-change change-same">—</div>
       </div>
     </div>
   </div>
@@ -203,7 +175,7 @@ import { TableTop, TableTotal } from './index'
 
 <style scoped>
 .metrics-container {
-  background: #111827;
+  background: #001440;
   min-height: 100%;
   padding: 12px;
   color: white;
@@ -213,7 +185,7 @@ import { TableTop, TableTotal } from './index'
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  background: #1f2937;
+  background: #002060;
   border-radius: 10px;
   padding: 12px;
   margin-bottom: 14px;
@@ -247,12 +219,12 @@ import { TableTop, TableTotal } from './index'
 }
 .edit-profile-link {
   font-size: 12px;
-  color: #e10600;
+  color: #C00000;
   cursor: pointer;
   margin-top: 4px;
 }
 .score-box {
-  background: #3b82f6;
+  background: #004080;
   border-radius: 8px;
   padding: 12px 16px;
   text-align: center;
@@ -266,7 +238,7 @@ import { TableTop, TableTotal } from './index'
 }
 .score-label {
   font-size: 10px;
-  color: #dbeafe;
+  color: #a0c0e0;
   margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -284,14 +256,14 @@ import { TableTop, TableTotal } from './index'
   gap: 10px;
 }
 .metric-card {
-  background: #1f2937;
+  background: #002060;
   border-radius: 8px;
   padding: 10px 12px;
 }
 .metric-label {
   font-size: 11px;
   font-weight: 700;
-  color: #e10600;
+  color: #ffffff;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 2px;
@@ -302,11 +274,25 @@ import { TableTop, TableTotal } from './index'
   margin-bottom: 6px;
 }
 .metric-value {
-  background: white;
-  color: #111827;
+  background: #e8eef6;
+  color: #001440;
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 15px;
   font-weight: 600;
 }
+.metric-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+}
+.metric-change {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 5px;
+  text-align: center;
+}
+.change-good { color: #4ade80; }
+.change-bad  { color: #f87171; }
+.change-same { color: #6b7280; }
 </style>

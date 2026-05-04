@@ -101,7 +101,7 @@ const editData = (player) => {
             {{ item.quality_of_contact == 'N' ? '-' : item.quality_of_contact }}
           </td>
           <td>
-            {{ item.type_of_hit }}
+            {{ (['H','A','W'].includes(item.quality_of_contact) && item.type_of_hit === 'TK') ? '—' : item.type_of_hit }}
           </td>
           <td>
             {{ item.zone }}

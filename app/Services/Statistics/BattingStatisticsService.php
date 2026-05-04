@@ -87,7 +87,9 @@ final class BattingStatisticsService
             'WEAK'=>$data->where('type_of_hit', '=', ContactQuality::WEAK->value)->count(),
             'AVERAGE'=>$data->where('type_of_hit', '=', ContactQuality::AVERAGE->value)->count(),
             'HARD'=>$data->where('type_of_hit', '=', ContactQuality::HARD->value)->count(),
-            'TAKE'=>$data->where('field_direction', '=', null)->count(),
+            'TAKE'=>$data->where('field_direction', '=', null)
+                ->whereNotIn('quality_of_contact', [ContactQuality::WEAK->value, ContactQuality::AVERAGE->value, ContactQuality::HARD->value])
+                ->count(),
             'LEFT'=>$data->where('field_direction', '=', SidesFieldPosition::LEFT->value)->count(),
             'RIGHT'=>$data->where('field_direction', '=', SidesFieldPosition::RIGHT->value)->count(),
             'MIDDLE'=>$data->where('field_direction', '=', SidesFieldPosition::CENTER->value)->count(),
@@ -112,7 +114,9 @@ final class BattingStatisticsService
                 'WEAK'=>$item->where('type_of_hit', '=', ContactQuality::WEAK->value)->count(),
                 'AVERAGE'=>$item->where('type_of_hit', '=', ContactQuality::AVERAGE->value)->count(),
                 'HARD'=>$item->where('type_of_hit', '=', ContactQuality::HARD->value)->count(),
-                'TAKE'=>$item->where('field_direction', '=', null)->count(),
+                'TAKE'=>$item->where('field_direction', '=', null)
+                    ->whereNotIn('quality_of_contact', [ContactQuality::WEAK->value, ContactQuality::AVERAGE->value, ContactQuality::HARD->value])
+                    ->count(),
                 'LEFT'=>$item->where('field_direction', '=', SidesFieldPosition::LEFT->value)->count(),
                 'RIGHT'=>$item->where('field_direction', '=', SidesFieldPosition::RIGHT->value)->count(),
                 'MIDDLE'=>$item->where('field_direction', '=', SidesFieldPosition::CENTER->value)->count(),
@@ -153,7 +157,9 @@ final class BattingStatisticsService
                 'AVERAGE'=>round(Helper::caseDivide($item->where('type_of_hit', '=', ContactQuality::AVERAGE->value)
                     ->count(), $totals)*100, 2),
                 'HARD'=>round(Helper::caseDivide($item->where('type_of_hit', '=', ContactQuality::HARD->value)->count(), $totals)*100, 2),
-                'TAKE'=>round(Helper::caseDivide($item->where('field_direction', '=', null)->count(), $totals)*100, 2),
+                'TAKE'=>round(Helper::caseDivide($item->where('field_direction', '=', null)
+                    ->whereNotIn('quality_of_contact', [ContactQuality::WEAK->value, ContactQuality::AVERAGE->value, ContactQuality::HARD->value])
+                    ->count(), $totals)*100, 2),
                 'LEFT'=>round(Helper::caseDivide($item->where(
                     'field_direction',
                     '=',
@@ -197,7 +203,9 @@ final class BattingStatisticsService
             'AVERAGE'=>round(Helper::caseDivide($data->where('type_of_hit', '=', ContactQuality::AVERAGE->value)
                 ->count(), $totals)*100, 2),
             'HARD'=>round(Helper::caseDivide($data->where('type_of_hit', '=', ContactQuality::HARD->value)->count(), $totals)*100, 2),
-            'TAKE'=>round(Helper::caseDivide($data->where('field_direction', '=', null)->count(), $totals)*100, 2),
+            'TAKE'=>round(Helper::caseDivide($data->where('field_direction', '=', null)
+                ->whereNotIn('quality_of_contact', [ContactQuality::WEAK->value, ContactQuality::AVERAGE->value, ContactQuality::HARD->value])
+                ->count(), $totals)*100, 2),
             'LEFT'=>round(Helper::caseDivide($data->where('field_direction', '=', SidesFieldPosition::LEFT->value)
                 ->count(), $totals)*100, 2),
             'RIGHT'=>round(Helper::caseDivide($data->where('field_direction', '=', SidesFieldPosition::RIGHT->value)

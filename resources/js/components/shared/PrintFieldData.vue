@@ -54,7 +54,7 @@ export default {
 </script>
 <style scoped>
 .zone-field {
-  background-image: url("../../assets/img/training/field.png");
+  background-image: url("../../assets/img/training/fieldbatting.png");
   background-repeat: no-repeat;
   background-size: 100% 100%;
   background-position: center;

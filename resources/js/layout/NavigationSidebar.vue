@@ -223,9 +223,9 @@ nav > ul > li > .router-link-active.router-link-exact-active {
   font-weight: 700;
   font-size: 16px;
   line-height: 24px;
-  color: #E10600;
+  color: #C00000;
   border-left: 3px solid;
-  border-color: #E10600;
+  border-color: #C00000;
 }
 
 nav > ul > li > .router-link-active.router-link-exact-active::before {
@@ -239,7 +239,7 @@ nav > ul > li > .router-link-active.router-link-exact-active::before {
   border-top-color: transparent;
   border-bottom-color: transparent;
   border-right-color: transparent;
-  border-left-color: #E10600;
+  border-left-color: #C00000;
 }
 
 nav > ul ul > li > .router-link-active.router-link-exact-active{

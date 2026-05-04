@@ -12,12 +12,12 @@ const props = defineProps({
 </script>
 
 <template>
-  <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
-    <table class="w-full border-separate space-y-6 text-fungo-darkblue">
+  <div class="overflow-x-auto relative sm:rounded-lg">
+    <table class="w-full border-separate space-y-6 text-white">
       <thead
-        class="bg-fungo-lightblue"
+        class="bg-[#002060]/80"
       >
-        <tr class="divide-x divide-[#000]">
+        <tr class="divide-x divide-white/10">
           <TableHeadItem
             v-for="(item, index) in props.header"
             :key="item.title + index"
@@ -30,21 +30,21 @@ const props = defineProps({
         <tr v-if="props.isLoading">
           <td colspan="4" class="w-full text-center py-5">
             <div class="animate-pulse grid grid-cols-4 gap-x-2">
-              <div class="h-3 bg-slate-300 rounded-lg"></div>
-              <div class="h-3 bg-slate-300 rounded-lg"></div>
-              <div class="h-3 bg-slate-300 rounded-lg"></div>
-              <div class="h-3 bg-slate-300 rounded-lg"></div>
+              <div class="h-3 bg-white/10 rounded-lg"></div>
+              <div class="h-3 bg-white/10 rounded-lg"></div>
+              <div class="h-3 bg-white/10 rounded-lg"></div>
+              <div class="h-3 bg-white/10 rounded-lg"></div>
             </div>
           </td>
         </tr>
         <tr v-else-if="props.items == null || props.items.length <= 0">
-          <td colspan="4" class="w-full text-center py-5">
+          <td colspan="4" class="w-full text-center py-5 text-white/30">
             <p>No Data</p>
           </td>
         </tr>
         <tr
           v-else
-          class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative"
+          class="bg-[#001440]/60 even:bg-[#002060]/40 border-l border-[#004080]/40 relative"
           v-for="(item, index) in props.items"
         >
           
@@ -76,7 +76,7 @@ table tbody tr::after{
   top: 0;
   height: 100%;
   width: 3px;
-  background-color: #ADE8F4;
+  background-color: #C00000;
 }
 table tbody tr:nth-child(even)::after{
   background-color: #DADADA;

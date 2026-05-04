@@ -114,7 +114,7 @@ const close = () => {
 </template>
 <style scoped>
 .card-player {
-  background: linear-gradient(160deg, #1a2a4a 0%, #0d1b35 100%);
+  background: linear-gradient(160deg, #002060 0%, #001030 100%);
   border-radius: 12px;
   width: 140px;
   min-height: 190px;
@@ -141,7 +141,7 @@ const close = () => {
   position: absolute;
   bottom: 2px;
   right: 4px;
-  background: #c0392b;
+  background: #C00000;
   color: white;
   font-size: 11px;
   font-weight: 800;
@@ -159,7 +159,7 @@ const close = () => {
   height: 0px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #e41111;
+  background: #C00000;
   border: 0px none #ffffff;
   border-radius: 5px;
 }
@@ -170,12 +170,12 @@ const close = () => {
   background: #000000;
 }
 ::-webkit-scrollbar-track {
-  background: #666666;
-  border: 22px solid #918383;
+  background: #001440;
+  border: 22px solid #002060;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-track:hover {
-  background: #e41111;
+  background: #C00000;
 }
 ::-webkit-scrollbar-track:active {
   background: #333333;

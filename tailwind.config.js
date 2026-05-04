@@ -11,10 +11,12 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        "fungo-darkblue-player": "#26364D",
-        "fungo-darkblue": "#082247",
-        "fungo-darkblue-hover" : "#194585",
-        "fungo-darkblug-disabled": "#88A2C9",
+        "fungo-darkblue-player": "#001845",
+        "fungo-darkblue": "#001440",
+        "fungo-darkblue-hover" : "#002060",
+        "fungo-darkblug-disabled": "#004080",
+        "fungo-navy": "#002060",
+        "fungo-navy-mid": "#004080",
         "fungo-dark-gray": "#A6A6A6",
         "fungo-light-gray": "#DADADA",
 
@@ -26,9 +28,9 @@ module.exports = {
         "fungo-blug-disabled": "#98C9E3",
 
 
-        "fungo-red": "#E10600",
-        "fungo-red-hover": "#BA0500",
-        "fungo-red-disabled": "#F6837F",
+        "fungo-red": "#C00000",
+        "fungo-red-hover": "#A00000",
+        "fungo-red-disabled": "#e08080",
 
 
         "fungo-gray": "#D9D9D9",

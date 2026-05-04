@@ -180,13 +180,82 @@ import {useRouter} from "vue-router"
             leave-to="opacity-0 scale-95"
           >
             <DialogPanel
-              class="w-full max-w-lg h-[90vh] transform overflow-y-auto rounded-xl
-              bg-[#111827] text-left align-middle shadow-xl transition-all">
+              class="modal-panel w-full h-[88vh] transform rounded-xl
+              bg-[#001440] text-left align-middle shadow-xl transition-all flex flex-row overflow-hidden">
 
-              <div>
-                <div class="absolute top-5 right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]" @click="emit('closeModal')">
+              <!-- LEFT SIDEBAR: player profile -->
+              <div class="player-sidebar flex flex-col items-center gap-4 p-5 overflow-y-auto border-r border-white/10">
+                <!-- Close button -->
+                <div class="self-end cursor-pointer w-[24px] h-[24px]" @click="emit('closeModal')">
                   <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
                 </div>
+                <!-- Avatar -->
+                <div class="rounded-full ring-4 ring-[#C00000] overflow-hidden w-[110px] h-[110px] flex-shrink-0">
+                  <img v-if="player.avatar" :src="player.avatar" alt="" class="w-full h-full object-cover">
+                  <img v-else src="../../assets/img/layout/logofungo-nav.png" alt="" class="w-full h-full object-cover">
+                </div>
+                <!-- Name -->
+                <div class="text-center">
+                  <p class="text-white font-bold text-base leading-tight">{{ player.name }}</p>
+                  <p v-if="item.number_in_shirt" class="text-[#C00000] font-bold text-lg">#{{ item.number_in_shirt }}</p>
+                </div>
+                <!-- Edit Profile link -->
+                <div class="edit-profile-link" @click="() => { emit('closeModal'); router.push(`/roster/player/${item.id}`) }">✏️ Edit Profile</div>
+                <!-- Divider -->
+                <div class="w-full border-t border-white/10"></div>
+                <!-- Info rows -->
+                <div class="w-full flex flex-col gap-3">
+                  <div v-if="item.number_in_shirt" class="sidebar-row">
+                    <span class="sidebar-label">Jersey #</span>
+                    <span class="sidebar-value">{{ item.number_in_shirt }}</span>
+                  </div>
+                  <div v-if="item.throw_side" class="sidebar-row">
+                    <span class="sidebar-label">Throws</span>
+                    <span class="sidebar-value">{{ item.throw_side }}</span>
+                  </div>
+                  <div v-if="item.hit_side" class="sidebar-row">
+                    <span class="sidebar-label">Bats</span>
+                    <span class="sidebar-value">{{ item.hit_side }}</span>
+                  </div>
+                  <div v-if="player.height" class="sidebar-row">
+                    <span class="sidebar-label">Height</span>
+                    <span class="sidebar-value">{{ player.height }} ft</span>
+                  </div>
+                  <div v-if="item.born?.age" class="sidebar-row">
+                    <span class="sidebar-label">Age</span>
+                    <span class="sidebar-value">{{ item.born.age }}</span>
+                  </div>
+                  <div v-if="item.email" class="sidebar-row">
+                    <span class="sidebar-label">Email</span>
+                    <span class="sidebar-value text-xs truncate">{{ item.email }}</span>
+                  </div>
+                  <div v-if="item.positions?.length" class="sidebar-row">
+                    <span class="sidebar-label">Position</span>
+                    <span class="sidebar-value">{{ item.positions.join(', ') }}</span>
+                  </div>
+                </div>
+                <!-- Score box -->
+                <template v-if="score">
+                  <div class="w-full border-t border-white/10"></div>
+                  <div class="score-badge">
+                    <div class="score-badge-value">{{ score.overall ?? '—' }}</div>
+                    <div class="score-badge-label">{{ score.level ?? 'DEVELOPING' }}</div>
+                  </div>
+                  <div class="w-full flex flex-col gap-3 mt-1">
+                    <div v-if="score.velo" class="sidebar-row">
+                      <span class="sidebar-label">Velo</span>
+                      <span class="sidebar-value">{{ score.velo }}</span>
+                    </div>
+                    <div v-if="score.ev" class="sidebar-row">
+                      <span class="sidebar-label">EV</span>
+                      <span class="sidebar-value">{{ score.ev }}</span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
+              <!-- RIGHT SECTION: tabs -->
+              <div class="flex-1 flex flex-col overflow-hidden">
                 <Tabs :tabs="tabs" active="tabs">
                   <template #content="{active}">
 
@@ -204,39 +273,8 @@ import {useRouter} from "vue-router"
 
                     <template v-if="active == 'edit'">
                       <div class="w-auto mt-2 px-2">
-                        <div class="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-2 mt-5">
-                          <div class="justify-self-center">
-                            <div class="flex flex-col items-center justify-center w-full">
-                              <div class="w-[85px] md:h-[125px] md:w-[125px] rounded-full ring-[7px] ring-fungo-gray8">
-                                <template v-if="player.avatar != null">
-                                  <img :src="player.avatar" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
-                                </template>
-                                <img v-else src="../../assets/img/layout/logofungo-nav.png" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
-                              </div>
-                            </div>
-                            <div class="flex justify-center">
-                              <div class="grid grid-cols-2 mt-4">
-                                <div class="text-fungo-darkblue">
-                                  <LabelField text="Name" :required="false" class=""/>
-                                  <p class="font-fungo-500" v-text="player.name"></p>
-                                </div>
-                                <div class="text-fungo-darkblue">
-                                  <LabelField text="E-Mail address" :required="false"/>
-                                  <p class="font-fungo-500" v-text="item.email"></p>
-                                </div>
-                                <div class="text-fungo-darkblue">
-                                  <LabelField text="Height" :required="false"/>
-                                  <p class="font-fungo-500" v-text="`${player.height ?? ''} ft`"></p>
-                                </div>
-
-                                <!-- <div class="text-fungo-darkblue">
-                                  <LabelField text="Weight" :required="false" />
-                                  <p class="font-fungo-500" v-text="player.weight"></p>
-                                </div> -->
-                              </div>
-                            </div>
-                          </div>
-                          <div class="justify-self-center mt-4 col-span-2">
+                        <div class="grid grid-cols-1 gap-2 mt-5">
+                          <div class="justify-self-center mt-4 w-full">
                             <h1 class="text-2xl capitalize font-medium p-3 leading-6 text-fungo-darkblue bg-fungo-gray4 text-center font-fungo-800">
                               Current Information
                             </h1>
@@ -295,6 +333,7 @@ import {useRouter} from "vue-router"
                   </template>
                 </Tabs>
               </div>
+
             </DialogPanel>
           </TransitionChild>
         </div>
@@ -304,6 +343,97 @@ import {useRouter} from "vue-router"
 </template>
 
 <style scoped>
+
+/* Modal panel is 2/3 of screen width */
+.modal-panel {
+  max-width: 66vw;
+}
+
+/* Left sidebar = 1/3 of modal */
+.player-sidebar {
+  width: 33.333%;
+  min-width: 200px;
+  background: #002060;
+}
+
+/* Sidebar info rows */
+.sidebar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.sidebar-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  text-align: right;
+}
+
+.edit-profile-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #C00000;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.edit-profile-link:hover {
+  color: #ff4444;
+}
+
+/* Override child Tabs component to match dark theme */
+:deep(.tabs-header) {
+  background-color: #001440 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+}
+:deep(.tab) {
+  background-color: #001440 !important;
+  color: rgba(255,255,255,0.55) !important;
+}
+:deep(.tab.active) {
+  color: #C00000 !important;
+  border-bottom: 2px solid #C00000;
+}
+:deep(.encabezado) {
+  max-width: 100% !important;
+}
+:deep(.tabs-content) {
+  overflow-y: auto;
+  max-height: calc(88vh - 55px);
+}
+
+/* Score badge in sidebar */
+.score-badge {
+  width: 100%;
+  background: #001440;
+  border: 1px solid rgba(192,0,0,0.4);
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: center;
+}
+.score-badge-value {
+  font-size: 28px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+}
+.score-badge-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #C00000;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+}
 
 @keyframes bounce {
   0%, 100% {
@@ -335,7 +465,7 @@ import {useRouter} from "vue-router"
   height: 0px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #e41111;
+  background: #C00000;
   border: 0px none #ffffff;
   border-radius: 5px;
 }
@@ -346,14 +476,12 @@ import {useRouter} from "vue-router"
   background: #000000;
 }
 ::-webkit-scrollbar-track {
-  background: #666666;
-  border: 22px solid #918383;
+  background: #001440;
+  border: 22px solid #002060;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-track:hover {
-  background: #e41111;
-}
-::-webkit-scrollbar-track:active {
+  background: #C00000;
   background: #333333;
 }
 ::-webkit-scrollbar-corner {

@@ -291,292 +291,396 @@ const resumenLive = async(item) => {
   })
 }
 getFeeds()
+
+const typeConfig = {
+  batting:        { label: 'Batting',       color: '#1a0a2e', accent: '#C00000', emoji: '🏏' },
+  bullpen:        { label: 'Bullpen',        color: '#3a0a0a', accent: '#C00000', emoji: '⚾' },
+  cage:           { label: 'Cage',           color: '#0a2a0a', accent: '#16a34a', emoji: '🏟️' },
+  live:           { label: 'Live AB',        color: '#2a1a00', accent: '#d97706', emoji: '🔴' },
+  exit_velocity:  { label: 'Exit Velocity',  color: '#1a002a', accent: '#9333ea', emoji: '💥' },
+  long_toss:      { label: 'Long Toss',      color: '#001a2a', accent: '#0ea5e9', emoji: '🎯' },
+  weight_ball:    { label: 'Weight Ball',    color: '#1a1a00', accent: '#eab308', emoji: '🏋️' },
+}
+const getConfig = (type) => typeConfig[type] ?? { label: type, color: '#002060', accent: '#C00000', emoji: '⚾' }
+const formatTime = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
 </script>
 <template>
-  <section class="bg-white rounded-3xl py-9 px-3 w-full">
-    <h2 class="text-fungo-red font-fungo-700 text-3xl">Feeds</h2>
-    <div class="grid grid-cols-6">
-
-    </div>
+  <section class="w-full">
     <tab-group>
-      <div class="overflow-x-auto w-auto">
-        <tab-list class="flex justify-center items-center py-4 w-max">
-          <tab
-            as="template"
-            v-slot="{ selected }"
-            v-for="head in primaryTabHeading"
-          >
+      <!-- Tab Pills -->
+      <div class="overflow-x-auto mb-4">
+        <tab-list class="flex gap-1 p-1 bg-[#001030]/60 rounded-xl w-max">
+          <tab as="template" v-slot="{ selected }" v-for="head in primaryTabHeading" :key="head">
             <button
-              class="outline-none py-2 px-6 !mx-0"
-              :class="{ ' text-fungo-red font-fungo-500 border-b-[3px] border-fungo-red': selected, 'text-fungo-darkblue': !selected }"
-            >
-              {{ head }}
-            </button>
+              class="px-4 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg transition-all outline-none"
+              :class="selected
+                ? 'bg-[#C00000] text-white shadow'
+                : 'text-white/50 hover:text-white'"
+            >{{ head }}</button>
           </tab>
         </tab-list>
       </div>
+
       <tab-panels>
-        <!-- batting -->
+        <!-- BATTING -->
         <tab-panel>
-          <Table :header="firtsHeaderTable" :items="allData.batting">
-            <template #created="{item}">
-              <span>{{ getFormatterDate(item.date) }}</span>
-            </template>
-            <template #name="{ item }">
-              {{ item.lineup[0].name.full }}
-            </template>
-            <template #completed="{ item }">
-              <button v-if="item.is_completed" disabled>
-                <CompleteIcon />
-              </button>
-              <button v-else @click="resumenTraining(item, 'batting')">
-                <TableStart class="[&>path]:fill-fungo-blue"/>
-              </button>
-            </template>
-            <template #stats="{ item }">
-              <button
-                @click="$router.push({ name: 'training.stats', params: { 'idPractice': item.id, 'type': item.type } })"
-              >
-                <TableStats />
-              </button>
-            </template>
-            <template #delete="{ item }">
-              <button @click="deletePractice(item.id)">
-                <TableCancel />
-              </button>
-            </template>
-          </Table>
+          <div class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            <div v-if="!allData.batting?.length" class="text-white/30 text-sm text-center py-8">No sessions yet</div>
+            <div
+              v-for="item in allData.batting" :key="item.id"
+              class="session-card"
+            >
+              <div class="session-icon" :style="{ background: getConfig('batting').color }">
+                <span class="text-2xl">{{ getConfig('batting').emoji }}</span>
+                <span class="session-type-label">{{ getConfig('batting').label }}</span>
+              </div>
+              <div class="session-body">
+                <div class="session-top">
+                  <div>
+                    <div class="session-title">Batting Practice</div>
+                    <div class="session-player">{{ item.lineup?.[0]?.name?.full ?? '—' }}<span v-if="item.lineup?.length > 1"> (+{{ item.lineup.length - 1 }})</span></div>
+                  </div>
+                  <div class="session-date-block">
+                    <div class="session-date">{{ getFormatterDate(item.date) }}</div>
+                    <div class="session-time">{{ formatTime(item.date) }}</div>
+                  </div>
+                </div>
+                <div class="session-bottom">
+                  <span class="session-balls">Total: {{ item.balls ?? 0 }} balls</span>
+                  <div class="session-actions">
+                    <button v-if="!item.is_completed" @click="resumenTraining(item, 'batting')" class="action-btn action-resume" title="Resume">▶</button>
+                    <button @click="$router.push({ name: 'training.stats', params: { idPractice: item.id, type: item.type } })" class="action-btn action-stats" title="Stats">📊</button>
+                    <button @click="deletePractice(item.id)" class="action-btn action-delete" title="Delete">🗑</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </tab-panel>
 
-        <!-- bullpen -->
+        <!-- BULLPEN -->
         <tab-panel>
-          <Table :header="firtsHeaderTable" :items="allData.bullpen">
-            <template #created="{item}">
-              <span>{{ getFormatterDate(item.date) }}</span>
-            </template>
-            <template #name="{ item }">
-              {{ item.lineup[0].name.full }}
-            </template>
-            <template #completed="{ item }">
-              <button v-if="item.is_completed" disabled>
-                <CompleteIcon />
-              </button>
-              <button v-else @click="resumenTraining(item, 'bullpen')">
-                <TableStart class="[&>path]:fill-fungo-blue"/>
-              </button>
-            </template>
-            <template #stats="{ item }">
-              <button
-              @click="$router.push({ name: 'training.stats', params: { 'idPractice': item.id, 'type': item.type } })"
-              >
-                <TableStats />
-              </button>
-            </template>
-            <template #delete="{ item }">
-              <button @click="deletePractice(item.id)">
-                <TableCancel />
-              </button>
-            </template>
-          </Table>
+          <div class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            <div v-if="!allData.bullpen?.length" class="text-white/30 text-sm text-center py-8">No sessions yet</div>
+            <div v-for="item in allData.bullpen" :key="item.id" class="session-card">
+              <div class="session-icon" :style="{ background: getConfig('bullpen').color }">
+                <span class="text-2xl">{{ getConfig('bullpen').emoji }}</span>
+                <span class="session-type-label">{{ getConfig('bullpen').label }}</span>
+              </div>
+              <div class="session-body">
+                <div class="session-top">
+                  <div>
+                    <div class="session-title">Bullpen Practice</div>
+                    <div class="session-player">{{ item.lineup?.[0]?.name?.full ?? '—' }}<span v-if="item.lineup?.length > 1"> (+{{ item.lineup.length - 1 }})</span></div>
+                  </div>
+                  <div class="session-date-block">
+                    <div class="session-date">{{ getFormatterDate(item.date) }}</div>
+                    <div class="session-time">{{ formatTime(item.date) }}</div>
+                  </div>
+                </div>
+                <div class="session-bottom">
+                  <span class="session-balls">Total: {{ item.balls ?? 0 }} balls</span>
+                  <div class="session-actions">
+                    <button v-if="!item.is_completed" @click="resumenTraining(item, 'bullpen')" class="action-btn action-resume" title="Resume">▶</button>
+                    <button @click="$router.push({ name: 'training.stats', params: { idPractice: item.id, type: item.type } })" class="action-btn action-stats" title="Stats">📊</button>
+                    <button @click="deletePractice(item.id)" class="action-btn action-delete" title="Delete">🗑</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </tab-panel>
 
-        <!-- cage mode -->
+        <!-- CAGE -->
         <tab-panel>
-          <Table :header="firtsHeaderTable" :items="allData.cage">
-            <template #created="{item}">
-              <span>{{ getFormatterDate(item.date) }}</span>
-            </template>
-            <template #name="{ item }">
-              {{ item.lineup[0].name.full }}
-            </template>
-            <template #completed="{ item }">
-              <button v-if="item.is_completed" disabled>
-                <CompleteIcon />
-              </button>
-              <button v-else @click="resumeCage(item)">
-                <TableStart class="[&>path]:fill-fungo-blue"/>
-              </button>
-            </template>
-            <template #stats="{ item }">
-              <button
-              @click="$router.push({ name: 'training.statsCage', params: { 'idPractice': item.id, 'mode': item.mode } })"
-              >
-                <TableStats />
-              </button>
-            </template>
-            <template #delete="{ item }">
-              <button @click="deletePractice(item.id)">
-                <TableCancel />
-              </button>
-            </template>
-          </Table>
+          <div class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            <div v-if="!allData.cage?.length" class="text-white/30 text-sm text-center py-8">No sessions yet</div>
+            <div v-for="item in allData.cage" :key="item.id" class="session-card">
+              <div class="session-icon" :style="{ background: getConfig('cage').color }">
+                <span class="text-2xl">{{ getConfig('cage').emoji }}</span>
+                <span class="session-type-label">{{ getConfig('cage').label }}</span>
+              </div>
+              <div class="session-body">
+                <div class="session-top">
+                  <div>
+                    <div class="session-title">Cage Session</div>
+                    <div class="session-player">{{ item.lineup?.[0]?.name?.full ?? '—' }}<span v-if="item.lineup?.length > 1"> (+{{ item.lineup.length - 1 }})</span></div>
+                  </div>
+                  <div class="session-date-block">
+                    <div class="session-date">{{ getFormatterDate(item.date) }}</div>
+                    <div class="session-time">{{ formatTime(item.date) }}</div>
+                  </div>
+                </div>
+                <div class="session-bottom">
+                  <span class="session-balls">Total: {{ item.balls ?? 0 }} balls</span>
+                  <div class="session-actions">
+                    <button v-if="!item.is_completed" @click="resumeCage(item)" class="action-btn action-resume" title="Resume">▶</button>
+                    <button @click="$router.push({ name: 'training.statsCage', params: { idPractice: item.id, mode: item.mode } })" class="action-btn action-stats" title="Stats">📊</button>
+                    <button @click="deletePractice(item.id)" class="action-btn action-delete" title="Delete">🗑</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </tab-panel>
 
-        <!-- live AB -->
+        <!-- LIVE AB -->
         <tab-panel>
-          <Table :header="liveHeaderTable" :items="allData.live">
-            <template #created="{item}">
-              <span>{{ getFormatterDate(item.date) }}</span>
-            </template>
-            <template #pitcher="{ item }">
-              <template v-for="name in item.lineup" :key="name.id">
-                {{ name.batting == false ? name.name.full + ', ' : ''}}
-                <!-- {{ name.batting }} -->
-              </template>
-            </template>
-            <template #batter="{ item }" class="max-w-[50px]">
-              <template v-for="name in item.lineup" :key="name.id">
-                {{ name.batting ? name.name.full + ', ' : ''}}
-              </template>
-            </template>
-            <template #completed="{ item }">
-              <button v-if="item.is_completed" disabled>
-                <CompleteIcon />
-              </button>
-              <button v-else @click="resumenLive(item)">
-                <TableStart class="[&>path]:fill-fungo-blue"/>
-              </button>
-            </template>
-            <template #stats="{ item }">
-              <button
-                @click="$router.push({ name: 'training.statsLiveAB', params: { 'id': item.id } })"
-              >
-                <TableStats />
-              </button>
-            </template>
-            <template #delete="{ item }">
-              <button @click="deletePractice(item.id)">
-                <TableCancel />
-              </button>
-            </template>
-          </Table>
+          <div class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            <div v-if="!allData.live?.length" class="text-white/30 text-sm text-center py-8">No sessions yet</div>
+            <div v-for="item in allData.live" :key="item.id" class="session-card">
+              <div class="session-icon" :style="{ background: getConfig('live').color }">
+                <span class="text-2xl">{{ getConfig('live').emoji }}</span>
+                <span class="session-type-label">{{ getConfig('live').label }}</span>
+              </div>
+              <div class="session-body">
+                <div class="session-top">
+                  <div>
+                    <div class="session-title">Live AB Session</div>
+                    <div class="session-player">
+                      <template v-for="p in item.lineup" :key="p.id">
+                        <span v-if="!p.batting">{{ p.name.full }} </span>
+                      </template>
+                    </div>
+                  </div>
+                  <div class="session-date-block">
+                    <div class="session-date">{{ getFormatterDate(item.date) }}</div>
+                    <div class="session-time">{{ formatTime(item.date) }}</div>
+                  </div>
+                </div>
+                <div class="session-bottom">
+                  <span class="session-balls">Total: {{ item.balls ?? 0 }} balls</span>
+                  <div class="session-actions">
+                    <button v-if="!item.is_completed" @click="resumenLive(item)" class="action-btn action-resume" title="Resume">▶</button>
+                    <button @click="$router.push({ name: 'training.statsLiveAB', params: { id: item.id } })" class="action-btn action-stats" title="Stats">📊</button>
+                    <button @click="deletePractice(item.id)" class="action-btn action-delete" title="Delete">🗑</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </tab-panel>
 
-        <!-- exit velocity -->
+        <!-- EXIT VELOCITY -->
         <tab-panel>
-          <Table :header="firtsHeaderTable" :items="allData.exit_velocity">
-            <template #created="{item}">
-              <span>{{ getFormatterDate(item.date) }}</span>
-            </template>
-            <template #name="{ item }">
-              {{ item.lineup[0].name.full }}
-            </template>
-            <template #completed="{ item }">
-              <button v-if="item.is_completed" disabled>
-                <CompleteIcon />
-              </button>
-              <button v-else @click="resumeTrainingMode(item, 'EV')">
-                <TableStart class="[&>path]:fill-fungo-blue"/>
-              </button>
-            </template>
-            <template #stats="{ item }">
-              <button
-                @click="$router.push({ name: 'training.statsMode', params: { 'idPractice': item.id, 'mode': 'EV' } })"
-              >
-                <TableStats />
-              </button>
-            </template>
-            <template #delete="{ item }">
-              <button @click="deletePractice(item.id)">
-                <TableCancel />
-              </button>
-            </template>
-          </Table>
+          <div class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            <div v-if="!allData.exit_velocity?.length" class="text-white/30 text-sm text-center py-8">No sessions yet</div>
+            <div v-for="item in allData.exit_velocity" :key="item.id" class="session-card">
+              <div class="session-icon" :style="{ background: getConfig('exit_velocity').color }">
+                <span class="text-2xl">{{ getConfig('exit_velocity').emoji }}</span>
+                <span class="session-type-label">{{ getConfig('exit_velocity').label }}</span>
+              </div>
+              <div class="session-body">
+                <div class="session-top">
+                  <div>
+                    <div class="session-title">Exit Velocity</div>
+                    <div class="session-player">{{ item.lineup?.[0]?.name?.full ?? '—' }}<span v-if="item.lineup?.length > 1"> (+{{ item.lineup.length - 1 }})</span></div>
+                  </div>
+                  <div class="session-date-block">
+                    <div class="session-date">{{ getFormatterDate(item.date) }}</div>
+                    <div class="session-time">{{ formatTime(item.date) }}</div>
+                  </div>
+                </div>
+                <div class="session-bottom">
+                  <span class="session-balls">Total: {{ item.balls ?? 0 }} balls</span>
+                  <div class="session-actions">
+                    <button v-if="!item.is_completed" @click="resumeTrainingMode(item, 'EV')" class="action-btn action-resume" title="Resume">▶</button>
+                    <button @click="$router.push({ name: 'training.statsMode', params: { idPractice: item.id, mode: 'EV' } })" class="action-btn action-stats" title="Stats">📊</button>
+                    <button @click="deletePractice(item.id)" class="action-btn action-delete" title="Delete">🗑</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </tab-panel>
 
-        <!-- long toss -->
+        <!-- LONG TOSS -->
         <tab-panel>
-          <Table :header="firtsHeaderTable" :items="allData.long_toss">
-            <template #created="{item}">
-              <span>{{ getFormatterDate(item.date) }}</span>
-            </template>
-            <template #name="{ item }">
-              {{ item.lineup[0].name.full }}
-            </template>
-            <template #completed="{ item }">
-              <button v-if="item.is_completed" disabled>
-                <CompleteIcon />
-              </button>
-              <button v-else @click="resumeTrainingMode(item, 'LT')">
-                <TableStart class="[&>path]:fill-fungo-blue"/>
-              </button>
-            </template>
-            <template #stats="{ item }">
-              <button
-                @click="$router.push({ name: 'training.statsMode', params: { 'idPractice': item.id, 'mode': 'LT' } })"
-              >
-                <TableStats />
-              </button>
-            </template>
-            <template #delete="{ item }">
-              <button @click="deletePractice(item.id)">
-                <TableCancel />
-              </button>
-            </template>
-          </Table>
+          <div class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            <div v-if="!allData.long_toss?.length" class="text-white/30 text-sm text-center py-8">No sessions yet</div>
+            <div v-for="item in allData.long_toss" :key="item.id" class="session-card">
+              <div class="session-icon" :style="{ background: getConfig('long_toss').color }">
+                <span class="text-2xl">{{ getConfig('long_toss').emoji }}</span>
+                <span class="session-type-label">{{ getConfig('long_toss').label }}</span>
+              </div>
+              <div class="session-body">
+                <div class="session-top">
+                  <div>
+                    <div class="session-title">Long Toss</div>
+                    <div class="session-player">{{ item.lineup?.[0]?.name?.full ?? '—' }}<span v-if="item.lineup?.length > 1"> (+{{ item.lineup.length - 1 }})</span></div>
+                  </div>
+                  <div class="session-date-block">
+                    <div class="session-date">{{ getFormatterDate(item.date) }}</div>
+                    <div class="session-time">{{ formatTime(item.date) }}</div>
+                  </div>
+                </div>
+                <div class="session-bottom">
+                  <span class="session-balls">Total: {{ item.balls ?? 0 }} balls</span>
+                  <div class="session-actions">
+                    <button v-if="!item.is_completed" @click="resumeTrainingMode(item, 'LT')" class="action-btn action-resume" title="Resume">▶</button>
+                    <button @click="$router.push({ name: 'training.statsMode', params: { idPractice: item.id, mode: 'LT' } })" class="action-btn action-stats" title="Stats">📊</button>
+                    <button @click="deletePractice(item.id)" class="action-btn action-delete" title="Delete">🗑</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </tab-panel>
 
-        <!-- weight ball -->
+        <!-- WEIGHT BALL -->
         <tab-panel>
-          <Table :header="firtsHeaderTable" :items="allData.weight_ball">
-            <template #created="{item}">
-              <span>{{ getFormatterDate(item.date) }}</span>
-            </template>
-            <template #name="{ item }">
-              {{ item.lineup[0].name.full }}
-            </template>
-            <template #completed="{ item }">
-              <button v-if="item.is_completed" disabled>
-                <CompleteIcon />
-              </button>
-              <button v-else @click="resumeTrainingMode(item, 'WB')">
-                <TableStart class="[&>path]:fill-fungo-blue"/>
-              </button>
-            </template>
-            <template #stats="{ item }">
-              <button
-                @click="$router.push({ name: 'training.statsMode', params: { 'idPractice': item.id, 'mode': 'WB' } })"
-              >
-                <TableStats />
-              </button>
-            </template>
-            <template #delete="{ item }">
-              <button @click="deletePractice(item.id)">
-                <TableCancel />
-              </button>
-            </template>
-          </Table>
+          <div class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            <div v-if="!allData.weight_ball?.length" class="text-white/30 text-sm text-center py-8">No sessions yet</div>
+            <div v-for="item in allData.weight_ball" :key="item.id" class="session-card">
+              <div class="session-icon" :style="{ background: getConfig('weight_ball').color }">
+                <span class="text-2xl">{{ getConfig('weight_ball').emoji }}</span>
+                <span class="session-type-label">{{ getConfig('weight_ball').label }}</span>
+              </div>
+              <div class="session-body">
+                <div class="session-top">
+                  <div>
+                    <div class="session-title">Weight Ball</div>
+                    <div class="session-player">{{ item.lineup?.[0]?.name?.full ?? '—' }}<span v-if="item.lineup?.length > 1"> (+{{ item.lineup.length - 1 }})</span></div>
+                  </div>
+                  <div class="session-date-block">
+                    <div class="session-date">{{ getFormatterDate(item.date) }}</div>
+                    <div class="session-time">{{ formatTime(item.date) }}</div>
+                  </div>
+                </div>
+                <div class="session-bottom">
+                  <span class="session-balls">Total: {{ item.balls ?? 0 }} balls</span>
+                  <div class="session-actions">
+                    <button v-if="!item.is_completed" @click="resumeTrainingMode(item, 'WB')" class="action-btn action-resume" title="Resume">▶</button>
+                    <button @click="$router.push({ name: 'training.statsMode', params: { idPractice: item.id, mode: 'WB' } })" class="action-btn action-stats" title="Stats">📊</button>
+                    <button @click="deletePractice(item.id)" class="action-btn action-delete" title="Delete">🗑</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </tab-panel>
       </tab-panels>
     </tab-group>
   </section>
 
-  <Modal
-    modalTitle="Confirm delete"
-    :isOpen="isOpenModal"
-  >
+  <Modal modalTitle="Confirm delete" :isOpen="isOpenModal">
     <template #content>
-      <div>
-        <p>Are you sure to delete this training?</p>
-      </div>
+      <div><p>Are you sure to delete this training?</p></div>
     </template>
     <template #actions>
-        <div class="flex justify-between items-center w-90% mx-auto">
-          <button
-            @click="confirmDelete"
-            class="bg-red-500 text-white px-4 py-1 rounded-md"
-          >
-            Yes, delete
-          </button>
-
-          <button
-            @click=" isOpenModal = false"
-            class="bg-fungo-lightblue px-4 py-1 rounded-md"
-          >
-            Cancel
-          </button>
-
-        </div>
-      </template>
+      <div class="flex justify-between items-center w-90% mx-auto">
+        <button @click="confirmDelete" class="bg-red-500 text-white px-4 py-1 rounded-md">Yes, delete</button>
+        <button @click="isOpenModal = false" class="bg-fungo-lightblue px-4 py-1 rounded-md">Cancel</button>
+      </div>
+    </template>
   </Modal>
 </template>
+
+<style scoped>
+.session-card {
+  display: flex;
+  align-items: stretch;
+  background: linear-gradient(135deg, #001a40 0%, #001030 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.session-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+.session-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 12px 8px;
+  gap: 4px;
+}
+.session-type-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255,255,255,0.7);
+  text-align: center;
+}
+.session-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px;
+  gap: 8px;
+}
+.session-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.session-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: white;
+  line-height: 1.2;
+}
+.session-player {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 2px;
+}
+.session-date-block {
+  text-align: right;
+  flex-shrink: 0;
+}
+.session-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.75);
+  white-space: nowrap;
+}
+.session-time {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  white-space: nowrap;
+}
+.session-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.session-balls {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+}
+.session-actions {
+  display: flex;
+  gap: 6px;
+}
+.action-btn {
+  font-size: 13px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  background: rgba(255,255,255,0.08);
+}
+.action-btn:hover { opacity: 0.75; }
+.action-resume { background: rgba(0, 160, 80, 0.25); }
+.action-stats  { background: rgba(0, 64, 128, 0.35); }
+.action-delete { background: rgba(192, 0, 0, 0.25); }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #C00000; border-radius: 4px; }
+</style>

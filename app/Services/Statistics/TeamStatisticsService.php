@@ -25,7 +25,7 @@ final class TeamStatisticsService
 
     public function __construct(private $id)
     {
-        $this->batting = BattingPracticeResult::where('team_id', '=', $this->id)->get();
+        $this->batting = BattingPracticeResult::where('team_id', '=', $this->id)->with('profile')->get();
         $this->pitching = BullpenPracticeResult::where('team_id', '=', $this->id)->get();
         $liveAbPractices = TeamsLiveAB::where('team_id', '=', $this->id)
             ->pluck('practice_id')
@@ -38,22 +38,38 @@ final class TeamStatisticsService
     public function getBallsStrikeData(): array
     {
         $data = $this->batting;
-        $totalStrikes = $data->where('zone', 'S')
-            ->where('type_of_hit', '<>', BattingTrajectory::TAKE->value)
-            ->count();
-        $totalBalls = $data->where('zone', 'B')
-            ->where('type_of_hit', '<>', BattingTrajectory::TAKE->value)
-            ->count();
-        $total = $totalBalls+$totalStrikes;
+
+        // A "swing" is any pitch where the batter made an attempt:
+        // quality_of_contact in (MF, W, A, H) OR type_of_hit in (SM, GB, PF, FB, LD, F)
+        $swingTypes = [
+            BattingTrajectory::SWING_MISS->value,
+            BattingTrajectory::GROUND_BALL->value,
+            BattingTrajectory::POP_FLY->value,
+            BattingTrajectory::FLY_BALL->value,
+            BattingTrajectory::LINE_DRIVE->value,
+            BattingTrajectory::FOUL->value,
+        ];
+        $contactQualities = ['MF', 'W', 'A', 'H'];
+
+        $swings = $data->filter(function ($row) use ($swingTypes, $contactQualities) {
+            return in_array($row->quality_of_contact, $contactQualities)
+                || in_array($row->type_of_hit, $swingTypes);
+        });
+
+        $totalSwings = $swings->count();
+
+        $strikesWithContact = $swings->where('zone', 'S')->count();
+        $ballsWithContact   = $swings->where('zone', 'B')->count();
+
         return [
-            'total_s_b' => $total,
+            'total_s_b' => $totalSwings,
             'strikes' => [
-                'count' => $totalStrikes,
-                'percent' => round(Helper::caseDivide($totalStrikes, $total) * 100)
+                'count'   => $strikesWithContact,
+                'percent' => round(Helper::caseDivide($strikesWithContact, $totalSwings) * 100),
             ],
             'balls' => [
-                'count' => $totalBalls,
-                'percent' => round(Helper::caseDivide($totalBalls, $total) * 100)
+                'count'   => $ballsWithContact,
+                'percent' => round(Helper::caseDivide($ballsWithContact, $totalSwings) * 100),
             ],
         ];
     }
@@ -273,6 +289,42 @@ final class TeamStatisticsService
             ]
         ];
 
+    }
+
+    public function getContactSprayData(): array
+    {
+        $swingTypes = [
+            BattingTrajectory::SWING_MISS->value,
+            BattingTrajectory::GROUND_BALL->value,
+            BattingTrajectory::POP_FLY->value,
+            BattingTrajectory::FLY_BALL->value,
+            BattingTrajectory::LINE_DRIVE->value,
+            BattingTrajectory::FOUL->value,
+        ];
+        $contactQualities = ['MF', 'W', 'A', 'H'];
+
+        // All swings (same definition as getBallsStrikeData)
+        $swings = $this->batting->filter(function ($row) use ($swingTypes, $contactQualities) {
+            return in_array($row->quality_of_contact, $contactQualities)
+                || in_array($row->type_of_hit, $swingTypes);
+        });
+
+        $mapRow = fn($r) => [
+            'point'      => (int)($r->field_mark ?? 0),
+            'feature'    => $r->quality_of_contact ?? 'MF',
+            'trajectory' => $r->type_of_hit ?? null,
+            'player'     => $r->profile
+                ? trim(($r->profile->first_name ?? '') . ' ' . ($r->profile->last_name ?? ''))
+                : 'Unknown',
+        ];
+
+        $strikes = $swings->where('zone', 'S')->map($mapRow)->values()->toArray();
+        $balls   = $swings->where('zone', 'B')->map($mapRow)->values()->toArray();
+
+        return [
+            'strikes' => $strikes,
+            'balls'   => $balls,
+        ];
     }
 
 }

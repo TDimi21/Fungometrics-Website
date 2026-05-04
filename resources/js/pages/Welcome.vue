@@ -72,7 +72,7 @@ const goToLogin = (value) => {
 }
 
 .blue-overlay {
-  background: rgba(10, 30, 80, 0.4);
+  background: rgba(0, 20, 64, 0.55);
   min-height: 100vh;
   display: grid;
   position: relative;

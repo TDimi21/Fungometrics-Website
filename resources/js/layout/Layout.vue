@@ -219,107 +219,88 @@ onUnmounted(() => {
 
 <template>
   <Loader v-show="!isLoading.status" />
-  <div>
-    <nav
-      class="fixed z-30 w-full duration-500 border-b border-white/10 bg-[#0a1e50]/40 backdrop-blur-xl"
-      :class="hasSidebar.active ? 'pl-0 lg:pl-64' : 'pl-0'"
+  <div class="flex overflow-hidden bg-[#001440] min-h-screen">
+
+    <!-- Left Sidebar -->
+    <aside
+      class="fixed z-30 h-full top-0 left-0 flex flex-shrink-0 flex-col transition-[width,transform] duration-500 bg-[#001440] overflow-hidden"
+      :class="hasSidebar.active ? 'w-64 translate-x-0' : 'w-0 -translate-x-full'"
     >
-      <div class="flex items-center justify-between h-20 px-2 lg:px-4">
-        <div class="flex items-center justify-start">
-          <button
-            class="w-20 h-20"
-            :class="
-              userData.type == 'player'
-                ? 'bg-fungo-darkblue-player'
-                : 'bg-fungo-dark-gray'
-            "
-            @click="toggleSidebar"
-          >
-            <img
-              src="../assets/img/layout/btn-menu.svg"
-              alt="Toogle menu button"
-              class="mx-auto"
-            />
-          </button>
+      <div class="relative flex-1 flex flex-col min-h-0 w-64">
+        <div class="flex-1 flex flex-col overflow-y-auto">
+          <!-- Logo + collapse button -->
+          <div class="mt-6 pb-6 relative">
+            <button
+              @click="toggleSidebar"
+              class="absolute right-3 top-0 text-white/40 hover:text-white transition-colors"
+              title="Collapse sidebar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7M18 19l-7-7 7-7"/></svg>
+            </button>
+            <RouterLink
+              :to="userData.type == 'player' ? '/player-dashboard' : '/dashboard'"
+              class="grid items-center cursor-pointer"
+            >
+              <img
+                src="../assets/img/login/assteslogin/updatedlogo.png"
+                alt="Main fungo logo"
+                width="230"
+                height="226"
+                class="mx-auto"
+              />
+            </RouterLink>
+            <div class="absolute w-full h-[3px] bg-gradient-to-r from-[#002060] to-[#C00000] bottom-0"></div>
+          </div>
 
-          <div v-if="userData.type === 'coach'" class="flex items-center gap-3 ml-4 lg:ml-8"></div>
+          <!-- Nav links -->
+          <NavSidebar :collapse="hasSidebar.active" />
 
-          <div v-if="userData.type === 'player'" class="ml-4 lg:ml-8">
-            <RouterLink to="/change-password" class="top-action-btn">CHANGE PASSWORD</RouterLink>
+          <!-- Bottom actions -->
+          <div class="px-4 pb-6 space-y-2 border-t border-white/10 pt-4 mt-auto">
+            <div v-if="userData.type === 'player'">
+              <RouterLink to="/change-password" class="sidebar-action mb-2 block">CHANGE PASSWORD</RouterLink>
+            </div>
+            <RouterLink
+              :to="userData.type === 'player' ? '/profile-player' : '/profile'"
+              class="sidebar-action"
+            >
+              EDIT PROFILE
+            </RouterLink>
+            <button @click="logout" type="button" class="sidebar-action sidebar-action-danger">
+              LOG OUT
+            </button>
           </div>
         </div>
-
       </div>
-    </nav>
+    </aside>
 
-    <div class="flex overflow-hidden bg-white pt-16">
-      <aside
-        class="fixed z-30 h-full top-0 left-0 flex flex-shrink-0 flex-col transition-width duration-500 bg-fungo-darkblue w-64"
-        :class="hasSidebar.active ? 'translate-x-0' : '-translate-x-full'"
-      >
-        <div class="relative flex-1 flex flex-col min-h-0 pt-0">
-          <div class="flex-1 flex flex-col overflow-y-auto">
-            <div class="mt-8 pb-6 relative">
-              <button
-                @click="toggleSidebar"
-                class="absolute right-3 top-0 lg:hidden"
-              >
-                <TableCancel />
-              </button>
-              <RouterLink
-                :to="
-                  userData.type == 'player' ? '/player-dashboard' : '/dashboard'
-                "
-                class="grid items-center cursor-pointer"
-                method="post"
-                as="button"
-                type="button"
-              >
-                <img
-                  src="../assets/img/login/assteslogin/updatedlogo.png"
-                  alt="Main fungo logo"
-                  width="230"
-                  height="226"
-                  class="mx-auto"
-                />
-              </RouterLink>
-              <div
-                class="absolute w-full h-[3px] bg-gradient-to-r from-[#023E8A] to-[#E10600] bottom-0"
-              ></div>
-            </div>
-            <NavSidebar :collapse="hasSidebar.active" />
-            <div class="px-4 pb-6 space-y-2 border-t border-white/10 pt-4">
-              <RouterLink
-                :to="userData.type === 'player' ? '/profile-player' : '/profile'"
-                class="sidebar-action"
-              >
-                EDIT PROFILE
-              </RouterLink>
-              <button @click="logout" type="button" class="sidebar-action sidebar-action-danger">
-                LOG OUT
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
+    <!-- Floating re-open button when sidebar is collapsed -->
+    <button
+      v-if="!hasSidebar.active"
+      @click="toggleSidebar"
+      class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-[#C00000] hover:bg-[#A00000] transition-colors rounded-r-xl px-1 py-2 shadow-lg"
+      title="Open sidebar"
+    >
+      <img src="../assets/img/login/assteslogin/updatedlogo.png" alt="Open sidebar" class="w-10 h-10 object-contain" />
+    </button>
 
-      <div
-        class="h-full w-full relative overflow-y-auto transition-[margin] duration-500"
-        :class="hasSidebar.active ? 'ml-0 lg:ml-64' : 'ml-0'"
+    <!-- Main content -->
+    <div
+      class="h-full w-full relative overflow-y-auto transition-[margin] duration-500"
+      :class="hasSidebar.active ? 'ml-0 lg:ml-64' : 'ml-0'"
+    >
+      <main
+        class="min-h-screen pt-6 pb-24 px-0 overflow-hidden bg-[#001440]"
+        v-if="userData.type === 'coach'"
       >
-        <main
-          class="min-h-[94vh] pt-6 pb-24 px-0 overflow-hidden bg-[#070b18]"
-          v-if="userData.type === 'coach'"
-        >
-          <slot />
-        </main>
-        <main
-          class="min-h-[94vh] px-0 overflow-hidden bg-fungo-gray2"
-          v-if="userData.type === 'player'"
-        >
-          <slot />
-        </main>
-      </div>
+        <slot />
+      </main>
+      <main
+        class="min-h-screen px-0 overflow-hidden bg-fungo-gray2"
+        v-if="userData.type === 'player'"
+      >
+        <slot />
+      </main>
     </div>
   </div>
   <div v-if="isOpen">
