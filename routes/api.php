@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\Player\GetTrainingPractices;
 use App\Http\Controllers\Api\Player\SaveFitness;
 use App\Http\Controllers\Api\ScoresStatisticPlayers;
 use App\Http\Controllers\Api\GetPlayerPitchVelocityZones;
+use App\Http\Controllers\Api\GetPlayerSmTakeZones;
 use App\Http\Controllers\Api\SearchCoaches;
 use App\Http\Controllers\Api\SearchPlayers;
 use App\Http\Controllers\Api\Sessions\GetAllPracticesByModes;
@@ -138,6 +139,7 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/search/coaches', SearchCoaches::class);
         Route::get('/statistics/{player}', ScoresStatisticPlayers::class);
         Route::get('/pitcher/velocity/{player}', GetPlayerPitchVelocityZones::class);
+        Route::get('/pitcher/smtake/{player}', GetPlayerSmTakeZones::class);
         Route::post('/lineup/{training}', AddPlayerToTraining::class);
         Route::post('/send/results/{practice}', SendSmsResults::class);
     });
