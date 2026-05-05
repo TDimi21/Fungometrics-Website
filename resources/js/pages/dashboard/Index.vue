@@ -11,6 +11,7 @@ import DashboardSprayChart from '@/components/dashboard/DashboardSprayChart.vue'
 import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
 import SmTakeZoneChart from '@/components/dashboard/SmTakeZoneChart.vue'
 import PitchHeatmapChart from '@/components/dashboard/PitchHeatmapChart.vue'
+import PitchTypeStatsCard from '@/components/dashboard/PitchTypeStatsCard.vue'
 import PlayerCompare from '@/components/dashboard/PlayerCompare.vue'
 import { LabelField } from '@/components/form'
 import { DropDownMultiple } from '@/components/shared'
@@ -254,6 +255,11 @@ onMounted(() => {
               <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
                 <PitchHeatmapChart />
               </div>
+            </div>
+
+            <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
+              <h3 class="text-sm font-black uppercase tracking-widest text-white mb-3">Pitch Type Breakdown</h3>
+              <PitchTypeStatsCard />
             </div>
 
 
