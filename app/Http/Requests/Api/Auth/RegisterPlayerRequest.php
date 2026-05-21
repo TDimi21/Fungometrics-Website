@@ -52,6 +52,7 @@ class RegisterPlayerRequest extends FormRequest
             'player.inch' => ['required', 'integer'],
             'player.shirt' => ['required', 'integer'],
             'positions' => ['required'],
+            'team_code' => ['nullable', 'string', 'size:6'],
         ];
     }
 

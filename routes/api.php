@@ -21,13 +21,15 @@ use App\Http\Controllers\Api\Coach\GetCoachesList;
 use App\Http\Controllers\Api\Coach\GetLastSessions;
 use App\Http\Controllers\Api\Coach\GetPlayersList;
 use App\Http\Controllers\Api\Coach\GetTeamById;
+use App\Http\Controllers\Api\Coach\GetTeamCode;
 use App\Http\Controllers\Api\Coach\GetTeamsPlayers;
+use App\Http\Controllers\Api\Coach\GetTeamsPlayersV2;
 use App\Http\Controllers\Api\Coach\RemoveCoachFromTeam;
 use App\Http\Controllers\Api\Coach\RemovePlayers;
 use App\Http\Controllers\Api\Coach\RemoveTeam;
 use App\Http\Controllers\Api\DashBoard\GetDataCharts;
 use App\Http\Controllers\Api\DashBoard\GetDataGraphics;
-use App\Http\Controllers\Api\DashBoard\GetPlayerCompareStats;
+// use App\Http\Controllers\Api\DashBoard\GetPlayerCompareStats;
 use App\Http\Controllers\Api\DashBoard\GetPlayerPitchStats;
 use App\Http\Controllers\Api\DashBoard\GetPlayerLiveABPitchStats;
 use App\Http\Controllers\Api\DashBoard\GetTeamPitchStats;
@@ -38,6 +40,7 @@ use App\Http\Controllers\Api\Player\GetBullpenPractices;
 use App\Http\Controllers\Api\Player\GetCagePractices;
 use App\Http\Controllers\Api\Player\GetFitness;
 use App\Http\Controllers\Api\Player\GetTrainingPractices;
+use App\Http\Controllers\Api\Player\JoinTeamByCode;
 use App\Http\Controllers\Api\Player\SaveFitness;
 use App\Http\Controllers\Api\ScoresStatisticPlayers;
 use App\Http\Controllers\Api\GetPlayerPitchVelocityZones;
@@ -89,6 +92,11 @@ use App\Http\Controllers\Api\Training\Result\SaveLongTossResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveWeightBallResultPractice;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/opcache-clear', function() {
+    opcache_reset();
+    return response()->json(['cleared' => true, 'ts' => time()]);
+});
+
 Route::post('login', LoginController::class);
 
 Route::post('/forgot-password', SendEmailRecoverController::class)->middleware(['guest']);
@@ -103,7 +111,7 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
     Route::post('player/fitness', SaveFitness::class);
     Route::get('player/fitness/{id}', GetFitness::class);
     Route::get('dashboard/{team}', GetDataGraphics::class);
-    Route::get('player-compare/{player}', GetPlayerCompareStats::class);
+    // Route::get('player-compare/{player}', GetPlayerCompareStats::class);
     Route::get('pitcher-stats/team', GetTeamPitchStats::class);
     Route::get('pitcher-liveab-stats/team', GetTeamLiveABPitchStats::class);
     Route::get('pitcher-stats/{player}', GetPlayerPitchStats::class);
@@ -116,6 +124,7 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
 
 Route::prefix('player')->group(function (): void {
     Route::post('register', RegisterPlayerController::class);
+    Route::post('join', JoinTeamByCode::class);          // phone + team_code → claim profile / join team
     Route::middleware(['auth:sanctum', 'ability:player'])->group(function (): void {
         Route::get('sessions/batting', GetBattingPractices::class);
         Route::get('sessions/bullpen', GetBullpenPractices::class);
@@ -138,8 +147,9 @@ Route::prefix('coach')->group(function (): void {
         Route::post('/add/coaches', AddCoaches::class);
         Route::get('/roster/coaches', GetCoachesList::class);
         Route::get('/roster/players', GetPlayersList::class);
-        Route::get('/teams', GetTeamsPlayers::class);
+        Route::get('/teams', GetTeamsPlayersV2::class);
         Route::get('/teams/{id}', GetTeamById::class);
+        Route::get('/teams/{id}/code', GetTeamCode::class);  // retrieve join code for a team
         Route::get('/sessions/lasts/{team}', GetLastSessions::class);
         Route::post('/trainingab', AddNewLiveABSession::class);
         Route::get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);

@@ -205,46 +205,46 @@ onMounted(() => {
             <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
               <h3 class="text-sm font-black uppercase tracking-widest text-white mb-3">Batting &amp; LiveAB Contact</h3>
               <div class="flex flex-col space-y-3 mt-2">
-                <indicator-chart :labelTitle="`GB ${typeHitsBatting.GB.count}`" :labelValue="typeHitsBatting.GB.percent" color="#F8A488"/>
-                <indicator-chart :labelTitle="`LD ${typeHitsBatting.LD.count}`" :labelValue="typeHitsBatting.LD.percent" color="#ADE8F4"/>
-                <indicator-chart :labelTitle="`FLY ${typeHitsBatting.FLY.count}`" :labelValue="typeHitsBatting.FLY.percent" color="#8676FF"/>
-                <indicator-chart :labelTitle="`SM/F ${typeHitsBatting['SM/F'].count}`" :labelValue="typeHitsBatting['SM/F'].percent" color="#FFB457"/>
-                <indicator-chart :labelTitle="`TAKE ${typeHitsBatting.TAKE.count}`" :labelValue="typeHitsBatting.TAKE.percent" color="#03F1E3"/>
+                <indicator-chart :labelTitle="`GB ${typeHitsBatting?.GB?.count ?? 0}`" :labelValue="typeHitsBatting?.GB?.percent ?? 0" color="#F8A488"/>
+                <indicator-chart :labelTitle="`LD ${typeHitsBatting?.LD?.count ?? 0}`" :labelValue="typeHitsBatting?.LD?.percent ?? 0" color="#ADE8F4"/>
+                <indicator-chart :labelTitle="`FLY ${typeHitsBatting?.FLY?.count ?? 0}`" :labelValue="typeHitsBatting?.FLY?.percent ?? 0" color="#8676FF"/>
+                <indicator-chart :labelTitle="`SM/F ${typeHitsBatting?.['SM/F']?.count ?? 0}`" :labelValue="typeHitsBatting?.['SM/F']?.percent ?? 0" color="#FFB457"/>
+                <indicator-chart :labelTitle="`TAKE ${typeHitsBatting?.TAKE?.count ?? 0}`" :labelValue="typeHitsBatting?.TAKE?.percent ?? 0" color="#03F1E3"/>
               </div>
             </div>
 
             <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
               <h3 class="text-sm font-black uppercase tracking-widest text-white mb-3">Pitches Thrown</h3>
-              <apexchart width="100%" type="bar" height="300" :options="barChartOptions(pitchThrows.totals)" :series="[{ name: 'Thrown', data: [pitchThrows.totals, pitchThrows.FB, pitchThrows.CH, pitchThrows.CB, pitchThrows.SL, pitchThrows.OTHER] }]"/>
+              <apexchart v-if="pitchThrows" width="100%" type="bar" height="300" :options="barChartOptions(pitchThrows.totals)" :series="[{ name: 'Thrown', data: [pitchThrows.totals, pitchThrows.FB, pitchThrows.CH, pitchThrows.CB, pitchThrows.SL, pitchThrows.OTHER] }]"/>
             </div>
 
             <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
               <h3 class="text-sm font-black uppercase tracking-widest text-white mb-3">Directional</h3>
-              <apexchart width="100%" type="radialBar" :options="radiaChartOptions" :series="[directional.RIGHT.percent, directional.MIDDLE.percent, directional.LEFT.percent]"/>
+              <apexchart v-if="directional?.RIGHT" width="100%" type="radialBar" :options="radiaChartOptions" :series="[directional.RIGHT.percent, directional.MIDDLE.percent, directional.LEFT.percent]"/>
             </div>
 
             <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
               <h3 class="text-sm font-black uppercase tracking-widest text-white mb-3">Average Pitch Velocity</h3>
-              <apexchart width="100%" type="bar" height="300" :options="barChartOptions(pitchVelocityAverage.totals / 5, 2, 2)" :series="[{ name: 'Average', data: [pitchVelocityAverage.FB, pitchVelocityAverage.CH, pitchVelocityAverage.CB, pitchVelocityAverage.SL, pitchVelocityAverage.OTHER] }]"/>
+              <apexchart v-if="pitchVelocityAverage" width="100%" type="bar" height="300" :options="barChartOptions(pitchVelocityAverage.totals / 5, 2, 2)" :series="[{ name: 'Average', data: [pitchVelocityAverage.FB, pitchVelocityAverage.CH, pitchVelocityAverage.CB, pitchVelocityAverage.SL, pitchVelocityAverage.OTHER] }]"/>
             </div>
 
             <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
               <h3 class="text-sm font-black uppercase tracking-widest text-white mb-3">Launch Angle Avg Velocity</h3>
-              <apexchart width="100%" type="bar" height="300" :options="barChartOptions(pitchThrows.totals, 1, 4)" :series="[{ name: 'Average', data: [launchAngleAverage['-0'], launchAngleAverage['0-6'], launchAngleAverage['6-15'], launchAngleAverage['15-24'], launchAngleAverage['24-40'], launchAngleAverage['40-55'], launchAngleAverage['55+']] }]"/>
+              <apexchart v-if="launchAngleAverage && pitchThrows" width="100%" type="bar" height="300" :options="barChartOptions(pitchThrows.totals, 1, 4)" :series="[{ name: 'Average', data: [launchAngleAverage['-0'], launchAngleAverage['0-6'], launchAngleAverage['6-15'], launchAngleAverage['15-24'], launchAngleAverage['24-40'], launchAngleAverage['40-55'], launchAngleAverage['55+']] }]"/>
             </div>
 
             <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
               <h3 class="text-sm font-black uppercase tracking-widest text-white mb-3">S/M Take</h3>
-              <apexchart width="100%" type="bar" height="300" :options="barChartOptions(smTake.totals, 1, 2)" :series="[{ name: 'S/M', data: [smTake.FB.SM, smTake.CH.SM, smTake.CB.SM, smTake.SL.SM, smTake.OTHER.SM]}, { name: 'Take', data: [smTake.FB.TAKE, smTake.CH.TAKE, smTake.CB.TAKE, smTake.SL.TAKE, smTake.OTHER.TAKE]}]"/>
+              <apexchart v-if="smTake?.FB" width="100%" type="bar" height="300" :options="barChartOptions(smTake.totals, 1, 2)" :series="[{ name: 'S/M', data: [smTake.FB.SM, smTake.CH.SM, smTake.CB.SM, smTake.SL.SM, smTake.OTHER.SM]}, { name: 'Take', data: [smTake.FB.TAKE, smTake.CH.TAKE, smTake.CB.TAKE, smTake.SL.TAKE, smTake.OTHER.TAKE]}]"/>
             </div>
 
             <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4">
               <h3 class="text-sm font-black uppercase tracking-widest text-white mb-3">Pitching &amp; LiveAB Contact</h3>
               <div class="flex flex-col space-y-3 mt-2">
-                <indicator-chart :labelTitle="`GB ${typeHitsPitching.GB.count}`" :labelValue="typeHitsPitching.GB.percent" color="#F8A488"/>
-                <indicator-chart :labelTitle="`FLY ${typeHitsPitching.FLY.count}`" :labelValue="typeHitsPitching.FLY.percent" color="#8676FF"/>
-                <indicator-chart :labelTitle="`LD ${typeHitsPitching.LD.count}`" :labelValue="typeHitsPitching.LD.percent" color="#ADE8F4"/>
-                <indicator-chart :labelTitle="`SM/F ${typeHitsPitching['SM'].count}`" :labelValue="typeHitsPitching['SM'].percent" color="#FFB457"/>
+                <indicator-chart :labelTitle="`GB ${typeHitsPitching?.GB?.count ?? 0}`" :labelValue="typeHitsPitching?.GB?.percent ?? 0" color="#F8A488"/>
+                <indicator-chart :labelTitle="`FLY ${typeHitsPitching?.FLY?.count ?? 0}`" :labelValue="typeHitsPitching?.FLY?.percent ?? 0" color="#8676FF"/>
+                <indicator-chart :labelTitle="`LD ${typeHitsPitching?.LD?.count ?? 0}`" :labelValue="typeHitsPitching?.LD?.percent ?? 0" color="#ADE8F4"/>
+                <indicator-chart :labelTitle="`SM/F ${typeHitsPitching?.['SM']?.count ?? 0}`" :labelValue="typeHitsPitching?.['SM']?.percent ?? 0" color="#FFB457"/>
               </div>
             </div>
 
@@ -275,7 +275,7 @@ onMounted(() => {
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/10 px-4 py-3">
                 <span class="text-sm font-bold text-white/55">Strike %</span>
-                <span class="text-2xl font-black text-white">{{ ballStrike.strikes.percent ?? '--' }}%</span>
+                <span class="text-2xl font-black text-white">{{ ballStrike?.strikes?.percent ?? '--' }}%</span>
               </div>
               <div class="flex items-center justify-between rounded-xl border border-white/10 bg-white/10 px-4 py-3">
                 <span class="text-sm font-bold text-white/55">Avg Pitch Velo</span>

@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 use Auth;
 
-class GetTeamsPlayers extends Controller
+class GetTeamsPlayersV2 extends Controller
 {
     /**
      * @param Request $request

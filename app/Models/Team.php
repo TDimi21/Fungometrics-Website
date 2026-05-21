@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Team extends Model
 {
@@ -28,7 +29,21 @@ class Team extends Model
         'logo',
         'state',
         'zip',
+        'join_code',
     ];
+
+    public static function generateJoinCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        do {
+            $code = '';
+            for ($i = 0; $i < 6; $i++) {
+                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+        } while (DB::table('teams')->where('join_code', $code)->exists());
+
+        return $code;
+    }
 
     public function team_coaches(): HasMany
     {

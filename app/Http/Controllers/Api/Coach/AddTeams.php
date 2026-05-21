@@ -31,7 +31,8 @@ class AddTeams extends Controller
             $data = $request->validated();
 
             $serviceTeam = new CreateServiceData(new Team());
-            $data['logo']= $url;
+            $data['logo']      = $url;
+            $data['join_code'] = Team::generateJoinCode();
             $responseTeam = $serviceTeam->handle($data);
 
             (new CreateServiceData(new CoachTeam()))->handle([

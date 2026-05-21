@@ -412,301 +412,221 @@ const setEditData = () => {
 <template>
   <Loader v-show="!isLoading.status"/>
   <Layout>
-    <div class="grid justify-center" :class="userData.type == 'player' ? 'pt-14' : ''">
-      <div class="">
-        <div class="flex flex-col md:flex-row gap-4 lg:gap-12 justify-evenly lg:justify-start h-auto md:h-[6em] bg-white rounded rounded-lg">
-          <div class="flex">
+    <div class="min-h-screen px-3 pb-8" :class="userData.type == 'player' ? 'pt-16' : 'pt-4'">
 
-            <BattingLogoPractice class="" color="082247" height="75" width="75"/>
+      <!-- ── Header Card ── -->
+      <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4 mb-4 flex flex-col md:flex-row md:items-center gap-4">
 
-            <div class="lg:ml-5">
-              <h3 class="text-fungo-red  text-[0.6em] lg:text-[1.2em] fungo-700  mt-4 lg:mt-2">bullpen
-                practice</h3>
-              <h1 class="text-fungo-darkblue text-[1.2em] font-fungo-800 lg:text-[1.7em] lg:-mt-2">Hitter</h1>
-            </div>
-          </div>
-          <div
-            class="border bg-fungo-gray7 grid grid-cols-1 lg:grid-cols-2 min-w-[150px] w-[150px] lg:w-[300px] lg:min-w-[300px] content-center justify-evenly">
-            <div
-              class="hidden ml-3  lg:inline-flex ">
-              <img :src="playerCard.picture ? playerCard.picture : DefaultImg" alt="" class="img-player">
-            </div>
-            <div
-              class="flex flex-col justify-center gap-x-2 mx-auto text-fungo-darkblue font-fungo-400 text-[16px] lg:w-[195px] lg:-ml-10">
-              <div class="font-fungo-800">{{ playerCard.name.full }}</div>
-              <div>Jersey: <span class="text-fungo-red font-fungo-800">{{ playerCard.shirt_number }}</span></div>
-            </div>
-          </div>
-          <template v-if="userData.type !== 'player'">
-            <div v-if="training.trainingActive.players.length > 1 " class="grid grid-cols-2 content-center">
-              <div>
-                <div class="text-fungo-darkblue font-fungo-800 text-[16px] lg:w-[195px] px-3">Change player</div>
-                <select class="text-[12px] w-[90%] rounded-lg" @change="changeData($event)">
-                  <option v-for="player in playerList " :value="player.id" :selected="player.id == currentPlayerID">{{ player.name.full }}</option>
-                </select>
-              </div>
-              <div class="grid content-end">
-                <div @click="isOpenAdd = true" class="text-white bg-fungo-darkblue font-fungo-800 text-center
-                  py-2 rounded-2xl cursor-pointer text-[16px] max-w-[150px]">
-                  Add Player
-                </div>
-              </div>
-            </div>
-            <div v-else class="grid content-center mr-10">
-              <div @click="isOpenAdd = true" class="text-white bg-fungo-darkblue font-fungo-800 text-center
-                  py-2 rounded-2xl cursor-pointer text-[16px] max-w-[150px] px-4">
-                Add Player
-              </div>
-            </div>
-          </template>
-        </div>
-      </div>
-      <div v-if="training.trainingActive.sort == null"  class="w-full mt-5 order-1 xl:col-span-5">
-
-        <div class="grid grid-cols-3 text-[16px] text-center gap-1">
-          <div class="grid grid-cols-2 bg-white balls-count relative  shadow-lg shadow-lg">
-            <div class="grid items-center text-fungo-red font-fungo-300 text-[16px]">Total Pitches
-              :
-            </div>
-            <div
-              class="ball-number grid items-center justify-items-end h-[90%]
-              justify-evenly  text-fungo-darkblue font-fungo-800 text-[1.5em] ">
-              {{ pitches }}
-
-            </div>
-          </div>
-          <div class="grid content-center  text-[16px] xl:text-[24px]  text-fungo-blue2">
-            <button
-              @click="openStatistics"
-            >
-              show statistics >
-              <svg class="inline fill-fungo-blue" height="20" viewBox="0 0 40 41" width="20"
-                   xmlns="http://www.w3.org/2000/svg">
-                <path clip-rule="evenodd" d="M8.64783 8.99553V31.9497H31.602V20.4726h3.2792v11.4771c0 1.8036-1.4756 3.2792-3.2792 3.2792H8.64783c-1.81995 0-3.27918-1.4756-3.27918-3.2792V8.99553c0-1.80355 1.45923-3.27918 3.27918-3.27918H20.1249v3.27918H8.64783zm14.75907 0V5.71635H34.884V17.1935h-3.2791v-5.8862L15.4877 27.4245l-2.3118-2.3118L29.293 8.99553h-5.8861z"
-                      fill-rule="evenodd"/>
-              </svg>
-            </button>
-          </div>
-          <div class="grid content-center text-[16px] xl:text-[24px] text-fungo-blue">
-            <button @click="openModal">end practice ></button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-    <div class="grid grid-flow-row md:grid-cols-2 xl:grid-cols-3 justify-center mt-2 xl:mt-5 gap-3">
-      <div class="xl:bg-white">
-        <div class="h-fit w-fit flex-grow mx-auto ">
-          <GridCatcher :key="change" v-model="dataProcess.pitch" :pitchMark="dataEdit.pitch"/>
-        </div>
-      </div>
-      <div class=" bg-white p-3 ">
-        <div class="grid grid-cols-2 gap-0.5 justify-items-center text-[24px]">
-          <div id="content-contact" class="grid gap-y-0.5">
-            <div class="text-fungo-red text-center">Pitch</div>
-            <button class="button-ct pt" value="FB"
-                    @click="setPitch($event)">FB
-            </button>
-            <button class="button-ct pt" value="CH"
-                    @click="setPitch($event)">CH
-            </button>
-            <button class="button-ct pt" value="SL"
-                    @click="setPitch($event)">SL
-            </button>
-            <button class="button-ct pt" value="CB"
-                    @click="setPitch($event)">CV
-            </button>
-            <button class="button-ct pt" value="OTHER"
-                    @click="setPitch($event)">Other
-            </button>
-          </div>
-          <div id="content-contact" class="grid gap-y-1.5">
-            <div class="text-fungo-red text-center ">Trajectory</div>
-            <button class="button-ct tj" value="GB"
-                    @click="setTrajectory($event)">
-              GB
-            </button>
-            <button class="button-ct tj" value="LD"
-                    @click="setTrajectory($event)">LD
-            </button>
-            <button class="button-ct tj" value="FB"
-                    @click="setTrajectory($event)">Fly
-            </button>
-            <button class="button-ct tj" value="F"
-                    @click="setTrajectory($event)">Foul
-            </button>
-            <button class="button-ct tj" value="SM"
-                    @click="setTrajectory($event)">S/M
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="rounded p-2 gap-3 text-fungo-darkblue bg-white">
-        <div class="md:h-[325px]">
-          <div class="grid mb-1 text-center">Miles per hour:</div>
-          <VelocityInput :key="change" v-model="dataProcess.mph" />
-          <div class="grid mt-5">
-            <button
-              class="rounded-xl rounded-l-3xl border bg-fungo-darkblue text-white mx-auto"
-              @click="save">
-              <div
-                class="grid grid-cols-2 w-[200px]">
-                <div class="m-1 p-1"><img
-                  class="w-[20px] h-[20px] xl:w-[30px] xl:h-[30px]"
-                  src="../../assets/img/login/assteslogin/ballbutton.png"></div>
-                <div class="grid content-center items-center mr-8 text-[20px] -ml-12">{{training.trainingActive.sort == null ? 'Save':'Change'}}</div>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="isOpenAdd">
-      <div class="fixed inset-0 z-50 flex justify-center items-center">
-        <div class="flex flex-col max-w-5xl rounded-lg shadow-xl overflow-y-auto bg-white border pt-2 pb-4 drop-shadow-xl min-h-[30%] max-h-[35%]
-          lg:min-h-[30%] lg:max-h-[35%] w-[85%] md:w-[100%] ml-3 lg:ml-0">
+        <!-- Logo + Title -->
+        <div class="flex items-center gap-3 shrink-0">
+          <BattingLogoPractice color="ffffff" height="52" width="52"/>
           <div>
-            <div class="flex flex-row w-[100%] items-center mb-3 px-4 ">
-              <h1 class="text-lg lg:text-2xl text-fungo-red font-fungo-700 my-5">Add player</h1>
-              <div class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]" @click="isOpenAdd = false">
-                <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
-              </div>
-            </div>
+            <p class="text-red-400 text-xs font-semibold uppercase tracking-widest">Bullpen Practice</p>
+            <h1 class="text-white text-2xl font-bold leading-tight">Pitcher</h1>
           </div>
-          <div class="bg-fungo-gray2 mb-5 py-10 px-[3%]">
-            <form action="" name="add-player" class="grid tems-center w-[95%] lg:w-[100%]">
-              <select class="text-[16px] w-[100%] rounded-lg" v-model="dataPlayer">
-                <option value="" disabled selected>Select one player</option>
-                <option v-for="player in playerToAddList " :value="player.id">{{ player.name.full }}</option>
+        </div>
+
+        <!-- Player Card -->
+        <div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-2 min-w-[200px]">
+          <img :src="playerCard.picture ? playerCard.picture : DefaultImg" alt="" class="w-12 h-12 rounded-full border-2 border-white/20 object-cover"/>
+          <div>
+            <div class="text-white font-bold text-sm">{{ playerCard.name.full }}</div>
+            <div class="text-white/50 text-xs">Jersey: <span class="text-red-400 font-bold">{{ playerCard.shirt_number }}</span></div>
+          </div>
+        </div>
+
+        <!-- Change Player + Add Player (coach only) -->
+        <template v-if="userData.type !== 'player'">
+          <div v-if="training.trainingActive.players.length > 1" class="flex items-center gap-3 flex-wrap">
+            <div>
+              <p class="text-white/50 text-xs mb-1">Change player</p>
+              <select
+                class="bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-red-400/60"
+                @change="changeData($event)">
+                <option v-for="player in playerList" :value="player.id" :selected="player.id == currentPlayerID"
+                  class="bg-[#001440] text-white">{{ player.name.full }}</option>
               </select>
-            </form>
+            </div>
+            <button @click="isOpenAdd = true"
+              class="mt-4 px-4 py-1.5 rounded-xl border border-red-400/60 bg-red-500/20 text-red-300 text-sm font-semibold hover:bg-red-500/30 transition-colors">
+              + Add Player
+            </button>
           </div>
-          <div class="flex flex-row justify-center">
-            <div class="justify-center">
-              <button @click="addPlayer()" class="grid place-items-center grid-flow-col flex-row rounded-xl w-[200px] lg:w-[250px]
-                  px-2 py-1 text-xl md:text-[12px] lg:text-[16px] bg-fungo-red text-white hover:bg-fungo-red-hover" type="submit">
-                  Add
-              </button>
+          <div v-else>
+            <button @click="isOpenAdd = true"
+              class="px-4 py-1.5 rounded-xl border border-red-400/60 bg-red-500/20 text-red-300 text-sm font-semibold hover:bg-red-500/30 transition-colors">
+              + Add Player
+            </button>
+          </div>
+        </template>
+
+        <!-- Stats row (right-aligned) -->
+        <div v-if="training.trainingActive.sort == null" class="md:ml-auto flex items-center gap-3 flex-wrap">
+          <!-- Pitch Count -->
+          <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-2 text-center min-w-[100px]">
+            <div class="text-white/50 text-xs uppercase tracking-wide">Pitches</div>
+            <div class="text-white text-3xl font-bold">{{ pitches }}</div>
+          </div>
+          <!-- Show Stats -->
+          <button @click="openStatistics"
+            class="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white/70 text-sm hover:bg-white/10 transition-colors">
+            <svg height="16" viewBox="0 0 40 41" width="16" xmlns="http://www.w3.org/2000/svg" class="fill-white/70">
+              <path clip-rule="evenodd" d="M8.64783 8.99553V31.9497H31.602V20.4726h3.2792v11.4771c0 1.8036-1.4756 3.2792-3.2792 3.2792H8.64783c-1.81995 0-3.27918-1.4756-3.27918-3.2792V8.99553c0-1.80355 1.45923-3.27918 3.27918-3.27918H20.1249v3.27918H8.64783zm14.75907 0V5.71635H34.884V17.1935h-3.2791v-5.8862L15.4877 27.4245l-2.3118-2.3118L29.293 8.99553h-5.8861z" fill-rule="evenodd"/>
+            </svg>
+            Statistics
+          </button>
+          <!-- End Practice -->
+          <button @click="openModal"
+            class="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-400/60 bg-red-500/20 text-red-300 text-sm font-semibold hover:bg-red-500/30 transition-colors">
+            End Practice
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Main Grid ── -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+
+        <!-- GridCatcher -->
+        <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-3 flex items-center justify-center">
+          <div class="h-fit w-fit mx-auto">
+            <GridCatcher :key="change" v-model="dataProcess.pitch" :pitchMark="dataEdit.pitch"/>
+          </div>
+        </div>
+
+        <!-- Pitch + Trajectory Buttons -->
+        <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-5 flex flex-col justify-center">
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Pitch Type -->
+            <div class="flex flex-col gap-2">
+              <div class="text-red-400 text-xs font-bold uppercase tracking-widest text-center mb-1">Pitch Type</div>
+              <button class="pitch-btn pt" value="FB" @click="setPitch($event)">FB</button>
+              <button class="pitch-btn pt" value="CH" @click="setPitch($event)">CH</button>
+              <button class="pitch-btn pt" value="SL" @click="setPitch($event)">SL</button>
+              <button class="pitch-btn pt" value="CB" @click="setPitch($event)">CV</button>
+              <button class="pitch-btn pt" value="OTHER" @click="setPitch($event)">Other</button>
+            </div>
+            <!-- Trajectory -->
+            <div class="flex flex-col gap-2">
+              <div class="text-red-400 text-xs font-bold uppercase tracking-widest text-center mb-1">Trajectory</div>
+              <button class="pitch-btn tj" value="GB" @click="setTrajectory($event)">GB</button>
+              <button class="pitch-btn tj" value="LD" @click="setTrajectory($event)">LD</button>
+              <button class="pitch-btn tj" value="FB" @click="setTrajectory($event)">Fly</button>
+              <button class="pitch-btn tj" value="F"  @click="setTrajectory($event)">Foul</button>
+              <button class="pitch-btn tj" value="SM" @click="setTrajectory($event)">S/M</button>
             </div>
           </div>
         </div>
+
+        <!-- Velocity + Save -->
+        <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-5 flex flex-col gap-4">
+          <div class="text-white/70 text-sm text-center font-medium">Miles per hour</div>
+          <VelocityInput :key="change" v-model="dataProcess.mph"/>
+          <div class="flex justify-center mt-2">
+            <button @click="save"
+              class="flex items-center gap-3 px-8 py-3 rounded-2xl bg-[#C00000] hover:bg-red-700 text-white font-bold text-lg transition-colors shadow-lg shadow-red-900/30">
+              <img class="w-6 h-6" src="../../assets/img/login/assteslogin/ballbutton.png"/>
+              {{ training.trainingActive.sort == null ? 'Save' : 'Change' }}
+            </button>
+          </div>
+        </div>
       </div>
-      <div class="opacity-70 fixed inset-0 z-40 bg-fungo-darkblue"></div>
     </div>
 
+    <!-- ── Add Player Modal ── -->
+    <div v-if="isOpenAdd">
+      <div class="fixed inset-0 z-50 flex justify-center items-center px-4">
+        <div class="w-full max-w-md rounded-2xl border border-white/10 bg-[#001440]/95 backdrop-blur-xl shadow-2xl p-6">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-white text-xl font-bold">Add Player</h2>
+            <button @click="isOpenAdd = false" class="text-white/40 hover:text-white transition-colors text-2xl leading-none">&times;</button>
+          </div>
+          <div class="mb-5">
+            <select class="w-full bg-white/10 border border-white/20 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-400/60"
+              v-model="dataPlayer">
+              <option value="" disabled selected class="bg-[#001440]">Select one player</option>
+              <option v-for="player in playerToAddList" :value="player.id" class="bg-[#001440] text-white">{{ player.name.full }}</option>
+            </select>
+          </div>
+          <div class="flex justify-center">
+            <button @click="addPlayer()"
+              class="px-8 py-2.5 rounded-xl bg-[#C00000] hover:bg-red-700 text-white font-bold transition-colors">
+              Add
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"></div>
+    </div>
+
+    <!-- ── End Practice Modal ── -->
     <TransitionRoot :show="isOpen" appear as="template">
       <Dialog as="div" class="relative z-10" @close="closeModal">
         <TransitionChild
           as="template"
-          enter="duration-300 ease-out"
-          enter-from="opacity-0"
-          enter-to="opacity-100"
-          leave="duration-200 ease-in"
-          leave-from="opacity-100"
-          leave-to="opacity-0"
+          enter="duration-300 ease-out" enter-from="opacity-0" enter-to="opacity-100"
+          leave="duration-200 ease-in"  leave-from="opacity-100" leave-to="opacity-0"
         >
-          <div class="fixed inset-0 bg-black bg-opacity-25"/>
+          <div class="fixed inset-0 bg-black/60 backdrop-blur-sm"/>
         </TransitionChild>
 
         <div class="fixed inset-0 overflow-y-auto">
-          <div
-            class="flex min-h-full items-center justify-center p-4 text-center"
-          >
+          <div class="flex min-h-full items-center justify-center p-4">
             <TransitionChild
               as="template"
-              enter="duration-300 ease-out"
-              enter-from="opacity-0 scale-95"
-              enter-to="opacity-100 scale-100"
-              leave="duration-200 ease-in"
-              leave-from="opacity-100 scale-100"
-              leave-to="opacity-0 scale-95"
+              enter="duration-300 ease-out" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
+              leave="duration-200 ease-in"  leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
             >
-              <DialogPanel
-                class="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all"
-              >
-                <DialogTitle
-                  as="h2"
-                  class="text-2xl font-medium leading-6 text-fungo-red mb-3"
-                >
-                  End Batting Practice
+              <DialogPanel class="w-full max-w-md rounded-2xl border border-white/10 bg-[#001440]/95 backdrop-blur-xl p-6 shadow-2xl">
+                <DialogTitle as="h2" class="text-2xl font-bold text-white mb-4">
+                  End Practice
                 </DialogTitle>
-                <div class="container">
-                  <div class="grid grid-flow-row gap-3">
-                    <div class=" p-5 border bg-fungo-gray4 grid grid-cols-3 place-items-center">
-                      <div>
-                        <svg class="w-[40px] h-[40px]" fill="none" viewBox="0 0 60 60"
-                             xmlns="http://www.w3.org/2000/svg">
-                          <path clip-rule="evenodd"
-                                d="M5 30C5 16.2 16.175 5 29.975 5C43.8 5 55 16.2 55 30C55 43.8 43.8 55 29.975 55C16.175 55 5 43.8 5 30ZM10 30C10 41.05 18.95 50 30 50C41.05 50 50 41.05 50 30C50 18.95 41.05 10 30 10C18.95 10 10 18.95 10 30ZM38.75 27.5C40.825 27.5 42.5 25.825 42.5 23.75C42.5 21.675 40.825 20 38.75 20C36.675 20 35 21.675 35 23.75C35 25.825 36.675 27.5 38.75 27.5ZM25 23.75C25 25.825 23.325 27.5 21.25 27.5C19.175 27.5 17.5 25.825 17.5 23.75C17.5 21.675 19.175 20 21.25 20C23.325 20 25 21.675 25 23.75Z"
-                                fill="#082247"
-                                fill-rule="evenodd"/>
-                          <path
-                            d="M37 39C37 37.1435 36.2625 35.363 34.9497 34.0503C33.637 32.7375 31.8565 32 30 32C28.1435 32 26.363 32.7375 25.0503 34.0503C23.7375 35.363 23 37.1435 23 39"
-                            stroke="#082247" stroke-linecap="round" stroke-width="4"/>
-                        </svg>
-                      </div>
-                      <div class="grid grid-flow-row3 gap-1">
-                        <div class="text-fungo-blue font-fungo-700 text-sm">Status</div>
-                        <div class="text-fungo-darkblue font-fungo-700 "> In progress</div>
-                        <div>
-                          <progress
-                            class="rounded overflow-hidden h-[7px] in-proress w-[70px]"
-                            max="100"
-                            value="50"
-                          >
-                          </progress>
-                        </div>
-                      </div>
-                      <div><input v-model="picked" checked class="h-[30px] w-[30px]" name="end-session" type="radio"
-                                  value="progress"></div>
+
+                <div class="flex flex-col gap-3">
+                  <!-- In Progress option -->
+                  <label class="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors"
+                    :class="picked === 'progress' ? 'border-yellow-400/40 bg-yellow-500/10' : ''">
+                    <svg class="w-9 h-9 shrink-0" fill="none" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+                      <path clip-rule="evenodd" d="M5 30C5 16.2 16.175 5 29.975 5C43.8 5 55 16.2 55 30C55 43.8 43.8 55 29.975 55C16.175 55 5 43.8 5 30ZM10 30C10 41.05 18.95 50 30 50C41.05 50 50 41.05 50 30C50 18.95 41.05 10 30 10C18.95 10 10 18.95 10 30ZM38.75 27.5C40.825 27.5 42.5 25.825 42.5 23.75C42.5 21.675 40.825 20 38.75 20C36.675 20 35 21.675 35 23.75C35 25.825 36.675 27.5 38.75 27.5ZM25 23.75C25 25.825 23.325 27.5 21.25 27.5C19.175 27.5 17.5 25.825 17.5 23.75C17.5 21.675 19.175 20 21.25 20C23.325 20 25 21.675 25 23.75Z" fill="#FFB457" fill-rule="evenodd"/>
+                      <path d="M37 39C37 37.1435 36.2625 35.363 34.9497 34.0503C33.637 32.7375 31.8565 32 30 32C28.1435 32 26.363 32.7375 25.0503 34.0503C23.7375 35.363 23 37.1435 23 39" stroke="#FFB457" stroke-linecap="round" stroke-width="4"/>
+                    </svg>
+                    <div class="flex-1">
+                      <div class="text-white/50 text-xs mb-0.5">Status</div>
+                      <div class="text-white font-semibold">In progress</div>
+                      <progress class="rounded overflow-hidden h-[5px] in-proress w-full mt-1" max="100" value="50"></progress>
                     </div>
-                    <div class=" p-5 border bg-fungo-gray4 grid grid-cols-3 place-items-center">
-                      <div>
-                        <svg class="w-[40px] h-[40px]" fill="none" viewBox="0 0 60 60"
-                             xmlns="http://www.w3.org/2000/svg">
-                          <path clip-rule="evenodd"
-                                d="M5 30C5 16.2 16.175 5 29.975 5C43.8 5 55 16.2 55 30C55 43.8 43.8 55 29.975 55C16.175 55 5 43.8 5 30ZM10 30C10 41.05 18.95 50 30 50C41.05 50 50 41.05 50 30C50 18.95 41.05 10 30 10C18.95 10 10 18.95 10 30ZM38.75 27.5C40.825 27.5 42.5 25.825 42.5 23.75C42.5 21.675 40.825 20 38.75 20C36.675 20 35 21.675 35 23.75C35 25.825 36.675 27.5 38.75 27.5ZM25 23.75C25 25.825 23.325 27.5 21.25 27.5C19.175 27.5 17.5 25.825 17.5 23.75C17.5 21.675 19.175 20 21.25 20C23.325 20 25 21.675 25 23.75Z"
-                                fill="#082247"
-                                fill-rule="evenodd"/>
-                          <path
-                            d="M23 33C23 34.8565 23.7375 36.637 25.0503 37.9497C26.363 39.2625 28.1435 40 30 40C31.8565 40 33.637 39.2625 34.9497 37.9497C36.2625 36.637 37 34.8565 37 33"
-                            stroke="#082247" stroke-linecap="round" stroke-width="4"/>
-                        </svg>
-                      </div>
-                      <div class="grid grid-flow-row3 gap-1">
-                        <div class="text-fungo-blue font-fungo-700 text-sm">Status</div>
-                        <div class="text-fungo-darkblue font-fungo-700 "> Completed</div>
-                        <div>
-                          <progress
-                            class="rounded overflow-hidden h-[7px] completed w-[70px]"
-                            max="100"
-                            value="100"
-                          >
-                          </progress>
-                        </div>
-                      </div>
-                      <div><input v-model="picked" class="h-[30px] w-[30px]" name="end-session" type="radio"
-                                  value="completed"></div>
+                    <input v-model="picked" checked class="accent-yellow-400 w-5 h-5" name="end-session" type="radio" value="progress"/>
+                  </label>
+
+                  <!-- Completed option -->
+                  <label class="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors"
+                    :class="picked === 'completed' ? 'border-green-400/40 bg-green-500/10' : ''">
+                    <svg class="w-9 h-9 shrink-0" fill="none" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+                      <path clip-rule="evenodd" d="M5 30C5 16.2 16.175 5 29.975 5C43.8 5 55 16.2 55 30C55 43.8 43.8 55 29.975 55C16.175 55 5 43.8 5 30ZM10 30C10 41.05 18.95 50 30 50C41.05 50 50 41.05 50 30C50 18.95 41.05 10 30 10C18.95 10 10 18.95 10 30ZM38.75 27.5C40.825 27.5 42.5 25.825 42.5 23.75C42.5 21.675 40.825 20 38.75 20C36.675 20 35 21.675 35 23.75C35 25.825 36.675 27.5 38.75 27.5ZM25 23.75C25 25.825 23.325 27.5 21.25 27.5C19.175 27.5 17.5 25.825 17.5 23.75C17.5 21.675 19.175 20 21.25 20C23.325 20 25 21.675 25 23.75Z" fill="#35A800" fill-rule="evenodd"/>
+                      <path d="M23 33C23 34.8565 23.7375 36.637 25.0503 37.9497C26.363 39.2625 28.1435 40 30 40C31.8565 40 33.637 39.2625 34.9497 37.9497C36.2625 36.637 37 34.8565 37 33" stroke="#35A800" stroke-linecap="round" stroke-width="4"/>
+                    </svg>
+                    <div class="flex-1">
+                      <div class="text-white/50 text-xs mb-0.5">Status</div>
+                      <div class="text-white font-semibold">Completed</div>
+                      <progress class="rounded overflow-hidden h-[5px] completed w-full mt-1" max="100" value="100"></progress>
                     </div>
-                  </div>
-                  <div v-show="picked === 'completed'" class="grid grid-flow gap-1 mt-3">End
-                    Note<textarea v-model="endNote"></textarea></div>
-                  <div class="grid mt-5">
-                    <button
-                      class="rounded-xl rounded-l-3xl border bg-fungo-red text-white mx-auto"
-                      @click="endPractice">
-                      <div
-                        class="grid grid-cols-2 w-[200px]">
-                        <div class="m-1 p-1"><img
-                          class="w-[20px] h-[20px] xl:w-[30px] xl:h-[30px]"
-                          src="../../assets/img/login/assteslogin/ballbutton.png"></div>
-                        <div class="grid content-center items-center mr-8 text-[16px] font-fungo-700 -ml-12">Finish
-                          Training
-                        </div>
-                      </div>
-                    </button>
-                  </div>
+                    <input v-model="picked" class="accent-green-400 w-5 h-5" name="end-session" type="radio" value="completed"/>
+                  </label>
+                </div>
+
+                <!-- End Note -->
+                <div v-show="picked === 'completed'" class="mt-4">
+                  <label class="text-white/60 text-xs uppercase tracking-wide block mb-1">End Note</label>
+                  <textarea v-model="endNote" rows="3"
+                    class="w-full bg-white/10 border border-white/20 text-white rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-red-400/60 placeholder-white/30"
+                    placeholder="Add a note about this session…"></textarea>
+                </div>
+
+                <div class="flex justify-center mt-5">
+                  <button @click="endPractice"
+                    class="flex items-center gap-3 px-8 py-3 rounded-2xl bg-[#C00000] hover:bg-red-700 text-white font-bold text-base transition-colors shadow-lg shadow-red-900/30">
+                    <img class="w-5 h-5" src="../../assets/img/login/assteslogin/ballbutton.png"/>
+                    Finish Training
+                  </button>
                 </div>
               </DialogPanel>
             </TransitionChild>
@@ -717,56 +637,14 @@ const setEditData = () => {
   </Layout>
 </template>
 <style scoped>
-.dash-table-container {
-  position: relative;
-  left: 0;
+.pitch-btn {
+  @apply w-full py-2 rounded-xl border border-white/20 bg-white/5 text-white font-semibold text-base
+         hover:bg-white/10 hover:border-white/30 transition-colors cursor-pointer;
 }
 
-.box-input-col {
-  @apply flex flex-col w-[100%];
-}
-
-.dash-body {
-  @apply h-full  w-full  flex flex-col justify-between;
-}
-
-.capitalize {
-  text-transform: capitalize;
-}
-
-.img-size {
-  @apply w-[18em] h-[22.1em] ;
-}
-
-.ct * {
-  border: 1px solid #1a73e8;
-}
-
-.img-player {
-  height: 75px;
-  width: 75px;
-  border: 5px solid #d9d9d9;
-  border-radius: 100px;
-}
-
-.active-btn-trajectory, .active-btn-contact {
-  @apply bg-fungo-darkblue text-white;
-}
-
-.balls-count {
-  border-left: solid red 2px;
-  border-bottom-right-radius: 10px;
-  border-top-right-radius: 10px;
-}
-
-.ball-number {
-  @apply bg-fungo-gray7;
-  border-bottom-right-radius: 10px;
-  border-top-right-radius: 10px;
-}
-
-.button-ct {
-  @apply border border-fungo-darkblue rounded h-[2em] w-[5em];
+.active-btn-contact,
+.active-btn-trajectory {
+  @apply bg-[#C00000] border-red-400/60 text-white shadow-md shadow-red-900/40;
 }
 
 progress.in-proress::-webkit-progress-value {
@@ -778,6 +656,6 @@ progress.completed::-webkit-progress-value {
 }
 
 progress::-webkit-progress-bar {
-  background: #DBDFF1;
+  background: rgba(255,255,255,0.1);
 }
 </style>

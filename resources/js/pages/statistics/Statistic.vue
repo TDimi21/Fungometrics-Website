@@ -384,45 +384,96 @@ const addNameToPlayersData = (players) => {
 
 <template>
   <Layout>
-    <h1 class="text-fungo-red text-2xl md:text-[40px] text-center mt-9 mb-6 font-fungo-700">
-      Statistics
-    </h1>
+    <div class="min-h-screen bg-[#001440] text-white">
+      <div class="px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-10">
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 px-[10%] md:px-[5%]">
-      <SelectTeams v-on:select="setPlayerList($event)" :teams="teams" v-model="dataTeam.selectTeam"/>
-
-      <form class="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-7">
-        <div class="flex flex-col gap-y-3 justify-between">
-          <LabelField text="Since when"/>
-          <InputBase v-model="dataFilter.sinceWhen" inputType="date" inputClasses="w-full" required="true"/>
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+          <h1 class="text-2xl font-black uppercase tracking-widest text-white md:text-3xl">Statistics</h1>
+          <button
+            type="button"
+            class="rounded-xl border border-red-400/60 bg-red-500/20 px-4 py-2 text-xs font-black tracking-wider text-red-200 hover:bg-red-500/30 transition"
+            @click="$emit('open-add-player')"
+            onclick="window.dispatchEvent(new Event('open-add-player-modal'))"
+          >+ ADD PLAYERS</button>
         </div>
 
-        <div class="flex flex-col gap-y-3 justify-between">
-          <LabelField text="Until"/>
-          <InputBase v-model="dataFilter.until" inputType="date" inputClasses="w-full" required="true"/>
+        <!-- Filters card -->
+        <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-5 mb-6">
+          <h2 class="text-xs font-black uppercase tracking-widest text-white/40 mb-4">Filters</h2>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <!-- Team selector -->
+            <div class="lg:col-span-2">
+              <div class="relative overflow-hidden rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl p-4 cursor-pointer hover:bg-white/15 transition"
+                v-for="t in teams" :key="t.id"
+                :class="dataTeam.selectTeam == t.id ? 'border-red-500/60 bg-white/10' : 'bg-white/5'"
+                @click="dataTeam.selectTeam = t.id; setPlayerList(t.id)"
+              >
+                <div v-if="t.logo" class="absolute inset-0 bg-cover bg-center opacity-20" :style="{ backgroundImage: `url(${t.logo})` }"></div>
+                <div class="absolute inset-0 bg-[#001030]/80"></div>
+                <div class="relative z-10 flex items-center gap-4">
+                  <div class="h-16 w-16 overflow-hidden rounded-xl border border-white/20 bg-slate-950 shadow-lg shrink-0">
+                    <img v-if="t.logo" :src="t.logo" alt="Team" class="h-full w-full object-cover" />
+                    <div v-else class="h-full w-full flex items-center justify-center text-2xl font-black text-white/30">FM</div>
+                  </div>
+                  <div>
+                    <h2 class="text-2xl font-black leading-tight text-white">{{ t.name }}</h2>
+                    <p class="mt-1 text-xs text-white/60">Player development tracking · Sessions · Stats</p>
+                  </div>
+                  <div class="ml-auto">
+                    <div v-if="dataTeam.selectTeam == t.id" class="w-4 h-4 rounded-full bg-red-500 border-2 border-red-300"></div>
+                    <div v-else class="w-4 h-4 rounded-full border-2 border-white/30"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Date range -->
+            <div class="flex flex-col gap-2">
+              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Since When</label>
+              <InputBase v-model="dataFilter.sinceWhen" inputType="date" inputClasses="w-full rounded-lg border border-white/20 bg-white/10 text-white px-3 py-2 text-sm outline-none" required="true"/>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Until</label>
+              <InputBase v-model="dataFilter.until" inputType="date" inputClasses="w-full rounded-lg border border-white/20 bg-white/10 text-white px-3 py-2 text-sm outline-none" required="true"/>
+            </div>
+
+            <!-- Players -->
+            <div class="flex flex-col gap-2">
+              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Players</label>
+              <DropDownMultiple v-model="dataFilter.players" :options="optionsPlayer" />
+            </div>
+
+            <!-- Sessions -->
+            <div class="flex flex-col gap-2">
+              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Session Types</label>
+              <DropDownMultiple v-model="dataFilter.sessions" :options="optionsSession"/>
+            </div>
+
+            <!-- Options -->
+            <div class="flex flex-col gap-2">
+              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Training Options</label>
+              <DropDownOptionsOfSession v-model="dataFilter.options" :seletedSessionShow="dataFilter.sessions"/>
+            </div>
+
+            <!-- Show button -->
+            <div class="flex items-end">
+              <button
+                type="button"
+                class="w-full rounded-xl bg-[#C00000] hover:bg-red-700 transition px-4 py-2.5 text-sm font-black uppercase tracking-wider text-white"
+                @click.stop.prevent="getStatistic"
+              >Show Statistics</button>
+            </div>
+          </div>
         </div>
 
-        <div class="flex flex-col gap-y-3 justify-between">
-          <LabelField text="Select players"/>
-          <DropDownMultiple v-model="dataFilter.players" :options="optionsPlayer" />
+        <!-- Loading spinner -->
+        <div v-if="loading" class="flex justify-center my-8">
+          <div class="w-10 h-10 border-4 border-red-500 border-b-transparent rounded-full animate-spin"></div>
         </div>
 
-        <div class="flex flex-col gap-y-3 justify-between">
-          <LabelField text="Select sessions"/>
-          <DropDownMultiple v-model="dataFilter.sessions" :options="optionsSession"/>
-        </div>
-
-        <div class="flex flex-col gap-y-3 justify-between">
-          <LabelField text="Select options"/>
-          <DropDownOptionsOfSession v-model="dataFilter.options" :seletedSessionShow="dataFilter.sessions"/>
-        </div>
-
-        <div class="flex justify-end items-end">
-          <BigButtonField label="Show" :containerClass="'w-full'" :buttonWidth="'w-full'" @click.stop.prevent="getStatistic"/>
-        </div>
-      </form>
-    </div>
-    <div v-if="loading" class="w-10 my-5 mx-auto h-10 border-4 border-fungo-red border-b-orange-50 rounded-full animate-spin"></div>
+        <!-- Data tables -->
+        <div class="space-y-1 rounded-2xl overflow-hidden border border-white/10">
 
     <div class="bg-fungo-gray3">
       <batting-totals
@@ -786,5 +837,9 @@ const addNameToPlayersData = (players) => {
       :player="tableData.live['pitcher-velocity'].players"
       :team="tableData.live['pitcher-velocity'].team"
     />
+
+        </div><!-- end data tables -->
+      </div><!-- end px wrapper -->
+    </div><!-- end bg wrapper -->
   </Layout>
 </template>

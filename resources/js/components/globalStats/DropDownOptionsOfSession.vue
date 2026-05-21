@@ -146,7 +146,7 @@ const showSelectedString = () => {
     <div v-on:click="showDrop()"
     :class="show == false ? 'flex justify-between w-full bg-white rounded-lg border border-black':
     'flex justify-between w-full bg-white rounded-lg border border-black border-b-0 rounded-b-none'">
-      <span class="h-5 overflow-clip self-center ml-2">{{ stringSelected }}</span>
+      <span class="h-5 overflow-clip self-center ml-2 text-black">{{ stringSelected }}</span>
       <ArrowDownIcon v-if="optionsSelected.B.length > 0 || optionsSelected.P.length > 0
         || optionsSelected.EV.length > 0 || optionsSelected.L.length > 0
         || optionsSelected.C.length > 0 || optionsSelected.WB.length > 0
@@ -154,13 +154,13 @@ const showSelectedString = () => {
     </div>
     <div v-if="show" class="absolute z-10 w-full bg-white p-4 rounded-lg border border-black h-[400px] overflow-y-scroll fixed bottom-0">
       <div class="flex justify-between">
-        <button type="button" class="w-1/2 mx-2 border-b-2 border-b-green-700" v-on:click="selectAll">Select all</button>
-        <button type="button" class="w-1/2 mx-2 border-b-2 border-b-green-700" v-on:click="removeAll">Unselect all</button>
+        <button type="button" class="w-1/2 mx-2 border-b-2 border-b-green-700 text-black" v-on:click="selectAll">Select all</button>
+        <button type="button" class="w-1/2 mx-2 border-b-2 border-b-green-700 text-black" v-on:click="removeAll">Unselect all</button>
       </div>
       <div v-for="(option, optionIndex) in sessions">
         <ol v-if="seletedSessionShow.includes(optionIndex)">
-          <li class="text-gray-500 font-black py-1">{{ option.name }}</li>
-            <ol v-for="(item, index) in option.collection" v-on:click="addOption(index, optionIndex)">
+          <li class="text-gray-700 font-black py-1">{{ option.name }}</li>
+            <ol v-for="(item, index) in option.collection" v-on:click="addOption(index, optionIndex)" class="text-black cursor-pointer hover:bg-gray-100 px-1 rounded py-0.5">
               <span v-if="optionsSelected[optionIndex].includes(Number.parseInt(index))" class="font-black text-base text-green-700 rounded-full ">✓</span>
               <span class="px-[9px]" v-else></span>
               {{ item }}

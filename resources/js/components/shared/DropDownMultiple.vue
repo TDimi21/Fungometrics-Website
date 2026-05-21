@@ -66,16 +66,16 @@ onMounted(() => {
     <div v-on:click="showDrop()"
     :class="show == false ? 'flex justify-between w-full bg-white rounded-lg border border-black':
     'flex justify-between w-full bg-white rounded-lg border border-black border-b-0 rounded-b-none'">
-      <span class="h-5 overflow-clip self-center ml-2">{{ stringSelected }}</span>
+      <span class="h-5 overflow-clip self-center ml-2 text-black">{{ stringSelected }}</span>
       <ArrowDownIcon v-if="optionsSelected.length > 0" color="046C4E"/> <ArrowDownIcon v-else/>
     </div>
     <div v-if="show" class="absolute z-10 w-full bg-white p-4 rounded-lg border border-black border-t-0 rounded-t-none">
       <div class="flex justify-between">
-        <button type="button" class="w-1/2 mx-2 border-b-2 border-b-green-700" v-on:click="removeAll">Unselect all</button>
-        <button type="button" class="w-1/2 mx-2 border-b-2 border-b-green-700" v-on:click="selectAll">Select all</button>
+        <button type="button" class="w-1/2 mx-2 border-b-2 border-b-green-700 text-black" v-on:click="removeAll">Unselect all</button>
+        <button type="button" class="w-1/2 mx-2 border-b-2 border-b-green-700 text-black" v-on:click="selectAll">Select all</button>
       </div>
       <div v-for="(option, index) in props.options" v-on:click="addOption(index)">
-      <div class="mt-1">
+      <div class="mt-1 text-black cursor-pointer hover:bg-gray-100 px-1 rounded">
         <span v-if="optionsSelected.includes(index)" class="font-black text-base text-green-700 rounded-full ">✓</span>
         <span class="px-[9px]" v-else></span>
         {{ option }}

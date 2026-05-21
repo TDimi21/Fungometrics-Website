@@ -22,6 +22,7 @@ class TeamsPlayers extends JsonResource
             'id_team'=>$this->team->id,
             'name'=>$this->team->name,
             'num_players'=>count($this->team->team_players),
+            'join_code'=>$this->team->join_code ?? '',
             'players'=>Player::collection($this->team->team_players)
         ];
     }

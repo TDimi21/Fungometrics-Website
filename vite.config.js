@@ -22,10 +22,11 @@ export default defineConfig({
         }),
       EnvironmentPlugin(['API_ENDPOINT'])
     ],
-  server:{
-      watch:{
-        usePolling:true
-      }
+  server: {
+    host: '0.0.0.0',
+    watch: {
+      usePolling: true,
+    },
   },
     resolve: {
         alias: {

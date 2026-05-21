@@ -16,5 +16,13 @@
     <div id="app">
         <router-view></router-view>
     </div>
+    <script>
+        window.onerror = function(msg, src, line, col, err) {
+            document.body.innerHTML = '<div style="background:#1a1a1a;color:#ff6b6b;font-family:monospace;padding:24px;min-height:100vh;white-space:pre-wrap;font-size:14px;"><b>JS ERROR</b>\n\n' + msg + '\n\nFile: ' + src + '\nLine: ' + line + '\n\n' + (err ? err.stack : '') + '</div>';
+        };
+        window.addEventListener('unhandledrejection', function(e) {
+            document.body.innerHTML = '<div style="background:#1a1a1a;color:#ff6b6b;font-family:monospace;padding:24px;min-height:100vh;white-space:pre-wrap;font-size:14px;"><b>UNHANDLED PROMISE</b>\n\n' + (e.reason ? (e.reason.stack || e.reason) : e) + '</div>';
+        });
+    </script>
     </body>
 </html>

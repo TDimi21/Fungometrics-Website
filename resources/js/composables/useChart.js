@@ -32,6 +32,7 @@ const useChart = () => {
   })
 
   const getStaticChartData = async() => {
+    if (!team?.id) return
     try {
       isloading.value = !isloading.value
       const { data } = await axiosGet(`dashboard/${team.id}`)
@@ -46,7 +47,7 @@ const useChart = () => {
       smTake.value = data.data.swing_miss_take_percents
       contactSpray.value = data.data.contact_spray ?? { strikes: [], balls: [] }
     } catch (error) {
-      console.log(error);
+      console.warn('getStaticChartData error:', error?.message ?? error)
     } finally {
       isloading.value = !isloading.value
     }
@@ -64,6 +65,7 @@ const useChart = () => {
 
 
   const getFilteredDataChart = async() => {
+    if (!team?.id) return
     try {
       isloading.value != isloading.value
       const { data } = await axiosPost('charts',{
@@ -76,9 +78,8 @@ const useChart = () => {
       setSeriesDinamicChart(data.data)
 
     } catch (error) {
-      if (error.response.data.data.length === 0) {
-        seriesDinamicChart.value = []
-      }
+      console.warn('getFilteredDataChart error:', error?.message ?? error)
+      seriesDinamicChart.value = []
     } finally {
       isloading.value != isloading.value
     }
@@ -217,7 +218,7 @@ const useChart = () => {
     if (userData.type != 'player') {
       await setPlayerData()
       setTimeout(() => {
-        getFilteredDataChart()
+        getFilteredDataChart().catch(e => console.warn('loadOnMounted chart error:', e?.message ?? e))
       }, 1000)
     }
 
@@ -238,7 +239,7 @@ const useChart = () => {
     () => formModel.value.players.length,
     (prev, next) => {
       if (prev !== 9 && next !== 0){
-        getFilteredDataChart()
+        getFilteredDataChart().catch(e => console.warn('watch chart error:', e?.message ?? e))
       }
     },
   )
