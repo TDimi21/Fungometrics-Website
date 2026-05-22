@@ -33,10 +33,11 @@ class CoachUtils
             'type' => $type,
             'status'=>true
         ]);
+        $nameArr = $data['name'] ?? [];
         $response_profile = (new CreateServiceData(new Profile()))->handle([
             'user_id' => $response_user->id,
-            'first_name' => $data['name']['first'],
-            'last_name' => $data['name']['last'],
+            'first_name' => $nameArr['first'] ?? $data['first_name'] ?? '',
+            'last_name'  => $nameArr['last']  ?? $data['last_name']  ?? '',
         ]);
 
         if ($type === UserTypes::COACH->value) {

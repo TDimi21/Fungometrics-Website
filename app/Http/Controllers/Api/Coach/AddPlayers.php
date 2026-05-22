@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Coach;
 
-use App\Events\UserChanged;
 use App\Events\UserCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
@@ -35,16 +34,12 @@ class AddPlayers extends Controller
                 $message = 'the player is added to team';
             } else {
                 $data_team = CoachUtils::addPlayerToRoaster($player, $data['team']);
-                $data_to_event = [
-                    'user' => $player,
-                    'team' => $data_team,
-                ];
-
-                if( ! $data_team['exist']) {
-                    event(new UserChanged($data_to_event));
-                }
                 if($data_team['exist']) {
                     $message = 'this player already belongs to the team';
+                } else {
+                    $message = 'the player is added to team';
+                    // Only fire SMS event for genuinely new team additions
+                    // (player already has a profile — no claim needed)
                 }
             }
 

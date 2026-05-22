@@ -43,18 +43,26 @@ class AddCoaches extends Controller
                     $user->update(['type' => UserTypes::COACH->value]);
                 }
 
-                $data_team = (new CreateServiceData(new CoachTeam()))->handle([
+                // Avoid duplicate CoachTeam record
+                $existing = CoachTeam::where('coach_id', $user->id)
+                    ->where('team_id', $data['team'])
+                    ->first();
+
+                if ($existing) {
+                    DB::commit();
+                    return response()->json([
+                        'code' => '005',
+                        'message' => 'the coach is added to team',
+                        'status' => 'success',
+                        'data' => [],
+                    ], HttpCodes::HTTP_OK);
+                }
+
+                (new CreateServiceData(new CoachTeam()))->handle([
                     'team_id' => $data['team'],
                     'coach_id' => $user->id,
                     'is_main' => false,
                 ]);
-
-                $data_to_event = [
-                    'user' => $user,
-                    'team' => $data_team,
-                ];
-
-                event(new UserChanged($data_to_event));
             }
 
             $response = [
