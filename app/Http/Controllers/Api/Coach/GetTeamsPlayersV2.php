@@ -8,6 +8,7 @@ use App\Exceptions\NotFound;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TeamsPlayers;
 use App\Models\CoachTeam;
+use App\Models\Team;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,18 +32,28 @@ class GetTeamsPlayersV2 extends Controller
                 'team.team_players.user.positions'
             )->where('coach_id', Auth::user()->id)->get();
             if (0 === $teams->count()) {
-                throw new NotFound();
+                return response()->json([
+                    'code' => '036',
+                    'message' => 'data teams and players',
+                    'status' => 'success',
+                    'data' => [],
+                ], HttpCodes::HTTP_OK);
             }
 
             $responseData = $teams->map(function ($coachTeam) {
                 $team = $coachTeam->team;
+                // Auto-generate join_code if missing (teams created before migration)
+                if (empty($team->join_code)) {
+                    $team->join_code = Team::generateJoinCode();
+                    $team->save();
+                }
                 return [
                     'id'          => $coachTeam->id,
                     'id_team'     => $team->id,
                     'name'        => $team->name,
                     'logo'        => $team->logo ?? '',
                     'num_players' => count($team->team_players),
-                    'join_code'   => $team->join_code ?? '',
+                    'join_code'   => $team->join_code,
                 ];
             });
 

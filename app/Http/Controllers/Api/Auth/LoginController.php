@@ -42,16 +42,16 @@ class LoginController extends Controller
               $response_data->put('token', $data['token']);
               if ($user->type === UserTypes::PLAYER->value) {
                   $response_data->put('player', $user->toArray());
-                  $response_data->put('profile', $user->profile
-                      ->toArray());
+                  $response_data->put('profile', $user->profile ? $user->profile->toArray() : []);
                   $response_data->put('positions', $user->positions
-                      ->makeHidden(['created_at', 'updated_at', 'player_id'])
-                      ->toArray());
+                      ? $user->positions->makeHidden(['created_at', 'updated_at', 'player_id'])->toArray()
+                      : []);
                   $response_data->put('other', $user->player
-                      ->makeHidden(['created_at', 'updated_at', 'player_id'])
-                      ->toArray());
+                      ? $user->player->makeHidden(['created_at', 'updated_at', 'player_id'])->toArray()
+                      : []);
                   $response_data->put('fitness', $user->fitness
-                      ->makeHidden(['created_at', 'updated_at', 'user_id'])->toArray());
+                      ? $user->fitness->makeHidden(['created_at', 'updated_at', 'user_id'])->toArray()
+                      : []);
                   $response = new PlayerResource($response_data->all());
               }
 

@@ -29,7 +29,7 @@ class SetPlayerCredentials extends Controller
     {
         $request->validate([
             'email'    => ['required', 'email', 'unique:users,email,' . auth()->id()],
-            'password' => ['required', 'confirmed', Password::min(6)],
+            'password' => ['required', 'confirmed', Password::min(8)],
         ]);
 
         try {

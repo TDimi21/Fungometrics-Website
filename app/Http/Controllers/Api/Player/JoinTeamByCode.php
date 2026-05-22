@@ -7,6 +7,8 @@ namespace App\Http\Controllers\Api\Player;
 use App\Http\Controllers\Api\Auth\AuthUtils;
 use App\Http\Controllers\Api\Coach\CoachUtils;
 use App\Http\Controllers\Controller;
+use App\Models\CoachTeam;
+use App\Models\Concerns\UserTypes;
 use App\Models\Player;
 use App\Models\PlayerTeam;
 use App\Models\Team;
@@ -72,7 +74,49 @@ class JoinTeamByCode extends Controller
 
             DB::beginTransaction();
 
-            // 3. Link player to team (addPlayerToRoaster handles duplicates gracefully)
+            // 3. Link user to team — coaches go into coach_teams, players into player_teams
+            if ($user->type === UserTypes::COACH->value) {
+                $alreadyOnTeam = CoachTeam::where('coach_id', $user->id)
+                    ->where('team_id', $team->id)
+                    ->exists();
+
+                if (! $alreadyOnTeam) {
+                    CoachTeam::create([
+                        'coach_id' => $user->id,
+                        'team_id'  => $team->id,
+                        'is_main'  => false,
+                    ]);
+                }
+
+                $tokenData = AuthUtils::createTokenFromUser($user);
+                DB::commit();
+
+                $teams = CoachTeam::with('team')
+                    ->where('coach_id', $user->id)
+                    ->get()
+                    ->map(fn ($ct) => array_merge($ct->team->toArray(), [
+                        'id_team'   => $ct->team->id,
+                        'team_id'   => $ct->team->id,
+                        'is_main'   => $ct->is_main,
+                        'join_code' => $ct->team->join_code ?? '',
+                    ]));
+
+                return response()->json([
+                    'code'    => '018',
+                    'message' => $alreadyOnTeam ? 'already on team' : 'joined team as coach',
+                    'status'  => 'success',
+                    'data'    => [
+                        'token' => $tokenData['token'],
+                        'user'  => array_merge($user->load('profile')->toArray(), [
+                            'type'  => UserTypes::COACH->value,
+                            'teams' => $teams,
+                        ]),
+                        'team'  => $team,
+                    ],
+                ], HttpCodes::HTTP_OK);
+            }
+
+            // Player — original flow
             $result = CoachUtils::addPlayerToRoaster($user, $team->id);
 
             // 4. Issue a Sanctum token so the player is immediately logged in

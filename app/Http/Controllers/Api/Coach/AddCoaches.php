@@ -38,6 +38,11 @@ class AddCoaches extends Controller
             }
 
             if (isset($user)) {
+                // Ensure existing user is promoted to coach type
+                if ($user->type !== UserTypes::COACH->value) {
+                    $user->update(['type' => UserTypes::COACH->value]);
+                }
+
                 $data_team = (new CreateServiceData(new CoachTeam()))->handle([
                     'team_id' => $data['team'],
                     'coach_id' => $user->id,
