@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\Coach\AddPlayers;
 use App\Http\Controllers\Api\Coach\AddTeams;
 use App\Http\Controllers\Api\Coach\EditCoach;
 use App\Http\Controllers\Api\Coach\EditPlayers;
+use App\Http\Controllers\Api\Coach\SetPlayerPassword;
 use App\Http\Controllers\Api\Coach\EditTeams;
 use App\Http\Controllers\Api\Coach\GetCoachesList;
 use App\Http\Controllers\Api\Coach\GetLastSessions;
@@ -42,6 +43,7 @@ use App\Http\Controllers\Api\Player\GetFitness;
 use App\Http\Controllers\Api\Player\GetTrainingPractices;
 use App\Http\Controllers\Api\Player\JoinTeamByCode;
 use App\Http\Controllers\Api\Player\SaveFitness;
+use App\Http\Controllers\Api\Player\SetPlayerCredentials;
 use App\Http\Controllers\Api\ScoresStatisticPlayers;
 use App\Http\Controllers\Api\GetPlayerPitchVelocityZones;
 use App\Http\Controllers\Api\GetPlayerSmTakeZones;
@@ -108,6 +110,7 @@ Route::post('/complete/{user}/player', CompletePlayerController::class)->middlew
 
 Route::middleware(['auth:sanctum'])->group(function (): void {
     Route::post('/edit/players/{id}', EditPlayers::class);
+    Route::post('/players/{id}/set-password', SetPlayerPassword::class); // any authenticated user can change player password
     Route::post('player/fitness', SaveFitness::class);
     Route::get('player/fitness/{id}', GetFitness::class);
     Route::get('dashboard/{team}', GetDataGraphics::class);
@@ -125,6 +128,9 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
 Route::prefix('player')->group(function (): void {
     Route::post('register', RegisterPlayerController::class);
     Route::post('join', JoinTeamByCode::class);          // phone + team_code → claim profile / join team
+    Route::middleware(['auth:sanctum'])->group(function (): void {
+        Route::post('set-credentials', SetPlayerCredentials::class); // first-time email+password setup after claim
+    });
     Route::middleware(['auth:sanctum', 'ability:player'])->group(function (): void {
         Route::get('sessions/batting', GetBattingPractices::class);
         Route::get('sessions/bullpen', GetBullpenPractices::class);
