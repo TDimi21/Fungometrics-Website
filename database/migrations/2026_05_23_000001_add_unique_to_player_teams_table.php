@@ -10,31 +10,26 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        // Remove any existing duplicate rows (keep the oldest active one per user+team pair)
+        // Find all duplicate (user_id, team_id) pairs and keep only the first row for each
+        // MySQL requires a derived table workaround for DELETE + subquery on same table
         DB::statement("
-            DELETE FROM player_teams
-            WHERE id NOT IN (
-                SELECT id FROM (
-                    SELECT MIN(id) as id
-                    FROM player_teams
-                    WHERE deleted_at IS NULL
-                    GROUP BY user_id, team_id
-                ) AS keep
-            )
-            AND deleted_at IS NULL
+            DELETE pt FROM player_teams pt
+            INNER JOIN player_teams pt2
+                ON pt.user_id = pt2.user_id
+                AND pt.team_id = pt2.team_id
+                AND pt.id > pt2.id
+            WHERE pt.deleted_at IS NULL
+              AND pt2.deleted_at IS NULL
         ");
 
-        // Also hard-delete soft-deleted duplicates where an active row already exists
+        // Hard-delete soft-deleted rows where an active row already exists
         DB::statement("
-            DELETE FROM player_teams
-            WHERE deleted_at IS NOT NULL
-            AND EXISTS (
-                SELECT 1 FROM (
-                    SELECT id, user_id, team_id FROM player_teams WHERE deleted_at IS NULL
-                ) AS active
-                WHERE active.user_id = player_teams.user_id
-                AND active.team_id = player_teams.team_id
-            )
+            DELETE pt FROM player_teams pt
+            INNER JOIN player_teams pt2
+                ON pt.user_id = pt2.user_id
+                AND pt.team_id = pt2.team_id
+            WHERE pt.deleted_at IS NOT NULL
+              AND pt2.deleted_at IS NULL
         ");
 
         Schema::table('player_teams', function (Blueprint $table): void {

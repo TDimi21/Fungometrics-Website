@@ -10,31 +10,25 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        // Remove duplicate active coach_teams rows (keep oldest per coach+team pair)
+        // Remove duplicate active coach_teams rows using self-join (MySQL-compatible)
         DB::statement("
-            DELETE FROM coach_teams
-            WHERE id NOT IN (
-                SELECT id FROM (
-                    SELECT MIN(id) as id
-                    FROM coach_teams
-                    WHERE deleted_at IS NULL
-                    GROUP BY coach_id, team_id
-                ) AS keep
-            )
-            AND deleted_at IS NULL
+            DELETE ct FROM coach_teams ct
+            INNER JOIN coach_teams ct2
+                ON ct.coach_id = ct2.coach_id
+                AND ct.team_id = ct2.team_id
+                AND ct.id > ct2.id
+            WHERE ct.deleted_at IS NULL
+              AND ct2.deleted_at IS NULL
         ");
 
         // Hard-delete soft-deleted rows where an active row already exists
         DB::statement("
-            DELETE FROM coach_teams
-            WHERE deleted_at IS NOT NULL
-            AND EXISTS (
-                SELECT 1 FROM (
-                    SELECT id, coach_id, team_id FROM coach_teams WHERE deleted_at IS NULL
-                ) AS active
-                WHERE active.coach_id = coach_teams.coach_id
-                AND active.team_id = coach_teams.team_id
-            )
+            DELETE ct FROM coach_teams ct
+            INNER JOIN coach_teams ct2
+                ON ct.coach_id = ct2.coach_id
+                AND ct.team_id = ct2.team_id
+            WHERE ct.deleted_at IS NOT NULL
+              AND ct2.deleted_at IS NULL
         ");
 
         Schema::table('coach_teams', function (Blueprint $table): void {
