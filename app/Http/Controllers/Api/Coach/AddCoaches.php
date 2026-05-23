@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Coach;
 
-use App\Events\UserChanged;
 use App\Events\UserCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
