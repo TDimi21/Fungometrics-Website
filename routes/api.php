@@ -20,9 +20,11 @@ use App\Http\Controllers\Api\Coach\SetPlayerPassword;
 use App\Http\Controllers\Api\Coach\EditTeams;
 use App\Http\Controllers\Api\Coach\GetCoachesList;
 use App\Http\Controllers\Api\Coach\GetLastSessions;
+use App\Http\Controllers\Api\Coach\GetPerformanceOverview;
 use App\Http\Controllers\Api\Coach\GetPlayersList;
 use App\Http\Controllers\Api\Coach\GetTeamById;
 use App\Http\Controllers\Api\Coach\GetTeamCode;
+use App\Http\Controllers\Api\Coach\GetTeamPlayerCards;
 use App\Http\Controllers\Api\Coach\GetTeamsPlayers;
 use App\Http\Controllers\Api\Coach\GetTeamsPlayersV2;
 use App\Http\Controllers\Api\Coach\RemoveCoachFromTeam;
@@ -156,7 +158,9 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams', GetTeamsPlayersV2::class);
         Route::get('/teams/{id}', GetTeamById::class);
         Route::get('/teams/{id}/code', GetTeamCode::class);  // retrieve join code for a team
+        Route::get('/teams/{id}/player-cards', GetTeamPlayerCards::class);
         Route::get('/sessions/lasts/{team}', GetLastSessions::class);
+        Route::get('/performance-overview/{team}', GetPerformanceOverview::class);
         Route::post('/trainingab', AddNewLiveABSession::class);
         Route::get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);
         Route::get('/search/players', SearchPlayers::class);

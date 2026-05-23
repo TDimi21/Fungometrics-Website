@@ -73,6 +73,85 @@ final class BattingStatisticsService
         return $result;
     }
 
+    public function fps($data): array
+    {
+        // Only contact swings (exclude TAKE)
+        $swings = $data->where('type_of_hit', '<>', BattingTrajectory::TAKE->value);
+        $total = $swings->count();
+        if ($total < 3) {
+            return [];
+        }
+
+        // Contact score (30%) — quality of contact weighted average
+        $qocMap = [
+            'H' => 100, 'HARD' => 100,
+            'A' => 70,  'AVERAGE' => 70,
+            'W' => 40,  'WEAK' => 40,
+        ];
+        $qocSwings = $swings->filter(
+            fn($r) => isset($qocMap[strtoupper($r->quality_of_contact ?? '')])
+        );
+        $contactScore = $qocSwings->isNotEmpty()
+            ? $qocSwings->avg(fn($r) => $qocMap[strtoupper($r->quality_of_contact)])
+            : 50.0;
+
+        // EV score (25%) — avgEV / topEV × 100
+        $evSwings = $swings->filter(
+            fn($r) => isset($r->velocity) && $r->velocity >= 10 && $r->velocity <= 125
+        );
+        $avgEV = $evSwings->isNotEmpty() ? round((float) $evSwings->avg('velocity'), 1) : 0.0;
+        $topEV = $evSwings->isNotEmpty() ? (float) $evSwings->max('velocity') : 0.0;
+        $evScore = $topEV > 0 ? min(100.0, ($avgEV / $topEV) * 100) : 0.0;
+
+        // Launch score (20%) — trajectory quality
+        $launchMap = [
+            'LINE_DRIVE'  => 100,
+            'FLY_BALL'    => 80,
+            'POP_FLY'     => 60,
+            'GROUND_BALL' => 50,
+        ];
+        $launchSwings = $swings->filter(
+            fn($r) => isset($launchMap[$r->type_of_hit ?? ''])
+        );
+        $launchScore = $launchSwings->isNotEmpty()
+            ? $launchSwings->avg(fn($r) => $launchMap[$r->type_of_hit])
+            : 50.0;
+
+        // Comp score (15%) — hard hits or quality LD/FB / total
+        $compCount = $swings->filter(function ($r) {
+            $qoc = strtoupper($r->quality_of_contact ?? '');
+            $toh = $r->type_of_hit ?? '';
+            return in_array($qoc, ['H', 'HARD'], true)
+                || (in_array($qoc, ['A', 'AVERAGE'], true)
+                    && in_array($toh, ['LINE_DRIVE', 'FLY_BALL'], true));
+        })->count();
+        $compScore = ($compCount / $total) * 100;
+
+        // Miss score (10%) — no explicit swing-miss field; default full marks
+        $missScore = 100.0;
+
+        $fps = round(
+            $contactScore * 0.30
+            + $evScore    * 0.25
+            + $launchScore * 0.20
+            + $compScore  * 0.15
+            + $missScore  * 0.10,
+            1
+        );
+
+        return [
+            'fps'          => $fps,
+            'total'        => $total,
+            'contactScore' => round($contactScore, 1),
+            'evScore'      => round($evScore, 1),
+            'launchScore'  => round($launchScore, 1),
+            'compScore'    => round($compScore, 1),
+            'missScore'    => round($missScore, 1),
+            'avgEV'        => $avgEV,
+            'topEV'        => $topEV,
+        ];
+    }
+
     private function getTeamTotals($data)
     {
         return [
