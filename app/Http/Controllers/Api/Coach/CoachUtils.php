@@ -71,27 +71,31 @@ class CoachUtils
      */
     public static function addPlayerToRoaster(Model $player, string $team_id): array
     {
-        $team_player_actual = (new ListServiceData(new PlayerTeam()))->byParams([
-            'user_id' => $player->id,
-            'team_id' => $team_id,
-        ]);
+        // Check for any row — including soft-deleted — to avoid duplicate unique violation
+        $existing = PlayerTeam::withTrashed()
+            ->where('user_id', $player->id)
+            ->where('team_id', $team_id)
+            ->first();
 
-        if (1 === $team_player_actual->count()) {
-
-            return [
-                'data'=>$team_player_actual->first()->toArray(),
-                'exist'=>true,
-            ];
+        if ($existing) {
+            if ($existing->trashed()) {
+                // Restore the soft-deleted link instead of creating a duplicate
+                $existing->restore();
+                $existing->actual = true;
+                $existing->save();
+                return ['data' => $existing->toArray(), 'exist' => false];
+            }
+            return ['data' => $existing->toArray(), 'exist' => true];
         }
 
         return [
-            'data'=>(new CreateServiceData(new PlayerTeam()))
+            'data' => (new CreateServiceData(new PlayerTeam()))
                 ->handle([
                     'team_id' => $team_id,
                     'user_id' => $player->id,
-                    'actual' => true,
+                    'actual'  => true,
                 ])->toArray(),
-            'exist'=>false
+            'exist' => false,
         ];
     }
 }

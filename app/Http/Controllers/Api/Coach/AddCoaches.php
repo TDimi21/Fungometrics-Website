@@ -43,12 +43,16 @@ class AddCoaches extends Controller
                     $user->update(['type' => UserTypes::COACH->value]);
                 }
 
-                // Avoid duplicate CoachTeam record
-                $existing = CoachTeam::where('coach_id', $user->id)
+                // Avoid duplicate CoachTeam record — also restore if soft-deleted
+                $existing = CoachTeam::withTrashed()
+                    ->where('coach_id', $user->id)
                     ->where('team_id', $data['team'])
                     ->first();
 
                 if ($existing) {
+                    if ($existing->trashed()) {
+                        $existing->restore();
+                    }
                     DB::commit();
                     return response()->json([
                         'code' => '005',

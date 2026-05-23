@@ -71,7 +71,8 @@ class SearchPlayers extends Controller
                 'p.last_name',
                 'p.picture',
                 'p2.born_date',
-                't.id as team_id'
+                't.id as team_id',
+                't.join_code as team_join_code'
             )
             ->join('profiles as p', 'u.id', '=', 'p.user_id')
             ->join('players as p2', 'u.id', '=', 'p2.user_id')
@@ -90,9 +91,11 @@ class SearchPlayers extends Controller
 
         return $data->map(function ($group) {
             $teamInfo = $group->map(function ($subGroup) {
-                return
-                    ['name' => $subGroup->team_name];
-
+                return [
+                    'id'        => $subGroup->team_id,
+                    'name'      => $subGroup->team_name,
+                    'join_code' => $subGroup->team_join_code ?? '',
+                ];
             });
 
             return [
