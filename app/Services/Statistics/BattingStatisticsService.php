@@ -78,7 +78,7 @@ final class BattingStatisticsService
         // Only contact swings (exclude TAKE)
         $swings = $data->where('type_of_hit', '<>', BattingTrajectory::TAKE->value);
         $total = $swings->count();
-        if ($total < 3) {
+        if ($total < 1) {
             return [];
         }
 

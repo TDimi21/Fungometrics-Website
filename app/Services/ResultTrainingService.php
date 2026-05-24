@@ -184,7 +184,6 @@ final class ResultTrainingService
     public static function getBullpenResultsLastSessions(string $team, array $players, int $limit = 10)
     {
         $practiceIds = BullpenPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
-            ->where('team_id', $team)
             ->where('is_in_match', false)
             ->whereIn('pitcher_id', $players)
             ->groupBy('practice_id')
@@ -197,8 +196,7 @@ final class ResultTrainingService
             return collect();
         }
 
-        return BullpenPracticeResult::where('team_id', $team)
-            ->where('is_in_match', false)
+        return BullpenPracticeResult::where('is_in_match', false)
             ->whereIn('pitcher_id', $players)
             ->whereIn('practice_id', $practiceIds)
             ->get();

@@ -33,12 +33,17 @@ class GetPerformanceOverview extends Controller
             $teamId = (string) $request->team;
 
             $data = Cache::remember("performance_overview_{$teamId}", 600, function () use ($teamId) {
-                // All active player IDs on this team
+                // All player IDs on this team — filter out unclaimed (null user_id) entries
                 $playerIds = PlayerTeam::where('team_id', $teamId)
+                    ->whereNotNull('user_id')
                     ->pluck('user_id')
                     ->all();
 
+                // Log for debugging
+                Log::info('GetPerformanceOverview playerIds', ['team' => $teamId, 'count' => count($playerIds), 'ids' => $playerIds]);
+
                 if (empty($playerIds)) {
+                    Log::warning('GetPerformanceOverview: no claimed players found for team', ['team' => $teamId]);
                     return [];
                 }
 

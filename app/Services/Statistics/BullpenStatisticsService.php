@@ -92,7 +92,7 @@ final class BullpenStatisticsService
     public function bps($data): array
     {
         $total = $data->count();
-        if ($total < 3) {
+        if ($total < 1) {
             return [];
         }
 
