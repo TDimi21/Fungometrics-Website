@@ -11,6 +11,7 @@ use App\Models\User;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
@@ -29,33 +30,26 @@ class GetTeamPlayerCards extends Controller
         try {
             $teamId = (string) $request->id;
 
-            // All player IDs on this team
-            $playerIds = PlayerTeam::where('team_id', $teamId)
-                ->pluck('user_id')
-                ->all();
+            $cards = Cache::remember("player_cards_{$teamId}", 600, function () use ($teamId) {
+                $playerIds = PlayerTeam::where('team_id', $teamId)
+                    ->pluck('user_id')
+                    ->all();
 
-            if (empty($playerIds)) {
-                return response()->json([
-                    'code'    => '061',
-                    'message' => 'No players found for this team',
-                    'status'  => 'success',
-                    'data'    => [],
-                ], HttpCodes::HTTP_OK);
-            }
+                if (empty($playerIds)) {
+                    return [];
+                }
 
-            // Load users with their profile and player physical data
-            $users = User::whereIn('id', $playerIds)
-                ->with(['profile', 'player'])
-                ->get();
+                $users = User::whereIn('id', $playerIds)
+                    ->with(['profile', 'player'])
+                    ->get();
 
-            // Load the most recent fitness entry per player
-            $latestFitness = PlayerFitness::whereIn('user_id', $playerIds)
-                ->orderByDesc('fitness_date')
-                ->get()
-                ->unique('user_id')         // keep only the latest per player
-                ->keyBy('user_id');
+                $latestFitness = PlayerFitness::whereIn('user_id', $playerIds)
+                    ->orderByDesc('fitness_date')
+                    ->get()
+                    ->unique('user_id')
+                    ->keyBy('user_id');
 
-            $cards = $users->map(function (User $user) use ($latestFitness) {
+                return $users->map(function (User $user) use ($latestFitness) {
                 $profile = $user->profile;
                 $player  = $user->player;
                 $fitness = $latestFitness->get($user->id);
@@ -100,7 +94,8 @@ class GetTeamPlayerCards extends Controller
                         'yd_60_dash'  => $fitness->yd_60_dash,
                     ] : null,
                 ];
-            })->values()->all();
+                })->values()->all();
+            });
 
             return response()->json([
                 'code'    => '061',

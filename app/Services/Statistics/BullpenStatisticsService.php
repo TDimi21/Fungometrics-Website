@@ -80,6 +80,70 @@ final class BullpenStatisticsService
         return $result;
     }
 
+    /**
+     * Bullpen Performance Score (0-100).
+     *
+     * Components:
+     *  - Strike rate      35% — strikes / total pitches × 100
+     *  - Velocity score   30% — avg FB velo / 95 × 100 (capped 100)
+     *  - Pitch mix        20% — non-FB pitch types present / 3 (CB, CH, SL) × 100
+     *  - First-pitch str  15% — pitches in zone on sort=1 / total sort-1 pitches × 100
+     */
+    public function bps($data): array
+    {
+        $total = $data->count();
+        if ($total < 3) {
+            return [];
+        }
+
+        // Strike rate (35%)
+        $strikes     = $data->where('zone', 'S')->count();
+        $strikeRate  = ($strikes / $total) * 100;
+
+        // Velocity score (30%) — FB average
+        $fbPitches   = $data->filter(fn($r) => strtoupper($r->type_throw ?? '') === 'FB'
+                                            && isset($r->miles_per_hour)
+                                            && $r->miles_per_hour > 30);
+        $avgVelo     = $fbPitches->isNotEmpty() ? $fbPitches->avg('miles_per_hour') : 0.0;
+        $topVelo     = $fbPitches->isNotEmpty() ? $fbPitches->max('miles_per_hour') : 0.0;
+        $veloScore   = $avgVelo > 0 ? min(100.0, ($avgVelo / 95) * 100) : 0.0;
+
+        // Pitch mix (20%) — count distinct non-FB types used
+        $offspeed    = ['CB', 'CH', 'SL', 'CV'];
+        $typesUsed   = $data->pluck('type_throw')
+                            ->map(fn($t) => strtoupper($t ?? ''))
+                            ->filter(fn($t) => in_array($t, $offspeed, true))
+                            ->unique()
+                            ->count();
+        $mixScore    = min(100.0, ($typesUsed / 3) * 100);
+
+        // First-pitch strikes (15%)
+        $firstPitch  = $data->where('sort', 1);
+        $fpTotal     = $firstPitch->count();
+        $fpStrikes   = $firstPitch->where('zone', 'S')->count();
+        $fpScore     = $fpTotal > 0 ? ($fpStrikes / $fpTotal) * 100 : $strikeRate;
+
+        $bps = round(
+            $strikeRate * 0.35
+            + $veloScore  * 0.30
+            + $mixScore   * 0.20
+            + $fpScore    * 0.15,
+            1
+        );
+
+        return [
+            'bps'         => $bps,
+            'total'       => $total,
+            'strikeRate'  => round($strikeRate, 1),
+            'veloScore'   => round($veloScore, 1),
+            'mixScore'    => round($mixScore, 1),
+            'fpScore'     => round($fpScore, 1),
+            'avgVelo'     => round($avgVelo, 1),
+            'topVelo'     => round($topVelo, 1),
+            'typesUsed'   => $typesUsed,
+        ];
+    }
+
 
 
     private function getTeamTotals($data)

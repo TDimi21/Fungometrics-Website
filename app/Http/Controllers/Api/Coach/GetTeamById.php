@@ -26,10 +26,15 @@ class GetTeamById extends Controller
         try {
             $playersId = PlayerTeam::with('team')
                 ->where('team_id', $request->id)
-                ->where('actual', true)->pluck('user_id')
+                ->pluck('user_id')
                 ->all();
             if (0 === count($playersId)) {
-                throw new NotFound();
+                return response()->json([
+                    'code'    => '029',
+                    'message' => 'No players found for team '.$request->id,
+                    'status'  => 'success',
+                    'data'    => [],
+                ], HttpCodes::HTTP_OK);
             }
 
             $playersData = (new RoasterUtils())->getDataPlayers($playersId);

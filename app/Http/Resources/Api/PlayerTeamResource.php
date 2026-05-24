@@ -44,7 +44,8 @@ class PlayerTeamResource extends JsonResource
             'shirt_number' => $this->player?->number_in_shirt,
             'throw_side' => $this->player?->throw_side,
             'hit_side' => $this->player?->hit_side,
-            'positions' => $this->positions
+            'positions' => $this->positions,
+            'claimed' => (bool) ($this->pivot?->actual ?? true),
         ];
     }
 }

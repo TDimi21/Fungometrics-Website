@@ -65,8 +65,8 @@ final class ResultTrainingService
 
         return CagePracticeResult::with('profile')
             ->where('team_id', '=', $team)
-            ->whereDate('updated_at', '>=', $dates[0])
-            ->whereDate('updated_at', '<=', $dates[1])
+            ->whereDate('created_at', '>=', $dates[0])
+            ->whereDate('created_at', '<=', $dates[1])
             ->whereIn('user_id', $players)
             ->get();
 
@@ -81,8 +81,8 @@ final class ResultTrainingService
     {
 
         return BattingPracticeResult::where('team_id', $team)
-            ->whereDate('updated_at', '>=', $dates[0])
-            ->whereDate('updated_at', '<=', $dates[1])
+            ->whereDate('created_at', '>=', $dates[0])
+            ->whereDate('created_at', '<=', $dates[1])
             ->where('is_in_match', false)
             ->whereIn('batter_id', $players)
             ->get();
@@ -96,8 +96,8 @@ final class ResultTrainingService
     public static function getBullpenResults(string $team, array $players, array $dates)
     {
         return BullpenPracticeResult::where('team_id', $team)
-            ->whereDate('updated_at', '>=', $dates[0])
-            ->whereDate('updated_at', '<=', $dates[1])
+            ->whereDate('created_at', '>=', $dates[0])
+            ->whereDate('created_at', '<=', $dates[1])
             ->where('is_in_match', false)
             ->whereIn('pitcher_id', $players)
             ->get();
@@ -114,8 +114,8 @@ final class ResultTrainingService
     {
 
         return LongTossPractice::where('team_id', $team)
-            ->whereDate('updated_at', '>=', $dates[0])
-            ->whereDate('updated_at', '<=', $dates[1])
+            ->whereDate('created_at', '>=', $dates[0])
+            ->whereDate('created_at', '<=', $dates[1])
             ->whereIn('user_id', $players)
             ->get();
     }
@@ -129,8 +129,8 @@ final class ResultTrainingService
     public static function getWeightBallResults(string $team, array $players, array $dates)
     {
         return WeightBallPractice::where('team_id', $team)
-            ->whereDate('updated_at', '>=', $dates[0])
-            ->whereDate('updated_at', '<=', $dates[1])
+            ->whereDate('created_at', '>=', $dates[0])
+            ->whereDate('created_at', '<=', $dates[1])
             ->whereIn('user_id', $players)
             ->get();
     }
@@ -144,9 +144,136 @@ final class ResultTrainingService
     public static function getExitVelocityResults(string $team, array $players, array $dates)
     {
         return ExitVelocityPractice::where('team_id', $team)
-            ->whereDate('updated_at', '>=', $dates[0])
-            ->whereDate('updated_at', '<=', $dates[1])
+            ->whereDate('created_at', '>=', $dates[0])
+            ->whereDate('created_at', '<=', $dates[1])
             ->whereIn('user_id', $players)
+            ->get();
+    }
+
+    // ── Last-N-sessions helpers (used by Performance Overview) ───────────────
+
+    /**
+     * Returns batting practice results from the last $limit distinct sessions.
+     */
+    public static function getBattingResultsLastSessions(string $team, array $players, int $limit = 10)
+    {
+        $practiceIds = BattingPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
+            ->where('team_id', $team)
+            ->where('is_in_match', false)
+            ->whereIn('batter_id', $players)
+            ->groupBy('practice_id')
+            ->orderByDesc('latest')
+            ->limit($limit)
+            ->pluck('practice_id')
+            ->all();
+
+        if (empty($practiceIds)) {
+            return collect();
+        }
+
+        return BattingPracticeResult::where('team_id', $team)
+            ->where('is_in_match', false)
+            ->whereIn('batter_id', $players)
+            ->whereIn('practice_id', $practiceIds)
+            ->get();
+    }
+
+    /**
+     * Returns bullpen practice results from the last $limit distinct sessions.
+     */
+    public static function getBullpenResultsLastSessions(string $team, array $players, int $limit = 10)
+    {
+        $practiceIds = BullpenPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
+            ->where('team_id', $team)
+            ->where('is_in_match', false)
+            ->whereIn('pitcher_id', $players)
+            ->groupBy('practice_id')
+            ->orderByDesc('latest')
+            ->limit($limit)
+            ->pluck('practice_id')
+            ->all();
+
+        if (empty($practiceIds)) {
+            return collect();
+        }
+
+        return BullpenPracticeResult::where('team_id', $team)
+            ->where('is_in_match', false)
+            ->whereIn('pitcher_id', $players)
+            ->whereIn('practice_id', $practiceIds)
+            ->get();
+    }
+
+    /**
+     * Returns cage practice results from the last $limit distinct sessions.
+     */
+    public static function getCageResultsLastSessions(string $team, array $players, int $limit = 10)
+    {
+        $practiceIds = CagePracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
+            ->where('team_id', $team)
+            ->whereIn('user_id', $players)
+            ->groupBy('practice_id')
+            ->orderByDesc('latest')
+            ->limit($limit)
+            ->pluck('practice_id')
+            ->all();
+
+        if (empty($practiceIds)) {
+            return collect();
+        }
+
+        return CagePracticeResult::with('profile')
+            ->where('team_id', $team)
+            ->whereIn('user_id', $players)
+            ->whereIn('practice_id', $practiceIds)
+            ->get();
+    }
+
+    /**
+     * Returns exit velocity results from the last $limit distinct sessions.
+     */
+    public static function getExitVelocityResultsLastSessions(string $team, array $players, int $limit = 10)
+    {
+        $practiceIds = ExitVelocityPractice::selectRaw('practice_id, MAX(created_at) as latest')
+            ->where('team_id', $team)
+            ->whereIn('user_id', $players)
+            ->groupBy('practice_id')
+            ->orderByDesc('latest')
+            ->limit($limit)
+            ->pluck('practice_id')
+            ->all();
+
+        if (empty($practiceIds)) {
+            return collect();
+        }
+
+        return ExitVelocityPractice::where('team_id', $team)
+            ->whereIn('user_id', $players)
+            ->whereIn('practice_id', $practiceIds)
+            ->get();
+    }
+
+    /**
+     * Returns long toss results from the last $limit distinct sessions.
+     */
+    public static function getLongTossResultsLastSessions(string $team, array $players, int $limit = 10)
+    {
+        $practiceIds = LongTossPractice::selectRaw('practice_id, MAX(created_at) as latest')
+            ->where('team_id', $team)
+            ->whereIn('user_id', $players)
+            ->groupBy('practice_id')
+            ->orderByDesc('latest')
+            ->limit($limit)
+            ->pluck('practice_id')
+            ->all();
+
+        if (empty($practiceIds)) {
+            return collect();
+        }
+
+        return LongTossPractice::where('team_id', $team)
+            ->whereIn('user_id', $players)
+            ->whereIn('practice_id', $practiceIds)
             ->get();
     }
 }

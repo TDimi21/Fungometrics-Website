@@ -32,13 +32,7 @@ class GetPerformanceOverview extends Controller
         try {
             $teamId = (string) $request->team;
 
-            $data = Cache::remember("performance_overview_{$teamId}", 60, function () use ($teamId) {
-                // Date window: last 90 days
-                $dates = [
-                    now()->subDays(90)->toDateString(),
-                    now()->toDateString(),
-                ];
-
+            $data = Cache::remember("performance_overview_{$teamId}", 600, function () use ($teamId) {
                 // All active player IDs on this team
                 $playerIds = PlayerTeam::where('team_id', $teamId)
                     ->pluck('user_id')
@@ -50,22 +44,23 @@ class GetPerformanceOverview extends Controller
 
                 $result = [];
 
-                // ── Batting FPS ──────────────────────────────────────────────
-                $battingData = ResultTrainingService::getBattingResults($teamId, $playerIds, $dates);
+                // ── Batting FPS — last 10 sessions ───────────────────────────
+                $battingData = ResultTrainingService::getBattingResultsLastSessions($teamId, $playerIds, 10);
                 $result['batting'] = (new BattingStatisticsService())->fps($battingData);
 
-                // ── Bullpen ───────────────────────────────────────────────────
-                $bullpenData = ResultTrainingService::getBullpenResults($teamId, $playerIds, $dates);
+                // ── Bullpen — last 10 sessions ────────────────────────────────
+                $bullpenData = ResultTrainingService::getBullpenResultsLastSessions($teamId, $playerIds, 10);
                 $bullpenSvc  = new BullpenStatisticsService();
                 $result['bullpen'] = [
+                    'bps'      => $bullpenSvc->bps($bullpenData),
                     'totals'   => $bullpenSvc->totals($bullpenData),
                     'percents' => $bullpenSvc->percents($bullpenData),
                     'avg_velo' => $bullpenSvc->averageVelocityBreakDown($bullpenData),
                     'top_velo' => $bullpenSvc->topVelocityBreakDown($bullpenData),
                 ];
 
-                // ── Cage ──────────────────────────────────────────────────────
-                $cageData = ResultTrainingService::getCageResults($teamId, $playerIds, $dates);
+                // ── Cage — last 10 sessions ───────────────────────────────────
+                $cageData = ResultTrainingService::getCageResultsLastSessions($teamId, $playerIds, 10);
                 $cageSvc  = new CageStatisticsService();
                 $result['cage'] = [
                     'launch_angle_totals'   => $cageSvc->launchAngleTotals($cageData),
@@ -76,16 +71,16 @@ class GetPerformanceOverview extends Controller
                     'spray_angle_avg_ev'    => $cageSvc->sprayAngleExitVelocityAverage($cageData),
                 ];
 
-                // ── Exit Velocity ─────────────────────────────────────────────
-                $evData = ResultTrainingService::getExitVelocityResults($teamId, $playerIds, $dates);
+                // ── Exit Velocity — last 10 sessions ──────────────────────────
+                $evData = ResultTrainingService::getExitVelocityResultsLastSessions($teamId, $playerIds, 10);
                 $evSvc  = new ExitVelocityStatisticsService();
                 $result['exit_velocity'] = [
                     'totals'   => $evSvc->totals($evData),
                     'percents' => $evSvc->percents($evData),
                 ];
 
-                // ── Long Toss ─────────────────────────────────────────────────
-                $longTossData = ResultTrainingService::getLongTossResults($teamId, $playerIds, $dates);
+                // ── Long Toss — last 10 sessions ──────────────────────────────
+                $longTossData = ResultTrainingService::getLongTossResultsLastSessions($teamId, $playerIds, 10);
                 $ltSvc        = new LongTossStatisticsService();
                 $result['long_toss'] = [
                     'distance_totals'   => $ltSvc->distanceTotals($longTossData),
