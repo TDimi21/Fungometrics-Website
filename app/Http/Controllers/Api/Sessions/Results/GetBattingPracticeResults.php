@@ -27,7 +27,7 @@ class GetBattingPracticeResults extends Controller
                 ->orderByDesc('sort')
                 ->get();
             if($request->player) {
-                $data =  $data->filter(fn ($item) => $item->batter_id === auth()->user()->id)->flatten();
+                $data = $data->filter(fn ($item) => (string) $item->batter_id === (string) auth()->user()->id)->values();
             }
             if (0 === $data->count()) {
                 throw  new NotFound();
