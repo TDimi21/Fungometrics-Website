@@ -15,38 +15,107 @@ class RequiresPlan
      * Any feature not listed for a plan is blocked.
      */
     private const PLAN_FEATURES = [
+        // ── Free Coach ────────────────────────────────────────────────────────
         'free' => [
-            'create_session',
+            'create_session',           // bullpen, cage, batting only
             'record_pitches',
+            'view_session_history',
+            'roster_view',
+            'invite_players',           // max 10 (enforced in AddPlayers controller)
+            'notifications',
+            'recent_sessions',
         ],
+
+        // ── Coach Basic (legacy — same as free) ───────────────────────────────
         'coach_basic' => [
             'create_session',
             'record_pitches',
-            'view_session_report',
-            'view_team_stats',
-            'manage_team',
+            'view_session_history',
+            'roster_view',
+            'invite_players',
+            'notifications',
+            'recent_sessions',
         ],
+
+        // ── Coach Pro ─────────────────────────────────────────────────────────
         'coach_pro' => [
+            // Base
             'create_session',
             'record_pitches',
-            'view_session_report',
+            'view_session_history',
+            'roster_view',
+            'invite_players',
+            'notifications',
+            'recent_sessions',
+            // Advanced session types
+            'liveab_sessions',
+            'exit_velocity_sessions',
+            'long_toss_sessions',
+            'weighted_ball_sessions',
+            'practice_sessions',
+            // Stats & analytics
             'view_team_stats',
-            'manage_team',
-            'view_player_cards',
             'view_advanced_stats',
-            'export_stats',
             'performance_overview',
+            'heat_maps',
+            'export_stats',
+            'ai_analytics',
+            // Session reports (all 7)
+            'view_session_report',
+            // Live AB premium
+            'liveab_analytics',
+            'box_score',
+            'team_recaps',
+            'player_recaps',
+            // Team management
+            'add_coaches',
+            'team_switching',
+            'edit_team',
+            'edit_player',
+            'add_team',
+            'manage_multiple_teams',
+            // Other
             'sms_results',
+            'view_player_cards',
+            'unlimited_players',
         ],
+
+        // ── Player Basic ($2.99) ──────────────────────────────────────────────
         'player_basic' => [
-            'view_session_report',
-            'view_own_stats',
+            'view_own_profile',
+            'view_own_sessions',
+            'personal_stats',
+            'notifications',
+            'recent_sessions',
         ],
+
+        // ── Player Pro / Premium ($6.99) ──────────────────────────────────────
         'player_pro' => [
-            'view_session_report',
+            'view_own_profile',
+            'view_own_sessions',
+            'personal_stats',
+            'notifications',
+            'recent_sessions',
+            // Advanced session types
+            'liveab_sessions',
+            'exit_velocity_sessions',
+            'long_toss_sessions',
+            'weighted_ball_sessions',
+            // Stats
             'view_own_stats',
             'view_advanced_stats',
+            'heat_maps',
+            'development_graphs',
+            'ai_recommendations',
+            // Reports
+            'view_session_report',
             'export_stats',
+            // Live AB
+            'box_score',
+            'player_recaps',
+            // Profile
+            'shareable_profile',
+            'recruiting_profile',
         ],
     ];
 

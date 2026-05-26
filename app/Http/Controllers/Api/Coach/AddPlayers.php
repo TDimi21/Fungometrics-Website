@@ -7,6 +7,8 @@ namespace App\Http\Controllers\Api\Coach;
 use App\Events\UserCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
+use App\Models\CoachTeam;
+use App\Models\PlayerTeam;
 use App\Models\User;
 use App\Services\ListServiceData;
 use Exception;
@@ -26,6 +28,27 @@ class AddPlayers extends Controller
         try {
             DB::beginTransaction();
             $data = $request->validated();
+
+            // ── Player limit enforcement ──
+            $coach = $request->user();
+            $plan = $coach->subscription_plan ?? 'free';
+            if ($plan !== 'coach_pro') {
+                $teamId = $data['team'] ?? null;
+                if ($teamId) {
+                    $currentCount = PlayerTeam::where('team_id', $teamId)
+                        ->where('actual', true)
+                        ->count();
+                    if ($currentCount >= 10) {
+                        DB::rollBack();
+                        return response()->json([
+                            'code'    => '016-LIMIT',
+                            'message' => 'You have reached the 10-player limit on your current plan. Upgrade to Coach Pro for unlimited players.',
+                            'status'  => 'error',
+                            'data'    => [],
+                        ], HttpCodes::HTTP_FORBIDDEN);
+                    }
+                }
+            }
             $player = (new ListServiceData(new User()))->byParamFirst('phone', $data['phone']);
             $message = "";
             if ( ! isset($player)) {
