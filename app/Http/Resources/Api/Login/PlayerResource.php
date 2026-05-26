@@ -43,6 +43,7 @@ class PlayerResource extends JsonResource
             'zip' => $this['profile']['zip'],
             'level' => $this['profile']['level'],
             'token' => $this['token'],
+            'subscription_plan' => $this['player']['subscription_plan'] ?? 'free',
             'fitness' => $this['fitness'],
             'positions' => $this['positions'],
 

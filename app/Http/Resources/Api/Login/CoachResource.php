@@ -31,6 +31,7 @@ class CoachResource extends JsonResource
             'zip' => $this['profile']['zip'],
             'level' => $this['profile']['level'],
             'token' => $this['token'],
+            'subscription_plan' => $this['user']['subscription_plan'] ?? 'free',
             'teams' => CoachTeamResource::collection($this['teams']),
             'players' => $this['players']
         ];

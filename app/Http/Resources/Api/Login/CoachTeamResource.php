@@ -1,4 +1,4 @@
-ssh develop@74.208.137.139<?php
+<?php
 
 declare(strict_types=1);
 

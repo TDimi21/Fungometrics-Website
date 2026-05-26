@@ -38,6 +38,7 @@ class User extends Authenticatable
         'type',
         'password',
         'status',
+        'subscription_plan',
     ];
 
     /**
@@ -54,7 +55,52 @@ class User extends Authenticatable
     protected $casts = [
         'status' => 'boolean',
         'id' => 'string',
+        'subscription_plan' => 'string',
     ];
+
+    private const PLAN_FEATURES = [
+        'free' => [
+            'create_session',
+            'record_pitches',
+        ],
+        'coach_basic' => [
+            'create_session',
+            'record_pitches',
+            'view_session_report',
+            'view_team_stats',
+            'manage_team',
+        ],
+        'coach_pro' => [
+            'create_session',
+            'record_pitches',
+            'view_session_report',
+            'view_team_stats',
+            'manage_team',
+            'view_player_cards',
+            'view_advanced_stats',
+            'export_stats',
+            'performance_overview',
+            'sms_results',
+        ],
+        'player_basic' => [
+            'view_session_report',
+            'view_own_stats',
+        ],
+        'player_pro' => [
+            'view_session_report',
+            'view_own_stats',
+            'view_advanced_stats',
+            'export_stats',
+        ],
+    ];
+
+    public function planHasFeature(string $feature): bool
+    {
+        $plan = $this->subscription_plan ?? 'free';
+        $allowed = self::PLAN_FEATURES[$plan] ?? self::PLAN_FEATURES['free'];
+
+        return in_array($feature, $allowed, true);
+    }
 
     public function profile(): HasOne
     {
