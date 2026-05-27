@@ -94,6 +94,9 @@ use App\Http\Controllers\Api\Training\Result\SaveExitVelocityResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveLiveABResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveLongTossResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveWeightBallResultPractice;
+use App\Http\Controllers\Api\Training\Result\SaveScriptedBpPlan;
+use App\Http\Controllers\Api\Training\Result\SaveScriptedBpSwing;
+use App\Http\Controllers\Api\Sessions\Results\GetScriptedBpResults;
 use App\Http\Controllers\Api\Admin\UpdateUserPlan;
 use Illuminate\Support\Facades\Route;
 
@@ -212,6 +215,11 @@ Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
     Route::get('/weightball/{uuid}', GetWeightBallResultPractice::class);
     Route::post('/weightball', SaveWeightBallResultPractice::class);
     Route::put('/weightball/{uuid}', EditWeightBallResultPractice::class);
+
+    // ── Scripted BP ──────────────────────────────────────────────────────────
+    Route::post('/scripted-bp/plan', SaveScriptedBpPlan::class);
+    Route::post('/scripted-bp/swing', SaveScriptedBpSwing::class);
+    Route::get('/scripted-bp/{practice}', GetScriptedBpResults::class);
     Route::middleware('ability:coach')->get(
         '/statistics/{team}',
         FilterTrainings::class
