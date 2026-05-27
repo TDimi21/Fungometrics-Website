@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Coach;
 
 use App\Http\Controllers\Controller;
+use App\Models\BullpenPracticeResult;
+use App\Models\ExitVelocityPractice;
 use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
 use App\Models\User;
@@ -30,7 +32,7 @@ class GetTeamPlayerCards extends Controller
         try {
             $teamId = (string) $request->id;
 
-            $cards = Cache::remember("player_cards_{$teamId}", 600, function () use ($teamId) {
+            $cards = Cache::remember("player_cards_v2_{$teamId}", 600, function () use ($teamId) {
                 $playerIds = PlayerTeam::where('team_id', $teamId)
                     ->pluck('user_id')
                     ->all();
@@ -49,7 +51,19 @@ class GetTeamPlayerCards extends Controller
                     ->unique('user_id')
                     ->keyBy('user_id');
 
-                return $users->map(function (User $user) use ($latestFitness) {
+                // Max bullpen velocity per pitcher (pitcher_id maps to user id)
+                $maxBullpenVelo = BullpenPracticeResult::whereIn('pitcher_id', $playerIds)
+                    ->selectRaw('pitcher_id, MAX(miles_per_hour) as max_velo')
+                    ->groupBy('pitcher_id')
+                    ->pluck('max_velo', 'pitcher_id');
+
+                // Max exit velocity per player
+                $maxExitVelo = ExitVelocityPractice::whereIn('user_id', $playerIds)
+                    ->selectRaw('user_id, MAX(velocity) as max_ev')
+                    ->groupBy('user_id')
+                    ->pluck('max_ev', 'user_id');
+
+                return $users->map(function (User $user) use ($latestFitness, $maxBullpenVelo, $maxExitVelo) {
                 $profile = $user->profile;
                 $player  = $user->player;
                 $fitness = $latestFitness->get($user->id);
@@ -93,6 +107,12 @@ class GetTeamPlayerCards extends Controller
                         'yd_40_dash'  => $fitness->yd_40_dash,
                         'yd_60_dash'  => $fitness->yd_60_dash,
                     ] : null,
+
+                    // ── Session Velocity Stats ─────────────────────────────────
+                    'stats' => [
+                        'max_fastball'  => $maxBullpenVelo->get($user->id) ? (float) $maxBullpenVelo->get($user->id) : null,
+                        'max_exit_velo' => $maxExitVelo->get($user->id)    ? (float) $maxExitVelo->get($user->id)    : null,
+                    ],
                 ];
                 })->values()->all();
             });
