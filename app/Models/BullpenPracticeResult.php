@@ -25,6 +25,7 @@ class BullpenPracticeResult extends Model
         'id' => 'string',
         'is_in_match' => 'boolean',
         'is_strike' => 'boolean',
+        'intended_location' => 'integer',
         'created_at' => 'datetime:Y-m-d',
         'updated_at' => 'datetime:Y-m-d',
         'deleted_at' => 'datetime:Y-m-d h:i:s'
@@ -42,7 +43,9 @@ class BullpenPracticeResult extends Model
         'trajectory',
         'is_in_match',
         'sort',
-        'zone'
+        'zone',
+        'intended_location',
+        'intended_pitch_type',
     ];
 
     public function practice(): BelongsTo

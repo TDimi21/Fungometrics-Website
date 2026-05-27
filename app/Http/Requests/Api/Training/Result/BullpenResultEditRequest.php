@@ -32,6 +32,8 @@ class BullpenResultEditRequest extends FormRequest
             'type_throw' => ['required', 'string'],
             'trajectory' => ['nullable', 'string'],
             'is_in_match' => ['nullable', 'boolean'],
+            'intended_location' => ['nullable', 'integer'],
+            'intended_pitch_type' => ['nullable', 'string'],
         ];
     }
 

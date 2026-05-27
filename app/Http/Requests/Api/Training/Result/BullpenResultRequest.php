@@ -36,6 +36,8 @@ class BullpenResultRequest extends FormRequest
             'trajectory' => ['nullable', 'string'],
             'is_in_match' => ['nullable', 'boolean'],
             'zone'=>['string'],
+            'intended_location' => ['nullable', 'integer'],
+            'intended_pitch_type' => ['nullable', 'string'],
         ];
     }
 
