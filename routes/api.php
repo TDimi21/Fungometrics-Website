@@ -94,6 +94,7 @@ use App\Http\Controllers\Api\Training\Result\SaveExitVelocityResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveLiveABResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveLongTossResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveWeightBallResultPractice;
+use App\Http\Controllers\Api\Admin\UpdateUserPlan;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/opcache-clear', function() {
@@ -234,4 +235,9 @@ Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): vo
     Route::get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
     Route::get('/{practice}/cage', GetCagePracticeResults::class);
     Route::middleware('ability:coach')->get('/{practice}/liveab', GetLiveABPracticeResults::class);
+});
+
+// ── Admin routes ──────────────────────────────────────────────────────────────
+Route::middleware(['auth:sanctum'])->prefix('admin')->group(function (): void {
+    Route::patch('/users/{id}/plan', UpdateUserPlan::class);
 });
