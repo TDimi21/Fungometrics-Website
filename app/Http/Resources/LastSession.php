@@ -58,7 +58,10 @@ class LastSession extends JsonResource
                 'number_in_shirt'  => $element->user->player->number_in_shirt ?? 0,
                 'batting'          => $element->is_batting,
             ]),
-            "balls" => $relation->count(),
+            "balls"        => $relation->count(),
+            "is_scripted"  => $this->type === PracticeTypes::BATTING->value
+                && ($this->batting ?? collect())->count() === 0
+                && ($this->scriptedBpSwings ?? collect())->count() > 0,
         ];
     }
 }
