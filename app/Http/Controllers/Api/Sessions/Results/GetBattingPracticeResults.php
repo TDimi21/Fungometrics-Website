@@ -35,6 +35,7 @@ class GetBattingPracticeResults extends Controller
             // transform them into the same shape the frontend expects.
             if (0 === $data->count()) {
                 $scripted = ScriptedBpSwing::where('practice_id', $request->practice)
+                    ->with('batter.profile')
                     ->orderBy('batter_id')
                     ->orderBy('sort')
                     ->get();
@@ -53,7 +54,7 @@ class GetBattingPracticeResults extends Controller
                     'field_direction'   => $s->direction,
                     'velocity'          => $s->exit_velocity,
                     'exit_velocity'     => $s->exit_velocity,
-                    'batter_name'       => null,
+                    'batter_name'       => trim(($s->batter?->profile?->first_name ?? '') . ' ' . ($s->batter?->profile?->last_name ?? '')) ?: null,
                     'sort'              => $s->sort,
                 ]);
             }

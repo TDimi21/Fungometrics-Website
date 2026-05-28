@@ -20,6 +20,7 @@ class GetScriptedBpResults extends Controller
         try {
             $plan   = ScriptedBpPlan::where('practice_id', $practice)->first();
             $swings = ScriptedBpSwing::where('practice_id', $practice)
+                ->with('batter.profile')
                 ->orderBy('batter_id')
                 ->orderBy('sort')
                 ->get();
@@ -31,7 +32,15 @@ class GetScriptedBpResults extends Controller
             foreach ($swings as $swing) {
                 $batterId = $swing->batter_id;
                 if (!isset($byBatter[$batterId])) {
-                    $byBatter[$batterId] = ['rounds' => [], 'total_swings' => 0, 'total_score' => 0];
+                    $profile     = $swing->batter?->profile;
+                    $firstName   = $profile?->first_name ?? '';
+                    $lastName    = $profile?->last_name  ?? '';
+                    $byBatter[$batterId] = [
+                        'batter_name'  => trim("$firstName $lastName") ?: null,
+                        'rounds'       => [],
+                        'total_swings' => 0,
+                        'total_score'  => 0,
+                    ];
                 }
                 $rt = $swing->round_type;
                 if (!isset($byBatter[$batterId]['rounds'][$rt])) {
@@ -68,6 +77,7 @@ class GetScriptedBpResults extends Controller
 
                 $batterResults[] = [
                     'batter_id'    => $batterId,
+                    'batter_name'  => $data['batter_name'],
                     'total_swings' => $data['total_swings'],
                     'total_score'  => $data['total_score'],
                     'avg_score'    => round($avgScore, 2),
