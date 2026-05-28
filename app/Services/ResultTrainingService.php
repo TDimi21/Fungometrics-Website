@@ -7,10 +7,12 @@ namespace App\Services;
 use App\Models\BattingPracticeResult;
 use App\Models\BullpenPracticeResult;
 use App\Models\CagePracticeResult;
+use App\Models\Concerns\PracticeTypes;
 use App\Models\ExitVelocityPractice;
 use App\Models\LiveABPracticeResult;
 use App\Models\LongTossPractice;
 use App\Models\Practice;
+use App\Models\ScriptedBpSwing;
 use App\Models\TeamsLiveAB;
 use App\Models\WeightBallPractice;
 
@@ -79,13 +81,30 @@ final class ResultTrainingService
      */
     public static function getBattingResults(string $team, array $players, array $dates)
     {
-
-        return BattingPracticeResult::where('team_id', $team)
+        $batting = BattingPracticeResult::where('team_id', $team)
             ->whereDate('created_at', '>=', $dates[0])
             ->whereDate('created_at', '<=', $dates[1])
             ->where('is_in_match', false)
             ->whereIn('batter_id', $players)
             ->get();
+
+        // Also include Scripted BP swings for the same team / date range
+        $scriptedPracticeIds = Practice::where('team_id', $team)
+            ->where('type', PracticeTypes::BATTING->value)
+            ->whereDate('created_at', '>=', $dates[0])
+            ->whereDate('created_at', '<=', $dates[1])
+            ->pluck('id')
+            ->all();
+
+        $scriptedSwings = collect();
+        if (!empty($scriptedPracticeIds)) {
+            $rawSwings = ScriptedBpSwing::whereIn('practice_id', $scriptedPracticeIds)
+                ->whereIn('batter_id', $players)
+                ->get();
+            $scriptedSwings = self::normalizeScriptedSwings($rawSwings);
+        }
+
+        return $batting->concat($scriptedSwings);
     }
 
     /**
@@ -167,15 +186,33 @@ final class ResultTrainingService
             ->pluck('practice_id')
             ->all();
 
-        if (empty($practiceIds)) {
-            return collect();
+        $batting = collect();
+        if (!empty($practiceIds)) {
+            $batting = BattingPracticeResult::where('team_id', $team)
+                ->where('is_in_match', false)
+                ->whereIn('batter_id', $players)
+                ->whereIn('practice_id', $practiceIds)
+                ->get();
         }
 
-        return BattingPracticeResult::where('team_id', $team)
-            ->where('is_in_match', false)
-            ->whereIn('batter_id', $players)
-            ->whereIn('practice_id', $practiceIds)
-            ->get();
+        // Also include Scripted BP swings from the last $limit scripted BP sessions for this team
+        $scriptedPracticeIds = Practice::where('team_id', $team)
+            ->where('type', PracticeTypes::BATTING->value)
+            ->whereHas('scriptedBpSwings')
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->pluck('id')
+            ->all();
+
+        $scriptedSwings = collect();
+        if (!empty($scriptedPracticeIds)) {
+            $rawSwings = ScriptedBpSwing::whereIn('practice_id', $scriptedPracticeIds)
+                ->whereIn('batter_id', $players)
+                ->get();
+            $scriptedSwings = self::normalizeScriptedSwings($rawSwings);
+        }
+
+        return $batting->concat($scriptedSwings);
     }
 
     /**
@@ -292,5 +329,42 @@ final class ResultTrainingService
             ->whereIn('user_id', $players)
             ->whereIn('practice_id', $practiceIds)
             ->get();
+    }
+
+    /**
+     * Normalizes ScriptedBpSwing Eloquent rows into plain objects whose property
+     * names match BattingPracticeResult so BattingStatisticsService can process
+     * both batting and scripted BP swings in a single pass.
+     *
+     * Field mapping:
+     *   trajectory    → type_of_hit  (camelCase → BattingTrajectory short value)
+     *   contact_type  → quality_of_contact
+     *   exit_velocity → velocity
+     *   direction     → field_direction
+     */
+    private static function normalizeScriptedSwings($swings): \Illuminate\Support\Collection
+    {
+        // Map scripted BP trajectory names to BattingTrajectory enum values
+        $trajectoryMap = [
+            'LineDrive'  => 'LD',
+            'FlyBall'    => 'FB',
+            'GroundBall' => 'GB',
+            'PopUp'      => 'PF',
+            'Foul'       => 'F',
+            'Miss'       => 'SM',
+        ];
+
+        return $swings->map(function (ScriptedBpSwing $swing) use ($trajectoryMap): object {
+            return (object) [
+                'type_of_hit'        => $trajectoryMap[$swing->trajectory ?? ''] ?? $swing->trajectory,
+                'quality_of_contact' => $swing->contact_type,
+                'velocity'           => $swing->exit_velocity,
+                'zone'               => null,
+                'field_direction'    => $swing->direction,
+                'batter_id'          => $swing->batter_id,
+                'practice_id'        => $swing->practice_id,
+                'is_scripted'        => true,
+            ];
+        });
     }
 }
