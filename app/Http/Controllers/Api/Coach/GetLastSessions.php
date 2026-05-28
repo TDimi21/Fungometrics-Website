@@ -33,6 +33,7 @@ class GetLastSessions extends Controller
                 'weightBall',
                 'longToss',
                 'cage',
+                'scriptedBpSwings',
                 'lineup.user.profile',
                 'lineup.user.player'
             ])

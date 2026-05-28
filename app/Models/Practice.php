@@ -78,4 +78,9 @@ class Practice extends Model
     {
         return $this->hasMany(WeightBallPractice::class);
     }
+
+    public function scriptedBpSwings(): HasMany
+    {
+        return $this->hasMany(ScriptedBpSwing::class);
+    }
 }

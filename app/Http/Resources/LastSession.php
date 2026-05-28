@@ -21,42 +21,44 @@ class LastSession extends JsonResource
     {
         $relation = collect();
 
-        if($this->type === PracticeTypes::BATTING->value) {
-            $relation = $this->batting;
-        } elseif($this->type === PracticeTypes::BULLPEN->value) {
-            $relation = $this->bullpen;
-        } elseif($this->type === PracticeTypes::CAGE->value) {
-            $relation = $this->cage;
-        } elseif($this->type === PracticeTypes::LIVE_AB->value) {
-            $relation = $this->live;
-        } elseif($this->type === PracticeTypes::LONG_TOSS->value && $this->modes === PracticeModes::TRAINING->value) {
-            $relation = $this->long_toss;
-        } elseif($this->type === PracticeTypes::WEIGHT_BALL->value && $this->modes === PracticeModes::TRAINING->value) {
-            $relation = $this->weight_ball;
-        } elseif($this->type === PracticeTypes::EXIT_VELOCITY->value && $this->modes === PracticeModes::TRAINING->value) {
-            $relation = $this->exit_velocity;
+        if ($this->type === PracticeTypes::BATTING->value) {
+            $batting  = $this->batting          ?? collect();
+            $scripted = $this->scriptedBpSwings ?? collect();
+            $relation = $batting->count() > 0 ? $batting : $scripted;
+        } elseif ($this->type === PracticeTypes::BULLPEN->value) {
+            $relation = $this->bullpen ?? collect();
+        } elseif ($this->type === PracticeTypes::CAGE->value) {
+            $relation = $this->cage ?? collect();
+        } elseif ($this->type === PracticeTypes::LIVE_AB->value) {
+            $relation = $this->live ?? collect();
+        } elseif ($this->type === PracticeTypes::TRAINING->value && $this->modes === PracticeModes::LONG_TOSS->value) {
+            $relation = $this->long_toss ?? collect();
+        } elseif ($this->type === PracticeTypes::TRAINING->value && $this->modes === PracticeModes::WEIGHT_BALL->value) {
+            $relation = $this->weight_ball ?? collect();
+        } elseif ($this->type === PracticeTypes::TRAINING->value && $this->modes === PracticeModes::EXIT_VELOCITY->value) {
+            $relation = $this->exit_velocity ?? collect();
         }
 
         return [
-            "id" => $this->id,
+            "id"           => $this->id,
             "is_completed" => $this->is_completed,
-            "start" => $this->start,
-            "type" => $this->type,
-            "mode" => $this->modes,
-            "date"=>$this->created_at,
-            "lineup" => $this->lineup->map(fn ($element) => [
-                'name'=>[
-                    'first'=>$element->user->profile->first_name,
-                    'last'=>$element->user->profile->last_name,
-                    'full'=>$element->user->profile->first_name." ".$element->user->profile->last_name,
+            "start"        => $this->start,
+            "type"         => $this->type,
+            "mode"         => $this->modes,
+            "date"         => $this->created_at,
+            "lineup"       => ($this->lineup ?? collect())->map(fn ($element) => [
+                'name' => [
+                    'first' => $element->user->profile->first_name,
+                    'last'  => $element->user->profile->last_name,
+                    'full'  => $element->user->profile->first_name . " " . $element->user->profile->last_name,
                 ],
-                'id'=>$element->user->id,
-                'picture'=>$element->user->profile->picture,
-                'sort'=>$element->sort,
-                'number_in_shirt'=>$element->user->player->number_in_shirt??0,
-                'batting'=>$element->is_batting,
+                'id'               => $element->user->id,
+                'picture'          => $element->user->profile->picture,
+                'sort'             => $element->sort,
+                'number_in_shirt'  => $element->user->player->number_in_shirt ?? 0,
+                'batting'          => $element->is_batting,
             ]),
-            "balls"=>$relation->count()
+            "balls" => $relation->count(),
         ];
     }
 }

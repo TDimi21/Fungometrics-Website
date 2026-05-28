@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Sessions\Results;
 use App\Exceptions\NotFound;
 use App\Http\Controllers\Controller;
 use App\Models\BattingPracticeResult;
+use App\Models\ScriptedBpSwing;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,8 +30,32 @@ class GetBattingPracticeResults extends Controller
             if($request->player) {
                 $data = $data->filter(fn ($item) => (string) $item->batter_id === (string) auth()->user()->id)->values();
             }
+
+            // If no regular batting results, check for scripted BP swings and
+            // transform them into the same shape the frontend expects.
             if (0 === $data->count()) {
-                throw  new NotFound();
+                $scripted = ScriptedBpSwing::where('practice_id', $request->practice)
+                    ->orderBy('batter_id')
+                    ->orderBy('sort')
+                    ->get();
+
+                if (0 === $scripted->count()) {
+                    throw new NotFound();
+                }
+
+                // Map ScriptedBpSwing fields → BattingPracticeResult field names
+                $data = $scripted->map(fn ($s) => (object) [
+                    'id'                => $s->id,
+                    'practice_id'       => $s->practice_id,
+                    'batter_id'         => $s->batter_id,
+                    'quality_of_contact'=> $s->contact_type,
+                    'type_of_hit'       => $s->trajectory,
+                    'field_direction'   => $s->direction,
+                    'velocity'          => $s->exit_velocity,
+                    'exit_velocity'     => $s->exit_velocity,
+                    'batter_name'       => null,
+                    'sort'              => $s->sort,
+                ]);
             }
             $count = $data->count();
             $byQuality = $data->groupBy('quality_of_contact')->all();
