@@ -183,6 +183,7 @@ final class ResultTrainingService
      */
     public static function getBullpenResultsLastSessions(string $team, array $players, int $limit = 10)
     {
+        // Primary lookup: by pitcher_id (claimed-player roster)
         $practiceIds = BullpenPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
             ->where('is_in_match', false)
             ->whereIn('pitcher_id', $players)
@@ -192,13 +193,31 @@ final class ResultTrainingService
             ->pluck('practice_id')
             ->all();
 
-        if (empty($practiceIds)) {
+        if (!empty($practiceIds)) {
+            return BullpenPracticeResult::where('is_in_match', false)
+                ->whereIn('pitcher_id', $players)
+                ->whereIn('practice_id', $practiceIds)
+                ->get();
+        }
+
+        // Fallback: look up by team_id in case pitches were recorded before players
+        // claimed their accounts (pitcher_id not yet in PlayerTeam).
+        $practiceIdsByTeam = BullpenPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
+            ->where('is_in_match', false)
+            ->where('team_id', $team)
+            ->groupBy('practice_id')
+            ->orderByDesc('latest')
+            ->limit($limit)
+            ->pluck('practice_id')
+            ->all();
+
+        if (empty($practiceIdsByTeam)) {
             return collect();
         }
 
         return BullpenPracticeResult::where('is_in_match', false)
-            ->whereIn('pitcher_id', $players)
-            ->whereIn('practice_id', $practiceIds)
+            ->where('team_id', $team)
+            ->whereIn('practice_id', $practiceIdsByTeam)
             ->get();
     }
 
