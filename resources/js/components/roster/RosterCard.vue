@@ -111,7 +111,7 @@ const submitDelete = async () => {
       </svg>
     </div>
     <!-- Red accent top bar -->
-    <div class="h-0.5 w-full bg-gradient-to-r from-app-red via-app-blue to-transparent" />
+    <div class="h-0.5 w-full bg-gradient-to-r from-app-red via-app-red/50 to-transparent" />
 
     <!-- Avatar + name block -->
     <div class="flex flex-col items-center pt-6 pb-4 px-4">
@@ -166,8 +166,8 @@ const submitDelete = async () => {
         v-if="type === 'player'"
         :to="{ path: `/roster/player/${item.id}`, params: { playerData: item } }"
         @click.stop
-        class="flex-1 flex items-center justify-center gap-1.5 bg-app-blue/20 hover:bg-app-blue/40
-               text-app-blue text-xs font-bold py-2 rounded-xl border border-app-blue/30 transition"
+         class="flex-1 flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10
+           text-white text-xs font-bold py-2 rounded-xl border border-white/20 transition"
       >
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

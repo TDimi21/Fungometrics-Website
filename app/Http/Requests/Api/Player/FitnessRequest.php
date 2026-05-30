@@ -35,6 +35,10 @@ class FitnessRequest extends FormRequest
             'yd_40_dash'=>['nullable','numeric'],
             'yd_60_dash'=>['nullable','numeric'],
             'body_weight'=>['nullable','numeric'],
+            'sleep_hours'=>['nullable','numeric','min:0','max:24'],
+            'sleep_quality_1_to_5'=>['nullable','integer','min:1','max:5'],
+            'recovery_score'=>['nullable','integer','min:0','max:100'],
+            'mobility_score'=>['nullable','integer','min:0','max:100'],
         ];
     }
 

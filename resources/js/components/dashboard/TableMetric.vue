@@ -8,7 +8,7 @@ const props = defineProps({
   }
 })
 const tableHeadings = ref([
-  "DATE", "WEIGHT", "BENCH PRESS", "FR. SQUAT", "BACK SQUAT", "DEADLIFT", "CLEAN", "40", "60"
+  "DATE", "WEIGHT", "BENCH PRESS", "FR. SQUAT", "BACK SQUAT", "DEADLIFT", "CLEAN", "40", "60", "SLEEP HRS", "SLEEP Q", "RECOVERY", "MOBILITY"
 ])
 
 const date = (info) => {
@@ -23,15 +23,15 @@ const date = (info) => {
 </script>
 
 <template>
-  <section class="px-[5%] md:px-[3%] mt-[3%] overflow-x-auto">
-    <table class="w-full border-separate space-y-6 text-fungo-darkblue">
+  <section class="px-[4%] md:px-[3%] mt-[3%] overflow-x-auto">
+    <table class="w-full border-separate space-y-6 text-white">
 
-      <thead class="bg-fungo-lightblue text-center">
-        <tr class="divide-x divide-[#000]">
+      <thead class="bg-[#121a29] text-center">
+        <tr class="divide-x divide-white/10">
           <th
             v-for="(heading, index) in tableHeadings"
             :key="index"
-            class="py-3 font-fungo-500 text-[16px]"
+            class="py-3 font-fungo-500 text-[13px] tracking-wide text-white/80"
           >
             {{ heading }}
           </th>
@@ -40,10 +40,10 @@ const date = (info) => {
 
       <tbody>
         <tr v-if="!tableData.length > 0">
-          <td colspan="8" class="text-fungo-darkblue text-3xl text-center">No found data</td>
+          <td colspan="9" class="text-white/60 text-xl text-center py-8">No metric logs found</td>
         </tr>
         <template v-else v-for="(item, index) in tableData" :key="index">
-          <tr class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative font-fungo-700 text-[16px]">
+          <tr class="bg-[#0f172a] even:bg-[#111b2e] border border-white/10 relative font-fungo-700 text-[14px]">
             <td class="w-[200px] max-w-[200px]">
               {{ date(item.fitness_date ?? "") }}
             </td>
@@ -71,6 +71,18 @@ const date = (info) => {
             <td class="w-[150px] max-w-[150px]">
               {{ item.yd_60_dash ?? "" }}
             </td>
+            <td class="w-[140px] max-w-[140px]">
+              {{ item.sleep_hours ?? "" }}
+            </td>
+            <td class="w-[140px] max-w-[140px]">
+              {{ item.sleep_quality_1_to_5 ?? "" }}
+            </td>
+            <td class="w-[140px] max-w-[140px]">
+              {{ item.recovery_score ?? "" }}
+            </td>
+            <td class="w-[140px] max-w-[140px]">
+              {{ item.mobility_score ?? "" }}
+            </td>
           </tr>
         </template>
       </tbody>
@@ -83,7 +95,7 @@ table{
   border-spacing: 0 10px;
 }
 table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
+  @apply text-center py-3 px-1 2xl:px-5;
 }
 
 table tbody tr::after{
@@ -93,10 +105,10 @@ table tbody tr::after{
   top: 0;
   height: 100%;
   width: 3px;
-  background-color: #ADE8F4;
+  background-color: rgba(192, 0, 0, 0.7);
 }
 table tbody tr:nth-child(even)::after{
-  background-color: #DADADA;
+  background-color: rgba(192, 0, 0, 0.35);
 }
 
 ::-webkit-scrollbar {
@@ -108,15 +120,17 @@ table tbody tr:nth-child(even)::after{
   height: 0px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-fungo-darkblue-hover rounded-md;
+  background: #C00000;
+  border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb:active {
-  @apply bg-fungo-darkblue;
+  background: #8b0000;
 }
 ::-webkit-scrollbar-track {
-  border: 22px solid #918383;
-  @apply bg-fungo-dark-gray rounded-md;
+  border: 22px solid #121a29;
+  background: #060b14;
+  border-radius: 6px;
 }
 ::-webkit-scrollbar-corner {
   background: transparent;

@@ -40,9 +40,6 @@ class GetPerformanceOverview extends Controller
                     ->pluck('user_id')
                     ->all();
 
-                // Log for debugging
-                Log::info('GetPerformanceOverview playerIds', ['team' => $teamId, 'count' => count($playerIds), 'ids' => $playerIds]);
-
                 if (empty($playerIds)) {
                     Log::warning('GetPerformanceOverview: no claimed players found for team', ['team' => $teamId]);
                     return [];

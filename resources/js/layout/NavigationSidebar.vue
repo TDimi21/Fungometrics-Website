@@ -85,27 +85,9 @@ const sidebarItems = ref([
     url: '/statistic',
   },
   {
-    title: 'Development',
+    title: 'Quick Stats',
     iconPath: iconDashboard,
-    startWith: '/development',
-    child: [
-      {
-        title: 'Player Dashboard',
-        url: '/development'
-      },
-      {
-        title: 'Team Dashboard',
-        url: '/development/team'
-      },
-      {
-        title: 'Coach Dashboard',
-        url: '/development'
-      },
-      {
-        title: 'Admin Benchmarks',
-        url: '/development/admin/benchmarks'
-      }
-    ]
+    url: '/dashboard?tab=quickstats'
   },
   {
     title: 'Manage Team',

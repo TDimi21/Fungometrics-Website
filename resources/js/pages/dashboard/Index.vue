@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import Layout from "../../layout/Layout.vue"
 import { useUserStore } from "../../store/user";
@@ -14,10 +14,11 @@ import PlayerCompare from '@/components/dashboard/PlayerCompare.vue'
 import useChart from '@/composables/useChart.js'
 import useChartOptions from '@/composables/useChartOptions.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
 const router = useRouter()
+const route = useRoute()
 const { axiosPost } = useAxiosAuth()
 const user = useUserStore()
 const dashTab = ref('overview')
@@ -589,16 +590,61 @@ const closeDevPlayerDetail = () => {
   devDetailModal.value.visible = false
 }
 
+const quickStatsLoaded = ref(false)
+
+const ensureQuickStatsLoaded = async () => {
+  if (quickStatsLoaded.value) return
+
+  if (user.userData.type !== 'player') {
+    await loadOnMounted()
+    await getStaticChartData()
+  }
+
+  quickStatsLoaded.value = true
+}
+
+const allowedDashboardTabs = ['overview', 'development', 'quickstats']
+
+const setDashTab = (tab) => {
+  const nextTab = allowedDashboardTabs.includes(tab) ? tab : 'overview'
+  dashTab.value = nextTab
+  router.replace({
+    query: {
+      ...route.query,
+      tab: nextTab === 'overview' ? undefined : nextTab,
+    },
+  })
+}
+
+watch(
+  () => route.query?.tab,
+  (tab) => {
+    const nextTab = typeof tab === 'string' && allowedDashboardTabs.includes(tab) ? tab : 'overview'
+    if (dashTab.value !== nextTab) {
+      dashTab.value = nextTab
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => dashTab.value,
+  (tab) => {
+    if (tab === 'quickstats') {
+      ensureQuickStatsLoaded().catch(e => console.warn('ensureQuickStatsLoaded error:', e?.message ?? e))
+    }
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
   // Priority 1 — fast/cached, render immediately
-  loadOnMounted()
   getRecentSessions()
   getTop10()
   // Priority 2 — heavier, defer until after first paint
   setTimeout(() => {
     fetchPerformanceOverview()
     fetchDevBoard()
-    if (user.userData.type !== 'player') getStaticChartData()
   }, 800)
 })
 </script>
@@ -618,15 +664,15 @@ onMounted(() => {
         <!-- Tab switcher -->
         <div class="flex gap-1 mb-6 bg-[#0a1020]/60 border border-white/10 rounded-xl p-1 w-fit">
           <button
-            @click="dashTab = 'overview'"
+            @click="setDashTab('overview')"
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
             :class="dashTab === 'overview' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
           >Overview</button>
           <button
-            @click="dashTab = 'quickstats'"
+            @click="setDashTab('development')"
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
-            :class="dashTab === 'quickstats' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
-          >Quick Stats</button>
+            :class="dashTab === 'development' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
+          >Player Development</button>
         </div>
 
         <!-- OVERVIEW TAB -->
@@ -1046,7 +1092,55 @@ onMounted(() => {
         </div>
         </div><!-- end overview tab -->
 
-        <!-- QUICK STATS TAB -->
+        <!-- PLAYER DEVELOPMENT TAB -->
+        <div v-if="dashTab === 'development'" class="flex flex-col gap-5">
+
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 class="text-base font-black uppercase tracking-widest text-white">Development Dashboards</h2>
+                <p class="text-white/40 text-xs mt-1">Jump between Player, Team, Coach, and Admin development views.</p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development')">Player</button>
+                <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/team')">Team</button>
+                <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/coach')">Coach</button>
+                <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/admin/benchmarks')">Admin</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-base font-black uppercase tracking-widest text-white">Team Development Snapshot</h2>
+              <button
+                class="text-[#C00000] text-xs font-black hover:text-red-400 transition"
+                @click="router.push('/development/team')"
+              >Open Full Team Dashboard</button>
+            </div>
+
+            <div v-if="devBoardLoading" class="text-white/40 text-sm">Loading development board...</div>
+            <div v-else-if="!devBoard.length" class="text-white/25 text-sm">No player development data available</div>
+            <div v-else class="flex flex-col gap-2">
+              <div
+                v-for="player in visibleDevBoard"
+                :key="player.id"
+                class="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 flex items-center gap-2"
+              >
+                <button class="text-sm font-black text-sky-300 hover:text-sky-200 truncate" @click="router.push(`/development/player/${player.id}`)">
+                  {{ player.name }}
+                </button>
+                <span class="ml-auto text-xs font-black px-2 py-0.5 rounded-full"
+                  :style="player.scores?.overall != null ? { backgroundColor: scoreColor(player.scores.overall) + '22', color: scoreColor(player.scores.overall) } : {}">
+                  {{ player.scores?.overall != null ? Math.round(player.scores.overall) : '—' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end development tab -->
+
+        <!-- QUICK STATS TAB (sidebar access) -->
         <div v-if="dashTab === 'quickstats'" class="flex flex-col gap-5">
 
           <div v-if="!isloading" class="grid grid-cols-1 xl:grid-cols-2 gap-5">

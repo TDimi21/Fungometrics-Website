@@ -52,6 +52,10 @@ import { TableTop, TableTotal } from './index'
     dead_lift: "",
     yd_40_dash: "",
     yd_60_dash: "",
+    sleep_hours: "",
+    sleep_quality_1_to_5: "",
+    recovery_score: "",
+    mobility_score: "",
     id: "",
   })
 
@@ -65,6 +69,10 @@ import { TableTop, TableTotal } from './index'
     let valueDead = 0
     let value40 = 0
     let value60 = 0
+    let valueSleepHours = 0
+    let valueSleepQuality = 0
+    let valueRecovery = 0
+    let valueMobility = 0
 
     if (Array.isArray(props.data) && props.data.length !== 0) {
       const orderArray = props.data.slice().sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
@@ -78,6 +86,10 @@ import { TableTop, TableTotal } from './index'
           valueDead = item.dead_lift == 0 || item.dead_lift == undefined ? valueDead : item.dead_lift
           value40 = item.yd_40_dash == 0 || item.yd_40_dash == undefined ? value40 : item.yd_40_dash
           value60 = item.yd_60_dash == 0 || item.yd_60_dash == undefined ? value60 : item.yd_60_dash
+          valueSleepHours = item.sleep_hours == 0 || item.sleep_hours == undefined ? valueSleepHours : item.sleep_hours
+          valueSleepQuality = item.sleep_quality_1_to_5 == 0 || item.sleep_quality_1_to_5 == undefined ? valueSleepQuality : item.sleep_quality_1_to_5
+          valueRecovery = item.recovery_score == 0 || item.recovery_score == undefined ? valueRecovery : item.recovery_score
+          valueMobility = item.mobility_score == 0 || item.mobility_score == undefined ? valueMobility : item.mobility_score
         }
       })
 
@@ -90,6 +102,10 @@ import { TableTop, TableTotal } from './index'
         dead_lift: valueDead,
         yd_40_dash: value40,
         yd_60_dash: value60,
+        sleep_hours: valueSleepHours,
+        sleep_quality_1_to_5: valueSleepQuality,
+        recovery_score: valueRecovery,
+        mobility_score: valueMobility,
       }
     }
   }
@@ -134,6 +150,10 @@ import { TableTop, TableTotal } from './index'
         { key:'power_clean',  label:'Power Clean', unit:'lb', lowerBetter:false },
         { key:'yd_40_dash',   label:'40 Time',     unit:'s',  lowerBetter:true  },
         { key:'yd_60_dash',   label:'60 Time',     unit:'s',  lowerBetter:true  },
+        { key:'sleep_hours',  label:'Sleep Hours', unit:'hrs', lowerBetter:false },
+        { key:'sleep_quality_1_to_5', label:'Sleep Quality', unit:'/5', lowerBetter:false },
+        { key:'recovery_score', label:'Recovery Score', unit:'/100', lowerBetter:false },
+        { key:'mobility_score', label:'Mobility Score', unit:'/100', lowerBetter:false },
       ]" :key="m.key">
         <div class="metric-label">{{ m.label }}</div>
         <div class="metric-date" v-if="data?.length > 0">
@@ -177,7 +197,7 @@ import { TableTop, TableTotal } from './index'
 .metrics-container {
   background: #060b14;
   min-height: 100%;
-  padding: 12px;
+  padding: 14px;
   color: white;
 }
 .player-header {
@@ -253,46 +273,54 @@ import { TableTop, TableTotal } from './index'
 .metrics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
 }
 .metric-card {
-  background: #002060;
-  border-radius: 8px;
-  padding: 10px 12px;
+  background: linear-gradient(180deg, #121a29 0%, #0b1320 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 12px;
 }
 .metric-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  color: #ffffff;
+  color: rgba(255,255,255,0.92);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 2px;
+  letter-spacing: 0.08em;
+  margin-bottom: 3px;
 }
 .metric-date {
   font-size: 10px;
-  color: #6b7280;
-  margin-bottom: 6px;
+  color: rgba(148, 163, 184, 0.85);
+  margin-bottom: 8px;
 }
 .metric-value {
-  background: #e8eef6;
-  color: #060b14;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #ffffff;
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
 }
 .metric-unit {
   font-size: 11px;
-  font-weight: 500;
-  color: #6b7280;
+  font-weight: 600;
+  color: rgba(148, 163, 184, 0.95);
 }
 .metric-change {
   font-size: 13px;
   font-weight: 700;
-  margin-top: 5px;
-  text-align: center;
+  margin-top: 7px;
+  text-align: right;
 }
 .change-good { color: #4ade80; }
 .change-bad  { color: #f87171; }
-.change-same { color: #6b7280; }
+.change-same { color: #94a3b8; }
+
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

@@ -34,6 +34,7 @@ class GetTeamPlayerCards extends Controller
 
             $cards = Cache::remember("player_cards_v2_{$teamId}", 600, function () use ($teamId) {
                 $playerIds = PlayerTeam::where('team_id', $teamId)
+                    ->whereNotNull('user_id')
                     ->pluck('user_id')
                     ->all();
 
@@ -47,6 +48,7 @@ class GetTeamPlayerCards extends Controller
 
                 $latestFitness = PlayerFitness::whereIn('user_id', $playerIds)
                     ->orderByDesc('fitness_date')
+                    ->orderByDesc('created_at')
                     ->get()
                     ->unique('user_id')
                     ->keyBy('user_id');
@@ -106,6 +108,10 @@ class GetTeamPlayerCards extends Controller
                         'dead_lift'   => $fitness->dead_lift,
                         'yd_40_dash'  => $fitness->yd_40_dash,
                         'yd_60_dash'  => $fitness->yd_60_dash,
+                        'sleep_hours' => $fitness->sleep_hours,
+                        'sleep_quality_1_to_5' => $fitness->sleep_quality_1_to_5,
+                        'recovery_score' => $fitness->recovery_score,
+                        'mobility_score' => $fitness->mobility_score,
                     ] : null,
 
                     // ── Session Velocity Stats ─────────────────────────────────

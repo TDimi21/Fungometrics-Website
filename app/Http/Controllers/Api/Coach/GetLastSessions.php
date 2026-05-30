@@ -35,6 +35,16 @@ class GetLastSessions extends Controller
                     'lineup.user.profile',
                     'lineup.user.player'
                 ])
+                    ->withCount([
+                        'batting',
+                        'scriptedBpSwings',
+                        'bullpen',
+                        'cage',
+                        'live',
+                        'longToss',
+                        'weightBall',
+                        'exitVelocity',
+                    ])
                     ->where('team_id', $teamId)
                     ->orderByDesc('updated_at')
                     ->limit(70)->get();
@@ -46,6 +56,16 @@ class GetLastSessions extends Controller
                     'lineup.user.profile',
                     'lineup.user.player'
                 ])
+                    ->withCount([
+                        'batting',
+                        'scriptedBpSwings',
+                        'bullpen',
+                        'cage',
+                        'live',
+                        'longToss',
+                        'weightBall',
+                        'exitVelocity',
+                    ])
                     ->whereIn('id', $practicesliveIds)
                     ->orderByDesc('updated_at')
                     ->limit(10)->get()->all();

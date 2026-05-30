@@ -19,24 +19,23 @@ class LastSession extends JsonResource
      */
     public function toArray($request)
     {
-        $relation = collect();
-
+        $balls = 0;
         if ($this->type === PracticeTypes::BATTING->value) {
-            $batting  = $this->batting          ?? collect();
-            $scripted = $this->scriptedBpSwings ?? collect();
-            $relation = $batting->count() > 0 ? $batting : $scripted;
+            $battingCount = (int) ($this->batting_count ?? 0);
+            $scriptedCount = (int) ($this->scripted_bp_swings_count ?? 0);
+            $balls = $battingCount > 0 ? $battingCount : $scriptedCount;
         } elseif ($this->type === PracticeTypes::BULLPEN->value) {
-            $relation = $this->bullpen ?? collect();
+            $balls = (int) ($this->bullpen_count ?? 0);
         } elseif ($this->type === PracticeTypes::CAGE->value) {
-            $relation = $this->cage ?? collect();
+            $balls = (int) ($this->cage_count ?? 0);
         } elseif ($this->type === PracticeTypes::LIVE_AB->value) {
-            $relation = $this->live ?? collect();
+            $balls = (int) ($this->live_count ?? 0);
         } elseif ($this->type === PracticeTypes::TRAINING->value && $this->modes === PracticeModes::LONG_TOSS->value) {
-            $relation = $this->long_toss ?? collect();
+            $balls = (int) ($this->long_toss_count ?? 0);
         } elseif ($this->type === PracticeTypes::TRAINING->value && $this->modes === PracticeModes::WEIGHT_BALL->value) {
-            $relation = $this->weight_ball ?? collect();
+            $balls = (int) ($this->weight_ball_count ?? 0);
         } elseif ($this->type === PracticeTypes::TRAINING->value && $this->modes === PracticeModes::EXIT_VELOCITY->value) {
-            $relation = $this->exit_velocity ?? collect();
+            $balls = (int) ($this->exit_velocity_count ?? 0);
         }
 
         return [
@@ -61,10 +60,10 @@ class LastSession extends JsonResource
                 'number_in_shirt'  => $element->user->player->number_in_shirt ?? 0,
                 'batting'          => $element->is_batting,
             ]),
-            "balls"        => $relation->count(),
+            "balls"        => $balls,
             "is_scripted"  => $this->type === PracticeTypes::BATTING->value
-                && ($this->batting ?? collect())->count() === 0
-                && ($this->scriptedBpSwings ?? collect())->count() > 0,
+                && (int) ($this->batting_count ?? 0) === 0
+                && (int) ($this->scripted_bp_swings_count ?? 0) > 0,
         ];
     }
 }

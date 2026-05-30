@@ -124,14 +124,23 @@ class GetPlayerDevelopmentDashboard extends Controller
                     'bp_score' => $this->deltaBlock($bpScore, $bpScore ? $bpScore - 2 : null),
                     'bullpen_score' => $this->deltaBlock($bullpenScore, $bullpenScore ? $bullpenScore - 2 : null),
                     'rotational_power_score' => $this->deltaBlock($strengthScore, $strengthPrev),
-                    'mobility_score' => $this->deltaBlock(null, null),
-                    'recovery_score' => $this->deltaBlock(null, null),
-                    'sleep_hours' => $this->deltaBlock(null, null),
+                    'mobility_score' => $this->deltaBlock(
+                        $fitnessLatest?->mobility_score !== null ? (float) $fitnessLatest->mobility_score : null,
+                        $fitnessPrev?->mobility_score !== null ? (float) $fitnessPrev->mobility_score : null
+                    ),
+                    'recovery_score' => $this->deltaBlock(
+                        $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null,
+                        $fitnessPrev?->recovery_score !== null ? (float) $fitnessPrev->recovery_score : null
+                    ),
+                    'sleep_hours' => $this->deltaBlock(
+                        $fitnessLatest?->sleep_hours !== null ? (float) $fitnessLatest->sleep_hours : null,
+                        $fitnessPrev?->sleep_hours !== null ? (float) $fitnessPrev->sleep_hours : null
+                    ),
                 ];
 
                 $trendScore = $this->computeTrendScore($trend);
-                $mobilityScore = null;
-                $recoveryScore = null;
+                $mobilityScore = $fitnessLatest?->mobility_score !== null ? (float) $fitnessLatest->mobility_score : null;
+                $recoveryScore = $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null;
 
                 $developmentIndex = $this->computeDevelopmentIndex(
                     $performanceScore,
@@ -187,8 +196,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'med_ball_scoop_toss' => null,
                         'med_ball_shotput_throw' => null,
 
-                        'sleep_hours' => null,
-                        'sleep_quality_1_to_5' => null,
+                        'sleep_hours' => $fitnessLatest?->sleep_hours,
+                        'sleep_quality_1_to_5' => $fitnessLatest?->sleep_quality_1_to_5,
                         'energy_1_to_5' => null,
                         'soreness_1_to_5' => null,
                         'stress_1_to_5' => null,
@@ -205,9 +214,9 @@ class GetPlayerDevelopmentDashboard extends Controller
                             'bp_score' => $bpScore ? round((float) $bpScore - 2, 1) : null,
                             'bullpen_score' => $bullpenScore ? round((float) $bullpenScore - 2, 1) : null,
                             'rotational_power_score' => $strengthPrev,
-                            'mobility_score' => null,
-                            'recovery_score' => null,
-                            'sleep_hours' => null,
+                            'mobility_score' => $fitnessPrev?->mobility_score,
+                            'recovery_score' => $fitnessPrev?->recovery_score,
+                            'sleep_hours' => $fitnessPrev?->sleep_hours,
                         ],
                         [
                             'date' => $now->copy()->subDays(7)->toDateString(),
@@ -218,9 +227,9 @@ class GetPlayerDevelopmentDashboard extends Controller
                             'bp_score' => $bpScore,
                             'bullpen_score' => $bullpenScore,
                             'rotational_power_score' => $strengthScore,
-                            'mobility_score' => null,
-                            'recovery_score' => null,
-                            'sleep_hours' => null,
+                            'mobility_score' => $fitnessLatest?->mobility_score,
+                            'recovery_score' => $fitnessLatest?->recovery_score,
+                            'sleep_hours' => $fitnessLatest?->sleep_hours,
                         ],
                     ],
                     'performance_snapshots' => [
@@ -262,9 +271,9 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'current_development_score' => $developmentIndex,
                     ],
                     'data_gaps' => [
-                        'mobility' => true,
-                        'recovery' => true,
-                        'sleep' => true,
+                        'mobility' => $fitnessLatest?->mobility_score === null,
+                        'recovery' => $fitnessLatest?->recovery_score === null,
+                        'sleep' => $fitnessLatest?->sleep_hours === null,
                     ],
                     'source' => [
                         'mode' => 'live_sessions',
@@ -341,47 +350,172 @@ class GetPlayerDevelopmentDashboard extends Controller
             return null;
         }
 
-        $values = array_filter([
-            $this->normalize((float) ($fitness->bench_press ?? 0), 225),
-            $this->normalize((float) ($fitness->front_squat ?? 0), 315),
-            $this->normalize((float) ($fitness->back_squat ?? 0), 365),
-            $this->normalize((float) ($fitness->dead_lift ?? 0), 405),
-            $this->normalize((float) ($fitness->power_clean ?? 0), 245),
-            $this->normalizeDash((float) ($fitness->yd_40_dash ?? 0)),
-        ], fn ($v) => $v !== null);
-
-        if (count($values) === 0) {
+        $bw = (float) ($fitness->body_weight ?? 0);
+        if ($bw <= 0) {
             return null;
         }
 
-        return round(array_sum($values) / count($values), 1);
+        $bench = (float) ($fitness->bench_press ?? 0);
+        $dead = (float) ($fitness->dead_lift ?? 0);
+        $backSq = (float) ($fitness->back_squat ?? 0);
+        $frontSq = (float) ($fitness->front_squat ?? 0);
+        $clean = (float) ($fitness->power_clean ?? 0);
+        $dash40 = (float) ($fitness->yd_40_dash ?? 0);
+        $dash60 = (float) ($fitness->yd_60_dash ?? 0);
+
+        $cleanRatio = $clean > 0 ? $clean / $bw : null;
+        $deadRatio = $dead > 0 ? $dead / $bw : null;
+        $backRatio = $backSq > 0 ? $backSq / $bw : null;
+        $frontRatio = $frontSq > 0 ? $frontSq / $bw : null;
+        $benchRatio = $bench > 0 ? $bench / $bw : null;
+
+        $cleanScore = $this->mapHigherBetter($cleanRatio, [[0.8, 30], [1.0, 55], [1.2, 78], [1.35, 90], [1.5, 100]]);
+        $deadScore = $this->mapHigherBetter($deadRatio, [[1.5, 35], [2.0, 60], [2.5, 85], [3.0, 100]]);
+        $backScore = $this->mapHigherBetter($backRatio, [[1.2, 35], [1.6, 60], [2.0, 82], [2.5, 100]]);
+        $frontScore = $this->mapHigherBetter($frontRatio, [[1.0, 40], [1.3, 62], [1.5, 78], [2.0, 100]]);
+        $benchScore = $this->mapHigherBetter($benchRatio, [[0.9, 40], [1.1, 58], [1.3, 76], [1.5, 90], [1.7, 100]]);
+        $dash60Score = $this->mapLowerBetter($dash60 > 0 ? $dash60 : null, [[6.3, 100], [6.5, 92], [6.6, 84], [6.8, 70], [7.4, 30]]);
+        $dash40Score = $this->mapLowerBetter($dash40 > 0 ? $dash40 : null, [[4.3, 100], [4.5, 94], [4.7, 84], [4.9, 68], [5.3, 30]]);
+
+        $powerScore = $this->weightedAverage([
+            ['value' => $cleanScore, 'weight' => 1.0],
+        ], 0.0);
+
+        $strengthScore = $this->weightedAverage([
+            ['value' => $deadScore, 'weight' => 0.35],
+            ['value' => $backScore, 'weight' => 0.30],
+            ['value' => $frontScore, 'weight' => 0.20],
+            ['value' => $benchScore, 'weight' => 0.15],
+        ], 0.0);
+
+        $speedScore = $this->weightedAverage([
+            ['value' => $dash60Score, 'weight' => 0.7],
+            ['value' => $dash40Score, 'weight' => 0.3],
+        ], 0.0);
+
+        $relativeStrengthScore = $this->weightedAverage([
+            ['value' => $cleanScore, 'weight' => 0.6],
+            ['value' => $deadScore, 'weight' => 0.4],
+        ], 0.0);
+
+        $score = $this->clamp(
+            ($powerScore * 0.45)
+            + ($strengthScore * 0.30)
+            + ($speedScore * 0.20)
+            + ($relativeStrengthScore * 0.05),
+            0.0,
+            100.0
+        );
+
+        return round($score, 1);
     }
 
-    private function normalize(float $value, float $target): ?float
+    /**
+     * @param array<int, array{0: float|int, 1: float|int}> $anchors
+     */
+    private function mapHigherBetter(?float $value, array $anchors): ?float
     {
-        if ($value <= 0 || $target <= 0) {
+        if ($value === null || $value <= 0) {
             return null;
         }
 
-        return round(min(100, max(0, ($value / $target) * 100)), 1);
+        usort($anchors, fn (array $a, array $b) => (float) $a[0] <=> (float) $b[0]);
+
+        if (count($anchors) === 0) {
+            return null;
+        }
+
+        if ($value <= (float) $anchors[0][0]) {
+            return $this->clamp((float) $anchors[0][1], 0.0, 100.0);
+        }
+
+        for ($i = 1; $i < count($anchors); $i++) {
+            $x1 = (float) $anchors[$i][0];
+            $y1 = (float) $anchors[$i][1];
+            $x0 = (float) $anchors[$i - 1][0];
+            $y0 = (float) $anchors[$i - 1][1];
+
+            if ($value <= $x1) {
+                return $this->clamp($this->lerp($value, $x0, $x1, $y0, $y1), 0.0, 100.0);
+            }
+        }
+
+        return 100.0;
     }
 
-    private function normalizeDash(float $dash): ?float
+    /**
+     * @param array<int, array{0: float|int, 1: float|int}> $anchors
+     */
+    private function mapLowerBetter(?float $value, array $anchors): ?float
     {
-        if ($dash <= 0) {
+        if ($value === null || $value <= 0) {
             return null;
         }
 
-        if ($dash <= 5.0) {
-            return 100.0;
+        usort($anchors, fn (array $a, array $b) => (float) $a[0] <=> (float) $b[0]);
+
+        if (count($anchors) === 0) {
+            return null;
         }
 
-        if ($dash >= 8.5) {
-            return 20.0;
+        if ($value <= (float) $anchors[0][0]) {
+            return $this->clamp((float) $anchors[0][1], 0.0, 100.0);
         }
 
-        $score = 100 - (($dash - 5.0) * 22.5);
-        return round(max(20, min(100, $score)), 1);
+        for ($i = 1; $i < count($anchors); $i++) {
+            $x1 = (float) $anchors[$i][0];
+            $y1 = (float) $anchors[$i][1];
+            $x0 = (float) $anchors[$i - 1][0];
+            $y0 = (float) $anchors[$i - 1][1];
+
+            if ($value <= $x1) {
+                return $this->clamp($this->lerp($value, $x0, $x1, $y0, $y1), 0.0, 100.0);
+            }
+        }
+
+        return $this->clamp((float) $anchors[count($anchors) - 1][1], 0.0, 100.0);
+    }
+
+    private function weightedAverage(array $items, float $fallback = 0.0): float
+    {
+        $valid = array_values(array_filter($items, function (array $item): bool {
+            return array_key_exists('value', $item)
+                && $item['value'] !== null
+                && is_numeric($item['value'])
+                && is_finite((float) $item['value']);
+        }));
+
+        if (count($valid) === 0) {
+            return $fallback;
+        }
+
+        $weightSum = array_reduce($valid, fn (float $sum, array $item): float => $sum + (float) ($item['weight'] ?? 0), 0.0);
+
+        if ($weightSum <= 0) {
+            return $fallback;
+        }
+
+        $weighted = array_reduce(
+            $valid,
+            fn (float $sum, array $item): float => $sum + ((float) $item['value'] * (float) ($item['weight'] ?? 0)),
+            0.0
+        );
+
+        return $weighted / $weightSum;
+    }
+
+    private function clamp(float $value, float $min, float $max): float
+    {
+        return max($min, min($max, $value));
+    }
+
+    private function lerp(float $x, float $x0, float $x1, float $y0, float $y1): float
+    {
+        if (abs($x1 - $x0) < 0.000001) {
+            return $y0;
+        }
+
+        return $y0 + (($x - $x0) / ($x1 - $x0)) * ($y1 - $y0);
     }
 
     private function averageAvailable(array $values): ?float

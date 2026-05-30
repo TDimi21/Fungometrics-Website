@@ -32,6 +32,10 @@ class PlayerFitness extends Model
         'yd_40_dash',
         'yd_60_dash',
         'body_weight',
+        'sleep_hours',
+        'sleep_quality_1_to_5',
+        'recovery_score',
+        'mobility_score',
     ];
 
     protected $casts =[
@@ -43,6 +47,10 @@ class PlayerFitness extends Model
         'back_squat'=>'integer',
         'power_clean'=>'integer',
         'dead_lift'=>'integer',
+        'sleep_hours' => 'float',
+        'sleep_quality_1_to_5' => 'integer',
+        'recovery_score' => 'integer',
+        'mobility_score' => 'integer',
     ];
 
     public function user(): BelongsTo

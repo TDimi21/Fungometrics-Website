@@ -34,7 +34,7 @@ const useChart = () => {
   const getStaticChartData = async() => {
     if (!team?.id) return
     try {
-      isloading.value = !isloading.value
+      isloading.value = true
       const { data } = await axiosGet(`dashboard/${team.id}`)
       ballStrike.value = data.data['b/s']
       ballStrikeSeries.value = [ballStrike.value.balls.count, ballStrike.value.strikes.count]
@@ -49,7 +49,7 @@ const useChart = () => {
     } catch (error) {
       console.warn('getStaticChartData error:', error?.message ?? error)
     } finally {
-      isloading.value = !isloading.value
+      isloading.value = false
     }
   }
 
@@ -67,7 +67,7 @@ const useChart = () => {
   const getFilteredDataChart = async() => {
     if (!team?.id) return
     try {
-      isloading.value != isloading.value
+      isloading.value = true
       const { data } = await axiosPost('charts',{
         team: team.id,
         type: formModel.value.type,
@@ -81,7 +81,7 @@ const useChart = () => {
       console.warn('getFilteredDataChart error:', error?.message ?? error)
       seriesDinamicChart.value = []
     } finally {
-      isloading.value != isloading.value
+      isloading.value = false
     }
   }
 

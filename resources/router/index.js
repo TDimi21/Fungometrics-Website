@@ -34,6 +34,7 @@ const EditPlayer = () => import("@/pages/roster/EditPlayer.vue");
 const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
 const PlayerDevelopmentDashboard = () => import('@/features/development/pages/PlayerDevelopmentDashboard.vue');
 const TeamDevelopmentDashboard = () => import('@/features/development/pages/TeamDevelopmentDashboard.vue');
+const CoachDevelopmentDashboard = () => import('@/features/development/pages/CoachDevelopmentDashboard.vue');
 const AdminBenchmarksDashboard = () => import('@/features/development/pages/AdminBenchmarksDashboard.vue');
 
 //layout
@@ -110,6 +111,12 @@ const routes = [
 		name: 'development.team',
 		path: '/development/team',
 		component: TeamDevelopmentDashboard,
+		meta: { requiresAuth: true },
+	},
+	{
+		name: 'development.coach',
+		path: '/development/coach',
+		component: CoachDevelopmentDashboard,
 		meta: { requiresAuth: true },
 	},
 	{
