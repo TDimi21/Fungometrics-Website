@@ -232,11 +232,11 @@ onUnmounted(() => {
 
 <template>
   <Loader v-show="!isLoading.status" />
-  <div class="flex overflow-hidden bg-[#001440] min-h-screen">
+  <div class="flex overflow-hidden bg-[#060b14] min-h-screen">
 
     <!-- Left Sidebar -->
     <aside
-      class="fixed z-30 h-full top-0 left-0 flex flex-shrink-0 flex-col transition-[width,transform] duration-500 bg-[#001440] overflow-hidden"
+      class="fixed z-30 h-full top-0 left-0 flex flex-shrink-0 flex-col transition-[width,transform] duration-500 bg-[#060b14] overflow-hidden"
       :class="hasSidebar.active ? 'w-64 translate-x-0' : 'w-0 -translate-x-full'"
     >
       <div class="relative flex-1 flex flex-col min-h-0 w-64">
@@ -353,7 +353,7 @@ onUnmounted(() => {
       :class="hasSidebar.active ? 'ml-0 lg:ml-64' : 'ml-0'"
     >
       <main
-        class="min-h-screen pt-6 pb-24 px-0 overflow-hidden bg-[#001440]"
+        class="min-h-screen pt-6 pb-24 px-0 overflow-hidden bg-[#060b14]"
         v-if="userData.type === 'coach'"
       >
         <slot />

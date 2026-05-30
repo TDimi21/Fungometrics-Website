@@ -173,8 +173,12 @@ final class TeamStatisticsService
 
     public function pitchesThrowData()
     {
+        $total = $this->pitching->count();
+        $strikes = $this->pitching->where('is_strike', true)->count();
         return [
-            'totals'=>$this->pitching->count(),
+            'totals'         => $total,
+            'strike_percent'  => $total > 0 ? round(($strikes / $total) * 100) : 0,
+            'strike_count'    => $strikes,
             'FB'=>$this->pitching->where('type_throw', '=', PitchThrowTypes::FAST_BALL->value)
                 ->count(),
             'CH'=>$this->pitching->where('type_throw', '=', PitchThrowTypes::CHANGE_UP->value)

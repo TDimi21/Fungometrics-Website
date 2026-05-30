@@ -171,7 +171,7 @@ class User extends Authenticatable
 
     public function fitness(): HasOne
     {
-        return $this->hasOne(PlayerFitness::class);
+        return $this->hasOne(PlayerFitness::class)->latestOfMany('fitness_date');
     }
 
     public function positions(): HasMany

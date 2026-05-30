@@ -16,7 +16,7 @@ class RoasterUtils
      */
     public function getDataPlayers(array $ids): Collection
     {
-        return User::with(['profile', 'player', 'positions'])->whereIn('id', $ids)->get();
+        return User::with(['profile', 'player', 'positions', 'fitness'])->whereIn('id', $ids)->get();
     }
 
   /**

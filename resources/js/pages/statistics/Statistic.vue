@@ -384,7 +384,7 @@ const addNameToPlayersData = (players) => {
 
 <template>
   <Layout>
-    <div class="min-h-screen bg-[#001440] text-white">
+    <div class="min-h-screen bg-[#060b14] text-white">
       <div class="px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-10">
 
         <!-- Header -->

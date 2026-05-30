@@ -34,8 +34,19 @@ class PlayerTeamResource extends JsonResource
             'body' => [
                 'ft' => $this->player?->height_in_ft,
                 'inch' => $this->player?->height_in_inch,
-                'weight' => $this->player?->weight,
+                'weight' => $this->fitness?->body_weight ?? $this->player?->weight,
                 'full_height' => $this->player?->height_in_ft.".".$this->player?->height_in_inch,
+            ],
+            'fitness' => [
+                'date' => $this->fitness?->fitness_date,
+                'body_weight' => $this->fitness?->body_weight,
+                'bench_press' => $this->fitness?->bench_press,
+                'front_squat' => $this->fitness?->front_squat,
+                'back_squat' => $this->fitness?->back_squat,
+                'power_clean' => $this->fitness?->power_clean,
+                'dead_lift' => $this->fitness?->dead_lift,
+                'yd_40_dash' => $this->fitness?->yd_40_dash,
+                'yd_60_dash' => $this->fitness?->yd_60_dash,
             ],
             'born' => [
                 'date' => $this->player?->born_date,

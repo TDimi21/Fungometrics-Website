@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { SearchIcon, ArrowDownIcon } from '@/components/icons'
 import {toast} from "../../utils/AlertPlugin";
 import useChartOptions from '@/composables/useChartOptions.js'
@@ -13,9 +13,9 @@ const props = defineProps({
     required: true
   },
   response: {
-    type: Object,
+    type: [Array, Object],
     required: true,
-    default: {}
+    default: () => []
   },
 })
 
@@ -28,7 +28,15 @@ const series = [{
 }]
 
 const categoriesMonths = []
-const orderArray = props.response.slice().sort((a, b) => new Date(b.fitness_date).getTime() - new Date(a.fitness_date).getTime())
+const normalizedResponse = computed(() => {
+  if (Array.isArray(props.response)) return props.response
+  if (Array.isArray(props.response?.data)) return props.response.data
+  return []
+})
+
+const getOrderArray = () => normalizedResponse.value
+  .slice()
+  .sort((a, b) => new Date(b.fitness_date).getTime() - new Date(a.fitness_date).getTime())
 
 const entriesModelYAxis= ref('')
 const entriesOptionYAxis = ref([
@@ -53,8 +61,9 @@ const searchChart = async () => {
   isLoading.status =!isLoading.status;
   showChart.value = false
   series[0].data = []
+  const orderArray = getOrderArray()
 
-  if (Object.entries(props.response).length !== 0) {
+  if (orderArray.length !== 0) {
     if(entriesModelYAxis.value == '' || entriesModelXAxis.value == ''){
       toast.fire({
         icon: 'warning',

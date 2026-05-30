@@ -440,7 +440,7 @@ onMounted(() => {
   cursor: pointer;
 }
 .top-select option {
-  background: #001440;
+  background: #060b14;
   color: #fff;
 }
 .top-select:focus {

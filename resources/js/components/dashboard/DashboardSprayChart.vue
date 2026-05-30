@@ -272,7 +272,7 @@ function closeDrill() {
   position: absolute;
   inset: 0;
   transform: rotateY(180deg);
-  background: #001440;
+  background: #060b14;
   border: 1px solid rgba(255,255,255,0.08);
   display: flex;
   flex-direction: column;

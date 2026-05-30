@@ -584,7 +584,7 @@ const formatTime = (dateStr) => {
 .session-card {
   display: flex;
   align-items: stretch;
-  background: linear-gradient(135deg, #001a40 0%, #001030 100%);
+  background: linear-gradient(135deg, #0a1020 0%, #001030 100%);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
   overflow: hidden;

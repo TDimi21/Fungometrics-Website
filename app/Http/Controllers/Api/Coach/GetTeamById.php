@@ -12,6 +12,7 @@ use App\Models\PlayerTeam;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
@@ -24,25 +25,33 @@ class GetTeamById extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         try {
-            $playersId = PlayerTeam::with('team')
-                ->where('team_id', $request->id)
-                ->pluck('user_id')
-                ->all();
-            if (0 === count($playersId)) {
+            $teamId = (string) $request->id;
+            $result = Cache::remember("roster_team_{$teamId}", 600, function () use ($teamId) {
+                $playersId = PlayerTeam::with('team')
+                    ->where('team_id', $teamId)
+                    ->pluck('user_id')
+                    ->all();
+                if (0 === count($playersId)) {
+                    return null; // signal empty
+                }
+                $playersData = (new RoasterUtils())->getDataPlayers($playersId);
+                return PlayerTeamResource::collection($playersData)->resolve();
+            });
+
+            if ($result === null) {
                 return response()->json([
                     'code'    => '029',
-                    'message' => 'No players found for team '.$request->id,
+                    'message' => 'No players found for team '.$teamId,
                     'status'  => 'success',
                     'data'    => [],
                 ], HttpCodes::HTTP_OK);
             }
 
-            $playersData = (new RoasterUtils())->getDataPlayers($playersId);
             $response = [
-                'code' => '029',
-                'message' => 'data players by team '.$request->id,
-                'status' => 'success',
-                'data' => PlayerTeamResource::collection($playersData),
+                'code'    => '029',
+                'message' => 'data players by team '.$teamId,
+                'status'  => 'success',
+                'data'    => $result,
             ];
 
             return response()->json($response, HttpCodes::HTTP_OK);

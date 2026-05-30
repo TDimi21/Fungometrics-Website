@@ -585,22 +585,26 @@ const updateTable = (item) => {
 <style scoped>
 /* Dark modal container */
 .modal-dark {
-  @apply relative z-50 bg-app-navy border border-white/10 rounded-2xl p-6 shadow-2xl;
+  position: relative; z-index: 50; background: #191C4A;
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 1rem; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,.25);
 }
 
 /* Form field label */
 .field-label {
-  @apply block text-app-muted text-xs font-fungo-700 uppercase tracking-wide mb-1;
+  display: block; color: #64748B; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;
 }
 
 /* Primary red button */
 .btn-primary {
-  @apply bg-app-red hover:bg-app-red-hover text-white text-sm font-fungo-700 px-5 py-2.5 rounded-xl transition;
+  background: #FF2B4A; color: #fff; font-size: 0.875rem; font-weight: 700; padding: 0.625rem 1.25rem; border-radius: 0.75rem; transition: background 0.2s;
 }
+.btn-primary:hover { background: #E01F3C; }
 
 /* Ghost button */
 .btn-ghost {
-  @apply bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-sm font-fungo-700 px-5 py-2.5 rounded-xl border border-white/10 transition;
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); font-size: 0.875rem; font-weight: 700;
+  padding: 0.625rem 1.25rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s;
 }
+.btn-ghost:hover { background: rgba(255,255,255,0.1); color: #fff; }
 </style>
 

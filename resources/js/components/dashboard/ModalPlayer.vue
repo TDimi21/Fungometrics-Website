@@ -181,7 +181,7 @@ import {useRouter} from "vue-router"
           >
             <DialogPanel
               class="modal-panel w-full h-[88vh] transform rounded-xl
-              bg-[#001440] text-left align-middle shadow-xl transition-all flex flex-row overflow-hidden">
+              bg-[#060b14] text-left align-middle shadow-xl transition-all flex flex-row overflow-hidden">
 
               <!-- LEFT SIDEBAR: player profile -->
               <div class="player-sidebar flex flex-col items-center gap-4 p-5 overflow-y-auto border-r border-white/10">
@@ -392,11 +392,11 @@ import {useRouter} from "vue-router"
 
 /* Override child Tabs component to match dark theme */
 :deep(.tabs-header) {
-  background-color: #001440 !important;
+  background-color: #060b14 !important;
   border-bottom: 1px solid rgba(255,255,255,0.1) !important;
 }
 :deep(.tab) {
-  background-color: #001440 !important;
+  background-color: #060b14 !important;
   color: rgba(255,255,255,0.55) !important;
 }
 :deep(.tab.active) {
@@ -414,7 +414,7 @@ import {useRouter} from "vue-router"
 /* Score badge in sidebar */
 .score-badge {
   width: 100%;
-  background: #001440;
+  background: #060b14;
   border: 1px solid rgba(192,0,0,0.4);
   border-radius: 10px;
   padding: 12px 10px;
@@ -476,7 +476,7 @@ import {useRouter} from "vue-router"
   background: #000000;
 }
 ::-webkit-scrollbar-track {
-  background: #001440;
+  background: #060b14;
   border: 22px solid #002060;
   border-radius: 4px;
 }

@@ -12,6 +12,7 @@ use App\Services\Statistics\TopTenTrainingService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
@@ -24,73 +25,45 @@ class GetTopTenResults extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         try {
-            $topTableBatting = new TopTenBattingService($request->team);
-            $topTableBullpen = new TopTenBullpenService($request->team);
-            $topTableTraining = new TopTenTrainingService($request->team);
-            $topTableFitness = new TopTenFitnessService($request->team);
-            $results = [];
-            if(1 === $request->option) {
-                $results = $topTableBatting->getExitVelocityResults($request->range);
-            }
+            $team     = (string) $request->team;
+            $option   = (int)    $request->option;
+            $range    = (int)    $request->range;
+            $cacheKey = "top10_{$team}_{$option}_{$range}";
 
-            if(2 === $request->option) {
-                $results = $topTableBatting->getExitVelocityAverageResults($request->range);
-            }
-            if(3 === $request->option) {
-                $results = $topTableBatting->getTotalSwingsResults($request->range);
-            }
+            $results = Cache::remember($cacheKey, 300, function () use ($team, $option, $range) {
+                $topTableBatting  = new TopTenBattingService($team);
+                $topTableBullpen  = new TopTenBullpenService($team);
+                $topTableTraining = new TopTenTrainingService($team);
+                $topTableFitness  = new TopTenFitnessService($team);
 
-            if(4 === $request->option) {
-                $results = $topTableBullpen->getExitVelocityResults($request->range);
-            }
-            if(5 === $request->option) {
-                $results = $topTableBullpen->getExitVelocityAverageResults($request->range);
-            }
+                if (1 === $option)  return $topTableBatting->getExitVelocityResults($range);
+                if (2 === $option)  return $topTableBatting->getExitVelocityAverageResults($range);
+                if (3 === $option)  return $topTableBatting->getTotalSwingsResults($range);
+                if (4 === $option)  return $topTableBullpen->getExitVelocityResults($range);
+                if (5 === $option)  return $topTableBullpen->getExitVelocityAverageResults($range);
+                if (6 === $option)  return $topTableBullpen->getTotalThrowsResults($range);
+                if (7 === $option)  return $topTableTraining->getWeightVelocityResults($range);
+                if (8 === $option)  return $topTableTraining->getLongTossDistanceResults($range);
+                if (9 === $option)  return $topTableTraining->getThrowTrainingsResults($range);
+                if (10 === $option) return $topTableFitness->getFitnessWeightResults($range);
+                if (11 === $option) return $topTableFitness->getPowerBodyWeightResults($range);
+                return [];
+            });
 
-            if(6 === $request->option) {
-                $results = $topTableBullpen->getTotalThrowsResults($request->range);
-            }
-
-            if(7 === $request->option) {
-                $results = $topTableTraining->getWeightVelocityResults($request->range);
-            }
-            if(8 === $request->option) {
-                $results = $topTableTraining->getLongTossDistanceResults($request->range);
-            }
-
-            if(9 === $request->option) {
-                $results = $topTableTraining->getThrowTrainingsResults($request->range);
-            }
-
-            if(10 === $request->option) {
-                $results = $topTableFitness->getFitnessWeightResults($request->range);
-            }
-
-            if(11 === $request->option) {
-                $results = $topTableFitness->getPowerBodyWeightResults($request->range);
-            }
-
-
-
-
-            $response = [
-                'code' => '052',
+            return response()->json([
+                'code'    => '052',
                 'message' => '',
-                'status' => 'success',
-                'data' => $results,
-            ];
-
-            return response()->json($response, HttpCodes::HTTP_OK);
+                'status'  => 'success',
+                'data'    => $results,
+            ], HttpCodes::HTTP_OK);
         } catch (Exception $exception) {
-
-            $response = [
-                'code' => '052-E',
-                'message' => ' ',
-                'status' => 'error',
-                'data' => [],
-            ];
             Log::error($exception->getMessage());
-            return response()->json($response, HttpCodes::HTTP_NOT_FOUND);
+            return response()->json([
+                'code'    => '052-E',
+                'message' => ' ',
+                'status'  => 'error',
+                'data'    => [],
+            ], HttpCodes::HTTP_NOT_FOUND);
         }
     }
 }

@@ -66,7 +66,7 @@ import { TableTop, TableTotal } from './index'
     let value40 = 0
     let value60 = 0
 
-    if (Object.keys(props.data).length != 0) {
+    if (Array.isArray(props.data) && props.data.length !== 0) {
       const orderArray = props.data.slice().sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       orderArray.forEach(item => {
         if (item) {
@@ -100,7 +100,7 @@ import { TableTop, TableTotal } from './index'
   // Returns { raw, pct, dir: 'good'|'bad'|'same' } over last 6 months
   // lowerBetter: weight, dash times
   const getChange = (key, lowerBetter = false) => {
-    if (!props.data?.length) return null
+    if (!Array.isArray(props.data) || !props.data.length) return null
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
     const valid = props.data
@@ -175,7 +175,7 @@ import { TableTop, TableTotal } from './index'
 
 <style scoped>
 .metrics-container {
-  background: #001440;
+  background: #060b14;
   min-height: 100%;
   padding: 12px;
   color: white;
@@ -275,7 +275,7 @@ import { TableTop, TableTotal } from './index'
 }
 .metric-value {
   background: #e8eef6;
-  color: #001440;
+  color: #060b14;
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 15px;

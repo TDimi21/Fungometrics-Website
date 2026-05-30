@@ -170,7 +170,7 @@ const close = () => {
   background: #000000;
 }
 ::-webkit-scrollbar-track {
-  background: #001440;
+  background: #060b14;
   border: 22px solid #002060;
   border-radius: 4px;
 }

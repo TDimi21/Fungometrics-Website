@@ -258,7 +258,7 @@ function avatarSrc(stats) {
   outline: none;
   cursor: pointer;
 }
-.compare-select option { background: #001440; color: #fff; }
+.compare-select option { background: #060b14; color: #fff; }
 .compare-select:focus { border-color: rgba(192,0,0,0.6); }
 
 .compare-loading {
@@ -289,7 +289,7 @@ function avatarSrc(stats) {
   width: 36px; height: 36px;
   border-radius: 50%;
   object-fit: cover;
-  background: #001440;
+  background: #060b14;
   border: 2px solid rgba(192,0,0,0.5);
   flex-shrink: 0;
 }

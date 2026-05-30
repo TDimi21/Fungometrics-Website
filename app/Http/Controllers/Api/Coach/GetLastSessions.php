@@ -30,7 +30,7 @@ class GetLastSessions extends Controller
         $cacheKey = "last_sessions_{$teamId}";
 
         try {
-            $data = Cache::remember($cacheKey, 60, function () use ($teamId): array {
+            $data = Cache::remember($cacheKey, 300, function () use ($teamId): array {
                 $practices = Practice::with([
                     'lineup.user.profile',
                     'lineup.user.player'

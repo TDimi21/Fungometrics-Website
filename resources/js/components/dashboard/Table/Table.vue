@@ -44,7 +44,7 @@ const props = defineProps({
         </tr>
         <tr
           v-else
-          class="bg-[#001440]/60 even:bg-[#002060]/40 border-l border-[#004080]/40 relative"
+          class="bg-[#060b14]/60 even:bg-[#002060]/40 border-l border-[#004080]/40 relative"
           v-for="(item, index) in props.items"
         >
           

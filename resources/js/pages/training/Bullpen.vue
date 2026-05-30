@@ -444,7 +444,7 @@ const setEditData = () => {
                 class="bg-white/10 border border-white/20 text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-red-400/60"
                 @change="changeData($event)">
                 <option v-for="player in playerList" :value="player.id" :selected="player.id == currentPlayerID"
-                  class="bg-[#001440] text-white">{{ player.name.full }}</option>
+                  class="bg-[#060b14] text-white">{{ player.name.full }}</option>
               </select>
             </div>
             <button @click="isOpenAdd = true"
@@ -535,7 +535,7 @@ const setEditData = () => {
     <!-- ── Add Player Modal ── -->
     <div v-if="isOpenAdd">
       <div class="fixed inset-0 z-50 flex justify-center items-center px-4">
-        <div class="w-full max-w-md rounded-2xl border border-white/10 bg-[#001440]/95 backdrop-blur-xl shadow-2xl p-6">
+        <div class="w-full max-w-md rounded-2xl border border-white/10 bg-[#060b14]/95 backdrop-blur-xl shadow-2xl p-6">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-white text-xl font-bold">Add Player</h2>
             <button @click="isOpenAdd = false" class="text-white/40 hover:text-white transition-colors text-2xl leading-none">&times;</button>
@@ -543,8 +543,8 @@ const setEditData = () => {
           <div class="mb-5">
             <select class="w-full bg-white/10 border border-white/20 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-400/60"
               v-model="dataPlayer">
-              <option value="" disabled selected class="bg-[#001440]">Select one player</option>
-              <option v-for="player in playerToAddList" :value="player.id" class="bg-[#001440] text-white">{{ player.name.full }}</option>
+              <option value="" disabled selected class="bg-[#060b14]">Select one player</option>
+              <option v-for="player in playerToAddList" :value="player.id" class="bg-[#060b14] text-white">{{ player.name.full }}</option>
             </select>
           </div>
           <div class="flex justify-center">
@@ -576,7 +576,7 @@ const setEditData = () => {
               enter="duration-300 ease-out" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
               leave="duration-200 ease-in"  leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
             >
-              <DialogPanel class="w-full max-w-md rounded-2xl border border-white/10 bg-[#001440]/95 backdrop-blur-xl p-6 shadow-2xl">
+              <DialogPanel class="w-full max-w-md rounded-2xl border border-white/10 bg-[#060b14]/95 backdrop-blur-xl p-6 shadow-2xl">
                 <DialogTitle as="h2" class="text-2xl font-bold text-white mb-4">
                   End Practice
                 </DialogTitle>
@@ -638,8 +638,8 @@ const setEditData = () => {
 </template>
 <style scoped>
 .pitch-btn {
-  @apply w-full py-2 rounded-xl border border-white/20 bg-white/5 text-white font-semibold text-base
-         hover:bg-white/10 hover:border-white/30 transition-colors cursor-pointer;
+  @apply w-full py-2 rounded-xl border border-white/20 bg-white/5 text-white text-base transition-colors cursor-pointer;
+  font-weight: 500;
 }
 
 .active-btn-contact,
