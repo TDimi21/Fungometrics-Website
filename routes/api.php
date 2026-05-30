@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\Coach\GetPlayersList;
 use App\Http\Controllers\Api\Coach\GetTeamById;
 use App\Http\Controllers\Api\Coach\GetTeamCode;
 use App\Http\Controllers\Api\Coach\GetPlayerDevelopmentBoard;
+use App\Http\Controllers\Api\Coach\GetPlayerDevelopmentDashboard;
 use App\Http\Controllers\Api\Coach\GetTeamPlayerCards;
 use App\Http\Controllers\Api\Coach\GetTeamsPlayers;
 use App\Http\Controllers\Api\Coach\GetTeamsPlayersV2;
@@ -165,6 +166,7 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams/{id}/code', GetTeamCode::class);  // retrieve join code for a team
         Route::get('/teams/{id}/player-cards', GetTeamPlayerCards::class);
         Route::get('/teams/{id}/player-development-board', GetPlayerDevelopmentBoard::class);
+        Route::get('/development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::get('/sessions/lasts/{team}', GetLastSessions::class);
         Route::get('/performance-overview/{team}', GetPerformanceOverview::class);
         Route::post('/trainingab', AddNewLiveABSession::class);

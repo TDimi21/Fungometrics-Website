@@ -32,6 +32,9 @@ const EditProfilePlayer = () => import("@/pages/profile/EditProfilePlayer.vue");
 const ChangePassword = () => import("@/pages/profile/ChangePassword.vue");
 const EditPlayer = () => import("@/pages/roster/EditPlayer.vue");
 const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
+const PlayerDevelopmentDashboard = () => import('@/features/development/pages/PlayerDevelopmentDashboard.vue');
+const TeamDevelopmentDashboard = () => import('@/features/development/pages/TeamDevelopmentDashboard.vue');
+const AdminBenchmarksDashboard = () => import('@/features/development/pages/AdminBenchmarksDashboard.vue');
 
 //layout
 //Authenticated
@@ -95,6 +98,31 @@ const routes = [
 		name: "playerDashboard",
 		path: "/player-dashboard",
 		component: () => import("@/pages/dashboard/Player.vue"),
+		meta: { requiresAuth: true },
+	},
+	{
+		name: 'development.index',
+		path: '/development',
+		component: PlayerDevelopmentDashboard,
+		meta: { requiresAuth: true },
+	},
+	{
+		name: 'development.team',
+		path: '/development/team',
+		component: TeamDevelopmentDashboard,
+		meta: { requiresAuth: true },
+	},
+	{
+		name: 'development.player',
+		path: '/development/player/:playerId?',
+		component: PlayerDevelopmentDashboard,
+		meta: { requiresAuth: true },
+		props: true,
+	},
+	{
+		name: 'development.admin.benchmarks',
+		path: '/development/admin/benchmarks',
+		component: AdminBenchmarksDashboard,
 		meta: { requiresAuth: true },
 	},
 	{
