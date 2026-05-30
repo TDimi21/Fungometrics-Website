@@ -194,7 +194,19 @@ const routes = [
 		component: () => import("@/pages/training/PracticeStats.vue"),
 		meta: { requiresAuth: true },
 		props: true,
-
+	},
+	{
+		name: "session.report",
+		path: "/session/report/:id/:type",
+		component: () => import("@/pages/training/SessionReport.vue"),
+		meta: { requiresAuth: true },
+		props: true,
+	},
+	{
+		name: "sessions.all",
+		path: "/sessions",
+		component: () => import("@/pages/training/AllSessions.vue"),
+		meta: { requiresAuth: true },
 	},
 	{
 		name: "roster",

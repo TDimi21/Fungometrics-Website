@@ -146,4 +146,71 @@ final class ExitVelocityStatisticsService
         return $percents;
     }
 
+    /**
+     * Exit Velocity Score (EVS) — mirrors computeEVScore() in TeamStatsPanel/index.js
+     *
+     * Per-swing: evPts(60) + trajectoryBonus(25) + hardHitBonus(15), then +consistency bonus
+     */
+    public function evs($data): array
+    {
+        if (0 === $data->count()) {
+            return [];
+        }
+
+        $hardHitEV = 90;
+        $eliteEV   = 100;
+        $clamp     = fn($v, $min, $max) => max($min, min($max, (float)$v));
+
+        $swingScores = [];
+        foreach ($data as $row) {
+            $ev = (float) ($row->velocity ?? 0);
+            if ($ev < 10 || $ev > 130) continue;
+
+            $traj = strtoupper((string) ($row->trajectory ?? ''));
+            if (!in_array($traj, ['LD','FB','GB','PU'], true)) $traj = 'GB';
+
+            $evPts   = $clamp(60 * ($ev - ($hardHitEV - 10)) / max(1, $eliteEV - ($hardHitEV - 10)), 0, 60);
+            $tBonus  = match ($traj) { 'LD' => 25, 'FB' => 18, 'PU' => 6, default => 12 };
+            $hhBonus = $ev >= $hardHitEV ? 15.0 : 15 * ($ev / $hardHitEV);
+
+            $swingScores[] = [
+                'ev'     => $ev,
+                'traj'   => $traj,
+                'evPts'  => $evPts,
+                'tBonus' => $tBonus,
+                'hh'     => $hhBonus,
+                'total'  => $clamp($evPts + $tBonus + $hhBonus, 0, 100),
+            ];
+        }
+
+        $total = count($swingScores);
+        if ($total === 0) return [];
+
+        $base             = array_sum(array_column($swingScores, 'total')) / $total;
+        $hardHitCount     = count(array_filter($swingScores, fn($s) => $s['ev'] >= $hardHitEV));
+        $hhPct            = ($hardHitCount / $total) * 100;
+        $consistencyBonus = $hhPct >= 50 ? 5 : ($hhPct >= 35 ? 3 : ($hhPct >= 20 ? 1 : 0));
+        $evs              = round($clamp($base + $consistencyBonus, 0, 100), 1);
+
+        $evVals    = array_column($swingScores, 'ev');
+        $trajCount = array_count_values(array_column($swingScores, 'traj'));
+        $pct       = fn($k) => round((($trajCount[$k] ?? 0) / $total) * 100, 1);
+
+        return [
+            'evs'             => $evs,
+            'total'           => $total,
+            'avgEV'           => round(array_sum($evVals) / $total, 1),
+            'topEV'           => round(max($evVals), 1),
+            'hardHitCount'    => $hardHitCount,
+            'hhPct'           => round($hhPct, 1),
+            'evPowerScore'    => round((array_sum(array_column($swingScores,'evPts'))  / $total / 60)  * 100, 1),
+            'trajectoryScore' => round((array_sum(array_column($swingScores,'tBonus')) / $total / 25)  * 100, 1),
+            'hardHitScore'    => round((array_sum(array_column($swingScores,'hh'))     / $total / 15)  * 100, 1),
+            'ldPct'           => $pct('LD'),
+            'fbPct'           => $pct('FB'),
+            'gbPct'           => $pct('GB'),
+            'puPct'           => $pct('PU'),
+        ];
+    }
+
 }

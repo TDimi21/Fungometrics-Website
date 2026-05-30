@@ -112,50 +112,46 @@ const submitAddPlayer = async (player) => {
 </script>
 
 <template>
+  <div class="flex flex-col gap-3 w-full">
+    <div v-if="isLoad" class="text-app-muted text-center py-8">Searching…</div>
+    <div v-else-if="!data.length" class="text-app-muted text-center py-8">No players found</div>
 
-  <div class="grid grid-cols-1  w-[100%] items-center px-[2%] gap-5 overflow-y-auto min-h-[50%] max-h-[50%]">
-    <div v-if="isLoad">
-      <h1 class="text-fungo-darkblue text-3xl text-center">Loading data...</h1>
-    </div>
-    <div v-else-if="!data.length > 0">
-      <h1 class="text-fungo-darkblue text-3xl text-center">No found data</h1>
-    </div>
-    <div class="bg-fungo-gray4 border-2 border-fungo-gray3 flex flex-row w-[100%] md:w-[100%] md:max-w-[100%] py-5 pl-1 lg:pl-4 rounded-xl space-x-1 lg:space-x-0 gap-2 lg:gap-24"
-      v-for="(item, index) in data" :key="item.id">
-      <div class="container-image">
-        <template v-if="item.avatar != null">
-          <img :src="item.avatar" alt="" class="circle-img">
-        </template>
-        <img v-else src="../../assets/img/layout/logofungo-nav.png" alt="Avatar Player" class="circle-img">
-        <!-- <img alt="Avatar Player" class="circle-img" src="item.avatar ?? '../../assets/img/layout/logofungo-nav.png'"> -->
+    <div
+      v-else
+      v-for="item in data"
+      :key="item.id"
+      class="flex items-center gap-4 bg-app-card border border-white/10 rounded-xl px-4 py-3
+             hover:border-app-red/40 transition group"
+    >
+      <!-- Avatar -->
+      <div class="w-12 h-12 rounded-full overflow-hidden ring-2 ring-white/10 flex-shrink-0 bg-app-navy flex items-center justify-center">
+        <img v-if="item.avatar" :src="item.avatar" alt="" class="w-full h-full object-cover" />
+        <span v-else class="text-white/60 font-fungo-700 text-sm">
+          {{ (item.name?.first?.[0] ?? '') + (item.name?.last?.[0] ?? '') }}
+        </span>
       </div>
-      <div class="w-[150px] max-w-[150px] lg:w-[450px] lg:max-w-[450px] flex flex-col lg:flex-row">
-        <div class="flex flex-col text-[14px] lg:text-[16px] items-start">
-          <text class="font-fungo-700 text-fungo-blue2 text-[14px] lg:text-[16px]">Player</text>
-          <text class="text-fungo-darkblue font-fungo-800 text-[14px] lg:text-[16px]">{{ item.name.full ?? "Text"}}</text>
-          <text class="font-fungo-700 text-fungo-blue2 text-[14px] lg:text-[16px]">Teams</text>
-          <text class="font-fungo-700 text-fungo-darkblue text-[14px] lg:text-[16px]">
-            <div v-for="(team,index) in item.actual_team">
-              {{team.name}}
-            </div>
-<!--            {{ item.actual_team ??-->
-<!--          team.name }}-->
-          </text>
+
+      <!-- Info -->
+      <div class="flex-1 min-w-0">
+        <p class="text-white font-fungo-700 text-sm truncate">{{ item.name?.full ?? '—' }}</p>
+        <div class="flex flex-wrap gap-x-3 mt-0.5">
+          <span class="text-app-muted text-xs">{{ item.phone ?? '—' }}</span>
+          <span v-if="item.born?.age" class="text-app-muted text-xs">Age {{ item.born.age }}</span>
+          <span v-for="t in item.actual_team" :key="t.name" class="text-app-blue text-xs">{{ t.name }}</span>
         </div>
-        <div class="w-[100%] max-w-[100%] h-[2px] max-h-[2px] lg:h-[100%] lg:max-h-[100%] lg:w-[2px] mx-0 lg:mx-4 lg:max-w-[2px] bg-fungo-gray3"></div>
-        <div class="flex flex-col text-[14px] lg:text-[16px] items-start">
-            <text class="font-fungo-700 text-fungo-blue2 text-[14px] lg:text-[16px]">Age</text>
-            <text class="text-fungo-darkblue font-fungo-400 text-[14px] lg:text-[16px]">{{ item.born.age ?? "00"}}</text>
-            <text class="font-fungo-700 text-fungo-blue2 text-[14px] lg:text-[16px]">Mobile number</text>
-            <text class="font-fungo-400 text-fungo-darkblue text-[14px] lg:text-[16px]">{{ item.phone ?? "+ (0) 0000 - 0000"}}</text>
-          </div>
       </div>
-      <div class="w-[50px] max-w-[50px] lg:w-[200px] lg:max-w-[200px] flex justify-end pr-5 items-center">
-        <input type="radio" name="choose_coach" :id="`choose_${item.id}`"
-          class="appearance-none checked:bg-green-500 autofill:bg-green-500
-          text-green-500 indeterminate:bg-fungo-gray6 default:ring-2 valid:border-fungo-darkblue h-8 w-8"
-          @click="submitAddPlayer(item)">
-      </div>
+
+      <!-- Add button -->
+      <button
+        @click="submitAddPlayer(item)"
+        class="flex-shrink-0 flex items-center gap-1.5 bg-app-red/10 hover:bg-app-red text-app-red hover:text-white
+               text-xs font-fungo-700 px-3 py-1.5 rounded-xl border border-app-red/30 hover:border-app-red transition"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add
+      </button>
     </div>
   </div>
 </template>

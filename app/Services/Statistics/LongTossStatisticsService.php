@@ -239,4 +239,129 @@ final class LongTossStatisticsService
         return $maxs;
     }
 
+    /**
+     * Long Toss Score (LTS) — mirrors computeLongTossScore() in TeamStatsPanel/index.js
+     *
+     * 5 components (100 pts total):
+     *   Extension   25 pts — player max distances vs 250ft target
+     *   Carry       25 pts — hop quality on top 20% throws
+     *   Consistency 20 pts — per-player CV of distances
+     *   Progression 20 pts — oldest vs newest session avg dist
+     *   Availability 10 pts — completed sessions ratio
+     */
+    public function lts($data, array $practiceIds = []): array
+    {
+        if (0 === $data->count()) {
+            return [];
+        }
+
+        $EXTENSION_TARGET = 250;
+        $clamp = fn($v, $min, $max) => max($min, min($max, (float) $v));
+        $hopScore = fn($hop) => match(true) { $hop <= 0 => 100, $hop === 1 => 80, $hop === 2 => 55, default => 20 };
+
+        // Collect valid throws
+        $allThrows = [];
+        foreach ($data as $row) {
+            $dist = (float) ($row->distance ?? 0);
+            if ($dist < 20 || $dist > 600) continue;
+            $allThrows[] = [
+                'dist'   => $dist,
+                'hop'    => (int) ($row->hop ?? 3),
+                'userId' => (string) ($row->user_id ?? 'unknown'),
+                'date'   => $row->created_at ?? null,
+            ];
+        }
+
+        if (empty($allThrows)) return [];
+
+        // Group by player
+        $playerDists = [];
+        foreach ($allThrows as $t) {
+            $playerDists[$t['userId']][] = $t['dist'];
+        }
+
+        // 1. Extension (25 pts)
+        $extWeightedSum = 0; $extMaxPossible = 0;
+        foreach ($playerDists as $dists) {
+            $maxD = max($dists);
+            $pct  = $maxD / $EXTENSION_TARGET;
+            $w    = $pct >= 1.0 ? 5 : ($pct >= 0.90 ? 3 : ($pct >= 0.75 ? 2 : ($pct >= 0.60 ? 1 : 0)));
+            $extWeightedSum += $w;
+            $extMaxPossible += 5;
+        }
+        $extensionScore = $extMaxPossible > 0 ? $clamp(($extWeightedSum / $extMaxPossible) * 25, 0, 25) : 0;
+
+        // 2. Carry (25 pts) — top 20% throws per player scored by hops
+        $carryScores = [];
+        foreach ($playerDists as $pid => $dists) {
+            $pThrows = array_filter($allThrows, fn($t) => $t['userId'] === $pid);
+            usort($pThrows, fn($a,$b) => $b['dist'] <=> $a['dist']);
+            $topN = max(1, (int) ceil(count($pThrows) * 0.20));
+            $topN = max($topN, 3);
+            foreach (array_slice($pThrows, 0, $topN) as $t) {
+                $carryScores[] = $hopScore($t['hop']);
+            }
+        }
+        $avgCarry   = count($carryScores) ? array_sum($carryScores) / count($carryScores) : 50;
+        $carryScore = $clamp(($avgCarry / 100) * 25, 0, 25);
+
+        // 3. Consistency (20 pts)
+        $consScores = [];
+        foreach ($playerDists as $dists) {
+            if (count($dists) < 2) continue;
+            $mean = array_sum($dists) / count($dists);
+            $variance = array_sum(array_map(fn($d) => ($d - $mean) ** 2, $dists)) / count($dists);
+            $cv = $mean > 0 ? sqrt($variance) / $mean : 1;
+            $consScores[] = $clamp(1 - $cv, 0, 1) * 100;
+        }
+        $avgCons  = count($consScores) ? array_sum($consScores) / count($consScores) : 50;
+        $consistencyScore = $clamp(($avgCons / 100) * 20, 0, 20);
+
+        // 4. Progression (20 pts) — session avg trend
+        $sessionAvgs = [];
+        $byPractice = [];
+        foreach ($allThrows as $t) {
+            $pid = $t['date'] ? date('Y-m-d', strtotime((string) $t['date'])) : 'unknown';
+            $byPractice[$pid][] = $t['dist'];
+        }
+        foreach ($byPractice as $date => $dists) {
+            $sessionAvgs[$date] = array_sum($dists) / count($dists);
+        }
+        $progressionScore = 10;
+        if (count($sessionAvgs) >= 2) {
+            ksort($sessionAvgs);
+            $vals   = array_values($sessionAvgs);
+            $oldest = $vals[0];
+            $newest = $vals[count($vals) - 1];
+            $pctChange = $oldest > 0 ? ($newest - $oldest) / $oldest : 0;
+            $progressionScore = $clamp(10 + ($pctChange * 100), 0, 20);
+        }
+
+        // 5. Availability (10 pts) — based on total sessions vs those with data
+        $sessionCount      = count($sessionAvgs);
+        $availabilityScore = $sessionCount > 0 ? $clamp(min($sessionCount / 8, 1) * 10, 0, 10) : 5;
+
+        $totalScore  = round($clamp($extensionScore + $carryScore + $consistencyScore + $progressionScore + $availabilityScore, 0, 100), 1);
+        $playerMaxes = array_map(fn($d) => max($d), array_values($playerDists));
+        $totalPlayers = count($playerDists);
+        $zeroHop = count(array_filter($allThrows, fn($t) => $t['hop'] <= 0));
+        $extReached = count(array_filter($playerMaxes, fn($d) => $d >= $EXTENSION_TARGET));
+
+        return [
+            'lts'             => $totalScore,
+            'total'           => count($allThrows),
+            'extensionScore'  => round($extensionScore,  1),
+            'carryScore'      => round($carryScore,      1),
+            'consistencyScore'=> round($consistencyScore,1),
+            'progressionScore'=> round($progressionScore,1),
+            'availabilityScore'=> round($availabilityScore,1),
+            'totalPlayers'    => $totalPlayers,
+            'avgMaxDist'      => $totalPlayers > 0 ? round(array_sum($playerMaxes) / $totalPlayers, 1) : null,
+            'extensionPct'    => $totalPlayers > 0 ? round(($extReached / $totalPlayers) * 100, 1) : 0,
+            'avgCarryScore'   => round($avgCarry, 1),
+            'zeroHopRate'     => count($allThrows) > 0 ? round(($zeroHop / count($allThrows)) * 100, 1) : 0,
+            'sessionCount'    => $sessionCount,
+        ];
+    }
+
 }

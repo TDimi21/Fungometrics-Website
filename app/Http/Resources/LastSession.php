@@ -46,6 +46,9 @@ class LastSession extends JsonResource
             "type"         => $this->type,
             "mode"         => $this->modes,
             "date"         => $this->created_at,
+            "created_at"   => $this->created_at,
+            "updated_at"   => $this->updated_at,
+            "end_note"     => $this->end_note,
             "lineup"       => ($this->lineup ?? collect())->map(fn ($element) => [
                 'name' => [
                     'first' => $element->user->profile->first_name,

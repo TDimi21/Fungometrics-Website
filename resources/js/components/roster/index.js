@@ -4,6 +4,7 @@ import CoachCard from './CoachCard.vue'
 import PlayerCard from './PlayerCard.vue'
 import ModalSearchCoach from './ModalSearchCoach.vue'
 import ModalSearchPlayer from './ModalSearchPlayer.vue'
+import RosterCard from './RosterCard.vue'
 
 export{
   CoachTable,
@@ -11,5 +12,6 @@ export{
   CoachCard,
   PlayerCard,
   ModalSearchPlayer,
-  ModalSearchCoach
+  ModalSearchCoach,
+  RosterCard,
 }

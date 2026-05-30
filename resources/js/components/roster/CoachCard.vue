@@ -102,35 +102,48 @@ const submitAddCoach = async (coach) => {
 <template>
 
   <!-- <div class="flex flex-col lg:flex-row  w-[100%] items-center mb-5 py-5 px-[2%] gap-7"> -->
-  <div class="grid grid-cols-1 w-[100%] items-center px-[2%] gap-5 overflow-y-auto min-h-[50%] max-h-[50%]"
-    :class="!data.length > 0 ? 'grid-rows-1' : 'grid-rows-2 lg:grid-cols-2'">
+  <div class="flex flex-col gap-3 w-full">
     <div v-if="isLoading">
-      <h1 class="text-fungo-darkblue text-3xl text-center col-span-2 row-span-2">Loading data...</h1>
+      <p class="text-app-muted text-center py-8">Loading…</p>
     </div>
     <div v-else-if="!data.length > 0">
-      <h1 class="text-fungo-darkblue text-3xl text-center col-span-2 row-span-2">No found data</h1>
+      <p class="text-app-muted text-center py-8">No coaches found</p>
     </div>
-    <div class="bg-fungo-gray4 border-2 border-fungo-gray3 flex flex-row w-[100%] md:w-[100%] md:max-w-[100%] py-5 pl-1 lg:pl-4 rounded-xl"
-      v-for="(item, index) in data" :key="item.id">
-      <div class="w-[200px] max-w-[200px] lg:w-[100px] lg:max-w-[100px] border-8 border-fungo-gray3 rounded-full">
-        <img alt="Avatar Coach" class="w-16 h-full object-center object-cover mx-auto rounded-full" src="../../assets/img/login/assteslogin/ballbutton.svg">
+
+    <div
+      v-else
+      v-for="(item, index) in data"
+      :key="item.id"
+      class="flex items-center gap-4 bg-app-card border border-white/10 rounded-xl px-4 py-3
+             hover:border-app-blue/40 transition"
+    >
+      <!-- Avatar -->
+      <div class="w-12 h-12 rounded-full overflow-hidden ring-2 ring-white/10 flex-shrink-0 bg-app-navy flex items-center justify-center">
+        <img v-if="item.avatar" :src="item.avatar" alt="" class="w-full h-full object-cover" />
+        <span v-else class="text-white/60 font-fungo-700 text-sm">
+          {{ item.profile ? (item.profile.first_name?.[0] ?? '') + (item.profile.last_name?.[0] ?? '') : (item.name?.full?.[0] ?? '?') }}
+        </span>
       </div>
-      <div class="w-[250px] max-w-[250px] pl-2 lg:pl-5">
-        <div class="flex flex-col text-[12px] lg:text-[14px] items-start">
-          <text class="font-fungo-700 text-fungo-blue2 pb-2">Coach</text>
-          <!-- <text class="text-fungo-darkblue font-fungo-800 text-[14px] lg:text-[16px]">{{  item.name.full ?? "Example"}}</text> -->
-          <text class="text-fungo-darkblue font-fungo-800 text-[14px] lg:text-[16px]">
-            {{ item.profile == null ? item.name == null ? "Text Example" : item.name.full : `${item.profile.first_name} ${item.profile.last_name}` }}
-          </text>
-          <text class="font-fungo-400 text-fungo-darkblue text-[14px] lg:text-[16px] pt-2">{{ item.phone ?? "+ (000) 0000 - 0000"}}</text>
-        </div>
+
+      <!-- Info -->
+      <div class="flex-1 min-w-0">
+        <p class="text-white font-fungo-700 text-sm truncate">
+          {{ item.profile ? `${item.profile.first_name} ${item.profile.last_name}` : (item.name?.full ?? '—') }}
+        </p>
+        <p class="text-app-muted text-xs mt-0.5">{{ item.phone ?? '—' }}</p>
       </div>
-      <div class="w-[150px] max-w-[150px] lg:w-[200px] lg:max-w-[200px] flex justify-center items-center">
-        <input type="radio" name="choose_coach" :id="`choose_${item.id}`"
-          class="appearance-none checked:bg-green-500 autofill:bg-green-500
-          text-green-500 indeterminate:bg-fungo-gray6 default:ring-2 valid:border-fungo-darkblue h-8 w-8"
-          @click="submitAddCoach(item)">
-      </div>
+
+      <!-- Add button -->
+      <button
+        @click="submitAddCoach(item)"
+        class="flex-shrink-0 flex items-center gap-1.5 bg-app-blue/10 hover:bg-app-blue text-app-blue hover:text-white
+               text-xs font-fungo-700 px-3 py-1.5 rounded-xl border border-app-blue/30 hover:border-app-blue transition"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add
+      </button>
     </div>
   </div>
 </template>

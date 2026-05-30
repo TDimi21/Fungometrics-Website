@@ -12,6 +12,7 @@ use App\Services\Statistics\BullpenStatisticsService;
 use App\Services\Statistics\CageStatisticsService;
 use App\Services\Statistics\ExitVelocityStatisticsService;
 use App\Services\Statistics\LongTossStatisticsService;
+use App\Services\Statistics\WeightBallStatisticsService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -68,6 +69,7 @@ class GetPerformanceOverview extends Controller
                 $cageData = ResultTrainingService::getCageResultsLastSessions($teamId, $playerIds, 10);
                 $cageSvc  = new CageStatisticsService();
                 $result['cage'] = [
+                    'fcs'                  => $cageSvc->fcs($cageData),
                     'launch_angle_totals'   => $cageSvc->launchAngleTotals($cageData),
                     'launch_angle_percents' => $cageSvc->launchAnglePercents($cageData),
                     'launch_angle_avg_ev'   => $cageSvc->launchAngleExitVelocityAverage($cageData),
@@ -80,6 +82,7 @@ class GetPerformanceOverview extends Controller
                 $evData = ResultTrainingService::getExitVelocityResultsLastSessions($teamId, $playerIds, 10);
                 $evSvc  = new ExitVelocityStatisticsService();
                 $result['exit_velocity'] = [
+                    'evs'      => $evSvc->evs($evData),
                     'totals'   => $evSvc->totals($evData),
                     'percents' => $evSvc->percents($evData),
                 ];
@@ -88,12 +91,20 @@ class GetPerformanceOverview extends Controller
                 $longTossData = ResultTrainingService::getLongTossResultsLastSessions($teamId, $playerIds, 10);
                 $ltSvc        = new LongTossStatisticsService();
                 $result['long_toss'] = [
+                    'lts'               => $ltSvc->lts($longTossData),
                     'distance_totals'   => $ltSvc->distanceTotals($longTossData),
                     'distance_percents' => $ltSvc->distancePercentage($longTossData),
                     'distance_avg'      => $ltSvc->distanceAverage($longTossData),
                     'total_hops'        => $ltSvc->totalHops($longTossData),
                     'avg_hops'          => $ltSvc->averageHops($longTossData),
                     'max_hops'          => $ltSvc->maxHops($longTossData),
+                ];
+
+                // ── Weight Ball — last 10 sessions ────────────────────────────
+                $wbData = ResultTrainingService::getWeightBallResultsLastSessions($teamId, $playerIds, 10);
+                $wbSvc  = new WeightBallStatisticsService();
+                $result['weight_ball'] = [
+                    'wbs' => $wbSvc->wbs($wbData),
                 ];
 
                 return $result;

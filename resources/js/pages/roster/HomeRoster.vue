@@ -3,7 +3,7 @@ import Layout from '@/layout/Layout.vue'
 import { InputBase, BigButtonField, InutTel, LabelField } from '@/components/form'
 import { SearchIcon, ArrowHeadRightIcon, ArrowRightIcon } from '@/components/icons'
 import {ref, onMounted, reactive} from 'vue'
-import { CoachTable, PlayerTable, ModalSearchPlayer, ModalSearchCoach } from '@/components/roster'
+import { CoachTable, PlayerTable, ModalSearchPlayer, ModalSearchCoach, RosterCard } from '@/components/roster'
 import { useUserStore } from '@/store/user'
 import {useTeamStore} from "@/store/team";
 import { usePlayerStore } from '@/store/players.js'
@@ -355,264 +355,252 @@ const updateTable = (item) => {
 </script>
 
 <template>
-    <Layout>
-      <Loader v-show="!isLoading.status"/>
-        <h1 class="text-fungo-red text-2xl md:text-[40px] text-center mt-9 mb-6 font-fungo-700">Roster</h1>
-        <section class="bg-fungo-gray4 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%]">
-            <div class="flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
-                <div class="w-full lg:w-[30%] mt-6 mb-6 text-center">
-                    <h1 class="text-fungo-darkblue text-lg md:text-[30px] font-fungo-700">Coach</h1>
-                </div>
-                <div class="w-[100%] lg:w-[75%] justify-center flex lg:justify-end">
-                    <BigButtonField color="dark" label="Create coach" @click="isAddCoach = true"/>
-                </div>
-            </div>
-        </section>
-        <section class="bg-fungo-gray3 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%] mt-[140px] lg:mt-[80px]">
-            <div class="flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
-              <button class="w-full lg:w-[40%] mt-6 mb-6" @click="isOpenModalCoach = true">
-                <h1 class="text-fungo-blue2 text-base md:text-[15px] font-fungo-700 flex items-center cursor-pointer">Choose from existing coach <ArrowHeadRightIcon color="0077B6"/> </h1>
-              </button>
-              <div class="w-[100%] lg:w-[75%] flex justify-end">
-                <div class="w-full lg:w-[60%] ml-2">
-                  <div class="w-full lg:w-[100%] ml-2">
-                    <div class="flex flex-row flex-nowrap items-center space-x-3">
-                      <label for="search" class="block">Search</label>
-                      <InputBase v-model="searchCoach" inputType="search" placeholder="Search by name" class="inline-flex w-[100%]"/>
-                      <button @click="searchCoahByName"
-                        class="bg-fungo-red inline-flex rounded-lg w-[20%] max-w-[50px] h-10 items-center justify-center">
-                        <SearchIcon />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-        </section>
-        <CoachTable :tableData="tableDataCoaches" :isLoading="isLoadingCoach" :idTeam="team.id" v-on:remove-item="deleteCoach($event)"/>
-        <section class="bg-fungo-gray4 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%] mt-[160px] lg:mt-[80px]">
-            <div class="flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
-                <div class="w-full lg:w-[30%] mt-6 mb-6 text-center">
-                    <h1 class="text-fungo-darkblue text-lg md:text-[30px] font-fungo-700">Player</h1>
-                </div>
-                <div class="w-[100%] lg:w-[75%] justify-center flex lg:justify-end pb-[3%] lg:pb-[0%]">
-                    <BigButtonField color="dark" label="Create player" @click="isAddPlayer = true"/>
-                </div>
-            </div>
-        </section>
-        <section class="bg-fungo-gray3 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%] mt-[300px] lg:mt-[160px]">
-            <div class="flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
-                <div class="w-full lg:w-[40%] mt-6 mb-6" @click="isOpenModalPlayer = true">
-                    <h1 class="text-fungo-blue2 text-base md:text-[15px] font-fungo-700 flex items-center cursor-pointer">Choose from existing player <ArrowHeadRightIcon color="0077B6"/> </h1>
-                </div>
-                <div class="w-[100%] lg:w-[75%] flex justify-end">
-                  <div class="w-full lg:w-[60%] ml-2">
-                    <div class="w-full lg:w-[100%] ml-2">
-                      <div class="flex flex-row flex-nowrap items-center space-x-3">
-                        <label for="search" class="block">Search</label>
-                        <InputBase v-model="searchPlayer" inputType="search" placeholder="Search by name" class="inline-flex w-[100%]"/>
-                        <button @click="searchPlayerByName"
-                          class="bg-fungo-red inline-flex rounded-lg w-[20%] max-w-[50px] h-10 items-center justify-center">
-                          <SearchIcon />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-            </div>
-        </section>
-        <PlayerTable :tableData="tableDataPlayers" :isLoading="isLoadingPlayer" :idTeam="team.id" :playerLinks="playerLinks" v-on:update-table="updateTable($event)"/>
+  <Layout>
+    <Loader v-show="!isLoading.status" />
 
-        <div v-if="isOpenModalCoach">
-          <ModalSearchCoach :isOpen="isOpenModalCoach" @closeModal="changeBoolCoach"></ModalSearchCoach>
-          <div class="opacity-70 fixed inset-0 z-40 bg-fungo-darkblue"></div>
-        </div>
-        <div v-if="isOpenModalPlayer">
-          <ModalSearchPlayer :isOpen="isOpenModalPlayer" @closeModal="changeBool()"></ModalSearchPlayer>
-          <div class="opacity-70 fixed inset-0 z-40 bg-fungo-darkblue"></div>
-        </div>
-        <div v-if="isAddPlayer">
-          <div class="fixed inset-0 z-50 flex justify-center items-center">
-            <div class="modal-container">
-              <div>
-                <div class="flex flex-row w-[100%] items-center mb-3 px-4 ">
-                  <h1 class="text-lg lg:text-2xl text-fungo-red font-fungo-700 my-5">Create player</h1>
-                  <div class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]" @click="isAddPlayer = false">
-                    <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
-                  </div>
-                </div>
-                <div class="bg-fungo-gray2 flex flex-row w-[100%] items-center mb-5 py-10 px-[3%]">
-                  <form action="" name="add-player" class="flex flex-col lg:flex-row flex-wrap items-center space-x-0 lg:space-x-3 w-[95%] lg:w-[100%]">
-                    <div class="flex flex-row justify-between mb-2">
-                      <div>
-                        <LabelField text="First name" :required="true"/>
-                        <InputBase v-model="dataPlayer.firstName" />
-                      </div>
-                    </div>
-                    <div class="flex flex-row justify-between mb-2">
-                      <div>
-                        <LabelField text="Last name" :required="true"/>
-                        <InputBase v-model="dataPlayer.lastName" />
-                      </div>
-                    </div>
-                    <div class="flex flex-row justify-between mb-2">
-                      <div>
-                        <LabelField text="Mobile number" :required="true"/>
-                        <InutTel v-model="dataPlayer.mobileNumber"/>
-                      </div>
-                    </div>
-                  </form>
-                </div>
-                <div class="flex flex-row justify-center">
-                  <div class="justify-center">
-                    <button class="btn-modal"
-                      type="submit" @click="submitAddPlayer">
-                      <img alt="button register coach" class="w-4 h-4 md:w-6 md:h-6 mx-2 md:mx-0" src="../../assets/img/login/assteslogin/ballbutton.svg">
-                      <span class="mx-2">Add</span>
-                      <div class="text-white mx-2 animate-bounce-r">
-                        <ArrowRightIcon color="ffffff" w="50" h="50"/>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <!-- ── Page wrapper ─────────────────────────────────────────────── -->
+    <div class="min-h-screen bg-app-bg px-4 md:px-8 py-8">
+
+      <!-- Page title -->
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-1 h-8 bg-app-red rounded-full" />
+        <h1 class="text-white text-2xl md:text-3xl font-bold tracking-wide">Roster</h1>
+        <span class="ml-auto text-app-muted text-sm">
+          {{ tableDataCoaches.length }} coaches · {{ tableDataPlayers.length }} players
+        </span>
+      </div>
+
+      <!-- ══════════════ COACHES ══════════════ -->
+      <section class="mb-10">
+        <!-- Section header bar -->
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+          <div class="flex items-center gap-2">
+            <span class="text-app-blue text-xs font-bold uppercase tracking-widest">Coaches</span>
+            <span class="bg-app-blue/20 text-app-blue text-xs font-bold px-2 py-0.5 rounded-full border border-app-blue/30">
+              {{ tableDataCoaches.length }}
+            </span>
           </div>
-          <div class="opacity-70 fixed inset-0 z-40 bg-fungo-darkblue"></div>
-        </div>
-        <div v-if="isAddCoach">
-          <div class="fixed inset-0 z-50 flex justify-center items-center">
-            <div class="modal-container">
-              <div>
-                <div class="flex flex-row w-[100%] items-center mb-3 px-4 ">
-                  <h1 class="text-lg lg:text-2xl text-fungo-red font-fungo-700 my-5">Create coach</h1>
-                  <div class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]" @click="isAddCoach = false">
-                    <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
-                  </div>
-                </div>
-                <div class="bg-fungo-gray2 flex flex-row w-[100%] items-center mb-5 py-10 px-[3%]">
-                  <form action="" name="add-player" class="flex flex-col lg:flex-row flex-wrap items-center space-x-0 lg:space-x-3 w-[95%] lg:w-[100%]">
-                    <div class="flex flex-row justify-between mb-2">
-                      <div>
-                        <LabelField text="First name" :required="true"/>
-                        <InputBase v-model="dataCoach.firstName" />
-                      </div>
-                    </div>
-                    <div class="flex flex-row justify-between mb-2">
-                      <div>
-                        <LabelField text="Last name" :required="true"/>
-                        <InputBase v-model="dataCoach.lastName" />
-                      </div>
-                    </div>
-                    <div class="flex flex-row justify-between mb-2">
-                      <div>
-                        <LabelField text="Mobile number" :required="true"/>
-                        <InutTel v-model="dataCoach.mobileNumber"/>
-                      </div>
-                    </div>
-                  </form>
-                </div>
-                <div class="flex flex-row justify-center">
-                  <div class="justify-center">
-                    <button class="btn-modal"
-                      type="submit" @click="submitAddCoach">
-                      <img alt="button register coach" class="w-6 h-6 md:w-8 md:h-8 mx-2 md:mx-0" src="../../assets/img/login/assteslogin/ballbutton.svg">
-                      <span class="mx-2">Add</span>
-                      <div class="text-white mx-2 animate-bounce-r">
-                        <ArrowRightIcon color="ffffff" w="50" h="50"/>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </div>
+
+          <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <!-- Search coaches -->
+            <div class="flex items-center gap-2 bg-app-card border border-white/10 rounded-xl px-3 py-2">
+              <svg class="w-4 h-4 text-app-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+              </svg>
+              <input
+                v-model="searchCoach"
+                @input="searchCoahByName"
+                type="search"
+                placeholder="Search coaches…"
+                class="bg-transparent text-white text-sm placeholder-app-muted outline-none w-36"
+              />
             </div>
+            <!-- Add from existing -->
+            <button
+              @click="isOpenModalCoach = true"
+              class="flex items-center gap-1.5 bg-app-navy border border-white/10 hover:border-app-blue/50
+                     text-app-blue text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Add Existing
+            </button>
+            <!-- Create new coach -->
+            <button
+              @click="isAddCoach = true"
+              class="flex items-center gap-1.5 bg-app-red hover:bg-app-red-hover
+                     text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Create Coach
+            </button>
           </div>
-          <div class="opacity-70 fixed inset-0 z-40 bg-fungo-darkblue"></div>
         </div>
-    </Layout>
+
+        <!-- Coach cards grid -->
+        <div v-if="isLoadingCoach" class="text-app-muted text-center py-10">Loading coaches…</div>
+        <div v-else-if="!tableDataCoaches.length" class="text-app-muted text-center py-10">No coaches found</div>
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <RosterCard
+            v-for="item in tableDataCoaches"
+            :key="item.id"
+            :item="item"
+            type="coach"
+            :idTeam="team.id"
+            @remove-item="deleteCoach($event)"
+          />
+        </div>
+      </section>
+
+      <!-- ══════════════ PLAYERS ══════════════ -->
+      <section>
+        <!-- Section header bar -->
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+          <div class="flex items-center gap-2">
+            <span class="text-app-red text-xs font-bold uppercase tracking-widest">Players</span>
+            <span class="bg-app-red/20 text-app-red text-xs font-bold px-2 py-0.5 rounded-full border border-app-red/30">
+              {{ tableDataPlayers.length }}
+            </span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <!-- Search players -->
+            <div class="flex items-center gap-2 bg-app-card border border-white/10 rounded-xl px-3 py-2">
+              <svg class="w-4 h-4 text-app-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+              </svg>
+              <input
+                v-model="searchPlayer"
+                @input="searchPlayerByName"
+                type="search"
+                placeholder="Search players…"
+                class="bg-transparent text-white text-sm placeholder-app-muted outline-none w-36"
+              />
+            </div>
+            <!-- Add from existing -->
+            <button
+              @click="isOpenModalPlayer = true"
+              class="flex items-center gap-1.5 bg-app-navy border border-white/10 hover:border-app-red/50
+                     text-app-red text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Add Existing
+            </button>
+            <!-- Create new player -->
+            <button
+              @click="isAddPlayer = true"
+              class="flex items-center gap-1.5 bg-app-red hover:bg-app-red-hover
+                     text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Create Player
+            </button>
+          </div>
+        </div>
+
+        <!-- Player cards grid -->
+        <div v-if="isLoadingPlayer" class="text-app-muted text-center py-10">Loading players…</div>
+        <div v-else-if="!tableDataPlayers.length" class="text-app-muted text-center py-10">No players found</div>
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <RosterCard
+            v-for="item in tableDataPlayers"
+            :key="item.id"
+            :item="item"
+            type="player"
+            :idTeam="team.id"
+            @remove-item="updateTable(true)"
+          />
+        </div>
+      </section>
+    </div>
+
+    <!-- ══ Modals ══════════════════════════════════════════════════════ -->
+    <div v-if="isOpenModalCoach">
+      <ModalSearchCoach :isOpen="isOpenModalCoach" @closeModal="changeBoolCoach" />
+      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" />
+    </div>
+    <div v-if="isOpenModalPlayer">
+      <ModalSearchPlayer :isOpen="isOpenModalPlayer" @closeModal="changeBool()" />
+      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" />
+    </div>
+
+    <!-- ══ Create Player modal ═════════════════════════════════════════ -->
+    <div v-if="isAddPlayer" class="fixed inset-0 z-50 flex justify-center items-center px-4">
+      <div class="modal-dark w-full max-w-md">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-white text-lg font-bold">Create Player</h2>
+          <button @click="isAddPlayer = false" class="text-app-muted hover:text-white transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <form class="flex flex-col gap-4">
+          <div>
+            <label class="field-label">First Name *</label>
+            <InputBase v-model="dataPlayer.firstName" />
+          </div>
+          <div>
+            <label class="field-label">Last Name *</label>
+            <InputBase v-model="dataPlayer.lastName" />
+          </div>
+          <div>
+            <label class="field-label">Mobile Number *</label>
+            <InutTel v-model="dataPlayer.mobileNumber" />
+          </div>
+        </form>
+        <div class="flex justify-end gap-3 mt-6">
+          <button @click="isAddPlayer = false" class="btn-ghost">Cancel</button>
+          <button @click="submitAddPlayer" class="btn-primary">Add Player</button>
+        </div>
+      </div>
+      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" />
+    </div>
+
+    <!-- ══ Create Coach modal ══════════════════════════════════════════ -->
+    <div v-if="isAddCoach" class="fixed inset-0 z-50 flex justify-center items-center px-4">
+      <div class="modal-dark w-full max-w-md">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-white text-lg font-bold">Create Coach</h2>
+          <button @click="isAddCoach = false" class="text-app-muted hover:text-white transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <form class="flex flex-col gap-4">
+          <div>
+            <label class="field-label">First Name *</label>
+            <InputBase v-model="dataCoach.firstName" />
+          </div>
+          <div>
+            <label class="field-label">Last Name *</label>
+            <InputBase v-model="dataCoach.lastName" />
+          </div>
+          <div>
+            <label class="field-label">Mobile Number *</label>
+            <InutTel v-model="dataCoach.mobileNumber" />
+          </div>
+        </form>
+        <div class="flex justify-end gap-3 mt-6">
+          <button @click="isAddCoach = false" class="btn-ghost">Cancel</button>
+          <button @click="submitAddCoach" class="btn-primary">Add Coach</button>
+        </div>
+      </div>
+      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" />
+    </div>
+
+  </Layout>
 </template>
 
 <style scoped>
-
-.modal-container{
-  @apply flex flex-col max-w-5xl rounded-lg shadow-xl overflow-y-auto bg-white border pt-2 pb-4 drop-shadow-xl min-h-[50%] max-h-[50%]
-    lg:min-h-[40%] lg:max-h-[40%] w-[85%] md:w-[100%] ml-3 lg:ml-0
+/* Dark modal container */
+.modal-dark {
+  @apply relative z-50 bg-app-navy border border-white/10 rounded-2xl p-6 shadow-2xl;
 }
 
-.btn-modal{
-  @apply grid place-items-center grid-flow-col flex-row rounded-button-right w-[250px] lg:w-[300px]
-    px-2 py-1 text-xl md:text-[12px] lg:text-[16px] bg-fungo-red text-white hover:bg-fungo-red-hover
+/* Form field label */
+.field-label {
+  @apply block text-app-muted text-xs font-fungo-700 uppercase tracking-wide mb-1;
 }
 
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-button {
-  width: 0px;
-  height: 0px;
-}
-::-webkit-scrollbar-thumb {
-  background: #e41111;
-  border: 0px none #ffffff;
-  border-radius: 5px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #ffffff;
-}
-::-webkit-scrollbar-thumb:active {
-  background: #000000;
-}
-::-webkit-scrollbar-track {
-  background: #666666;
-  border: 22px solid #918383;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-track:hover {
-  background: #e41111;
-}
-::-webkit-scrollbar-track:active {
-  background: #333333;
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
+/* Primary red button */
+.btn-primary {
+  @apply bg-app-red hover:bg-app-red-hover text-white text-sm font-fungo-700 px-5 py-2.5 rounded-xl transition;
 }
 
-@keyframes bounce {
-  0%, 100% {
-    transform: translateX(-25%);
-    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
-  }
-  50% {
-    transform: none;
-    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
-  }
-}
-
-.animate-bounce-r {
-  animation: bounce 1s infinite;
-}
-
-@keyframes bouncel {
-  0%, 100% {
-    transform: translateX(25%);
-    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
-  }
-  50% {
-    transform: none;
-    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
-  }
-}
-
-.animate-bounce-l {
-  animation: bouncel 1s infinite;
-}
-
-.rounded-button-right {
-  border-radius: 30px 10px 10px 30px;
-}
-
-.rounded-button-left {
-  border-radius: 10px 30px 30px 10px;
+/* Ghost button */
+.btn-ghost {
+  @apply bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-sm font-fungo-700 px-5 py-2.5 rounded-xl border border-white/10 transition;
 }
 </style>
+

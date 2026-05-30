@@ -101,62 +101,63 @@ import { ArrowHeadRightIcon, ArrowHeadLeftIcon } from '@/components/icons'
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex justify-center items-center">
-    <div class="flex flex-col max-w-5xl rounded-lg shadow-xl overflow-y-auto bg-white border pt-2 pb-4 drop-shadow-xl min-h-[50%]
-    max-h-[50%] w-[85%] md:w-[100%] ml-3 lg:ml-0">
-      <div>
-        <div class="flex flex-row w-[100%] items-center mb-5 px-4 ">
-          <h1 class="text-lg lg:text-2xl text-fungo-red font-fungo-700 my-5">Choose from existing player</h1>
-          <div class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]" @click="close">
-            <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
-          </div>
+  <div class="fixed inset-0 z-50 flex justify-center items-center px-4">
+    <div class="flex flex-col w-full max-w-2xl bg-app-navy border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[80vh]">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <div class="w-1 h-5 bg-app-red rounded-full" />
+          <h2 class="text-white font-fungo-700 text-lg">Add Existing Player</h2>
         </div>
-        <div class="bg-fungo-gray2 flex flex-row w-[100%] items-center mb-5 py-10 px-[15%]">
-          <div class="flex flex-col lg:flex-row flex-nowrap items-center space-x-3 gap-2">
-            <div>
-              <label for="search" class="block w-[100%] text-center lg:text-start lg:w-[65%]">Search by name</label>
-              <InputBase v-model="dataPlayer.name" class="inline-flex w-[100%] max-w-[100%]"/>
-            </div>
-            <div>
-              <label for="search" class="block w-[100%] text-center lg:text-start lg:w-[65%]">Search By Mobile number</label>
-              <InutTel v-model="dataPlayer.mobileNumber" class="inline-flex w-[50%] max-w-[50%]"/>
-            </div>
-            <div>
-              <button @click="searchPlayers"
-              class="bg-fungo-darkblue inline-flex rounded-lg w-10 h-10 items-center justify-center p-2 mt-4 lg:mt-6">
-                <SearchIcon />
-              </button>
-            </div>
+        <button @click="close" class="text-app-muted hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Search bar -->
+      <div class="px-6 py-4 bg-app-surface border-b border-white/10">
+        <div class="flex flex-col sm:flex-row gap-3 items-end">
+          <div class="flex-1">
+            <label class="block text-app-muted text-xs font-fungo-700 uppercase tracking-wide mb-1">Name</label>
+            <InputBase v-model="dataPlayer.name" class="w-full" />
           </div>
-        </div>
-        <PlayerCard :data="tableData" v-if="showCard" :isLoad="isLoading.status"></PlayerCard>
-        <div class="pagination flex justify-end items-center px-[10%] md:px-[5%] mt-12">
+          <div class="flex-1">
+            <label class="block text-app-muted text-xs font-fungo-700 uppercase tracking-wide mb-1">Mobile Number</label>
+            <InutTel v-model="dataPlayer.mobileNumber" class="w-full" />
+          </div>
           <button
-            v-for="(page, index) in playerLinks"
-            :key="index"
-            class="bg-white border border-fungo-darkblue w-[40px] h-[40px]"
-            :class="{ 'bg-fungo-lightblue' : page.active }"
-            @click=" searchPlayers(page.label) "
+            @click="searchPlayers"
+            class="flex items-center gap-2 bg-app-red hover:bg-app-red-hover text-white text-sm font-fungo-700 px-4 py-2.5 rounded-xl transition whitespace-nowrap"
           >
-            <span
-              v-if="page.label.includes('Prev')"
-              class="flex justify-center items-center"
-            >
-              <ArrowHeadLeftIcon classes="w-[30px] h-[30px]"/>
-            </span>
-
-            <span
-              v-else-if="page.label.includes('Next')"
-              class="flex justify-center items-center"
-            >
-              <ArrowHeadRightIcon classes="w-[30px] h-[30px]"/>
-            </span>
-
-            <span v-else>
-              {{ Number.parseInt(index, 10) }}
-            </span>
+            <SearchIcon />
+            Search
           </button>
         </div>
+      </div>
+
+      <!-- Results -->
+      <div class="overflow-y-auto flex-1 px-6 py-4">
+        <PlayerCard :data="tableData" v-if="showCard" :isLoad="isLoading.status" />
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="playerLinks.length" class="flex justify-end gap-1 px-6 py-3 border-t border-white/10">
+        <button
+          v-for="(page, index) in playerLinks"
+          :key="index"
+          class="w-9 h-9 flex items-center justify-center rounded-lg border text-sm font-fungo-700 transition"
+          :class="page.active
+            ? 'bg-app-red border-app-red text-white'
+            : 'bg-app-card border-white/10 text-app-muted hover:border-app-red/50 hover:text-white'"
+          @click="searchPlayers(page.label)"
+        >
+          <span v-if="page.label.includes('Prev')"><ArrowHeadLeftIcon classes="w-4 h-4"/></span>
+          <span v-else-if="page.label.includes('Next')"><ArrowHeadRightIcon classes="w-4 h-4"/></span>
+          <span v-else>{{ Number.parseInt(index, 10) }}</span>
+        </button>
       </div>
     </div>
   </div>

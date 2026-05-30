@@ -38,6 +38,7 @@ const { isShowMsgModal } = storeToRefs(trainingStore);
 
 const isOpen = ref(false);
 const isChange = ref(false);
+const sessionCount = ref(0);
 const api_url = process.env.API_ENDPOINT;
 const isLoading = reactive({ status: true });
 const token = JSON.parse(localStorage.getItem("auth")).token;
@@ -204,8 +205,20 @@ const openChangeTeamModal = () => {
   isChange.value = true;
 };
 
+const fetchSessionCount = async () => {
+  if (userData.type !== 'coach' || !team?.id) return;
+  try {
+    const { data } = await axiosGet(`coach/sessions/lasts/${team.id}`);
+    const d = data?.data ?? {};
+    sessionCount.value = [
+      d.batting, d.bullpen, d.cage, d.live, d.weight_ball, d.long_toss, d.exit_velocity
+    ].reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+  } catch {}
+};
+
 onMounted(() => {
   getTeamsWithPalyers();
+  fetchSessionCount();
   if (screen.width < 1024) hasSidebar.active = false;
   window.addEventListener("open-add-player-modal", openModal);
   window.addEventListener("open-change-team-modal", openChangeTeamModal);
@@ -250,6 +263,56 @@ onUnmounted(() => {
               />
             </RouterLink>
             <div class="absolute w-full h-[3px] bg-gradient-to-r from-[#002060] to-[#C00000] bottom-0"></div>
+          </div>
+
+          <!-- Team card (coach only) -->
+          <div
+            v-if="userData.type === 'coach'"
+            class="mx-3 mb-3 mt-1 relative overflow-hidden rounded-xl border border-white/20 shadow-lg"
+          >
+            <div
+              v-if="team?.logo"
+              class="absolute inset-0 bg-cover bg-center opacity-20"
+              :style="{ backgroundImage: `url(${team.logo})` }"
+            ></div>
+            <div class="absolute inset-0 bg-[#001030]/80"></div>
+
+            <div class="relative z-10 p-3 flex flex-col gap-3 cursor-pointer hover:bg-white/5 transition" @click="openChangeTeamModal" title="Click to switch team">
+              <!-- Logo + name -->
+              <div class="flex items-center gap-3">
+                <div class="h-12 w-12 rounded-lg overflow-hidden border border-white/20 bg-slate-900 shrink-0">
+                  <img v-if="team?.logo" :src="team.logo" alt="Team" class="h-full w-full object-cover" />
+                  <div v-else class="h-full w-full flex items-center justify-center text-xs font-black text-white/30">FM</div>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-white font-black text-sm truncate leading-tight">{{ team?.name ?? 'My Team' }}</p>
+                  <p class="text-white/50 text-[10px] leading-tight mt-0.5">Player development tracking · Sessions · Stats</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Add Players button -->
+            <div class="relative z-10 px-3 pb-1">
+              <button
+                type="button"
+                class="w-full rounded-lg border border-red-400/60 bg-red-500/20 py-1.5 text-center text-[11px] font-black tracking-wider text-red-200 hover:bg-red-500/30 transition"
+                @click.stop="openModal"
+              >
+                + ADD PLAYERS
+              </button>
+            </div>
+
+            <!-- Stats row -->
+            <div class="relative z-10 grid grid-cols-2 gap-1.5 px-3 pb-3 pt-2">
+              <div class="rounded-lg border border-white/10 bg-white/10 p-2 text-center">
+                <div class="text-[9px] font-black uppercase tracking-widest text-white/45">Players</div>
+                <div class="mt-0.5 text-lg font-black text-white">{{ players?.length ?? 0 }}</div>
+              </div>
+              <div class="rounded-lg border border-white/10 bg-white/10 p-2 text-center">
+                <div class="text-[9px] font-black uppercase tracking-widest text-white/45">Sessions</div>
+                <div class="mt-0.5 text-lg font-black text-white">{{ sessionCount }}</div>
+              </div>
+            </div>
           </div>
 
           <!-- Nav links -->

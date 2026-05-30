@@ -46,7 +46,19 @@ module.exports = {
 
         "fungo-lightblue": "#ADE8F4",
         "fungo-lightblue-hover": "#ADE8F4",
-        "fungo-lightblue-disabled": "#D7F3F9"
+        "fungo-lightblue-disabled": "#D7F3F9",
+
+        // ── App-matched dark theme ─────────────────────────────
+        "app-bg":      "#0B1020",
+        "app-navy":    "#191C4A",
+        "app-navy-mid":"#1E2354",
+        "app-red":     "#FF2B4A",
+        "app-red-hover":"#E01F3C",
+        "app-blue":    "#0C6CAB",
+        "app-muted":   "#64748B",
+        "app-surface": "#141830",
+        "app-card":    "#1A1F45",
+        "app-card-hover":"#1E2450",
       },
       boxShadow: {
         'fungo-but-shadow': '0 10px 10px 5px rgba(0, 0, 0, 0.3),0 -5px 10px 0px' +

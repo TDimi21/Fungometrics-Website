@@ -151,105 +151,66 @@ import { ArrowHeadRightIcon, ArrowHeadLeftIcon } from '@/components/icons'
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex justify-center items-center">
-    <div class="flex flex-col max-w-5xl rounded-lg shadow-xl overflow-y-auto bg-white border pt-2 pb-4 drop-shadow-xl
-      min-h-[50%] max-h-[50%] w-[85%] md:w-[100%] ml-3 lg:ml-0">
-      <div>
-        <div class="flex flex-row w-[100%] items-center px-4 ">
-          <h1 class="text-lg lg:text-2xl text-fungo-red font-fungo-700 my-5">Choose from existing coach</h1>
-          <div class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]" @click="close">
-            <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
-          </div>
+  <div class="fixed inset-0 z-50 flex justify-center items-center px-4">
+    <div class="flex flex-col w-full max-w-2xl bg-app-navy border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[80vh]">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <div class="w-1 h-5 bg-app-blue rounded-full" />
+          <h2 class="text-white font-fungo-700 text-lg">Add Existing Coach</h2>
         </div>
-        <div class="bg-fungo-gray2 flex flex-row w-[100%] items-center mb-5 py-5 px-[30%]">
-          <div class="flex flex-col lg:flex-row flex-nowrap items-center space-x-3 gap-2">
-            <div>
-              <label for="search" class="block w-[100%] text-center lg:text-start lg:w-[65%]">Search By Mobile number</label>
-              <InutTel v-model="dataCoach.mobileNumber" inputType="tel" class="inline-flex w-[100%] max-w-[100%]"/>
-            </div>
-            <div>
-              <button @click="searchCoach"
-              class="bg-fungo-darkblue inline-flex rounded-lg w-10 h-10 items-center justify-center p-2 mt-4 lg:mt-6">
-                <SearchIcon />
-              </button>
-            </div>
+        <button @click="close" class="text-app-muted hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Search bar -->
+      <div class="px-6 py-4 bg-app-surface border-b border-white/10">
+        <div class="flex flex-col sm:flex-row gap-3 items-end">
+          <div class="flex-1">
+            <label class="block text-app-muted text-xs font-fungo-700 uppercase tracking-wide mb-1">Mobile Number</label>
+            <InutTel v-model="dataCoach.mobileNumber" inputType="tel" class="w-full" />
           </div>
-        </div>
-        <CoachCard :data="tableData" v-if="showCard" :isLoading="isLoading.status"></CoachCard>
-        <div class="pagination flex justify-end items-center px-[10%] md:px-[5%] mt-12">
           <button
-            v-for="(page, index) in coachLinks"
-            :key="index"
-            class="bg-white border border-fungo-darkblue w-[40px] h-[40px]"
-            :class="{ 'bg-fungo-lightblue' : page.active }"
-            @click=" searchCoach(page.label) "
+            @click="searchCoach"
+            class="flex items-center gap-2 bg-app-blue hover:bg-app-blue/80 text-white text-sm font-fungo-700 px-4 py-2.5 rounded-xl transition whitespace-nowrap"
           >
-            <span
-              v-if="page.label.includes('Prev')"
-              class="flex justify-center items-center"
-            >
-              <ArrowHeadLeftIcon classes="w-[30px] h-[30px]"/>
-            </span>
-
-            <span
-              v-else-if="page.label.includes('Next')"
-              class="flex justify-center items-center"
-            >
-              <ArrowHeadRightIcon classes="w-[30px] h-[30px]"/>
-            </span>
-
-            <span v-else>
-              {{ Number.parseInt(index, 10) }}
-            </span>
+            <SearchIcon />
+            Search
           </button>
         </div>
+      </div>
+
+      <!-- Results -->
+      <div class="overflow-y-auto flex-1 px-6 py-4">
+        <CoachCard :data="tableData" v-if="showCard" :isLoading="isLoading.status" />
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="coachLinks.length" class="flex justify-end gap-1 px-6 py-3 border-t border-white/10">
+        <button
+          v-for="(page, index) in coachLinks"
+          :key="index"
+          class="w-9 h-9 flex items-center justify-center rounded-lg border text-sm font-fungo-700 transition"
+          :class="page.active
+            ? 'bg-app-blue border-app-blue text-white'
+            : 'bg-app-card border-white/10 text-app-muted hover:border-app-blue/50 hover:text-white'"
+          @click="searchCoach(page.label)"
+        >
+          <span v-if="page.label.includes('Prev')"><ArrowHeadLeftIcon classes="w-4 h-4"/></span>
+          <span v-else-if="page.label.includes('Next')"><ArrowHeadRightIcon classes="w-4 h-4"/></span>
+          <span v-else>{{ Number.parseInt(index, 10) }}</span>
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-button {
-  width: 0px;
-  height: 0px;
-}
-::-webkit-scrollbar-thumb {
-  background: #e41111;
-  border: 0px none #ffffff;
-  border-radius: 5px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #ffffff;
-}
-::-webkit-scrollbar-thumb:active {
-  background: #000000;
-}
-::-webkit-scrollbar-track {
-  background: #666666;
-  border: 22px solid #918383;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-track:hover {
-  background: #e41111;
-}
-::-webkit-scrollbar-track:active {
-  background: #333333;
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: #FF2B4A; border-radius: 5px; }
+::-webkit-scrollbar-track { background: #1A1F45; border-radius: 4px; }
 </style>

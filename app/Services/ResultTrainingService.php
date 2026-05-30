@@ -285,11 +285,22 @@ final class ResultTrainingService
 
     /**
      * Returns exit velocity results from the last $limit distinct sessions.
+     * team_id is often NULL on result rows — resolve via the practices table.
      */
     public static function getExitVelocityResultsLastSessions(string $team, array $players, int $limit = 10)
     {
+        // Get practice IDs belonging to this team from the practices table
+        $teamPracticeIds = Practice::where('team_id', $team)
+            ->where('type', PracticeTypes::TRAINING->value)
+            ->pluck('id')
+            ->all();
+
+        if (empty($teamPracticeIds)) {
+            return collect();
+        }
+
         $practiceIds = ExitVelocityPractice::selectRaw('practice_id, MAX(created_at) as latest')
-            ->where('team_id', $team)
+            ->whereIn('practice_id', $teamPracticeIds)
             ->whereIn('user_id', $players)
             ->groupBy('practice_id')
             ->orderByDesc('latest')
@@ -301,19 +312,28 @@ final class ResultTrainingService
             return collect();
         }
 
-        return ExitVelocityPractice::where('team_id', $team)
+        return ExitVelocityPractice::whereIn('practice_id', $practiceIds)
             ->whereIn('user_id', $players)
-            ->whereIn('practice_id', $practiceIds)
             ->get();
     }
 
     /**
      * Returns long toss results from the last $limit distinct sessions.
+     * team_id is often NULL on result rows — resolve via the practices table.
      */
     public static function getLongTossResultsLastSessions(string $team, array $players, int $limit = 10)
     {
+        $teamPracticeIds = Practice::where('team_id', $team)
+            ->where('type', PracticeTypes::TRAINING->value)
+            ->pluck('id')
+            ->all();
+
+        if (empty($teamPracticeIds)) {
+            return collect();
+        }
+
         $practiceIds = LongTossPractice::selectRaw('practice_id, MAX(created_at) as latest')
-            ->where('team_id', $team)
+            ->whereIn('practice_id', $teamPracticeIds)
             ->whereIn('user_id', $players)
             ->groupBy('practice_id')
             ->orderByDesc('latest')
@@ -325,9 +345,54 @@ final class ResultTrainingService
             return collect();
         }
 
-        return LongTossPractice::where('team_id', $team)
+        return LongTossPractice::whereIn('practice_id', $practiceIds)
             ->whereIn('user_id', $players)
-            ->whereIn('practice_id', $practiceIds)
+            ->get();
+    }
+
+    /**
+     * Returns weight ball results from the last $limit distinct sessions.
+     * Some rows have team_id = null — resolve via the practices table as fallback.
+     */
+    public static function getWeightBallResultsLastSessions(string $team, array $players, int $limit = 10)
+    {
+        // First try direct team_id match (rows that have it populated)
+        $practiceIds = WeightBallPractice::selectRaw('practice_id, MAX(created_at) as latest')
+            ->where('team_id', $team)
+            ->whereIn('user_id', $players)
+            ->groupBy('practice_id')
+            ->orderByDesc('latest')
+            ->limit($limit)
+            ->pluck('practice_id')
+            ->all();
+
+        // Fallback: resolve team via practices table for rows with team_id = null
+        if (empty($practiceIds)) {
+            $teamPracticeIds = Practice::where('team_id', $team)
+                ->where('type', PracticeTypes::TRAINING->value)
+                ->pluck('id')
+                ->all();
+
+            if (empty($teamPracticeIds)) {
+                return collect();
+            }
+
+            $practiceIds = WeightBallPractice::selectRaw('practice_id, MAX(created_at) as latest')
+                ->whereIn('practice_id', $teamPracticeIds)
+                ->whereIn('user_id', $players)
+                ->groupBy('practice_id')
+                ->orderByDesc('latest')
+                ->limit($limit)
+                ->pluck('practice_id')
+                ->all();
+
+            if (empty($practiceIds)) {
+                return collect();
+            }
+        }
+
+        return WeightBallPractice::whereIn('practice_id', $practiceIds)
+            ->whereIn('user_id', $players)
             ->get();
     }
 
