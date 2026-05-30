@@ -198,3 +198,61 @@ body,
 [data-ui-theme='dark'] .border-white\/20 {
     border-color: rgba(255, 255, 255, 0.24) !important;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Global screen design system (glass + centered layout stage)               */
+/* -------------------------------------------------------------------------- */
+
+:root {
+    --design-shell-overlay: rgba(6, 12, 30, 0.42);
+    --design-panel-bg: rgba(10, 16, 32, 0.82);
+    --design-panel-border: rgba(255, 255, 255, 0.26);
+    --design-panel-shadow: 0 28px 70px rgba(0, 0, 0, 0.32);
+}
+
+[data-ui-theme='light'] {
+    --design-shell-overlay: rgba(229, 236, 246, 0.56);
+    --design-panel-bg: rgba(255, 255, 255, 0.72);
+    --design-panel-border: rgba(15, 23, 42, 0.16);
+    --design-panel-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+}
+
+.app-main-shell {
+    background-image:
+        linear-gradient(var(--design-shell-overlay), var(--design-shell-overlay)),
+        url('../js/assets/img/login/assteslogin/updatedlogo.png');
+    background-repeat: no-repeat;
+    background-size: cover, 42% auto;
+    background-position: center, center;
+    background-attachment: fixed, fixed;
+}
+
+.screen-stage {
+    width: min(1380px, calc(100% - 2rem));
+    margin: 1.25rem auto 2rem;
+}
+
+.screen-stage > * {
+    border-radius: 26px;
+    border: 1px solid var(--design-panel-border);
+    background: var(--design-panel-bg);
+    box-shadow: var(--design-panel-shadow);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+}
+
+.screen-stage > .settings-page,
+.screen-stage > .min-h-screen,
+.screen-stage > .w-full {
+    padding-top: clamp(1rem, 1.6vw, 1.5rem) !important;
+    padding-bottom: clamp(1rem, 1.6vw, 1.5rem) !important;
+}
+
+[data-ui-theme='light'] .app-main-shell {
+    background-image: none;
+    background-color: #eef2f7;
+}
+
+[data-ui-theme='light'] .screen-stage > * {
+    color: #0f172a;
+}

@@ -85,9 +85,9 @@ onUpdated(()=>{
 
     <PracticeTitle class="capitalize" :title="props.slug.replace('-', ' ') + ' Practice'" />
 
-    <section class="bg-fungo-gray3 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%]">
+    <section class="practice-shell px-[10%] md:px-[5%] py-6">
 
-      <div class="flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
+      <div class="practice-toolbar flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
         <div class="w-max">
           <BattingLogoPractice class="h-[80px] w-[80px] hidden lg:block" />
         </div>
@@ -110,40 +110,39 @@ onUpdated(()=>{
           </form>
         </div>
         <div class="w-[100%] lg:w-[50%] flex justify-end">
-          <BigButtonField color="dark" label="New practice" @click="gotoCreateTraining"/>
+          <BigButtonField color="dark" label="New practice" @click="gotoCreateTraining" />
         </div>
       </div>
+      <PracticeTableLiveAB :tableData="tableData" :isLoading="isLoading" @updateList="updateList" />
+
+      <div class="pagination flex justify-end items-center mt-8">
+        <button
+          v-for="(page, index) in pages"
+          :key="index"
+          class="bg-white border border-fungo-darkblue w-[40px] h-[40px]"
+          :class="{ 'bg-fungo-lightblue' : page.active }"
+          @click=" getPaginate(page.label) "
+        >
+          <span
+            v-if="page.label.includes('Prev')"
+            class="flex justify-center items-center"
+          >
+            <ArrowHeadLeftIcon classes="w-[30px] h-[30px]"/>
+          </span>
+
+          <span
+            v-else-if="page.label.includes('Next')"
+            class="flex justify-center items-center"
+          >
+            <ArrowHeadRightIcon classes="w-[30px] h-[30px]"/>
+          </span>
+
+          <span v-else>
+            {{ Number.parseInt(index, 10) }}
+          </span>
+        </button>
+      </div>
     </section>
-
-    <PracticeTableLiveAB :tableData="tableData" :isLoading="isLoading" @updateList="updateList"/>
-
-    <div class="pagination flex justify-end items-center px-[10%] md:px-[5%] mt-12">
-      <button
-        v-for="(page, index) in pages"
-        :key="index"
-        class="bg-white border border-fungo-darkblue w-[40px] h-[40px]"
-        :class="{ 'bg-fungo-lightblue' : page.active }"
-        @click=" getPaginate(page.label) "
-      >
-        <span
-          v-if="page.label.includes('Prev')"
-          class="flex justify-center items-center"
-        >
-          <ArrowHeadLeftIcon classes="w-[30px] h-[30px]"/>
-        </span>
-
-        <span
-          v-else-if="page.label.includes('Next')"
-          class="flex justify-center items-center"
-        >
-          <ArrowHeadRightIcon classes="w-[30px] h-[30px]"/>
-        </span>
-
-        <span v-else>
-          {{ Number.parseInt(index, 10) }}
-        </span>
-      </button>
-    </div>
   </Layout>
 </template>
 <style lang="css" scoped>
@@ -152,5 +151,17 @@ onUpdated(()=>{
 }
 .pagination button:last-child {
   border-radius: 0 10px 10px 0;
+}
+
+.practice-shell {
+  background: rgba(10, 16, 32, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.practice-toolbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  padding-bottom: 1rem;
 }
 </style>

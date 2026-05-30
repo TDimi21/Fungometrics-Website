@@ -27,33 +27,6 @@ const sidebarItems = ref([
     url: '/roster'
   },
   {
-    title: 'Start practice',
-    iconPath: iconStartPractice,
-    startWith: '/create',
-    child: [
-      {
-        title: 'Batting practice',
-        url: '/create/batting'
-      },
-      {
-        title: 'Bullpen practice',
-        url: '/create/bullpen'
-      },
-      {
-        title: 'Cage practice',
-        url: '/create/cage'
-      },
-      {
-        title: 'Training mode',
-        url: '/create/mode'
-      },
-      {
-        title: 'LiveAB mode',
-        url: '/create/live'
-      }
-    ]
-  },
-  {
     title: 'Practice Sessions',
     iconPath: iconSessionPractice,
     startWith: '/training',

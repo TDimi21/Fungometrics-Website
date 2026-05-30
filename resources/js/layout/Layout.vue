@@ -365,13 +365,17 @@ onUnmounted(() => {
         class="app-main-shell min-h-screen pt-6 pb-24 px-0 overflow-hidden bg-[#060b14]"
         v-if="userData.type === 'coach'"
       >
-        <slot />
+        <div class="screen-stage">
+          <slot />
+        </div>
       </main>
       <main
         class="app-main-shell min-h-screen px-0 overflow-hidden bg-fungo-gray2"
         v-if="userData.type === 'player'"
       >
-        <slot />
+        <div class="screen-stage">
+          <slot />
+        </div>
       </main>
     </div>
   </div>
@@ -720,22 +724,6 @@ onUnmounted(() => {
 
 .layout-shell.theme-light .sidebar-action:hover {
   background: rgba(15, 23, 42, 0.12);
-}
-
-.app-main-shell {
-  background-image:
-    linear-gradient(rgba(5, 14, 40, 0.70), rgba(5, 14, 40, 0.70)),
-    url('../assets/img/stadium-bg.png'),
-    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0));
-  background-repeat: no-repeat;
-  background-size: cover, cover, 70% 70%;
-  background-position: center center, center center, center 26%;
-  background-attachment: fixed;
-}
-
-.layout-shell.theme-light .app-main-shell {
-  background-image: none;
-  background-color: #eef2f7 !important;
 }
 
 .btn-logout {

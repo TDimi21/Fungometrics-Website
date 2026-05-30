@@ -1,6 +1,6 @@
 <script setup>
 import { storeToRefs } from 'pinia'
-import {ref, onMounted, defineProps, onUpdated, reactive} from 'vue'
+import {ref, onMounted, defineProps, onUpdated, reactive, computed} from 'vue'
 import { useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { toast } from "@/utils/AlertPlugin"
@@ -11,7 +11,7 @@ import { useUserStore } from "@/store/user";
 import { useTrainingStore } from "@/store/training";
 import { ArrowHeadRightIcon, ArrowHeadLeftIcon } from '@/components/icons'
 import { PracticeTitle, PracticeTable,PracticeTableTrainingMode, PracticeTableTrainingCage } from '@/components/practice'
-import { SelectField, InputBase, BigButtonField } from '@/components/form'
+import { InputBase, BigButtonField } from '@/components/form'
 import BattingLogoPractice from "@/components/graphics/BattingLogoPractice.vue"
 import {Dialog, DialogPanel, DialogTitle} from '@headlessui/vue'
 
@@ -56,6 +56,12 @@ const props = defineProps({
   slug: {
     type: String
   }
+})
+
+const selectedPracticeTable = computed(() => {
+  if (props.slug === 'training-mode') return PracticeTableTrainingMode
+  if (props.slug === 'cage') return PracticeTableTrainingCage
+  return PracticeTable
 })
 
 const getTrainigsByType = async(page = 1) => {
@@ -320,9 +326,8 @@ onUpdated(()=>{
     <PracticeTitle v-if="props.slug !== 'bullpen'" class="capitalize" :title="props.slug.replace('-', ' ') + ' Practice'" />
     <PracticeTitle v-else class="capitalize" :title="props.slug.replace('-', ' ') + ' and Pitcher Practice'" />
 
-    <section class="bg-fungo-gray3 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%]">
-
-      <div class="flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
+    <section class="practice-shell px-[10%] md:px-[5%] py-6">
+      <div class="practice-toolbar flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
         <div class="w-max">
           <BattingLogoPractice class="h-[80px] w-[80px] hidden lg:block" />
         </div>
@@ -339,46 +344,47 @@ onUpdated(()=>{
             </button>
           </form>
         </div>
-        <div class="w-[100%] lg:w-[50%] flex justify-end">
-          <BigButtonField color="dark" label="New practice" @click="gotoCreateTraining"/>
+        <div class="w-[100%] lg:w-[50%] flex justify-end" v-if="userData.type !== 'player'">
+          <BigButtonField color="dark" label="New practice" @click="gotoCreateTraining" />
         </div>
       </div>
+      <component
+        :is="selectedPracticeTable"
+        :tableData="tableData"
+        :teamData="team"
+        :isLoading="isLoading"
+        :typeUser="userData.type == 'player' ? 'p' : 'c'"
+        @updateList="updateList"
+      />
+
+      <div class="pagination flex justify-end items-center mt-8" v-if="!tableData.length == 0">
+        <button
+          v-for="(page, index) in pages"
+          :key="index"
+          class="bg-white border border-fungo-darkblue w-[40px] h-[40px]"
+          :class="{ 'bg-fungo-lightblue' : page.active }"
+          @click=" getPaginate(page.label) "
+        >
+          <span
+            v-if="page.label.includes('Prev')"
+            class="flex justify-center items-center"
+          >
+            <ArrowHeadLeftIcon classes="w-[30px] h-[30px]"/>
+          </span>
+
+          <span
+            v-else-if="page.label.includes('Next')"
+            class="flex justify-center items-center"
+          >
+            <ArrowHeadRightIcon classes="w-[30px] h-[30px]"/>
+          </span>
+
+          <span v-else>
+            {{ Number.parseInt(index, 10) }}
+          </span>
+        </button>
+      </div>
     </section>
-    <div v-if="props.slug == 'training-mode'">
-      <PracticeTableTrainingMode :tableData="tableData" :teamData="team" :isLoading="isLoading" :typeUser="userData.type == 'player' ? 'p' : 'c'" @updateList="updateList"/>
-    </div>
-    <div v-else-if="props.slug == 'cage'">
-      <PracticeTableTrainingCage :tableData="tableData" :teamData="team" :isLoading="isLoading" :typeUser="userData.type == 'player' ? 'p' : 'c'" @updateList="updateList"/>
-    </div>
-    <PracticeTable v-else :tableData="tableData" :teamData="team" :isLoading="isLoading" :typeUser="userData.type == 'player' ? 'p' : 'c'" @updateList="updateList"/>
-
-    <div class="pagination flex justify-end items-center px-[10%] md:px-[5%] mt-12" v-if="!tableData.length == 0">
-      <button
-        v-for="(page, index) in pages"
-        :key="index"
-        class="bg-white border border-fungo-darkblue w-[40px] h-[40px]"
-        :class="{ 'bg-fungo-lightblue' : page.active }"
-        @click=" getPaginate(page.label) "
-      >
-        <span
-          v-if="page.label.includes('Prev')"
-          class="flex justify-center items-center"
-        >
-          <ArrowHeadLeftIcon classes="w-[30px] h-[30px]"/>
-        </span>
-
-        <span
-          v-else-if="page.label.includes('Next')"
-          class="flex justify-center items-center"
-        >
-          <ArrowHeadRightIcon classes="w-[30px] h-[30px]"/>
-        </span>
-
-        <span v-else>
-          {{ Number.parseInt(index, 10) }}
-        </span>
-      </button>
-    </div>
 
     <div v-if="isOpen">
       <div class="fixed inset-0 z-50 flex justify-center items-center">
@@ -425,6 +431,18 @@ onUpdated(()=>{
 }
 .pagination button:last-child {
   border-radius: 0 10px 10px 0;
+}
+
+.practice-shell {
+  background: rgba(10, 16, 32, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.practice-toolbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  padding-bottom: 1rem;
 }
 
 .modal-container{

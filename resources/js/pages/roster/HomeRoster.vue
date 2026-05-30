@@ -29,6 +29,14 @@ const searchCoach = ref('')
 const coachesDataDefault = ref([])
 const searchPlayer = ref('')
 const playersDataDefault = ref([])
+const teamJoinCode = ref('')
+
+const claimInviteModal = reactive({
+  open: false,
+  playerName: '',
+  playerPhone: '',
+  message: '',
+})
 
 //Constantes tablas
 const isLoadingCoach = ref(false)
@@ -226,6 +234,17 @@ const submitAddPlayer = async () => {
         title: 'Player Register',
         text: response.data.message,
       })
+
+      if (!teamJoinCode.value) {
+        await fetchTeamJoinCode()
+      }
+
+      openClaimInviteForPlayer({
+        firstName: dataPlayer.firstName,
+        lastName: dataPlayer.lastName,
+        phone: dataPlayer.mobileNumber,
+      })
+
       /* reload data */
       getPlayerByTeam()
       players.value.push(playerToSetInStore)
@@ -323,6 +342,7 @@ const submitAddCoach = async () => {
 }
 
 onMounted(() => {
+  fetchTeamJoinCode()
   getPlayerByTeam()
   getCoachesByRoster()
 })
@@ -351,6 +371,73 @@ const deleteCoach = (deleteItem) =>{
 
 const updateTable = (item) => {
   getPlayerByTeam()
+}
+
+const normalizeDigits = (value = '') => String(value).replace(/\D+/g, '')
+
+const copyToClipboard = async (value, successTitle = 'Copied') => {
+  const text = String(value || '').trim()
+  if (!text) return
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      await toast.fire({ icon: 'success', title: successTitle })
+      return
+    }
+  } catch (_) {}
+
+  try {
+    const input = document.createElement('textarea')
+    input.value = text
+    input.setAttribute('readonly', '')
+    input.style.position = 'absolute'
+    input.style.left = '-9999px'
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+    await toast.fire({ icon: 'success', title: successTitle })
+  } catch (_) {
+    await toast.fire({ icon: 'warning', title: 'Unable to copy automatically' })
+  }
+}
+
+const fetchTeamJoinCode = async () => {
+  if (!team?.id) return
+  try {
+    const response = await axiosGet(`coach/teams/${team.id}/code`)
+    teamJoinCode.value = response?.data?.data?.join_code || response?.data?.join_code || ''
+  } catch (_) {
+    teamJoinCode.value = ''
+  }
+}
+
+const buildPlayerClaimMessage = ({ playerName, coachName, teamName, teamCode }) => {
+  const code = String(teamCode || '').trim().toUpperCase()
+  return [
+    `Hi ${playerName}!`,
+    `Coach ${coachName} has added you to ${teamName} on Fungometrics.`,
+    'Download the Fungometrics app, then tap "CLAIM CODE" on the login screen.',
+    `Use your cell number and team code${code ? ` (${code})` : ''} to claim your profile.`,
+  ].join('\n')
+}
+
+const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
+  const playerName = `${firstName || ''} ${lastName || ''}`.trim() || 'Player'
+  const coachName = String(
+    userData?.name?.full || `${userData?.name?.first || ''} ${userData?.name?.last || ''}`
+  ).trim() || 'your coach'
+
+  claimInviteModal.playerName = playerName
+  claimInviteModal.playerPhone = normalizeDigits(phone)
+  claimInviteModal.message = buildPlayerClaimMessage({
+    playerName,
+    coachName,
+    teamName: team?.name || 'the team',
+    teamCode: teamJoinCode.value,
+  })
+  claimInviteModal.open = true
 }
 </script>
 
@@ -484,6 +571,16 @@ const updateTable = (item) => {
               </svg>
               Create Player
             </button>
+
+            <button
+              v-if="teamJoinCode"
+              @click="copyToClipboard(teamJoinCode, 'Team claim code copied')"
+              class="flex items-center gap-1.5 bg-white/5 border border-white/10 hover:border-app-blue/50
+                     text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              Team Code:
+              <span class="text-app-blue">{{ teamJoinCode }}</span>
+            </button>
           </div>
         </div>
 
@@ -537,6 +634,14 @@ const updateTable = (item) => {
             <label class="field-label">Mobile Number *</label>
             <InutTel v-model="dataPlayer.mobileNumber" />
           </div>
+
+          <div class="rounded-xl border border-app-blue/30 bg-app-blue/10 px-3 py-2">
+            <p class="text-app-blue text-xs font-bold uppercase tracking-wider">Claim Code</p>
+            <p class="text-white text-sm mt-1">
+              Players claim from the app with their mobile number + team code
+              <span class="font-bold text-app-blue">{{ teamJoinCode ? ` ${teamJoinCode}` : ' (not available)' }}</span>.
+            </p>
+          </div>
         </form>
         <div class="flex justify-end gap-3 mt-6">
           <button @click="isAddPlayer = false" class="btn-ghost">Cancel</button>
@@ -577,6 +682,43 @@ const updateTable = (item) => {
         </div>
       </div>
       <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" />
+    </div>
+
+    <!-- ══ Claim invite modal (app parity) ════════════════════════════ -->
+    <div v-if="claimInviteModal.open" class="fixed inset-0 z-50 flex justify-center items-center px-4">
+      <div class="modal-dark w-full max-w-lg">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-white text-lg font-bold">Player Claim Instructions</h2>
+          <button @click="claimInviteModal.open = false" class="text-app-muted hover:text-white transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="rounded-xl border border-white/10 bg-app-card px-4 py-3 mb-4">
+          <p class="text-app-muted text-xs uppercase tracking-widest">Team code</p>
+          <p class="text-app-blue text-xl font-black tracking-[0.2em]">{{ teamJoinCode || '—' }}</p>
+        </div>
+
+        <p class="text-white/80 text-sm mb-2">
+          Share this with
+          <span class="text-white font-bold"> {{ claimInviteModal.playerName }}</span>
+          <span v-if="claimInviteModal.playerPhone" class="text-app-muted"> ({{ claimInviteModal.playerPhone }})</span>
+        </p>
+
+        <textarea
+          :value="claimInviteModal.message"
+          readonly
+          class="w-full h-40 rounded-xl bg-[#0b1328] border border-white/10 text-white/90 text-sm p-3 resize-none"
+        />
+
+        <div class="flex justify-end gap-3 mt-4">
+          <button @click="copyToClipboard(teamJoinCode, 'Team claim code copied')" class="btn-ghost">Copy Team Code</button>
+          <button @click="copyToClipboard(claimInviteModal.message, 'Claim message copied')" class="btn-primary">Copy Message</button>
+        </div>
+      </div>
+      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" @click="claimInviteModal.open = false" />
     </div>
 
   </Layout>

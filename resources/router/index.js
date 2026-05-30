@@ -330,10 +330,17 @@ const router = createRouter({
 	routes,
 });
 
+const WEB_START_PRACTICE_ENABLED = false;
+const START_PRACTICE_BLOCKED_PATHS = ['/create', '/track'];
+
 router.beforeEach((to, from, next) => {
 	const { isLogged } = useAuthStore();
 	if (to.matched.some((record) => record.meta.requiresAuth)) {
 		if (isLogged.status) {
+			if (!WEB_START_PRACTICE_ENABLED && START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))) {
+				next('/dashboard');
+				return;
+			}
 			next();
 			return;
 		}
