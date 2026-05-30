@@ -29,6 +29,7 @@ const Manage = () => import("@/pages/manage/HomeManage.vue");
 const CreateTeam = () => import("@/pages/manage/CreateTeam.vue");
 const EditProfile = () => import("@/pages/profile/EditProfile.vue");
 const EditProfilePlayer = () => import("@/pages/profile/EditProfilePlayer.vue");
+const Settings = () => import("@/pages/profile/Settings.vue");
 const ChangePassword = () => import("@/pages/profile/ChangePassword.vue");
 const EditPlayer = () => import("@/pages/roster/EditPlayer.vue");
 const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
@@ -274,6 +275,12 @@ const routes = [
     component: () => import("@/pages/manage/UpdateTeam.vue"),
     meta: { requiresAuth: true },
   },
+	{
+		name: "settings",
+		path: "/settings",
+		component: Settings,
+		meta: { requiresAuth: true },
+	},
 	{
 		name: "profile",
 		path: "/profile",

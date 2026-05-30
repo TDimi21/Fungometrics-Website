@@ -1,6 +1,7 @@
 <script setup>
 import {reactive, ref, onMounted} from 'vue'
 import { TransitionRoot } from '@headlessui/vue'
+import { useRoute } from 'vue-router'
 import ArrowDownIcon from "../components/icons/ArrowDownIcon.vue";
 import iconDashboard from "../assets/img/icons/i-dashboard.svg";
 import iconStartPractice from "../assets/img/icons/i-start-practice.svg";
@@ -10,6 +11,7 @@ import iconManageTeam from "../assets/img/icons/i-manage-team.svg";
 import { useUserStore } from "@/store/user";
 
 let isActiveDropdonw = reactive({isVisible: false, key: []})
+const route = useRoute()
 
 const { userData } = useUserStore();
 
@@ -85,7 +87,7 @@ const sidebarItems = ref([
     url: '/statistic',
   },
   {
-    title: 'Quick Stats',
+    title: 'Mobility Assessment',
     iconPath: iconDashboard,
     url: '/dashboard?tab=quickstats'
   },
@@ -103,6 +105,20 @@ const showDropdown = (index) => {
 
     isActiveDropdonw.key.push(index)
   }
+}
+
+const isItemActive = (item) => {
+  if (!item?.url) return false
+
+  if (item.url === '/dashboard?tab=quickstats') {
+    return route.path === '/dashboard' && route.query?.tab === 'quickstats'
+  }
+
+  if (item.url === '/dashboard') {
+    return route.path === '/dashboard' && (!route.query?.tab || route.query?.tab === 'overview')
+  }
+
+  return route.path === item.url
 }
 
 const props = defineProps({
@@ -185,8 +201,10 @@ onMounted(() => {
 
         <RouterLink
           v-else="!item.child"
-          :to="{ path: item.url }"
-                    class="flex flex-row flex-nowrap items-center py-5 relative">
+          :to="item.url"
+          class="sidebar-link flex flex-row flex-nowrap items-center py-5 relative"
+          :class="{ 'sidebar-active': isItemActive(item) }"
+        >
           <img :alt="item.title" :src="item.iconPath" class="pl-4 pr-2.5">
           <span :class="{'hidden' : !props.collapse }">{{ item.title }}</span>
         </RouterLink>
@@ -224,7 +242,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-nav > ul > li > .router-link-active.router-link-exact-active {
+nav > ul > li > .sidebar-link.sidebar-active {
   font-weight: 700;
   font-size: 16px;
   line-height: 24px;
@@ -233,7 +251,7 @@ nav > ul > li > .router-link-active.router-link-exact-active {
   border-color: #C00000;
 }
 
-nav > ul > li > .router-link-active.router-link-exact-active::before {
+nav > ul > li > .sidebar-link.sidebar-active::before {
   top: calc(50% - 7px);
   content: "";
   position: absolute;

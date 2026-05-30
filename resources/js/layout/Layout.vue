@@ -64,7 +64,13 @@ let player = reactive({
   confirmPassword: "",
   mobileNumber: "",
 });
-let hasSidebar = reactive({ active: true });
+import { getUiTheme, applyUiTheme } from "@/composables/useUiTheme";
+let hasSidebar = reactive({ active: false });
+const uiTheme = ref(getUiTheme());
+const handleThemeChange = (event) => {
+  const next = event?.detail?.theme;
+  uiTheme.value = next === "light" ? "light" : "dark";
+};
 const toggleSidebar = () =>
   hasSidebar.active ? (hasSidebar.active = false) : (hasSidebar.active = true);
 const logout = () => {
@@ -219,12 +225,15 @@ const fetchSessionCount = async () => {
 onMounted(() => {
   getTeamsWithPalyers();
   fetchSessionCount();
-  if (screen.width < 1024) hasSidebar.active = false;
+  applyUiTheme(uiTheme.value);
+
+  window.addEventListener("ui-theme-changed", handleThemeChange);
   window.addEventListener("open-add-player-modal", openModal);
   window.addEventListener("open-change-team-modal", openChangeTeamModal);
 });
 
 onUnmounted(() => {
+  window.removeEventListener("ui-theme-changed", handleThemeChange);
   window.removeEventListener("open-add-player-modal", openModal);
   window.removeEventListener("open-change-team-modal", openChangeTeamModal);
 });
@@ -232,17 +241,17 @@ onUnmounted(() => {
 
 <template>
   <Loader v-show="!isLoading.status" />
-  <div class="flex overflow-hidden bg-[#060b14] min-h-screen">
+  <div class="layout-shell flex overflow-hidden bg-[#060b14] min-h-screen" :class="uiTheme === 'light' ? 'theme-light' : 'theme-dark'">
 
     <!-- Left Sidebar -->
     <aside
-      class="fixed z-30 h-full top-0 left-0 flex flex-shrink-0 flex-col transition-[width,transform] duration-500 bg-[#060b14] overflow-hidden"
-      :class="hasSidebar.active ? 'w-64 translate-x-0' : 'w-0 -translate-x-full'"
+      class="fixed z-30 h-full top-0 left-0 flex flex-shrink-0 flex-col transition-[width,transform] duration-500 bg-transparent backdrop-blur-md border-r border-white/10 overflow-hidden"
+      :class="hasSidebar.active ? 'w-72 translate-x-0' : 'w-0 -translate-x-full'"
     >
-      <div class="relative flex-1 flex flex-col min-h-0 w-64">
+      <div class="relative flex-1 flex flex-col min-h-0 w-72">
         <div class="flex-1 flex flex-col overflow-y-auto">
           <!-- Logo + collapse button -->
-          <div class="mt-6 pb-6 relative">
+          <div class="mt-2 pb-3 relative">
             <button
               @click="toggleSidebar"
               class="absolute right-3 top-0 text-white/40 hover:text-white transition-colors"
@@ -257,9 +266,9 @@ onUnmounted(() => {
               <img
                 src="../assets/img/login/assteslogin/updatedlogo.png"
                 alt="Main fungo logo"
-                width="230"
-                height="226"
-                class="mx-auto"
+                width="170"
+                height="166"
+                class="mx-auto -mt-1"
               />
             </RouterLink>
             <div class="absolute w-full h-[3px] bg-gradient-to-r from-[#002060] to-[#C00000] bottom-0"></div>
@@ -268,7 +277,7 @@ onUnmounted(() => {
           <!-- Team card (coach only) -->
           <div
             v-if="userData.type === 'coach'"
-            class="mx-3 mb-3 mt-1 relative overflow-hidden rounded-xl border border-white/20 shadow-lg"
+            class="mx-3 mb-2 mt-0 relative overflow-hidden rounded-xl border border-white/20 shadow-lg"
           >
             <div
               v-if="team?.logo"
@@ -319,15 +328,15 @@ onUnmounted(() => {
           <NavSidebar :collapse="hasSidebar.active" />
 
           <!-- Bottom actions -->
-          <div class="px-4 pb-6 space-y-2 border-t border-white/10 pt-4 mt-auto">
+          <div class="px-4 pb-4 space-y-2 border-t border-white/10 pt-3 mt-2">
             <div v-if="userData.type === 'player'">
               <RouterLink to="/change-password" class="sidebar-action mb-2 block">CHANGE PASSWORD</RouterLink>
             </div>
             <RouterLink
-              :to="userData.type === 'player' ? '/profile-player' : '/profile'"
+              to="/settings"
               class="sidebar-action"
             >
-              EDIT PROFILE
+              SETTINGS
             </RouterLink>
             <button @click="logout" type="button" class="sidebar-action sidebar-action-danger">
               LOG OUT
@@ -350,16 +359,16 @@ onUnmounted(() => {
     <!-- Main content -->
     <div
       class="h-full w-full relative overflow-y-auto transition-[margin] duration-500"
-      :class="hasSidebar.active ? 'ml-0 lg:ml-64' : 'ml-0'"
+      :class="hasSidebar.active ? 'ml-0 lg:ml-72' : 'ml-0'"
     >
       <main
-        class="min-h-screen pt-6 pb-24 px-0 overflow-hidden bg-[#060b14]"
+        class="app-main-shell min-h-screen pt-6 pb-24 px-0 overflow-hidden bg-[#060b14]"
         v-if="userData.type === 'coach'"
       >
         <slot />
       </main>
       <main
-        class="min-h-screen px-0 overflow-hidden bg-fungo-gray2"
+        class="app-main-shell min-h-screen px-0 overflow-hidden bg-fungo-gray2"
         v-if="userData.type === 'player'"
       >
         <slot />
@@ -688,6 +697,45 @@ onUnmounted(() => {
 
 .sidebar-action-danger:hover {
   background: rgba(239, 68, 68, 0.2);
+}
+
+.layout-shell.theme-light {
+  background: #eef2f7 !important;
+}
+
+.layout-shell.theme-light aside {
+  background: #f8fafc !important;
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.layout-shell.theme-light main {
+  background: #eef2f7 !important;
+}
+
+.layout-shell.theme-light .sidebar-action {
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.18);
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.layout-shell.theme-light .sidebar-action:hover {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.app-main-shell {
+  background-image:
+    linear-gradient(rgba(5, 14, 40, 0.70), rgba(5, 14, 40, 0.70)),
+    url('../assets/img/stadium-bg.png'),
+    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0));
+  background-repeat: no-repeat;
+  background-size: cover, cover, 70% 70%;
+  background-position: center center, center center, center 26%;
+  background-attachment: fixed;
+}
+
+.layout-shell.theme-light .app-main-shell {
+  background-image: none;
+  background-color: #eef2f7 !important;
 }
 
 .btn-logout {

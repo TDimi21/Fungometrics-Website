@@ -7,8 +7,6 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
 import DevelopmentLeaderboard from '../components/DevelopmentLeaderboard.vue'
 import PlayerDevelopmentBoard from '../components/PlayerDevelopmentBoard.vue'
-import dummy from '../data/dummyPlayerDevelopmentData'
-import { buildPlayerDevelopmentModel } from '../lib/playerDevelopmentScore'
 
 const router = useRouter()
 const { axiosGet } = useAxiosAuth()
@@ -17,15 +15,6 @@ const { team } = storeToRefs(useTeamStore())
 const loading = ref(false)
 const loadError = ref('')
 const board = ref([])
-
-const fallbackPlayers = computed(() => {
-  const base = buildPlayerDevelopmentModel(dummy.current, dummy.history, dummy.player.role)
-  return [
-    { id: 'demo-1', name: 'Carter Jensen', developmentIndex: base.developmentIndex, status: base.status, trend: base.trend.status },
-    { id: 'demo-2', name: 'Mason Diaz', developmentIndex: Math.max(0, base.developmentIndex - 5), status: 'steady', trend: 'steady' },
-    { id: 'demo-3', name: 'Ryan Brooks', developmentIndex: Math.min(100, base.developmentIndex + 4), status: 'improving', trend: 'up' },
-  ]
-})
 
 const normalizeStatus = (status) => {
   const map = {
@@ -49,7 +38,7 @@ const loadTeamBoard = async () => {
 
   const teamId = team.value?.id
   if (!teamId) {
-    loadError.value = 'Select a team to load live development data. Showing demo data.'
+    loadError.value = 'Select a team to load live development data.'
     return
   }
 
@@ -59,10 +48,10 @@ const loadTeamBoard = async () => {
     board.value = Array.isArray(data?.data) ? data.data : []
 
     if (!board.value.length) {
-      loadError.value = 'No live development records found for this team yet. Showing demo data.'
+      loadError.value = 'No live development records found for this team yet.'
     }
   } catch (error) {
-    loadError.value = 'Live API load failed. Showing demo data.'
+    loadError.value = 'Live API load failed.'
   } finally {
     loading.value = false
   }
@@ -71,9 +60,7 @@ const loadTeamBoard = async () => {
 watch(() => team.value?.id, () => { loadTeamBoard() }, { immediate: true })
 
 const players = computed(() => {
-  const src = board.value.length ? board.value : fallbackPlayers.value
-
-  return src
+  return board.value
     .map((p) => ({
       id: p.id,
       name: p.name,
@@ -84,12 +71,15 @@ const players = computed(() => {
     .sort((a, b) => (b.developmentIndex ?? 0) - (a.developmentIndex ?? 0))
 })
 
-const openPlayer = (playerId) => {
-  if (!playerId || String(playerId).startsWith('demo-')) {
+const openPlayer = (player) => {
+  if (!player?.id) {
     return
   }
 
-  router.push(`/development/player/${playerId}`)
+  router.push({
+    path: `/development/player/${player.id}`,
+    query: { playerName: player.name || '' },
+  })
 }
 </script>
 
@@ -128,8 +118,7 @@ const openPlayer = (playerId) => {
             v-for="p in players"
             :key="p.id"
             class="rounded-md border border-white/15 bg-slate-800 px-3 py-1 text-sm text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="String(p.id).startsWith('demo-')"
-            @click="openPlayer(p.id)"
+            @click="openPlayer(p)"
           >
             {{ p.name }}
           </button>

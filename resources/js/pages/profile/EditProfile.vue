@@ -194,115 +194,101 @@ const submitEditCoach = async () => {
 <template>
   <Layout>
     <Loader v-show="!isLoading.status"/>
-    <h1 class="text-fungo-red text-2xl md:text-[40px] text-center mt-9 mb-6 font-fungo-700">Edit Profile</h1>
-    <section class="bg-fungo-gray2 w-full h-auto">
-      <section class="bg-fungo-gray4 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[1%]">
-        <div class="flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
-          <div class="w-full lg:w-[15%] my-2 md:my-6 text-center">
-            <h1 class="text-fungo-darkblue text-lg md:text-[30px] font-fungo-700">Team</h1>
-          </div>
-          <button class="w-[100%] lg:w-[82%] flex justify-center lg:justify-end my-2 md:my-6">
-            <h1 @click="router.push({ name: 'manage.team' })" class="text-fungo-blue2 text-base md:text-[16px] font-fungo-700 flex items-center">
-              Create new team <ArrowHeadRightIcon color="0077B6"/> </h1>
+    <div class="edit-profile-page w-full px-4 md:px-8 py-6 md:py-10">
+      <div class="max-w-6xl mx-auto">
+      <h1 class="text-fungo-red text-3xl md:text-[42px] text-center mb-7 font-fungo-700 tracking-wide">Edit Profile</h1>
+
+      <section class="profile-card">
+        <div class="profile-card-header">
+          <h2 class="profile-card-title">Team</h2>
+          <button class="profile-header-link" @click="router.push({ name: 'manage.team' })">
+            Create new team
+            <ArrowHeadRightIcon color="0077B6"/>
           </button>
         </div>
-      </section>
-      <section class="w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%] mt-[110px] lg:mt-[80px]">
-        <div class="w-full h-auto px-4 my-3 md:my-9 pt-[2 %]">
-          <div class="flex flex-col justify-center items-center">
-            <div class="flex flex-col w-full lg:w-1/4">
-              <InputImage v-model="teamData.logo" label="Team logo"/>
-            </div>
+
+        <div class="profile-card-body">
+          <div class="image-holder">
+            <InputImage v-model="teamData.logo" label="Team logo"/>
           </div>
-          <div class="mt-5 w-[100%] flex justify-between flex-col md:flex-row">
-            <div class="box-input-col">
+
+          <div class="inputs-grid team-grid">
+            <div>
               <LabelField :required="true" text="Team Name"/>
               <InputBase v-model="teamData.name"/>
             </div>
-            <div class="box-input-col">
-              <div>
-                <LabelField :required="true" text="State"/>
-                <SelectField v-model="teamData.state" :options="states"/>
-              </div>
+            <div>
+              <LabelField :required="true" text="State"/>
+              <SelectField v-model="teamData.state" :options="states"/>
             </div>
-            <div class="box-input-col">
+            <div>
               <LabelField :required="true" text="Zip code"/>
               <InputBase v-model="teamData.zip"/>
             </div>
           </div>
-          <div class="w-[100%] flex justify-center px-4 my-4 md:my-9">
-            <button class="btn-edit-profile rounded-button-right" type="submit" @click="submitEditTeam">
+
+          <div class="action-row">
+            <button class="btn-edit-profile" type="submit" @click="submitEditTeam">
               <img alt="button register coach" class="w-6 h-6 md:w-8 md:h-8 mx-2 md:mx-0" src="../../assets/img/login/assteslogin/ballbutton.svg">
-              <span class="mx-2">Update</span>
+              <span class="mx-2">Update Team</span>
               <div class="text-white mx-2 animate-bounce-r"><ArrowRightIcon color="ffffff" w="50" h="50"/></div>
             </button>
           </div>
         </div>
       </section>
-    </section>
-    <section class="w-full min-h-[1050px] md:min-h-[750px] mt-[800px] lg:mt-[630px]">
-      <section class="bg-fungo-gray4 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[1%]">
-        <div class="flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">
-          <div class="w-full lg:w-[15%] my-2 md:my-6 text-center">
-            <h1 class="text-fungo-darkblue text-lg md:text-[30px] font-fungo-700">Coach</h1>
-          </div>
-          <button class="w-[100%] lg:w-[82%] flex justify-center lg:justify-end my-2 md:my-6">
-            <RouterLink to="/change-password">
-              <h1 class="text-fungo-blue2 text-base md:text-[16px] font-fungo-700 flex items-center">Create new password <ArrowHeadRightIcon color="0077B6"/> </h1>
-            </RouterLink>
-          </button>
-        </div>
-      </section>
-      <section class="w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%] mt-[140px] lg:mt-[80px]">
-        <div class="w-full h-auto px-4 my-9 pt-[2%]">
-          <div class="flex flex-col justify-center items-center">
-            <div class="flex flex-col w-full lg:w-1/4">
-              <InputImage label="Picture coach"  v-model="coach.avatar" inputClasses="h-52"/>
-            </div>
-          </div>
-          <div class="form-body">
-            <div class="flex flex-col md:flex-row justify-between w-full">
-              <div class="box-input-col">
-                <LabelField text="First name" :required="true"/>
-                <InputBase v-model="coach.firstName" />
-              </div>
-              <div class="box-input-col">
-                <LabelField text="Last name" :required="true"/>
-                <InputBase v-model="coach.lastName" />
-              </div>
-              <div class="box-input-col">
-                <LabelField text="E-Mail address" :required="true"/>
-                <InputBase v-model="coach.email" inputType="email" :enableInput="true"/>
-              </div>
-              <div class="box-input-col">
-                <LabelField text="Mobile number" :required="true"/>
-                <InutTel v-model="coach.mobileNumber"/>
-              </div>
-            </div>
 
-            <div class="flex flex-col md:flex-row justify-between w-full my-2">
-              <div class="box-input-col">
-                <LabelField :required="true" text="City"/>
-                <InputBase v-model="coach.city"/>
-              </div>
-              <div class="box-input-col">
-                <div>
-                  <LabelField :required="true" text="State"/>
-                  <SelectField v-model="coach.state" :options="states"/>
-                </div>
-              </div>
+      <section class="profile-card mt-6">
+        <div class="profile-card-header">
+          <h2 class="profile-card-title">Coach</h2>
+          <RouterLink to="/change-password" class="profile-header-link">
+            Create new password
+            <ArrowHeadRightIcon color="0077B6"/>
+          </RouterLink>
+        </div>
+
+        <div class="profile-card-body">
+          <div class="image-holder">
+            <InputImage label="Picture coach" v-model="coach.avatar" inputClasses="h-52"/>
+          </div>
+
+          <div class="inputs-grid coach-grid">
+            <div>
+              <LabelField text="First name" :required="true"/>
+              <InputBase v-model="coach.firstName" />
             </div>
-            <div class="w-[100%] flex justify-center px-4 my-6">
-              <button class="btn-edit-profile rounded-button-right" type="submit" @click="submitEditCoach">
-                <img alt="button register coach" class="w-6 h-6 md:w-8 md:h-8 mx-2 md:mx-0" src="../../assets/img/login/assteslogin/ballbutton.svg">
-                <span class="mx-2">Update</span>
-                <div class="text-white mx-2 animate-bounce-r"><ArrowRightIcon color="ffffff" w="50" h="50"/></div>
-              </button>
+            <div>
+              <LabelField text="Last name" :required="true"/>
+              <InputBase v-model="coach.lastName" />
             </div>
+            <div>
+              <LabelField text="E-Mail address" :required="true"/>
+              <InputBase v-model="coach.email" inputType="email" :enableInput="true"/>
+            </div>
+            <div>
+              <LabelField text="Mobile number" :required="true"/>
+              <InutTel v-model="coach.mobileNumber"/>
+            </div>
+            <div>
+              <LabelField :required="true" text="City"/>
+              <InputBase v-model="coach.city"/>
+            </div>
+            <div>
+              <LabelField :required="true" text="State"/>
+              <SelectField v-model="coach.state" :options="states"/>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="btn-edit-profile" type="submit" @click="submitEditCoach">
+              <img alt="button register coach" class="w-6 h-6 md:w-8 md:h-8 mx-2 md:mx-0" src="../../assets/img/login/assteslogin/ballbutton.svg">
+              <span class="mx-2">Update Coach</span>
+              <div class="text-white mx-2 animate-bounce-r"><ArrowRightIcon color="ffffff" w="50" h="50"/></div>
+            </button>
           </div>
         </div>
       </section>
-    </section>
+      </div>
+    </div>
   </Layout>
 </template>
 <style lang="css" scoped>
@@ -322,15 +308,149 @@ const submitEditCoach = async () => {
 }
 
 .btn-edit-profile{
-  @apply grid place-items-center grid-flow-col flex-row w-[250px] lg:w-[300px] rounded-t-[30px] rounded-r-[10px] rounded-b-[10px] rounded-l-[30px]
-    px-2 py-1 text-xl md:text-[16px] lg:text-[20px] bg-fungo-red text-white hover:bg-fungo-red-hover
+  @apply grid place-items-center grid-flow-col flex-row w-[260px] lg:w-[320px] rounded-t-[30px] rounded-r-[10px] rounded-b-[10px] rounded-l-[30px]
+    px-2 py-2 text-base lg:text-[18px] bg-fungo-red text-white hover:bg-fungo-red-hover font-fungo-700 tracking-wide
 }
 
-.form-body {
-  @apply bg-[#E7EAEE] h-[57%] px-1 md:px-20 py-12 2xl:px-28 2xl:pt-10 2xl:pb-20 flex flex-col w-full;
+.edit-profile-page {
+  background: #060b14;
 }
 
-.box-input-col {
-  @apply flex flex-col w-full md:w-[22%];
+.profile-card {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(10, 16, 32, 0.82);
+}
+
+.profile-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  background: #e7eaee;
+}
+
+.profile-card-title {
+  color: #1a2c4a;
+  font-size: 1.9rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
+.profile-header-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #0077B6;
+  font-weight: 900;
+  font-size: 0.95rem;
+}
+
+.profile-card-body {
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.image-holder {
+  max-width: 420px;
+  margin: 0 auto 1rem auto;
+}
+
+.inputs-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.team-grid {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.coach-grid {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.action-row {
+  margin-top: 1.1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.edit-profile-page :deep(label),
+.edit-profile-page :deep(input),
+.edit-profile-page :deep(select),
+.edit-profile-page :deep(option),
+.edit-profile-page :deep(span),
+.edit-profile-page :deep(h1),
+.edit-profile-page :deep(h2),
+.edit-profile-page :deep(h3),
+.edit-profile-page :deep(button),
+.edit-profile-page :deep(a) {
+  font-weight: 800;
+}
+
+.edit-profile-page :deep(.profile-card-body label) {
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+
+.edit-profile-page :deep(.profile-card-body input),
+.edit-profile-page :deep(.profile-card-body select) {
+  width: 100% !important;
+  min-width: 0;
+  height: 2.7rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  font-size: 0.95rem;
+}
+
+.edit-profile-page :deep(.profile-card-body input:focus),
+.edit-profile-page :deep(.profile-card-body select:focus) {
+  outline: none;
+  border-color: rgba(192, 0, 0, 0.65) !important;
+  box-shadow: 0 0 0 2px rgba(192, 0, 0, 0.12);
+}
+
+.edit-profile-page :deep(.profile-card-body .arrow-position) {
+  top: 6px;
+  right: 8px;
+}
+
+.edit-profile-page :deep(.profile-card-body .input-tel-decorator) {
+  height: calc(2.7rem - 2px);
+}
+
+@media (min-width: 768px) {
+  .profile-card-header {
+    padding: 0.9rem 1.6rem;
+  }
+
+  .profile-card-body {
+    padding: 1.4rem 1.6rem 1.6rem;
+  }
+
+  .team-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .coach-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .profile-card-title {
+    font-size: 1.35rem;
+  }
+
+  .profile-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>

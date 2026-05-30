@@ -12,11 +12,13 @@ import piniaPersisData from "pinia-plugin-persistedstate"
 import { plugin, defaultConfig } from '@formkit/vue'
 import { generateClasses } from '@formkit/themes'
 import {themeFormkit} from "./utils/theme";
+import { getUiTheme, applyUiTheme } from "./composables/useUiTheme";
 import 'vue3-carousel/dist/carousel.css'
 import JsonExcel from "vue-json-excel3";
 import VueApexCharts from 'vue3-apexcharts'
 
 const app = createApp();
+applyUiTheme(getUiTheme())
 const pinia = createPinia();
 pinia.use(piniaPersisData);
 app.use(pinia)

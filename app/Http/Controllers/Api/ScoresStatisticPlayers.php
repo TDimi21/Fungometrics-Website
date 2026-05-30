@@ -35,6 +35,11 @@ class ScoresStatisticPlayers extends Controller
             $exitVelocityBatting = $batting->pluck('velocity')->sortDesc();
             $exitVelocityCage = $cage->pluck('launch_angle_velocity')->sortDesc();
             $resultMaxExitVelocity = $exitVelocityBatting->merge($exitVelocityCage)->take(10)->toArray();
+            $avgExitVelocity = $exitVelocityBatting
+                ->merge($exitVelocityCage)
+                ->filter(fn ($value) => is_numeric($value) && (float) $value > 0)
+                ->map(fn ($value) => (float) $value)
+                ->avg();
             $maxDistance = collect()->merge($cage->pluck('distance_travel')
                 ->sortDesc()->take(10)->toArray());
             $maxFastBall = collect()->merge(
@@ -62,6 +67,7 @@ class ScoresStatisticPlayers extends Controller
             ];
 
             $avg = [
+                "avg_exit_velocity" => number_format($avgExitVelocity ?? 0, 2),
                 "bench_press"=> number_format($playerFitness->pluck('bench_press')->avg()??0, 2),
                 "front_squat"=> number_format($playerFitness->pluck('front_squat')->avg()??0, 2),
                 "back_squat"=> number_format($playerFitness->pluck('back_squat')->avg()??0, 2),

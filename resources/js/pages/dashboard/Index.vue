@@ -19,7 +19,7 @@ import axios from 'axios'
 
 const router = useRouter()
 const route = useRoute()
-const { axiosPost } = useAxiosAuth()
+const { axiosPost, axiosGet } = useAxiosAuth()
 const user = useUserStore()
 const dashTab = ref('overview')
 const { team } = storeToRefs(useTeamStore())
@@ -449,6 +449,157 @@ function closeBreakdown() {
   breakdownModal.value.visible = false
 }
 
+function openOverallDevelopmentBreakdown() {
+  const p = selectedDevPlayer.value
+  if (!p) return
+
+  const scoreEntries = [
+    { key: 'batting', label: 'Batting (FPS)', value: toNum(p.scores?.batting), detail: 'Scripted BP quality and contact execution profile.' },
+    { key: 'bullpen', label: 'Bullpen (BPS)', value: toNum(p.scores?.bullpen), detail: 'Command + velocity quality from bullpen sessions.' },
+    { key: 'cage', label: 'Cage (FCS)', value: toNum(p.scores?.cage), detail: 'Cage contact quality, launch profile, and approach mix.' },
+    { key: 'ev', label: 'Exit Velocity (EVS)', value: toNum(p.scores?.ev), detail: 'Raw batted-ball power and hard-hit trajectory profile.' },
+  ].filter((x) => x.value != null)
+
+  if (!scoreEntries.length) return
+
+  const equalWeight = Math.round((100 / scoreEntries.length) * 10) / 10
+  const components = scoreEntries.map((x) => ({
+    label: x.label,
+    score: x.value,
+    weight: `${equalWeight}%`,
+    dotColor: '#60A5FA',
+    detail: x.detail,
+  }))
+
+  const weighted = scoreEntries.reduce((sum, x) => sum + x.value, 0) / scoreEntries.length
+
+  breakdownModal.value = {
+    visible: true,
+    title: 'Overall Development Score',
+    subtitle: `Composite from ${scoreEntries.length} available FMTRX pillars`,
+    score: Math.round(weighted * 10) / 10,
+    components,
+  }
+}
+
+const insightModal = ref({ visible: false, title: '', body: '', bullets: [] })
+
+const insightCopy = {
+  snapshot: {
+    title: 'Player Snapshot',
+    body: 'Quick identity and context for this athlete so decisions are made with age, side, level, and role in view.',
+    bullets: [
+      'Use this to confirm you are evaluating the correct player profile.',
+      'Bats/Throws and level help contextualize score expectations.',
+      'Status reflects current development direction, not long-term potential.'
+    ],
+  },
+  overall: {
+    title: 'Overall Development Score',
+    body: 'Single composite score from available FMTRX pillar scores for this player in the current data window.',
+    bullets: [
+      'Click the score card to open full component breakdown.',
+      'Green delta means improving vs prior baseline; red means declining.',
+      'Use this as a direction signal, then coach from the underlying pillars.'
+    ],
+  },
+  best: {
+    title: 'Best Area',
+    body: 'Highest performing pillar right now.',
+    bullets: [
+      'Protect this strength with maintenance reps.',
+      'Leverage this area for confidence during training blocks.'
+    ],
+  },
+  needs: {
+    title: 'Needs Work',
+    body: 'Lowest performing pillar right now.',
+    bullets: [
+      'This is your biggest short-term coaching opportunity.',
+      'Recommended next session is mapped from this weak pillar.'
+    ],
+  },
+  trend: {
+    title: 'Last 7/30 Day Trend',
+    body: 'Short-term momentum view of key pillars.',
+    bullets: [
+      'Up arrow indicates measurable improvement.',
+      'Flat means stable output; down means regression to address.'
+    ],
+  },
+  hitting: {
+    title: 'Hitting Overview',
+    body: 'Summary of batting and cage execution.',
+    bullets: [
+      'BP score reflects scripted batting execution quality.',
+      'Cage score reflects contact quality, launch, and approach.'
+    ],
+  },
+  pitching: {
+    title: 'Pitching Overview',
+    body: 'Snapshot of bullpen score and top fastball output.',
+    bullets: [
+      'Use with trend panel to confirm command/velo direction.',
+      'Top FB is peak output; score reflects repeatable execution.'
+    ],
+  },
+  armcare: {
+    title: 'Arm Care / Throwing',
+    body: 'Throwing capacity and intent metrics from long toss/weighted work.',
+    bullets: [
+      'Long Toss Max indicates extension/carry ceiling.',
+      'Weighted Ball Max indicates intent and arm-speed expression.'
+    ],
+  },
+  strength: {
+    title: 'Strength Metrics',
+    body: 'Latest tracked force and body metrics with team-relative standing.',
+    bullets: [
+      'Ranked fields compare player vs current team distribution.',
+      'Unranked means data is missing or insufficient.'
+    ],
+  },
+  scorecard: {
+    title: 'Scripted BP Scorecard',
+    body: 'Compact breakdown of batting quality indicators.',
+    bullets: [
+      'Use this to explain the batting score in coach/player language.',
+      'Feedback line translates metrics into an actionable coaching cue.'
+    ],
+  },
+  timeline: {
+    title: 'Development Timeline',
+    body: 'Recent sessions linked to this player in chronological order.',
+    bullets: [
+      'Use this to validate recency before making training decisions.',
+      'Look for session density and type balance week-to-week.'
+    ],
+  },
+  takeaway: {
+    title: 'Coach Takeaway',
+    body: 'Auto-generated summary that combines score, trend, strengths, and next action.',
+    bullets: [
+      'Ideal for quick staff handoff and player communication.',
+      'Always confirm with underlying score components when planning.'
+    ],
+  },
+}
+
+function openInsight(key) {
+  const item = insightCopy[key]
+  if (!item) return
+  insightModal.value = {
+    visible: true,
+    title: item.title,
+    body: item.body,
+    bullets: item.bullets,
+  }
+}
+
+function closeInsight() {
+  insightModal.value.visible = false
+}
+
 // ── Player Development Detail Modal ──────────────────────────────────────────
 const devDetailModal = ref({ visible: false, loading: false })
 const selectedDevPlayer = ref(null)
@@ -592,13 +743,290 @@ const closeDevPlayerDetail = () => {
 
 const quickStatsLoaded = ref(false)
 
+// ── Mobility Assessment (Quick Stats tab replacement) ────────────────────────
+const bmsNum = (v) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+const bmsGrade = (score) => {
+  if (score >= 90) return 'Elite'
+  if (score >= 80) return 'Excellent'
+  if (score >= 70) return 'Good'
+  if (score >= 60) return 'Average'
+  if (score >= 50) return 'Poor'
+  return 'High Risk'
+}
+
+const scoreApleyScratch = (gapInches) => {
+  const g = bmsNum(gapInches)
+  if (g === null) return 0
+  if (g <= 0) return 10
+  if (g < 2) return 8
+  if (g <= 4) return 6
+  if (g <= 8) return 3
+  return 0
+}
+
+const scoreShoulderER = (deg) => {
+  const d = bmsNum(deg)
+  if (d === null) return 0
+  if (d >= 120) return 10
+  if (d >= 110) return 8
+  if (d >= 100) return 6
+  if (d >= 90) return 3
+  return 0
+}
+
+const scoreThoracic = (leftDeg, rightDeg) => {
+  const l = bmsNum(leftDeg)
+  const r = bmsNum(rightDeg)
+  if (l === null || r === null) return 0
+  const minSide = Math.min(l, r)
+  if (minSide >= 55) return 15
+  if (minSide >= 45) return 12
+  if (minSide >= 35) return 8
+  if (minSide >= 25) return 4
+  return 0
+}
+
+const scoreHip9090 = (rating) => {
+  if (rating === 'full') return 10
+  if (rating === 'mild') return 7
+  if (rating === 'significant') return 3
+  return 0
+}
+
+const scoreHipIR = (deg) => {
+  const d = bmsNum(deg)
+  if (d === null) return 0
+  if (d >= 40) return 10
+  if (d >= 30) return 8
+  if (d >= 20) return 5
+  return 0
+}
+
+const scoreHipFlexion = (rating) => {
+  if (rating === 'above') return 5
+  if (rating === 'chest') return 4
+  if (rating === 'below') return 2
+  return 0
+}
+
+const scoreAnkle = (inches) => {
+  const d = bmsNum(inches)
+  if (d === null) return 0
+  if (d >= 5) return 15
+  if (d >= 4) return 12
+  if (d >= 3) return 8
+  if (d >= 2) return 4
+  return 0
+}
+
+const scoreDeadBug = (seconds) => {
+  const s = bmsNum(seconds)
+  if (s === null) return 0
+  if (s >= 60) return 10
+  if (s >= 45) return 8
+  if (s >= 30) return 5
+  if (s >= 15) return 2
+  return 0
+}
+
+const scoreBalance = (leftSec, rightSec) => {
+  const l = bmsNum(leftSec)
+  const r = bmsNum(rightSec)
+  if (l === null || r === null) return 0
+  const minSide = Math.min(l, r)
+  if (minSide >= 30) return 15
+  if (minSide >= 20) return 12
+  if (minSide >= 15) return 8
+  if (minSide >= 10) return 4
+  return 0
+}
+
+const computeBms = (input = {}) => {
+  const shoulder = scoreApleyScratch(input.apley_gap_inches) + scoreShoulderER(input.shoulder_er_throwing_deg)
+  const thoracic = scoreThoracic(input.thoracic_rotation_left_deg, input.thoracic_rotation_right_deg)
+  const hip = scoreHip9090(input.hip_9090_rating) + scoreHipIR(input.hip_internal_rotation_deg) + scoreHipFlexion(input.hip_flexion_rating)
+  const ankle = scoreAnkle(input.ankle_knee_to_wall_inches)
+  const core = scoreDeadBug(input.dead_bug_hold_sec)
+  const balance = scoreBalance(input.single_leg_balance_left_sec, input.single_leg_balance_right_sec)
+  const total = shoulder + thoracic + hip + ankle + core + balance
+
+  return {
+    score: total,
+    grade: bmsGrade(total),
+    parts: {
+      shoulder,
+      thoracic,
+      hip,
+      ankle,
+      core,
+      balance,
+    },
+  }
+}
+
+const mobilityPlayers = ref([])
+const mobilityPlayersLoading = ref(false)
+const mobilitySaving = ref(false)
+const mobilityHistoryLoading = ref(false)
+const mobilityHistory = ref([])
+const mobilityAssessmentType = ref('first_time') // first_time | reassessment
+const mobilitySelectedPlayerId = ref('')
+const mobilityMessage = ref({ type: '', text: '' })
+const mobilityHelpOpen = ref('')
+
+const toggleMobilityHelp = (section) => {
+  mobilityHelpOpen.value = mobilityHelpOpen.value === section ? '' : section
+}
+
+const mobilityForm = ref({
+  fitness_date: new Date().toISOString().slice(0, 10),
+  apley_gap_inches: '',
+  shoulder_er_throwing_deg: '',
+  thoracic_rotation_left_deg: '',
+  thoracic_rotation_right_deg: '',
+  hip_9090_rating: '',
+  hip_internal_rotation_deg: '',
+  hip_flexion_rating: '',
+  ankle_knee_to_wall_inches: '',
+  dead_bug_hold_sec: '',
+  single_leg_balance_left_sec: '',
+  single_leg_balance_right_sec: '',
+})
+
+const selectedMobilityPlayer = computed(() => {
+  return mobilityPlayers.value.find((p) => String(p.id) === String(mobilitySelectedPlayerId.value)) ?? null
+})
+
+const latestMobilityRecord = computed(() => {
+  return Array.isArray(mobilityHistory.value) && mobilityHistory.value.length ? mobilityHistory.value[0] : null
+})
+
+const computedMobility = computed(() => {
+  return computeBms(mobilityForm.value)
+})
+
+const mobilityFormComplete = computed(() => {
+  const f = mobilityForm.value
+  return (
+    f.fitness_date &&
+    f.apley_gap_inches !== '' &&
+    f.shoulder_er_throwing_deg !== '' &&
+    f.thoracic_rotation_left_deg !== '' &&
+    f.thoracic_rotation_right_deg !== '' &&
+    f.hip_9090_rating &&
+    f.hip_internal_rotation_deg !== '' &&
+    f.hip_flexion_rating &&
+    f.ankle_knee_to_wall_inches !== '' &&
+    f.dead_bug_hold_sec !== '' &&
+    f.single_leg_balance_left_sec !== '' &&
+    f.single_leg_balance_right_sec !== ''
+  )
+})
+
+const latestMobilityScore = computed(() => {
+  const s = Number(latestMobilityRecord.value?.mobility_score)
+  return Number.isFinite(s) ? s : null
+})
+
+const mobilityDelta = computed(() => {
+  if (latestMobilityScore.value == null) return null
+  return computedMobility.value.score - latestMobilityScore.value
+})
+
+const fetchMobilityPlayers = async () => {
+  mobilityPlayersLoading.value = true
+  try {
+    const res = await axiosGet('coach/roster/players')
+    mobilityPlayers.value = (res?.data?.data ?? []).map((p) => ({
+      id: p.id,
+      name: p?.name?.full || `${p?.name?.first || ''} ${p?.name?.last || ''}`.trim() || `Player #${p.id}`,
+    }))
+  } catch {
+    mobilityPlayers.value = []
+  } finally {
+    mobilityPlayersLoading.value = false
+  }
+}
+
+const fetchMobilityHistory = async () => {
+  mobilityMessage.value = { type: '', text: '' }
+  if (!mobilitySelectedPlayerId.value) {
+    mobilityHistory.value = []
+    return
+  }
+  mobilityHistoryLoading.value = true
+  try {
+    const res = await axiosGet(`player/fitness/${mobilitySelectedPlayerId.value}`)
+    mobilityHistory.value = Array.isArray(res?.data?.data) ? res.data.data : []
+  } catch {
+    mobilityHistory.value = []
+  } finally {
+    mobilityHistoryLoading.value = false
+  }
+}
+
+watch(() => mobilitySelectedPlayerId.value, () => {
+  fetchMobilityHistory()
+})
+
+const submitMobilityAssessment = async () => {
+  mobilityMessage.value = { type: '', text: '' }
+  if (!mobilitySelectedPlayerId.value) {
+    mobilityMessage.value = { type: 'error', text: 'Select a player first.' }
+    return
+  }
+
+  if (!mobilityFormComplete.value) {
+    mobilityMessage.value = { type: 'error', text: 'Complete all mobility tests before saving.' }
+    return
+  }
+
+  if (mobilityAssessmentType.value === 'first_time' && latestMobilityScore.value != null) {
+    mobilityMessage.value = {
+      type: 'error',
+      text: 'This player already has a mobility baseline. Use Reassessment.',
+    }
+    return
+  }
+
+  if (mobilityAssessmentType.value === 'reassessment' && latestMobilityScore.value == null) {
+    mobilityMessage.value = {
+      type: 'error',
+      text: 'No baseline found yet. Choose First-time Assessment.',
+    }
+    return
+  }
+
+  mobilitySaving.value = true
+  try {
+    await axiosPost('player/fitness', {
+      user_id: mobilitySelectedPlayerId.value,
+      fitness_date: mobilityForm.value.fitness_date,
+      mobility_score: computedMobility.value.score,
+    })
+
+    const modeLabel = mobilityAssessmentType.value === 'first_time' ? 'baseline assessment' : 'reassessment'
+    mobilityMessage.value = {
+      type: 'success',
+      text: `Saved ${modeLabel} for ${selectedMobilityPlayer.value?.name || 'player'} · BMS ${computedMobility.value.score} (${computedMobility.value.grade}).`,
+    }
+    await fetchMobilityHistory()
+    await fetchDevBoard()
+  } catch {
+    mobilityMessage.value = { type: 'error', text: 'Could not save mobility assessment.' }
+  } finally {
+    mobilitySaving.value = false
+  }
+}
+
 const ensureQuickStatsLoaded = async () => {
   if (quickStatsLoaded.value) return
 
-  if (user.userData.type !== 'player') {
-    await loadOnMounted()
-    await getStaticChartData()
-  }
+  if (user.userData.type !== 'player') await fetchMobilityPlayers()
 
   quickStatsLoaded.value = true
 }
@@ -1141,108 +1569,186 @@ onMounted(() => {
         </div><!-- end development tab -->
 
         <!-- QUICK STATS TAB (sidebar access) -->
-        <div v-if="dashTab === 'quickstats'" class="flex flex-col gap-5">
-
-          <div v-if="!isloading" class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-
-            <!-- LEFT COL: Batting -->
-            <div class="flex flex-col gap-4">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="w-1 h-5 bg-sky-500 rounded-full"></span>
-                <h2 class="text-sm font-black uppercase tracking-widest text-white/60">Batting</h2>
+        <div v-if="dashTab === 'quickstats'" class="mobility-assessment flex flex-col gap-5">
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
+            <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 class="text-base font-black uppercase tracking-widest text-white">Mobility Assessment</h2>
+                <p class="text-xs text-white/45 mt-1">Record a baseline or reassessment mobility test and save the score into player development.</p>
               </div>
-
-              <!-- Contact Zone -->
-              <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
-                <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Contact Zone</h3>
-                <DashboardSprayChart :contactSpray="contactSpray" :ballStrike="ballStrike" />
-              </div>
-
-              <!-- Batting Contact -->
-              <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
-                <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Batting Contact</h3>
-                <div class="flex flex-col gap-2 mt-1">
-                  <indicator-chart :labelTitle="`GB ${typeHitsBatting?.GB?.count ?? 0}`" :labelValue="typeHitsBatting?.GB?.percent ?? 0" color="#F8A488"/>
-                  <indicator-chart :labelTitle="`LD ${typeHitsBatting?.LD?.count ?? 0}`" :labelValue="typeHitsBatting?.LD?.percent ?? 0" color="#ADE8F4"/>
-                  <indicator-chart :labelTitle="`FLY ${typeHitsBatting?.FLY?.count ?? 0}`" :labelValue="typeHitsBatting?.FLY?.percent ?? 0" color="#8676FF"/>
-                  <indicator-chart :labelTitle="`SM/F ${typeHitsBatting?.['SM/F']?.count ?? 0}`" :labelValue="typeHitsBatting?.['SM/F']?.percent ?? 0" color="#FFB457"/>
-                  <indicator-chart :labelTitle="`TAKE ${typeHitsBatting?.TAKE?.count ?? 0}`" :labelValue="typeHitsBatting?.TAKE?.percent ?? 0" color="#03F1E3"/>
-                </div>
-              </div>
-
-              <!-- Player Comparison -->
-              <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
-                <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Player Comparison</h3>
-                <PlayerCompare />
-              </div>
+              <div class="text-xs text-white/50">Step 1: assessment type · Step 2: player · Step 3: test inputs · Step 4: save score</div>
             </div>
+          </div>
 
-            <!-- RIGHT COL: Pitching -->
-            <div class="flex flex-col gap-4">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="w-1 h-5 bg-violet-500 rounded-full"></span>
-                <h2 class="text-sm font-black uppercase tracking-widest text-white/60">Pitching</h2>
-              </div>
+          <div class="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5">
+            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
+              <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-4">Assessment Form</h3>
 
-              <!-- Pitching quick-stat pills -->
-              <div class="grid grid-cols-3 gap-3">
-                <div class="rounded-xl border border-white/10 bg-[#0a1020]/80 p-3 text-center">
-                  <div class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Strike %</div>
-                  <div class="text-2xl font-black text-white">
-                    {{ pitchThrows?.strike_percent ?? '--' }}<span class="text-sm text-white/40">%</span>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <div class="md:col-span-2">
+                  <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Assessment Type</label>
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
+                      :class="mobilityAssessmentType === 'first_time' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
+                      @click="mobilityAssessmentType = 'first_time'"
+                    >First-time Assessment</button>
+                    <button
+                      type="button"
+                      class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
+                      :class="mobilityAssessmentType === 'reassessment' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
+                      @click="mobilityAssessmentType = 'reassessment'"
+                    >Reassessment</button>
                   </div>
                 </div>
-                <div class="rounded-xl border border-white/10 bg-[#0a1020]/80 p-3 text-center">
-                  <div class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Avg Velo</div>
-                  <div class="text-2xl font-black text-white">{{ pitchVelocityAverage?.FB ?? '--' }}</div>
-                </div>
-                <div class="rounded-xl border border-white/10 bg-[#0a1020]/80 p-3 text-center">
-                  <div class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Total Pitches</div>
-                  <div class="text-2xl font-black text-white">{{ pitchThrows?.totals ?? '--' }}</div>
+                <div>
+                  <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Assessment Date</label>
+                  <input v-model="mobilityForm.fitness_date" type="date" class="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-red-400/60" />
                 </div>
               </div>
 
-              <!-- Pitch Type Breakdown + Avg Velocity chart side by side -->
-              <div class="grid grid-cols-2 gap-4">
-                <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
-                  <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Pitch Type Breakdown</h3>
-                  <PitchTypeStatsCard />
+              <div class="mb-4">
+                <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Player</label>
+                <select
+                  v-model="mobilitySelectedPlayerId"
+                  class="mob-select w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-red-400/60"
+                  :disabled="mobilityPlayersLoading"
+                >
+                  <option value="">Select player</option>
+                  <option v-for="p in mobilityPlayers" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <button type="button" class="mob-test-title" @click="toggleMobilityHelp('shoulder')">
+                    <span>Shoulder (20 pts)</span>
+                    <span class="mob-test-help-cta">{{ mobilityHelpOpen === 'shoulder' ? 'Hide how to assess' : 'Click for how to assess' }}</span>
+                  </button>
+                  <div v-if="mobilityHelpOpen === 'shoulder'" class="mob-test-help">
+                    Apley Scratch: measure gap between hands in inches (0 = hands touch). Throwing Arm ER: athlete supine, shoulder abducted 90°, measure external rotation in degrees.
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <input v-model="mobilityForm.apley_gap_inches" type="number" step="0.1" placeholder="Apley gap (in) · 0 = touches" class="mob-input col-span-2" />
+                    <input v-model="mobilityForm.shoulder_er_throwing_deg" type="number" step="0.1" placeholder="Throwing arm ER (deg)" class="mob-input col-span-2" />
+                  </div>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
-                  <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Avg Pitch Velocity</h3>
-                  <apexchart v-if="pitchVelocityAverage" width="100%" type="bar" height="200"
-                    :options="barChartOptions(pitchVelocityAverage.totals / 5, 2, 2)"
-                    :series="[{ name: 'Average', data: [pitchVelocityAverage.FB, pitchVelocityAverage.CH, pitchVelocityAverage.CB, pitchVelocityAverage.SL, pitchVelocityAverage.OTHER] }]"/>
-                  <div v-else class="h-[200px] flex items-center justify-center text-white/20 text-sm">No data</div>
+
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <button type="button" class="mob-test-title" @click="toggleMobilityHelp('thoracic')">
+                    <span>Thoracic Rotation (15 pts)</span>
+                    <span class="mob-test-help-cta">{{ mobilityHelpOpen === 'thoracic' ? 'Hide how to assess' : 'Click for how to assess' }}</span>
+                  </button>
+                  <div v-if="mobilityHelpOpen === 'thoracic'" class="mob-test-help">
+                    Athlete in half-kneeling or quadruped. Stabilize hips and record active thoracic rotation left and right in degrees. Use the lower side as the limiter.
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <input v-model="mobilityForm.thoracic_rotation_left_deg" type="number" step="0.1" placeholder="Left rotation (deg)" class="mob-input" />
+                    <input v-model="mobilityForm.thoracic_rotation_right_deg" type="number" step="0.1" placeholder="Right rotation (deg)" class="mob-input" />
+                  </div>
+                </div>
+
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <button type="button" class="mob-test-title" @click="toggleMobilityHelp('hip')">
+                    <span>Hip Mobility (25 pts)</span>
+                    <span class="mob-test-help-cta">{{ mobilityHelpOpen === 'hip' ? 'Hide how to assess' : 'Click for how to assess' }}</span>
+                  </button>
+                  <div v-if="mobilityHelpOpen === 'hip'" class="mob-test-help">
+                    90/90 Test: classify full, mild restriction, significant restriction, or unable. Internal Rotation: measure hip IR in degrees. Hip Flexion: classify above chest, chest level, below chest, or restricted.
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <select v-model="mobilityForm.hip_9090_rating" class="mob-input mob-select col-span-2">
+                      <option value="">90/90 test result</option>
+                      <option value="full">Full 90/90 both sides</option>
+                      <option value="mild">Mild restriction</option>
+                      <option value="significant">Significant restriction</option>
+                      <option value="unable">Unable</option>
+                    </select>
+                    <input v-model="mobilityForm.hip_internal_rotation_deg" type="number" step="0.1" placeholder="Hip internal rotation (deg)" class="mob-input col-span-2" />
+                    <select v-model="mobilityForm.hip_flexion_rating" class="mob-input mob-select col-span-2">
+                      <option value="">Hip flexion result</option>
+                      <option value="above">Above chest</option>
+                      <option value="chest">Chest level</option>
+                      <option value="below">Below chest</option>
+                      <option value="restricted">Significant restriction</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <button type="button" class="mob-test-title" @click="toggleMobilityHelp('ankle_core_balance')">
+                    <span>Ankle + Core + Balance (40 pts)</span>
+                    <span class="mob-test-help-cta">{{ mobilityHelpOpen === 'ankle_core_balance' ? 'Hide how to assess' : 'Click for how to assess' }}</span>
+                  </button>
+                  <div v-if="mobilityHelpOpen === 'ankle_core_balance'" class="mob-test-help">
+                    Ankle Knee-to-Wall: heel flat, record max distance in inches. Dead Bug: timed hold in seconds with neutral trunk. Single-Leg Balance: timed hold each side in seconds and score by weaker side.
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <input v-model="mobilityForm.ankle_knee_to_wall_inches" type="number" step="0.1" placeholder="Knee-to-wall distance (in)" class="mob-input col-span-2" />
+                    <input v-model="mobilityForm.dead_bug_hold_sec" type="number" step="0.1" placeholder="Dead bug hold (sec)" class="mob-input col-span-2" />
+                    <input v-model="mobilityForm.single_leg_balance_left_sec" type="number" step="0.1" placeholder="Single-leg balance left (sec)" class="mob-input" />
+                    <input v-model="mobilityForm.single_leg_balance_right_sec" type="number" step="0.1" placeholder="Single-leg balance right (sec)" class="mob-input" />
+                  </div>
                 </div>
               </div>
 
-              <!-- Pitching Contact -->
-              <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
-                <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Pitching Contact</h3>
-                <div class="flex flex-col gap-2 mt-1">
-                  <indicator-chart :labelTitle="`GB ${typeHitsPitching?.GB?.count ?? 0}`" :labelValue="typeHitsPitching?.GB?.percent ?? 0" color="#F8A488"/>
-                  <indicator-chart :labelTitle="`FLY ${typeHitsPitching?.FLY?.count ?? 0}`" :labelValue="typeHitsPitching?.FLY?.percent ?? 0" color="#8676FF"/>
-                  <indicator-chart :labelTitle="`LD ${typeHitsPitching?.LD?.count ?? 0}`" :labelValue="typeHitsPitching?.LD?.percent ?? 0" color="#ADE8F4"/>
-                  <indicator-chart :labelTitle="`SM/F ${typeHitsPitching?.['SM']?.count ?? 0}`" :labelValue="typeHitsPitching?.['SM']?.percent ?? 0" color="#FFB457"/>
-                </div>
-              </div>
-
-              <!-- Velocity Zones + Pitch Heatmap side by side -->
-              <div class="grid grid-cols-2 gap-4">
-                <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
-                  <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Velocity Zones</h3>
-                  <VelocityZoneChart />
-                </div>
-                <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
-                  <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Pitch Heatmap</h3>
-                  <PitchHeatmapChart />
-                </div>
+              <div class="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  class="px-4 py-2 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black uppercase tracking-wide disabled:opacity-60"
+                  :disabled="mobilitySaving || !mobilitySelectedPlayerId || !mobilityFormComplete"
+                  @click="submitMobilityAssessment"
+                >
+                  {{ mobilitySaving ? 'Saving...' : 'Save Mobility Assessment' }}
+                </button>
+                <span v-if="mobilityMessage.text" class="text-sm" :class="mobilityMessage.type === 'success' ? 'text-green-300' : 'text-red-300'">{{ mobilityMessage.text }}</span>
               </div>
             </div>
 
+            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
+              <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Score + Baseline</h3>
+
+              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
+                <p class="text-[11px] uppercase tracking-widest text-white/45">Computed Baseball Mobility Score (BMS)</p>
+                <p class="mt-1 text-4xl font-black" :style="{ color: scoreColor(computedMobility.score) }">{{ computedMobility.score }}</p>
+                <p class="mt-1 text-sm font-bold text-white/80">Grade: {{ computedMobility.grade }}</p>
+                <p class="text-xs text-white/45 mt-1">0–100 FMTRX BMS. Saved value enters player development baseline/trend.</p>
+                <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-white/70">
+                  <div>Shoulder: <strong>{{ computedMobility.parts.shoulder }}</strong>/20</div>
+                  <div>Thoracic: <strong>{{ computedMobility.parts.thoracic }}</strong>/15</div>
+                  <div>Hip: <strong>{{ computedMobility.parts.hip }}</strong>/25</div>
+                  <div>Ankle: <strong>{{ computedMobility.parts.ankle }}</strong>/15</div>
+                  <div>Core: <strong>{{ computedMobility.parts.core }}</strong>/10</div>
+                  <div>Balance: <strong>{{ computedMobility.parts.balance }}</strong>/15</div>
+                </div>
+              </div>
+
+              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
+                <p class="text-[11px] uppercase tracking-widest text-white/45">Latest Baseline</p>
+                <div v-if="mobilityHistoryLoading" class="text-sm text-white/40">Loading baseline...</div>
+                <div v-else-if="latestMobilityRecord">
+                  <p class="text-lg font-black text-white">{{ latestMobilityScore }}</p>
+                  <p class="text-xs text-white/50">{{ formatDate(latestMobilityRecord.fitness_date || latestMobilityRecord.created_at) }}</p>
+                  <p v-if="mobilityDelta != null" class="text-xs mt-1" :class="mobilityDelta >= 0 ? 'text-green-300' : 'text-red-300'">
+                    {{ mobilityDelta >= 0 ? '+' : '' }}{{ mobilityDelta }} vs latest
+                  </p>
+                </div>
+                <p v-else class="text-sm text-white/35">No prior mobility baseline found for this player.</p>
+              </div>
+
+              <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Guide</p>
+                <ul class="text-xs text-white/65 space-y-1 list-disc pl-4">
+                  <li>Use First-time Assessment when no baseline exists.</li>
+                  <li>Use Reassessment for follow-up checks to compare progress.</li>
+                  <li>BMS uses 6 categories: Shoulder, Thoracic, Hip, Ankle, Core, Balance.</li>
+                  <li>Record values consistently (same protocol) for valid trend comparison.</li>
+                  <li>Saved score feeds player development tracking automatically.</li>
+                </ul>
+              </div>
+            </div>
           </div>
-          <div v-else class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-10 text-center text-white/30">Loading charts…</div>
 
         </div><!-- end quickstats tab -->
 
@@ -1278,7 +1784,10 @@ onMounted(() => {
                 <!-- Snapshot + score strip -->
                 <div class="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-5">
                   <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-white/40 mb-2">Player Snapshot</div>
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-[10px] uppercase tracking-widest text-white/40">Player Snapshot</div>
+                      <button class="insight-btn" @click="openInsight('snapshot')">?</button>
+                    </div>
                     <h3 class="text-2xl font-black text-white">{{ selectedDevPlayer.name }}</h3>
                     <p class="text-white/50 text-sm mt-1">
                       #{{ selectedDevPlayer.jersey ?? '—' }}
@@ -1307,8 +1816,14 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-white/40 mb-2">Overall Development Score</div>
+                  <button
+                    class="rounded-xl border border-white/10 bg-white/5 p-4 text-left hover:border-white/30 transition"
+                    @click="openOverallDevelopmentBreakdown"
+                  >
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-[10px] uppercase tracking-widest text-white/40">Overall Development Score</div>
+                      <span class="text-[11px] font-black text-[#FCA5A5]">View Breakdown</span>
+                    </div>
                     <div class="flex items-end gap-3">
                       <div class="text-5xl font-black" :style="{ color: scoreColor(selectedDevPlayer.scores?.overall) }">
                         {{ selectedDevPlayer.scores?.overall ?? '—' }}
@@ -1320,21 +1835,30 @@ onMounted(() => {
                     <div class="text-white/50 text-xs mt-2">Current status: {{ playerStatusLabel }}</div>
                     <div class="mt-3 text-xs text-white/70">Recommended Next Session:</div>
                     <div class="mt-1 text-sm font-bold text-[#FCA5A5]">{{ playerBestAndNeeds.recommended }}</div>
-                  </div>
+                  </button>
                 </div>
 
                 <!-- Best / needs / trends -->
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
                   <div class="rounded-xl border border-green-500/20 bg-green-500/10 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-green-300/70">Best Area</div>
+                    <div class="flex items-center justify-between">
+                      <div class="text-[10px] uppercase tracking-widest text-green-300/70">Best Area</div>
+                      <button class="insight-btn" @click="openInsight('best')">?</button>
+                    </div>
                     <div class="text-sm font-black text-green-200 mt-1">{{ playerBestAndNeeds.bestTrait }}</div>
                   </div>
                   <div class="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-red-300/70">Needs Work</div>
+                    <div class="flex items-center justify-between">
+                      <div class="text-[10px] uppercase tracking-widest text-red-300/70">Needs Work</div>
+                      <button class="insight-btn" @click="openInsight('needs')">?</button>
+                    </div>
                     <div class="text-sm font-black text-red-200 mt-1">{{ playerBestAndNeeds.needsWork }}</div>
                   </div>
                   <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-white/40">Last 7/30 Day Trend</div>
+                    <div class="flex items-center justify-between">
+                      <div class="text-[10px] uppercase tracking-widest text-white/40">Last 7/30 Day Trend</div>
+                      <button class="insight-btn" @click="openInsight('trend')">?</button>
+                    </div>
                     <div class="grid grid-cols-2 gap-x-3 gap-y-1 mt-2">
                       <div v-for="tr in playerTrendRows" :key="tr.label" class="flex items-center justify-between text-xs">
                         <span class="text-white/60">{{ tr.label }}</span>
@@ -1347,22 +1871,34 @@ onMounted(() => {
                 <!-- Performance summary cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-white/40 mb-2">Hitting Overview</div>
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-[10px] uppercase tracking-widest text-white/40">Hitting Overview</div>
+                      <button class="insight-btn" @click="openInsight('hitting')">?</button>
+                    </div>
                     <div class="text-sm text-white/80">BP {{ selectedDevPlayer.scores?.batting ?? '—' }} · Cage {{ selectedDevPlayer.scores?.cage ?? '—' }}</div>
                     <div class="text-xs text-white/45 mt-1">Max EV: {{ selectedDevStats?.top?.max_exit_velocity?.[0] ?? '—' }}</div>
                   </div>
                   <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-white/40 mb-2">Pitching Overview</div>
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-[10px] uppercase tracking-widest text-white/40">Pitching Overview</div>
+                      <button class="insight-btn" @click="openInsight('pitching')">?</button>
+                    </div>
                     <div class="text-sm text-white/80">Bullpen {{ selectedDevPlayer.scores?.bullpen ?? '—' }}</div>
                     <div class="text-xs text-white/45 mt-1">Top FB: {{ selectedDevStats?.top?.max_fast_ball?.[0] ?? '—' }} mph</div>
                   </div>
                   <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-white/40 mb-2">Arm Care / Throwing</div>
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-[10px] uppercase tracking-widest text-white/40">Arm Care / Throwing</div>
+                      <button class="insight-btn" @click="openInsight('armcare')">?</button>
+                    </div>
                     <div class="text-xs text-white/70">Long Toss Max: {{ selectedDevStats?.top?.max_long_toss?.[0] ?? '—' }} ft</div>
                     <div class="text-xs text-white/70 mt-1">Weighted Ball Max: {{ selectedDevStats?.top?.max_weight_ball?.[0] ?? '—' }} mph</div>
                   </div>
                   <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-white/40 mb-2">Strength Metrics</div>
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-[10px] uppercase tracking-widest text-white/40">Strength Metrics</div>
+                      <button class="insight-btn" @click="openInsight('strength')">?</button>
+                    </div>
                     <div class="text-xs text-white/70 flex items-center justify-between">
                       <span>Weight: {{ selectedDevPlayer?.fitness?.body_weight ?? selectedDevCard?.fitness?.body_weight ?? '—' }}</span>
                       <span class="text-[#FCA5A5] font-bold">{{ fitnessStanding('body_weight') }}</span>
@@ -1388,20 +1924,26 @@ onMounted(() => {
                 <!-- Scripted BP scorecard + recent sessions -->
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                   <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-white/40 mb-2">Scripted BP Scorecard</div>
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-[10px] uppercase tracking-widest text-white/40">Scripted BP Scorecard</div>
+                      <button class="insight-btn" @click="openInsight('scorecard')">?</button>
+                    </div>
                     <div class="grid grid-cols-2 gap-2 text-xs">
                       <div class="rounded-lg bg-white/5 p-2">BP Quality Score: <span class="font-bold text-white">{{ selectedDevPlayer.scores?.batting ?? '—' }}</span></div>
                       <div class="rounded-lg bg-white/5 p-2">Grade: <span class="font-bold text-white">{{ scoreGrade(selectedDevPlayer.scores?.batting) ?? '—' }}</span></div>
                       <div class="rounded-lg bg-white/5 p-2">Hard Contact %: <span class="font-bold text-white">{{ selectedDevStats?.top?.max_exit_velocity?.length ? 'Tracked' : '—' }}</span></div>
                       <div class="rounded-lg bg-white/5 p-2">Swing/Miss %: <span class="font-bold text-white">—</span></div>
-                      <div class="rounded-lg bg-white/5 p-2">Avg EV: <span class="font-bold text-white">{{ selectedDevStats?.avg?.power_clean ?? '—' }}</span></div>
+                      <div class="rounded-lg bg-white/5 p-2">Avg EV: <span class="font-bold text-white">{{ selectedDevStats?.avg?.avg_exit_velocity ?? '—' }}</span></div>
                       <div class="rounded-lg bg-white/5 p-2">Max EV: <span class="font-bold text-white">{{ selectedDevStats?.top?.max_exit_velocity?.[0] ?? '—' }}</span></div>
                     </div>
                     <p class="text-xs text-white/45 mt-3">Feedback: Good progression indicators. Keep reinforcing {{ playerBestAndNeeds.recommended }}.</p>
                   </div>
 
                   <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div class="text-[10px] uppercase tracking-widest text-white/40 mb-2">Development Timeline (Recent Sessions)</div>
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-[10px] uppercase tracking-widest text-white/40">Development Timeline (Recent Sessions)</div>
+                      <button class="insight-btn" @click="openInsight('timeline')">?</button>
+                    </div>
                     <div v-if="!playerRecentSessions.length" class="text-xs text-white/40 py-6 text-center">No recent sessions linked to this player in the latest dashboard feed.</div>
                     <div v-else class="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1">
                       <div v-for="s in playerRecentSessions" :key="s.id" class="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
@@ -1414,11 +1956,42 @@ onMounted(() => {
 
                 <!-- Coach takeaway -->
                 <div class="rounded-xl border border-[#C00000]/30 bg-[#C00000]/10 p-4">
-                  <div class="text-[10px] uppercase tracking-widest text-[#FCA5A5] mb-1">Coach Takeaway</div>
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="text-[10px] uppercase tracking-widest text-[#FCA5A5]">Coach Takeaway</div>
+                    <button class="insight-btn" @click="openInsight('takeaway')">?</button>
+                  </div>
                   <p class="text-sm text-white/90 leading-relaxed">{{ coachTakeaway }}</p>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Section Insight Modal -->
+    <Teleport to="body">
+      <Transition name="sheet">
+        <div
+          v-if="insightModal.visible"
+          class="fixed inset-0 z-50 flex items-end justify-center"
+          style="background: rgba(0,0,0,0.65)"
+          @click.self="closeInsight"
+        >
+          <div class="w-full max-w-lg bg-[#0d1b33] rounded-t-3xl pt-6 pb-8 px-6 shadow-2xl border-t border-white/10">
+            <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5"></div>
+            <h2 class="text-xl font-black text-white">{{ insightModal.title }}</h2>
+            <p class="text-white/70 text-sm mt-2">{{ insightModal.body }}</p>
+            <ul class="mt-4 space-y-2 text-sm text-white/85">
+              <li v-for="point in insightModal.bullets" :key="point" class="flex gap-2">
+                <span class="text-[#FCA5A5]">•</span>
+                <span>{{ point }}</span>
+              </li>
+            </ul>
+            <button
+              class="w-full mt-5 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black text-sm transition"
+              @click="closeInsight"
+            >Got it</button>
           </div>
         </div>
       </Transition>
@@ -1525,6 +2098,103 @@ onMounted(() => {
 
 .dev-detail-modal .text-xs {
   font-size: 0.82rem;
+}
+
+.insight-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.insight-btn:hover {
+  border-color: rgba(252, 165, 165, 0.7);
+  color: #fecaca;
+  background: rgba(192, 0, 0, 0.15);
+}
+
+.mob-input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(248, 250, 252, 0.95);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.mob-input:focus {
+  border-color: rgba(192, 0, 0, 0.65);
+}
+
+.mob-input::placeholder {
+  color: rgba(226, 232, 240, 0.45);
+}
+
+.mob-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%23E2E8F0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 12px;
+}
+
+.mob-select::-ms-expand {
+  display: none;
+}
+
+.mobility-assessment p,
+.mobility-assessment span,
+.mobility-assessment label,
+.mobility-assessment li,
+.mobility-assessment button,
+.mobility-assessment h2,
+.mobility-assessment h3,
+.mobility-assessment input,
+.mobility-assessment select,
+.mobility-assessment option {
+  font-weight: 700;
+}
+
+.mob-test-title {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  color: rgba(248, 250, 252, 0.88);
+}
+
+.mob-test-help-cta {
+  color: rgba(252, 165, 165, 0.95);
+  font-size: 10px;
+}
+
+.mob-test-help {
+  margin-bottom: 0.65rem;
+  border: 1px solid rgba(192, 0, 0, 0.35);
+  background: rgba(192, 0, 0, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.74rem;
+  color: rgba(254, 226, 226, 0.98);
+  line-height: 1.35;
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
