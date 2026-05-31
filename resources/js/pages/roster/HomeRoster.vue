@@ -75,7 +75,7 @@ const changeBoolCoach = ()=>{
 const getCoachesByRoster = async(page = 1) => {
   const data = {}
   try {
-    isLoadingPlayer.value = true
+    isLoadingCoach.value = true
     await axiosGet(`coach/roster/coaches`, data)
       .then((response) => {
         if (response) {
@@ -93,7 +93,7 @@ const getCoachesByRoster = async(page = 1) => {
     //   text: 'Yo can try with a different type of user',
     // })
   } finally {
-    isLoadingPlayer.value = false
+    isLoadingCoach.value = false
   }
 }
 

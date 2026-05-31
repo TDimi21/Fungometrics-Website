@@ -122,6 +122,8 @@ const submitDelete = async () => {
             v-if="avatarSrc"
             :src="avatarSrc"
             alt="Avatar"
+            loading="lazy"
+            decoding="async"
             class="w-full h-full object-cover"
           />
           <span v-else class="text-xl font-bold text-white/80 select-none">{{ initials }}</span>

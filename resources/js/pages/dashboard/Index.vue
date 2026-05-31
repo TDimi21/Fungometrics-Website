@@ -1744,6 +1744,9 @@ watch(
                 <button class="text-sm font-black text-sky-300 hover:text-sky-200 truncate" @click="router.push(`/development/player/${player.id}`)">
                   {{ player.name }}
                 </button>
+                <span class="text-[11px] font-black px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">
+                  MOB {{ player.fitness?.mobility_score ?? '—' }}
+                </span>
                 <span class="ml-auto text-xs font-black px-2 py-0.5 rounded-full"
                   :style="player.scores?.overall != null ? { backgroundColor: scoreColor(player.scores.overall) + '22', color: scoreColor(player.scores.overall) } : {}">
                   {{ player.scores?.overall != null ? Math.round(player.scores.overall) : '—' }}

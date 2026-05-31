@@ -322,6 +322,10 @@ class GetPlayerDevelopmentBoard extends Controller
                             'dead_lift'   => $fitness?->dead_lift,
                             'yd_40_dash'  => $fitness?->yd_40_dash,
                             'yd_60_dash'  => $fitness?->yd_60_dash,
+                            'sleep_hours' => $fitness?->sleep_hours,
+                            'sleep_quality_1_to_5' => $fitness?->sleep_quality_1_to_5,
+                            'recovery_score' => $fitness?->recovery_score,
+                            'mobility_score' => $fitness?->mobility_score,
                             'date'        => $fitness?->fitness_date,
                         ],
                         'fitness_rank' => [

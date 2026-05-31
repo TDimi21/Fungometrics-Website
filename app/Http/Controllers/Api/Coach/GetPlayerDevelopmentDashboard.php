@@ -185,6 +185,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'pitch_quality_score' => $bullpenAggCurrent['command_score'],
 
                         'body_weight' => $fitnessLatest?->body_weight,
+                        'mobility_score' => $fitnessLatest?->mobility_score,
+                        'recovery_score' => $fitnessLatest?->recovery_score,
                         'bench_press' => $fitnessLatest?->bench_press,
                         'back_squat' => $fitnessLatest?->back_squat,
                         'front_squat' => $fitnessLatest?->front_squat,

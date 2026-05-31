@@ -8,7 +8,6 @@ import {toast} from "@/utils/AlertPlugin"
 import { useTrainingStore } from "@/store/training";
 import { storeToRefs } from 'pinia'
 import { useLiveABStore } from '@/store/liveAB.js'
-import liveABCardLogo from '@/assets/img/training/liveabbglogo.svg'
 import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const props = defineProps({
@@ -229,28 +228,34 @@ const statsLiveAB = (practiceId) => {
         class="practice-card"
       >
         <div class="practice-card-left">
+          <h3 class="practice-title">{{ sessionTitle() }}</h3>
+
           <div v-if="liveAvatars(item).length" class="practice-avatar-strip">
-            <img
+            <div
               v-for="(p, avatarIndex) in liveAvatars(item).slice(0, 5)"
               :key="`${p.id}-${avatarIndex}`"
-              :src="p.picture || defaultPlayerLogo"
-              :alt="p.name"
-              :title="p.name"
-              class="practice-avatar"
-            />
+              class="player-chip"
+            >
+              <img
+                :src="p.picture || defaultPlayerLogo"
+                :alt="p.name"
+                :title="p.name"
+                class="practice-avatar"
+              />
+              <p class="player-chip-name">{{ p.name }}</p>
+            </div>
             <span v-if="liveAvatars(item).length > 5" class="practice-avatar-more">+{{ liveAvatars(item).length - 5 }}</span>
           </div>
-          <div class="practice-card-body">
-            <h3 class="practice-title">{{ sessionTitle() }}</h3>
-            <div class="practice-meta-row">
-              <p class="practice-subtitle">{{ liveSubtitle(item) }}</p>
-              <div class="ball-badge">Total: {{ pitchCount(item) }} pitches</div>
-            </div>
-            <p class="practice-note">
-              {{ item?.teams?.[0]?.name ?? 'Team A' }} vs {{ item?.teams?.[1]?.name ?? 'Team B' }}
-            </p>
+
+          <p v-else class="practice-subtitle">{{ liveSubtitle(item) }}</p>
+
+          <div class="practice-meta-row">
+            <div class="ball-badge">Total: {{ pitchCount(item) }} pitches</div>
           </div>
-          <img :src="liveABCardLogo" alt="Practice" class="practice-thumb">
+
+          <p class="practice-note">
+            {{ item?.teams?.[0]?.name ?? 'Team A' }} vs {{ item?.teams?.[1]?.name ?? 'Team B' }}
+          </p>
         </div>
 
         <div class="practice-card-right">
@@ -340,9 +345,9 @@ const statsLiveAB = (practiceId) => {
 .practice-card {
   position: relative;
   display: grid;
-  grid-template-columns: 170px 1fr 230px;
+  grid-template-columns: 1fr 230px;
   gap: 1rem;
-  align-items: center;
+  align-items: flex-start;
   border-radius: 16px;
   border: 1px solid rgba(208, 220, 255, 0.26);
   background: rgba(57, 63, 111, 0.58);
@@ -353,14 +358,7 @@ const statsLiveAB = (practiceId) => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.45rem;
-}
-
-.practice-thumb {
-  width: 160px;
-  height: 80px;
-  border-radius: 10px;
-  object-fit: cover;
+  gap: 0.6rem;
 }
 
 .ball-badge {
@@ -407,8 +405,9 @@ const statsLiveAB = (practiceId) => {
 
 .practice-avatar-strip {
   display: flex;
-  align-items: center;
-  margin-bottom: 0.35rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .practice-avatar {
@@ -417,13 +416,27 @@ const statsLiveAB = (practiceId) => {
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.65);
   object-fit: cover;
-  margin-left: -10px;
   background: rgba(7, 12, 25, 0.95);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
-.practice-avatar:first-child {
-  margin-left: 0;
+.player-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 90px;
+}
+
+.player-chip-name {
+  color: #d7dff6;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
 .practice-avatar-more {

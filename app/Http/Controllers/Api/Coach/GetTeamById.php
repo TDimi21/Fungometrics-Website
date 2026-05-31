@@ -27,9 +27,12 @@ class GetTeamById extends Controller
         try {
             $teamId = (string) $request->id;
             $result = Cache::remember("roster_team_{$teamId}", 600, function () use ($teamId) {
-                $playersId = PlayerTeam::with('team')
+                $playersId = PlayerTeam::query()
                     ->where('team_id', $teamId)
+                    ->whereNotNull('user_id')
                     ->pluck('user_id')
+                    ->unique()
+                    ->values()
                     ->all();
                 if (0 === count($playersId)) {
                     return null; // signal empty

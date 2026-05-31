@@ -6,7 +6,6 @@ import {useTrainingStore} from "../../store/training";
 import { Modal } from '@/components/shared'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import {toast} from "@/utils/AlertPlugin"
-import battingCardLogo from '@/assets/img/training/battingbglogo.svg'
 import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const emit = defineEmits(["updateList"]);
@@ -206,25 +205,30 @@ const confirmDelete = async() => {
         class="practice-card"
       >
         <div class="practice-card-left">
+          <h3 class="practice-title">{{ sessionTitle() }}</h3>
+
           <div v-if="playerAvatars(item).length" class="practice-avatar-strip">
-            <img
+            <div
               v-for="(p, avatarIndex) in playerAvatars(item).slice(0, 5)"
               :key="`${p.id}-${avatarIndex}`"
-              :src="p.picture || defaultPlayerLogo"
-              :alt="p.name"
-              :title="p.name"
-              class="practice-avatar"
-            />
+              class="player-chip"
+            >
+              <img
+                :src="p.picture || defaultPlayerLogo"
+                :alt="p.name"
+                :title="p.name"
+                class="practice-avatar"
+              />
+              <p class="player-chip-name">{{ p.name }}</p>
+            </div>
             <span v-if="playerAvatars(item).length > 5" class="practice-avatar-more">+{{ playerAvatars(item).length - 5 }}</span>
           </div>
-          <div class="practice-card-body">
-            <h3 class="practice-title">{{ sessionTitle() }}</h3>
-            <div class="practice-meta-row">
-              <p class="practice-subtitle">{{ typeUser == 'c' ? playerNames(item) : (item?.team?.name ?? 'Personal practice') }}</p>
-              <div class="ball-badge">Total: {{ swingCount(item) }} swings</div>
-            </div>
+
+          <p v-else class="practice-subtitle">{{ typeUser == 'c' ? playerNames(item) : (item?.team?.name ?? 'Personal practice') }}</p>
+
+          <div class="practice-meta-row">
+            <div class="ball-badge">Total: {{ swingCount(item) }} swings</div>
           </div>
-          <img :src="battingCardLogo" alt="Practice" class="practice-thumb">
         </div>
 
         <div class="practice-card-right">
@@ -314,9 +318,9 @@ const confirmDelete = async() => {
 .practice-card {
   position: relative;
   display: grid;
-  grid-template-columns: 170px 1fr 230px;
+  grid-template-columns: 1fr 230px;
   gap: 1rem;
-  align-items: center;
+  align-items: flex-start;
   border-radius: 16px;
   border: 1px solid rgba(208, 220, 255, 0.26);
   background: rgba(57, 63, 111, 0.58);
@@ -327,14 +331,7 @@ const confirmDelete = async() => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.45rem;
-}
-
-.practice-thumb {
-  width: 160px;
-  height: 80px;
-  border-radius: 10px;
-  object-fit: cover;
+  gap: 0.6rem;
 }
 
 .ball-badge {
@@ -376,8 +373,9 @@ const confirmDelete = async() => {
 
 .practice-avatar-strip {
   display: flex;
-  align-items: center;
-  margin-bottom: 0.35rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .practice-avatar {
@@ -386,13 +384,27 @@ const confirmDelete = async() => {
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.65);
   object-fit: cover;
-  margin-left: -10px;
   background: rgba(7, 12, 25, 0.95);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
-.practice-avatar:first-child {
-  margin-left: 0;
+.player-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 90px;
+}
+
+.player-chip-name {
+  color: #d7dff6;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
 .practice-avatar-more {

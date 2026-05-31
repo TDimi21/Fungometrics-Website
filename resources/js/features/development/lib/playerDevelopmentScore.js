@@ -55,8 +55,17 @@ function trendScoreFromSummary(summary = {}) {
 export function buildPlayerDevelopmentModel(input = {}, history = [], role = 'two-way') {
   const pScore = performanceScore(input, role);
   const strength = computeStrengthScore(input);
-  const mobility = computeMobilityScore(input);
-  const recovery = computeRecoveryScore(input);
+  const mobilityComputed = computeMobilityScore(input);
+  const mobilityExplicit = num(input.mobility_score);
+  const mobility = mobilityExplicit !== null
+    ? { ...mobilityComputed, score: Math.round(clamp(mobilityExplicit)) }
+    : mobilityComputed;
+
+  const recoveryComputed = computeRecoveryScore(input);
+  const recoveryExplicit = num(input.recovery_score);
+  const recovery = recoveryExplicit !== null
+    ? { ...recoveryComputed, score: Math.round(clamp(recoveryExplicit)) }
+    : recoveryComputed;
   const trend = buildTrendSummary(history);
   const tScore = trendScoreFromSummary(trend);
 
