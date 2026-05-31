@@ -22,10 +22,12 @@ class ListLiveABPracticesResource extends JsonResource
             'note' => $this->note,
             'is_completed' => $this->is_completed,
             'start' => $this->started,
+            'created_at' => optional($this->created_at)?->toDateTimeString(),
             'finish' => $this->finished,
             'end_note' => $this->end_note,
             'type' => $this->type,
             'modes' => $this->modes,
+            'count' => $this->live()->count(),
             'players' => [
                 'batters' => LineUpResource::collection($this->lineup->where('is_batting', true)),
                 'pitchers' =>LineUpResource::collection($this->lineup->where('is_pitching', true)),

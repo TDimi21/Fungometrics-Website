@@ -347,6 +347,7 @@ const compareListPlayers = async () => {
 <template>
   <Loader v-show="!isLoading.status"/>
   <Layout>
+    <div class="track-modern-theme">
     <div class="grid justify-center mt-8">
       <div class="">
         <div class="flex flex-col md:flex-row gap-4 lg:gap-12 justify-evenly lg:justify-start h-auto md:h-[6em] bg-white rounded rounded-lg">
@@ -632,9 +633,49 @@ const compareListPlayers = async () => {
         </div>
       </Dialog>
     </TransitionRoot>
+    </div>
   </Layout>
 </template>
 <style scoped>
+.track-modern-theme {
+  color: #e5e7eb;
+}
+
+.track-modern-theme :deep(.bg-white) {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.track-modern-theme :deep(.bg-fungo-gray7),
+.track-modern-theme :deep(.bg-fungo-gray4),
+.track-modern-theme :deep(.bg-fungo-gray2) {
+  background: rgba(6, 11, 20, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.track-modern-theme :deep(.text-fungo-darkblue) {
+  color: #f8fafc !important;
+}
+
+.track-modern-theme :deep(.text-fungo-blue),
+.track-modern-theme :deep(.text-fungo-blue2) {
+  color: #93c5fd !important;
+}
+
+.track-modern-theme :deep(select),
+.track-modern-theme :deep(textarea),
+.track-modern-theme :deep(input[type='text']),
+.track-modern-theme :deep(input[type='number']) {
+  background: #060b14;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.track-modern-theme :deep(.bg-fungo-darkblue) {
+  background: #c00000 !important;
+}
+
 .dash-table-container {
   position: relative;
   left: 0;

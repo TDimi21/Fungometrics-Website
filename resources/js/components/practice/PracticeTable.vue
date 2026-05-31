@@ -10,6 +10,7 @@ import { usePlayerResume } from '@/composables/usePlayerResume.js'
 import battingCardLogo from '@/assets/img/training/battingbglogo.svg'
 import bullpenCardLogo from '@/assets/img/training/bullpenbglogo.svg'
 import liveABCardLogo from '@/assets/img/training/liveabbglogo.svg'
+import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const props = defineProps({
   tableData: {
@@ -96,13 +97,46 @@ const playerNames = (item) => {
 
 const formatDateTime = (value) => {
   if (!value) return { date: '-', time: '-' }
-  const parsed = new Date(value)
+  const normalized = typeof value === 'string' ? value.replace(' ', 'T') : value
+  const parsed = new Date(normalized)
   if (Number.isNaN(parsed.getTime())) return { date: '-', time: '-' }
 
   return {
     date: parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     time: parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
   }
+}
+
+const createdAtValue = (item) => item?.created_at ?? item?.createdAt ?? item?.date_created ?? item?.started ?? item?.start
+
+const relationLength = (value) => Array.isArray(value) ? value.length : null
+
+const sessionMetric = (item) => {
+  const count = Number(
+    relationLength(item?.batting) ??
+    relationLength(item?.bullpen) ??
+    item?.result_count ??
+    item?.balls ??
+    item?.total_balls ??
+    item?.count ??
+    item?.pitches ??
+    item?.total_pitches ??
+    0
+  )
+
+  const slug = route.params.slug
+  const label = slug === 'batting' ? 'swings' : 'pitches'
+  return { label, count: Number.isFinite(count) ? count : 0 }
+}
+
+const playerAvatars = (item) => {
+  const lineup = Array.isArray(item?.lineup) ? item.lineup : []
+  return lineup
+    .map((row, idx) => ({
+      id: row?.player?.id ?? `p-${idx}`,
+      name: row?.player?.name?.full ?? 'Player',
+      picture: row?.player?.picture ?? row?.player?.profile?.picture ?? '',
+    }))
 }
 
 const cardLogoBySlug = () => {
@@ -209,20 +243,34 @@ const resumenTraining = (training) => {
         class="practice-card"
       >
         <div class="practice-card-left">
-          <img :src="cardLogoBySlug()" alt="Practice" class="practice-thumb">
-          <div class="ball-badge">Total: {{ item?.balls ?? item?.total_balls ?? 0 }} balls</div>
-        </div>
-
-        <div class="practice-card-body">
           <h3 class="practice-title">{{ sessionTitle() }}</h3>
-          <p class="practice-subtitle">{{ playerNames(item) }}</p>
-          <p v-if="item.note" class="practice-note">{{ item.note }}</p>
+
+          <div v-if="playerAvatars(item).length" class="practice-avatar-strip">
+            <div
+              v-for="(p, avatarIndex) in playerAvatars(item).slice(0, 5)"
+              :key="`${p.id}-${avatarIndex}`"
+              class="player-chip"
+            >
+              <img
+                :src="p.picture || defaultPlayerLogo"
+                :alt="p.name"
+                :title="p.name"
+                class="practice-avatar"
+              />
+              <p class="player-chip-name">{{ p.name }}</p>
+            </div>
+            <span v-if="playerAvatars(item).length > 5" class="practice-avatar-more">+{{ playerAvatars(item).length - 5 }}</span>
+          </div>
+
+          <p v-else class="practice-subtitle">{{ playerNames(item) }}</p>
+
+          <div class="ball-badge">Total: {{ sessionMetric(item).count }} {{ sessionMetric(item).label }}</div>
         </div>
 
         <div class="practice-card-right">
           <span class="status-dot" :class="{ completed: item.is_completed }"></span>
-          <p class="practice-date">{{ formatDateTime(item.created_at ?? item.start).date }}</p>
-          <p class="practice-time">{{ formatDateTime(item.created_at ?? item.start).time }}</p>
+          <p class="practice-date">{{ formatDateTime(createdAtValue(item)).date }}</p>
+          <p class="practice-time">{{ formatDateTime(createdAtValue(item)).time }}</p>
 
           <div class="card-actions">
             <button
@@ -279,7 +327,6 @@ const resumenTraining = (training) => {
           >
             Cancel
           </button>
-
         </div>
       </template>
   </Modal>
@@ -306,9 +353,9 @@ const resumenTraining = (training) => {
 .practice-card {
   position: relative;
   display: grid;
-  grid-template-columns: 170px 1fr 230px;
+  grid-template-columns: 1fr 230px;
   gap: 1rem;
-  align-items: center;
+  align-items: flex-start;
   border-radius: 16px;
   border: 1px solid rgba(208, 220, 255, 0.26);
   background: rgba(57, 63, 111, 0.58);
@@ -319,14 +366,7 @@ const resumenTraining = (training) => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.45rem;
-}
-
-.practice-thumb {
-  width: 160px;
-  height: 80px;
-  border-radius: 10px;
-  object-fit: cover;
+  gap: 0.6rem;
 }
 
 .ball-badge {
@@ -334,8 +374,9 @@ const resumenTraining = (training) => {
   color: #f0f4ff;
   border-radius: 999px;
   padding: 0.25rem 0.8rem;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .practice-title {
@@ -343,12 +384,14 @@ const resumenTraining = (training) => {
   font-size: 2rem;
   font-weight: 700;
   line-height: 1.2;
+  text-align: left;
 }
 
 .practice-subtitle {
   color: #c7d0ea;
   font-size: 1.35rem;
   line-height: 1.35;
+  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -356,9 +399,47 @@ const resumenTraining = (training) => {
   -webkit-box-orient: vertical;
 }
 
-.practice-note {
-  color: #9aaad1;
-  margin-top: 0.25rem;
+.practice-avatar-strip {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.practice-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.65);
+  object-fit: cover;
+  background: rgba(7, 12, 25, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.player-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 90px;
+}
+
+.player-chip-name {
+  color: #d7dff6;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.practice-avatar-more {
+  margin-left: 8px;
+  color: #c7d0ea;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .practice-card-right {
@@ -381,13 +462,13 @@ const resumenTraining = (training) => {
 
 .practice-date {
   color: #f3f6ff;
-  font-size: 1.1rem;
+  font-size: 1.35rem;
   font-weight: 700;
 }
 
 .practice-time {
   color: #d1d8ef;
-  font-size: 1rem;
+  font-size: 1.2rem;
 }
 
 .card-actions {
@@ -411,6 +492,7 @@ const resumenTraining = (training) => {
   .practice-card-right {
     align-items: flex-start;
   }
+
 }
 
 ::-webkit-scrollbar {

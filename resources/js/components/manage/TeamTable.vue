@@ -108,20 +108,20 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="px-[10%] md:px-[5%] mt-[350px] lg:mt-[200px] overflow-x-auto">
-    <table class="w-full border-separate space-y-6 text-fungo-darkblue">
+  <section class="mt-6 overflow-x-auto">
+    <table class="w-full border-separate space-y-6 text-white/90">
 
-      <thead class="bg-fungo-lightblue">
-        <tr class="divide-x divide-[#000]">
+      <thead class="bg-[#0a1020]">
+        <tr class="divide-x divide-white/20">
           <th
             v-for="(heading, index) in tableHeadings"
             :key="index"
-            class="py-3 font-fungo-500"
+            class="py-3 font-fungo-500 text-white"
           >
             {{ heading }}
           </th>
           <th
-            class="py-3 font-fungo-500"
+            class="py-3 font-fungo-500 text-white"
           >
             ACTION
           </th>
@@ -130,16 +130,16 @@ onMounted(() => {
 
       <tbody>
         <tr v-if="isLoadPlayers" class="w-full">
-          <td colspan="9" class="text-fungo-darkblue text-3xl text-center">Loading data...</td>
+          <td colspan="9" class="text-white/80 text-3xl text-center">Loading data...</td>
         </tr>
         <tr v-else-if="!tableData.length > 0">
-          <td colspan="9" class="text-fungo-darkblue text-3xl text-center">No found data</td>
+          <td colspan="9" class="text-white/80 text-3xl text-center">No found data</td>
         </tr>
         <tr
           v-else
           v-for="(item, index) in tableData"
           :key="index"
-          class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative"
+          class="bg-[#101A34] even:bg-[#0f172a] border-l border-white/20 relative"
         >
 
           <td class="w-[200px] max-w-[200px] font-fungo-700">
@@ -237,7 +237,7 @@ onMounted(() => {
       <template #actions>
         <button
           type="button"
-          class="inline-flex justify-center rounded-md bg-fungo-lightblue px-4 py-1"
+          class="inline-flex justify-center rounded-md bg-[#002060] text-white px-4 py-1"
           @click="isOpenPlayerModal = false"
         >
           Close
@@ -267,7 +267,7 @@ onMounted(() => {
 
           <button
             @click=" isOpenDelteModal = false"
-            class="bg-fungo-lightblue px-4 py-1 rounded-md"
+            class="bg-[#002060] text-white px-4 py-1 rounded-md"
           >
             Cancel
           </button>
@@ -293,10 +293,10 @@ table tbody tr::after{
   top: 0;
   height: 100%;
   width: 3px;
-  background-color: #ADE8F4;
+  background-color: #002060;
 }
 table tbody tr:nth-child(even)::after{
-  background-color: #DADADA;
+  background-color: #1d4ed8;
 }
 
 ::-webkit-scrollbar {

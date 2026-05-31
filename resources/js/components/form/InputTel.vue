@@ -48,7 +48,7 @@ function filterKey (e) {
   <slot>
   <div class="w-full relative">
     <div
-      class="absolute left-0 bg-fungo-lightblue flex items-center justify-center w-[18%] h-[2.38em] text-fungo-darkblue font-fungo-poppins input-tel-decorator">
+      class="absolute left-0 bg-fungo-lightblue flex items-center justify-center w-16 md:w-[4.5rem] h-[2.38em] text-fungo-darkblue font-fungo-poppins input-tel-decorator">
       + 1
     </div>
     <input
@@ -74,8 +74,7 @@ function filterKey (e) {
  }
 
  .input-tel-text{
-   /* padding-left: 5em; */
-   @apply pl-12 lg:pl-[5.5rem];
+   padding-left: 4.5rem !important;
  }
 
  input[type="number"]::-webkit-inner-spin-button,

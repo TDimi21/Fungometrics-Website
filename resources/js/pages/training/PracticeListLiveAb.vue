@@ -8,7 +8,7 @@ import { useTeamStore } from '@/store/team.js'
 import { SearchIcon } from '@/components/icons'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { ArrowHeadRightIcon, ArrowHeadLeftIcon } from '@/components/icons'
-import { PracticeTitle, PracticeTableLiveAB } from '@/components/practice'
+import { PracticeTableLiveAB } from '@/components/practice'
 import { SelectField, InputBase, BigButtonField } from '@/components/form'
 import BattingLogoPractice from "@/components/graphics/BattingLogoPractice.vue"
 
@@ -82,8 +82,6 @@ onUpdated(()=>{
 
 <template>
   <Layout>
-
-    <PracticeTitle class="capitalize" :title="props.slug.replace('-', ' ') + ' Practice'" />
 
     <section class="practice-shell px-[10%] md:px-[5%] py-6">
 

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, onMounted } from "vue";
+import { computed, reactive } from "vue";
 import defaultImg from "../../assets/img/layout/logofungo-nav.png";
 
 let defaultImage = defaultImg;
@@ -20,7 +20,7 @@ const image = reactive({
   src:
     props.modelValue != null && props.modelValue != HTMLInputElement
       ? props.modelValue
-      : defaultIamge,
+      : defaultImage,
 });
 const emit = defineEmits(["update:modelValue"]);
 
@@ -61,13 +61,13 @@ const resetInputFile = (file) => {
       </div>
       <div class="w-full h-full">
         <div class="flex justify-between items-center">
-          <p class="text-fungo-darkblue text-lg">{{ props.label }}</p>
+          <p class="image-input-label text-fungo-darkblue text-lg">{{ props.label }}</p>
           <div>
-            <button class="bg-[#01CDCC] rounded-lg p-3" @click="value.click()">
-              <img alt="Edit picture" src="@/assets/img/icons/i-edit.svg" />
+            <button class="image-edit-btn bg-[#01CDCC] rounded-lg p-3" @click="value.click()">
+              <img alt="Edit picture" src="@/assets/img/icons/i-edit.svg" class="image-edit-icon" />
             </button>
             <button
-              class="bg-fungo-red rounded-lg p-3 ml-1"
+              class="image-remove-btn bg-fungo-red rounded-lg p-3 ml-1"
               @click="resetInputFile(value)"
               @submit.prevent
             >
@@ -78,7 +78,7 @@ const resetInputFile = (file) => {
 
         <div
           :class="inputClasses"
-          class="bg-white rounded-md border border-fungo-darkblue min-h-[90px] mt-3.5 py-7 flex items-center justify-center"
+          class="image-preview-panel bg-white rounded-md border border-fungo-darkblue min-h-[90px] mt-3.5 py-7 flex items-center justify-center"
         >
           <img
             v-if="image.src == ''"
@@ -102,3 +102,9 @@ const resetInputFile = (file) => {
     </form>
   </slot>
 </template>
+
+<style scoped>
+.image-edit-icon {
+  filter: brightness(0) invert(1);
+}
+</style>

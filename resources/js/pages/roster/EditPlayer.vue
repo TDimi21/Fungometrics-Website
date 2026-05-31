@@ -1,25 +1,22 @@
 <script setup>
 import Layout from '@/layout/Layout.vue'
 import {
-  SelectField,
   InputBase,
   InputImage,
   InutTel,
-  PasswordField,
-  LabelField,
-  BigButtonField
+  LabelField
 } from '@/components/form'
 import { ArrowDownIcon, ArrowRightIcon } from '@/components/icons'
 import { reactive, ref } from 'vue'
-import { useUserStore } from '@/store/user'
 import {useTeamStore} from "@/store/team";
 import {usePlayerStore} from "../../store/players";
 import Loader from "@/components/Loader.vue";
 import {useRouter, useRoute} from "vue-router"
 import { playerTypes }  from '../../utils'
 import {toast} from "../../utils/AlertPlugin";
+import axios from 'axios'
 
-const {team, teams} = useTeamStore();
+const {team} = useTeamStore();
 const {players} = usePlayerStore();
 const route = useRoute()
 const router = useRouter()
@@ -61,16 +58,29 @@ for (let index = 0; index < players.length; index++) {
       // player.value.type = item.positions
 
       item.positions.forEach(types => {
-        player.value.type.push(types.position)
+        const value = String(types?.position ?? '').trim()
+        if (value && !player.value.type.includes(value)) {
+          player.value.type.push(value)
+        }
       })
   }
 }
 
+const normalizeType = (type) => String(type ?? '').trim().toUpperCase()
+
+const isTypeSelected = (type) => {
+  const target = normalizeType(type)
+  return player.value.type.some((value) => normalizeType(value) === target)
+}
+
 const typeClicked = (type) => {
-  if (player.value.type.includes(type)) {
-    player.value.type = player.value.type.filter((key) => key !== type )
+  const target = normalizeType(type)
+  if (!target) return
+
+  if (isTypeSelected(type)) {
+    player.value.type = player.value.type.filter((value) => normalizeType(value) !== target)
   } else {
-    player.value.type.push(type)
+    player.value.type.push(String(type).trim())
   }
 }
 
@@ -143,107 +153,103 @@ const submitUpdate = async () => {
 <template>
   <Layout>
     <Loader v-show="!isLoading.status"/>
-    <div class="flex flex-row w-[100%] items-center px-4 my-9">
-      <h1 class="text-fungo-red w-[100%] text-2xl md:text-[50px] font-fungo-700 my-5 text-center">Edit Profile Player</h1>
-      <RouterLink to="/roster" class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]">
-        <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
-      </RouterLink>
+    <div class="edit-player-page w-full px-4 md:px-8 py-6 md:py-10">
+      <div class="max-w-6xl mx-auto practice-shell p-5 md:p-8">
+        <div class="relative mb-7">
+          <h1 class="text-white text-3xl md:text-[42px] text-center font-fungo-700 tracking-wide">Edit Profile Player</h1>
+          <RouterLink to="/roster" class="absolute right-0 top-1/2 -translate-y-1/2 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]">
+            <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
+          </RouterLink>
+        </div>
+
+        <section class="profile-card">
+          <div class="profile-card-header">
+            <h2 class="profile-card-title">Player</h2>
+          </div>
+
+          <form class="profile-card-body" @submit.prevent="submitUpdate">
+            <div class="top-grid">
+              <div class="image-holder">
+                <InputImage label="Picture" v-model="player.avatar" inputClasses="h-52"/>
+              </div>
+
+              <div class="player-meta">
+                <div>
+                  <LabelField text="Position" :required="true"/>
+                  <div class="types-grid">
+                    <button
+                      v-for="(type) in playerTypes"
+                      :key="type"
+                      type="button"
+                      @click="typeClicked(type)"
+                      class="btn-type-player"
+                      :class="{'active-button' : isTypeSelected(type) }"
+                    >{{ type }}</button>
+                  </div>
+                </div>
+
+                <div class="height-grid">
+                  <div class="height-row">
+                    <LabelField text="Height ft"/>
+                    <InputBase v-model="player.heightFt" inputClasses="w-full" />
+                  </div>
+                  <div class="height-row">
+                    <LabelField text="Height inch"/>
+                    <InputBase v-model="player.heightInch" inputClasses="w-full" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="inputs-grid player-grid mt-4">
+              <div>
+                <LabelField text="First name" :required="true"/>
+                <InputBase v-model="player.firstName" />
+              </div>
+              <div>
+                <LabelField text="Last name" :required="true"/>
+                <InputBase v-model="player.lastName" />
+              </div>
+              <div>
+                <LabelField text="Born" :required="true"/>
+                <InputBase v-model="player.born" inputType="date"/>
+              </div>
+
+              <div>
+                <LabelField text="E-Mail address" :required="true"/>
+                <InputBase v-model="player.email" inputType="email"/>
+              </div>
+              <div>
+                <LabelField text="Mobile number" :required="true"/>
+                <InutTel v-model="player.mobileNumber" />
+              </div>
+              <div>
+                <LabelField :required="true" text="Current team"/>
+                <div class="relative w-full">
+                  <select class="team-select" v-model="player.currentTeam" style="z-index: 9" disabled>
+                    <option selected :value="team.name">{{ team.name }}</option>
+                  </select>
+                  <div class="arrow-position"> <ArrowDownIcon color="E2E8F0"/> </div>
+                </div>
+              </div>
+
+              <div>
+                <LabelField text="Number of shirt" :required="true"/>
+                <InputBase v-model="player.number_in_shirt" inputType="text"/>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button class="btn-edit-profile rounded-button-right" type="submit">
+                <img alt="button register coach" class="w-6 h-6 md:w-8 md:h-8 mx-2 md:mx-0" src="../../assets/img/login/assteslogin/ballbutton.svg">
+                <span class="mx-2">Update Player</span>
+                <div class="text-white mx-2 animate-bounce-r"><ArrowRightIcon color="ffffff" w="50" h="50"/></div>
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
     </div>
-    <section class="bg-fungo-gray2 absolute left-0 w-full h-auto">
-      <form class="w-full h-full" @submit.prevent="submitUpdate">
-        <div class="form-header">
-          <div class="flex flex-col w-1/4">
-            <InputImage label="Picture" v-model="player.avatar" inputClasses="h-52"/>
-          </div>
-          <div class="flex flex-col w-2/5 ml-11">
-            <div class="flex flex-col">
-              <LabelField text="Type of player" :required="true"/>
-              <div class="flex flex-row justify-between">
-                <input v-for="(type) in playerTypes" type="button" :value="type" @click="typeClicked(type)"
-                class="btn-type-player" :class="{'active-button' : player.type.includes(type) }">
-              </div>
-            </div>
-            <div class="flex flex-col mt-4">
-              <LabelField text="Height of player (ft and inch*)"/>
-              <div class="flex flex-row justify-between mt-4">
-                <LabelField text="ft"/>
-                <InputBase v-model="player.heightFt" inputClasses="w-10/12" />
-              </div>
-              <div class="flex flex-row justify-between mt-6">
-                <LabelField text="inch"/>
-                <InputBase v-model="player.heightInch" inputClasses="w-10/12" />
-              </div>
-              <!-- <div class="flex flex-row justify-between mt-6">
-                <LabelField text="wt [lb]"/>
-                <InputBase v-model="player.weigth" inputClasses="w-10/12" />
-              </div> -->
-            </div>
-          </div>
-        </div>
-        <div class="form-body">
-          <div class="flex flex-row justify-between">
-            <div class="box-input-col">
-              <LabelField text="First name" :required="true"/>
-              <InputBase v-model="player.firstName" />
-            </div>
-            <div class="box-input-col">
-              <LabelField text="Last name" :required="true"/>
-              <InputBase v-model="player.lastName" />
-            </div>
-            <div class="box-input-col">
-              <LabelField text="Born" :required="true"/>
-              <InputBase v-model="player.born" inputType="date"/>
-            </div>
-          </div>
-          <div class="flex flex-row justify-between">
-            <div class="box-input-col">
-              <LabelField text="E-Mail address" :required="true"/>
-              <InputBase v-model="player.email" inputType="email"/>
-            </div>
-            <div class="box-input-col">
-              <LabelField text="Mobile number" :required="true"/>
-              <InutTel v-model="player.mobileNumber" />
-            </div>
-            <div class="box-input-col">
-              <LabelField :required="true" text="Current team"/>
-              <div class="relative w-full">
-                <select class="bg-white h-10 appearance-none bg-none w-full" v-model="player.currentTeam" style="z-index: 9" disabled>
-                  <!-- <option class="text-fungo-darkblue" v-for="(item, index) in teams" :value="item.name">{{ item.name }}</option> -->
-                  <option selected class="text-fungo-darkblue" :value="team.name">{{ team.name }}</option>
-                </select>
-                <div class="arrow-position"> <ArrowDownIcon color="26364D"/> </div>
-              </div>
-            </div>
-          </div>
-          <div class="box-input-col">
-            <LabelField text="Number of shirt" :required="true"/>
-            <InputBase v-model="player.number_in_shirt" inputType="text"/>
-          </div>
-          <!-- <div class="flex flex-row justify-between">
-            <div class="box-input-col">
-              <LabelField text="Mobile number" :required="true"/>
-              <InutTel v-model="player.mobileNumber" />
-            </div>
-            <div class="box-input-col3">
-              <LabelField :required="true" text="Current team"/>
-              <div class="relative w-full">
-                <select class="bg-white h-10 appearance-none bg-none w-full" v-model="player.currentTeam" style="z-index: 9" disabled>
-                  <option selected class="text-fungo-darkblue" :value="team.name">{{ team.name }}</option>
-                </select>
-                <div class="arrow-position"> <ArrowDownIcon color="26364D"/> </div>
-              </div>
-            </div>
-          </div> -->
-          <div class="w-[100%] flex justify-center px-4 my-8">
-            <button class="btn-edit-profile rounded-button-right" type="submit">
-              <img alt="button register coach" class="w-6 h-6 md:w-8 md:h-8 mx-2 md:mx-0" src="../../assets/img/login/assteslogin/ballbutton.svg">
-              <span class="mx-2">Update</span>
-              <div class="text-white mx-2 animate-bounce-r"><ArrowRightIcon color="ffffff" w="50" h="50"/></div>
-            </button>
-          </div>
-        </div>
-      </form>
-    </section>
   </Layout>
 </template>
 
@@ -251,14 +257,14 @@ const submitUpdate = async () => {
 .arrow-position{
   z-index: 0;
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 7px;
+  right: 8px;
 }
 
 .active-button {
-  background-color: #E10600!important;
+  background-color: #C00000!important;
   color: white !important;
-  border-color: #E10600!important;
+  border-color: #C00000!important;
 }
 
 @keyframes bounce {
@@ -278,20 +284,207 @@ const submitUpdate = async () => {
 
 .btn-edit-profile{
   @apply grid place-items-center grid-flow-col flex-row w-[250px] lg:w-[300px] rounded-t-[30px] rounded-r-[10px] rounded-b-[10px] rounded-l-[30px]
-    px-2 py-1 text-xl md:text-[16px] lg:text-[20px] bg-fungo-red text-white hover:bg-fungo-red-hover
+    px-2 py-2 text-base md:text-[16px] lg:text-[18px] bg-fungo-red text-white hover:bg-fungo-red-hover font-fungo-700 tracking-wide
 }
 
-.box-input-col {
-  @apply flex flex-col w-full md:w-[31%];
+.edit-player-page {
+  background: #060b14;
 }
 
-.form-header {
-  @apply bg-[#F7F8F9] h-[43%] flex flex-row justify-center items-center py-10;
+.practice-shell {
+  background: rgba(10, 16, 32, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
 }
-.form-body {
-  @apply bg-[#E7EAEE] h-[57%] px-20 py-12 2xl:px-28 2xl:pt-10 2xl:pb-20 flex flex-col justify-between space-y-4;
+
+.profile-card {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.72);
 }
+
+.profile-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  background: rgba(10, 16, 32, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.profile-card-title {
+  color: #ffffff;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile-card-body {
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.top-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.image-holder {
+  max-width: 420px;
+}
+
+.player-meta {
+  display: grid;
+  gap: 1rem;
+}
+
+.types-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.height-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.height-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+}
+
+.inputs-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.player-grid {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.action-row {
+  margin-top: 1.2rem;
+  display: flex;
+  justify-content: center;
+}
+
 .btn-type-player {
-  @apply rounded-md bg-white border-[1px] border-black py-2 w-10 h-10 ml-1 cursor-pointer text-fungo-darkblue;
+  @apply rounded-md border py-2 w-full h-10 cursor-pointer text-center;
+  background: rgba(10, 16, 32, 0.9);
+  border-color: rgba(255, 255, 255, 0.26);
+  color: #e2e8f0;
+  font-weight: 800;
+}
+
+.team-select {
+  width: 100%;
+  min-width: 0;
+  height: 2.7rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: rgba(10, 16, 32, 0.9) !important;
+  color: #f8fafc !important;
+  font-size: 0.95rem;
+  appearance: none;
+}
+
+.edit-player-page :deep(label),
+.edit-player-page :deep(input),
+.edit-player-page :deep(select),
+.edit-player-page :deep(option),
+.edit-player-page :deep(span),
+.edit-player-page :deep(h1),
+.edit-player-page :deep(h2),
+.edit-player-page :deep(h3),
+.edit-player-page :deep(button),
+.edit-player-page :deep(a) {
+  font-weight: 800;
+}
+
+.edit-player-page :deep(.profile-card-body label) {
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+
+.edit-player-page :deep(.profile-card-body input),
+.edit-player-page :deep(.profile-card-body select) {
+  width: 100% !important;
+  min-width: 0;
+  height: 2.7rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: rgba(10, 16, 32, 0.9) !important;
+  color: #f8fafc !important;
+  font-size: 0.95rem;
+}
+
+.edit-player-page :deep(.profile-card-body input:focus),
+.edit-player-page :deep(.profile-card-body select:focus) {
+  outline: none;
+  border-color: rgba(192, 0, 0, 0.65) !important;
+  box-shadow: 0 0 0 2px rgba(192, 0, 0, 0.12);
+}
+
+.edit-player-page :deep(.image-input-label) {
+  color: #ffffff !important;
+  font-weight: 900 !important;
+}
+
+.edit-player-page :deep(.image-edit-btn) {
+  background: #002060 !important;
+}
+
+.edit-player-page :deep(.image-preview-panel) {
+  background: rgba(10, 16, 32, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+.edit-player-page :deep(.profile-card-body .input-tel-decorator) {
+  height: calc(2.7rem - 2px);
+}
+
+@media (min-width: 768px) {
+  .profile-card-header {
+    padding: 0.9rem 1.6rem;
+  }
+
+  .profile-card-body {
+    padding: 1.4rem 1.6rem 1.6rem;
+  }
+
+  .top-grid {
+    grid-template-columns: 1fr 1.4fr;
+    align-items: start;
+  }
+
+  .height-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .player-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .types-grid {
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .profile-card-title {
+    font-size: 1.35rem;
+  }
 }
 </style>

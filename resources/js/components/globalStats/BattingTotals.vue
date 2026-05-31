@@ -27,15 +27,15 @@ const tableHeadings = [
 ]
 </script>
 <template>
-  <div class="px-[10%] md:px-[5%] py-3">
-    <h1 class="text-fungo-red text-2xl text-center mt-9 mb-6 font-fungo-700">
+  <div class="batting-table-wrap">
+    <h1 class="batting-table-title">
       Batting Session - TOTALS
     </h1>
-    <section class="px-[10%] md:px-[5%] mt-4 overflow-x-auto">
-      <table class="w-full border-separate space-y-6 text-fungo-darkblue">
-        <thead class="bg-fungo-lightblue">
+    <section class="batting-table-scroll">
+      <table class="batting-stat-table">
+        <thead>
           <template v-if="primaryHeaders.length > 0">
-            <tr class="divide-x divide-[#000] capitalize">
+            <tr class="primary-head capitalize">
               <th
                 v-for="head in primaryHeaders" :key="head.name"
                 :colspan="head.colspan"
@@ -44,18 +44,18 @@ const tableHeadings = [
               </th>
             </tr>
           </template>
-          <tr class="divide-x divide-[#000]">
+          <tr class="column-head">
             <th
               v-for="(heading, index) in tableHeadings"
               :key="index"
-              class="py-3 font-fungo-500 uppercase"
+              class="uppercase"
             >
               {{ heading }}
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="props.team != null">
+          <tr v-if="props.team != null" class="team-row">
             <td class="text-center">
               Total Players
               <!-- <img :src="item.player.avatar" alt="" class="w-16 h-full object-center object-cover mx-auto rounded-full"/> -->
@@ -76,10 +76,10 @@ const tableHeadings = [
             <td class="text-center">{{ props.team.MIDDLE ?? '?' }}</td>
             <td class="text-center">{{ props.team.RIGHT ?? '?' }}</td>
           </tr>
-          <tr v-if="props.players == null">
-            <td colspan="16" class="text-fungo-darkblue text-3xl text-center">No found data</td>
+          <tr v-if="props.players == null" class="no-data-row">
+            <td colspan="16" class="text-center">No found data</td>
           </tr>
-          <tr v-else v-for="(item, index) in props.players">
+          <tr v-else v-for="(item, index) in props.players" class="data-row">
             <td class="text-center">
               {{ item.player ?? '?' }}
               <!-- <img :src="item.player.avatar" alt="" class="w-16 h-full object-center object-cover mx-auto rounded-full"/> -->
@@ -106,39 +106,98 @@ const tableHeadings = [
   </div>
 </template>
 <style scoped>
-table{
-  border-spacing: 0 10px;
-}
-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
+.batting-table-wrap {
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background: rgba(10, 16, 32, 0.8);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
 }
 
-table tbody tr::after{
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #ADE8F4;
+.batting-table-title {
+  color: #f8fafc;
+  font-size: 1.05rem;
+  text-align: center;
+  margin: 0 0 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-table tbody tr:nth-child(even)::after{
-  background-color: #DADADA;
-}
-/* progress bar */
-progress.in-proress::-webkit-progress-value {
-  background: #FFB457;
-}
-progress.completed::-webkit-progress-value {
-  background: #35A800;
-}
-progress::-webkit-progress-bar {
-  background: #DBDFF1;
-}
-/* end progress bar */
 
-.tooltip {
-  @apply absolute hidden group-hover:flex -left-5 -top-2 -translate-y-[60%] w-max px-2 py-1 bg-fungo-darkblue rounded-lg text-center text-white text-sm after:content-[''] after:absolute after:left-1/2 after:top-[100%] after:-translate-x-1/2 after:border-8 after:border-x-transparent after:border-b-transparent after:border-t-fungo-darkblue
+.batting-table-scroll {
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
+  background: rgba(2, 8, 23, 0.65);
+}
+
+.batting-stat-table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.batting-stat-table thead th {
+  padding: 0.7rem 0.55rem;
+  color: #e2e8f0;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.batting-stat-table .primary-head th {
+  background: rgba(30, 41, 59, 0.95);
+  color: #93c5fd;
+  font-size: 0.68rem;
+}
+
+.batting-stat-table .column-head th {
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.batting-stat-table tbody td {
+  padding: 0.62rem 0.55rem;
+  text-align: center;
+  color: #e5e7eb;
+  font-size: 0.78rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.batting-stat-table thead th:first-child,
+.batting-stat-table tbody td:first-child {
+  text-align: left;
+  padding-left: 0.85rem;
+  font-weight: 800;
+}
+
+.batting-stat-table .team-row td {
+  background: rgba(192, 0, 0, 0.16);
+  color: #fee2e2;
+  font-weight: 900;
+}
+
+.batting-stat-table .data-row:nth-child(odd) td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.batting-stat-table .data-row:nth-child(even) td {
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.batting-stat-table .data-row:hover td {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.batting-stat-table .no-data-row td {
+  padding: 1.2rem;
+  color: rgba(248, 250, 252, 0.55);
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 ::-webkit-scrollbar {
@@ -150,15 +209,16 @@ progress::-webkit-progress-bar {
   height: 0px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-fungo-darkblue-hover rounded-md;
+  background: #334155;
+  border-radius: 8px;
 }
 
 ::-webkit-scrollbar-thumb:active {
-  @apply bg-fungo-darkblue;
+  background: #1e293b;
 }
 ::-webkit-scrollbar-track {
-  border: 22px solid #918383;
-  @apply bg-fungo-dark-gray rounded-md;
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 8px;
 }
 ::-webkit-scrollbar-corner {
   background: transparent;

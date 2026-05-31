@@ -865,6 +865,7 @@ watch(velocity, (after, before) => {
 <template>
   <Loader v-show="!isLoading.status" />
   <Layout>
+    <div class="track-modern-theme">
 
     <div class="grid grid-cols-12 gap-4 mt-4" :class="userData.type == 'player' ? 'pt-14' : ''">
       <div class="flex-row col-span-12 m-4 xl:col-span-6">
@@ -1174,9 +1175,49 @@ watch(velocity, (after, before) => {
         </div>
       </Dialog>
     </TransitionRoot>
+    </div>
   </Layout>
 </template>
 <style scoped>
+.track-modern-theme {
+  color: #e5e7eb;
+}
+
+.track-modern-theme :deep(.bg-white) {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.track-modern-theme :deep(.bg-fungo-gray7),
+.track-modern-theme :deep(.bg-fungo-gray4),
+.track-modern-theme :deep(.bg-fungo-gray2) {
+  background: rgba(6, 11, 20, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.track-modern-theme :deep(.text-fungo-darkblue) {
+  color: #f8fafc !important;
+}
+
+.track-modern-theme :deep(.text-fungo-blue),
+.track-modern-theme :deep(.text-fungo-blue2) {
+  color: #93c5fd !important;
+}
+
+.track-modern-theme :deep(select),
+.track-modern-theme :deep(textarea),
+.track-modern-theme :deep(input[type='text']),
+.track-modern-theme :deep(input[type='number']) {
+  background: #060b14;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.track-modern-theme :deep(.bg-fungo-darkblue) {
+  background: #c00000 !important;
+}
+
 .cell {
   @apply h-[1em];
   cursor: pointer;

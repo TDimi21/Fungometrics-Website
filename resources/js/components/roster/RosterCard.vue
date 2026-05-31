@@ -130,33 +130,33 @@ const submitDelete = async () => {
       </div>
 
       <!-- Name -->
-      <h3 class="mt-2 text-white font-bold text-sm text-center leading-tight line-clamp-2">
+      <h3 class="mt-2 text-white font-black text-sm text-center leading-tight line-clamp-2">
         {{ fullName }}
       </h3>
 
       <!-- Positions (player only) -->
-      <p v-if="positions" class="mt-1 text-app-muted text-xs text-center">{{ positions }}</p>
+      <p v-if="positions" class="mt-1 text-app-muted text-xs text-center font-bold">{{ positions }}</p>
     </div>
 
     <!-- Stats row -->
     <div class="flex divide-x divide-white/10 border-t border-white/10 text-center">
       <div v-if="jersey != null" class="flex-1 py-2">
         <div class="text-white font-bold text-sm">#{{ jersey }}</div>
-        <div class="text-app-muted text-[10px] uppercase tracking-wide">Jersey</div>
+        <div class="text-app-muted text-[10px] uppercase tracking-wide font-black">Jersey</div>
       </div>
       <div v-if="heightFt != null" class="flex-1 py-2">
         <div class="text-white font-bold text-sm">{{ heightFt }}'{{ heightIn ?? 0 }}"</div>
-        <div class="text-app-muted text-[10px] uppercase tracking-wide">Height</div>
+        <div class="text-app-muted text-[10px] uppercase tracking-wide font-black">Height</div>
       </div>
       <div v-if="phone" class="flex-1 py-2 min-w-0">
         <div class="text-white font-bold text-xs truncate px-1">{{ phone }}</div>
-        <div class="text-app-muted text-[10px] uppercase tracking-wide">Phone</div>
+        <div class="text-app-muted text-[10px] uppercase tracking-wide font-black">Phone</div>
       </div>
     </div>
 
     <!-- Email row (if exists) -->
     <div v-if="email" class="px-4 py-2 border-t border-white/10">
-      <p class="text-app-muted text-xs text-center truncate">{{ email }}</p>
+      <p class="text-app-muted text-xs text-center truncate font-bold">{{ email }}</p>
     </div>
 
     <!-- Action buttons -->
@@ -167,7 +167,7 @@ const submitDelete = async () => {
         :to="{ path: `/roster/player/${item.id}`, params: { playerData: item } }"
         @click.stop
          class="flex-1 flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10
-           text-white text-xs font-bold py-2 rounded-xl border border-white/20 transition"
+           text-white text-xs font-black py-2 rounded-xl border border-white/20 transition"
       >
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -179,8 +179,8 @@ const submitDelete = async () => {
       <!-- Remove -->
       <button
         @click.stop="confirmDelete($event)"
-        class="flex-1 flex items-center justify-center gap-1.5 bg-app-red/10 hover:bg-app-red/30
-               text-app-red text-xs font-bold py-2 rounded-xl border border-app-red/30 transition"
+         class="flex-1 flex items-center justify-center gap-1.5 bg-app-red/10 hover:bg-app-red/30
+           text-app-red text-xs font-black py-2 rounded-xl border border-app-red/30 transition"
       >
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

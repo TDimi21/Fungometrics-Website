@@ -10,7 +10,7 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useUserStore } from "@/store/user";
 import { useTrainingStore } from "@/store/training";
 import { ArrowHeadRightIcon, ArrowHeadLeftIcon } from '@/components/icons'
-import { PracticeTitle, PracticeTable,PracticeTableTrainingMode, PracticeTableTrainingCage } from '@/components/practice'
+import { PracticeTable,PracticeTableTrainingMode, PracticeTableTrainingCage } from '@/components/practice'
 import { InputBase, BigButtonField } from '@/components/form'
 import BattingLogoPractice from "@/components/graphics/BattingLogoPractice.vue"
 import {Dialog, DialogPanel, DialogTitle} from '@headlessui/vue'
@@ -322,9 +322,6 @@ onUpdated(()=>{
 
 <template>
   <Layout>
-
-    <PracticeTitle v-if="props.slug !== 'bullpen'" class="capitalize" :title="props.slug.replace('-', ' ') + ' Practice'" />
-    <PracticeTitle v-else class="capitalize" :title="props.slug.replace('-', ' ') + ' and Pitcher Practice'" />
 
     <section class="practice-shell px-[10%] md:px-[5%] py-6">
       <div class="practice-toolbar flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3">

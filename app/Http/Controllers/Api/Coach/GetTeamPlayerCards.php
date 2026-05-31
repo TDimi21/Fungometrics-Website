@@ -32,7 +32,7 @@ class GetTeamPlayerCards extends Controller
         try {
             $teamId = (string) $request->id;
 
-            $cards = Cache::remember("player_cards_v2_{$teamId}", 600, function () use ($teamId) {
+            $cards = Cache::remember("player_cards_v3_{$teamId}", 600, function () use ($teamId) {
                 $playerIds = PlayerTeam::where('team_id', $teamId)
                     ->whereNotNull('user_id')
                     ->pluck('user_id')
@@ -114,6 +114,9 @@ class GetTeamPlayerCards extends Controller
                         'mobility_score' => $fitness->mobility_score,
                     ] : null,
 
+                    // Canonical strength metric for dashboards/leaderboards
+                    'fmtrxx_strength_score' => $this->computeFmtrxxStrengthScore($fitness),
+
                     // ── Session Velocity Stats ─────────────────────────────────
                     'stats' => [
                         'max_fastball'  => $maxBullpenVelo->get($user->id) ? (float) $maxBullpenVelo->get($user->id) : null,
@@ -139,5 +142,25 @@ class GetTeamPlayerCards extends Controller
                 'data'    => [],
             ], HttpCodes::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private function computeFmtrxxStrengthScore(?PlayerFitness $fitness): ?float
+    {
+        if (!$fitness) {
+            return null;
+        }
+
+        $values = array_values(array_filter([
+            is_numeric($fitness->bench_press) ? (float) $fitness->bench_press : null,
+            is_numeric($fitness->front_squat) ? (float) $fitness->front_squat : null,
+            is_numeric($fitness->power_clean) ? (float) $fitness->power_clean : null,
+            is_numeric($fitness->dead_lift) ? (float) $fitness->dead_lift : null,
+        ], static fn ($v) => $v !== null));
+
+        if (empty($values)) {
+            return null;
+        }
+
+        return round(array_sum($values) / count($values), 1);
     }
 }

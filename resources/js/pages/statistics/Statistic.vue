@@ -1,6 +1,7 @@
 <script setup>
 import axios from 'axios'
 import { ref, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useTeamStore } from "@/store/team"
 import {toast} from "@/utils/AlertPlugin"
@@ -25,6 +26,7 @@ import {
 
 const { teams } = useTeamStore();
 const { axiosGet } = useAxiosAuth()
+const route = useRoute()
 
 const props = defineProps({
   slug: {
@@ -55,6 +57,19 @@ const optionsSession = ref({
   "WB": 'Weighted Ball',
   "L":  'Live AB',
 })
+
+const buildOptionsFromSessions = (sessions) => {
+  const selected = Array.isArray(sessions) ? sessions : []
+  const options = {}
+  if (selected.includes('B')) options.B = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  if (selected.includes('P')) options.P = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
+  if (selected.includes('C')) options.C = [29, 30, 31, 32, 33, 34]
+  if (selected.includes('EV')) options.EV = [35, 36, 37, 38]
+  if (selected.includes('LT')) options.LT = [39, 40, 41, 42, 43, 44]
+  if (selected.includes('WB')) options.WB = [45, 46, 47]
+  if (selected.includes('L')) options.L = [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58]
+  return options
+}
 
 const playerInfo = ref([])
 const tableData = ref({
@@ -256,9 +271,41 @@ const getStatistic = () => {
   }
 }
 
-onMounted(() => {
-  //getStatistic()
-  setPlayerList()
+onMounted(async () => {
+  await setPlayerList()
+
+  if (route.query?.auto !== '1') {
+    return
+  }
+
+  const queryTeam = route.query?.team ? String(route.query.team) : ''
+  if (queryTeam) {
+    dataTeam.value.selectTeam = queryTeam
+    await setPlayerList(queryTeam)
+  }
+
+  const querySince = route.query?.since ? String(route.query.since) : ''
+  const queryUntil = route.query?.until ? String(route.query.until) : ''
+  const queryPlayers = route.query?.players ? String(route.query.players).split(',').filter(Boolean) : []
+  const querySessions = route.query?.sessions ? String(route.query.sessions).split(',').filter(Boolean) : []
+
+  if (querySince) dataFilter.value.sinceWhen = querySince
+  if (queryUntil) dataFilter.value.until = queryUntil
+  if (queryPlayers.length > 0) dataFilter.value.players = queryPlayers
+  if (querySessions.length > 0) {
+    dataFilter.value.sessions = querySessions
+    dataFilter.value.options = buildOptionsFromSessions(querySessions)
+  }
+
+  if (
+    dataFilter.value.sinceWhen &&
+    dataFilter.value.until &&
+    dataFilter.value.players.length > 0 &&
+    dataFilter.value.sessions.length > 0 &&
+    Object.keys(dataFilter.value.options).length > 0
+  ) {
+    getStatistic()
+  }
 })
 
 const format = (current_datetime)=>{
@@ -475,7 +522,7 @@ const addNameToPlayersData = (players) => {
         <!-- Data tables -->
         <div class="space-y-1 rounded-2xl overflow-hidden border border-white/10">
 
-    <div class="bg-fungo-gray3">
+    <div>
       <batting-totals
       v-if="Object.keys(tableData.batting.totals).includes('team')"
       :players="tableData.batting.totals.players"
@@ -487,7 +534,7 @@ const addNameToPlayersData = (players) => {
       :players="tableData.batting.percents.players"
       :team="tableData.batting.percents.team"/>
     </div>
-    <div class="bg-fungo-gray3">
+    <div>
       <average-and-max-velocity
       v-if="Object.keys(tableData.batting.average_velocity_breakdown).includes('team')
       || Object.keys(tableData.batting.max_velocity_breakdown).includes('team')"
@@ -507,7 +554,7 @@ const addNameToPlayersData = (players) => {
       :teamQ="tableData.batting['QOH-L'].team"
       />
     </div>
-    <div class="bg-fungo-gray3">
+    <div>
       <BattingRightTOH_QOS
         v-if="Object.keys(tableData.batting['TOH-R']).includes('team') || Object.keys(tableData.batting['QOH-R']).includes('team')"
         :players="tableData.batting['TOH-R'].players"
@@ -525,6 +572,7 @@ const addNameToPlayersData = (players) => {
         :teamQ="tableData.batting['QOH-M'].team"
       />
     </div>
+    <div class="bullpen-stat-section space-y-4">
     <div class="bg-fungo-gray3">
       <PitchingTotals
         v-if="Object.keys(tableData.bullpen.totals).includes('team') && Object.keys(tableData.bullpen.totals).includes('team')"
@@ -633,6 +681,8 @@ const addNameToPlayersData = (players) => {
         :team="tableData.bullpen['TOT-OTHER-STRIKE'].team"
       />
     </div>
+    </div>
+    <div class="other-stat-section space-y-4">
     <div class="bg-fungo-gray3">
       <CageLaunchTotal
         v-if="tableData.cage['launch-angle-totals'] && tableData.cage['launch-angle-totals'].team && tableData.cage['launch-angle-totals'].players"
@@ -809,37 +859,261 @@ const addNameToPlayersData = (players) => {
       />
     </div>
 
-    <LiveABHitterTrajectory
-      v-if="tableData.live['hitter-trajectory'] && tableData.live['hitter-trajectory'].team && tableData.live['hitter-trajectory'].players"
-      :player="tableData.live['hitter-trajectory'].players"
-      :team="tableData.live['hitter-trajectory'].team"
-    />
-    <LiveABHitterVelocity
-      v-if="tableData.live['hitter-velocity'] && tableData.live['hitter-velocity'].team && tableData.live['hitter-velocity'].players"
-      :player="tableData.live['hitter-velocity'].players"
-      :team="tableData.live['hitter-velocity'].team"
-    />
+    <div>
+      <LiveABHitterTrajectory
+        v-if="tableData.live['hitter-trajectory'] && tableData.live['hitter-trajectory'].team && tableData.live['hitter-trajectory'].players"
+        :player="tableData.live['hitter-trajectory'].players"
+        :team="tableData.live['hitter-trajectory'].team"
+      />
+    </div>
+    <div>
+      <LiveABHitterVelocity
+        v-if="tableData.live['hitter-velocity'] && tableData.live['hitter-velocity'].team && tableData.live['hitter-velocity'].players"
+        :player="tableData.live['hitter-velocity'].players"
+        :team="tableData.live['hitter-velocity'].team"
+      />
+    </div>
     <!-- Pitcher tables pendientes hitter-->
 
-    <LiveABPitcherPitchBreakdown
-      v-if="tableData.live['pitcher-pitch-breakdown'] && tableData.live['pitcher-pitch-breakdown'].team && tableData.live['pitcher-pitch-breakdown'].players"
-      :player="tableData.live['pitcher-pitch-breakdown'].players"
-      :team="tableData.live['pitcher-pitch-breakdown'].team"
-    />
+    <div>
+      <LiveABPitcherPitchBreakdown
+        v-if="tableData.live['pitcher-pitch-breakdown'] && tableData.live['pitcher-pitch-breakdown'].team && tableData.live['pitcher-pitch-breakdown'].players"
+        :player="tableData.live['pitcher-pitch-breakdown'].players"
+        :team="tableData.live['pitcher-pitch-breakdown'].team"
+      />
+    </div>
 
-    <LiveABPitcherContact
-      v-if="tableData.live['pitcher-contact'] && tableData.live['pitcher-contact'].team && tableData.live['pitcher-contact'].players"
-      :player="tableData.live['pitcher-contact'].players"
-      :team="tableData.live['pitcher-contact'].team"
-    />
-    <LiveABPitcherVelocity
-      v-if="tableData.live['pitcher-velocity'] && tableData.live['pitcher-velocity'].team && tableData.live['pitcher-velocity'].players"
-      :player="tableData.live['pitcher-velocity'].players"
-      :team="tableData.live['pitcher-velocity'].team"
-    />
+    <div>
+      <LiveABPitcherContact
+        v-if="tableData.live['pitcher-contact'] && tableData.live['pitcher-contact'].team && tableData.live['pitcher-contact'].players"
+        :player="tableData.live['pitcher-contact'].players"
+        :team="tableData.live['pitcher-contact'].team"
+      />
+    </div>
+    <div>
+      <LiveABPitcherVelocity
+        v-if="tableData.live['pitcher-velocity'] && tableData.live['pitcher-velocity'].team && tableData.live['pitcher-velocity'].players"
+        :player="tableData.live['pitcher-velocity'].players"
+        :team="tableData.live['pitcher-velocity'].team"
+      />
+    </div>
+
+    </div>
 
         </div><!-- end data tables -->
       </div><!-- end px wrapper -->
     </div><!-- end bg wrapper -->
   </Layout>
 </template>
+
+<style scoped>
+.bullpen-stat-section > div {
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background: rgba(10, 16, 32, 0.8);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+}
+
+.bullpen-stat-section .bg-fungo-gray3 {
+  background: rgba(10, 16, 32, 0.8) !important;
+}
+
+.bullpen-stat-section :deep(h1) {
+  color: #f8fafc !important;
+  font-size: 0.95rem !important;
+  text-align: center;
+  margin: 0 0 0.9rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.bullpen-stat-section :deep(section) {
+  margin-top: 0 !important;
+  padding: 0 !important;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
+  background: rgba(2, 8, 23, 0.65);
+}
+
+.bullpen-stat-section :deep(table) {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  color: #e5e7eb !important;
+}
+
+.bullpen-stat-section :deep(thead th) {
+  padding: 0.7rem 0.55rem !important;
+  color: #e2e8f0 !important;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+  background: rgba(15, 23, 42, 0.95) !important;
+}
+
+.bullpen-stat-section :deep(tbody td) {
+  padding: 0.62rem 0.55rem !important;
+  text-align: center;
+  color: #e5e7eb !important;
+  font-size: 0.8rem !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent !important;
+}
+
+.bullpen-stat-section :deep(thead th:first-child),
+.bullpen-stat-section :deep(tbody td:first-child) {
+  text-align: left;
+  padding-left: 0.85rem !important;
+  font-weight: 800;
+}
+
+.bullpen-stat-section :deep(tbody tr:first-child td) {
+  background: rgba(192, 0, 0, 0.16) !important;
+  color: #fee2e2 !important;
+  font-weight: 900 !important;
+}
+
+.bullpen-stat-section :deep(tbody tr:nth-child(n+2):nth-child(odd) td) {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.bullpen-stat-section :deep(tbody tr:nth-child(n+2):nth-child(even) td) {
+  background: rgba(148, 163, 184, 0.05) !important;
+}
+
+.bullpen-stat-section :deep(tbody tr:hover td) {
+  background: rgba(59, 130, 246, 0.12) !important;
+}
+
+.bullpen-stat-section :deep(::-webkit-scrollbar) {
+  width: 4px;
+  height: 4px;
+}
+
+.bullpen-stat-section :deep(::-webkit-scrollbar-thumb) {
+  background: #334155;
+  border-radius: 8px;
+}
+
+.bullpen-stat-section :deep(::-webkit-scrollbar-thumb:active) {
+  background: #1e293b;
+}
+
+.bullpen-stat-section :deep(::-webkit-scrollbar-track) {
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 8px;
+}
+
+.other-stat-section > div {
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background: rgba(10, 16, 32, 0.8);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+}
+
+.other-stat-section .bg-fungo-gray3 {
+  background: rgba(10, 16, 32, 0.8) !important;
+}
+
+.other-stat-section :deep(h1) {
+  color: #f8fafc !important;
+  font-size: 0.95rem !important;
+  text-align: center;
+  margin: 0 0 0.9rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.other-stat-section :deep(section) {
+  margin-top: 0 !important;
+  padding: 0 !important;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
+  background: rgba(2, 8, 23, 0.65);
+}
+
+.other-stat-section :deep(table) {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  color: #e5e7eb !important;
+}
+
+.other-stat-section :deep(thead th) {
+  padding: 0.7rem 0.55rem !important;
+  color: #e2e8f0 !important;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+  background: rgba(15, 23, 42, 0.95) !important;
+}
+
+.other-stat-section :deep(tbody td) {
+  padding: 0.62rem 0.55rem !important;
+  text-align: center;
+  color: #e5e7eb !important;
+  font-size: 0.8rem !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent !important;
+}
+
+.other-stat-section :deep(thead th:first-child),
+.other-stat-section :deep(tbody td:first-child) {
+  text-align: left;
+  padding-left: 0.85rem !important;
+  font-weight: 800;
+}
+
+.other-stat-section :deep(tbody tr:first-child td) {
+  background: rgba(192, 0, 0, 0.16) !important;
+  color: #fee2e2 !important;
+  font-weight: 900 !important;
+}
+
+.other-stat-section :deep(tbody tr:nth-child(n+2):nth-child(odd) td) {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.other-stat-section :deep(tbody tr:nth-child(n+2):nth-child(even) td) {
+  background: rgba(148, 163, 184, 0.05) !important;
+}
+
+.other-stat-section :deep(tbody tr:hover td) {
+  background: rgba(59, 130, 246, 0.12) !important;
+}
+
+.other-stat-section :deep(::-webkit-scrollbar) {
+  width: 4px;
+  height: 4px;
+}
+
+.other-stat-section :deep(::-webkit-scrollbar-thumb) {
+  background: #334155;
+  border-radius: 8px;
+}
+
+.other-stat-section :deep(::-webkit-scrollbar-thumb:active) {
+  background: #1e293b;
+}
+
+.other-stat-section :deep(::-webkit-scrollbar-track) {
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 8px;
+}
+</style>

@@ -446,31 +446,32 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
     <Loader v-show="!isLoading.status" />
 
     <!-- ── Page wrapper ─────────────────────────────────────────────── -->
-    <div class="min-h-screen bg-app-bg px-4 md:px-8 py-8">
+    <div class="min-h-screen bg-[#060b14] text-white">
+      <div class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
 
       <!-- Page title -->
-      <div class="flex items-center gap-3 mb-8">
-        <div class="w-1 h-8 bg-app-red rounded-full" />
-        <h1 class="text-white text-2xl md:text-3xl font-bold tracking-wide">Roster</h1>
-        <span class="ml-auto text-app-muted text-sm">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-1 h-7 bg-[#C00000] rounded-full" />
+        <h1 class="text-2xl font-black tracking-wide text-white">Roster</h1>
+        <span class="ml-auto text-white/30 text-sm hidden md:block">
           {{ tableDataCoaches.length }} coaches · {{ tableDataPlayers.length }} players
         </span>
       </div>
 
       <!-- ══════════════ COACHES ══════════════ -->
-      <section class="mb-10">
+      <section class="mb-5 rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
         <!-- Section header bar -->
         <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
           <div class="flex items-center gap-2">
-            <span class="text-app-blue text-xs font-bold uppercase tracking-widest">Coaches</span>
-            <span class="bg-app-blue/20 text-app-blue text-xs font-bold px-2 py-0.5 rounded-full border border-app-blue/30">
+            <span class="text-[#7DD3FC] text-xs font-black uppercase tracking-widest">Coaches</span>
+            <span class="bg-sky-500/10 text-sky-300 text-xs font-black px-2 py-0.5 rounded-full border border-sky-500/30">
               {{ tableDataCoaches.length }}
             </span>
           </div>
 
           <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
             <!-- Search coaches -->
-            <div class="flex items-center gap-2 bg-app-card border border-white/10 rounded-xl px-3 py-2">
+            <div class="flex items-center gap-2 bg-[#0b1324]/80 border border-white/10 rounded-xl px-3 py-2">
               <svg class="w-4 h-4 text-app-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
@@ -480,14 +481,14 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
                 @input="searchCoahByName"
                 type="search"
                 placeholder="Search coaches…"
-                class="bg-transparent text-white text-sm placeholder-app-muted outline-none w-36"
+                class="bg-transparent text-white text-sm placeholder-white/35 outline-none w-36"
               />
             </div>
             <!-- Add from existing -->
             <button
               @click="isOpenModalCoach = true"
-              class="flex items-center gap-1.5 bg-app-navy border border-white/10 hover:border-app-blue/50
-                     text-app-blue text-xs font-bold px-4 py-2.5 rounded-xl transition"
+              class="flex items-center gap-1.5 bg-[#0b1324] border border-white/10 hover:border-sky-400/50
+                     text-sky-300 text-xs font-black px-4 py-2.5 rounded-xl transition"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -497,8 +498,8 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
             <!-- Create new coach -->
             <button
               @click="isAddCoach = true"
-              class="flex items-center gap-1.5 bg-app-red hover:bg-app-red-hover
-                     text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+              class="flex items-center gap-1.5 bg-[#C00000] hover:bg-[#9B0000]
+                text-white text-xs font-black px-4 py-2.5 rounded-xl transition"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -509,8 +510,8 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
         </div>
 
         <!-- Coach cards grid -->
-        <div v-if="isLoadingCoach" class="text-app-muted text-center py-10">Loading coaches…</div>
-        <div v-else-if="!tableDataCoaches.length" class="text-app-muted text-center py-10">No coaches found</div>
+        <div v-if="isLoadingCoach" class="text-white/25 text-center py-10">Loading coaches…</div>
+        <div v-else-if="!tableDataCoaches.length" class="text-white/25 text-center py-10">No coaches found</div>
         <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           <RosterCard
             v-for="item in tableDataCoaches"
@@ -524,19 +525,19 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
       </section>
 
       <!-- ══════════════ PLAYERS ══════════════ -->
-      <section>
+      <section class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
         <!-- Section header bar -->
         <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
           <div class="flex items-center gap-2">
-            <span class="text-app-red text-xs font-bold uppercase tracking-widest">Players</span>
-            <span class="bg-app-red/20 text-app-red text-xs font-bold px-2 py-0.5 rounded-full border border-app-red/30">
+            <span class="text-[#FCA5A5] text-xs font-black uppercase tracking-widest">Players</span>
+            <span class="bg-red-500/10 text-red-300 text-xs font-black px-2 py-0.5 rounded-full border border-red-500/30">
               {{ tableDataPlayers.length }}
             </span>
           </div>
 
           <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
             <!-- Search players -->
-            <div class="flex items-center gap-2 bg-app-card border border-white/10 rounded-xl px-3 py-2">
+            <div class="flex items-center gap-2 bg-[#0b1324]/80 border border-white/10 rounded-xl px-3 py-2">
               <svg class="w-4 h-4 text-app-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
@@ -546,14 +547,14 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
                 @input="searchPlayerByName"
                 type="search"
                 placeholder="Search players…"
-                class="bg-transparent text-white text-sm placeholder-app-muted outline-none w-36"
+                class="bg-transparent text-white text-sm placeholder-white/35 outline-none w-36"
               />
             </div>
             <!-- Add from existing -->
             <button
               @click="isOpenModalPlayer = true"
-              class="flex items-center gap-1.5 bg-app-navy border border-white/10 hover:border-app-red/50
-                     text-app-red text-xs font-bold px-4 py-2.5 rounded-xl transition"
+              class="flex items-center gap-1.5 bg-[#0b1324] border border-white/10 hover:border-red-400/50
+                     text-red-300 text-xs font-black px-4 py-2.5 rounded-xl transition"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -563,8 +564,8 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
             <!-- Create new player -->
             <button
               @click="isAddPlayer = true"
-              class="flex items-center gap-1.5 bg-app-red hover:bg-app-red-hover
-                     text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+              class="flex items-center gap-1.5 bg-[#C00000] hover:bg-[#9B0000]
+                text-white text-xs font-black px-4 py-2.5 rounded-xl transition"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -575,18 +576,18 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
             <button
               v-if="teamJoinCode"
               @click="copyToClipboard(teamJoinCode, 'Team claim code copied')"
-              class="flex items-center gap-1.5 bg-white/5 border border-white/10 hover:border-app-blue/50
-                     text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+              class="flex items-center gap-1.5 bg-white/5 border border-white/10 hover:border-sky-400/50
+                     text-white text-xs font-black px-4 py-2.5 rounded-xl transition"
             >
               Team Code:
-              <span class="text-app-blue">{{ teamJoinCode }}</span>
+              <span class="text-sky-300">{{ teamJoinCode }}</span>
             </button>
           </div>
         </div>
 
         <!-- Player cards grid -->
-        <div v-if="isLoadingPlayer" class="text-app-muted text-center py-10">Loading players…</div>
-        <div v-else-if="!tableDataPlayers.length" class="text-app-muted text-center py-10">No players found</div>
+        <div v-if="isLoadingPlayer" class="text-white/25 text-center py-10">Loading players…</div>
+        <div v-else-if="!tableDataPlayers.length" class="text-white/25 text-center py-10">No players found</div>
         <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           <RosterCard
             v-for="item in tableDataPlayers"
@@ -598,16 +599,17 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
           />
         </div>
       </section>
+      </div>
     </div>
 
     <!-- ══ Modals ══════════════════════════════════════════════════════ -->
     <div v-if="isOpenModalCoach">
       <ModalSearchCoach :isOpen="isOpenModalCoach" @closeModal="changeBoolCoach" />
-      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" />
+      <div class="opacity-70 fixed inset-0 z-40 bg-[#060b14]" />
     </div>
     <div v-if="isOpenModalPlayer">
       <ModalSearchPlayer :isOpen="isOpenModalPlayer" @closeModal="changeBool()" />
-      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" />
+      <div class="opacity-70 fixed inset-0 z-40 bg-[#060b14]" />
     </div>
 
     <!-- ══ Create Player modal ═════════════════════════════════════════ -->
@@ -648,7 +650,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
           <button @click="submitAddPlayer" class="btn-primary">Add Player</button>
         </div>
       </div>
-      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" />
+      <div class="opacity-70 fixed inset-0 z-40 bg-[#060b14]" />
     </div>
 
     <!-- ══ Create Coach modal ══════════════════════════════════════════ -->
@@ -681,7 +683,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
           <button @click="submitAddCoach" class="btn-primary">Add Coach</button>
         </div>
       </div>
-      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" />
+      <div class="opacity-70 fixed inset-0 z-40 bg-[#060b14]" />
     </div>
 
     <!-- ══ Claim invite modal (app parity) ════════════════════════════ -->
@@ -718,7 +720,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
           <button @click="copyToClipboard(claimInviteModal.message, 'Claim message copied')" class="btn-primary">Copy Message</button>
         </div>
       </div>
-      <div class="opacity-70 fixed inset-0 z-40 bg-app-bg" @click="claimInviteModal.open = false" />
+      <div class="opacity-70 fixed inset-0 z-40 bg-[#060b14]" @click="claimInviteModal.open = false" />
     </div>
 
   </Layout>
@@ -727,25 +729,48 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
 <style scoped>
 /* Dark modal container */
 .modal-dark {
-  position: relative; z-index: 50; background: #191C4A;
-  border: 1px solid rgba(255,255,255,0.1); border-radius: 1rem; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,.25);
+  position: relative;
+  z-index: 50;
+  background: #081226;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .45);
 }
 
 /* Form field label */
 .field-label {
-  display: block; color: #64748B; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;
+  display: block;
+  color: rgba(226, 232, 240, 0.7);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
 }
 
 /* Primary red button */
 .btn-primary {
-  background: #FF2B4A; color: #fff; font-size: 0.875rem; font-weight: 700; padding: 0.625rem 1.25rem; border-radius: 0.75rem; transition: background 0.2s;
+  background: #C00000;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 800;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  transition: background 0.2s;
 }
-.btn-primary:hover { background: #E01F3C; }
+.btn-primary:hover { background: #9B0000; }
 
 /* Ghost button */
 .btn-ghost {
-  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); font-size: 0.875rem; font-weight: 700;
-  padding: 0.625rem 1.25rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  font-weight: 800;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.2s;
 }
 .btn-ghost:hover { background: rgba(255,255,255,0.1); color: #fff; }
 </style>

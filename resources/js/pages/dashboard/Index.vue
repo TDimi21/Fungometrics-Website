@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import Layout from "../../layout/Layout.vue"
 import { useUserStore } from "../../store/user";
@@ -11,6 +11,7 @@ import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
 import PitchHeatmapChart from '@/components/dashboard/PitchHeatmapChart.vue'
 import PitchTypeStatsCard from '@/components/dashboard/PitchTypeStatsCard.vue'
 import PlayerCompare from '@/components/dashboard/PlayerCompare.vue'
+import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 import useChart from '@/composables/useChart.js'
 import useChartOptions from '@/composables/useChartOptions.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
@@ -23,6 +24,47 @@ const { axiosPost, axiosGet } = useAxiosAuth()
 const user = useUserStore()
 const dashTab = ref('overview')
 const { team } = storeToRefs(useTeamStore())
+const DASHBOARD_CACHE_TTL_MS = 15 * 60 * 1000
+
+const getDashboardCacheKey = () => {
+  if (!team.value?.id) return null
+  return `dashboard-cache:v2:${team.value.id}`
+}
+
+const readDashboardCache = () => {
+  const key = getDashboardCacheKey()
+  if (!key) return null
+
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.savedAt) return null
+    if ((Date.now() - parsed.savedAt) > DASHBOARD_CACHE_TTL_MS) {
+      sessionStorage.removeItem(key)
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+const writeDashboardCache = (partial) => {
+  const key = getDashboardCacheKey()
+  if (!key) return
+
+  try {
+    const current = readDashboardCache() ?? {}
+    sessionStorage.setItem(key, JSON.stringify({
+      ...current,
+      ...partial,
+      savedAt: Date.now(),
+    }))
+  } catch {
+    // ignore cache failures
+  }
+}
 
 // ── Recent sessions ───────────────────────────────────────────────────────────
 const apiBaseUrl = process.env.API_ENDPOINT ?? import.meta.env.VITE_API_URL ?? ''
@@ -58,7 +100,8 @@ const openSessionReport = (session) => {
   })
 }
 
-const getRecentSessions = async () => {
+const getRecentSessions = async (force = false) => {
+  if (!force && recentSessions.value.length) return
   if (!team.value?.id) return
   recentLoading.value = true
   try {
@@ -74,6 +117,7 @@ const getRecentSessions = async () => {
     }
     all.sort((a, b) => new Date(b.updated_at ?? b.created_at) - new Date(a.updated_at ?? a.created_at))
     recentSessions.value = all.slice(0, 8)
+    writeDashboardCache({ recentSessions: recentSessions.value })
   } catch (e) { console.warn('getRecentSessions', e) }
   finally { recentLoading.value = false }
 }
@@ -93,12 +137,74 @@ const top10Mode = ref('players') // 'players' | 'team'
 const top10Tabs = [
   { label: 'Top Hitter',     value: 1, key: 'velocity', suffix: ' mph' },
   { label: 'Top Pitcher',    value: 4, key: 'velocity', suffix: ' mph' },
-  { label: 'Exit Velocity',  value: 2, key: 'avg',      suffix: ' mph' },
-  { label: 'Top Pitch Velo', value: 5, key: 'avg',      suffix: ' mph' },
+  { label: 'Top Avg EV',     value: 2, key: 'avg',      suffix: ' mph' },
+  { label: 'Top Avg Velo',   value: 5, key: 'avg',      suffix: ' mph' },
   { label: 'Total Swings',   value: 3, key: 'count',    suffix: '' },
+  { label: 'Top Strength Score', value: 12, key: 'score', suffix: '' },
 ]
 
 const activeTop10Tab = computed(() => top10Tabs.find(t => t.value === top10Tab.value) ?? top10Tabs[0])
+
+const toNumeric = (v) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+const normalizePlayerName = (name) => String(name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+
+const playerCardsByName = computed(() => {
+  const map = new Map()
+  for (const card of (teamPlayerCards.value ?? [])) {
+    const full = card?.profile?.full_name ?? `${card?.profile?.first_name ?? ''} ${card?.profile?.last_name ?? ''}`.trim()
+    const key = normalizePlayerName(full)
+    if (key) map.set(key, card)
+  }
+  return map
+})
+
+const top10PlayerName = (item) => item?.name ?? '—'
+
+const top10PlayerInitials = (item) => {
+  const name = top10PlayerName(item)
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase())
+    .join('') || '—'
+}
+
+const top10PlayerAvatar = (item) => {
+  const direct = item?.profile?.picture ?? item?.picture ?? item?.avatar ?? null
+  if (direct) return direct
+
+  const key = normalizePlayerName(top10PlayerName(item))
+  const card = playerCardsByName.value.get(key)
+  return card?.profile?.picture ?? null
+}
+
+const top10FallbackAvatar = updatedLogo
+
+const topStrengthRows = computed(() => {
+  return (teamPlayerCards.value ?? [])
+    .map((card) => ({
+      name:
+        card?.profile?.full_name
+        ?? card?.name
+        ?? card?.profile?.first_name
+        ?? '—',
+      avatar: card?.profile?.picture ?? null,
+      score: toNumeric(card?.fmtrxx_strength_score),
+    }))
+    .filter(row => row.score !== null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+})
+
+const top10Rows = computed(() => {
+  if (top10Tab.value === 12) return topStrengthRows.value
+  return (top10Data.value ?? []).slice(0, 10)
+})
 
 // ── Player Development Board ──────────────────────────────────────────────────
 const devBoard = ref([])
@@ -134,7 +240,8 @@ const sessionTypes = [
   { key: 'weight_ball',   label: 'WB' },
 ]
 
-const fetchDevBoard = async () => {
+const fetchDevBoard = async (force = false) => {
+  if (!force && devBoard.value.length) return
   if (!team.value?.id) return
   devBoardLoading.value = true
   try {
@@ -146,6 +253,7 @@ const fetchDevBoard = async () => {
     devBoard.value = data?.data ?? []
     devBoardExpanded.value = null
     devBoardShowAll.value = false
+    writeDashboardCache({ devBoard: devBoard.value })
   } catch (e) { console.warn('fetchDevBoard', e) }
   finally { devBoardLoading.value = false }
 }
@@ -162,17 +270,39 @@ const teamLeaders = computed(() => [
   { label: 'Total Pitches',              value: pitchThrows.value?.totals ?? null, suffix: '' },
 ].filter(r => r.value != null))
 
-const getTop10 = async () => {
+const getTop10 = async (force = false) => {
+  if (top10Tab.value === 12) {
+    await ensureTeamPlayerCards()
+    return
+  }
+
+  if (!force && top10Data.value.length) return
   if (!team.value?.id) return
   top10Loading.value = true
   try {
     const { data } = await axiosPost('table/' + team.value.id, { option: top10Tab.value, range: top10Range.value })
     top10Data.value = data?.data?.all ?? []
+    writeDashboardCache({
+      top10Data: top10Data.value,
+      top10Tab: top10Tab.value,
+      top10Range: top10Range.value,
+    })
   } catch (e) { console.warn('getTop10', e) }
   finally { top10Loading.value = false }
 }
 
-const switchTop10Tab = (val) => { top10Tab.value = val; getTop10() }
+const switchTop10Tab = (val) => {
+  top10Tab.value = val
+
+  if (val === 12) {
+    if (!teamPlayerCards.value.length) {
+      ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards strength tab error:', e?.message ?? e))
+    }
+    return
+  }
+
+  getTop10(true)
+}
 
 // ── Charts ────────────────────────────────────────────────────────────────────
 const {
@@ -235,7 +365,8 @@ function computeWBS(wb) {
   return { score: wbs.wbs, detail: wbs }
 }
 
-const fetchPerformanceOverview = async () => {
+const fetchPerformanceOverview = async (force = false) => {
+  if (!force && Object.values(perf.value).some(v => v !== null)) return
   if (!team.value?.id) return
   perfLoading.value = true
   try {
@@ -286,6 +417,7 @@ const fetchPerformanceOverview = async () => {
     const { score: wbScore, detail: wbDet } = computeWBS(Array.isArray(d.weight_ball) ? {} : d.weight_ball)
     if (wbScore !== null) { perf.value.wb = wbScore; perfDetail.value.wb = wbDet }
 
+    writeDashboardCache({ perf: perf.value, perfDetail: perfDetail.value })
   } catch (e) { console.warn('fetchPerformanceOverview', e) }
   finally { perfLoading.value = false }
 }
@@ -1015,7 +1147,7 @@ const submitMobilityAssessment = async () => {
       text: `Saved ${modeLabel} for ${selectedMobilityPlayer.value?.name || 'player'} · BMS ${computedMobility.value.score} (${computedMobility.value.grade}).`,
     }
     await fetchMobilityHistory()
-    await fetchDevBoard()
+    await fetchDevBoard(true)
   } catch {
     mobilityMessage.value = { type: 'error', text: 'Could not save mobility assessment.' }
   } finally {
@@ -1065,22 +1197,67 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => {
-  // Priority 1 — fast/cached, render immediately
-  getRecentSessions()
-  getTop10()
-  // Priority 2 — heavier, defer until after first paint
-  setTimeout(() => {
-    fetchPerformanceOverview()
-    fetchDevBoard()
-  }, 800)
-})
+const hydrateDashboardFromCache = () => {
+  const cache = readDashboardCache()
+  if (!cache) return false
+
+  if (Array.isArray(cache.recentSessions) && cache.recentSessions.length) {
+    recentSessions.value = cache.recentSessions
+  }
+
+  if (Array.isArray(cache.top10Data) && cache.top10Data.length) {
+    top10Data.value = cache.top10Data
+  }
+
+  if (typeof cache.top10Tab === 'number') {
+    top10Tab.value = cache.top10Tab
+  }
+
+  if (typeof cache.top10Range === 'number') {
+    top10Range.value = cache.top10Range
+  }
+
+  if (cache.perf) {
+    perf.value = cache.perf
+  }
+
+  if (cache.perfDetail) {
+    perfDetail.value = cache.perfDetail
+  }
+
+  if (Array.isArray(cache.devBoard) && cache.devBoard.length) {
+    devBoard.value = cache.devBoard
+  }
+
+  return true
+}
+
+watch(
+  () => team.value?.id,
+  (teamId) => {
+    if (!teamId) return
+
+    hydrateDashboardFromCache()
+
+    // Priority 1 — fast/cached, render immediately
+    getRecentSessions()
+    getTop10()
+
+    // Priority 2 — heavier, defer until after first paint
+    setTimeout(() => {
+      fetchPerformanceOverview()
+      fetchDevBoard()
+      ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards preload error:', e?.message ?? e))
+    }, 800)
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
   <Layout>
     <div class="min-h-screen bg-[#060b14] text-white">
-      <div class="px-4 py-6 lg:px-6 lg:py-8 pb-28 md:pb-12 max-w-[1600px] mx-auto">
+      <div class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
 
         <!-- Page title -->
         <div class="flex items-center gap-3 mb-5">
@@ -1368,7 +1545,7 @@ onMounted(() => {
                     <button
                       v-for="r in [{ l: 'All', v: 0 }, { l: '1Y', v: 12 }, { l: '1M', v: 6 }, { l: '1W', v: 3 }]"
                       :key="r.v"
-                      @click="top10Range = r.v; getTop10()"
+                      @click="top10Range = r.v; top10Tab === 12 ? ensureTeamPlayerCards() : getTop10()"
                       class="px-2.5 py-1 rounded-lg text-xs font-bold transition border"
                       :class="top10Range === r.v
                         ? 'bg-white/15 border-white/30 text-white'
@@ -1386,21 +1563,30 @@ onMounted(() => {
                 </div>
 
                 <!-- Empty -->
-                <div v-else-if="!top10Data.length" class="text-white/25 text-sm text-center py-8">No data for this period</div>
+                <div v-else-if="!top10Rows.length" class="text-white/25 text-sm text-center py-8">No data for this period</div>
 
                 <!-- Rows -->
                 <div v-else class="flex flex-col gap-1.5">
                   <div
-                    v-for="(item, idx) in top10Data.slice(0, 10)" :key="idx"
+                    v-for="(item, idx) in top10Rows" :key="idx"
                     class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/5 hover:bg-white/5 hover:border-white/15 transition cursor-pointer group"
                   >
                     <span class="w-5 text-center text-sm font-black shrink-0"
                       :class="idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-400' : 'text-white/30'">
                       {{ idx + 1 }}
                     </span>
-                    <span class="flex-1 text-sm font-bold text-white truncate">{{ item.name ?? '—' }}</span>
+                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                      <div class="w-7 h-7 rounded-full overflow-hidden ring-1 ring-white/20 bg-[#0f172a] shrink-0 flex items-center justify-center">
+                        <img
+                          :src="top10PlayerAvatar(item) || top10FallbackAvatar"
+                          alt="player avatar"
+                          class="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span class="text-sm font-bold text-white truncate">{{ top10PlayerName(item) }}</span>
+                    </div>
                     <span class="text-xs font-black text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full group-hover:bg-green-500/20 transition whitespace-nowrap">
-                      {{ item[activeTop10Tab.key] ?? '—' }}{{ item[activeTop10Tab.key] ? activeTop10Tab.suffix : '' }}
+                      {{ top10Tab === 12 ? (item.score ?? '—') : (item[activeTop10Tab.key] ?? '—') }}{{ top10Tab !== 12 && item[activeTop10Tab.key] ? activeTop10Tab.suffix : '' }}
                     </span>
                   </div>
                 </div>

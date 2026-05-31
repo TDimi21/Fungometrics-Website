@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
 import { useUserStore } from "../store/user";
 import { useTeamStore } from "../store/team";
 import NavSidebar from "./NavigationSidebar.vue";
@@ -39,6 +39,7 @@ const { isShowMsgModal } = storeToRefs(trainingStore);
 const isOpen = ref(false);
 const isChange = ref(false);
 const sessionCount = ref(0);
+const teamJoinCode = ref('');
 const api_url = process.env.API_ENDPOINT;
 const isLoading = reactive({ status: true });
 const token = JSON.parse(localStorage.getItem("auth")).token;
@@ -222,9 +223,24 @@ const fetchSessionCount = async () => {
   } catch {}
 };
 
+const fetchTeamJoinCode = async () => {
+  if (userData.type !== 'coach' || !team?.id) {
+    teamJoinCode.value = '';
+    return;
+  }
+
+  try {
+    const response = await axiosGet(`coach/teams/${team.id}/code`);
+    teamJoinCode.value = response?.data?.data?.join_code || response?.data?.join_code || '';
+  } catch {
+    teamJoinCode.value = '';
+  }
+};
+
 onMounted(() => {
   getTeamsWithPalyers();
   fetchSessionCount();
+  fetchTeamJoinCode();
   applyUiTheme(uiTheme.value);
 
   window.addEventListener("ui-theme-changed", handleThemeChange);
@@ -237,6 +253,14 @@ onUnmounted(() => {
   window.removeEventListener("open-add-player-modal", openModal);
   window.removeEventListener("open-change-team-modal", openChangeTeamModal);
 });
+
+watch(
+  () => team?.id,
+  () => {
+    fetchSessionCount();
+    fetchTeamJoinCode();
+  }
+);
 </script>
 
 <template>
@@ -272,6 +296,19 @@ onUnmounted(() => {
               />
             </RouterLink>
             <div class="absolute w-full h-[3px] bg-gradient-to-r from-[#002060] to-[#C00000] bottom-0"></div>
+          </div>
+
+          <!-- Team code (coach only) -->
+          <div
+            v-if="userData.type === 'coach'"
+            class="mx-3 mt-2 mb-2 flex justify-center"
+          >
+            <div class="inline-flex flex-col overflow-hidden rounded-lg border border-red-400/60 shadow-[0_6px_18px_rgba(192,0,0,0.35)]">
+              <div class="bg-[#ff3b57] px-4 py-1 text-[9px] leading-none font-black tracking-[0.22em] text-white text-center">CODE</div>
+              <div class="bg-[#b10024] px-4 py-1.5 text-center">
+                <span class="text-[16px] leading-none font-black tracking-[0.14em] text-white">{{ (teamJoinCode || '—').toUpperCase() }}</span>
+              </div>
+            </div>
           </div>
 
           <!-- Team card (coach only) -->

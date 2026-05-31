@@ -166,7 +166,7 @@ import {useRouter} from "vue-router"
     }
   })
 
-  const fmtrxStrengthScore = computed(() => {
+  const strengthScoreBadge = computed(() => {
     const fit = latestFitnessMetrics.value
     if (!fit) return null
 
@@ -178,49 +178,24 @@ import {useRouter} from "vue-router"
     const backSq = toNum(fit.back_squat) || 0
     const frontSq = toNum(fit.front_squat) || 0
     const clean = toNum(fit.power_clean) || 0
-    const dash40 = toNum(fit.yd_40_dash)
-    const dash60 = toNum(fit.yd_60_dash)
-
-    const cleanRatio = clean > 0 ? clean / bw : null
     const deadRatio = dead > 0 ? dead / bw : null
     const backRatio = backSq > 0 ? backSq / bw : null
     const frontRatio = frontSq > 0 ? frontSq / bw : null
     const benchRatio = bench > 0 ? bench / bw : null
 
-    const cleanScore = mapHigherBetter(cleanRatio, [[0.8, 30], [1.0, 55], [1.2, 78], [1.35, 90], [1.5, 100]])
     const deadScore = mapHigherBetter(deadRatio, [[1.5, 35], [2.0, 60], [2.5, 85], [3.0, 100]])
     const backScore = mapHigherBetter(backRatio, [[1.2, 35], [1.6, 60], [2.0, 82], [2.5, 100]])
     const frontScore = mapHigherBetter(frontRatio, [[1.0, 40], [1.3, 62], [1.5, 78], [2.0, 100]])
     const benchScore = mapHigherBetter(benchRatio, [[0.9, 40], [1.1, 58], [1.3, 76], [1.5, 90], [1.7, 100]])
-    const dash60Score = mapLowerBetter(dash60, [[6.3, 100], [6.5, 92], [6.6, 84], [6.8, 70], [7.4, 30]])
-    const dash40Score = mapLowerBetter(dash40, [[4.3, 100], [4.5, 94], [4.7, 84], [4.9, 68], [5.3, 30]])
 
-    const powerScore = weightedAverage([{ value: cleanScore, weight: 1 }], 0)
     const strengthScore = weightedAverage([
       { value: deadScore, weight: 0.35 },
       { value: backScore, weight: 0.30 },
       { value: frontScore, weight: 0.20 },
       { value: benchScore, weight: 0.15 },
     ], 0)
-    const speedScore = weightedAverage([
-      { value: dash60Score, weight: 0.7 },
-      { value: dash40Score, weight: 0.3 },
-    ], 0)
-    const relativeStrengthScore = weightedAverage([
-      { value: cleanScore, weight: 0.6 },
-      { value: deadScore, weight: 0.4 },
-    ], 0)
 
-    const score = clamp(
-      (powerScore * 0.45) +
-      (strengthScore * 0.30) +
-      (speedScore * 0.20) +
-      (relativeStrengthScore * 0.05),
-      0,
-      100
-    )
-
-    const rounded = parseFloat(score.toFixed(1))
+    const rounded = parseFloat(clamp(strengthScore, 0, 100).toFixed(1))
     const tier = rounded >= 90 ? 'ELITE' : rounded >= 80 ? 'HIGH' : rounded >= 70 ? 'SOLID' : rounded >= 60 ? 'DEV' : 'NEEDS'
     return { score: rounded, tier }
   })
@@ -379,8 +354,8 @@ import {useRouter} from "vue-router"
                 <template v-if="score">
                   <div class="w-full border-t border-white/10"></div>
                   <div class="score-badge">
-                    <div class="score-badge-value">{{ fmtrxStrengthScore?.score ?? '—' }}</div>
-                    <div class="score-badge-label">{{ fmtrxStrengthScore?.tier ?? 'FMTRX SCORE' }}</div>
+                    <div class="score-badge-value">{{ strengthScoreBadge?.score ?? '—' }}</div>
+                    <div class="score-badge-label">{{ strengthScoreBadge?.tier ?? 'STRENGTH SCORE' }}</div>
                   </div>
                   <div class="w-full flex flex-col gap-3 mt-1">
                     <div v-if="score.velo" class="sidebar-row">

@@ -195,15 +195,15 @@ const submitEditCoach = async () => {
   <Layout>
     <Loader v-show="!isLoading.status"/>
     <div class="edit-profile-page w-full px-4 md:px-8 py-6 md:py-10">
-      <div class="max-w-6xl mx-auto">
-      <h1 class="text-fungo-red text-3xl md:text-[42px] text-center mb-7 font-fungo-700 tracking-wide">Edit Profile</h1>
+      <div class="max-w-6xl mx-auto practice-shell p-5 md:p-8">
+      <h1 class="text-white text-3xl md:text-[42px] text-center mb-7 font-fungo-700 tracking-wide">Edit Profile</h1>
 
       <section class="profile-card">
         <div class="profile-card-header">
           <h2 class="profile-card-title">Team</h2>
           <button class="profile-header-link" @click="router.push({ name: 'manage.team' })">
             Create new team
-            <ArrowHeadRightIcon color="0077B6"/>
+            <ArrowHeadRightIcon color="002060"/>
           </button>
         </div>
 
@@ -242,7 +242,7 @@ const submitEditCoach = async () => {
           <h2 class="profile-card-title">Coach</h2>
           <RouterLink to="/change-password" class="profile-header-link">
             Create new password
-            <ArrowHeadRightIcon color="0077B6"/>
+            <ArrowHeadRightIcon color="002060"/>
           </RouterLink>
         </div>
 
@@ -316,11 +316,18 @@ const submitEditCoach = async () => {
   background: #060b14;
 }
 
+.practice-shell {
+  background: rgba(10, 16, 32, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
 .profile-card {
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 1rem;
   overflow: hidden;
-  background: rgba(10, 16, 32, 0.82);
+  background: rgba(15, 23, 42, 0.72);
 }
 
 .profile-card-header {
@@ -329,28 +336,30 @@ const submitEditCoach = async () => {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.9rem 1rem;
-  background: #e7eaee;
+  background: rgba(10, 16, 32, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .profile-card-title {
-  color: #1a2c4a;
-  font-size: 1.9rem;
+  color: #ffffff;
+  font-size: 1.35rem;
   font-weight: 900;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .profile-header-link {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  color: #0077B6;
+  color: #002060;
   font-weight: 900;
   font-size: 0.95rem;
 }
 
 .profile-card-body {
   padding: 1rem;
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(15, 23, 42, 0.45);
 }
 
 .image-holder {
@@ -404,8 +413,8 @@ const submitEditCoach = async () => {
   padding: 0.5rem 0.7rem;
   border-radius: 0.55rem;
   border: 1px solid rgba(255, 255, 255, 0.22) !important;
-  background: #f8fafc !important;
-  color: #0f172a !important;
+  background: rgba(10, 16, 32, 0.9) !important;
+  color: #f8fafc !important;
   font-size: 0.95rem;
 }
 
@@ -419,6 +428,20 @@ const submitEditCoach = async () => {
 .edit-profile-page :deep(.profile-card-body .arrow-position) {
   top: 6px;
   right: 8px;
+}
+
+.edit-profile-page :deep(.image-input-label) {
+  color: #ffffff !important;
+  font-weight: 900 !important;
+}
+
+.edit-profile-page :deep(.image-edit-btn) {
+  background: #002060 !important;
+}
+
+.edit-profile-page :deep(.image-preview-panel) {
+  background: rgba(10, 16, 32, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
 }
 
 .edit-profile-page :deep(.profile-card-body .input-tel-decorator) {

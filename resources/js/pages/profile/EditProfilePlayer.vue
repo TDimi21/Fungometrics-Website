@@ -39,8 +39,18 @@ let player = reactive({
 });
 
 userData.positions.forEach((types) => {
-  player.type.push(types.position);
+  const value = String(types?.position ?? '').trim()
+  if (value && !player.type.includes(value)) {
+    player.type.push(value)
+  }
 });
+
+const normalizeType = (type) => String(type ?? '').trim().toUpperCase()
+
+const isTypeSelected = (type) => {
+  const target = normalizeType(type)
+  return player.type.some((value) => normalizeType(value) === target)
+}
 
 const submitUpdate = async () => {
   if (
@@ -162,10 +172,13 @@ const submitUpdate = async () => {
 };
 
 const typeClicked = (type) => {
-  if (player.type.includes(type)) {
-    player.type = player.type.filter((key) => key !== type);
+  const target = normalizeType(type)
+  if (!target) return
+
+  if (isTypeSelected(type)) {
+    player.type = player.type.filter((value) => normalizeType(value) !== target)
   } else {
-    player.type.push(type);
+    player.type.push(String(type).trim())
   }
 };
 </script>
@@ -173,13 +186,11 @@ const typeClicked = (type) => {
 <template>
   <Layout>
     <Loader v-show="!isLoading.status" />
-    <h1
-      class="text-fungo-red text-2xl md:text-[40px] text-center pt-9 mb-6 font-fungo-700"
-    >
-      Edit Profile Player
-    </h1>
-    <section class="w-full min-h-[1050px] md:min-h-[750px] mt-[5%] lg:mt-[5]">
-      <form class="w-full h-full" @submit.prevent="submitUpdate">
+    <div class="edit-player-page w-full px-4 md:px-8 py-6 md:py-10">
+      <div class="max-w-6xl mx-auto practice-shell p-5 md:p-8">
+        <h1 class="text-white text-2xl md:text-[40px] text-center mb-6 font-fungo-700">Edit Profile Player</h1>
+    <section class="profile-card w-full mt-2">
+      <form class="w-full" @submit.prevent="submitUpdate">
         <div class="form-header">
           <div class="flex flex-col w-2/4 md:w-1/4">
             <InputImage
@@ -190,16 +201,16 @@ const typeClicked = (type) => {
           </div>
           <div class="flex flex-col w-4/5 md:w-2/5 mt-5 md:mt-0 ml-0 md:ml-11">
             <div class="flex flex-col">
-              <LabelField text="Type of player" :required="true" />
+              <LabelField text="Position" :required="true" />
               <div class="flex flex-row justify-between">
-                <input
+                <button
                   v-for="type in playerTypes"
+                  :key="type"
                   type="button"
-                  :value="type"
                   @click="typeClicked(type)"
                   class="btn-type-player"
-                  :class="{ 'active-button': player.type.includes(type) }"
-                />
+                  :class="{ 'active-button': isTypeSelected(type) }"
+                >{{ type }}</button>
               </div>
             </div>
             <div class="flex flex-col mt-4">
@@ -281,7 +292,6 @@ const typeClicked = (type) => {
             <button
               class="btn-edit-profile rounded-button-right"
               type="submit"
-              @click="submitEditPlayer"
             >
               <img
                 alt="button register coach"
@@ -297,6 +307,8 @@ const typeClicked = (type) => {
         </div>
       </form>
     </section>
+      </div>
+    </div>
   </Layout>
 </template>
 <style lang="css" scoped>
@@ -318,30 +330,81 @@ const typeClicked = (type) => {
 
 .btn-edit-profile {
   @apply grid place-items-center grid-flow-col flex-row w-[250px] lg:w-[300px] rounded-t-[30px] rounded-r-[10px] rounded-b-[10px] rounded-l-[30px]
-    px-2 py-1 text-xl md:text-[16px] lg:text-[20px] bg-fungo-red text-white hover:bg-fungo-red-hover;
+    px-2 py-1 text-xl md:text-[16px] lg:text-[20px] bg-fungo-red text-white hover:bg-fungo-red-hover font-fungo-700;
+}
+
+.edit-player-page {
+  background: #060b14;
+}
+
+.practice-shell {
+  background: rgba(10, 16, 32, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.profile-card {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.72);
 }
 
 .box-input-col {
-  @apply flex flex-col w-[100%] md:w-[31%] text-fungo-darkblue mb-5;
+  @apply flex flex-col w-[100%] md:w-[31%] text-slate-200 mb-5;
 }
 
 .box-input-col-2 {
-  @apply flex flex-col w-[100%] md:w-[31%] text-black mb-5;
+  @apply flex flex-col w-[100%] md:w-[31%] text-slate-200 mb-5;
 }
 
 .form-header {
-  @apply bg-[#F7F8F9] h-[100%] md:h-[43%] flex flex-col md:flex-row justify-center items-center py-6;
+  @apply bg-[#0a1020]/90 h-[100%] md:h-[43%] flex flex-col md:flex-row justify-center items-center py-6 border-b border-white/10;
 }
 .form-body {
-  @apply bg-[#E7EAEE] h-[57%] px-20 py-12 2xl:px-28 2xl:pt-10 2xl:pb-20 flex flex-col justify-between;
+  @apply bg-[#0f172a]/70 h-[57%] px-4 md:px-12 py-8 2xl:px-20 2xl:pt-10 2xl:pb-16 flex flex-col justify-between;
 }
 .btn-type-player {
-  @apply rounded-md bg-white border-[1px] border-black py-2 w-10 h-10 ml-1 cursor-pointer text-fungo-darkblue;
+  @apply rounded-md bg-[#0f172a] border border-white/30 py-2 w-10 h-10 ml-1 cursor-pointer text-white;
 }
 .active-button {
   background-color: #e10600 !important;
   color: white;
   border-color: #e10600 !important;
+}
+
+.edit-player-page :deep(label) {
+  color: #e2e8f0;
+  font-weight: 800;
+}
+
+.edit-player-page :deep(input),
+.edit-player-page :deep(select) {
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: rgba(10, 16, 32, 0.9) !important;
+  color: #f8fafc !important;
+}
+
+.edit-player-page :deep(input:focus),
+.edit-player-page :deep(select:focus) {
+  outline: none;
+  border-color: rgba(192, 0, 0, 0.65) !important;
+  box-shadow: 0 0 0 2px rgba(192, 0, 0, 0.12);
+}
+
+.edit-player-page :deep(.image-input-label) {
+  color: #ffffff !important;
+  font-weight: 900 !important;
+}
+
+.edit-player-page :deep(.image-edit-btn) {
+  background: #002060 !important;
+}
+
+.edit-player-page :deep(.image-preview-panel) {
+  background: rgba(10, 16, 32, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
 }
 
 ::-webkit-scrollbar {

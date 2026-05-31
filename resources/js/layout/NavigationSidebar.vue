@@ -60,6 +60,11 @@ const sidebarItems = ref([
     url: '/statistic',
   },
   {
+    title: 'New Stats',
+    iconPath: iconStartPractice,
+    url: '/new-statistic',
+  },
+  {
     title: 'Mobility Assessment',
     iconPath: iconDashboard,
     url: '/dashboard?tab=quickstats'
