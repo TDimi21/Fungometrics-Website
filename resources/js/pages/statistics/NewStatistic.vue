@@ -106,24 +106,27 @@ const openStatistics = () => {
     return
   }
 
-  const options = buildOptionsFromSessions(selectedSessions.value)
+  const selectedSession = selectedSessions.value[0]
+  const isBS = selectedSession === 'BS'
+  const routeSession = isBS ? 'L' : selectedSession
+
+  const options = buildOptionsFromSessions([routeSession])
   if (Object.keys(options).length === 0) {
     toast.fire({ icon: 'warning', title: 'Validation', text: 'Unsupported session selection.' })
     return
   }
 
-  const href = router.resolve({
-    name: 'statistic',
-    query: {
-      auto: '1',
-      team: String(selectedTeamId.value),
-      since: sinceWhen.value,
-      until: until.value,
-      players: selectedPlayers.value.join(','),
-      sessions: selectedSessions.value.join(','),
-    },
-  }).href
+  const query = {
+    team: String(selectedTeamId.value),
+    teamName: (teams.find((t) => String(t.id) === String(selectedTeamId.value))?.name || 'Team'),
+    since: sinceWhen.value,
+    until: until.value,
+    players: selectedPlayers.value.join(','),
+    session: routeSession,
+  }
+  if (isBS) query.tab = 'BOX SCORE'
 
+  const href = router.resolve({ name: 'new-statistic-session-view', query }).href
   window.open(href, '_blank')
 }
 

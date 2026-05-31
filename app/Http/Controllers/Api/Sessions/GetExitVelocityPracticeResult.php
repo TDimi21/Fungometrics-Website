@@ -35,7 +35,7 @@ class GetExitVelocityPracticeResult extends Controller
                 'status' => 'success',
                 'data' => [
                     'count' => $count,
-                    'ball_x_ball' => $result->sortByDesc('set')->sortByDesc('sort'),
+                    'ball_x_ball' => $result->sortByDesc('set')->sortByDesc('sort')->values(),
                     'by_trajectory' => $result->groupBy('trajectory'),
                     'sets'=>$sets
                 ],

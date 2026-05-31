@@ -40,7 +40,7 @@ class GetLongTossPracticeResult extends Controller
                 'status' => 'success',
                 'data' => [
                     'count' => $count,
-                    'ball_x_ball' => $result->sortByDesc('set')->sortByDesc('sort'),
+                    'ball_x_ball' => $result->sortByDesc('set')->sortByDesc('sort')->values(),
                     'sets'=>$sets
                 ]
             ];

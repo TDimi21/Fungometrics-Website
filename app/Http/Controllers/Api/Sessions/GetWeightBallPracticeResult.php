@@ -35,7 +35,7 @@ class GetWeightBallPracticeResult extends Controller
                 'status' => 'success',
                 'data' => [
                     'count'=>$count,
-                    'ball_x_ball'=>$result->sortBy('sort')->sortByDesc('set'),
+                    'ball_x_ball'=>$result->sortBy('sort')->sortByDesc('set')->values(),
                     'sets'=>$sets
                 ],
             ];

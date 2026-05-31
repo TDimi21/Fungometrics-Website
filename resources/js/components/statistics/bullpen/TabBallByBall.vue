@@ -71,18 +71,38 @@ const editData = (player) => {
   })
 
 }
+
+const getPlayerPicture = (item) => {
+  return item?.profile?.picture || item?.player?.picture || DefaultImg
+}
+
+const getPlayerFirstName = (item) => {
+  return item?.profile?.first_name || item?.player?.first_name || item?.pitcher_name || 'Player'
+}
+
+const getPlayerLastName = (item) => {
+  return item?.profile?.last_name || item?.player?.last_name || ''
+}
+
+const getPlayerDisplayName = (item) => {
+  const first = getPlayerFirstName(item)
+  const last = getPlayerLastName(item)
+  const full = `${first} ${last}`.trim()
+  return full || 'Player'
+}
 </script>
 
 <template>
-  <section class="mt-4 overflow-x-auto">
-    <table class="w-full border-separate space-y-6 text-fungo-darkblue">
+  <div class="stat-table-wrap">
+    <section class="stat-table-scroll">
+    <table class="stat-table w-full border-separate space-y-6">
 
-      <thead class="bg-fungo-lightblue">
-        <tr class="divide-x divide-[#000]">
+      <thead>
+        <tr>
           <th
             v-for="(heading, index) in tableHeadings"
             :key="index"
-            class="py-3 px-2 md:px-0 font-fungo-500 uppercase w-min"
+            class="py-3 px-2 md:px-0 uppercase w-min"
             @click="$emit('sortData', heading.filter)"
           >
             <span role="button" class="flex flex-row justify-evenly items-center cursor-pointer">
@@ -95,24 +115,24 @@ const editData = (player) => {
 
       <tbody>
         <tr v-if="isLoading" class="w-full">
-          <td colspan="9" class="text-fungo-darkblue text-3xl text-center">Loading data...</td>
+          <td colspan="9" class="text-3xl text-center">Loading data...</td>
         </tr>
         <tr v-else-if="!tableData.length > 0" class="w-full">
-          <td colspan="9" class="text-fungo-darkblue text-3xl text-center">There is no data</td>
+          <td colspan="9" class="text-3xl text-center">There is no data</td>
         </tr>
-        <tr v-else v-for="(item, index) in tableData" :key="index" class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative">
+        <tr v-else v-for="(item, index) in tableData" :key="index" class="relative">
           <td>
-            {{ item.sort + 1 }}
+            {{ (item?.sort ?? index) + 1 }}
           </td>
           <td class="w-[100px] lg:w-[300px] lg:max-w-[400px]">
             <div class="grid grid-cols-2 place-items-center w-[200px] lg:w-auto">
               <img
-                :src="item.profile.picture ? item.profile.picture : DefaultImg"
-                :alt="`Photo of ${item.profile.first_name}`"
+                :src="getPlayerPicture(item)"
+                :alt="`Photo of ${getPlayerFirstName(item)}`"
                 class="w-[70px] h-[70px] rounded-full border-[5px] border-fungo-gray"
               >
               <p class="">
-                {{ item.profile.first_name }} {{ item.profile.last_name }}
+                {{ getPlayerDisplayName(item) }}
               </p>
             </div>
           </td>
@@ -130,7 +150,7 @@ const editData = (player) => {
           </td>
           <td>
             <button
-              class="rounded-full hover:bg-fungo-gray2 p-2 transition-[background-color] ease-in duration-200"
+              class="rounded-full hover:bg-white/15 p-2 transition-[background-color] ease-in duration-200"
             v-on:click="editData(item)">
               <TableEdit />
             </button>
@@ -139,29 +159,71 @@ const editData = (player) => {
       </tbody>
     </table>
   </section>
+  </div>
 </template>
 
 <style scoped>
-table {
+.stat-table-wrap {
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background: rgba(10, 16, 32, 0.8);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+}
+
+.stat-table-scroll {
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.85rem;
+  background: rgba(2, 8, 23, 0.65);
+}
+
+.stat-table {
   border-spacing: 0 10px;
+  color: #e2e8f0;
 }
 
-table tbody tr td {
+.stat-table thead th {
+  background: rgba(15, 23, 42, 0.95);
+  color: #e2e8f0;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.stat-table tbody tr td {
   @apply text-center py-4 px-1 2xl:px-5;
+  color: #e5e7eb;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-table tbody tr::after {
+.stat-table tbody tr::after {
   content: '';
   position: absolute;
   left: -1px;
   top: 0;
   height: 100%;
   width: 3px;
-  background-color: #ADE8F4;
+  background-color: rgba(192, 0, 0, 0.55);
 }
 
-table tbody tr:nth-child(even)::after {
-  background-color: #DADADA;
+.stat-table tbody tr:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stat-table tbody tr:nth-child(even) {
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.stat-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.stat-table tbody tr:nth-child(even)::after {
+  background-color: rgba(148, 163, 184, 0.35);
 }
 
 ::-webkit-scrollbar {
@@ -175,16 +237,17 @@ table tbody tr:nth-child(even)::after {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-fungo-darkblue-hover rounded-md;
+  background: #334155;
+  border-radius: 8px;
 }
 
 ::-webkit-scrollbar-thumb:active {
-  @apply bg-fungo-darkblue;
+  background: #1e293b;
 }
 
 ::-webkit-scrollbar-track {
-  border: 22px solid #918383;
-  @apply bg-fungo-dark-gray rounded-md;
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 8px;
 }
 
 ::-webkit-scrollbar-corner {

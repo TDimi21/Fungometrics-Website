@@ -34,6 +34,7 @@ const ChangePassword = () => import("@/pages/profile/ChangePassword.vue");
 const EditPlayer = () => import("@/pages/roster/EditPlayer.vue");
 const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
 const NewStatistic = () => import("@/pages/statistics/NewStatistic.vue");
+const NewStatsSessionView = () => import("@/pages/statistics/NewStatsSessionView.vue");
 const PlayerDevelopmentDashboard = () => import('@/features/development/pages/PlayerDevelopmentDashboard.vue');
 const TeamDevelopmentDashboard = () => import('@/features/development/pages/TeamDevelopmentDashboard.vue');
 const CoachDevelopmentDashboard = () => import('@/features/development/pages/CoachDevelopmentDashboard.vue');
@@ -215,6 +216,13 @@ const routes = [
 		name: "new-statistic",
 		path: "/new-statistic",
 		component: NewStatistic,
+		meta: { requiresAuth: true },
+		props: true,
+	},
+	{
+		name: "new-statistic-session-view",
+		path: "/new-statistic/session-view",
+		component: NewStatsSessionView,
 		meta: { requiresAuth: true },
 		props: true,
 	},

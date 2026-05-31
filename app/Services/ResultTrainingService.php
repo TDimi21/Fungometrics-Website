@@ -131,11 +131,35 @@ final class ResultTrainingService
      */
     public static function getLongTossResults(string $team, array $players, array $dates)
     {
-
-        return LongTossPractice::where('team_id', $team)
+        $baseQuery = LongTossPractice::query()
             ->whereDate('created_at', '>=', $dates[0])
-            ->whereDate('created_at', '<=', $dates[1])
-            ->whereIn('user_id', $players)
+            ->whereDate('created_at', '<=', $dates[1]);
+
+        if (!empty($players)) {
+            $baseQuery->whereIn('user_id', $players);
+        }
+
+        // Primary path: rows where team_id is populated
+        $direct = (clone $baseQuery)
+            ->where('team_id', $team)
+            ->get();
+
+        if ($direct->count() > 0) {
+            return $direct;
+        }
+
+        // Fallback path: many historical rows have team_id = null
+        $teamPracticeIds = Practice::where('team_id', $team)
+            ->where('type', PracticeTypes::TRAINING->value)
+            ->pluck('id')
+            ->all();
+
+        if (empty($teamPracticeIds)) {
+            return collect();
+        }
+
+        return $baseQuery
+            ->whereIn('practice_id', $teamPracticeIds)
             ->get();
     }
 
@@ -147,10 +171,35 @@ final class ResultTrainingService
      */
     public static function getWeightBallResults(string $team, array $players, array $dates)
     {
-        return WeightBallPractice::where('team_id', $team)
+        $baseQuery = WeightBallPractice::query()
             ->whereDate('created_at', '>=', $dates[0])
-            ->whereDate('created_at', '<=', $dates[1])
-            ->whereIn('user_id', $players)
+            ->whereDate('created_at', '<=', $dates[1]);
+
+        if (!empty($players)) {
+            $baseQuery->whereIn('user_id', $players);
+        }
+
+        // Primary path: rows where team_id is populated
+        $direct = (clone $baseQuery)
+            ->where('team_id', $team)
+            ->get();
+
+        if ($direct->count() > 0) {
+            return $direct;
+        }
+
+        // Fallback path: many historical rows have team_id = null
+        $teamPracticeIds = Practice::where('team_id', $team)
+            ->where('type', PracticeTypes::TRAINING->value)
+            ->pluck('id')
+            ->all();
+
+        if (empty($teamPracticeIds)) {
+            return collect();
+        }
+
+        return $baseQuery
+            ->whereIn('practice_id', $teamPracticeIds)
             ->get();
     }
 
@@ -162,10 +211,35 @@ final class ResultTrainingService
      */
     public static function getExitVelocityResults(string $team, array $players, array $dates)
     {
-        return ExitVelocityPractice::where('team_id', $team)
+        $baseQuery = ExitVelocityPractice::query()
             ->whereDate('created_at', '>=', $dates[0])
-            ->whereDate('created_at', '<=', $dates[1])
-            ->whereIn('user_id', $players)
+            ->whereDate('created_at', '<=', $dates[1]);
+
+        if (!empty($players)) {
+            $baseQuery->whereIn('user_id', $players);
+        }
+
+        // Primary path: rows where team_id is populated
+        $direct = (clone $baseQuery)
+            ->where('team_id', $team)
+            ->get();
+
+        if ($direct->count() > 0) {
+            return $direct;
+        }
+
+        // Fallback path: many historical rows have team_id = null
+        $teamPracticeIds = Practice::where('team_id', $team)
+            ->where('type', PracticeTypes::TRAINING->value)
+            ->pluck('id')
+            ->all();
+
+        if (empty($teamPracticeIds)) {
+            return collect();
+        }
+
+        return $baseQuery
+            ->whereIn('practice_id', $teamPracticeIds)
             ->get();
     }
 
