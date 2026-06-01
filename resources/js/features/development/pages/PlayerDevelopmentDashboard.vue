@@ -38,10 +38,14 @@ const loadLiveData = async () => {
   sourceData.value = null
 
   const playerId = route.params?.playerId
-  const teamId = team.value?.id
+  const teamId = team.value?.id || String(route.query?.teamId || '')
 
-  if (!playerId || !teamId) {
-    loadError.value = 'Select a team and player to load development data.'
+  if (!playerId) {
+    loadError.value = 'No player selected. Navigate here from the Team Development board.'
+    return
+  }
+  if (!teamId) {
+    loadError.value = 'No team selected. Please select a team from the header, then return here.'
     return
   }
 
@@ -60,9 +64,16 @@ const loadLiveData = async () => {
       return
     }
 
-    loadError.value = 'No live data found for this player yet.'
+    loadError.value = 'No development data found for this player. Make sure they have logged session results.'
   } catch (error) {
-    loadError.value = 'Live API load failed.'
+    const status = error?.response?.status
+    if (status === 404) {
+      loadError.value = 'Player not found. They may need to log sessions before development data is available.'
+    } else if (status === 403) {
+      loadError.value = 'Access denied. Your plan may not include player development dashboards.'
+    } else {
+      loadError.value = `Could not load development data (${status ?? 'network error'}). Check that the server is running.`
+    }
   } finally {
     loading.value = false
   }

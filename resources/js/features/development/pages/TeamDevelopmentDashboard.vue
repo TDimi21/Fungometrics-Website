@@ -78,7 +78,7 @@ const openPlayer = (player) => {
 
   router.push({
     path: `/development/player/${player.id}`,
-    query: { playerName: player.name || '' },
+    query: { playerName: player.name || '', teamId: team.value?.id || '' },
   })
 }
 </script>

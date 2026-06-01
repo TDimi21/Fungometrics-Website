@@ -33,14 +33,21 @@ class GetPlayerDevelopmentDashboard extends Controller
             $playerId = (string) $validated['player'];
             $days = (int) ($validated['days'] ?? 60);
 
-            $cacheKey = "dev_dashboard_{$teamId}_{$playerId}_{$days}";
+            $cacheKey = "dev_dashboard_v2_{$teamId}_{$playerId}_{$days}";
 
-            $data = Cache::remember($cacheKey, 120, function () use ($teamId, $playerId, $days) {
-                $player = User::with(['profile', 'player'])->find($playerId);
+            // Check player exists before entering the cache closure so a missing
+            // player never gets cached as an empty array.
+            $player = User::with(['profile', 'player'])->find($playerId);
+            if (!$player) {
+                return response()->json([
+                    'code'    => '066-NF',
+                    'message' => 'Player not found',
+                    'status'  => 'error',
+                    'data'    => [],
+                ], HttpCodes::HTTP_NOT_FOUND);
+            }
 
-                if (!$player) {
-                    return [];
-                }
+            $data = Cache::remember($cacheKey, 120, function () use ($teamId, $playerId, $days, $player) {
 
                 $now = now();
                 $last30 = $now->copy()->subDays(30);
@@ -285,6 +292,17 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ],
                 ];
             });
+
+            // Guard: a stale cache entry written before this fix could be []
+            if (empty($data) || !isset($data['player'])) {
+                Cache::forget($cacheKey);
+                return response()->json([
+                    'code'    => '066-E',
+                    'message' => 'no development data found for this player',
+                    'status'  => 'error',
+                    'data'    => [],
+                ], HttpCodes::HTTP_NOT_FOUND);
+            }
 
             return response()->json([
                 'code' => '066',
