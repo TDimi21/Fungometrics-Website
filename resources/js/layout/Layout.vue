@@ -43,6 +43,28 @@ const { userData } = storeToRefs(userStore);
 const { team, teams } = storeToRefs(teamStore);
 const { setData } = userStore;
 const { setTeam } = teamStore;
+const resolveTeamId = (teamLike) => teamLike?.id_team ?? teamLike?.id ?? null;
+const activeTeamId = computed(() => resolveTeamId(team.value));
+const getTeamIdCandidates = (teamLike) => {
+  const ids = [teamLike?.id_team, teamLike?.id]
+    .filter(Boolean)
+    .map((v) => String(v));
+  return [...new Set(ids)];
+};
+const withTeamIdFallbackGet = async (buildPath, teamLike = team.value) => {
+  const candidates = getTeamIdCandidates(teamLike);
+  let lastError;
+  for (const id of candidates) {
+    try {
+      return await axiosGet(buildPath(id));
+    } catch (error) {
+      lastError = error;
+      const status = error?.response?.status;
+      if (status !== 404 && status !== 403) throw error;
+    }
+  }
+  throw lastError;
+};
 
 const isOpen = ref(false);
 const isChange = ref(false);
@@ -151,7 +173,7 @@ const submitAddPlayer = async () => {
   } else {
     let dataForm = new FormData();
     dataForm.append("phone", player.mobileNumber);
-    dataForm.append("team", team.value?.id ?? '');
+    dataForm.append("team", activeTeamId.value ?? '');
     dataForm.append("name[first]", player.firstName);
     dataForm.append("name[last]", player.lastName);
     const config = {
@@ -234,9 +256,10 @@ const submitAddPlayer = async () => {
 };
 const changeTeam = async (info) => {
   isLoading.status = !isLoading.status;
+  const selectedId = resolveTeamId(info);
   for (const item of temporalTeams.value) {
-    if (item.id_team == info.id) {
-      await setTeam(info);
+    if (String(resolveTeamId(item)) === String(selectedId)) {
+      await setTeam(item);
       players.value = item.players;
       // await setPlayers(item.players);
       isChange.value = false;
@@ -251,12 +274,12 @@ const openChangeTeamModal = () => {
 };
 
 const fetchSessionCount = async () => {
-  if ((userData.value?.type ?? 'coach') !== 'coach' || !team.value?.id) {
+  if ((userData.value?.type ?? 'coach') !== 'coach' || !getTeamIdCandidates(team.value).length) {
     sessionCount.value = 0;
     return;
   }
   try {
-    const { data } = await axiosGet(`coach/sessions/lasts/${team.value.id}`);
+    const { data } = await withTeamIdFallbackGet((id) => `coach/sessions/lasts/${id}`);
     const d = data?.data ?? {};
     sessionCount.value = [
       d.batting, d.bullpen, d.cage, d.live, d.weight_ball, d.long_toss, d.exit_velocity
@@ -267,13 +290,13 @@ const fetchSessionCount = async () => {
 };
 
 const fetchTeamJoinCode = async () => {
-  if ((userData.value?.type ?? 'coach') !== 'coach' || !team.value?.id) {
+  if ((userData.value?.type ?? 'coach') !== 'coach' || !getTeamIdCandidates(team.value).length) {
     teamJoinCode.value = '';
     return;
   }
 
   try {
-    const response = await axiosGet(`coach/teams/${team.value.id}/code`);
+    const response = await withTeamIdFallbackGet((id) => `coach/teams/${id}/code`);
     teamJoinCode.value = response?.data?.data?.join_code || response?.data?.join_code || '';
   } catch {
     teamJoinCode.value = '';
@@ -315,7 +338,7 @@ onUnmounted(() => {
 });
 
 watch(
-  () => team.value?.id,
+  () => activeTeamId.value,
   () => {
     fetchSessionCount();
     fetchTeamJoinCode();

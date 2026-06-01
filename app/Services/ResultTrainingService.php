@@ -260,13 +260,37 @@ final class ResultTrainingService
             ->pluck('practice_id')
             ->all();
 
+        // Fallback: include team batting sessions even when batter_id does not match claimed players
+        if (empty($practiceIds)) {
+            $practiceIds = BattingPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
+                ->where('team_id', $team)
+                ->where('is_in_match', false)
+                ->groupBy('practice_id')
+                ->orderByDesc('latest')
+                ->limit($limit)
+                ->pluck('practice_id')
+                ->all();
+        }
+
         $batting = collect();
         if (!empty($practiceIds)) {
-            $batting = BattingPracticeResult::where('team_id', $team)
+            $battingQuery = BattingPracticeResult::where('team_id', $team)
                 ->where('is_in_match', false)
-                ->whereIn('batter_id', $players)
-                ->whereIn('practice_id', $practiceIds)
-                ->get();
+                ->whereIn('practice_id', $practiceIds);
+
+            if (!empty($players)) {
+                $battingQuery->whereIn('batter_id', $players);
+            }
+
+            $batting = $battingQuery->get();
+
+            // If claimed-player filter returned nothing, retry without it
+            if ($batting->isEmpty() && !empty($players)) {
+                $batting = BattingPracticeResult::where('team_id', $team)
+                    ->where('is_in_match', false)
+                    ->whereIn('practice_id', $practiceIds)
+                    ->get();
+            }
         }
 
         // Also include Scripted BP swings from the last $limit scripted BP sessions for this team
@@ -280,9 +304,17 @@ final class ResultTrainingService
 
         $scriptedSwings = collect();
         if (!empty($scriptedPracticeIds)) {
-            $rawSwings = ScriptedBpSwing::whereIn('practice_id', $scriptedPracticeIds)
-                ->whereIn('batter_id', $players)
-                ->get();
+            $scriptedQuery = ScriptedBpSwing::whereIn('practice_id', $scriptedPracticeIds);
+            if (!empty($players)) {
+                $scriptedQuery->whereIn('batter_id', $players);
+            }
+
+            $rawSwings = $scriptedQuery->get();
+
+            if ($rawSwings->isEmpty() && !empty($players)) {
+                $rawSwings = ScriptedBpSwing::whereIn('practice_id', $scriptedPracticeIds)->get();
+            }
+
             $scriptedSwings = self::normalizeScriptedSwings($rawSwings);
         }
 
@@ -346,13 +378,23 @@ final class ResultTrainingService
             ->pluck('practice_id')
             ->all();
 
+        // Fallback: include team sessions even when user_id values are not claimed players
+        if (empty($practiceIds)) {
+            $practiceIds = CagePracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
+                ->where('team_id', $team)
+                ->groupBy('practice_id')
+                ->orderByDesc('latest')
+                ->limit($limit)
+                ->pluck('practice_id')
+                ->all();
+        }
+
         if (empty($practiceIds)) {
             return collect();
         }
 
         return CagePracticeResult::with('profile')
             ->where('team_id', $team)
-            ->whereIn('user_id', $players)
             ->whereIn('practice_id', $practiceIds)
             ->get();
     }
@@ -382,13 +424,22 @@ final class ResultTrainingService
             ->pluck('practice_id')
             ->all();
 
+        // Fallback: team practices may contain historical/unclaimed user ids
+        if (empty($practiceIds)) {
+            $practiceIds = ExitVelocityPractice::selectRaw('practice_id, MAX(created_at) as latest')
+                ->whereIn('practice_id', $teamPracticeIds)
+                ->groupBy('practice_id')
+                ->orderByDesc('latest')
+                ->limit($limit)
+                ->pluck('practice_id')
+                ->all();
+        }
+
         if (empty($practiceIds)) {
             return collect();
         }
 
-        return ExitVelocityPractice::whereIn('practice_id', $practiceIds)
-            ->whereIn('user_id', $players)
-            ->get();
+        return ExitVelocityPractice::whereIn('practice_id', $practiceIds)->get();
     }
 
     /**
@@ -415,13 +466,22 @@ final class ResultTrainingService
             ->pluck('practice_id')
             ->all();
 
+        // Fallback: team practices may contain historical/unclaimed user ids
+        if (empty($practiceIds)) {
+            $practiceIds = LongTossPractice::selectRaw('practice_id, MAX(created_at) as latest')
+                ->whereIn('practice_id', $teamPracticeIds)
+                ->groupBy('practice_id')
+                ->orderByDesc('latest')
+                ->limit($limit)
+                ->pluck('practice_id')
+                ->all();
+        }
+
         if (empty($practiceIds)) {
             return collect();
         }
 
-        return LongTossPractice::whereIn('practice_id', $practiceIds)
-            ->whereIn('user_id', $players)
-            ->get();
+        return LongTossPractice::whereIn('practice_id', $practiceIds)->get();
     }
 
     /**
@@ -460,14 +520,23 @@ final class ResultTrainingService
                 ->pluck('practice_id')
                 ->all();
 
+            // Fallback: include team practices regardless of claimed user_id
+            if (empty($practiceIds)) {
+                $practiceIds = WeightBallPractice::selectRaw('practice_id, MAX(created_at) as latest')
+                    ->whereIn('practice_id', $teamPracticeIds)
+                    ->groupBy('practice_id')
+                    ->orderByDesc('latest')
+                    ->limit($limit)
+                    ->pluck('practice_id')
+                    ->all();
+            }
+
             if (empty($practiceIds)) {
                 return collect();
             }
         }
 
-        return WeightBallPractice::whereIn('practice_id', $practiceIds)
-            ->whereIn('user_id', $players)
-            ->get();
+        return WeightBallPractice::whereIn('practice_id', $practiceIds)->get();
     }
 
     /**

@@ -16,7 +16,6 @@ import useChart from '@/composables/useChart.js'
 import useChartOptions from '@/composables/useChartOptions.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,19 +24,57 @@ const user = useUserStore()
 const dashTab = ref('overview')
 const teamStore = useTeamStore()
 const { team } = storeToRefs(teamStore)
+const resolveTeamId = (teamLike) => teamLike?.id_team ?? teamLike?.id ?? null
+const activeTeamId = computed(() => resolveTeamId(team.value))
+const getTeamIdCandidates = (teamLike) => {
+  const ids = [teamLike?.id_team, teamLike?.id]
+    .filter(Boolean)
+    .map((v) => String(v))
+  return [...new Set(ids)]
+}
+const getActiveTeamIdCandidates = () => getTeamIdCandidates(team.value)
+const withTeamIdFallbackGet = async (buildPath, teamLike = team.value) => {
+  const candidates = getTeamIdCandidates(teamLike)
+  let lastError
+  for (const id of candidates) {
+    try {
+      const response = await axiosGet(buildPath(id))
+      return { ...response, resolvedTeamId: id }
+    } catch (e) {
+      lastError = e
+      const status = e?.response?.status
+      if (status !== 404 && status !== 403) throw e
+    }
+  }
+  throw lastError
+}
+const withTeamIdFallbackPost = async (buildPath, bodyFactory, teamLike = team.value) => {
+  const candidates = getTeamIdCandidates(teamLike)
+  let lastError
+  for (const id of candidates) {
+    try {
+      const response = await axiosPost(buildPath(id), bodyFactory(id))
+      return { ...response, resolvedTeamId: id }
+    } catch (e) {
+      lastError = e
+      const status = e?.response?.status
+      if (status !== 404 && status !== 403) throw e
+    }
+  }
+  throw lastError
+}
 const DASHBOARD_CACHE_TTL_MS = 15 * 60 * 1000
 
 const getDashboardCacheKey = () => {
-  if (!team.value?.id) return null
-  return `dashboard-cache:v2:${team.value.id}`
+  if (!activeTeamId.value) return null
+  return `dashboard-cache:v2:${activeTeamId.value}`
 }
 
-const getTeamSessionCount = async (teamId, token) => {
-  if (!teamId || !token) return 0
+const getTeamSessionCount = async (teamLike) => {
+  const candidates = getTeamIdCandidates(teamLike)
+  if (!candidates.length) return 0
   try {
-    const { data } = await axios.get(apiBaseUrl + 'coach/sessions/lasts/' + teamId, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const { data } = await withTeamIdFallbackGet((id) => 'coach/sessions/lasts/' + id, teamLike)
     const d = data?.data ?? {}
     return [
       d.batting,
@@ -54,21 +91,15 @@ const getTeamSessionCount = async (teamId, token) => {
 }
 
 const ensureActiveTeam = async () => {
-  const authRaw = localStorage.getItem('auth')
-  const token = authRaw ? JSON.parse(authRaw).token : null
-  if (!token) return
-
   try {
-    const { data } = await axios.get(apiBaseUrl + 'coach/teams', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const { data } = await axiosGet('coach/teams')
 
     const teamsList = Array.isArray(data?.data) ? data.data : []
     if (!teamsList.length) return
 
-    const activeId = team.value?.id
-    const currentExists = activeId
-      ? teamsList.some((t) => String(t.id) === String(activeId))
+    const activeIds = getActiveTeamIdCandidates()
+    const currentExists = activeIds.length
+      ? teamsList.some((t) => getTeamIdCandidates(t).some((id) => activeIds.includes(id)))
       : false
 
     if (!currentExists) {
@@ -80,11 +111,11 @@ const ensureActiveTeam = async () => {
     }
 
     // If current team has no recent sessions, auto-pick the first team that does.
-    const currentCount = await getTeamSessionCount(activeId, token)
+    const currentCount = await getTeamSessionCount(team.value)
     if (currentCount > 0) return
 
     for (const candidate of teamsList) {
-      const candidateCount = await getTeamSessionCount(candidate.id, token)
+      const candidateCount = await getTeamSessionCount(candidate)
       if (candidateCount > 0) {
         teamStore.setTeam(candidate)
         if (typeof teamStore.setTeams === 'function') {
@@ -134,7 +165,6 @@ const writeDashboardCache = (partial) => {
 }
 
 // ── Recent sessions ───────────────────────────────────────────────────────────
-const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || import.meta.env.VITE_API_URL || ''
 const recentSessions = ref([])
 const recentLoading = ref(false)
 
@@ -169,14 +199,10 @@ const openSessionReport = (session) => {
 
 const getRecentSessions = async (force = false) => {
   if (!force && recentSessions.value.length) return
-  if (!team.value?.id) return
+  if (!getActiveTeamIdCandidates().length) return
   recentLoading.value = true
   try {
-    const authRaw = localStorage.getItem('auth')
-    const token = authRaw ? JSON.parse(authRaw).token : null
-    const { data } = await axios.get(apiBaseUrl + 'coach/sessions/lasts/' + team.value.id, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    })
+    const { data } = await withTeamIdFallbackGet((id) => 'coach/sessions/lasts/' + id)
     const d = data?.data ?? {}
     const all = []
     for (const [type, items] of Object.entries(d)) {
@@ -309,14 +335,10 @@ const sessionTypes = [
 
 const fetchDevBoard = async (force = false) => {
   if (!force && devBoard.value.length) return
-  if (!team.value?.id) return
+  if (!getActiveTeamIdCandidates().length) return
   devBoardLoading.value = true
   try {
-    const authRaw = localStorage.getItem('auth')
-    const token = authRaw ? JSON.parse(authRaw).token : null
-    const { data } = await axios.get(apiBaseUrl + 'coach/teams/' + team.value.id + '/player-development-board', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    })
+    const { data } = await withTeamIdFallbackGet((id) => 'coach/teams/' + id + '/player-development-board')
     devBoard.value = data?.data ?? []
     devBoardExpanded.value = null
     devBoardShowAll.value = false
@@ -344,10 +366,13 @@ const getTop10 = async (force = false) => {
   }
 
   if (!force && top10Data.value.length) return
-  if (!team.value?.id) return
+  if (!getActiveTeamIdCandidates().length) return
   top10Loading.value = true
   try {
-    const { data } = await axiosPost('table/' + team.value.id, { option: top10Tab.value, range: top10Range.value })
+    const { data } = await withTeamIdFallbackPost(
+      (id) => 'table/' + id,
+      () => ({ option: top10Tab.value, range: top10Range.value })
+    )
     top10Data.value = data?.data?.all ?? []
     writeDashboardCache({
       top10Data: top10Data.value,
@@ -384,6 +409,7 @@ const { barChartOptions, radiaChartOptions } = useChartOptions()
 const perfLoading = ref(false)
 const perf = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null, wb: null })
 const perfDetail = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null })
+const perfUnavailableTeams = ref({})
 
 /** Same colour scale as the mobile app's scoreColor() helper */
 function scoreColor(s) {
@@ -434,14 +460,14 @@ function computeWBS(wb) {
 
 const fetchPerformanceOverview = async (force = false) => {
   if (!force && Object.values(perf.value).some(v => v !== null)) return
-  if (!team.value?.id) return
+  const teamIds = getActiveTeamIdCandidates()
+  const teamId = teamIds[0]
+  if (!teamId) return
+  if (!force && perfUnavailableTeams.value[teamId]) return
   perfLoading.value = true
   try {
-    const authRaw = localStorage.getItem('auth')
-    const token = authRaw ? JSON.parse(authRaw).token : null
-    const { data } = await axios.get(apiBaseUrl + 'coach/performance-overview/' + team.value.id, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    })
+    const response = await withTeamIdFallbackGet((id) => 'coach/performance-overview/' + id)
+    const { data } = response
     const d = data?.data ?? {}
 
     // Batting FPS — direct from backend
@@ -485,7 +511,22 @@ const fetchPerformanceOverview = async (force = false) => {
     if (wbScore !== null) { perf.value.wb = wbScore; perfDetail.value.wb = wbDet }
 
     writeDashboardCache({ perf: perf.value, perfDetail: perfDetail.value })
-  } catch (e) { console.warn('fetchPerformanceOverview', e) }
+    if (perfUnavailableTeams.value[teamId]) {
+      const next = { ...perfUnavailableTeams.value }
+      delete next[teamId]
+      perfUnavailableTeams.value = next
+    }
+  } catch (e) {
+    const status = e?.response?.status
+    if (status === 500) {
+      perfUnavailableTeams.value = {
+        ...perfUnavailableTeams.value,
+        [teamId]: true,
+      }
+    } else {
+      console.warn('fetchPerformanceOverview', e)
+    }
+  }
   finally { perfLoading.value = false }
 }
 
@@ -910,12 +951,8 @@ const fitnessStanding = (metric) => {
 }
 
 const ensureTeamPlayerCards = async () => {
-  if (playerCardsLoaded.value || !team.value?.id) return
-  const authRaw = localStorage.getItem('auth')
-  const token = authRaw ? JSON.parse(authRaw).token : null
-  const { data } = await axios.get(apiBaseUrl + 'coach/teams/' + team.value.id + '/player-cards', {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  })
+  if (playerCardsLoaded.value || !getActiveTeamIdCandidates().length) return
+  const { data } = await withTeamIdFallbackGet((id) => 'coach/teams/' + id + '/player-cards')
   teamPlayerCards.value = data?.data ?? []
   playerCardsLoaded.value = true
 }
@@ -929,11 +966,7 @@ const openDevPlayerDetail = async (player) => {
     await ensureTeamPlayerCards()
     selectedDevCard.value = (teamPlayerCards.value ?? []).find((c) => c.id === player.id) ?? null
 
-    const authRaw = localStorage.getItem('auth')
-    const token = authRaw ? JSON.parse(authRaw).token : null
-    const { data } = await axios.get(apiBaseUrl + 'coach/statistics/' + player.id, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    })
+    const { data } = await axiosGet('coach/statistics/' + player.id)
     selectedDevStats.value = data?.data ?? null
   } catch (e) {
     console.warn('openDevPlayerDetail', e)
@@ -1306,11 +1339,11 @@ const hydrateDashboardFromCache = () => {
 }
 
 watch(
-  () => team.value?.id,
+  () => activeTeamId.value,
   async (teamId) => {
     if (!teamId) {
       await ensureActiveTeam()
-      if (!team.value?.id) return
+      if (!activeTeamId.value) return
     } else {
       await ensureActiveTeam()
     }

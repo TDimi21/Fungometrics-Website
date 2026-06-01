@@ -28,6 +28,50 @@ const playerStore = usePlayerStore();
 const isLoading = reactive({status: true})
 const formData = reactive({user: '', password: '', remember: false})
 
+const getTeamIdCandidates = (teamLike) => {
+  const ids = [teamLike?.id_team, teamLike?.id]
+    .filter(Boolean)
+    .map((v) => String(v))
+  return [...new Set(ids)]
+}
+
+const getSessionCountForTeam = async (api_url, token, teamLike) => {
+  const ids = getTeamIdCandidates(teamLike)
+  for (const id of ids) {
+    try {
+      const res = await axios.get(api_url + 'coach/sessions/lasts/' + id, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const d = res?.data?.data ?? {}
+      return [
+        d.batting,
+        d.bullpen,
+        d.cage,
+        d.live,
+        d.weight_ball,
+        d.long_toss,
+        d.exit_velocity,
+      ].reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+    } catch (e) {
+      const status = e?.response?.status
+      if (status !== 404 && status !== 403) break
+    }
+  }
+  return 0
+}
+
+const pickBestTeamForCoach = async (api_url, token, teams) => {
+  const list = Array.isArray(teams) ? teams : []
+  if (!list.length) return null
+
+  for (const candidate of list) {
+    const count = await getSessionCountForTeam(api_url, token, candidate)
+    if (count > 0) return candidate
+  }
+
+  return list[0]
+}
+
 
 const submitForm = async () => {
   isLoading.status =!isLoading.status;
@@ -50,8 +94,10 @@ const submitForm = async () => {
       if(response.data.data.type == 'player'){
         await router.push('/player-dashboard')
       }else{
-        await teamStore.setTeam(response.data.data.teams[0]);
-        await teamStore.setTeams(response.data.data.teams);
+        const teams = response?.data?.data?.teams ?? [];
+        const selectedTeam = await pickBestTeamForCoach(api_url, response.data.data.token, teams);
+        await teamStore.setTeam(selectedTeam ?? teams[0]);
+        await teamStore.setTeams(teams);
         await playerStore.setPlayers(response.data.data.players);
 
         await router.push('/dashboard')
