@@ -33,7 +33,7 @@ class CompletePlayerController extends Controller
 
             $user->update([
                 'email' => $request->get('email'),
-                'password' => bcrypt($request->get('password')),
+                'password' => \Illuminate\Support\Facades\Hash::make($request->get('password')),
                 'type' => UserTypes::PLAYER->value,
             ]);
 

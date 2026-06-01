@@ -452,15 +452,6 @@ watch(
             <div v-if="userType === 'player'">
               <RouterLink to="/change-password" class="sidebar-action mb-2 block">CHANGE PASSWORD</RouterLink>
             </div>
-            <RouterLink
-              to="/settings"
-              class="sidebar-action"
-            >
-              SETTINGS
-            </RouterLink>
-            <button @click="logout" type="button" class="sidebar-action sidebar-action-danger">
-              LOG OUT
-            </button>
           </div>
         </div>
       </div>
@@ -509,6 +500,16 @@ watch(
             <a :href="socialLinks.instagram" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Instagram" title="Instagram">
               <svg viewBox="0 0 24 24" class="social-icon" fill="currentColor"><path d="M7.8 2h8.4A5.8 5.8 0 0 1 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8A5.8 5.8 0 0 1 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2zm8.2 1.8H8A4.2 4.2 0 0 0 3.8 8v8a4.2 4.2 0 0 0 4.2 4.2h8a4.2 4.2 0 0 0 4.2-4.2V8A4.2 4.2 0 0 0 16 3.8zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 1.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4zm5.4-2a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4z"/></svg>
             </a>
+            <div class="flex items-center gap-1 ml-3 pl-3 border-l border-white/20">
+              <RouterLink to="/settings" class="flex items-center gap-1 text-white/70 hover:text-white text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 transition" title="Settings">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+                Settings
+              </RouterLink>
+              <button @click="logout" type="button" class="flex items-center gap-1 text-white/70 hover:text-white text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/40 transition" title="Log Out">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Log Out
+              </button>
+            </div>
           </div>
         </div>
       </header>

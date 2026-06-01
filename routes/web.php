@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,19 +15,6 @@ use Illuminate\Support\Facades\Route;
 |
 
 */
-
-Route::get('/test/{id}', function (string $id): void {
-    preg_match(
-        pattern: "/(.{8})(.{4})(.{4})(.{4})(.{12})/",
-        subject: $id,
-        matches: $matches
-    );
-    unset($matches[0]);
-
-    $userId = Arr::join($matches, '-');
-
-    return ;
-});
 
 Route::get('{any}', fn () => view('welcome'))->where('any', '.*');
 

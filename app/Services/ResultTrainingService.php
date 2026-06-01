@@ -366,9 +366,11 @@ final class ResultTrainingService
 
     /**
      * Returns cage practice results from the last $limit distinct sessions.
+     * team_id is often NULL on result rows — resolve via the practices table as fallback.
      */
     public static function getCageResultsLastSessions(string $team, array $players, int $limit = 10)
     {
+        // Primary path: rows where team_id is populated
         $practiceIds = CagePracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
             ->where('team_id', $team)
             ->whereIn('user_id', $players)
@@ -389,12 +391,41 @@ final class ResultTrainingService
                 ->all();
         }
 
+        // Fallback: many historical cage rows have team_id = null — resolve via practices table
+        if (empty($practiceIds)) {
+            $teamPracticeIds = Practice::where('team_id', $team)
+                ->where('type', PracticeTypes::CAGE->value)
+                ->pluck('id')
+                ->all();
+
+            if (!empty($teamPracticeIds)) {
+                $practiceIds = CagePracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
+                    ->whereIn('practice_id', $teamPracticeIds)
+                    ->whereIn('user_id', $players)
+                    ->groupBy('practice_id')
+                    ->orderByDesc('latest')
+                    ->limit($limit)
+                    ->pluck('practice_id')
+                    ->all();
+
+                // Fallback: team practices may contain historical/unclaimed user ids
+                if (empty($practiceIds)) {
+                    $practiceIds = CagePracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
+                        ->whereIn('practice_id', $teamPracticeIds)
+                        ->groupBy('practice_id')
+                        ->orderByDesc('latest')
+                        ->limit($limit)
+                        ->pluck('practice_id')
+                        ->all();
+                }
+            }
+        }
+
         if (empty($practiceIds)) {
             return collect();
         }
 
         return CagePracticeResult::with('profile')
-            ->where('team_id', $team)
             ->whereIn('practice_id', $practiceIds)
             ->get();
     }
@@ -405,18 +436,9 @@ final class ResultTrainingService
      */
     public static function getExitVelocityResultsLastSessions(string $team, array $players, int $limit = 10)
     {
-        // Get practice IDs belonging to this team from the practices table
-        $teamPracticeIds = Practice::where('team_id', $team)
-            ->where('type', PracticeTypes::TRAINING->value)
-            ->pluck('id')
-            ->all();
-
-        if (empty($teamPracticeIds)) {
-            return collect();
-        }
-
+        // Primary path: rows where team_id is populated (mirrors getExitVelocityResults)
         $practiceIds = ExitVelocityPractice::selectRaw('practice_id, MAX(created_at) as latest')
-            ->whereIn('practice_id', $teamPracticeIds)
+            ->where('team_id', $team)
             ->whereIn('user_id', $players)
             ->groupBy('practice_id')
             ->orderByDesc('latest')
@@ -424,15 +446,44 @@ final class ResultTrainingService
             ->pluck('practice_id')
             ->all();
 
-        // Fallback: team practices may contain historical/unclaimed user ids
         if (empty($practiceIds)) {
             $practiceIds = ExitVelocityPractice::selectRaw('practice_id, MAX(created_at) as latest')
-                ->whereIn('practice_id', $teamPracticeIds)
+                ->where('team_id', $team)
                 ->groupBy('practice_id')
                 ->orderByDesc('latest')
                 ->limit($limit)
                 ->pluck('practice_id')
                 ->all();
+        }
+
+        // Fallback: result rows have team_id = null — resolve via practices table
+        if (empty($practiceIds)) {
+            $teamPracticeIds = Practice::where('team_id', $team)
+                ->pluck('id')
+                ->all();
+
+            if (empty($teamPracticeIds)) {
+                return collect();
+            }
+
+            $practiceIds = ExitVelocityPractice::selectRaw('practice_id, MAX(created_at) as latest')
+                ->whereIn('practice_id', $teamPracticeIds)
+                ->whereIn('user_id', $players)
+                ->groupBy('practice_id')
+                ->orderByDesc('latest')
+                ->limit($limit)
+                ->pluck('practice_id')
+                ->all();
+
+            if (empty($practiceIds)) {
+                $practiceIds = ExitVelocityPractice::selectRaw('practice_id, MAX(created_at) as latest')
+                    ->whereIn('practice_id', $teamPracticeIds)
+                    ->groupBy('practice_id')
+                    ->orderByDesc('latest')
+                    ->limit($limit)
+                    ->pluck('practice_id')
+                    ->all();
+            }
         }
 
         if (empty($practiceIds)) {
@@ -448,17 +499,9 @@ final class ResultTrainingService
      */
     public static function getLongTossResultsLastSessions(string $team, array $players, int $limit = 10)
     {
-        $teamPracticeIds = Practice::where('team_id', $team)
-            ->where('type', PracticeTypes::TRAINING->value)
-            ->pluck('id')
-            ->all();
-
-        if (empty($teamPracticeIds)) {
-            return collect();
-        }
-
+        // Primary path: rows where team_id is populated (mirrors getLongTossResults)
         $practiceIds = LongTossPractice::selectRaw('practice_id, MAX(created_at) as latest')
-            ->whereIn('practice_id', $teamPracticeIds)
+            ->where('team_id', $team)
             ->whereIn('user_id', $players)
             ->groupBy('practice_id')
             ->orderByDesc('latest')
@@ -466,15 +509,44 @@ final class ResultTrainingService
             ->pluck('practice_id')
             ->all();
 
-        // Fallback: team practices may contain historical/unclaimed user ids
         if (empty($practiceIds)) {
             $practiceIds = LongTossPractice::selectRaw('practice_id, MAX(created_at) as latest')
-                ->whereIn('practice_id', $teamPracticeIds)
+                ->where('team_id', $team)
                 ->groupBy('practice_id')
                 ->orderByDesc('latest')
                 ->limit($limit)
                 ->pluck('practice_id')
                 ->all();
+        }
+
+        // Fallback: result rows have team_id = null — resolve via practices table
+        if (empty($practiceIds)) {
+            $teamPracticeIds = Practice::where('team_id', $team)
+                ->pluck('id')
+                ->all();
+
+            if (empty($teamPracticeIds)) {
+                return collect();
+            }
+
+            $practiceIds = LongTossPractice::selectRaw('practice_id, MAX(created_at) as latest')
+                ->whereIn('practice_id', $teamPracticeIds)
+                ->whereIn('user_id', $players)
+                ->groupBy('practice_id')
+                ->orderByDesc('latest')
+                ->limit($limit)
+                ->pluck('practice_id')
+                ->all();
+
+            if (empty($practiceIds)) {
+                $practiceIds = LongTossPractice::selectRaw('practice_id, MAX(created_at) as latest')
+                    ->whereIn('practice_id', $teamPracticeIds)
+                    ->groupBy('practice_id')
+                    ->orderByDesc('latest')
+                    ->limit($limit)
+                    ->pluck('practice_id')
+                    ->all();
+            }
         }
 
         if (empty($practiceIds)) {
@@ -503,7 +575,6 @@ final class ResultTrainingService
         // Fallback: resolve team via practices table for rows with team_id = null
         if (empty($practiceIds)) {
             $teamPracticeIds = Practice::where('team_id', $team)
-                ->where('type', PracticeTypes::TRAINING->value)
                 ->pluck('id')
                 ->all();
 

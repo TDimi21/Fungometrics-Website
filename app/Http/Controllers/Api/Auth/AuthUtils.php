@@ -66,7 +66,7 @@ final class AuthUtils
     {
         $user = new CreateServiceData(new User());
         $request_user_data = $request->only(['email', 'phone']);
-        $request_user_data['password'] = bcrypt($request->get('password'));
+        $request_user_data['password'] = \Illuminate\Support\Facades\Hash::make($request->get('password'));
         $request_user_data['type'] = $coach ? UserTypes::COACH->value : UserTypes::PLAYER->value;
 
         return $user->handle($request_user_data);

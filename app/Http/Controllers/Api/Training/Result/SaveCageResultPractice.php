@@ -10,6 +10,7 @@ use App\Models\CagePracticeResult;
 use App\Services\CreateServiceData;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
@@ -23,11 +24,20 @@ class SaveCageResultPractice extends Controller
     public function __invoke(CageRequest $request): JsonResponse
     {
         try {
+            DB::beginTransaction();
             $count = CagePracticeResult::where('practice_id', '=', $request->practice_id)
                 ->count();
             $data = $request->validated();
             $data['sort']= $count++;
             $result = (new CreateServiceData(new CagePracticeResult()))->handle($data);
+            DB::commit();
+
+            $teamId = $result->team_id ?? null;
+            if ($teamId) {
+                Cache::forget("last_sessions_{$teamId}");
+                Cache::forget("performance_overview_{$teamId}");
+                Cache::forget("dashboard_graphics_{$teamId}");
+            }
 
             $response = [
                 'code' => '014',

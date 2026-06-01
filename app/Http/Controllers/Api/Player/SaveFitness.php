@@ -35,7 +35,7 @@ class SaveFitness extends Controller
                 ->values();
 
             foreach ($teamIds as $teamId) {
-                Cache::forget("player_cards_v2_{$teamId}");
+                Cache::forget("player_cards_v3_{$teamId}");
                 Cache::forget("player_dev_board_{$teamId}");
                 Cache::forget("performance_overview_{$teamId}");
                 Cache::forget("dashboard_graphics_{$teamId}");

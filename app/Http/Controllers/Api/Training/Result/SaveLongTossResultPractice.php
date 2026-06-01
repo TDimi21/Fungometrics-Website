@@ -10,6 +10,8 @@ use App\Models\LongTossPractice;
 use App\Services\CreateServiceData;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
@@ -22,11 +24,21 @@ class SaveLongTossResultPractice extends Controller
     public function __invoke(LongTossRequest $request): JsonResponse
     {
         try {
+            DB::beginTransaction();
             $results = LongTossPractice::where('practice_id', '=', $request->practice_id);
             $count = $results->count();
             $data = $request->validated();
             $data['sort'] = $count++;
             $result['result'] = (new CreateServiceData(new LongTossPractice()))->handle($data);
+            DB::commit();
+
+            $teamId = $result['result']->team_id ?? null;
+            if ($teamId) {
+                Cache::forget("last_sessions_{$teamId}");
+                Cache::forget("performance_overview_{$teamId}");
+                Cache::forget("dashboard_graphics_{$teamId}");
+            }
+
             $results->get()->push($result['result']);
             $groups = $results->get()->groupBy('user_id');
             $result['setxplayer'] = $groups->map(function ($group) {
@@ -47,6 +59,7 @@ class SaveLongTossResultPractice extends Controller
 
             return response()->json($response, HttpCodes::HTTP_CREATED);
         } catch (Exception $exception) {
+            DB::rollBack();
             $response = [
                 'code' => '011-E',
                 'message' => 'error to save long toss training result  ',

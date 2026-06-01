@@ -102,7 +102,7 @@ use App\Http\Controllers\Api\Sessions\Results\GetScriptedBpResults;
 use App\Http\Controllers\Api\Admin\UpdateUserPlan;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/opcache-clear', function() {
+Route::middleware(['auth:sanctum', 'ability:coach'])->get('/opcache-clear', function() {
     opcache_reset();
     return response()->json(['cleared' => true, 'ts' => time()]);
 });
@@ -118,7 +118,6 @@ Route::post('/complete/{user}/player', CompletePlayerController::class)->middlew
 
 Route::middleware(['auth:sanctum'])->group(function (): void {
     Route::post('/edit/players/{id}', EditPlayers::class);
-    Route::post('/players/{id}/set-password', SetPlayerPassword::class); // any authenticated user can change player password
     Route::post('player/fitness', SaveFitness::class);
     Route::get('player/fitness/{id}', GetFitness::class);
     Route::get('dashboard/{team}', GetDataGraphics::class);
@@ -150,6 +149,7 @@ Route::prefix('player')->group(function (): void {
 Route::prefix('coach')->group(function (): void {
     Route::post('register', RegisterCoachController::class);
     Route::middleware(['auth:sanctum', 'ability:coach'])->group(function (): void {
+        Route::post('/players/{id}/set-password', SetPlayerPassword::class);
         Route::post('/add/teams', AddTeams::class);
         Route::post('/edit', EditCoach::class);
         Route::post('/edit/teams/{team}', EditTeams::class);
@@ -164,20 +164,20 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams', GetTeamsPlayersV2::class);
         Route::get('/teams/{id}', GetTeamById::class);
         Route::get('/teams/{id}/code', GetTeamCode::class);  // retrieve join code for a team
-        Route::get('/teams/{id}/player-cards', GetTeamPlayerCards::class);
-        Route::get('/teams/{id}/player-development-board', GetPlayerDevelopmentBoard::class);
-        Route::get('/development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
+        Route::middleware('plan:view_player_cards')->get('/teams/{id}/player-cards', GetTeamPlayerCards::class);
+        Route::middleware('plan:view_advanced_stats')->get('/teams/{id}/player-development-board', GetPlayerDevelopmentBoard::class);
+        Route::middleware('plan:view_advanced_stats')->get('/development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::get('/sessions/lasts/{team}', GetLastSessions::class);
-        Route::get('/performance-overview/{team}', GetPerformanceOverview::class);
+        Route::middleware('plan:performance_overview')->get('/performance-overview/{team}', GetPerformanceOverview::class);
         Route::post('/trainingab', AddNewLiveABSession::class);
-        Route::get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);
+        Route::middleware('plan:liveab_sessions')->get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);
         Route::get('/search/players', SearchPlayers::class);
         Route::get('/search/coaches', SearchCoaches::class);
         Route::get('/statistics/{player}', ScoresStatisticPlayers::class);
         Route::get('/pitcher/velocity/{player}', GetPlayerPitchVelocityZones::class);
         Route::get('/pitcher/smtake/{player}', GetPlayerSmTakeZones::class);
         Route::post('/lineup/{training}', AddPlayerToTraining::class);
-        Route::post('/send/results/{practice}', SendSmsResults::class);
+        Route::middleware('plan:sms_results')->post('/send/results/{practice}', SendSmsResults::class);
     });
 });
 
@@ -201,30 +201,30 @@ Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
     Route::post('/cage', SaveCageResultPractice::class);
     Route::put('/cage/{uuid}', EditCageResultPractice::class);
 
-    Route::middleware('ability:coach')->get('/liveab/{uuid}', GetLiveABResultPractice::class);
-    Route::middleware('ability:coach')->post('/liveab', SaveLiveABResultPractice::class);
-    Route::middleware('ability:coach')->put('/liveab/{uuid}', EditLiveABResultPractice::class);
+    Route::middleware(['ability:coach', 'plan:liveab_sessions'])->get('/liveab/{uuid}', GetLiveABResultPractice::class);
+    Route::middleware(['ability:coach', 'plan:liveab_sessions'])->post('/liveab', SaveLiveABResultPractice::class);
+    Route::middleware(['ability:coach', 'plan:liveab_sessions'])->put('/liveab/{uuid}', EditLiveABResultPractice::class);
 
 
-    Route::get('/longtoss/{uuid}', GetLongTossResultPractice::class);
-    Route::post('/longtoss', SaveLongTossResultPractice::class);
-    Route::put('/longtoss/{uuid}', EditLongTossResultPractice::class);
+    Route::middleware('plan:long_toss_sessions')->get('/longtoss/{uuid}', GetLongTossResultPractice::class);
+    Route::middleware('plan:long_toss_sessions')->post('/longtoss', SaveLongTossResultPractice::class);
+    Route::middleware('plan:long_toss_sessions')->put('/longtoss/{uuid}', EditLongTossResultPractice::class);
 
 
-    Route::get('/exitvelocity/{uuid}', GetExitVelocityResultPractice::class);
-    Route::post('/exitvelocity', SaveExitVelocityResultPractice::class);
-    Route::put('/exitvelocity/{uuid}', EditExitVelocityResultPractice::class);
+    Route::middleware('plan:exit_velocity_sessions')->get('/exitvelocity/{uuid}', GetExitVelocityResultPractice::class);
+    Route::middleware('plan:exit_velocity_sessions')->post('/exitvelocity', SaveExitVelocityResultPractice::class);
+    Route::middleware('plan:exit_velocity_sessions')->put('/exitvelocity/{uuid}', EditExitVelocityResultPractice::class);
 
 
-    Route::get('/weightball/{uuid}', GetWeightBallResultPractice::class);
-    Route::post('/weightball', SaveWeightBallResultPractice::class);
-    Route::put('/weightball/{uuid}', EditWeightBallResultPractice::class);
+    Route::middleware('plan:weighted_ball_sessions')->get('/weightball/{uuid}', GetWeightBallResultPractice::class);
+    Route::middleware('plan:weighted_ball_sessions')->post('/weightball', SaveWeightBallResultPractice::class);
+    Route::middleware('plan:weighted_ball_sessions')->put('/weightball/{uuid}', EditWeightBallResultPractice::class);
 
     // ── Scripted BP ──────────────────────────────────────────────────────────
     Route::post('/scripted-bp/plan', SaveScriptedBpPlan::class);
     Route::post('/scripted-bp/swing', SaveScriptedBpSwing::class);
     Route::get('/scripted-bp/{practice}', GetScriptedBpResults::class);
-    Route::middleware('ability:coach')->get(
+    Route::middleware(['ability:coach', 'plan:view_team_stats'])->get(
         '/statistics/{team}',
         FilterTrainings::class
     );
@@ -235,21 +235,21 @@ Route::middleware(['auth:sanctum'])->prefix('sessions')->group(function (): void
     Route::get('/all/type', GetTeamsPracticesSessionsByType::class);
     Route::get('/all/mode', GetTeamsPracticesSessionByMode::class);
     Route::get('/all/modes', GetAllPracticesByModes::class);
-    Route::middleware('ability:coach')->get('/all/liveab', GetListLiveABSessions::class);
+    Route::middleware(['ability:coach', 'plan:liveab_sessions'])->get('/all/liveab', GetListLiveABSessions::class);
     Route::get('/mode', GetPracticeSessionByMode::class);
 });
 
 Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): void {
     Route::get('/{practice}/batting', GetBattingPracticeResults::class);
     Route::get('/{practice}/bullpen', GetBullpenPracticeResults::class);
-    Route::get('/{practice}/longtoss', GetLongTossPracticeResult::class);
-    Route::get('/{practice}/weightball', GetWeightBallPracticeResult::class);
-    Route::get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
+    Route::middleware('plan:long_toss_sessions')->get('/{practice}/longtoss', GetLongTossPracticeResult::class);
+    Route::middleware('plan:weighted_ball_sessions')->get('/{practice}/weightball', GetWeightBallPracticeResult::class);
+    Route::middleware('plan:exit_velocity_sessions')->get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
     Route::get('/{practice}/cage', GetCagePracticeResults::class);
-    Route::middleware('ability:coach')->get('/{practice}/liveab', GetLiveABPracticeResults::class);
+    Route::middleware(['ability:coach', 'plan:liveab_sessions'])->get('/{practice}/liveab', GetLiveABPracticeResults::class);
 });
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
-Route::middleware(['auth:sanctum'])->prefix('admin')->group(function (): void {
+Route::middleware(['auth:sanctum', 'ability:coach'])->prefix('admin')->group(function (): void {
     Route::patch('/users/{id}/plan', UpdateUserPlan::class);
 });
