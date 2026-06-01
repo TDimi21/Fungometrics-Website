@@ -63,7 +63,7 @@ const withTeamIdFallbackPost = async (buildPath, bodyFactory, teamLike = team.va
   }
   throw lastError
 }
-const DASHBOARD_CACHE_TTL_MS = 15 * 60 * 1000
+const DASHBOARD_CACHE_TTL_MS = 2 * 60 * 1000
 
 const getDashboardCacheKey = () => {
   if (!activeTeamId.value) return null
@@ -407,6 +407,7 @@ const { barChartOptions, radiaChartOptions } = useChartOptions()
 
 // ── Performance Overview — mirrors TeamStatsPanel/index.js (mobile app) ──────
 const perfLoading = ref(false)
+const perfLastFetch = ref(null)
 const perf = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null, wb: null })
 const perfDetail = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null })
 const perfUnavailableTeams = ref({})
@@ -459,7 +460,7 @@ function computeWBS(wb) {
 }
 
 const fetchPerformanceOverview = async (force = false) => {
-  if (!force && Object.values(perf.value).some(v => v !== null)) return
+  if (!force && Object.values(perf.value).some(v => v !== null) && (Date.now() - (perfLastFetch.value ?? 0)) < DASHBOARD_CACHE_TTL_MS) return
   const teamIds = getActiveTeamIdCandidates()
   const teamId = teamIds[0]
   if (!teamId) return
@@ -511,6 +512,7 @@ const fetchPerformanceOverview = async (force = false) => {
     if (wbScore !== null) { perf.value.wb = wbScore; perfDetail.value.wb = wbDet }
 
     writeDashboardCache({ perf: perf.value, perfDetail: perfDetail.value })
+    perfLastFetch.value = Date.now()
     if (perfUnavailableTeams.value[teamId]) {
       const next = { ...perfUnavailableTeams.value }
       delete next[teamId]

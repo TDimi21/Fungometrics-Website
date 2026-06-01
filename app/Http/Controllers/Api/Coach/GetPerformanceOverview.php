@@ -34,7 +34,7 @@ class GetPerformanceOverview extends Controller
         try {
             $teamId = (string) $request->team;
 
-            $data = Cache::remember("performance_overview_{$teamId}", 600, function () use ($teamId) {
+            $data = Cache::remember("performance_overview_{$teamId}", 60, function () use ($teamId) {
                 // All player IDs on this team — filter out unclaimed (null user_id) entries
                 $playerIds = PlayerTeam::where('team_id', $teamId)
                     ->whereNotNull('user_id')
