@@ -22,7 +22,7 @@ const { axiosPost } = useAxiosAuth()
 const isLoading = reactive({status: true})
 const router = useRouter()
 const token = JSON.parse(localStorage.getItem('auth')).token
-const api_url = process.env.API_ENDPOINT;
+const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const passwords = reactive({
   oldPassword: '',
   newPassword: '',

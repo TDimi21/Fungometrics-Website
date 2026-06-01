@@ -4,10 +4,10 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 
 export const useTeamStore = defineStore('teams',()=>{
   const { axiosGet } = useAxiosAuth()
-    const team = ref('');
-    const teamA = ref('');
-    const teamB = ref('');
-    const teams = ref('');
+    const team = ref({});
+    const teamA = ref({});
+    const teamB = ref({});
+    const teams = ref([]);
     const setTeam = (data)=> team.value = data
     const setTeamA = (data)=> teamA.value = data
     const setTeamB = (data)=> teamB.value = data

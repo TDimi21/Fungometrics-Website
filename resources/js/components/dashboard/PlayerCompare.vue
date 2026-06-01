@@ -15,8 +15,8 @@ const loadingA = ref(false)
 const loadingB = ref(false)
 
 // Each dropdown excludes the other's pick
-const optionsA = computed(() => players.filter(p => p.id !== selectedB.value))
-const optionsB = computed(() => players.filter(p => p.id !== selectedA.value))
+const optionsA = computed(() => (Array.isArray(players) ? players : []).filter(p => p.id !== selectedB.value))
+const optionsB = computed(() => (Array.isArray(players) ? players : []).filter(p => p.id !== selectedA.value))
 
 const categories = ['GB', 'LD', 'FLY', 'SM/F', 'TAKE']
 const veloCategories = ['GB', 'LD', 'FLY']

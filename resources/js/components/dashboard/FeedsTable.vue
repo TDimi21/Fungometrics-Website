@@ -16,12 +16,20 @@ import { storeToRefs } from 'pinia'
 
 
 const { axiosDelete, axiosGet } = useAxiosAuth()
-const { team } = useTeamStore()
+const teamStore = useTeamStore()
+const { team } = storeToRefs(teamStore)
 const { getFormatterDate } = useChart()
 const router = useRouter()
 const activeTraining = useTrainingStore();
-const apiBaseUrl = process.env.API_ENDPOINT
-const token = JSON.parse(localStorage.getItem('auth')).token
+const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
+const token = (() => {
+  try {
+    const auth = JSON.parse(localStorage.getItem('auth') || '{}')
+    return auth?.token ?? ''
+  } catch (_) {
+    return ''
+  }
+})()
 const { livePitches } = storeToRefs(activeTraining)
 
 const primaryTabHeading = ['Batting','Bullpen','Cage', 'Live AB','Velocity','Toss','Balls']
@@ -116,8 +124,12 @@ const cageLength = ref({
 })
 
 const getFeeds = async() => {
+  if (!team.value?.id) {
+    allData.value = []
+    return
+  }
 
-  const { data } = await axios.get(apiBaseUrl+'coach/sessions/lasts/'+team.id,{
+  const { data } = await axios.get(apiBaseUrl+'coach/sessions/lasts/'+team.value.id,{
     headers: {
       "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",

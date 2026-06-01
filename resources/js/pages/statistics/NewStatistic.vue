@@ -15,6 +15,10 @@ const selectedTeamId = ref('')
 const teamPlayers = ref([])
 const selectedPlayers = ref([])
 const selectedSessions = ref([])
+const showSessionPicker = ref(false)
+const loadingSessionPicker = ref(false)
+const availableSessions = ref([])
+const selectedSpecificSessions = ref([])
 
 const today = new Date()
 const oneYearAgo = new Date()
@@ -35,6 +39,16 @@ const sessionOptions = [
 ]
 
 const selectedCountLabel = computed(() => `${selectedPlayers.value.length}/${teamPlayers.value.length}`)
+
+const sessionListKeyBySession = {
+  B: 'batting',
+  P: 'bullpen',
+  C: 'cage',
+  EV: 'exit_velocity',
+  LT: 'long_toss',
+  WB: 'weight_ball',
+  L: 'live',
+}
 
 const buildOptionsFromSessions = (sessions) => {
   const options = {}
@@ -88,6 +102,156 @@ const deselectAllPlayers = () => {
   selectedPlayers.value = []
 }
 
+const formatSessionDate = (session) => {
+  const raw = session?.date || session?.created_at || session?.started_at || session?.started || ''
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return 'No date'
+  return date.toLocaleString()
+}
+
+const inDateRange = (session) => {
+  if (!sinceWhen.value || !until.value) return true
+  const s = new Date(session?.date || session?.created_at || session?.started_at || session?.started || '')
+  if (Number.isNaN(s.getTime())) return true
+  const from = new Date(`${sinceWhen.value}T00:00:00`)
+  const to = new Date(`${until.value}T23:59:59`)
+  return s >= from && s <= to
+}
+
+const extractSessionPlayerIds = (session) => {
+  const ids = new Set()
+  const pushId = (v) => {
+    if (v !== null && v !== undefined && v !== '') ids.add(String(v))
+  }
+
+  ;(session?.players || []).forEach((p) => pushId(p?.id || p?.user_id))
+  ;(session?.pitchers || []).forEach((p) => pushId(p?.id || p?.user_id || p?.pitcher_id))
+  ;(session?.batters || []).forEach((p) => pushId(p?.id || p?.user_id || p?.batter_id))
+  ;(session?.pitching_practice_lineups || []).forEach((p) => pushId(p?.pitcher_id || p?.user_id || p?.id))
+  ;(session?.practice_line_ups || []).forEach((p) => pushId(p?.batter_id || p?.user_id || p?.id))
+  ;(session?.lineup || []).forEach((p) => pushId(p?.id || p?.user_id))
+
+  return ids
+}
+
+const sessionHasSelectedPlayers = (session) => {
+  if (selectedPlayers.value.length === 0) return true
+  const ids = extractSessionPlayerIds(session)
+  if (ids.size === 0) return true
+  return selectedPlayers.value.some((id) => ids.has(String(id)))
+}
+
+const resolveSessionList = (sessionsData, sessionKey) => {
+  const key = sessionListKeyBySession[sessionKey]
+  let list = sessionsData?.[key] || []
+
+  const trainingFallback =
+    sessionsData?.training ||
+    sessionsData?.trainings ||
+    sessionsData?.all_training ||
+    []
+
+  if (sessionKey === 'EV' && (!Array.isArray(list) || list.length === 0)) {
+    list = (Array.isArray(trainingFallback) ? trainingFallback : []).filter((s) => {
+      const mode = String(s?.mode ?? s?.modes ?? '').toUpperCase()
+      return ['EV', 'EXIT_VELOCITY', 'EXITVELOCITY'].includes(mode)
+    })
+  }
+
+  if (sessionKey === 'LT' && (!Array.isArray(list) || list.length === 0)) {
+    list = (Array.isArray(trainingFallback) ? trainingFallback : []).filter((s) => {
+      const mode = String(s?.mode ?? s?.modes ?? '').toUpperCase()
+      return ['LT', 'LONG_TOSS', 'LONGTOSS'].includes(mode)
+    })
+  }
+
+  if (sessionKey === 'WB' && (!Array.isArray(list) || list.length === 0)) {
+    list = (Array.isArray(trainingFallback) ? trainingFallback : []).filter((s) => {
+      const mode = String(s?.mode ?? s?.modes ?? '').toUpperCase()
+      return ['WB', 'WEIGHT_BALL', 'WEIGHTBALL'].includes(mode)
+    })
+  }
+
+  return Array.isArray(list) ? list : []
+}
+
+const toggleSpecificSession = (sessionId) => {
+  const id = String(sessionId)
+  if (selectedSpecificSessions.value.includes(id)) {
+    selectedSpecificSessions.value = selectedSpecificSessions.value.filter((x) => x !== id)
+    return
+  }
+  selectedSpecificSessions.value = [...selectedSpecificSessions.value, id]
+}
+
+const closeSessionPicker = () => {
+  showSessionPicker.value = false
+}
+
+const buildStatsQuery = () => {
+  const selectedSession = selectedSessions.value[0]
+  const isBS = selectedSession === 'BS'
+  const routeSession = isBS ? 'L' : selectedSession
+
+  const query = {
+    team: String(selectedTeamId.value),
+    teamName: (teams.find((t) => String(t.id) === String(selectedTeamId.value))?.name || 'Team'),
+    since: sinceWhen.value,
+    until: until.value,
+    players: selectedPlayers.value.join(','),
+    session: routeSession,
+  }
+
+  if (isBS) query.tab = 'BOX SCORE'
+  if (selectedSpecificSessions.value.length > 0) {
+    query.sessionIds = selectedSpecificSessions.value.join(',')
+  }
+
+  return query
+}
+
+const openSessionPicker = async () => {
+  loadingSessionPicker.value = true
+  try {
+    const selectedSession = selectedSessions.value[0]
+    const routeSession = selectedSession === 'BS' ? 'L' : selectedSession
+    const sessionsRes = await axiosGet(`coach/sessions/lasts/${selectedTeamId.value}`)
+    const sessionsData = sessionsRes?.data?.data || sessionsRes?.data || {}
+
+    const filtered = resolveSessionList(sessionsData, routeSession)
+      .filter((session) => inDateRange(session))
+      .filter((session) => sessionHasSelectedPlayers(session))
+
+    availableSessions.value = filtered
+      .map((session) => {
+        const id = String(session?.id || '')
+        if (!id) return null
+        const playerCount = extractSessionPlayerIds(session).size
+        return {
+          id,
+          label: session?.name || session?.title || `Session ${id.slice(0, 8)}`,
+          dateLabel: formatSessionDate(session),
+          playerCount,
+        }
+      })
+      .filter(Boolean)
+
+    selectedSpecificSessions.value = availableSessions.value.map((s) => s.id)
+    showSessionPicker.value = true
+  } catch (error) {
+    toast.fire({ icon: 'error', title: 'Error', text: error?.message || 'Failed to load sessions.' })
+  } finally {
+    loadingSessionPicker.value = false
+  }
+}
+
+const continueToStatistics = () => {
+  const query = buildStatsQuery()
+  const href = router.resolve({ name: 'new-statistic-session-view', query }).href
+  window.open(href, '_blank')
+  closeSessionPicker()
+}
+
 const goToPractice = () => {
   router.push('/sessions')
 }
@@ -116,18 +280,7 @@ const openStatistics = () => {
     return
   }
 
-  const query = {
-    team: String(selectedTeamId.value),
-    teamName: (teams.find((t) => String(t.id) === String(selectedTeamId.value))?.name || 'Team'),
-    since: sinceWhen.value,
-    until: until.value,
-    players: selectedPlayers.value.join(','),
-    session: routeSession,
-  }
-  if (isBS) query.tab = 'BOX SCORE'
-
-  const href = router.resolve({ name: 'new-statistic-session-view', query }).href
-  window.open(href, '_blank')
+  openSessionPicker()
 }
 
 onMounted(async () => {
@@ -140,15 +293,30 @@ onMounted(async () => {
 
 <template>
   <Layout>
-    <div class="min-h-screen bg-[#050b18] text-white px-4 py-6 lg:px-8 lg:py-8">
-      <div class="mx-auto max-w-5xl">
-        <h1 class="text-center text-4xl font-black tracking-wide text-[#ff2d55] mb-6">Stats</h1>
+    <div class="min-h-screen bg-[#050b18] text-white px-4 py-4 lg:px-6 lg:py-5">
+      <div class="mx-auto max-w-4xl">
+        <div class="mb-4 flex items-center justify-center gap-2">
+          <RouterLink
+            to="/statistic"
+            class="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black tracking-wider text-white/90 hover:bg-white/20 transition"
+          >
+            Legacy
+          </RouterLink>
+          <RouterLink
+            to="/new-statistic"
+            class="rounded-lg border border-[#ff2d55]/70 bg-[#ff2d55]/30 px-3 py-1.5 text-xs font-black tracking-wider text-white"
+          >
+            New
+          </RouterLink>
+        </div>
 
-        <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-4 md:p-6">
-          <div class="grid grid-cols-2 gap-2 rounded-xl bg-white/10 p-1 mb-5">
+        <h1 class="text-center text-3xl md:text-4xl font-black tracking-wide text-[#ff2d55] mb-4">Stats</h1>
+
+        <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-3 md:p-4 max-h-[calc(100vh-170px)] overflow-y-auto">
+          <div class="grid grid-cols-2 gap-2 rounded-xl bg-white/10 p-1 mb-4">
             <button
               type="button"
-              class="rounded-lg py-2.5 text-lg font-black transition"
+              class="rounded-lg py-2 text-base md:text-lg font-black transition"
               :class="selectedTab === 'stats' ? 'bg-[#ff2d55] text-white' : 'bg-transparent text-white/80'"
               @click="selectedTab = 'stats'"
             >
@@ -156,7 +324,7 @@ onMounted(async () => {
             </button>
             <button
               type="button"
-              class="rounded-lg py-2.5 text-lg font-black transition"
+              class="rounded-lg py-2 text-base md:text-lg font-black transition"
               :class="selectedTab === 'practice' ? 'bg-[#ff2d55] text-white' : 'bg-transparent text-white/80'"
               @click="goToPractice"
             >
@@ -164,32 +332,32 @@ onMounted(async () => {
             </button>
           </div>
 
-          <div class="mb-6">
+          <div class="mb-4">
             <label class="block text-sm font-black uppercase tracking-wider text-white/60 mb-2">Team</label>
             <select
               v-model="selectedTeamId"
-              class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none"
+              class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-white outline-none"
               @change="loadTeamPlayers(selectedTeamId)"
             >
               <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
           </div>
 
-          <div class="mb-6">
+          <div class="mb-4">
             <div class="flex items-center justify-between gap-3 mb-3">
-              <h2 class="text-3xl md:text-4xl font-black">Select Players ({{ selectedCountLabel }})</h2>
+              <h2 class="text-2xl md:text-3xl font-black">Select Players ({{ selectedCountLabel }})</h2>
               <div class="flex items-center gap-2">
-                <button type="button" class="rounded-lg bg-[#ff2d55] px-4 py-2 text-base font-black" @click="selectAllPlayers">All</button>
-                <button type="button" class="rounded-lg bg-[#ff2d55] px-4 py-2 text-base font-black" @click="deselectAllPlayers">None</button>
+                <button type="button" class="rounded-lg bg-[#ff2d55] px-3 py-1.5 text-sm font-black" @click="selectAllPlayers">All</button>
+                <button type="button" class="rounded-lg bg-[#ff2d55] px-3 py-1.5 text-sm font-black" @click="deselectAllPlayers">None</button>
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
               <button
                 v-for="player in teamPlayers"
                 :key="player.id"
                 type="button"
-                class="rounded-full border px-4 py-3 text-lg font-bold truncate transition"
+                class="rounded-full border px-4 py-2 text-base font-bold truncate transition"
                 :class="selectedPlayers.includes(player.id)
                   ? 'border-[#ff2d55] bg-[#ff2d55]/20 text-white'
                   : 'border-[#ff2d55]/70 bg-white/5 text-white/80 hover:bg-white/10'"
@@ -200,14 +368,14 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="mb-6">
-            <h2 class="text-3xl md:text-4xl font-black mb-3">Select Sessions</h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div class="mb-4">
+            <h2 class="text-2xl md:text-3xl font-black mb-3">Select Sessions</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2.5">
               <button
                 v-for="session in sessionOptions"
                 :key="session.key"
                 type="button"
-                class="rounded-full border px-4 py-3 text-lg font-bold transition"
+                class="rounded-full border px-4 py-2 text-base font-bold transition"
                 :class="selectedSessions.includes(session.key)
                   ? 'border-[#ff2d55] bg-[#ff2d55]/20 text-white'
                   : 'border-[#ff2d55]/70 bg-white/5 text-white/80 hover:bg-white/10'"
@@ -220,12 +388,80 @@ onMounted(async () => {
 
           <button
             type="button"
-            class="w-full rounded-xl bg-[#ff2d55] py-4 text-3xl font-black tracking-wide hover:opacity-95 transition"
+            class="w-full rounded-xl bg-[#ff2d55] py-3 text-2xl md:text-3xl font-black tracking-wide hover:opacity-95 transition"
+            :disabled="loadingSessionPicker"
             @click="openStatistics"
           >
-            Show Statistics
+            {{ loadingSessionPicker ? 'Loading Sessions...' : 'Show Statistics' }}
           </button>
-          <p class="mt-4 text-center text-xl text-white/55">Results open in a new screen.</p>
+          <p class="mt-3 text-center text-base md:text-lg text-white/55">Results open in a new screen.</p>
+        </div>
+      </div>
+
+      <div v-if="showSessionPicker" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
+        <div class="w-full max-w-3xl rounded-2xl border border-white/20 bg-[#0b1322] p-4 md:p-6">
+          <div class="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-2xl md:text-3xl font-black text-[#ff2d55]">Select Sessions</h3>
+              <p class="text-sm md:text-base text-white/65">
+                Choose which sessions to include in this stats view.
+              </p>
+            </div>
+            <button type="button" class="rounded-lg border border-white/30 px-3 py-1.5 text-sm" @click="closeSessionPicker">Close</button>
+          </div>
+
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="rounded-lg bg-[#ff2d55] px-3 py-1.5 text-sm font-black"
+              @click="selectedSpecificSessions = availableSessions.map((s) => s.id)"
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-black"
+              @click="selectedSpecificSessions = []"
+            >
+              Clear All
+            </button>
+            <span class="text-sm text-white/70">{{ selectedSpecificSessions.length }}/{{ availableSessions.length }} selected</span>
+          </div>
+
+          <div class="max-h-[50vh] overflow-y-auto rounded-xl border border-white/10 bg-white/5 p-2 md:p-3">
+            <div v-if="availableSessions.length === 0" class="py-8 text-center text-white/60">
+              No sessions found for the selected filters.
+            </div>
+
+            <button
+              v-for="session in availableSessions"
+              :key="session.id"
+              type="button"
+              class="mb-2 w-full rounded-xl border px-3 py-2 text-left transition last:mb-0"
+              :class="selectedSpecificSessions.includes(session.id)
+                ? 'border-[#ff2d55] bg-[#ff2d55]/20'
+                : 'border-white/20 bg-white/5 hover:bg-white/10'"
+              @click="toggleSpecificSession(session.id)"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <p class="font-bold text-white truncate">{{ session.label }}</p>
+                <p class="text-xs md:text-sm text-white/70">{{ session.dateLabel }}</p>
+              </div>
+              <p class="text-xs text-white/60 mt-0.5">Players in session: {{ session.playerCount }}</p>
+            </button>
+          </div>
+
+          <div class="mt-4 flex justify-end gap-2">
+            <button type="button" class="rounded-lg border border-white/30 px-4 py-2 text-sm font-black" @click="closeSessionPicker">Cancel</button>
+            <button
+              type="button"
+              class="rounded-lg bg-[#ff2d55] px-4 py-2 text-sm font-black disabled:opacity-50"
+              :disabled="selectedSpecificSessions.length === 0"
+              @click="continueToStatistics"
+            >
+              Show Selected Sessions
+            </button>
+          </div>
         </div>
       </div>
     </div>

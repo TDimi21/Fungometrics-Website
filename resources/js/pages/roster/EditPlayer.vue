@@ -38,6 +38,10 @@ let player = ref({
   number_in_shirt: '',
   avatar: '',
   weigth: 0,
+  sides: {
+    pitch: '',
+    hit: '',
+  },
 })
 
 for (let index = 0; index < players.length; index++) {
@@ -55,6 +59,8 @@ for (let index = 0; index < players.length; index++) {
       player.value.number_in_shirt = item.shirt_number,
       player.value.avatar = item.avatar,
       player.value.weigth = item.body.weight
+      player.value.sides.pitch = item.throw_side ?? ''
+      player.value.sides.hit = item.hit_side ?? ''
       // player.value.type = item.positions
 
       item.positions.forEach(types => {
@@ -103,10 +109,12 @@ const submitUpdate = async () => {
   dataForm.append('player[inch]', player.value.heightInch)
   // dataForm.append('player[weight]', player.value.weigth)
   dataForm.append('player[shirt]', player.value.number_in_shirt)
+  dataForm.append('player[sides][pitch]', player.value.sides.pitch)
+  dataForm.append('player[sides][hit]', player.value.sides.hit)
   player.value.type.forEach(function (item,key){
     dataForm.append(`positions[${key}][position]`, item)
   });
-  const api_url = process.env.API_ENDPOINT;
+  const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
   const config = {
     headers: { Authorization: `Bearer ${token}` }
   };
@@ -236,6 +244,25 @@ const submitUpdate = async () => {
               <div>
                 <LabelField text="Number of shirt" :required="true"/>
                 <InputBase v-model="player.number_in_shirt" inputType="text"/>
+              </div>
+
+              <div>
+                <LabelField text="Throws L/R" :required="true"/>
+                <select v-model="player.sides.pitch" class="team-select">
+                  <option value="">Select</option>
+                  <option value="L">L</option>
+                  <option value="R">R</option>
+                </select>
+              </div>
+
+              <div>
+                <LabelField text="Bats L/R/S" :required="true"/>
+                <select v-model="player.sides.hit" class="team-select">
+                  <option value="">Select</option>
+                  <option value="L">L</option>
+                  <option value="R">R</option>
+                  <option value="S">S</option>
+                </select>
               </div>
             </div>
 

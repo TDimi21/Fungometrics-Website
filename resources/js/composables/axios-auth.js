@@ -1,15 +1,39 @@
 import axios from "axios"
 
 export const useAxiosAuth = () => {
-  const apiBaseUrl = process.env.API_ENDPOINT
-  const token = JSON.parse(localStorage.getItem('auth'))?.token
+  const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
+
+  const resolveToken = () => {
+    try {
+      const legacy = localStorage.getItem('auth')
+      if (legacy) {
+        const parsed = JSON.parse(legacy)
+        if (parsed?.token) return parsed.token
+      }
+    } catch (_) {}
+
+    try {
+      const authStore = sessionStorage.getItem('auth')
+      if (authStore) {
+        const parsed = JSON.parse(authStore)
+        if (parsed?.token) return parsed.token
+      }
+    } catch (_) {}
+
+    return null
+  }
+
+  const authHeaders = () => {
+    const token = resolveToken()
+    return {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'Content-Type': 'application/json',
+    }
+  }
 
   const axiosPost = (url, data) => {
     return axios.post(apiBaseUrl + url, data,{
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      }
+      headers: authHeaders()
 
     })
   }
@@ -19,27 +43,18 @@ export const useAxiosAuth = () => {
       params: {
         ...data
       },
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      }
+      headers: authHeaders()
     })
   }
   const axiosPut = (url, data) => {
     return axios.put(apiBaseUrl + url, data,{
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      }
+      headers: authHeaders()
 
     })
   }
   const axiosDelete = (url, id) => {
     return axios.delete(apiBaseUrl + url + id, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      }
+      headers: authHeaders()
     })
   }
   return {

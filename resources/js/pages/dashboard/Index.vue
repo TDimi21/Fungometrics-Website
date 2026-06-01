@@ -23,12 +23,79 @@ const route = useRoute()
 const { axiosPost, axiosGet } = useAxiosAuth()
 const user = useUserStore()
 const dashTab = ref('overview')
-const { team } = storeToRefs(useTeamStore())
+const teamStore = useTeamStore()
+const { team } = storeToRefs(teamStore)
 const DASHBOARD_CACHE_TTL_MS = 15 * 60 * 1000
 
 const getDashboardCacheKey = () => {
   if (!team.value?.id) return null
   return `dashboard-cache:v2:${team.value.id}`
+}
+
+const getTeamSessionCount = async (teamId, token) => {
+  if (!teamId || !token) return 0
+  try {
+    const { data } = await axios.get(apiBaseUrl + 'coach/sessions/lasts/' + teamId, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const d = data?.data ?? {}
+    return [
+      d.batting,
+      d.bullpen,
+      d.cage,
+      d.live,
+      d.weight_ball,
+      d.long_toss,
+      d.exit_velocity,
+    ].reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+  } catch {
+    return 0
+  }
+}
+
+const ensureActiveTeam = async () => {
+  const authRaw = localStorage.getItem('auth')
+  const token = authRaw ? JSON.parse(authRaw).token : null
+  if (!token) return
+
+  try {
+    const { data } = await axios.get(apiBaseUrl + 'coach/teams', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    const teamsList = Array.isArray(data?.data) ? data.data : []
+    if (!teamsList.length) return
+
+    const activeId = team.value?.id
+    const currentExists = activeId
+      ? teamsList.some((t) => String(t.id) === String(activeId))
+      : false
+
+    if (!currentExists) {
+      teamStore.setTeam(teamsList[0])
+      if (typeof teamStore.setTeams === 'function') {
+        teamStore.setTeams(teamsList)
+      }
+      return
+    }
+
+    // If current team has no recent sessions, auto-pick the first team that does.
+    const currentCount = await getTeamSessionCount(activeId, token)
+    if (currentCount > 0) return
+
+    for (const candidate of teamsList) {
+      const candidateCount = await getTeamSessionCount(candidate.id, token)
+      if (candidateCount > 0) {
+        teamStore.setTeam(candidate)
+        if (typeof teamStore.setTeams === 'function') {
+          teamStore.setTeams(teamsList)
+        }
+        return
+      }
+    }
+  } catch (e) {
+    console.warn('ensureActiveTeam', e)
+  }
 }
 
 const readDashboardCache = () => {
@@ -67,7 +134,7 @@ const writeDashboardCache = (partial) => {
 }
 
 // ── Recent sessions ───────────────────────────────────────────────────────────
-const apiBaseUrl = process.env.API_ENDPOINT ?? import.meta.env.VITE_API_URL ?? ''
+const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || import.meta.env.VITE_API_URL || ''
 const recentSessions = ref([])
 const recentLoading = ref(false)
 
@@ -502,10 +569,13 @@ function openBreakdown(row) {
     }
   } else if (row.key === 'bullpen' && d) {
     const strikes = (d.strikeRate != null && d.total) ? Math.round(d.strikeRate / 100 * d.total) : null
+    const eliteDetail = d.eliteThrowerRate != null
+      ? ` · Elite-for-age ${Number(d.eliteThrowerRate).toFixed(1)}%`
+      : ''
     components = [
       { emoji: '🎯', label: 'Strike Rate',        weight: '35%', score: d.strikeRate, detail: strikes != null ? `${strikes}/${d.total} strikes (${Number(d.strikeRate).toFixed(1)}%)` : `${Number(d.strikeRate ?? 0).toFixed(1)}% strike rate` },
       { emoji: '⚾', label: 'First-Pitch Strike', weight: '15%', score: d.fpScore,    detail: `${Number(d.fpScore ?? 0).toFixed(1)}% first-pitch strikes` },
-      { emoji: '📊', label: 'Velocity',           weight: '30%', score: d.veloScore,  detail: `Avg ${d.avgVelo ?? '—'} mph · Top ${d.topVelo ?? '—'} mph` },
+      { emoji: '📊', label: 'Velocity',           weight: '30%', score: d.veloScore,  detail: `Avg ${d.avgVelo ?? '—'} mph · Top ${d.topVelo ?? '—'} mph${eliteDetail}` },
       { emoji: '💪', label: 'Pitch Mix',          weight: '20%', score: d.mixScore,   detail: `${d.typesUsed ?? '—'} off-speed types used` },
     ]
     breakdownModal.value = {
@@ -529,10 +599,13 @@ function openBreakdown(row) {
       components,
     }
   } else if (row.key === 'ev' && d) {
+    const thresholdHint = d.avgHardHitThreshold != null
+      ? `≥${d.avgHardHitThreshold} mph hard-hit`
+      : 'age-adjusted hard-hit'
     components = [
       { emoji: '🔥', label: 'EV Power',    weight: '60%', score: d.evPowerScore,   detail: `Avg ${d.avgEV ?? '—'} mph · Top ${d.topEV ?? '—'} mph` },
       { emoji: '📊', label: 'Trajectory',  weight: '25%', score: d.trajectoryScore, detail: `LD ${d.ldPct ?? '—'}% · FB ${d.fbPct ?? '—'}% · GB ${d.gbPct ?? '—'}%` },
-      { emoji: '💪', label: 'Hard Hit',    weight: '15%', score: d.hardHitScore,    detail: `${d.hardHitCount ?? '—'} hard-hit balls (${d.hhPct ?? '—'}% ≥90 mph)` },
+      { emoji: '💪', label: 'Hard Hit',    weight: '15%', score: d.hardHitScore,    detail: `${d.hardHitCount ?? '—'} hard-hit balls (${d.hhPct ?? '—'}% ${thresholdHint})` },
     ]
     breakdownModal.value = {
       visible: true,
@@ -543,8 +616,8 @@ function openBreakdown(row) {
     }
   } else if (row.key === 'lt' && d) {
     components = [
-      { emoji: '📏', label: 'Extension',   weight: '25 pts', score: d.extensionScore,   detail: `Avg max dist ${d.avgMaxDist ?? '—'} ft (target 250 ft)` },
-      { emoji: '🏹', label: 'Carry',       weight: '25 pts', score: d.carryScore,       detail: `Zero-hop rate ${d.zeroHopRate ?? '—'}% · Avg carry ${d.avgCarryScore ?? '—'}` },
+      { emoji: '📏', label: 'Extension',   weight: '25 pts', score: d.extensionScore,   detail: `No-hop ${d.avgPeakNoHopDist ?? d.avgMaxDist ?? '—'} ft · Est. peak ${d.avgEstimatedPeakVelo ?? '—'} mph` },
+      { emoji: '🏹', label: 'Carry',       weight: '25 pts', score: d.carryScore,       detail: `Intensity ${d.avgIntensityPct ?? '—'}% · Zero-hop ${d.zeroHopRate ?? '—'}%` },
       { emoji: '🎯', label: 'Consistency', weight: '20 pts', score: d.consistencyScore, detail: `CV of distances per player` },
       { emoji: '📈', label: 'Progression', weight: '20 pts', score: d.progressionScore, detail: `Oldest vs newest session distance trend` },
       { emoji: '📅', label: 'Availability', weight: '10 pts', score: d.availabilityScore, detail: `${d.sessionCount ?? '—'} sessions (target 8)` },
@@ -1234,8 +1307,13 @@ const hydrateDashboardFromCache = () => {
 
 watch(
   () => team.value?.id,
-  (teamId) => {
-    if (!teamId) return
+  async (teamId) => {
+    if (!teamId) {
+      await ensureActiveTeam()
+      if (!team.value?.id) return
+    } else {
+      await ensureActiveTeam()
+    }
 
     hydrateDashboardFromCache()
 

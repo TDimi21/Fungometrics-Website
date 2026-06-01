@@ -1,4 +1,5 @@
 import { ref, onMounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team.js'
 import { usePlayerStore } from '@/store/players.js'
@@ -6,8 +7,12 @@ import {useUserStore} from "../store/user";
 
 const useChart = () => {
   const { axiosGet, axiosPost } = useAxiosAuth()
-  const { team } = useTeamStore()
-  const { players } = usePlayerStore()
+  const teamStore = useTeamStore()
+  const playerStore = usePlayerStore()
+  const userStore = useUserStore()
+  const { team } = storeToRefs(teamStore)
+  const { players } = storeToRefs(playerStore)
+  const { userData } = storeToRefs(userStore)
 
   const ballStrike = ref([])
   const ballStrikeSeries = ref([])
@@ -22,7 +27,6 @@ const useChart = () => {
   const contactSpray = ref({ strikes: [], balls: [] })
   const seriesDinamicChart = ref([])
   const optionsPlayer = ref()
-  const {userData} = useUserStore();
   const monthsShow = ref([])
 
   const formModel = ref({
@@ -32,10 +36,10 @@ const useChart = () => {
   })
 
   const getStaticChartData = async() => {
-    if (!team?.id) return
+    if (!team.value?.id) return
     try {
       isloading.value = true
-      const { data } = await axiosGet(`dashboard/${team.id}`)
+      const { data } = await axiosGet(`dashboard/${team.value.id}`)
       ballStrike.value = data.data['b/s']
       ballStrikeSeries.value = [ballStrike.value.balls.count, ballStrike.value.strikes.count]
       directional.value = data.data.directional_percents
@@ -55,7 +59,7 @@ const useChart = () => {
 
   const setPlayerData = async() => {
     let player = []
-    for (const iterator of players) {
+    for (const iterator of (players.value ?? [])) {
       let id = iterator.id
       player.push(id)
     }
@@ -65,11 +69,11 @@ const useChart = () => {
 
 
   const getFilteredDataChart = async() => {
-    if (!team?.id) return
+    if (!team.value?.id) return
     try {
       isloading.value = true
       const { data } = await axiosPost('charts',{
-        team: team.id,
+        team: team.value.id,
         type: formModel.value.type,
         players: formModel.value.players,
         range: formModel.value.range
@@ -121,7 +125,7 @@ const useChart = () => {
     })
 
     seriesDinamicChart.value = [{
-      name: userData.name.full,
+      name: userData.value?.name?.full ?? 'Player',
       data: playerValues
     }]
 
@@ -146,7 +150,8 @@ const useChart = () => {
 
         
 
-        let playerName = players.find(item => item.id == idPlayer).name.full
+        const foundPlayer = (players.value ?? []).find(item => item.id == idPlayer)
+        let playerName = foundPlayer?.name?.full ?? 'Unknown Player'
 
         playersValues = [
           {
@@ -215,7 +220,7 @@ const useChart = () => {
   }
 
   const loadOnMounted = async() => {
-    if (userData.type != 'player') {
+    if ((userData.value?.type ?? 'coach') != 'player') {
       await setPlayerData()
       setTimeout(() => {
         getFilteredDataChart().catch(e => console.warn('loadOnMounted chart error:', e?.message ?? e))

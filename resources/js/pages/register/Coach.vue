@@ -39,7 +39,7 @@ const coach = reactive({
 });
 
 const router = useRouter()
-const api_url = process.env.API_ENDPOINT;
+const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const isLoading = reactive({status: true})
 const userStore = useUserStore();
 const teamStore = useTeamStore();

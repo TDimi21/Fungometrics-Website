@@ -75,7 +75,7 @@ const submitPlayer = async () => {
       return ;
     }
 
-    const api_url = process.env.API_ENDPOINT;
+    const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
     await axios.post(api_url+'player/register', dataForm
     ).then(async function (response) {
       // await userStore.setData(response.data.data.user);

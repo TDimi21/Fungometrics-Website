@@ -19,7 +19,7 @@ const { userData } = useUserStore();
 const isLoading = reactive({ status: true });
 const router = useRouter();
 const token = JSON.parse(localStorage.getItem("auth")).token;
-const api_url = process.env.API_ENDPOINT;
+const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 let player = reactive({
   type: [],
   heightFt: userData.ft ?? 0,
@@ -98,7 +98,7 @@ const submitUpdate = async () => {
     player.type.forEach(function (item, key) {
       dataForm.append(`positions[${key}][position]`, item);
     });
-    const api_url = process.env.API_ENDPOINT;
+    const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
     const config = {
       headers: { Authorization: `Bearer ${token}` },
     };

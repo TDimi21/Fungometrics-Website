@@ -12,7 +12,7 @@ export const useTrainingStore = defineStore('trainingActive',()=>{
     const countThrowArray = ref({})
     const selectedRowID = ref("")
 
-    const trainingActive = ref('');
+    const trainingActive = ref({});
     // status liveAB
     const liveTurn = ref(1)
     const livePitches = ref(0)

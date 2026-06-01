@@ -37,8 +37,8 @@ class EditPlayerRequest extends FormRequest
             'picture' => ['present'],
             'player.born' => ['required', 'date'],
             'player.ft' => ['required', 'integer'],
-            'player.side.pitch' => ['string'],
-            'player.side.hit' => ['string'],
+            'player.sides.pitch' => ['nullable', 'string', 'in:L,R'],
+            'player.sides.hit' => ['nullable', 'string', 'in:L,R,S'],
             'player.inch' => ['required', 'integer'],
             'positions' => ['required'],
         ];

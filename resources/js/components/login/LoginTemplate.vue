@@ -31,7 +31,7 @@ const formData = reactive({user: '', password: '', remember: false})
 
 const submitForm = async () => {
   isLoading.status =!isLoading.status;
-  const api_url = process.env.API_ENDPOINT;
+  const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
   await axios.post(api_url + 'login', {email: formData.user.toLowerCase(), password: formData.password}
   ).then(async function (response) {
     isLoading.status =!isLoading.status;
@@ -45,6 +45,7 @@ const submitForm = async () => {
         text: response.data.message,
       })
       setToken(response.data.data.token);
+      localStorage.setItem('auth', JSON.stringify({ token: response.data.data.token }))
       await userStore.setData(response.data.data);
       if(response.data.data.type == 'player'){
         await router.push('/player-dashboard')

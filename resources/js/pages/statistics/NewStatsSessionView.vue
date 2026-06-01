@@ -184,6 +184,11 @@ const selectedPlayers = computed(() => {
   return raw.split(',').map((v) => String(v).trim()).filter(Boolean)
 })
 
+const selectedSessionIds = computed(() => {
+  const raw = String(route.query?.sessionIds || '')
+  return raw.split(',').map((v) => String(v).trim()).filter(Boolean)
+})
+
 const teamId = computed(() => String(route.query?.team || ''))
 const sinceWhen = computed(() => String(route.query?.since || ''))
 const until = computed(() => String(route.query?.until || ''))
@@ -1504,6 +1509,10 @@ const loadAllPitchesAndVeloData = async () => {
   const filtered = (Array.isArray(list) ? list : [])
     .filter((session) => inDateRange(session))
     .filter((session) => sessionHasSelectedPlayers(session))
+    .filter((session) => {
+      if (selectedSessionIds.value.length === 0) return true
+      return selectedSessionIds.value.includes(String(session?.id || ''))
+    })
 
   const ids = [...new Set(filtered.map((s) => String(s?.id || '')).filter(Boolean))]
 

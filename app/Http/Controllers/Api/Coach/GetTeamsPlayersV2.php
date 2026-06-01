@@ -48,7 +48,10 @@ class GetTeamsPlayersV2 extends Controller
                     $team->save();
                 }
                 return [
-                    'id'          => $coachTeam->id,
+                    // Keep `id` aligned with login payload / frontend expectation:
+                    // it must be the Team UUID (not coach_teams pivot UUID).
+                    'id'          => $team->id,
+                    'coach_team_id' => $coachTeam->id,
                     'id_team'     => $team->id,
                     'name'        => $team->name,
                     'logo'        => $team->logo ?? '',

@@ -2,6 +2,7 @@
 import {reactive, ref, onMounted} from 'vue'
 import { TransitionRoot } from '@headlessui/vue'
 import { useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import ArrowDownIcon from "../components/icons/ArrowDownIcon.vue";
 import iconDashboard from "../assets/img/icons/i-dashboard.svg";
 import iconStartPractice from "../assets/img/icons/i-start-practice.svg";
@@ -13,7 +14,8 @@ import { useUserStore } from "@/store/user";
 let isActiveDropdonw = reactive({isVisible: false, key: []})
 const route = useRoute()
 
-const { userData } = useUserStore();
+const userStore = useUserStore();
+const { userData } = storeToRefs(userStore);
 
 const sidebarItems = ref([
   {
@@ -56,13 +58,17 @@ const sidebarItems = ref([
   {
     title: 'Statistics',
     iconPath: iconStartPractice,
-
-    url: '/statistic',
-  },
-  {
-    title: 'New Stats',
-    iconPath: iconStartPractice,
-    url: '/new-statistic',
+    startWith: ['/statistic', '/new-statistic'],
+    child: [
+      {
+        title: 'Legacy Statistics',
+        url: '/statistic'
+      },
+      {
+        title: 'New Statistics',
+        url: '/new-statistic'
+      }
+    ]
   },
   {
     title: 'Mobility Assessment',
@@ -99,6 +105,15 @@ const isItemActive = (item) => {
   return route.path === item.url
 }
 
+const isParentActive = (item) => {
+  if (!item?.child) return false
+  const starts = Array.isArray(item.startWith)
+    ? item.startWith
+    : (item.startWith ? [item.startWith] : [])
+
+  return starts.some((prefix) => route.path.startsWith(prefix))
+}
+
 const props = defineProps({
   collapse: {
     type: Boolean,
@@ -107,7 +122,7 @@ const props = defineProps({
 })
 
 onMounted(() => {
-  if (userData.type == "player") {
+  if (userData.value?.type == "player") {
     sidebarItems.value = [
       {
         title: 'Dashboard',
@@ -169,7 +184,7 @@ onMounted(() => {
         <button
           v-if="item.child"
           class="flex flex-row flex-nowrap items-center py-5 relative w-full"
-          :class="{'router-link-active router-link-exact-active' : $route.path.includes(item.startWith) }"
+          :class="{'router-link-active router-link-exact-active' : isParentActive(item) }"
           @click="showDropdown(index)"
         >
           <img :alt="item.title" :src="item.iconPath" class="pl-4 pr-2.5">

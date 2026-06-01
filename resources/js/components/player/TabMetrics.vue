@@ -17,7 +17,7 @@ const tableHeadings = ref([
   "DATE", "BODY WEIGHT", "BENCH PRESS", "FRONT SQUAT", "BACK SQUAT", "POWER CLEAN", "DEAD LIFT", "40 YD DASH", "60 YD DASH"
 ])
 const token = JSON.parse(localStorage.getItem('auth')).token
-const api_url = process.env.API_ENDPOINT;
+const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const isLoad = reactive({status: true})
 let dataFitness = reactive({
   id: "",

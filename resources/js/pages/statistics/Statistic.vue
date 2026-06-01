@@ -437,12 +437,26 @@ const addNameToPlayersData = (players) => {
         <!-- Header -->
         <div class="flex items-center justify-between mb-6">
           <h1 class="text-2xl font-black uppercase tracking-widest text-white md:text-3xl">Statistics</h1>
-          <button
-            type="button"
-            class="rounded-xl border border-red-400/60 bg-red-500/20 px-4 py-2 text-xs font-black tracking-wider text-red-200 hover:bg-red-500/30 transition"
-            @click="$emit('open-add-player')"
-            onclick="window.dispatchEvent(new Event('open-add-player-modal'))"
-          >+ ADD PLAYERS</button>
+          <div class="flex items-center gap-2">
+            <RouterLink
+              to="/statistic"
+              class="rounded-lg border border-red-400/60 bg-red-500/30 px-3 py-1.5 text-xs font-black tracking-wider text-white"
+            >
+              Legacy
+            </RouterLink>
+            <RouterLink
+              to="/new-statistic"
+              class="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black tracking-wider text-white/90 hover:bg-white/20 transition"
+            >
+              New
+            </RouterLink>
+            <button
+              type="button"
+              class="rounded-xl border border-red-400/60 bg-red-500/20 px-4 py-2 text-xs font-black tracking-wider text-red-200 hover:bg-red-500/30 transition"
+              @click="$emit('open-add-player')"
+              onclick="window.dispatchEvent(new Event('open-add-player-modal'))"
+            >+ ADD PLAYERS</button>
+          </div>
         </div>
 
         <!-- Filters card -->
@@ -915,6 +929,10 @@ const addNameToPlayersData = (players) => {
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
 }
 
+.bullpen-stat-section > div:empty {
+  display: none;
+}
+
 .bullpen-stat-section .bg-fungo-gray3 {
   background: rgba(10, 16, 32, 0.8) !important;
 }
@@ -1018,6 +1036,10 @@ const addNameToPlayersData = (players) => {
   border-radius: 1rem;
   background: rgba(10, 16, 32, 0.8);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+}
+
+.other-stat-section > div:empty {
+  display: none;
 }
 
 .other-stat-section .bg-fungo-gray3 {

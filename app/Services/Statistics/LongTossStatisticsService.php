@@ -240,11 +240,11 @@ final class LongTossStatisticsService
     }
 
     /**
-     * Long Toss Score (LTS) — mirrors computeLongTossScore() in TeamStatsPanel/index.js
+        * Long Toss Score (LTS) — chart-based model.
      *
      * 5 components (100 pts total):
-     *   Extension   25 pts — player max distances vs 250ft target
-     *   Carry       25 pts — hop quality on top 20% throws
+        *   Extension   25 pts — no-hop peak distance converted to estimated peak mound velo
+        *   Carry       25 pts — throw intensity (chart %) blended with hop quality
      *   Consistency 20 pts — per-player CV of distances
      *   Progression 20 pts — oldest vs newest session avg dist
      *   Availability 10 pts — completed sessions ratio
@@ -255,9 +255,8 @@ final class LongTossStatisticsService
             return [];
         }
 
-        $EXTENSION_TARGET = 250;
         $clamp = fn($v, $min, $max) => max($min, min($max, (float) $v));
-        $hopScore = fn($hop) => match(true) { $hop <= 0 => 100, $hop === 1 => 80, $hop === 2 => 55, default => 20 };
+        $hopScore = fn($hop) => match(true) { $hop <= 0 => 100, $hop === 1 => 82, $hop === 2 => 58, default => 25 };
 
         // Collect valid throws
         $allThrows = [];
@@ -276,34 +275,55 @@ final class LongTossStatisticsService
 
         // Group by player
         $playerDists = [];
+        $playerThrows = [];
         foreach ($allThrows as $t) {
             $playerDists[$t['userId']][] = $t['dist'];
+            $playerThrows[$t['userId']][] = $t;
         }
 
-        // 1. Extension (25 pts)
-        $extWeightedSum = 0; $extMaxPossible = 0;
-        foreach ($playerDists as $dists) {
-            $maxD = max($dists);
-            $pct  = $maxD / $EXTENSION_TARGET;
-            $w    = $pct >= 1.0 ? 5 : ($pct >= 0.90 ? 3 : ($pct >= 0.75 ? 2 : ($pct >= 0.60 ? 1 : 0)));
-            $extWeightedSum += $w;
-            $extMaxPossible += 5;
-        }
-        $extensionScore = $extMaxPossible > 0 ? $clamp(($extWeightedSum / $extMaxPossible) * 25, 0, 25) : 0;
-
-        // 2. Carry (25 pts) — top 20% throws per player scored by hops
+        // 1. Extension (25 pts) — convert no-hop distance to estimated mound velo from chart
+        $extensionPctScores = [];
+        $estimatedPeakVelos = [];
+        $peakNoHopDistances = [];
+        $intensityScores = [];
         $carryScores = [];
-        foreach ($playerDists as $pid => $dists) {
-            $pThrows = array_filter($allThrows, fn($t) => $t['userId'] === $pid);
-            usort($pThrows, fn($a,$b) => $b['dist'] <=> $a['dist']);
-            $topN = max(1, (int) ceil(count($pThrows) * 0.20));
-            $topN = max($topN, 3);
-            foreach (array_slice($pThrows, 0, $topN) as $t) {
-                $carryScores[] = $hopScore($t['hop']);
+
+        foreach ($playerThrows as $pid => $throws) {
+            $noHopDistances = array_values(array_map(
+                fn($t) => (float) $t['dist'],
+                array_filter($throws, fn($t) => (int) $t['hop'] <= 0)
+            ));
+
+            $peakNoHop = !empty($noHopDistances)
+                ? max($noHopDistances)
+                : max(array_column($throws, 'dist'));
+
+            $peakNoHop = (float) $peakNoHop;
+            $peakNoHopDistances[] = $peakNoHop;
+
+            $estimatedPeakVelo = $this->estimatePeakMoundVelocityFromDistance($peakNoHop);
+            $estimatedPeakVelos[] = $estimatedPeakVelo;
+
+            // 67 mph baseline → 100 mph+ ceiling
+            $extensionPctScores[] = $clamp((($estimatedPeakVelo - 67.0) / 33.0) * 100.0, 0.0, 100.0);
+
+            foreach ($throws as $t) {
+                $dist = (float) $t['dist'];
+                $hop = (int) $t['hop'];
+
+                $intensityPct = $this->estimateIntensityPctFromDistance($estimatedPeakVelo, $dist);
+                $intensityScores[] = $intensityPct;
+
+                $carryScores[] = ($intensityPct * $hopScore($hop)) / 100.0;
             }
         }
+
+        $avgExtensionPct = count($extensionPctScores) ? array_sum($extensionPctScores) / count($extensionPctScores) : 0.0;
+        $extensionScore = $clamp(($avgExtensionPct / 100.0) * 25.0, 0.0, 25.0);
+
+        // 2. Carry (25 pts) — chart intensity × hop quality
         $avgCarry   = count($carryScores) ? array_sum($carryScores) / count($carryScores) : 50;
-        $carryScore = $clamp(($avgCarry / 100) * 25, 0, 25);
+        $carryScore = $clamp(($avgCarry / 100.0) * 25.0, 0.0, 25.0);
 
         // 3. Consistency (20 pts)
         $consScores = [];
@@ -345,7 +365,10 @@ final class LongTossStatisticsService
         $playerMaxes = array_map(fn($d) => max($d), array_values($playerDists));
         $totalPlayers = count($playerDists);
         $zeroHop = count(array_filter($allThrows, fn($t) => $t['hop'] <= 0));
-        $extReached = count(array_filter($playerMaxes, fn($d) => $d >= $EXTENSION_TARGET));
+        $eliteThrowers = count(array_filter($estimatedPeakVelos, fn($v) => $v >= 90.0));
+        $avgIntensity = count($intensityScores) ? array_sum($intensityScores) / count($intensityScores) : 0.0;
+        $avgEstimatedPeakVelo = count($estimatedPeakVelos) ? array_sum($estimatedPeakVelos) / count($estimatedPeakVelos) : null;
+        $avgPeakNoHopDistance = count($peakNoHopDistances) ? array_sum($peakNoHopDistances) / count($peakNoHopDistances) : null;
 
         return [
             'lts'             => $totalScore,
@@ -357,11 +380,104 @@ final class LongTossStatisticsService
             'availabilityScore'=> round($availabilityScore,1),
             'totalPlayers'    => $totalPlayers,
             'avgMaxDist'      => $totalPlayers > 0 ? round(array_sum($playerMaxes) / $totalPlayers, 1) : null,
-            'extensionPct'    => $totalPlayers > 0 ? round(($extReached / $totalPlayers) * 100, 1) : 0,
+            'extensionPct'    => round($avgExtensionPct, 1),
             'avgCarryScore'   => round($avgCarry, 1),
             'zeroHopRate'     => count($allThrows) > 0 ? round(($zeroHop / count($allThrows)) * 100, 1) : 0,
             'sessionCount'    => $sessionCount,
+            'eliteThrowers'   => $eliteThrowers,
+            'eliteThrowerRate'=> $totalPlayers > 0 ? round(($eliteThrowers / $totalPlayers) * 100, 1) : 0,
+            'avgIntensityPct' => round($avgIntensity, 1),
+            'avgEstimatedPeakVelo' => $avgEstimatedPeakVelo !== null ? round($avgEstimatedPeakVelo, 1) : null,
+            'avgPeakNoHopDist' => $avgPeakNoHopDistance !== null ? round($avgPeakNoHopDistance, 1) : null,
         ];
+    }
+
+    private function longTossChartRows(): array
+    {
+        return [
+            ['velo' => 67.0,  'peak' => 210.0, 'intensity' => [50=>105,55=>116,60=>126,65=>137,70=>147,75=>158,80=>168,85=>179,90=>189,95=>200,100=>210]],
+            ['velo' => 72.0,  'peak' => 240.0, 'intensity' => [50=>120,55=>132,60=>144,65=>156,70=>168,75=>180,80=>192,85=>204,90=>216,95=>228,100=>240]],
+            ['velo' => 77.0,  'peak' => 260.0, 'intensity' => [50=>130,55=>143,60=>156,65=>169,70=>182,75=>195,80=>208,85=>221,90=>234,95=>247,100=>260]],
+            ['velo' => 82.0,  'peak' => 280.0, 'intensity' => [50=>140,55=>154,60=>168,65=>182,70=>196,75=>210,80=>224,85=>238,90=>252,95=>266,100=>280]],
+            ['velo' => 87.0,  'peak' => 300.0, 'intensity' => [50=>150,55=>165,60=>180,65=>195,70=>210,75=>225,80=>240,85=>255,90=>270,95=>285,100=>300]],
+            ['velo' => 92.0,  'peak' => 330.0, 'intensity' => [50=>165,55=>182,60=>198,65=>215,70=>231,75=>248,80=>264,85=>281,90=>297,95=>314,100=>330]],
+            ['velo' => 97.0,  'peak' => 360.0, 'intensity' => [50=>180,55=>198,60=>216,65=>234,70=>252,75=>270,80=>288,85=>306,90=>324,95=>342,100=>360]],
+            ['velo' => 100.0, 'peak' => 410.0, 'intensity' => [50=>205,55=>226,60=>246,65=>267,70=>287,75=>308,80=>328,85=>349,90=>369,95=>390,100=>410]],
+        ];
+    }
+
+    private function estimatePeakMoundVelocityFromDistance(float $distance): float
+    {
+        $rows = $this->longTossChartRows();
+        $distance = max(0.0, $distance);
+
+        if ($distance <= $rows[0]['peak']) {
+            $lo = $rows[0];
+            return $lo['velo'] * ($distance / max(1.0, $lo['peak']));
+        }
+
+        $last = $rows[count($rows) - 1];
+        if ($distance >= $last['peak']) {
+            $excess = $distance - $last['peak'];
+            return min(105.0, $last['velo'] + ($excess / 20.0));
+        }
+
+        for ($i = 0; $i < count($rows) - 1; $i++) {
+            $a = $rows[$i];
+            $b = $rows[$i + 1];
+            if ($distance >= $a['peak'] && $distance <= $b['peak']) {
+                $pct = ($distance - $a['peak']) / max(1.0, ($b['peak'] - $a['peak']));
+                return $a['velo'] + (($b['velo'] - $a['velo']) * $pct);
+            }
+        }
+
+        return 67.0;
+    }
+
+    private function estimateIntensityPctFromDistance(float $estimatedPeakVelo, float $distance): float
+    {
+        $row = $this->nearestChartRowByVelocity($estimatedPeakVelo);
+        $chart = $row['intensity'];
+        ksort($chart);
+
+        if ($distance <= $chart[50]) {
+            return max(0.0, min(50.0, ($distance / max(1.0, $chart[50])) * 50.0));
+        }
+
+        if ($distance >= $chart[100]) {
+            return 100.0;
+        }
+
+        $keys = array_keys($chart);
+        for ($i = 0; $i < count($keys) - 1; $i++) {
+            $k1 = (int) $keys[$i];
+            $k2 = (int) $keys[$i + 1];
+            $d1 = (float) $chart[$k1];
+            $d2 = (float) $chart[$k2];
+            if ($distance >= $d1 && $distance <= $d2) {
+                $pct = ($distance - $d1) / max(1.0, ($d2 - $d1));
+                return $k1 + (($k2 - $k1) * $pct);
+            }
+        }
+
+        return 50.0;
+    }
+
+    private function nearestChartRowByVelocity(float $velo): array
+    {
+        $rows = $this->longTossChartRows();
+        $best = $rows[0];
+        $bestDiff = abs($velo - $best['velo']);
+
+        foreach ($rows as $row) {
+            $diff = abs($velo - $row['velo']);
+            if ($diff < $bestDiff) {
+                $best = $row;
+                $bestDiff = $diff;
+            }
+        }
+
+        return $best;
     }
 
 }

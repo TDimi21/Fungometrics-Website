@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Statistics;
 
+use App\Models\Player;
 use App\Models\Concerns\BattingTrajectory;
 use App\Models\Concerns\PitchThrowTypes;
 use App\Utils\Helper;
+use Carbon\Carbon;
 
 final class BullpenStatisticsService
 {
@@ -85,7 +87,7 @@ final class BullpenStatisticsService
      *
      * Components:
      *  - Strike rate      35% — strikes / total pitches × 100
-     *  - Velocity score   30% — avg FB velo / 95 × 100 (capped 100)
+        *  - Velocity score   30% — age-adjusted FB velocity score (chart-based)
      *  - Pitch mix        20% — non-FB pitch types present / 3 (CB, CH, SL) × 100
      *  - First-pitch str  15% — pitches in zone on sort=1 / total sort-1 pitches × 100
      */
@@ -100,13 +102,68 @@ final class BullpenStatisticsService
         $strikes     = $data->where('zone', 'S')->count();
         $strikeRate  = ($strikes / $total) * 100;
 
-        // Velocity score (30%) — FB average
+        // Velocity score (30%) — FB average, age-adjusted by chart
         $fbPitches   = $data->filter(fn($r) => strtoupper($r->type_throw ?? '') === 'FB'
                                             && isset($r->miles_per_hour)
                                             && $r->miles_per_hour > 30);
         $avgVelo     = $fbPitches->isNotEmpty() ? $fbPitches->avg('miles_per_hour') : 0.0;
         $topVelo     = $fbPitches->isNotEmpty() ? $fbPitches->max('miles_per_hour') : 0.0;
-        $veloScore   = $avgVelo > 0 ? min(100.0, ($avgVelo / 95) * 100) : 0.0;
+
+        $veloScore = 0.0;
+        $eliteThrowers = 0;
+        $pitchersScored = 0;
+        $avgEliteThreshold = null;
+        $avgAge = null;
+
+        if ($fbPitches->isNotEmpty()) {
+            $fbByPitcher = $fbPitches->groupBy(fn($r) => (string) ($r->pitcher_id ?? ''));
+            $pitcherIds = $fbByPitcher->keys()->filter(fn($id) => $id !== '')->values()->all();
+
+            $bornDates = Player::query()
+                ->whereIn('user_id', $pitcherIds)
+                ->pluck('born_date', 'user_id');
+
+            $playerScores = [];
+            $eliteThresholds = [];
+            $ages = [];
+
+            foreach ($fbByPitcher as $pitcherId => $rows) {
+                $pid = (string) $pitcherId;
+                if ($pid === '') {
+                    continue;
+                }
+
+                $playerAvgVelo = (float) ($rows->avg('miles_per_hour') ?? 0);
+                if ($playerAvgVelo <= 0) {
+                    continue;
+                }
+
+                $age = $this->ageFromBornDate($bornDates->get($pid));
+                $thresholds = $this->velocityChartThresholdsForAge($age);
+                $playerScores[] = $this->ageAdjustedVelocityScore($playerAvgVelo, $thresholds);
+                $eliteThresholds[] = $thresholds['elite'];
+                if ($age !== null) {
+                    $ages[] = $age;
+                }
+
+                if ($playerAvgVelo >= $thresholds['elite']) {
+                    $eliteThrowers++;
+                }
+                $pitchersScored++;
+            }
+
+            $veloScore = count($playerScores) > 0
+                ? array_sum($playerScores) / count($playerScores)
+                : ($avgVelo > 0 ? min(100.0, ($avgVelo / 95) * 100) : 0.0);
+
+            if (count($eliteThresholds) > 0) {
+                $avgEliteThreshold = round(array_sum($eliteThresholds) / count($eliteThresholds), 1);
+            }
+
+            if (count($ages) > 0) {
+                $avgAge = round(array_sum($ages) / count($ages), 1);
+            }
+        }
 
         // Pitch mix (20%) — count distinct non-FB types used
         $offspeed    = ['CB', 'CH', 'SL', 'CV'];
@@ -141,7 +198,95 @@ final class BullpenStatisticsService
             'avgVelo'     => round($avgVelo, 1),
             'topVelo'     => round($topVelo, 1),
             'typesUsed'   => $typesUsed,
+            'eliteThrowers' => $eliteThrowers,
+            'pitchersScored' => $pitchersScored,
+            'eliteThrowerRate' => $pitchersScored > 0 ? round(($eliteThrowers / $pitchersScored) * 100, 1) : 0.0,
+            'avgEliteVeloThreshold' => $avgEliteThreshold,
+            'avgPitcherAge' => $avgAge,
         ];
+    }
+
+    private function ageFromBornDate(mixed $bornDate): ?int
+    {
+        if (empty($bornDate)) {
+            return null;
+        }
+
+        try {
+            $age = Carbon::parse((string) $bornDate)->age;
+            return $age > 0 ? $age : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Velocity chart (mph) provided by user: age 8-17 with Average→Select tiers.
+     */
+    private function velocityChartThresholdsForAge(?int $age): array
+    {
+        $chart = [
+            8  => ['average' => 40, 'good' => 43, 'competitive' => 47, 'elite' => 50, 'ultra' => 54, 'select' => 57],
+            9  => ['average' => 43, 'good' => 47, 'competitive' => 51, 'elite' => 55, 'ultra' => 59, 'select' => 63],
+            10 => ['average' => 46, 'good' => 50, 'competitive' => 54, 'elite' => 58, 'ultra' => 62, 'select' => 66],
+            11 => ['average' => 48, 'good' => 52, 'competitive' => 56, 'elite' => 60, 'ultra' => 64, 'select' => 68],
+            12 => ['average' => 50, 'good' => 55, 'competitive' => 60, 'elite' => 65, 'ultra' => 70, 'select' => 74],
+            13 => ['average' => 54, 'good' => 59, 'competitive' => 64, 'elite' => 69, 'ultra' => 74, 'select' => 79],
+            14 => ['average' => 60, 'good' => 66, 'competitive' => 72, 'elite' => 78, 'ultra' => 84, 'select' => 90],
+            15 => ['average' => 66, 'good' => 73, 'competitive' => 78, 'elite' => 84, 'ultra' => 90, 'select' => 93],
+            16 => ['average' => 72, 'good' => 78, 'competitive' => 84, 'elite' => 88, 'ultra' => 92, 'select' => 94],
+            17 => ['average' => 78, 'good' => 82, 'competitive' => 86, 'elite' => 90, 'ultra' => 93, 'select' => 96],
+        ];
+
+        if ($age === null) {
+            return $chart[14];
+        }
+
+        if ($age <= 8) {
+            return $chart[8];
+        }
+
+        if ($age >= 17) {
+            return $chart[17];
+        }
+
+        return $chart[$age] ?? $chart[14];
+    }
+
+    private function ageAdjustedVelocityScore(float $avgVelo, array $t): float
+    {
+        $avg = (float) ($t['average'] ?? 50);
+        $good = (float) ($t['good'] ?? 55);
+        $comp = (float) ($t['competitive'] ?? 60);
+        $elite = (float) ($t['elite'] ?? 65);
+        $ultra = (float) ($t['ultra'] ?? 70);
+        $select = (float) ($t['select'] ?? 75);
+
+        if ($avgVelo <= $avg) {
+            return max(0.0, min(40.0, ($avgVelo / max(1.0, $avg)) * 40.0));
+        }
+
+        if ($avgVelo <= $good) {
+            return 40.0 + (($avgVelo - $avg) / max(1.0, ($good - $avg))) * 15.0;
+        }
+
+        if ($avgVelo <= $comp) {
+            return 55.0 + (($avgVelo - $good) / max(1.0, ($comp - $good))) * 15.0;
+        }
+
+        if ($avgVelo <= $elite) {
+            return 70.0 + (($avgVelo - $comp) / max(1.0, ($elite - $comp))) * 15.0;
+        }
+
+        if ($avgVelo <= $ultra) {
+            return 85.0 + (($avgVelo - $elite) / max(1.0, ($ultra - $elite))) * 10.0;
+        }
+
+        if ($avgVelo <= $select) {
+            return 95.0 + (($avgVelo - $ultra) / max(1.0, ($select - $ultra))) * 5.0;
+        }
+
+        return 100.0;
     }
 
 

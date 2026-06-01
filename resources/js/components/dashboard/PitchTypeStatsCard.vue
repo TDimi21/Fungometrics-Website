@@ -7,6 +7,7 @@ import defaultAvatar from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const { axiosGet } = useAxiosAuth()
 const { players }  = usePlayerStore()
+const safePlayers = computed(() => Array.isArray(players) ? players : [])
 
 const PITCH_TYPES  = ['FB', 'CB', 'SL', 'CH', 'OTHER']
 const PITCH_COLORS = {
@@ -81,7 +82,7 @@ function strikeWinner(type) {
             class="w-full rounded-lg border border-white/20 bg-white/10 text-white text-xs py-2 pl-3 pr-7 appearance-none outline-none cursor-pointer">
             <option value="">Select pitcher…</option>
             <option value="team" class="text-black font-bold">⚾ Team</option>
-            <option v-for="p in players" :key="p.id" :value="p.id" class="text-black">
+              <option v-for="p in safePlayers" :key="p.id" :value="p.id" class="text-black">
               {{ p.name?.full ?? p.name }}
             </option>
           </select>
@@ -124,7 +125,7 @@ function strikeWinner(type) {
             class="w-full rounded-lg border border-white/20 bg-white/10 text-white text-xs py-2 pl-3 pr-7 appearance-none outline-none cursor-pointer">
             <option value="">Select pitcher…</option>
             <option value="team" class="text-black font-bold">⚾ Team</option>
-            <option v-for="p in players" :key="p.id" :value="p.id" class="text-black">
+              <option v-for="p in safePlayers" :key="p.id" :value="p.id" class="text-black">
               {{ p.name?.full ?? p.name }}
             </option>
           </select>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, watch } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch, computed } from "vue";
 import { useUserStore } from "../store/user";
 import { useTeamStore } from "../store/team";
 import NavSidebar from "./NavigationSidebar.vue";
@@ -29,20 +29,35 @@ import { TableCancel } from "@/components/icons";
 import Loader from "../components/Loader.vue";
 import axios from "axios";
 import { useAxiosAuth } from "@/composables/axios-auth.js";
+import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.png";
+import stadiumBackground from "@/assets/img/training/baseball field.jpeg";
 
 const { axiosGet } = useAxiosAuth();
+const userStore = useUserStore();
+const teamStore = useTeamStore();
 const playerStore = usePlayerStore();
 const trainingStore = useTrainingStore();
 const { players, setPlayers } = storeToRefs(playerStore);
 const { isShowMsgModal } = storeToRefs(trainingStore);
+const { userData } = storeToRefs(userStore);
+const { team, teams } = storeToRefs(teamStore);
+const { setData } = userStore;
+const { setTeam } = teamStore;
 
 const isOpen = ref(false);
 const isChange = ref(false);
 const sessionCount = ref(0);
 const teamJoinCode = ref('');
-const api_url = process.env.API_ENDPOINT;
+const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const isLoading = reactive({ status: true });
-const token = JSON.parse(localStorage.getItem("auth")).token;
+const token = (() => {
+  try {
+    const auth = JSON.parse(localStorage.getItem("auth") || "{}");
+    return auth?.token ?? "";
+  } catch (_) {
+    return "";
+  }
+})();
 const temporalTeams = ref([]);
 let playersOfTeam = ref([]);
 function closeModal() {
@@ -51,8 +66,8 @@ function closeModal() {
 function openModal() {
   isOpen.value = true;
 }
-const { userData } = useUserStore();
-const { team, teams, setTeam } = useTeamStore();
+const userType = computed(() => userData.value?.type ?? null);
+const coachDisplayName = computed(() => userData.value?.name?.full ?? "+ (503) 7851 - 7268");
 let player = reactive({
   type: [],
   heightFt: 0,
@@ -68,6 +83,28 @@ let player = reactive({
 import { getUiTheme, applyUiTheme } from "@/composables/useUiTheme";
 let hasSidebar = reactive({ active: false });
 const uiTheme = ref(getUiTheme());
+const teamHeaderLogo = ref(updatedLogo);
+const teamHeaderBackground = ref(stadiumBackground);
+const socialLinks = {
+  facebook: import.meta.env.VITE_SOCIAL_FACEBOOK_URL || import.meta.env.SOCIAL_FACEBOOK_URL || 'https://www.facebook.com/',
+  x: import.meta.env.VITE_SOCIAL_X_URL || import.meta.env.SOCIAL_X_URL || 'https://x.com/',
+  instagram: import.meta.env.VITE_SOCIAL_INSTAGRAM_URL || import.meta.env.SOCIAL_INSTAGRAM_URL || 'https://www.instagram.com/',
+};
+const sidebarTeamCardBackground = computed(() => team.value?.logo || '/app_logo.png');
+
+const syncTopHeaderAssets = () => {
+  const hasTeamLogo = Boolean(team.value?.logo);
+  teamHeaderLogo.value = hasTeamLogo ? team.value.logo : updatedLogo;
+  teamHeaderBackground.value = stadiumBackground;
+};
+
+const onTopHeaderLogoError = () => {
+  teamHeaderLogo.value = updatedLogo;
+};
+
+const onTopHeaderBgError = () => {
+  teamHeaderBackground.value = stadiumBackground;
+};
 const handleThemeChange = (event) => {
   const next = event?.detail?.theme;
   uiTheme.value = next === "light" ? "light" : "dark";
@@ -78,13 +115,14 @@ const logout = () => {
   confirm.fire().then((result) => {
     if (result.isConfirmed) {
       localStorage.clear();
+      sessionStorage.clear();
       location.reload();
     }
   });
 };
 
 const getTeamsWithPalyers = async () => {
-  if (userData.type == "coach") {
+  if ((userData.value?.type ?? 'coach') == "coach") {
     try {
       isLoading.value = true;
       const { data } = await axiosGet("coach/teams");
@@ -113,7 +151,7 @@ const submitAddPlayer = async () => {
   } else {
     let dataForm = new FormData();
     dataForm.append("phone", player.mobileNumber);
-    dataForm.append("team", team.id);
+    dataForm.append("team", team.value?.id ?? '');
     dataForm.append("name[first]", player.firstName);
     dataForm.append("name[last]", player.lastName);
     const config = {
@@ -213,24 +251,29 @@ const openChangeTeamModal = () => {
 };
 
 const fetchSessionCount = async () => {
-  if (userData.type !== 'coach' || !team?.id) return;
+  if ((userData.value?.type ?? 'coach') !== 'coach' || !team.value?.id) {
+    sessionCount.value = 0;
+    return;
+  }
   try {
-    const { data } = await axiosGet(`coach/sessions/lasts/${team.id}`);
+    const { data } = await axiosGet(`coach/sessions/lasts/${team.value.id}`);
     const d = data?.data ?? {};
     sessionCount.value = [
       d.batting, d.bullpen, d.cage, d.live, d.weight_ball, d.long_toss, d.exit_velocity
     ].reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
-  } catch {}
+  } catch {
+    sessionCount.value = 0;
+  }
 };
 
 const fetchTeamJoinCode = async () => {
-  if (userData.type !== 'coach' || !team?.id) {
+  if ((userData.value?.type ?? 'coach') !== 'coach' || !team.value?.id) {
     teamJoinCode.value = '';
     return;
   }
 
   try {
-    const response = await axiosGet(`coach/teams/${team.id}/code`);
+    const response = await axiosGet(`coach/teams/${team.value.id}/code`);
     teamJoinCode.value = response?.data?.data?.join_code || response?.data?.join_code || '';
   } catch {
     teamJoinCode.value = '';
@@ -238,9 +281,26 @@ const fetchTeamJoinCode = async () => {
 };
 
 onMounted(() => {
+  // Recover persisted user payload when the store is empty after reload.
+  if (!userData?.type) {
+    try {
+      const raw = sessionStorage.getItem('user');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const persisted = parsed?.userData ?? parsed?.state?.userData ?? null;
+        if (persisted?.type) {
+          setData(persisted);
+        }
+      }
+    } catch (_) {
+      // ignore malformed session data
+    }
+  }
+
   getTeamsWithPalyers();
   fetchSessionCount();
   fetchTeamJoinCode();
+  syncTopHeaderAssets();
   applyUiTheme(uiTheme.value);
 
   window.addEventListener("ui-theme-changed", handleThemeChange);
@@ -255,10 +315,11 @@ onUnmounted(() => {
 });
 
 watch(
-  () => team?.id,
+  () => team.value?.id,
   () => {
     fetchSessionCount();
     fetchTeamJoinCode();
+    syncTopHeaderAssets();
   }
 );
 </script>
@@ -284,7 +345,7 @@ watch(
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7M18 19l-7-7 7-7"/></svg>
             </button>
             <RouterLink
-              :to="userData.type == 'player' ? '/player-dashboard' : '/dashboard'"
+              :to="userType == 'player' ? '/player-dashboard' : '/dashboard'"
               class="grid items-center cursor-pointer"
             >
               <img
@@ -300,7 +361,7 @@ watch(
 
           <!-- Team code (coach only) -->
           <div
-            v-if="userData.type === 'coach'"
+            v-if="userType === 'coach'"
             class="mx-3 mt-2 mb-2 flex justify-center"
           >
             <div class="inline-flex flex-col overflow-hidden rounded-lg border border-red-400/60 shadow-[0_6px_18px_rgba(192,0,0,0.35)]">
@@ -313,13 +374,12 @@ watch(
 
           <!-- Team card (coach only) -->
           <div
-            v-if="userData.type === 'coach'"
+            v-if="userType === 'coach'"
             class="mx-3 mb-2 mt-0 relative overflow-hidden rounded-xl border border-white/20 shadow-lg"
           >
             <div
-              v-if="team?.logo"
               class="absolute inset-0 bg-cover bg-center opacity-20"
-              :style="{ backgroundImage: `url(${team.logo})` }"
+              :style="{ backgroundImage: `url(${sidebarTeamCardBackground})` }"
             ></div>
             <div class="absolute inset-0 bg-[#001030]/80"></div>
 
@@ -366,7 +426,7 @@ watch(
 
           <!-- Bottom actions -->
           <div class="px-4 pb-4 space-y-2 border-t border-white/10 pt-3 mt-2">
-            <div v-if="userData.type === 'player'">
+            <div v-if="userType === 'player'">
               <RouterLink to="/change-password" class="sidebar-action mb-2 block">CHANGE PASSWORD</RouterLink>
             </div>
             <RouterLink
@@ -398,9 +458,41 @@ watch(
       class="h-full w-full relative overflow-y-auto transition-[margin] duration-500"
       :class="hasSidebar.active ? 'ml-0 lg:ml-72' : 'ml-0'"
     >
+      <header class="top-brand-nav w-full">
+        <div class="top-brand-content">
+          <div class="top-brand-left">
+            <div class="top-brand-logo-wrap">
+              <img
+                :src="teamHeaderLogo"
+                alt="Team logo"
+                class="top-brand-logo"
+                @error="onTopHeaderLogoError"
+              />
+            </div>
+
+            <div class="min-w-0">
+              <p class="top-brand-subtitle">Official Team</p>
+              <p class="top-brand-title truncate">{{ team?.name || 'Fungo Metrics Team' }}</p>
+            </div>
+          </div>
+
+          <div class="top-brand-social">
+            <a :href="socialLinks.facebook" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Facebook" title="Facebook">
+              <svg viewBox="0 0 24 24" class="social-icon" fill="currentColor"><path d="M13.5 21v-8h2.7l.4-3h-3.1V8.2c0-.9.3-1.5 1.6-1.5h1.7V4c-.3 0-1.4-.1-2.6-.1-2.6 0-4.3 1.5-4.3 4.3V10H7v3h2.9v8h3.6z"/></svg>
+            </a>
+            <a :href="socialLinks.x" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="X" title="X">
+              <svg viewBox="0 0 24 24" class="social-icon" fill="currentColor"><path d="M18.2 3h2.9l-6.4 7.3L22.2 21h-5.9l-4.6-6-5.2 6H3.6l6.9-7.8L1.8 3h6l4.1 5.4L18.2 3zm-1 16h1.6L7 4.9H5.3L17.2 19z"/></svg>
+            </a>
+            <a :href="socialLinks.instagram" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Instagram" title="Instagram">
+              <svg viewBox="0 0 24 24" class="social-icon" fill="currentColor"><path d="M7.8 2h8.4A5.8 5.8 0 0 1 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8A5.8 5.8 0 0 1 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2zm8.2 1.8H8A4.2 4.2 0 0 0 3.8 8v8a4.2 4.2 0 0 0 4.2 4.2h8a4.2 4.2 0 0 0 4.2-4.2V8A4.2 4.2 0 0 0 16 3.8zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 1.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4zm5.4-2a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4z"/></svg>
+            </a>
+          </div>
+        </div>
+      </header>
+
       <main
         class="app-main-shell min-h-screen pt-6 pb-24 px-0 overflow-hidden bg-[#060b14]"
-        v-if="userData.type === 'coach'"
+        v-if="userType !== 'player'"
       >
         <div class="screen-stage">
           <slot />
@@ -408,7 +500,7 @@ watch(
       </main>
       <main
         class="app-main-shell min-h-screen px-0 overflow-hidden bg-fungo-gray2"
-        v-if="userData.type === 'player'"
+        v-if="userType === 'player'"
       >
         <div class="screen-stage">
           <slot />
@@ -519,7 +611,7 @@ watch(
                   <img
                     alt="Team logo"
                     class="h-full object-center object-cover mx-auto"
-                    :src="team.logo"
+                    :src="team?.logo"
                   />
                 </div>
                 <div class="w-[400px] max-w-[400px] pl-2 lg:pl-5">
@@ -531,7 +623,7 @@ watch(
                     >
                     <text
                       class="text-fungo-darkblue font-fungo-800 text-[14px] lg:text-[16px]"
-                      >{{ team.name ?? "item.number_in_shirt" }}</text
+                      >{{ team?.name ?? "item.number_in_shirt" }}</text
                     >
                     <text
                       class="font-fungo-400 text-fungo-darkblue text-[14px] lg:text-[16px] pt-2"
@@ -540,7 +632,7 @@ watch(
                         class="font-fungo-700 text-fungo-darkblue text-[14px] lg:text-[16px]"
                         >Coach:</span
                       >
-                      {{ userData.name.full ?? "+ (503) 7851 - 7268" }}
+                      {{ coachDisplayName }}
                     </text>
                   </div>
                 </div>
@@ -550,7 +642,7 @@ watch(
                   <input
                     type="radio"
                     name="choose_team"
-                    :id="`choose_${team.id}`"
+                    :id="`choose_${team?.id}`"
                     checked
                     class="appearance-none checked:bg-green-500 autofill:bg-green-500 text-green-500 indeterminate:bg-fungo-gray6 default:ring-2 valid:border-fungo-darkblue h-8 w-8"
                   />
@@ -558,7 +650,7 @@ watch(
               </div>
               <template v-for="(item, index) in teams" :key="item.id">
                 <div
-                  v-if="item.id != team.id"
+                  v-if="item.id != team?.id"
                   class="bg-fungo-gray4 border-2 border-fungo-gray3 flex flex-row justify-between w-[100%] md:w-[100%] md:max-w-[100%] py-5 pl-1 lg:pl-4 rounded-xl"
                 >
                   <div class="w-[100px] max-w-[100px]">
@@ -586,7 +678,7 @@ watch(
                           class="font-fungo-700 text-fungo-darkblue text-[14px] lg:text-[16px]"
                           >Coach:</span
                         >
-                        {{ userData.name.full ?? "+ (503) 7851 - 7268" }}
+                          {{ coachDisplayName }}
                       </text>
                     </div>
                   </div>
@@ -761,6 +853,133 @@ watch(
 
 .layout-shell.theme-light .sidebar-action:hover {
   background: rgba(15, 23, 42, 0.12);
+}
+
+.layout-shell.theme-dark .app-main-shell {
+  background-color: rgba(0, 32, 96, 0.6) !important;
+}
+
+.top-brand-nav {
+  --top-brand-height: 92px;
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  min-height: var(--top-brand-height);
+  background: rgba(0, 31, 77, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.top-brand-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.top-brand-overlay {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+
+.top-brand-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  min-height: var(--top-brand-height);
+  padding: 0.5rem 1rem;
+}
+
+.top-brand-left {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.top-brand-logo-wrap {
+  height: 58px;
+  width: auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 0.7rem;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(2, 6, 23, 0.7);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.top-brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.top-brand-subtitle {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 800;
+  color: rgba(134, 239, 172, 0.95);
+}
+
+.top-brand-title {
+  margin: 0.15rem 0 0;
+  font-size: 1.4rem;
+  line-height: 1.1;
+  font-weight: 900;
+  color: #fff;
+}
+
+.top-brand-social {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.social-link {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.22);
+  color: #f8fafc;
+  transition: 0.2s ease;
+}
+
+.social-link:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(125, 211, 252, 0.9);
+  color: #7dd3fc;
+}
+
+.social-icon {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 768px) {
+  .top-brand-nav {
+    --top-brand-height: 78px;
+    min-height: var(--top-brand-height);
+  }
+
+  .top-brand-title {
+    font-size: 1.1rem;
+  }
+
+  .top-brand-logo-wrap {
+    height: 46px;
+  }
 }
 
 .btn-logout {
