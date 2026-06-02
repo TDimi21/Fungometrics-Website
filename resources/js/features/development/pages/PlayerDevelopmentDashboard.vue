@@ -429,7 +429,7 @@ const scoreCards = computed(() => ([
             <!-- 6 score cards in a 2-col mini-grid -->
             <div>
               <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-white/30 px-1">Development Scores</p>
-              <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
+              <div class="flex flex-col gap-3">
                 <button
                   v-for="(card, idx) in scoreCards"
                   :key="idx"
