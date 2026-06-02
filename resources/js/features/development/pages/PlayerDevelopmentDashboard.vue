@@ -105,9 +105,16 @@ const player = computed(() => sourceData.value?.player || {
 const model = computed(() => buildPlayerDevelopmentModel(current.value, history.value, player.value.role))
 const ageGroup = computed(() => getAgeGroup(player.value))
 
+// Patch current with FB velocity fallbacks so all consumers get a value
+const effectiveCurrent = computed(() => ({
+  ...current.value,
+  avg_fb_velocity: current.value?.avg_fb_velocity ?? current.value?.avg_pitch_velocity ?? null,
+  max_fb_velocity: current.value?.max_fb_velocity ?? current.value?.max_pitch_velocity ?? null,
+}))
+
 const percentileRows = computed(() => {
   const row = (metric, key, suffix = '') => {
-    const value = current.value?.[key]
+    const value = effectiveCurrent.value?.[key]
     const percentile = getMetricPercentile(key, value, ageGroup.value, player.value.level)
     return {
       metric,
@@ -120,6 +127,7 @@ const percentileRows = computed(() => {
   return [
     row('Max EV', 'max_exit_velocity', ' mph'),
     row('Avg EV', 'avg_exit_velocity', ' mph'),
+    row('Max FB Velo', 'max_fb_velocity', ' mph'),
     row('Avg FB Velo', 'avg_fb_velocity', ' mph'),
     row('BP Score', 'bp_score'),
     row('Bullpen Score', 'bullpen_score'),
@@ -339,7 +347,7 @@ const scoreCards = computed(() => ([
                     EV {{ current.avg_exit_velocity ?? '—' }} mph
                   </span>
                   <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
-                    {{ current.avg_fb_velocity != null ? 'Avg FB' : 'Velo' }} {{ current.avg_fb_velocity ?? current.avg_pitch_velocity ?? '—' }} mph
+                    FB {{ effectiveCurrent.avg_fb_velocity ?? '—' }} mph
                   </span>
                   <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
                     BP {{ current.bp_score ?? '—' }}
@@ -361,8 +369,12 @@ const scoreCards = computed(() => ([
                   <span class="font-black text-white">{{ current.avg_exit_velocity ?? '—' }} mph</span>
                 </div>
                 <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">{{ current.avg_fb_velocity != null ? 'Avg FB Velocity' : 'Avg Pitch Velo' }}</span>
-                  <span class="font-black text-white">{{ current.avg_fb_velocity ?? current.avg_pitch_velocity ?? '—' }} mph</span>
+                  <span class="text-white/55">Max FB Velocity</span>
+                  <span class="font-black text-white">{{ effectiveCurrent.max_fb_velocity ?? '—' }} mph</span>
+                </div>
+                <div class="flex justify-between border-b border-white/5 pb-1.5">
+                  <span class="text-white/55">Avg FB Velocity</span>
+                  <span class="font-black text-white">{{ effectiveCurrent.avg_fb_velocity ?? '—' }} mph</span>
                 </div>
                 <div class="flex justify-between border-b border-white/5 pb-1.5">
                   <span class="text-white/55">Batting Score</span>
@@ -395,7 +407,7 @@ const scoreCards = computed(() => ([
                 {{ model.trend?.status || '—' }}
               </p>
               <div class="space-y-2 text-xs">
-                <div v-for="([label, key]) in [['EV','avg_exit_velocity'],['Avg FB Velo','avg_fb_velocity'],['Hard Contact','hard_contact_percentage'],['Command','command_score'],['Strength','rotational_power_score'],['Sleep','sleep_hours']]" :key="key"
+                <div v-for="([label, key]) in [['EV','avg_exit_velocity'],['Max FB Velo','max_fb_velocity'],['Avg FB Velo','avg_fb_velocity'],['Hard Contact','hard_contact_percentage'],['Command','command_score'],['Strength','rotational_power_score'],['Sleep','sleep_hours']]" :key="key"
                   class="flex justify-between border-b border-white/5 pb-1.5 last:border-0 last:pb-0">
                   <span class="text-white/55">{{ label }}</span>
                   <span class="font-black"
