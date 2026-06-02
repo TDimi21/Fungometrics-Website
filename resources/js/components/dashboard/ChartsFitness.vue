@@ -38,31 +38,78 @@ const getOrderArray = () => normalizedResponse.value
   .slice()
   .sort((a, b) => new Date(b.fitness_date).getTime() - new Date(a.fitness_date).getTime())
 
-// ── Weight-over-time chart (always shown) ─────────────────────────────────────
-const weightChartData = computed(() => {
-  const sorted = normalizedResponse.value
-    .filter(r => r.body_weight > 0 && r.fitness_date)
+// ── Interactive metric chart ─────────────────────────────────────────────────
+const METRICS = [
+  { key: 'body_weight',           label: 'Weight',         unit: 'lb',  lowerBetter: true  },
+  { key: 'bench_press',           label: 'Bench Press',    unit: 'lb',  lowerBetter: false },
+  { key: 'dead_lift',             label: 'Deadlift',       unit: 'lb',  lowerBetter: false },
+  { key: 'front_squat',           label: 'Front Squat',    unit: 'lb',  lowerBetter: false },
+  { key: 'back_squat',            label: 'Back Squat',     unit: 'lb',  lowerBetter: false },
+  { key: 'power_clean',           label: 'Power Clean',    unit: 'lb',  lowerBetter: false },
+  { key: 'yd_40_dash',            label: '40 Time',        unit: 's',   lowerBetter: true  },
+  { key: 'yd_60_dash',            label: '60 Time',        unit: 's',   lowerBetter: true  },
+  { key: 'sleep_hours',           label: 'Sleep Hrs',      unit: 'hrs', lowerBetter: false },
+  { key: 'recovery_score',        label: 'Recovery',       unit: '/100',lowerBetter: false },
+  { key: 'mobility_score',        label: 'Mobility',       unit: '/100',lowerBetter: false },
+]
+
+const DATE_RANGES = [
+  { label: 'All Time', months: 0   },
+  { label: '1 Mo',     months: 1   },
+  { label: '3 Mo',     months: 3   },
+  { label: '6 Mo',     months: 6   },
+  { label: '1 Year',   months: 12  },
+]
+
+const activeMetricKey = ref('body_weight')
+const activeDateRange = ref(0) // months, 0 = all time
+
+const activeMetric = computed(() => METRICS.find(m => m.key === activeMetricKey.value) ?? METRICS[0])
+
+const filteredRecords = computed(() => {
+  let records = normalizedResponse.value
+    .filter(r => r[activeMetricKey.value] != null && parseFloat(r[activeMetricKey.value]) > 0 && r.fitness_date)
     .slice()
     .sort((a, b) => new Date(a.fitness_date) - new Date(b.fitness_date))
-  return {
-    dates: sorted.map(r => new Date(r.fitness_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })),
-    values: sorted.map(r => parseFloat(r.body_weight)),
+
+  if (activeDateRange.value > 0) {
+    const cutoff = new Date()
+    cutoff.setMonth(cutoff.getMonth() - activeDateRange.value)
+    records = records.filter(r => new Date(r.fitness_date) >= cutoff)
   }
+  return records
 })
 
-const weightSeries = computed(() => [{
-  name: 'Body Weight (lb)',
-  data: weightChartData.value.values,
+const chartDates  = computed(() => filteredRecords.value.map(r =>
+  new Date(r.fitness_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+))
+const chartValues = computed(() => filteredRecords.value.map(r => parseFloat(r[activeMetricKey.value])))
+
+const chartSeries = computed(() => [{
+  name: `${activeMetric.value.label} (${activeMetric.value.unit})`,
+  data: chartValues.value,
 }])
 
-const weightChartOptions = computed(() => ({
+// Stats derived from filtered data
+const statCurrent = computed(() => chartValues.value.length ? chartValues.value[chartValues.value.length - 1] : null)
+const statChange  = computed(() => chartValues.value.length > 1 ? +(chartValues.value[chartValues.value.length - 1] - chartValues.value[0]).toFixed(2) : null)
+const statLow     = computed(() => chartValues.value.length ? Math.min(...chartValues.value) : null)
+const statHigh    = computed(() => chartValues.value.length ? Math.max(...chartValues.value) : null)
+
+// "change is good" if lower-better + went down, or higher-better + went up
+const changeIsGood = computed(() => {
+  if (statChange.value === null) return null
+  return activeMetric.value.lowerBetter ? statChange.value <= 0 : statChange.value >= 0
+})
+
+const chartOptions = computed(() => ({
   chart: {
-    type: 'line',
+    type: 'area',
     height: 260,
     background: 'transparent',
     toolbar: { show: false },
     zoom: { enabled: false },
-    animations: { enabled: true, speed: 500 },
+    animations: { enabled: true, speed: 400 },
   },
   stroke: { curve: 'smooth', width: 3 },
   colors: ['#C00000'],
@@ -71,9 +118,8 @@ const weightChartOptions = computed(() => ({
     gradient: {
       shade: 'dark',
       type: 'vertical',
-      shadeIntensity: 0.4,
-      gradientToColors: ['#ff6666'],
-      opacityFrom: 0.15,
+      gradientToColors: ['#ff4444'],
+      opacityFrom: 0.18,
       opacityTo: 0.01,
     },
   },
@@ -90,25 +136,24 @@ const weightChartOptions = computed(() => ({
     row: { colors: ['transparent'], opacity: 1 },
   },
   xaxis: {
-    categories: weightChartData.value.dates,
+    categories: chartDates.value,
     labels: {
-      style: { colors: 'rgba(255,255,255,0.5)', fontSize: '11px', fontWeight: 600 },
+      style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
       rotate: -35,
-      rotateAlways: false,
     },
-    axisBorder: { color: 'rgba(255,255,255,0.1)' },
-    axisTicks: { color: 'rgba(255,255,255,0.1)' },
+    axisBorder: { color: 'rgba(255,255,255,0.08)' },
+    axisTicks:  { color: 'rgba(255,255,255,0.08)' },
   },
   yaxis: {
-    min: (min) => Math.max(0, min - 10),
+    min: (min) => Math.max(0, parseFloat((min * 0.94).toFixed(1))),
     labels: {
-      style: { colors: 'rgba(255,255,255,0.5)', fontSize: '11px', fontWeight: 600 },
-      formatter: (v) => `${v} lb`,
+      style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
+      formatter: (v) => `${v}${activeMetric.value.unit.startsWith('/') ? '' : ' '}${activeMetric.value.unit}`,
     },
   },
   tooltip: {
     theme: 'dark',
-    y: { formatter: (v) => `${v} lb` },
+    y: { formatter: (v) => `${v} ${activeMetric.value.unit}` },
   },
   theme: { mode: 'dark' },
 }))
@@ -566,47 +611,72 @@ const computeFmtrxStrengthScore = (entry) => {
   <Loader v-show="!isLoading.status"/>
   <div class="charts-wrap">
 
-    <!-- ── Weight Over Time (always visible) ───────────────────────────────── -->
-    <div v-if="weightChartData.values.length > 0" class="weight-chart-card">
-      <div class="weight-chart-header">
-        <div>
-          <p class="weight-chart-title">Body Weight Over Time</p>
-          <p class="weight-chart-sub">{{ weightChartData.values.length }} data point{{ weightChartData.values.length !== 1 ? 's' : '' }}</p>
+    <!-- ── Interactive metric chart ───────────────────────────────────────── -->
+    <div class="metric-chart-card">
+
+      <!-- Metric selector buttons -->
+      <div class="selector-group">
+        <button
+          v-for="m in METRICS"
+          :key="m.key"
+          class="selector-btn"
+          :class="{ active: activeMetricKey === m.key }"
+          @click="activeMetricKey = m.key"
+        >{{ m.label }}</button>
+      </div>
+
+      <!-- Date range buttons -->
+      <div class="range-group">
+        <button
+          v-for="r in DATE_RANGES"
+          :key="r.months"
+          class="range-btn"
+          :class="{ active: activeDateRange === r.months }"
+          @click="activeDateRange = r.months"
+        >{{ r.label }}</button>
+      </div>
+
+      <!-- Stats row -->
+      <div v-if="chartValues.length > 0" class="stat-row">
+        <div class="stat-pill">
+          <span class="pill-val">{{ statCurrent }}{{ activeMetric.unit.startsWith('/') ? '' : ' ' }}{{ activeMetric.unit }}</span>
+          <span class="pill-lbl">Current</span>
         </div>
-        <div class="weight-stat-pills">
-          <div class="weight-stat-pill">
-            <span class="pill-val">{{ weightChartData.values[weightChartData.values.length - 1] }} lb</span>
-            <span class="pill-lbl">Current</span>
-          </div>
-          <div v-if="weightChartData.values.length > 1" class="weight-stat-pill" :class="weightChartData.values[weightChartData.values.length-1] - weightChartData.values[0] <= 0 ? 'pill-green' : 'pill-red'">
-            <span class="pill-val">{{ (weightChartData.values[weightChartData.values.length-1] - weightChartData.values[0] > 0 ? '+' : '') + (weightChartData.values[weightChartData.values.length-1] - weightChartData.values[0]).toFixed(1) }} lb</span>
-            <span class="pill-lbl">Change</span>
-          </div>
-          <div v-if="weightChartData.values.length > 0" class="weight-stat-pill">
-            <span class="pill-val">{{ Math.min(...weightChartData.values) }} lb</span>
-            <span class="pill-lbl">Low</span>
-          </div>
-          <div v-if="weightChartData.values.length > 0" class="weight-stat-pill">
-            <span class="pill-val">{{ Math.max(...weightChartData.values) }} lb</span>
-            <span class="pill-lbl">High</span>
-          </div>
+        <div v-if="statChange !== null" class="stat-pill" :class="changeIsGood ? 'pill-good' : 'pill-bad'">
+          <span class="pill-val">{{ statChange > 0 ? '+' : '' }}{{ statChange }}{{ activeMetric.unit.startsWith('/') ? '' : ' ' }}{{ activeMetric.unit }}</span>
+          <span class="pill-lbl">Change</span>
+        </div>
+        <div class="stat-pill">
+          <span class="pill-val">{{ statLow }}{{ activeMetric.unit.startsWith('/') ? '' : ' ' }}{{ activeMetric.unit }}</span>
+          <span class="pill-lbl">Low</span>
+        </div>
+        <div class="stat-pill">
+          <span class="pill-val">{{ statHigh }}{{ activeMetric.unit.startsWith('/') ? '' : ' ' }}{{ activeMetric.unit }}</span>
+          <span class="pill-lbl">High</span>
+        </div>
+        <div class="stat-pill">
+          <span class="pill-val">{{ chartValues.length }}</span>
+          <span class="pill-lbl">Points</span>
         </div>
       </div>
-      <apexchart
-        width="100%"
-        type="area"
-        height="240"
-        :options="weightChartOptions"
-        :series="weightSeries"
-      />
-    </div>
 
-    <!-- Empty state if no weight data -->
-    <div v-else class="weight-empty">
-      <svg class="w-10 h-10 text-white/20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-      </svg>
-      <p class="text-white/40 text-sm font-semibold">No weight data recorded yet</p>
+      <!-- Chart -->
+      <div v-if="chartValues.length > 0" class="chart-area">
+        <apexchart
+          width="100%"
+          type="area"
+          height="240"
+          :options="chartOptions"
+          :series="chartSeries"
+          :key="activeMetricKey + '_' + activeDateRange"
+        />
+      </div>
+      <div v-else class="chart-empty">
+        <svg class="w-8 h-8 text-white/20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <p class="text-white/35 text-sm font-semibold">No {{ activeMetric.label }} data for this range</p>
+      </div>
     </div>
 
     <!-- Divider -->
@@ -666,51 +736,94 @@ const computeFmtrxStrengthScore = (entry) => {
   color: white;
 }
 
-/* ── Weight chart card ── */
-.weight-chart-card {
+/* ── Main chart card ── */
+.metric-chart-card {
   background: linear-gradient(160deg, #0f1a2e 0%, #0b1120 100%);
-  border: 1px solid rgba(192,0,0,0.2);
+  border: 1px solid rgba(192,0,0,0.18);
   border-radius: 14px;
-  padding: 16px 16px 8px;
+  padding: 16px;
   margin-bottom: 4px;
-}
-.weight-chart-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Metric selector ── */
+.selector-group {
+  display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.weight-chart-title {
-  font-size: 14px;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: 0.03em;
-}
-.weight-chart-sub {
-  font-size: 11px;
-  color: rgba(255,255,255,0.35);
-  font-weight: 600;
-  margin-top: 2px;
-}
-.weight-stat-pills {
-  display: flex;
   gap: 6px;
+}
+.selector-btn {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 5px 11px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.55);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.selector-btn:hover {
+  border-color: rgba(192,0,0,0.45);
+  color: rgba(255,255,255,0.9);
+  background: rgba(192,0,0,0.08);
+}
+.selector-btn.active {
+  background: #C00000;
+  border-color: #C00000;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(192,0,0,0.25);
+}
+
+/* ── Date range selector ── */
+.range-group {
+  display: flex;
+  gap: 5px;
   flex-wrap: wrap;
 }
-.weight-stat-pill {
+.range-btn {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.range-btn:hover {
+  border-color: rgba(192,0,0,0.4);
+  color: rgba(255,255,255,0.8);
+}
+.range-btn.active {
+  background: rgba(192,0,0,0.15);
+  border-color: rgba(192,0,0,0.55);
+  color: #ff6666;
+}
+
+/* ── Stat pills row ── */
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.stat-pill {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 8px;
-  padding: 5px 10px;
-  min-width: 56px;
+  padding: 5px 11px;
+  min-width: 54px;
 }
-.weight-stat-pill.pill-green { border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
-.weight-stat-pill.pill-red   { border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
+.stat-pill.pill-good { border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.07); }
+.stat-pill.pill-bad  { border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.07); }
 .pill-val {
   font-size: 13px;
   font-weight: 800;
@@ -720,22 +833,25 @@ const computeFmtrxStrengthScore = (entry) => {
 .pill-lbl {
   font-size: 9px;
   font-weight: 700;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.35);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   margin-top: 2px;
 }
 
-.weight-empty {
+.chart-area {
+  margin: 0 -4px;
+}
+
+.chart-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 40px 16px;
   background: rgba(255,255,255,0.02);
-  border: 1px dashed rgba(255,255,255,0.1);
-  border-radius: 14px;
-  padding: 32px 16px;
-  margin-bottom: 4px;
+  border: 1px dashed rgba(255,255,255,0.08);
+  border-radius: 10px;
 }
 
 /* ── Divider ── */
