@@ -210,7 +210,7 @@ if(userData.type === 'coach'){
       </div>
     </section>
 
-    <section class="mt-[160px] md:px-[5%]">
+    <section class="mt-[190px] lg:mt-[115px] md:px-[5%]">
       <TabGroup>
         <!-- Tab bar -->
         <TabList class="flex justify-center gap-1 bg-[#0d1f3c] rounded-xl p-1.5 mx-auto mb-6 max-w-fit shadow-inner">

@@ -158,7 +158,7 @@ onMounted(() => {
 </script>
 <template>
   <section class="mt-5">
-    <div class="grid grid-cols-3 bg-fungo-lightblue divide-x divide-[#000] text-center py-2 uppercase">
+    <div class="grid grid-cols-3 bg-[#0d1f3c] divide-x divide-white/10 text-center py-2 text-white uppercase">
       <div class="col-span-2">
         <p>LIST OF VELOCITIES</p>
       </div>
@@ -168,28 +168,28 @@ onMounted(() => {
     </div>
 
     <div class="grid grid-cols-1 mt-10 lg:grid-cols-2 xl:grid-cols-7 lg:gap-x-8 gap-y-8">
-      <div class="grid lg:grid-cols-1 bg-white rounded-[10px] h-min button-group px-7 py-9 gap-y-3">
-        <p class="text-fungo-red">Select</p>
+      <div class="grid lg:grid-cols-1 bg-[#0d1f3c] rounded-[10px] h-min button-group px-7 py-9 gap-y-3 border border-white/10">
+        <p class="text-[#e10600]">Select</p>
         <button v-for="(button, index) in buttonsGroup" :key="index"
-          class="rounded-[5px] border border-fungo-darkblue py-1" @click="filterBytrajecotry(index, button.typeHit)"
-          :class="{ 'bg-fungo-red text-white border-fungo-red': currentIndex === index }">
+          class="rounded-[5px] border border-white/20 py-1 text-white/70 hover:text-white hover:bg-white/10" @click="filterBytrajecotry(index, button.typeHit)"
+          :class="{ 'bg-[#e10600] text-white border-[#e10600]': currentIndex === index }">
           {{ button.text }}
         </button>
       </div>
       <div class="col-span-3 px-5 py-4 pitch-table">
         <table class="w-full border-collapse text-fungo-darkblue">
 
-          <thead class="bg-fungo-lightblue">
-            <tr class="divide-x divide-[#000]">
+          <thead class="bg-[rgba(15,23,42,0.95)]">
+            <tr class="divide-x divide-white/20">
               <th v-for="(heading, index) in tableOneHeadings" :key="index"
-                class="px-2 py-3 uppercase font-fungo-500 w-min">
+                class="px-2 py-3 uppercase font-fungo-500 w-min text-white">
                 {{ heading }}
               </th>
             </tr>
           </thead>
 
           <tbody>
-            <tr v-for="(velocity, id) in playerVelocities" :key="id" class="relative bg-white even:bg-fungo-gray4">
+            <tr v-for="(velocity, id) in playerVelocities" :key="id" class="relative bg-[rgba(10,16,32,0.5)] even:bg-[rgba(13,31,60,0.5)] text-white">
               <td>{{ velocity.sort + 1 }}</td>
               <td>{{ velocity.velocity }}</td>
             </tr>
@@ -200,17 +200,17 @@ onMounted(() => {
       <div class="col-span-3 px-5 py-4 pitch-table">
         <table class="w-full border-collapse text-fungo-darkblue">
 
-          <thead class="bg-fungo-lightblue">
-            <tr class="divide-x divide-[#000]">
+          <thead class="bg-[rgba(15,23,42,0.95)]">
+            <tr class="divide-x divide-white/20">
               <th v-for="(heading, index) in tableTwoHeadings" :key="index"
-                class="px-2 py-3 uppercase font-fungo-500 w-min">
+                class="px-2 py-3 uppercase font-fungo-500 w-min text-white">
                 {{ heading }}
               </th>
             </tr>
           </thead>
 
           <tbody>
-            <tr class="relative bg-white cursor-pointer even:bg-fungo-gray4"
+            <tr class="relative bg-[rgba(10,16,32,0.5)] even:bg-[rgba(13,31,60,0.5)] cursor-pointer text-white"
               :class="{ 'active-row text-white opacity-60': activeRow == '1' }" @click="filterByFirstRowTable">
               <td>
                 {{ contactAllLocationCount(props.VelocityData, 'LD') }}
@@ -232,7 +232,7 @@ onMounted(() => {
               </td>
             </tr>
             <tr v-for="(velocity, id) in VelocityData" :key="id"
-              class="relative bg-white cursor-pointer even:bg-fungo-gray4"
+              class="relative bg-[rgba(10,16,32,0.5)] even:bg-[rgba(13,31,60,0.5)] cursor-pointer text-white"
               :class="{ 'active-row text-white opacity-60': activeRow == id }" @click="filterByPlayer(velocity, id)">
               <td>{{ filterRowByTrajectory(velocity, 'LD') }}</td>
               <td>{{ filterRowByTrajectory(velocity, 'FB') }}</td>
@@ -249,8 +249,9 @@ onMounted(() => {
 </template>
 <style scoped>
 .pitch-table {
-  @apply rounded-[20px] bg-white;
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
+  @apply rounded-[20px];
+  background: rgba(10, 16, 32, 0.8);
+  box-shadow: 0 4px 32px rgba(0,0,0,0.4);
 }
 
 table tbody tr td {
@@ -264,11 +265,11 @@ table tbody tr::after {
   top: 0;
   height: 100%;
   width: 3px;
-  background-color: #ADE8F4;
+  background-color: #e10600;
 }
 
 table tbody tr:nth-child(even)::after {
-  background-color: #DADADA;
+  background-color: #c00400;
 }
 
 .button-group {
@@ -300,6 +301,6 @@ table tbody tr:nth-child(even)::after {
 }
 
 .active-row {
-  background-color: #0096C7 !important;
+  background-color: #e10600 !important;
 }
 </style>
