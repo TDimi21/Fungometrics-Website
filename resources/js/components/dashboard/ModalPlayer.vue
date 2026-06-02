@@ -307,74 +307,103 @@ import {useRouter} from "vue-router"
               bg-[#060b14] text-left align-middle shadow-xl transition-all flex flex-row overflow-hidden">
 
               <!-- LEFT SIDEBAR: player profile -->
-              <div class="player-sidebar flex flex-col items-center gap-4 p-5 overflow-y-auto border-r border-white/10">
-                <!-- Close button -->
-                <div class="self-end cursor-pointer w-[24px] h-[24px]" @click="emit('closeModal')">
-                  <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
-                </div>
-                <!-- Avatar -->
-                <div class="rounded-full ring-4 ring-[#C00000] overflow-hidden w-[110px] h-[110px] flex-shrink-0">
-                  <img v-if="player.avatar" :src="player.avatar" alt="" class="w-full h-full object-cover">
-                  <img v-else src="../../assets/img/layout/logofungo-nav.png" alt="" class="w-full h-full object-cover">
-                </div>
-                <!-- Name -->
-                <div class="text-center">
-                  <p class="text-white font-bold text-base leading-tight">{{ player.name }}</p>
-                  <p v-if="item.number_in_shirt" class="text-[#C00000] font-bold text-lg">#{{ item.number_in_shirt }}</p>
-                </div>
-                <!-- Edit Profile link -->
-                <div class="edit-profile-link" @click="() => { emit('closeModal'); router.push(`/roster/player/${item.id}`) }">Edit Profile</div>
-                <!-- Divider -->
-                <div class="w-full border-t border-white/10"></div>
-                <!-- Info rows -->
-                <div class="w-full flex flex-col gap-3">
-                  <div v-if="item.number_in_shirt" class="sidebar-row">
-                    <span class="sidebar-label">Jersey #</span>
-                    <span class="sidebar-value">{{ item.number_in_shirt }}</span>
+              <div class="player-sidebar flex flex-col overflow-y-auto border-r border-white/10">
+
+                <!-- HERO HEADER -->
+                <div class="sidebar-hero relative flex-shrink-0">
+                  <!-- Blurred background -->
+                  <div class="sidebar-hero-bg">
+                    <img v-if="player.avatar" :src="player.avatar" alt="" class="w-full h-full object-cover">
+                    <div v-else class="w-full h-full bg-gradient-to-br from-[#1a1f3a] to-[#0b0f1e]"></div>
                   </div>
-                  <div v-if="item.throw_side" class="sidebar-row">
-                    <span class="sidebar-label">Throws</span>
-                    <span class="sidebar-value">{{ item.throw_side }}</span>
-                  </div>
-                  <div v-if="item.hit_side" class="sidebar-row">
-                    <span class="sidebar-label">Bats</span>
-                    <span class="sidebar-value">{{ item.hit_side }}</span>
-                  </div>
-                  <div v-if="player.height" class="sidebar-row">
-                    <span class="sidebar-label">Height</span>
-                    <span class="sidebar-value">{{ player.height }} ft</span>
-                  </div>
-                  <div v-if="item.born?.age" class="sidebar-row">
-                    <span class="sidebar-label">Age</span>
-                    <span class="sidebar-value">{{ item.born.age }}</span>
-                  </div>
-                  <div v-if="item.email" class="sidebar-row">
-                    <span class="sidebar-label">Email</span>
-                    <span class="sidebar-value text-xs truncate">{{ item.email }}</span>
-                  </div>
-                  <div v-if="item.positions?.length" class="sidebar-row">
-                    <span class="sidebar-label">Position</span>
-                    <span class="sidebar-value">{{ item.positions.map(p => typeof p === 'object' ? p.position : p).join(', ') }}</span>
-                  </div>
-                </div>
-                <!-- Score box -->
-                <template v-if="score">
-                  <div class="w-full border-t border-white/10"></div>
-                  <div class="score-badge">
-                    <div class="score-badge-value">{{ strengthScoreBadge?.score ?? '—' }}</div>
-                    <div class="score-badge-label">{{ strengthScoreBadge?.tier ?? 'STRENGTH SCORE' }}</div>
-                  </div>
-                  <div class="w-full flex flex-col gap-3 mt-1">
-                    <div v-if="score.velo" class="sidebar-row">
-                      <span class="sidebar-label">Velo</span>
-                      <span class="sidebar-value">{{ score.velo }}</span>
+                  <div class="sidebar-hero-overlay"></div>
+
+                  <!-- Close button -->
+                  <button class="sidebar-close" @click="emit('closeModal')">
+                    <img alt="close" src="../../assets/img/register/cancel.svg" class="w-4 h-4 invert opacity-80">
+                  </button>
+
+                  <!-- Avatar + name -->
+                  <div class="sidebar-hero-content">
+                    <div class="sidebar-avatar-ring">
+                      <img v-if="player.avatar" :src="player.avatar" alt="" class="w-full h-full object-cover">
+                      <img v-else src="../../assets/img/layout/logofungo-nav.png" alt="" class="w-full h-full object-cover">
                     </div>
-                    <div v-if="score.ev" class="sidebar-row">
-                      <span class="sidebar-label">EV</span>
-                      <span class="sidebar-value">{{ score.ev }}</span>
+                    <div class="text-center mt-3">
+                      <p class="text-white font-bold text-base leading-tight drop-shadow">{{ player.name }}</p>
+                      <p v-if="item.number_in_shirt" class="text-[#ff4444] font-black text-xl leading-tight">#{{ item.number_in_shirt }}</p>
+                    </div>
+                    <!-- Position pills -->
+                    <div v-if="item.positions?.length" class="flex flex-wrap justify-center gap-1 mt-2">
+                      <span
+                        v-for="pos in item.positions" :key="typeof pos === 'object' ? pos.id : pos"
+                        class="position-pill">
+                        {{ typeof pos === 'object' ? pos.position : pos }}
+                      </span>
                     </div>
                   </div>
-                </template>
+                </div>
+
+                <!-- BODY -->
+                <div class="flex flex-col gap-4 p-4">
+                  <!-- Edit Profile -->
+                  <button class="edit-profile-link" @click="() => { emit('closeModal'); router.push(`/roster/player/${item.id}`) }">
+                    Edit Profile
+                  </button>
+
+                  <!-- Info rows -->
+                  <div class="w-full flex flex-col gap-0 rounded-xl overflow-hidden border border-white/8">
+                    <div v-if="item.throw_side" class="info-row">
+                      <span class="info-label">Throws</span>
+                      <span class="info-value">{{ item.throw_side }}</span>
+                    </div>
+                    <div v-if="item.hit_side" class="info-row">
+                      <span class="info-label">Bats</span>
+                      <span class="info-value">{{ item.hit_side }}</span>
+                    </div>
+                    <div v-if="player.height" class="info-row">
+                      <span class="info-label">Height</span>
+                      <span class="info-value">{{ player.height }} ft</span>
+                    </div>
+                    <div v-if="item.born?.age" class="info-row">
+                      <span class="info-label">Age</span>
+                      <span class="info-value">{{ item.born.age }}</span>
+                    </div>
+                    <div v-if="item.email" class="info-row">
+                      <span class="info-label">Email</span>
+                      <span class="info-value text-[10px] truncate max-w-[130px]">{{ item.email }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Score cards -->
+                  <template v-if="strengthScoreBadge">
+                    <div class="score-card">
+                      <div class="score-card-top">
+                        <span class="score-card-label">Strength Score</span>
+                        <span class="score-card-tier" :class="`tier-${strengthScoreBadge.tier}`">{{ strengthScoreBadge.tier }}</span>
+                      </div>
+                      <div class="score-card-value">{{ strengthScoreBadge.score }}</div>
+                      <!-- mini bar -->
+                      <div class="score-bar-track">
+                        <div class="score-bar-fill" :style="{ width: strengthScoreBadge.score + '%' }"></div>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- Velo / EV quick stats -->
+                  <template v-if="score && (score.velo || score.ev)">
+                    <div class="flex gap-2">
+                      <div v-if="score.velo" class="quick-stat flex-1">
+                        <span class="quick-stat-val">{{ score.velo }}</span>
+                        <span class="quick-stat-lbl">Velo</span>
+                      </div>
+                      <div v-if="score.ev" class="quick-stat flex-1">
+                        <span class="quick-stat-val">{{ score.ev }}</span>
+                        <span class="quick-stat-lbl">EV</span>
+                      </div>
+                    </div>
+                  </template>
+                </div>
               </div>
 
               <!-- RIGHT SECTION: tabs -->
@@ -483,58 +512,209 @@ import {useRouter} from "vue-router"
 
 <style scoped>
 
-/* Modal panel is 2/3 of screen width */
+/* ── Modal shell ── */
 .modal-panel {
-  width: min(1080px, 94vw);
+  width: min(1100px, 95vw);
 }
 
-/* Left sidebar = 1/3 of modal */
+/* ── Sidebar ── */
 .player-sidebar {
-  width: 33.333%;
-  min-width: 200px;
-  background: linear-gradient(180deg, #121a29 0%, #0b1320 100%);
+  width: 260px;
+  min-width: 220px;
+  flex-shrink: 0;
+  background: #0b1120;
 }
 
-/* Sidebar info rows */
-.sidebar-row {
+/* ── Hero header ── */
+.sidebar-hero {
+  height: 200px;
+  overflow: hidden;
+  position: relative;
+}
+.sidebar-hero-bg {
+  position: absolute;
+  inset: 0;
+  filter: blur(18px) brightness(0.35) saturate(1.4);
+  transform: scale(1.1);
+}
+.sidebar-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(6,11,20,0.2) 0%, rgba(6,11,20,0.85) 85%, #0b1120 100%);
+}
+.sidebar-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 9999px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sidebar-close:hover { background: rgba(192,0,0,0.3); }
+.sidebar-hero-content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 16px;
+}
+.sidebar-avatar-ring {
+  width: 88px;
+  height: 88px;
+  border-radius: 9999px;
+  border: 3px solid #C00000;
+  box-shadow: 0 0 0 3px rgba(192,0,0,0.25), 0 4px 20px rgba(0,0,0,0.6);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.position-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #C00000;
+  background: rgba(192,0,0,0.12);
+  border: 1px solid rgba(192,0,0,0.35);
+  border-radius: 9999px;
+  padding: 2px 8px;
+}
+
+/* ── Info rows ── */
+.info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.02);
 }
-.sidebar-label {
+.info-row:last-child { border-bottom: none; }
+.info-row:nth-child(odd) { background: rgba(255,255,255,0.035); }
+.info-label {
   font-size: 10px;
   font-weight: 700;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.4);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  white-space: nowrap;
 }
-.sidebar-value {
+.info-value {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255,255,255,0.92);
-  text-align: right;
+  color: rgba(255,255,255,0.9);
 }
 
+/* ── Edit Profile button ── */
 .edit-profile-link {
+  width: 100%;
   font-size: 11px;
-  font-weight: 600;
-  color: #C00000;
+  font-weight: 700;
+  color: rgba(255,255,255,0.75);
   cursor: pointer;
-  border: 1px solid rgba(192, 0, 0, 0.4);
-  border-radius: 9999px;
-  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 8px 12px;
+  text-align: center;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  background: rgba(255,255,255,0.04);
+  transition: all 0.15s;
 }
 .edit-profile-link:hover {
-  color: #ff6666;
-  border-color: rgba(255, 102, 102, 0.65);
-  background: rgba(192, 0, 0, 0.08);
+  color: #ffffff;
+  border-color: rgba(192,0,0,0.6);
+  background: rgba(192,0,0,0.1);
 }
 
-/* Override child Tabs component to match dark theme */
+/* ── Score card ── */
+.score-card {
+  background: linear-gradient(135deg, rgba(192,0,0,0.12) 0%, rgba(6,11,20,0.8) 100%);
+  border: 1px solid rgba(192,0,0,0.3);
+  border-radius: 12px;
+  padding: 14px;
+}
+.score-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.score-card-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.score-card-tier {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 9999px;
+}
+.tier-ELITE { color: #22d3ee; background: rgba(34,211,238,0.12); border: 1px solid rgba(34,211,238,0.3); }
+.tier-HIGH  { color: #4ade80; background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.3); }
+.tier-SOLID { color: #facc15; background: rgba(250,204,21,0.12); border: 1px solid rgba(250,204,21,0.3); }
+.tier-DEV   { color: #fb923c; background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.3); }
+.tier-NEEDS { color: #f87171; background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); }
+.score-card-value {
+  font-size: 36px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.score-bar-track {
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.score-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, #C00000, #ff6666);
+  border-radius: 9999px;
+  transition: width 0.6s ease;
+}
+
+/* ── Quick stat pills ── */
+.quick-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 10px;
+  padding: 10px 8px;
+}
+.quick-stat-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+}
+.quick-stat-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 3px;
+}
+
+/* ── Tabs ── */
 :deep(.tabs-header) {
   background-color: #060b14 !important;
   border-bottom: 1px solid rgba(255,255,255,0.1) !important;
@@ -554,30 +734,6 @@ import {useRouter} from "vue-router"
 :deep(.tabs-content) {
   overflow-y: auto;
   max-height: calc(88vh - 55px);
-}
-
-/* Score badge in sidebar */
-.score-badge {
-  width: 100%;
-  background: #090f19;
-  border: 1px solid rgba(192,0,0,0.4);
-  border-radius: 10px;
-  padding: 12px 10px;
-  text-align: center;
-}
-.score-badge-value {
-  font-size: 28px;
-  font-weight: 900;
-  color: #ffffff;
-  line-height: 1;
-}
-.score-badge-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #C00000;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-top: 4px;
 }
 
 @keyframes bounce {
