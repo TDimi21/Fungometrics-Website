@@ -26,7 +26,7 @@ class GetTeamById extends Controller
     {
         try {
             $teamId = (string) $request->id;
-            $result = Cache::remember("roster_team_{$teamId}", 600, function () use ($teamId) {
+            $result = Cache::remember("roster_team_{$teamId}", 60, function () use ($teamId) {
                 $playersId = PlayerTeam::query()
                     ->where('team_id', $teamId)
                     ->whereNotNull('user_id')

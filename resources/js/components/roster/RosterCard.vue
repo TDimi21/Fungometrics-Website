@@ -26,10 +26,10 @@ const { players } = storeToRefs(playerStore)
 const { axiosGet } = useAxiosAuth()
 
 // ── Metrics modal (players only) ─────────────────────────────────────────────
-const isOpenModal   = ref(false)
+const isOpenModal    = ref(false)
 const isLoadingModal = ref(false)
-const dataMetric    = ref({})
-const dataScore     = ref({})
+const dataMetric     = ref([])
+const dataScore      = ref({})
 
 const showMetrics = async () => {
   if (props.type !== 'player') return
@@ -40,8 +40,9 @@ const showMetrics = async () => {
       axiosGet(`coach/statistics/${props.item.id}`).catch(() => null),
       axiosGet(`player/fitness/${props.item.id}`).catch(() => null),
     ])
-    dataScore.value   = scoreRes?.data?.data  ?? {}
-    dataMetric.value  = fitnessRes?.data?.data ?? {}
+    dataScore.value  = scoreRes?.data?.data  ?? {}
+    const raw        = fitnessRes?.data?.data
+    dataMetric.value = Array.isArray(raw) ? raw : (raw ? [raw] : [])
   } finally {
     isLoadingModal.value = false
   }

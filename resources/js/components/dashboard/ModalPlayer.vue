@@ -74,12 +74,11 @@ import {useRouter} from "vue-router"
   ]
 
   let player = reactive({
-    height: props.item.body.full_height,
-    name: props.item.name.full,
-    lastName: props.item.name.last,
-    email: props.item.email,
-    // weight: props.item.body.weight_data,
-    avatar: props.item.avatar,
+    height: props.item.body?.full_height ?? null,
+    name: props.item.name?.full ?? props.item.name ?? '—',
+    lastName: props.item.name?.last ?? '',
+    email: props.item.email ?? null,
+    avatar: props.item.avatar ?? null,
   })
 
   let dataFitness = reactive({
@@ -331,7 +330,7 @@ import {useRouter} from "vue-router"
                     </div>
                     <div class="text-center mt-3">
                       <p class="text-white font-bold text-base leading-tight drop-shadow">{{ player.name }}</p>
-                      <p v-if="item.number_in_shirt" class="text-[#ff4444] font-black text-xl leading-tight">#{{ item.number_in_shirt }}</p>
+                      <p v-if="item.shirt_number ?? item.number_in_shirt" class="text-[#ff4444] font-black text-xl leading-tight">#{{ item.shirt_number ?? item.number_in_shirt }}</p>
                     </div>
                     <!-- Position pills -->
                     <div v-if="item.positions?.length" class="flex flex-wrap justify-center gap-1 mt-2">
@@ -353,7 +352,11 @@ import {useRouter} from "vue-router"
 
                   <!-- Info rows -->
                   <div class="w-full flex flex-col gap-0 rounded-xl overflow-hidden border border-white/8">
-                    <div v-if="item.throw_side" class="info-row">
+                    <div v-if="item.shirt_number ?? item.number_in_shirt" class="info-row">
+                    <span class="info-label">Jersey</span>
+                    <span class="info-value">#{{ item.shirt_number ?? item.number_in_shirt }}</span>
+                  </div>
+                  <div v-if="item.throw_side" class="info-row">
                       <span class="info-label">Throws</span>
                       <span class="info-value">{{ item.throw_side }}</span>
                     </div>
@@ -367,7 +370,7 @@ import {useRouter} from "vue-router"
                     </div>
                     <div v-if="item.born?.age" class="info-row">
                       <span class="info-label">Age</span>
-                      <span class="info-value">{{ item.born.age }}</span>
+                      <span class="info-value">{{ item.born?.age }}</span>
                     </div>
                     <div v-if="item.email" class="info-row">
                       <span class="info-label">Email</span>
