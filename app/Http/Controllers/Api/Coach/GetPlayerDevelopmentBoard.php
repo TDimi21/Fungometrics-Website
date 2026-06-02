@@ -329,7 +329,7 @@ class GetPlayerDevelopmentBoard extends Controller
                         'picture'     => $profile?->picture ?? null,
                         'height_ft'   => $user->player?->height_in_ft ?? null,
                         'height_in'   => $user->player?->height_in_inch ?? null,
-                        'weight'      => $user->player?->weight ?? null,
+                        'weight'      => $fitness?->body_weight ?? null,
                         'top_ev_mph'  => $topEvMph,
                         'scores' => [
                             'overall' => $overall,

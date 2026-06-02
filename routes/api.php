@@ -34,7 +34,7 @@ use App\Http\Controllers\Api\Coach\RemovePlayers;
 use App\Http\Controllers\Api\Coach\RemoveTeam;
 use App\Http\Controllers\Api\DashBoard\GetDataCharts;
 use App\Http\Controllers\Api\DashBoard\GetDataGraphics;
-// use App\Http\Controllers\Api\DashBoard\GetPlayerCompareStats;
+use App\Http\Controllers\Api\DashBoard\GetPlayerCompareStats;
 use App\Http\Controllers\Api\DashBoard\GetPlayerPitchStats;
 use App\Http\Controllers\Api\DashBoard\GetPlayerLiveABPitchStats;
 use App\Http\Controllers\Api\DashBoard\GetTeamPitchStats;
@@ -121,7 +121,7 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
     Route::post('player/fitness', SaveFitness::class);
     Route::get('player/fitness/{id}', GetFitness::class);
     Route::get('dashboard/{team}', GetDataGraphics::class);
-    // Route::get('player-compare/{player}', GetPlayerCompareStats::class);
+    Route::get('player-compare/{player}', GetPlayerCompareStats::class);
     Route::get('pitcher-stats/team', GetTeamPitchStats::class);
     Route::get('pitcher-liveab-stats/team', GetTeamLiveABPitchStats::class);
     Route::get('pitcher-stats/{player}', GetPlayerPitchStats::class);
