@@ -18,6 +18,7 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useRoute, useRouter } from 'vue-router'
 import { computeStrengthAssessmentScore } from '@/features/development/lib/strengthAssessmentScore.js'
 import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
+import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -2684,6 +2685,13 @@ watch(
                   :front-squat="selectedDevStats?.max?.front_squat || selectedDevPlayer?.fitness?.front_squat || selectedDevCard?.fitness?.front_squat || null"
                   :pull-ups="selectedDevStats?.max?.pull_ups ?? selectedDevPlayer?.fitness?.pull_ups ?? selectedDevCard?.fitness?.pull_ups ?? null"
                   :push-ups="selectedDevStats?.max?.push_ups ?? selectedDevPlayer?.fitness?.push_ups ?? selectedDevCard?.fitness?.push_ups ?? null"
+                />
+
+                <!-- Coach Assessment Tool: Strength + Mobility -->
+                <CoachAssessmentPanel
+                  v-if="selectedDevPlayer?.id"
+                  :player-id="selectedDevPlayer.id"
+                  :player-name="selectedDevPlayer.name"
                 />
 
                 <!-- Scripted BP scorecard + recent sessions -->
