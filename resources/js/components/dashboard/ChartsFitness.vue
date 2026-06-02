@@ -123,14 +123,15 @@ const chartOptions = computed(() => ({
   },
   stroke: { curve: 'straight', width: activeMetrics.value.length > 1 ? 2.5 : 3 },
   colors: chartColors.value,
-  fill: {
+  fill: activeMetrics.value.length === 1 ? {
     type: 'gradient',
-    opacity: activeMetrics.value.length === 1 ? 1 : 0,
     gradient: {
       shade: 'dark', type: 'vertical',
-      opacityFrom: activeMetrics.value.length === 1 ? 0.15 : 0,
-      opacityTo: 0,
+      opacityFrom: 0.15, opacityTo: 0.01,
     },
+  } : {
+    type: 'solid',
+    opacity: 0,
   },
   markers: {
     size: 5,
@@ -318,6 +319,24 @@ const computeFmtrxStrengthScore = (entry) => {
 
         <!-- ── Col 3: Stats + Chart ── -->
         <div class="col-chart">
+          <!-- Chart -->
+          <div v-if="hasAnyData" class="chart-area">
+            <apexchart
+              width="100%"
+              type="line"
+              height="260"
+              :options="chartOptions"
+              :series="chartSeries"
+              :key="[...activeMetricKeys].join('_') + '_' + activeDateRange"
+            />
+          </div>
+          <div v-else class="chart-empty">
+            <svg class="w-8 h-8 text-white/20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <p class="text-white/35 text-sm font-semibold">No data for this selection</p>
+          </div>
+
           <!-- Per-metric stat rows -->
           <div v-if="hasAnyData" class="stats-block">
             <div v-for="s in metricStats" :key="s.key" class="stat-row">
@@ -348,24 +367,6 @@ const computeFmtrxStrengthScore = (entry) => {
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Chart -->
-          <div v-if="hasAnyData" class="chart-area">
-            <apexchart
-              width="100%"
-              type="line"
-              height="260"
-              :options="chartOptions"
-              :series="chartSeries"
-              :key="[...activeMetricKeys].join('_') + '_' + activeDateRange"
-            />
-          </div>
-          <div v-else class="chart-empty">
-            <svg class="w-8 h-8 text-white/20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-            </svg>
-            <p class="text-white/35 text-sm font-semibold">No data for this selection</p>
           </div>
         </div>
 
