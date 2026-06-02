@@ -318,7 +318,7 @@ const scoreCards = computed(() => ([
           />
         </div>
 
-        <div v-if="selectedScoreDetail" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="selectedScoreKey = null">
+        <div v-if="selectedScoreDetail" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 pt-6" @click.self="selectedScoreKey = null">
           <div class="w-full max-w-3xl rounded-xl border border-white/15 bg-slate-900 p-4">
             <div class="mb-3 flex items-start justify-between gap-3">
               <div>
