@@ -163,6 +163,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                     'player' => [
                         'id' => $playerId,
                         'name' => trim(($player->profile?->first_name ?? '') . ' ' . ($player->profile?->last_name ?? '')),
+                        'picture' => $player->profile?->picture,
                         'age' => $this->resolveAge($player->player?->born_date),
                         'grade' => null,
                         'position' => $role === 'two-way' ? 'Two-way' : ucfirst($role),
