@@ -424,13 +424,7 @@ const scoreCards = computed(() => ([
 
           </div><!-- /col 1 -->
 
-          <!-- ── COLUMN 2 : Percentile Rankings ── -->
-          <div class="flex flex-col gap-4">
-            <PercentileRankingsTable :rows="percentileRows" />
-            <CorrelationInsightsCard :insights="insights" />
-          </div><!-- /col 2 -->
-
-          <!-- ── COLUMN 3 : Score cards + deep-dive ── -->
+          <!-- ── COLUMN 2 : Score cards + deep-dive ── -->
           <div class="flex flex-col gap-4">
             <!-- 6 score cards in a 2-col mini-grid -->
             <div>
@@ -464,6 +458,12 @@ const scoreCards = computed(() => ([
               <MobilityAssessmentCard :mobility="model.mobility" />
             </div>
             <CoachActionPlanCard :recommendations="recommendations" :coach-notes="sourceData.coachNotes || ''" />
+          </div><!-- /col 2 -->
+
+          <!-- ── COLUMN 3 : Percentile Rankings ── -->
+          <div class="flex flex-col gap-4">
+            <PercentileRankingsTable :rows="percentileRows" />
+            <CorrelationInsightsCard :insights="insights" />
           </div><!-- /col 3 -->
 
         </div><!-- /3-col grid -->
