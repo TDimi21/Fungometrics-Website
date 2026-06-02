@@ -1,4 +1,4 @@
-git remote -v/**
+/**
  * Strength Assessment Score — FMTRX
  *
  * Inputs are 0-100 percentile values entered by the coach.
