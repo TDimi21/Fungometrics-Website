@@ -119,15 +119,17 @@ const chartOptions = computed(() => ({
     toolbar: { show: false },
     zoom: { enabled: false },
     animations: { enabled: true, speed: 350 },
+    connectNulls: true,
   },
   stroke: { curve: 'straight', width: activeMetrics.value.length > 1 ? 2.5 : 3 },
   colors: chartColors.value,
   fill: {
-    type: activeMetrics.value.length === 1 ? 'gradient' : 'solid',
+    type: 'gradient',
     opacity: activeMetrics.value.length === 1 ? 1 : 0,
     gradient: {
       shade: 'dark', type: 'vertical',
-      opacityFrom: 0.15, opacityTo: 0.01,
+      opacityFrom: activeMetrics.value.length === 1 ? 0.15 : 0,
+      opacityTo: 0,
     },
   },
   markers: {
