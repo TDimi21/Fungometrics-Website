@@ -363,6 +363,8 @@ class GetPlayerDevelopmentBoard extends Controller
                             'back_squat'  => $fitness?->back_squat,
                             'power_clean' => $fitness?->power_clean,
                             'dead_lift'   => $fitness?->dead_lift,
+                            'pull_ups'    => $fitness?->pull_ups,
+                            'push_ups'    => $fitness?->push_ups,
                             'yd_40_dash'  => $fitness?->yd_40_dash,
                             'yd_60_dash'  => $fitness?->yd_60_dash,
                             'sleep_hours' => $fitness?->sleep_hours,

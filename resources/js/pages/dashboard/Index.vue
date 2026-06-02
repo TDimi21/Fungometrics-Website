@@ -17,6 +17,7 @@ import useChartOptions from '@/composables/useChartOptions.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useRoute, useRouter } from 'vue-router'
 import { computeStrengthAssessmentScore } from '@/features/development/lib/strengthAssessmentScore.js'
+import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -2675,6 +2676,15 @@ watch(
                     </div>
                   </div>
                 </div>
+
+                <!-- Strength Standards Reference -->
+                <StrengthStandardsCard
+                  :body-weight="selectedDevPlayer?.fitness?.body_weight ?? selectedDevCard?.fitness?.body_weight ?? null"
+                  :bench-press="selectedDevPlayer?.fitness?.bench_press ?? selectedDevCard?.fitness?.bench_press ?? null"
+                  :front-squat="selectedDevPlayer?.fitness?.front_squat ?? selectedDevCard?.fitness?.front_squat ?? null"
+                  :pull-ups="selectedDevPlayer?.fitness?.pull_ups ?? selectedDevCard?.fitness?.pull_ups ?? null"
+                  :push-ups="selectedDevPlayer?.fitness?.push_ups ?? selectedDevCard?.fitness?.push_ups ?? null"
+                />
 
                 <!-- Scripted BP scorecard + recent sessions -->
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
