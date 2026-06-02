@@ -131,7 +131,7 @@ watch(() => resolveTeamId(team.value), (newId, oldId) => {
 .ticker-bar {
   display: flex;
   align-items: center;
-  height: 28px;
+  height: 36px;
   overflow: hidden;
   background: linear-gradient(90deg, rgba(192,0,0,0.18) 0%, rgba(0,20,60,0.55) 100%);
   border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -156,11 +156,11 @@ watch(() => resolveTeamId(team.value), (newId, oldId) => {
   border-right: 1px solid rgba(255,255,255,0.15);
 }
 .ticker-label-icon {
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1;
 }
 .ticker-label-text {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.12em;
   color: #fff;
@@ -209,28 +209,28 @@ watch(() => resolveTeamId(team.value), (newId, oldId) => {
 .ticker-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 8px;
-  font-size: 11px;
+  gap: 5px;
+  padding: 0 10px;
+  font-size: 13px;
   color: rgba(255,255,255,0.9);
 }
 .ticker-item-icon {
-  font-size: 11px;
+  font-size: 13px;
 }
 .ticker-item-label {
   font-weight: 700;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: rgba(255,200,200,0.85);
 }
 .ticker-item-rank {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   color: #C00000;
   background: rgba(192,0,0,0.18);
   border-radius: 3px;
-  padding: 0 3px;
+  padding: 0 4px;
 }
 .ticker-item-name {
   font-weight: 600;
@@ -239,17 +239,17 @@ watch(() => resolveTeamId(team.value), (newId, oldId) => {
 .ticker-item-value {
   font-weight: 900;
   color: #FED7AA;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.02em;
 }
 .ticker-item-unit {
   font-weight: 400;
-  font-size: 9px;
+  font-size: 11px;
   color: rgba(255,255,255,0.55);
 }
 .ticker-sep {
   color: rgba(255,255,255,0.2);
-  font-size: 14px;
-  padding-left: 8px;
+  font-size: 16px;
+  padding-left: 10px;
 }
 </style>
