@@ -40,103 +40,151 @@ const getOrderArray = () => normalizedResponse.value
 
 // ── Interactive metric chart ─────────────────────────────────────────────────
 const METRICS = [
-  { key: 'body_weight',           label: 'Weight',         unit: 'lb',  lowerBetter: true  },
-  { key: 'bench_press',           label: 'Bench Press',    unit: 'lb',  lowerBetter: false },
-  { key: 'dead_lift',             label: 'Deadlift',       unit: 'lb',  lowerBetter: false },
-  { key: 'front_squat',           label: 'Front Squat',    unit: 'lb',  lowerBetter: false },
-  { key: 'back_squat',            label: 'Back Squat',     unit: 'lb',  lowerBetter: false },
-  { key: 'power_clean',           label: 'Power Clean',    unit: 'lb',  lowerBetter: false },
-  { key: 'yd_40_dash',            label: '40 Time',        unit: 's',   lowerBetter: true  },
-  { key: 'yd_60_dash',            label: '60 Time',        unit: 's',   lowerBetter: true  },
-  { key: 'sleep_hours',           label: 'Sleep Hrs',      unit: 'hrs', lowerBetter: false },
-  { key: 'recovery_score',        label: 'Recovery',       unit: '/100',lowerBetter: false },
-  { key: 'mobility_score',        label: 'Mobility',       unit: '/100',lowerBetter: false },
+  { key: 'body_weight',    label: 'Weight',      unit: 'lb',   lowerBetter: true,  color: '#C00000' },
+  { key: 'bench_press',   label: 'Bench Press', unit: 'lb',   lowerBetter: false, color: '#3b82f6' },
+  { key: 'dead_lift',     label: 'Deadlift',    unit: 'lb',   lowerBetter: false, color: '#a855f7' },
+  { key: 'front_squat',   label: 'Front Squat', unit: 'lb',   lowerBetter: false, color: '#f59e0b' },
+  { key: 'back_squat',    label: 'Back Squat',  unit: 'lb',   lowerBetter: false, color: '#10b981' },
+  { key: 'power_clean',   label: 'Power Clean', unit: 'lb',   lowerBetter: false, color: '#06b6d4' },
+  { key: 'yd_40_dash',    label: '40 Time',     unit: 's',    lowerBetter: true,  color: '#f97316' },
+  { key: 'yd_60_dash',    label: '60 Time',     unit: 's',    lowerBetter: true,  color: '#ec4899' },
+  { key: 'sleep_hours',   label: 'Sleep Hrs',   unit: 'hrs',  lowerBetter: false, color: '#8b5cf6' },
+  { key: 'recovery_score',label: 'Recovery',    unit: '/100', lowerBetter: false, color: '#22d3ee' },
+  { key: 'mobility_score',label: 'Mobility',    unit: '/100', lowerBetter: false, color: '#4ade80' },
 ]
 
 const DATE_RANGES = [
-  { label: 'All Time', months: 0   },
-  { label: '1 Mo',     months: 1   },
-  { label: '3 Mo',     months: 3   },
-  { label: '6 Mo',     months: 6   },
-  { label: '1 Year',   months: 12  },
+  { label: 'All Time', months: 0  },
+  { label: '1 Mo',     months: 1  },
+  { label: '3 Mo',     months: 3  },
+  { label: '6 Mo',     months: 6  },
+  { label: '1 Year',   months: 12 },
 ]
 
-const activeMetricKey = ref('body_weight')
-const activeDateRange = ref(0) // months, 0 = all time
+// Set of active metric keys (multi-select)
+const activeMetricKeys = ref(new Set(['body_weight']))
+const activeDateRange  = ref(0)
 
-const activeMetric = computed(() => METRICS.find(m => m.key === activeMetricKey.value) ?? METRICS[0])
+const toggleMetric = (key) => {
+  const next = new Set(activeMetricKeys.value)
+  if (next.has(key)) {
+    if (next.size > 1) next.delete(key) // always keep at least 1
+  } else {
+    next.add(key)
+  }
+  activeMetricKeys.value = next
+}
 
-const filteredRecords = computed(() => {
+const activeMetrics = computed(() => METRICS.filter(m => activeMetricKeys.value.has(m.key)))
+
+// Cutoff date for the selected range
+const cutoffDate = computed(() => {
+  if (activeDateRange.value === 0) return null
+  const d = new Date()
+  d.setMonth(d.getMonth() - activeDateRange.value)
+  return d
+})
+
+// For multi-metric we build a unified X-axis (all unique dates across selected metrics)
+const allRecordsInRange = computed(() => {
   let records = normalizedResponse.value
-    .filter(r => r[activeMetricKey.value] != null && parseFloat(r[activeMetricKey.value]) > 0 && r.fitness_date)
+    .filter(r => r.fitness_date)
     .slice()
     .sort((a, b) => new Date(a.fitness_date) - new Date(b.fitness_date))
-
-  if (activeDateRange.value > 0) {
-    const cutoff = new Date()
-    cutoff.setMonth(cutoff.getMonth() - activeDateRange.value)
-    records = records.filter(r => new Date(r.fitness_date) >= cutoff)
-  }
+  if (cutoffDate.value) records = records.filter(r => new Date(r.fitness_date) >= cutoffDate.value)
   return records
 })
 
-const chartDates  = computed(() => filteredRecords.value.map(r =>
-  new Date(r.fitness_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
-))
-const chartValues = computed(() => filteredRecords.value.map(r => parseFloat(r[activeMetricKey.value])))
-
-const chartSeries = computed(() => [{
-  name: `${activeMetric.value.label} (${activeMetric.value.unit})`,
-  data: chartValues.value,
-}])
-
-// Stats derived from filtered data
-const statCurrent = computed(() => chartValues.value.length ? chartValues.value[chartValues.value.length - 1] : null)
-const statChange  = computed(() => chartValues.value.length > 1 ? +(chartValues.value[chartValues.value.length - 1] - chartValues.value[0]).toFixed(2) : null)
-const statLow     = computed(() => chartValues.value.length ? Math.min(...chartValues.value) : null)
-const statHigh    = computed(() => chartValues.value.length ? Math.max(...chartValues.value) : null)
-
-// "change is good" if lower-better + went down, or higher-better + went up
-const changeIsGood = computed(() => {
-  if (statChange.value === null) return null
-  return activeMetric.value.lowerBetter ? statChange.value <= 0 : statChange.value >= 0
+// Unique sorted date labels across all selected metrics
+const unifiedDates = computed(() => {
+  const dateSet = new Set()
+  allRecordsInRange.value.forEach(r => {
+    activeMetrics.value.forEach(m => {
+      if (r[m.key] != null && parseFloat(r[m.key]) > 0) {
+        dateSet.add(r.fitness_date)
+      }
+    })
+  })
+  return [...dateSet].sort((a, b) => new Date(a) - new Date(b))
 })
+
+const unifiedDateLabels = computed(() =>
+  unifiedDates.value.map(d =>
+    new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+  )
+)
+
+// Build one series per active metric, aligned to unifiedDates (null for missing points)
+const chartSeries = computed(() =>
+  activeMetrics.value.map(m => {
+    // build a map date -> value for this metric
+    const map = {}
+    allRecordsInRange.value.forEach(r => {
+      const v = parseFloat(r[m.key])
+      if (v > 0) map[r.fitness_date] = v
+    })
+    return {
+      name: `${m.label} (${m.unit})`,
+      data: unifiedDates.value.map(d => map[d] ?? null),
+    }
+  })
+)
+
+// Per-metric stats (current, change, low, high)
+const metricStats = computed(() =>
+  activeMetrics.value.map(m => {
+    const vals = allRecordsInRange.value
+      .filter(r => r[m.key] != null && parseFloat(r[m.key]) > 0)
+      .map(r => parseFloat(r[m.key]))
+    if (!vals.length) return { ...m, current: null, change: null, low: null, high: null }
+    const current = vals[vals.length - 1]
+    const change  = vals.length > 1 ? +(current - vals[0]).toFixed(2) : null
+    const good    = change === null ? null : (m.lowerBetter ? change <= 0 : change >= 0)
+    return { ...m, current, change, good, low: Math.min(...vals), high: Math.max(...vals), count: vals.length }
+  })
+)
+
+const hasAnyData = computed(() => chartSeries.value.some(s => s.data.some(v => v !== null)))
+
+const chartColors = computed(() => activeMetrics.value.map(m => m.color))
 
 const chartOptions = computed(() => ({
   chart: {
-    type: 'area',
-    height: 260,
+    type: 'line',
+    height: 280,
     background: 'transparent',
     toolbar: { show: false },
     zoom: { enabled: false },
-    animations: { enabled: true, speed: 400 },
+    animations: { enabled: true, speed: 350 },
   },
-  stroke: { curve: 'smooth', width: 3 },
-  colors: ['#C00000'],
+  stroke: { curve: 'smooth', width: activeMetrics.value.length > 1 ? 2.5 : 3 },
+  colors: chartColors.value,
   fill: {
-    type: 'gradient',
+    type: activeMetrics.value.length === 1 ? 'gradient' : 'solid',
+    opacity: activeMetrics.value.length === 1 ? 1 : 0,
     gradient: {
-      shade: 'dark',
-      type: 'vertical',
-      gradientToColors: ['#ff4444'],
-      opacityFrom: 0.18,
-      opacityTo: 0.01,
+      shade: 'dark', type: 'vertical',
+      opacityFrom: 0.15, opacityTo: 0.01,
     },
   },
   markers: {
     size: 5,
-    colors: ['#C00000'],
-    strokeColors: '#fff',
+    strokeColors: '#0b1120',
     strokeWidth: 2,
     hover: { size: 7 },
   },
   dataLabels: { enabled: false },
+  legend: {
+    show: activeMetrics.value.length > 1,
+    labels: { colors: 'rgba(255,255,255,0.65)' },
+    markers: { width: 10, height: 10, radius: 9999 },
+  },
   grid: {
     borderColor: 'rgba(255,255,255,0.07)',
     row: { colors: ['transparent'], opacity: 1 },
   },
   xaxis: {
-    categories: chartDates.value,
+    categories: unifiedDateLabels.value,
     labels: {
       style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
       rotate: -35,
@@ -144,16 +192,22 @@ const chartOptions = computed(() => ({
     axisBorder: { color: 'rgba(255,255,255,0.08)' },
     axisTicks:  { color: 'rgba(255,255,255,0.08)' },
   },
-  yaxis: {
+  yaxis: activeMetrics.value.length === 1 ? {
     min: (min) => Math.max(0, parseFloat((min * 0.94).toFixed(1))),
     labels: {
       style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
-      formatter: (v) => `${v}${activeMetric.value.unit.startsWith('/') ? '' : ' '}${activeMetric.value.unit}`,
+      formatter: (v) => v != null ? `${v} ${activeMetrics.value[0].unit}` : '',
+    },
+  } : {
+    labels: {
+      style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
+      formatter: (v) => v != null ? String(v) : '',
     },
   },
   tooltip: {
     theme: 'dark',
-    y: { formatter: (v) => `${v} ${activeMetric.value.unit}` },
+    shared: true,
+    intersect: false,
   },
   theme: { mode: 'dark' },
 }))
@@ -620,8 +674,9 @@ const computeFmtrxStrengthScore = (entry) => {
           v-for="m in METRICS"
           :key="m.key"
           class="selector-btn"
-          :class="{ active: activeMetricKey === m.key }"
-          @click="activeMetricKey = m.key"
+          :class="{ active: activeMetricKeys.has(m.key) }"
+          :style="activeMetricKeys.has(m.key) ? { background: m.color, borderColor: m.color } : {}"
+          @click="toggleMetric(m.key)"
         >{{ m.label }}</button>
       </div>
 
@@ -636,46 +691,54 @@ const computeFmtrxStrengthScore = (entry) => {
         >{{ r.label }}</button>
       </div>
 
-      <!-- Stats row -->
-      <div v-if="chartValues.length > 0" class="stat-row">
-        <div class="stat-pill">
-          <span class="pill-val">{{ statCurrent }}{{ activeMetric.unit.startsWith('/') ? '' : ' ' }}{{ activeMetric.unit }}</span>
-          <span class="pill-lbl">Current</span>
-        </div>
-        <div v-if="statChange !== null" class="stat-pill" :class="changeIsGood ? 'pill-good' : 'pill-bad'">
-          <span class="pill-val">{{ statChange > 0 ? '+' : '' }}{{ statChange }}{{ activeMetric.unit.startsWith('/') ? '' : ' ' }}{{ activeMetric.unit }}</span>
-          <span class="pill-lbl">Change</span>
-        </div>
-        <div class="stat-pill">
-          <span class="pill-val">{{ statLow }}{{ activeMetric.unit.startsWith('/') ? '' : ' ' }}{{ activeMetric.unit }}</span>
-          <span class="pill-lbl">Low</span>
-        </div>
-        <div class="stat-pill">
-          <span class="pill-val">{{ statHigh }}{{ activeMetric.unit.startsWith('/') ? '' : ' ' }}{{ activeMetric.unit }}</span>
-          <span class="pill-lbl">High</span>
-        </div>
-        <div class="stat-pill">
-          <span class="pill-val">{{ chartValues.length }}</span>
-          <span class="pill-lbl">Points</span>
+      <!-- Per-metric stat rows -->
+      <div v-if="hasAnyData" class="stats-block">
+        <div v-for="s in metricStats" :key="s.key" class="stat-row">
+          <div class="stat-metric-label" :style="{ color: s.color }">
+            <span class="stat-dot" :style="{ background: s.color }"></span>
+            {{ s.label }}
+          </div>
+          <div class="stat-pills">
+            <div v-if="s.current !== null" class="stat-pill">
+              <span class="pill-val">{{ s.current }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
+              <span class="pill-lbl">Current</span>
+            </div>
+            <div v-if="s.change !== null" class="stat-pill" :class="s.good ? 'pill-good' : 'pill-bad'">
+              <span class="pill-val">{{ s.change > 0 ? '+' : '' }}{{ s.change }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
+              <span class="pill-lbl">Change</span>
+            </div>
+            <div v-if="s.low !== null" class="stat-pill">
+              <span class="pill-val">{{ s.low }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
+              <span class="pill-lbl">Low</span>
+            </div>
+            <div v-if="s.high !== null" class="stat-pill">
+              <span class="pill-val">{{ s.high }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
+              <span class="pill-lbl">High</span>
+            </div>
+            <div v-if="s.count" class="stat-pill">
+              <span class="pill-val">{{ s.count }}</span>
+              <span class="pill-lbl">Points</span>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Chart -->
-      <div v-if="chartValues.length > 0" class="chart-area">
+      <div v-if="hasAnyData" class="chart-area">
         <apexchart
           width="100%"
-          type="area"
-          height="240"
+          type="line"
+          height="260"
           :options="chartOptions"
           :series="chartSeries"
-          :key="activeMetricKey + '_' + activeDateRange"
+          :key="[...activeMetricKeys].join('_') + '_' + activeDateRange"
         />
       </div>
       <div v-else class="chart-empty">
         <svg class="w-8 h-8 text-white/20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
         </svg>
-        <p class="text-white/35 text-sm font-semibold">No {{ activeMetric.label }} data for this range</p>
+        <p class="text-white/35 text-sm font-semibold">No data for this selection</p>
       </div>
     </div>
 
@@ -806,11 +869,39 @@ const computeFmtrxStrengthScore = (entry) => {
   color: #ff6666;
 }
 
-/* ── Stat pills row ── */
+/* ── Stat pills ── */
+.stats-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .stat-row {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 6px;
+}
+.stat-metric-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  min-width: 88px;
+  flex-shrink: 0;
+}
+.stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+.stat-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
 }
 .stat-pill {
   display: flex;
