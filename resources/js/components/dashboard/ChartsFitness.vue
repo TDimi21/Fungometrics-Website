@@ -85,7 +85,7 @@ const cutoffDate = computed(() => {
   return d
 })
 
-// For multi-metric we build a unified X-axis (all unique dates across selected metrics)
+// For multi-metric each series uses {x: timestamp, y: value} — no shared axis, no nulls
 const allRecordsInRange = computed(() => {
   let records = normalizedResponse.value
     .filter(r => r.fitness_date)
@@ -95,39 +95,14 @@ const allRecordsInRange = computed(() => {
   return records
 })
 
-// Unique sorted date labels across all selected metrics
-const unifiedDates = computed(() => {
-  const dateSet = new Set()
-  allRecordsInRange.value.forEach(r => {
-    activeMetrics.value.forEach(m => {
-      if (r[m.key] != null && parseFloat(r[m.key]) > 0) {
-        dateSet.add(r.fitness_date)
-      }
-    })
-  })
-  return [...dateSet].sort((a, b) => new Date(a) - new Date(b))
-})
-
-const unifiedDateLabels = computed(() =>
-  unifiedDates.value.map(d =>
-    new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
-  )
-)
-
-// Build one series per active metric, aligned to unifiedDates (null for missing points)
+// Build one series per active metric using {x, y} timestamp pairs (no nulls)
 const chartSeries = computed(() =>
-  activeMetrics.value.map(m => {
-    // build a map date -> value for this metric
-    const map = {}
-    allRecordsInRange.value.forEach(r => {
-      const v = parseFloat(r[m.key])
-      if (v > 0) map[r.fitness_date] = v
-    })
-    return {
-      name: `${m.label} (${m.unit})`,
-      data: unifiedDates.value.map(d => map[d] ?? null),
-    }
-  })
+  activeMetrics.value.map(m => ({
+    name: `${m.label} (${m.unit})`,
+    data: allRecordsInRange.value
+      .filter(r => r[m.key] != null && parseFloat(r[m.key]) > 0)
+      .map(r => ({ x: new Date(r.fitness_date).getTime(), y: parseFloat(r[m.key]) })),
+  }))
 )
 
 // Per-metric stats (current, change, low, high)
@@ -144,7 +119,7 @@ const metricStats = computed(() =>
   })
 )
 
-const hasAnyData = computed(() => chartSeries.value.some(s => s.data.some(v => v !== null)))
+const hasAnyData = computed(() => chartSeries.value.some(s => s.data.length > 0))
 
 const chartColors = computed(() => activeMetrics.value.map(m => m.color))
 
@@ -158,7 +133,6 @@ const chartOptions = computed(() => ({
     animations: { enabled: true, speed: 350 },
   },
   stroke: { curve: 'straight', width: activeMetrics.value.length > 1 ? 2.5 : 3 },
-  connectNulls: true,
   colors: chartColors.value,
   fill: {
     type: activeMetrics.value.length === 1 ? 'gradient' : 'solid',
@@ -185,10 +159,11 @@ const chartOptions = computed(() => ({
     row: { colors: ['transparent'], opacity: 1 },
   },
   xaxis: {
-    categories: unifiedDateLabels.value,
+    type: 'datetime',
     labels: {
       style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
       rotate: -35,
+      datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'MMM dd' },
     },
     axisBorder: { color: 'rgba(255,255,255,0.08)' },
     axisTicks:  { color: 'rgba(255,255,255,0.08)' },
