@@ -20,7 +20,8 @@ const { axiosGet, axiosPost } = useAxiosAuth()
 const { team } = storeToRefs(useTeamStore())
 
 // ─── tabs ─────────────────────────────────────────────────────────────────────
-const tab = ref('strength') // 'strength' | 'mobility' | 'history'
+const tab = ref('strength') // 'strength' | 'mobility' | 'reports'
+const selectedReport = ref(null)
 
 // ─── form state ───────────────────────────────────────────────────────────────
 const saving    = ref(false)
@@ -136,8 +137,12 @@ const loadHistory = async () => {
   try {
     const { data } = await axiosGet('assessments/player/' + props.playerId)
     history.value = data?.data ?? []
+    if (!selectedReport.value && history.value.length) {
+      selectedReport.value = history.value[0]
+    }
   } catch (_) {
     history.value = []
+    selectedReport.value = null
   } finally {
     loadingHx.value = false
   }
@@ -145,6 +150,11 @@ const loadHistory = async () => {
 
 onMounted(loadHistory)
 watch(() => props.playerId, loadHistory)
+watch(tab, (val) => {
+  if (val === 'reports' && !selectedReport.value && history.value.length) {
+    selectedReport.value = history.value[0]
+  }
+})
 
 // ─── submit ───────────────────────────────────────────────────────────────────
 const submit = async () => {
@@ -167,7 +177,8 @@ const submit = async () => {
     await axiosPost('assessments', payload)
     toast('Assessment saved!', 'success')
     await loadHistory()
-    tab.value = 'history'
+    selectedReport.value = history.value[0] ?? null
+    tab.value = 'reports'
   } catch (e) {
     toast('Failed to save assessment. Please try again.', 'error')
   } finally {
@@ -186,14 +197,13 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '
         <div class="text-[10px] uppercase tracking-widest text-white/40 mb-0.5">Coach Assessment Tool</div>
         <div class="text-base font-black text-white">{{ playerName || 'Player' }} — Strength &amp; Mobility</div>
       </div>
-      <div class="flex gap-1">
-        <button
-          v-for="t in [{ key: 'strength', label: '💪 Strength' }, { key: 'mobility', label: '🤸 Mobility' }, { key: 'history', label: '📋 History' }]"
-          :key="t.key"
-          @click="tab = t.key"
-          class="tab-btn"
-          :class="tab === t.key ? 'tab-btn--active' : ''"
-        >{{ t.label }}</button>
+      <div class="assessment-select-wrap">
+        <label class="assessment-select-label">Assessment</label>
+        <select v-model="tab" class="assessment-select">
+          <option value="strength">Strength</option>
+          <option value="mobility">Mobility</option>
+          <option value="reports">Reports</option>
+        </select>
       </div>
     </div>
 
@@ -332,8 +342,8 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '
       </div>
     </div>
 
-    <!-- ── HISTORY TAB ──────────────────────────────────────────────────────── -->
-    <div v-if="tab === 'history'">
+    <!-- ── REPORTS TAB ──────────────────────────────────────────────────────── -->
+    <div v-if="tab === 'reports'">
       <div v-if="loadingHx" class="py-10 text-center text-white/40 text-sm animate-pulse">Loading history...</div>
 
       <div v-else-if="!history.length" class="py-10 text-center text-white/30 text-sm">
@@ -344,46 +354,65 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '
       <div v-else class="flex flex-col gap-3">
         <button @click="tab = 'strength'" class="btn-primary self-start mb-1">+ New Assessment</button>
 
+        <div class="report-table-wrap">
+          <div class="report-table-header">
+            <div>Date</div>
+            <div>Type</div>
+            <div class="text-right">Score</div>
+          </div>
+          <button
+            v-for="a in history"
+            :key="`row-${a.id}`"
+            class="report-table-row"
+            :class="selectedReport?.id === a.id ? 'report-table-row--active' : ''"
+            @click="selectedReport = a"
+          >
+            <div>{{ formatDate(a.assessment_date) }}</div>
+            <div class="capitalize">{{ a.type || 'full' }}</div>
+            <div class="text-right" :style="{ color: scoreColor(a.overall_score) }">{{ a.overall_score ?? '—' }}</div>
+          </button>
+        </div>
+
         <div
-          v-for="a in history"
-          :key="a.id"
+          v-if="selectedReport"
+          :key="selectedReport.id"
           class="history-card"
         >
           <div class="flex items-center justify-between mb-3">
             <div>
-              <div class="text-xs font-bold text-white">{{ formatDate(a.assessment_date) }}</div>
-              <div class="text-[10px] text-white/40 uppercase tracking-wide mt-0.5">{{ a.type }} assessment</div>
+              <div class="text-xs font-bold text-white">{{ formatDate(selectedReport.assessment_date) }}</div>
+              <div class="text-[10px] text-white/40 uppercase tracking-wide mt-0.5">{{ selectedReport.type }} assessment</div>
             </div>
             <div class="flex gap-2">
-              <div v-if="a.strength_overall_score" class="score-badge" :style="{ background: scoreColor(a.strength_overall_score) + '33', color: scoreColor(a.strength_overall_score), borderColor: scoreColor(a.strength_overall_score) + '55' }">
-                💪 {{ a.strength_overall_score }}
+              <div v-if="selectedReport.strength_overall_score" class="score-badge" :style="{ background: scoreColor(selectedReport.strength_overall_score) + '33', color: scoreColor(selectedReport.strength_overall_score), borderColor: scoreColor(selectedReport.strength_overall_score) + '55' }">
+                💪 {{ selectedReport.strength_overall_score }}
               </div>
-              <div v-if="a.mobility_overall_score" class="score-badge" :style="{ background: scoreColor(a.mobility_overall_score) + '33', color: scoreColor(a.mobility_overall_score), borderColor: scoreColor(a.mobility_overall_score) + '55' }">
-                🤸 {{ a.mobility_overall_score }}
+              <div v-if="selectedReport.mobility_overall_score" class="score-badge" :style="{ background: scoreColor(selectedReport.mobility_overall_score) + '33', color: scoreColor(selectedReport.mobility_overall_score), borderColor: scoreColor(selectedReport.mobility_overall_score) + '55' }">
+                🤸 {{ selectedReport.mobility_overall_score }}
               </div>
-              <div v-if="a.overall_score" class="score-badge score-badge--overall" :style="{ background: scoreColor(a.overall_score) + '33', color: scoreColor(a.overall_score), borderColor: scoreColor(a.overall_score) + '55' }">
-                🏆 {{ a.overall_score }}
+              <div v-if="selectedReport.overall_score" class="score-badge score-badge--overall" :style="{ background: scoreColor(selectedReport.overall_score) + '33', color: scoreColor(selectedReport.overall_score), borderColor: scoreColor(selectedReport.overall_score) + '55' }">
+                🏆 {{ selectedReport.overall_score }}
               </div>
             </div>
           </div>
 
           <!-- sub-scores row -->
           <div class="grid grid-cols-4 gap-2 text-center mb-2">
-            <div v-for="(sub, label) in { 'Lower': a.strength_lower_body_score, 'Upper': a.strength_upper_body_score, 'Explosive': a.strength_explosive_score, 'Rotational': a.strength_rotational_score }" :key="label" class="rounded-lg bg-white/5 py-1.5">
+            <div v-for="(sub, label) in { 'Lower': selectedReport.strength_lower_body_score, 'Upper': selectedReport.strength_upper_body_score, 'Explosive': selectedReport.strength_explosive_score, 'Rotational': selectedReport.strength_rotational_score }" :key="label" class="rounded-lg bg-white/5 py-1.5">
               <div class="text-[10px] text-white/40">{{ label }}</div>
               <div class="text-sm font-black" :style="{ color: scoreColor(sub) }">{{ sub ?? '—' }}</div>
             </div>
           </div>
 
           <!-- mobility sub-scores -->
-          <div v-if="a.hip_mobility || a.shoulder_mobility || a.ankle_mobility" class="grid grid-cols-5 gap-1 text-center mb-2">
-            <div v-for="(val, lbl) in { 'Hip': a.hip_mobility, 'Shoulder': a.shoulder_mobility, 'Ankle': a.ankle_mobility, 'Hip Flx': a.hip_flexor_mobility, 'Rotational': a.rotational_mobility }" :key="lbl" class="rounded-lg bg-white/5 py-1">
+          <div v-if="selectedReport.hip_mobility || selectedReport.shoulder_mobility || selectedReport.ankle_mobility" class="grid grid-cols-5 gap-1 text-center mb-2">
+            <div v-for="(val, lbl) in { 'Hip': selectedReport.hip_mobility, 'Shoulder': selectedReport.shoulder_mobility, 'Ankle': selectedReport.ankle_mobility, 'Hip Flx': selectedReport.hip_flexor_mobility, 'Rotational': selectedReport.rotational_mobility }" :key="lbl" class="rounded-lg bg-white/5 py-1">
               <div class="text-[9px] text-white/30">{{ lbl }}</div>
               <div class="text-xs font-bold" :style="{ color: scoreColor((val ?? 0) * 10) }">{{ val ?? '—' }}<span class="text-[9px] text-white/25">/10</span></div>
             </div>
           </div>
 
-          <div v-if="a.notes" class="text-[11px] text-white/50 italic border-t border-white/10 pt-2 mt-2">{{ a.notes }}</div>
+          <div v-if="selectedReport.notes" class="text-[11px] text-white/50 italic border-t border-white/10 pt-2 mt-2">{{ selectedReport.notes }}</div>
         </div>
       </div>
     </div>
@@ -398,26 +427,32 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '
   padding: 1.25rem;
 }
 
-/* tabs */
-.tab-btn {
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11px;
+/* assessment dropdown */
+.assessment-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.assessment-select-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   font-weight: 700;
-  border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.5);
-  background: transparent;
-  cursor: pointer;
-  transition: all 0.15s;
 }
-.tab-btn--active {
-  background: rgba(192,0,0,0.8);
-  border-color: #C00000;
+.assessment-select {
+  min-width: 170px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.05);
   color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  outline: none;
 }
-.tab-btn:hover:not(.tab-btn--active) {
-  color: #fff;
-  background: rgba(255,255,255,0.08);
+.assessment-select option {
+  color: #111;
 }
 
 /* score strip */
@@ -572,6 +607,45 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '
   border-radius: 12px;
   background: rgba(255,255,255,0.03);
   padding: 14px;
+}
+.report-table-wrap {
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.report-table-header,
+.report-table-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 0.8fr;
+  align-items: center;
+  gap: 8px;
+}
+.report-table-header {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.55);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 10px 12px;
+}
+.report-table-row {
+  width: 100%;
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+  color: #fff;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.report-table-row:hover {
+  background: rgba(255,255,255,0.08);
+}
+.report-table-row--active {
+  background: rgba(192,0,0,0.16);
 }
 .score-badge {
   display: inline-flex;
