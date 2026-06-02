@@ -13,6 +13,7 @@ const RegisterCoach = () => import("@/pages/register/Coach.vue");
 const RegisterPlayer = () => import("@/pages/register/Player.vue");
 const RegisterComplete = () => import('@/pages/register/Complete.vue');
 const DashBoard = () => import("@/pages/dashboard/Index.vue");
+const AssessmentReports = () => import("@/pages/dashboard/AssessmentReports.vue");
 const IndexTrainingPage = () => import("@/pages/training/CreateTraining.vue");
 const IndexTrainingMode = () =>
 	import("@/pages/training/CreateTrainingMode.vue");
@@ -96,6 +97,12 @@ const routes = [
 		name: "dashboard",
 		path: "/dashboard",
 		component: DashBoard,
+		meta: { requiresAuth: true },
+	},
+	{
+		name: "assessment.reports",
+		path: "/assessment-reports",
+		component: AssessmentReports,
 		meta: { requiresAuth: true },
 	},
 	{

@@ -196,6 +196,7 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '
       <div>
         <div class="text-[10px] uppercase tracking-widest text-white/40 mb-0.5">Coach Assessment Tool</div>
         <div class="text-base font-black text-white">{{ playerName || 'Player' }} — Strength &amp; Mobility</div>
+        <div class="text-[11px] text-white/45 mt-0.5">Enter raw test values (lbs/in/sec). Team + age-group percentiles are auto-calculated on save.</div>
       </div>
       <div class="assessment-select-wrap">
         <label class="assessment-select-label">Assessment</label>
@@ -393,6 +394,21 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '
               <div v-if="selectedReport.overall_score" class="score-badge score-badge--overall" :style="{ background: scoreColor(selectedReport.overall_score) + '33', color: scoreColor(selectedReport.overall_score), borderColor: scoreColor(selectedReport.overall_score) + '55' }">
                 🏆 {{ selectedReport.overall_score }}
               </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3" v-if="selectedReport.overall_team_percentile || selectedReport.overall_age_percentile || selectedReport.age_group_years">
+            <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <div class="text-[10px] uppercase tracking-widest text-white/40">Team Percentile</div>
+              <div class="text-sm font-black text-white">{{ selectedReport.overall_team_percentile ?? '—' }}</div>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <div class="text-[10px] uppercase tracking-widest text-white/40">Age Group Percentile</div>
+              <div class="text-sm font-black text-white">{{ selectedReport.overall_age_percentile ?? '—' }}</div>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <div class="text-[10px] uppercase tracking-widest text-white/40">Age Group</div>
+              <div class="text-sm font-black text-white">{{ selectedReport.age_group_years != null ? `${selectedReport.age_group_years}U` : '—' }}</div>
             </div>
           </div>
 

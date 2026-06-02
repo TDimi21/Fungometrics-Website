@@ -19,17 +19,21 @@ class GetTeamAssessments extends Controller
     {
         try {
             $teamId = (string) $request->route('team');
+            $returnAll = $request->boolean('all');
 
-            // Latest assessment per player on this team
-            $assessments = PlayerAssessment::with('profile')
+            $baseQuery = PlayerAssessment::with('profile')
                 ->where('team_id', $teamId)
                 ->orderByDesc('assessment_date')
                 ->orderByDesc('created_at')
-                ->limit(50)
-                ->get()
-                ->groupBy('user_id')
-                ->map(fn ($group) => $group->first()) // latest per player
-                ->values();
+                ->limit($returnAll ? 200 : 80);
+
+            // default: latest assessment per player on this team
+            $assessments = $returnAll
+                ? $baseQuery->get()->values()
+                : $baseQuery->get()
+                    ->groupBy('user_id')
+                    ->map(fn ($group) => $group->first())
+                    ->values();
 
             return response()->json([
                 'code'    => '062',

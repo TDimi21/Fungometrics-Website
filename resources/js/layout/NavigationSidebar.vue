@@ -71,9 +71,23 @@ const sidebarItems = ref([
     ]
   },
   {
-    title: 'Mobility Assessment',
+    title: 'Assessment',
     iconPath: iconDashboard,
-    url: '/dashboard?tab=quickstats'
+    startWith: '/dashboard',
+    child: [
+      {
+        title: 'Mobility',
+        url: { path: '/dashboard', query: { tab: 'quickstats' } }
+      },
+      {
+        title: 'Strength',
+        url: { path: '/dashboard', query: { tab: 'strength' } }
+      },
+      {
+        title: 'Reports',
+        url: '/assessment-reports'
+      }
+    ]
   },
   {
     title: 'Manage Team',

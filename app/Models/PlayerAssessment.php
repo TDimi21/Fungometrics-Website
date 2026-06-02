@@ -59,6 +59,11 @@ class PlayerAssessment extends Model
         'strength_overall_score',
         'mobility_overall_score',
         'overall_score',
+        'team_percentiles',
+        'age_group_percentiles',
+        'overall_team_percentile',
+        'overall_age_percentile',
+        'age_group_years',
         'notes',
     ];
 
@@ -68,6 +73,8 @@ class PlayerAssessment extends Model
         'team_id'          => 'string',
         'assessed_by'      => 'string',
         'assessment_date'  => 'date',
+        'team_percentiles' => 'array',
+        'age_group_percentiles' => 'array',
     ];
 
     public function user(): BelongsTo
