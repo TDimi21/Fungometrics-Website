@@ -451,19 +451,19 @@ const scoreCards = computed(() => ([
                 </button>
               </div>
             </div>
+            <CoachActionPlanCard :recommendations="recommendations" :coach-notes="sourceData.coachNotes || ''" />
+          </div><!-- /col 2 -->
+
+          <!-- ── COLUMN 3 : Percentile Rankings + detail cards ── -->
+          <div class="flex flex-col gap-4">
+            <PercentileRankingsTable :rows="percentileRows" />
+            <CorrelationInsightsCard :insights="insights" />
             <!-- Detail cards -->
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
               <RecoverySleepCard :recovery="model.recovery" :current="current" />
               <StrengthMetricsCard :strength="model.strength" />
               <MobilityAssessmentCard :mobility="model.mobility" />
             </div>
-            <CoachActionPlanCard :recommendations="recommendations" :coach-notes="sourceData.coachNotes || ''" />
-          </div><!-- /col 2 -->
-
-          <!-- ── COLUMN 3 : Percentile Rankings ── -->
-          <div class="flex flex-col gap-4">
-            <PercentileRankingsTable :rows="percentileRows" />
-            <CorrelationInsightsCard :insights="insights" />
           </div><!-- /col 3 -->
 
         </div><!-- /3-col grid -->
