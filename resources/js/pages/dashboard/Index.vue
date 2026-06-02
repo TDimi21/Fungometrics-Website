@@ -2679,11 +2679,11 @@ watch(
 
                 <!-- Strength Standards Reference -->
                 <StrengthStandardsCard
-                  :body-weight="selectedDevPlayer?.fitness?.body_weight ?? selectedDevCard?.fitness?.body_weight ?? null"
-                  :bench-press="selectedDevPlayer?.fitness?.bench_press ?? selectedDevCard?.fitness?.bench_press ?? null"
-                  :front-squat="selectedDevPlayer?.fitness?.front_squat ?? selectedDevCard?.fitness?.front_squat ?? null"
-                  :pull-ups="selectedDevPlayer?.fitness?.pull_ups ?? selectedDevCard?.fitness?.pull_ups ?? null"
-                  :push-ups="selectedDevPlayer?.fitness?.push_ups ?? selectedDevCard?.fitness?.push_ups ?? null"
+                  :body-weight="selectedDevStats?.max?.body_weight ?? selectedDevPlayer?.fitness?.body_weight ?? selectedDevCard?.fitness?.body_weight ?? null"
+                  :bench-press="selectedDevStats?.max?.bench_press || selectedDevPlayer?.fitness?.bench_press || selectedDevCard?.fitness?.bench_press || null"
+                  :front-squat="selectedDevStats?.max?.front_squat || selectedDevPlayer?.fitness?.front_squat || selectedDevCard?.fitness?.front_squat || null"
+                  :pull-ups="selectedDevStats?.max?.pull_ups ?? selectedDevPlayer?.fitness?.pull_ups ?? selectedDevCard?.fitness?.pull_ups ?? null"
+                  :push-ups="selectedDevStats?.max?.push_ups ?? selectedDevPlayer?.fitness?.push_ups ?? selectedDevCard?.fitness?.push_ups ?? null"
                 />
 
                 <!-- Scripted BP scorecard + recent sessions -->

@@ -64,6 +64,9 @@ class ScoresStatisticPlayers extends Controller
                 "dead_lift" => $playerFitness->max('dead_lift')??0,
                 "yd_40_dash" => $playerFitness->max('yd_40_dash')??0,
                 "yd_60_dash" => $playerFitness->max('yd_60_dash')??0,
+                "pull_ups"   => $playerFitness->max('pull_ups') ?? null,
+                "push_ups"   => $playerFitness->max('push_ups') ?? null,
+                "body_weight" => $playerFitness->orderByDesc('fitness_date')->value('body_weight') ?? null,
             ];
 
             $avg = [

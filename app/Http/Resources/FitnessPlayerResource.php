@@ -29,6 +29,9 @@ class FitnessPlayerResource extends JsonResource
             "yd_40_dash"=> $this->yd_40_dash,
             "yd_60_dash"=> $this->yd_60_dash,
             "weight"=> $this->weight,
+            "body_weight" => $this->body_weight,
+            "pull_ups" => $this->pull_ups,
+            "push_ups" => $this->push_ups,
         ];
     }
 }
