@@ -109,32 +109,34 @@ const metricStats = computed(() =>
 
 const hasAnyData = computed(() => chartSeries.value.some(s => s.data.length > 0))
 
-const chartColors = computed(() => activeMetrics.value.map(m => m.color))
+const hexToRgba = (hex, alpha) => {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+// 30% opacity for the connecting line stroke
+const chartColors = computed(() => activeMetrics.value.map(m => hexToRgba(m.color, 0.3)))
+// Full opacity for the dot fill
+const markerColors = computed(() => activeMetrics.value.map(m => m.color))
 
 const chartOptions = computed(() => ({
   chart: {
-    type: 'line',
+    type: 'area',
     height: 280,
     background: 'transparent',
     toolbar: { show: false },
     zoom: { enabled: false },
     animations: { enabled: true, speed: 350 },
-    connectNulls: true,
   },
-  stroke: { curve: 'straight', width: activeMetrics.value.length > 1 ? 2.5 : 3 },
+  stroke: { curve: 'smooth', width: 2 },
   colors: chartColors.value,
-  fill: activeMetrics.value.length === 1 ? {
-    type: 'gradient',
-    gradient: {
-      shade: 'dark', type: 'vertical',
-      opacityFrom: 0.15, opacityTo: 0.01,
-    },
-  } : {
-    type: 'solid',
-    opacity: 0,
-  },
+  fill: { type: 'solid', opacity: 0 },
   markers: {
     size: 5,
+    fillColors: markerColors.value,
     strokeColors: '#0b1120',
     strokeWidth: 2,
     hover: { size: 7 },
