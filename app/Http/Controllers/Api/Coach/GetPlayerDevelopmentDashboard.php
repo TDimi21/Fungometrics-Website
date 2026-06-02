@@ -361,7 +361,7 @@ class GetPlayerDevelopmentDashboard extends Controller
     private function aggregateBullpen(Collection $bullpen): array
     {
         $velocities = $bullpen->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
-        $fbVelocities = $bullpen->where('intended_pitch_type', 'FB')->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
+        $fbVelocities = $bullpen->where('type_throw', 'FB')->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
         $total = max(1, $bullpen->count());
         $strikes = $bullpen->where('is_strike', true)->count();
 

@@ -103,7 +103,7 @@ let player = reactive({
   mobileNumber: "",
 });
 import { getUiTheme, applyUiTheme } from "@/composables/useUiTheme";
-let hasSidebar = reactive({ active: false });
+let hasSidebar = reactive({ active: true });
 const uiTheme = ref(getUiTheme());
 const teamHeaderLogo = ref(updatedLogo);
 const teamHeaderBackground = ref(stadiumBackground);
