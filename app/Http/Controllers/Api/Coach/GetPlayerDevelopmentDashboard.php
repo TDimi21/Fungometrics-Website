@@ -66,6 +66,15 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ->where('created_at', '>=', $since)
                     ->get();
 
+                // Include scripted/match bullpen pitches for velocity calculations
+                $bullpenScriptedCurrent = BullpenPracticeResult::where('team_id', $teamId)
+                    ->where('pitcher_id', $playerId)
+                    ->where('is_in_match', true)
+                    ->where('created_at', '>=', $since)
+                    ->get();
+
+                $bullpenAllCurrent = $bullpenCurrent->concat($bullpenScriptedCurrent);
+
                 $cageCurrent = CagePracticeResult::where('team_id', $teamId)
                     ->where('user_id', $playerId)
                     ->where('created_at', '>=', $since)
@@ -84,6 +93,10 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $bullpenLast30 = $bullpenCurrent->where('created_at', '>=', $last30);
                 $bullpenPrev30 = $bullpenCurrent->where('created_at', '<', $last30)->where('created_at', '>=', $prev30Start);
 
+                // Combined (regular + scripted) windows for FB velocity
+                $bullpenAllLast30 = $bullpenAllCurrent->where('created_at', '>=', $last30);
+                $bullpenAllPrev30 = $bullpenAllCurrent->where('created_at', '<', $last30)->where('created_at', '>=', $prev30Start);
+
                 $fitnessLatest = PlayerFitness::where('user_id', $playerId)
                     ->orderByDesc('fitness_date')
                     ->orderByDesc('created_at')
@@ -97,8 +110,8 @@ class GetPlayerDevelopmentDashboard extends Controller
 
                 $battingAggCurrent = $this->aggregateBatting($battingLast30, $evCurrent);
                 $battingAggPrev = $this->aggregateBatting($battingPrev30, collect());
-                $bullpenAggCurrent = $this->aggregateBullpen($bullpenLast30);
-                $bullpenAggPrev = $this->aggregateBullpen($bullpenPrev30);
+                $bullpenAggCurrent = $this->aggregateBullpen($bullpenLast30, $bullpenAllLast30);
+                $bullpenAggPrev = $this->aggregateBullpen($bullpenPrev30, $bullpenAllPrev30);
 
                 $bpScore = $battingCurrent->count() > 0
                     ? (new BattingStatisticsService())->fps($battingCurrent)['fps'] ?? null
@@ -358,10 +371,12 @@ class GetPlayerDevelopmentDashboard extends Controller
         ];
     }
 
-    private function aggregateBullpen(Collection $bullpen): array
+    private function aggregateBullpen(Collection $bullpen, ?Collection $allBullpen = null): array
     {
+        // Use the broader combined collection (regular + scripted) for FB velocity if provided
+        $fbSource = $allBullpen ?? $bullpen;
         $velocities = $bullpen->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
-        $fbVelocities = $bullpen->where('type_throw', 'FB')->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
+        $fbVelocities = $fbSource->where('type_throw', 'FB')->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
         $total = max(1, $bullpen->count());
         $strikes = $bullpen->where('is_strike', true)->count();
 
