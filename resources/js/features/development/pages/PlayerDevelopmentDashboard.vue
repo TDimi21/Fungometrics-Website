@@ -275,113 +275,243 @@ const scoreCards = computed(() => ([
 
 <template>
   <Layout>
-    <div class="mx-auto w-full max-w-7xl space-y-4 px-4 py-6">
-      <div class="rounded-xl border border-white/10 bg-slate-900/70 p-3">
-        <div class="flex flex-wrap items-center gap-2">
-          <RouterLink to="/dashboard?tab=development" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">← Back to Dashboard</RouterLink>
-          <RouterLink to="/development" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Player</RouterLink>
-          <RouterLink to="/development/team" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Team</RouterLink>
-          <RouterLink to="/development/coach" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Coach</RouterLink>
-          <RouterLink to="/development/admin/benchmarks" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Admin</RouterLink>
-        </div>
+    <div class="mx-auto w-full max-w-[1600px] px-3 py-4">
+
+      <!-- Top nav bar -->
+      <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-900/70 px-4 py-2">
+        <RouterLink to="/dashboard?tab=development" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">← Back</RouterLink>
+        <RouterLink to="/development" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Player</RouterLink>
+        <RouterLink to="/development/team" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Team</RouterLink>
+        <RouterLink to="/development/coach" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Coach</RouterLink>
+        <RouterLink to="/development/admin/benchmarks" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Admin</RouterLink>
       </div>
 
-      <div v-if="loading" class="rounded-xl border border-white/10 bg-slate-900/70 p-3 text-sm text-slate-300">
+      <!-- Status messages -->
+      <div v-if="loading" class="mb-4 rounded-xl border border-white/10 bg-slate-900/70 p-3 text-sm text-slate-300">
         Loading live development data{{ selectedPlayerName ? ` for ${selectedPlayerName}` : '' }}...
       </div>
-      <div v-if="loadError" class="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-200">
+      <div v-if="loadError" class="mb-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-200">
         {{ loadError }}
       </div>
 
-      <div class="rounded-xl border border-white/10 bg-slate-900/70 p-3">
-        <p class="text-xs uppercase tracking-wider text-slate-400">How to read this page</p>
-        <div class="mt-2 grid grid-cols-1 gap-2 text-xs text-slate-300 md:grid-cols-2">
-          <p><strong>Top score cards:</strong> Overall + category scores on a 0–100 scale.</p>
-          <p><strong>Where Are We?:</strong> Current baseline from latest data points.</p>
-          <p><strong>Where Are We Going?:</strong> 30-day trend direction and change values.</p>
-          <p><strong>How Do We Get There?:</strong> Highest-priority actions for next sessions.</p>
-        </div>
-      </div>
-
       <template v-if="sourceData">
-        <PlayerSnapshotCard :player="player" />
+        <!-- ═══════════════════════════════════════════════════════════
+             SAVANT-STYLE 3-COLUMN LAYOUT
+             Col 1 (wide): hero card + where/going/how
+             Col 2 (narrow): 6 score cards stacked
+             Col 3 (wide): rankings, insights, detail cards
+        ════════════════════════════════════════════════════════════ -->
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-[360px_220px_1fr]">
 
-        <div class="grid grid-cols-2 gap-3 lg:grid-cols-6">
-          <DevelopmentScoreCard
-            v-for="(card, idx) in scoreCards"
-            :key="idx"
-            :title="card.title"
-            :score="card.score"
-            :subtitle="card.subtitle"
-            :clickable="true"
-            @select="selectedScoreKey = card.key"
-          />
-        </div>
+          <!-- ── COLUMN 1 : Hero + narrative ── -->
+          <div class="flex flex-col gap-4">
 
-        <div v-if="selectedScoreDetail" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 pt-6" @click.self="selectedScoreKey = null">
-          <div class="w-full max-w-3xl rounded-xl border border-white/15 bg-slate-900 p-4">
-            <div class="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <p class="text-[11px] uppercase tracking-wider text-slate-400">Score Build Details</p>
-                <p class="text-xl font-bold text-white">{{ selectedScoreDetail.title }}</p>
-                <p class="mt-1 text-xs text-slate-300">{{ selectedScoreDetail.formula }}</p>
+            <!-- Hero card with action-shot background -->
+            <div class="relative overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style="min-height:340px">
+              <!-- Action-shot background — blurred + darkened -->
+              <div
+                v-if="player.picture"
+                class="absolute inset-0 bg-cover bg-top"
+                :style="`background-image:url('${player.picture}')`"
+              ></div>
+              <div class="absolute inset-0 bg-gradient-to-b from-[#0a1020]/30 via-[#0a1020]/60 to-[#0a1020]/95 backdrop-blur-[2px]"></div>
+
+              <!-- Content over the background -->
+              <div class="relative z-10 flex flex-col items-center px-5 pb-5 pt-6 text-center">
+                <!-- Profile circle -->
+                <div class="mb-3 h-24 w-24 overflow-hidden rounded-full ring-4 ring-[#C00000]/60 shadow-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
+                  <img v-if="player.picture" :src="player.picture" :alt="player.name" class="h-full w-full object-cover object-top" />
+                  <span v-else class="text-4xl font-black text-white/40">{{ (player.name || 'P').charAt(0).toUpperCase() }}</span>
+                </div>
+
+                <!-- Name + basics -->
+                <h2 class="text-2xl font-black uppercase tracking-wide text-white drop-shadow">{{ player.name || 'Player' }}</h2>
+                <p class="mt-0.5 text-xs font-semibold uppercase tracking-widest text-white/60">
+                  {{ player.position || '—' }} &nbsp;·&nbsp; {{ player.throws ? `Throws ${player.throws}` : '' }}{{ player.bats ? ` / Bats ${player.bats}` : '' }}
+                </p>
+                <p class="mt-0.5 text-xs text-white/45">
+                  Age {{ player.age || '—' }}&nbsp;·&nbsp;{{ player.height || '—' }}&nbsp;·&nbsp;{{ player.weight ? `${player.weight} lbs` : '—' }}
+                </p>
+
+                <!-- Quick stat pills -->
+                <div class="mt-4 flex flex-wrap justify-center gap-2">
+                  <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
+                    EV {{ current.avg_exit_velocity ?? '—' }} mph
+                  </span>
+                  <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
+                    Velo {{ current.avg_pitch_velocity ?? '—' }} mph
+                  </span>
+                  <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
+                    BP {{ current.bp_score ?? '—' }}
+                  </span>
+                  <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
+                    Trend <span :class="model.trend?.status === 'improving' ? 'text-green-300' : model.trend?.status === 'declining' ? 'text-red-300' : 'text-white'">{{ model.trend?.status || '—' }}</span>
+                  </span>
+                </div>
               </div>
-              <button class="rounded-md border border-white/20 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800" @click="selectedScoreKey = null">Close</button>
             </div>
 
-            <div class="rounded-lg border border-white/10 bg-slate-950/60 p-3">
-              <div class="space-y-2 text-sm">
-                <div v-for="(row, i) in selectedScoreDetail.rows" :key="i" class="flex items-start justify-between gap-3 border-b border-white/5 pb-2 last:border-b-0 last:pb-0">
-                  <p class="text-slate-300">{{ row[0] }}</p>
-                  <p class="text-right font-semibold text-white">{{ row[1] }}</p>
+            <!-- WHERE ARE WE? -->
+            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
+              <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">Where Are We?</p>
+              <p class="mb-3 text-[11px] text-white/40">Current baseline from latest data points.</p>
+              <div class="space-y-2 text-xs">
+                <div class="flex justify-between border-b border-white/5 pb-1.5">
+                  <span class="text-white/55">Exit Velocity</span>
+                  <span class="font-black text-white">{{ current.avg_exit_velocity ?? '—' }} mph</span>
+                </div>
+                <div class="flex justify-between border-b border-white/5 pb-1.5">
+                  <span class="text-white/55">Pitch Velocity</span>
+                  <span class="font-black text-white">{{ current.avg_pitch_velocity ?? '—' }} mph</span>
+                </div>
+                <div class="flex justify-between border-b border-white/5 pb-1.5">
+                  <span class="text-white/55">Batting Score</span>
+                  <span class="font-black text-white">{{ current.bp_score ?? '—' }}</span>
+                </div>
+                <div class="flex justify-between border-b border-white/5 pb-1.5">
+                  <span class="text-white/55">Bullpen Score</span>
+                  <span class="font-black text-white">{{ current.bullpen_score ?? '—' }}</span>
+                </div>
+                <div class="flex justify-between border-b border-white/5 pb-1.5">
+                  <span class="text-white/55">Strength</span>
+                  <span class="font-black text-white">{{ model.strengthScore ?? '—' }}</span>
+                </div>
+                <div class="flex justify-between border-b border-white/5 pb-1.5">
+                  <span class="text-white/55">Mobility</span>
+                  <span class="font-black text-white">{{ model.mobilityScore ?? '—' }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-white/55">Recovery</span>
+                  <span class="font-black text-white">{{ model.recoveryScore ?? '—' }}</span>
                 </div>
               </div>
+            </div>
 
-              <div v-if="selectedScoreKey === 'performance'" class="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <div class="rounded-md border border-white/10 p-3">
-                  <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Hitter inputs</p>
-                  <div class="space-y-1 text-xs">
-                    <div v-for="(row, i) in selectedScoreDetail.inputs?.hitter || []" :key="`h-${i}`" class="flex justify-between gap-2">
-                      <span class="text-slate-300">{{ row[0] }}</span>
-                      <span class="font-medium text-white">{{ row[1] ?? '—' }}</span>
-                    </div>
-                  </div>
+            <!-- WHERE ARE WE GOING? -->
+            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
+              <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">Where Are We Going?</p>
+              <p class="mb-1 text-[11px] text-white/40">30-day trend · positive = improving</p>
+              <p class="mb-3 text-xs font-black" :class="model.trend?.status === 'improving' ? 'text-green-300' : model.trend?.status === 'declining' ? 'text-red-300' : 'text-yellow-300'">
+                {{ model.trend?.status || '—' }}
+              </p>
+              <div class="space-y-2 text-xs">
+                <div v-for="([label, key]) in [['EV','avg_exit_velocity'],['Pitch Velo','avg_pitch_velocity'],['Hard Contact','hard_contact_percentage'],['Command','command_score'],['Strength','rotational_power_score'],['Sleep','sleep_hours']]" :key="key"
+                  class="flex justify-between border-b border-white/5 pb-1.5 last:border-0 last:pb-0">
+                  <span class="text-white/55">{{ label }}</span>
+                  <span class="font-black"
+                    :class="(model.trend?.changes?.[key]?.delta ?? 0) > 0 ? 'text-green-300' : (model.trend?.changes?.[key]?.delta ?? 0) < 0 ? 'text-red-300' : 'text-white/40'">
+                    {{ model.trend?.changes?.[key]?.delta != null ? ((model.trend.changes[key].delta > 0 ? '+' : '') + model.trend.changes[key].delta.toFixed(1)) : '—' }}
+                  </span>
                 </div>
-                <div class="rounded-md border border-white/10 p-3">
-                  <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Pitcher inputs</p>
-                  <div class="space-y-1 text-xs">
-                    <div v-for="(row, i) in selectedScoreDetail.inputs?.pitcher || []" :key="`p-${i}`" class="flex justify-between gap-2">
-                      <span class="text-slate-300">{{ row[0] }}</span>
-                      <span class="font-medium text-white">{{ row[1] ?? '—' }}</span>
-                    </div>
-                  </div>
+              </div>
+            </div>
+
+            <!-- HOW DO WE GET THERE? -->
+            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
+              <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">How Do We Get There?</p>
+              <p class="mb-3 text-[11px] text-white/40">Top action items from weakest areas.</p>
+              <div v-if="recommendations.length" class="space-y-3">
+                <div v-for="(r, idx) in recommendations.slice(0, 3)" :key="idx" class="rounded-xl border border-white/8 bg-white/5 p-3">
+                  <p class="mb-1 text-[10px] font-black uppercase tracking-widest"
+                    :class="r.priority === 'high' ? 'text-red-400' : r.priority === 'medium' ? 'text-yellow-400' : 'text-slate-400'">
+                    Priority {{ idx + 1 }} · {{ r.priority }}
+                  </p>
+                  <p class="text-xs font-bold text-white">{{ r.title }}</p>
+                  <p class="mt-1 text-[11px] text-white/55 leading-relaxed">{{ r.recommendation }}</p>
+                </div>
+              </div>
+              <p v-else class="text-xs text-slate-500">No recommendations yet.</p>
+            </div>
+
+          </div><!-- /col 1 -->
+
+          <!-- ── COLUMN 2 : 6 Score cards stacked ── -->
+          <div class="flex flex-col gap-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-white/30 px-1">Development Scores</p>
+            <button
+              v-for="(card, idx) in scoreCards"
+              :key="idx"
+              type="button"
+              class="w-full rounded-xl border p-4 text-left transition hover:brightness-110"
+              :class="card.score >= 85 ? 'border-emerald-400/30 bg-emerald-950/40' : card.score >= 70 ? 'border-yellow-400/30 bg-yellow-950/40' : 'border-red-400/30 bg-red-950/40'"
+              @click="selectedScoreKey = card.key"
+            >
+              <p class="text-[10px] font-black uppercase tracking-widest"
+                :class="card.score >= 85 ? 'text-emerald-400/70' : card.score >= 70 ? 'text-yellow-400/70' : 'text-red-400/70'">
+                {{ card.title }}
+              </p>
+              <p class="mt-1.5 text-4xl font-black leading-none"
+                :class="card.score >= 85 ? 'text-emerald-300' : card.score >= 70 ? 'text-yellow-300' : 'text-red-300'">
+                {{ card.score ?? 0 }}
+              </p>
+              <p class="mt-1 text-[10px] text-white/35">{{ card.subtitle }}</p>
+              <p class="mt-0.5 text-[10px] text-white/25">click for details</p>
+            </button>
+          </div><!-- /col 2 -->
+
+          <!-- ── COLUMN 3 : Deep-dive data ── -->
+          <div class="flex flex-col gap-4">
+            <PercentileRankingsTable :rows="percentileRows" />
+            <CorrelationInsightsCard :insights="insights" />
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+              <RecoverySleepCard :recovery="model.recovery" :current="current" />
+              <StrengthMetricsCard :strength="model.strength" />
+              <MobilityAssessmentCard :mobility="model.mobility" />
+            </div>
+            <CoachActionPlanCard :recommendations="recommendations" :coach-notes="sourceData.coachNotes || ''" />
+          </div><!-- /col 3 -->
+
+        </div><!-- /3-col grid -->
+
+      </template>
+
+      <!-- No data state -->
+      <div v-else-if="!loading" class="rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-slate-300">
+        No development snapshot available for this player yet.
+      </div>
+    </div>
+
+    <!-- Score detail modal (unchanged) -->
+    <div v-if="selectedScoreDetail" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 pt-6" @click.self="selectedScoreKey = null">
+      <div class="w-full max-w-3xl rounded-xl border border-white/15 bg-slate-900 p-4">
+        <div class="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p class="text-[11px] uppercase tracking-wider text-slate-400">Score Build Details</p>
+            <p class="text-xl font-bold text-white">{{ selectedScoreDetail.title }}</p>
+            <p class="mt-1 text-xs text-slate-300">{{ selectedScoreDetail.formula }}</p>
+          </div>
+          <button class="rounded-md border border-white/20 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800" @click="selectedScoreKey = null">Close</button>
+        </div>
+        <div class="rounded-lg border border-white/10 bg-slate-950/60 p-3">
+          <div class="space-y-2 text-sm">
+            <div v-for="(row, i) in selectedScoreDetail.rows" :key="i" class="flex items-start justify-between gap-3 border-b border-white/5 pb-2 last:border-b-0 last:pb-0">
+              <p class="text-slate-300">{{ row[0] }}</p>
+              <p class="text-right font-semibold text-white">{{ row[1] }}</p>
+            </div>
+          </div>
+          <div v-if="selectedScoreKey === 'performance'" class="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div class="rounded-md border border-white/10 p-3">
+              <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Hitter inputs</p>
+              <div class="space-y-1 text-xs">
+                <div v-for="(row, i) in selectedScoreDetail.inputs?.hitter || []" :key="`h-${i}`" class="flex justify-between gap-2">
+                  <span class="text-slate-300">{{ row[0] }}</span>
+                  <span class="font-medium text-white">{{ row[1] ?? '—' }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="rounded-md border border-white/10 p-3">
+              <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Pitcher inputs</p>
+              <div class="space-y-1 text-xs">
+                <div v-for="(row, i) in selectedScoreDetail.inputs?.pitcher || []" :key="`p-${i}`" class="flex justify-between gap-2">
+                  <span class="text-slate-300">{{ row[0] }}</span>
+                  <span class="font-medium text-white">{{ row[1] ?? '—' }}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        <WhereAreWeCard :current="current" :scores="model" />
-        <WhereAreWeGoingCard :trend="model.trend" />
-        <HowWeGetThereCard :recommendations="recommendations" />
-
-        <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <PercentileRankingsTable :rows="percentileRows" />
-          <CorrelationInsightsCard :insights="insights" />
-        </div>
-
-        <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <RecoverySleepCard :recovery="model.recovery" :current="current" />
-          <StrengthMetricsCard :strength="model.strength" />
-          <MobilityAssessmentCard :mobility="model.mobility" />
-        </div>
-
-        <CoachActionPlanCard :recommendations="recommendations" :coach-notes="sourceData.coachNotes || ''" />
-      </template>
-
-      <div v-else-if="!loading" class="rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-slate-300">
-        No development snapshot available for this player yet.
       </div>
     </div>
+
   </Layout>
 </template>
