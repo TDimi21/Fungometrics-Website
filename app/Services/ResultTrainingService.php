@@ -272,11 +272,30 @@ final class ResultTrainingService
                 ->all();
         }
 
+        // Fallback: many historical rows have team_id = null or a different team_id —
+        // resolve via the practices table (same pattern as cage/long-toss methods)
+        if (empty($practiceIds)) {
+            $teamPracticeIds = Practice::where('team_id', $team)
+                ->where('type', PracticeTypes::BATTING->value)
+                ->pluck('id')
+                ->all();
+
+            if (!empty($teamPracticeIds)) {
+                $practiceIds = BattingPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
+                    ->whereIn('practice_id', $teamPracticeIds)
+                    ->where('is_in_match', false)
+                    ->groupBy('practice_id')
+                    ->orderByDesc('latest')
+                    ->limit($limit)
+                    ->pluck('practice_id')
+                    ->all();
+            }
+        }
+
         $batting = collect();
         if (!empty($practiceIds)) {
-            $battingQuery = BattingPracticeResult::where('team_id', $team)
-                ->where('is_in_match', false)
-                ->whereIn('practice_id', $practiceIds);
+            $battingQuery = BattingPracticeResult::whereIn('practice_id', $practiceIds)
+                ->where('is_in_match', false);
 
             if (!empty($players)) {
                 $battingQuery->whereIn('batter_id', $players);
@@ -286,9 +305,8 @@ final class ResultTrainingService
 
             // If claimed-player filter returned nothing, retry without it
             if ($batting->isEmpty() && !empty($players)) {
-                $batting = BattingPracticeResult::where('team_id', $team)
+                $batting = BattingPracticeResult::whereIn('practice_id', $practiceIds)
                     ->where('is_in_match', false)
-                    ->whereIn('practice_id', $practiceIds)
                     ->get();
             }
         }
