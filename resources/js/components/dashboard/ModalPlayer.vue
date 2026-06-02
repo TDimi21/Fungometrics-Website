@@ -275,7 +275,7 @@ import {useRouter} from "vue-router"
 <template>
   <Loader v-show="!isLoading.status"/>
   <TransitionRoot appear :show="isOpen" as="template">
-    <Dialog as="div" @close="emit('closeModal')" class="relative z-10">
+    <Dialog as="div" @close="emit('closeModal')" class="relative z-50">
       <TransitionChild
         as="template"
         enter="duration-300 ease-out"
