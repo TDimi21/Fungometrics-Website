@@ -354,7 +354,7 @@ import {useRouter} from "vue-router"
                   </div>
                   <div v-if="item.positions?.length" class="sidebar-row">
                     <span class="sidebar-label">Position</span>
-                    <span class="sidebar-value">{{ item.positions.join(', ') }}</span>
+                    <span class="sidebar-value">{{ item.positions.map(p => typeof p === 'object' ? p.position : p).join(', ') }}</span>
                   </div>
                 </div>
                 <!-- Score box -->
