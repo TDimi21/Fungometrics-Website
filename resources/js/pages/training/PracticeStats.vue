@@ -166,53 +166,65 @@ if(userData.type === 'coach'){
 </script>
 <template>
   <Loader v-show="isSending"/>
-  <Layout>
-    <h1 class="text-fungo-red text-2xl md:text-[40px] text-center mt-9 mb-6 font-fungo-700">
-      {{ route.params.type == 'P' ? 'Bullpen Statistics' : 'Batting Practice Statistics'}}
-    </h1>
+  <Layout class="bg-[#060d1a] min-h-screen">
+    <!-- Header bar -->
+    <section class="bg-[#0a1628] w-full h-auto absolute left-0 px-[5%] py-3 shadow-lg">
+      <div class="flex flex-col items-center lg:flex-row gap-4 lg:gap-0 justify-between">
 
-    <section class="bg-fungo-gray3 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%]">
+        <!-- Left: logo + export -->
+        <div class="flex items-center gap-3">
+          <BattingLogoPractice class="h-[70px] w-[70px]" />
+          <h1 class="text-[#e10600] text-2xl md:text-3xl font-fungo-700 tracking-wide">
+            {{ route.params.type == 'P' ? 'Bullpen Statistics' : 'Batting Practice Statistics' }}
+          </h1>
+        </div>
 
-      <div class="flex flex-col items-center lg:flex-row space-y-6 lg:space-y-0 lg:space-x-3 justify-between">
-        <div class="w-max flex items-center">
-          <BattingLogoPractice class="h-[80px] w-[80px]" />
-          <download-excel class="flex cur w-[100px] gap-2 bg-white p-3 rounded-r-full"
-          :data="excelDataExport"
-          :fields="excelHeaderData"
-          :name="route.params.type != 'P'? 'battingBallxBallTable.xls': 'bullpenBallxBallTable.xls'"
+        <!-- Right: actions -->
+        <div class="flex items-center gap-3">
+          <download-excel
+            class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors"
+            :data="excelDataExport"
+            :fields="excelHeaderData"
+            :name="route.params.type != 'P' ? 'battingBallxBallTable.xls' : 'bullpenBallxBallTable.xls'"
           >
-            <div>Excel</div>
-            <svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M18 7.71429H12.8571V0H5.14286V7.71429H0L9 16.7143L18 7.71429ZM7.71307 10.2863V2.57202H10.2845V10.2863H11.7888L8.99878 13.0763L6.20878 10.2863H7.71307ZM18 21.8571V19.2856H0V21.8571H18Z" fill="#E10600"/>
+            <svg width="16" height="20" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M18 7.71429H12.8571V0H5.14286V7.71429H0L9 16.7143L18 7.71429ZM7.71307 10.2863V2.57202H10.2845V10.2863H11.7888L8.99878 13.0763L6.20878 10.2863H7.71307ZM18 21.8571V19.2856H0V21.8571H18Z" fill="white"/>
             </svg>
+            <span class="text-sm font-semibold">Export</span>
           </download-excel>
-        </div>
-        <div class="w-[100%] lg:w-[50%] flex justify-end space-x-4" v-if="userData.type !== 'player'">
-        <template v-if="route.params.isComplete == 'true'">
-          <form v-if="statusMsg === false" @submit.prevent="openSendMsgWindow(statsData.by_player)">
-            <BigButtonField color="dark" label="Send sms to players" type="submit"/>
-          </form>
 
-          <form v-if="statusMsg !== false" @submit.prevent="openStatusModal(route.params.idPractice)">
-            <BigButtonField color="dark" label="Check Status" type="submit"/>
-          </form>
-        </template>
+          <template v-if="userData.type !== 'player' && route.params.isComplete == 'true'">
+            <form v-if="statusMsg === false" @submit.prevent="openSendMsgWindow(statsData.by_player)">
+              <button type="submit" class="flex items-center gap-2 bg-[#e10600] hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                Send SMS to Players →
+              </button>
+            </form>
+            <form v-if="statusMsg !== false" @submit.prevent="openStatusModal(route.params.idPractice)">
+              <button type="submit" class="flex items-center gap-2 bg-[#e10600] hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                Check Status →
+              </button>
+            </form>
+          </template>
         </div>
+
       </div>
     </section>
 
-    <section class="mt-[200px] lg:mt-[120px] md:px-[5%]">
+    <section class="mt-[160px] md:px-[5%]">
       <TabGroup>
-        <TabList class="border-b-2 border-fungo-gray3">
+        <!-- Tab bar -->
+        <TabList class="flex justify-center gap-1 bg-[#0d1f3c] rounded-xl p-1.5 mx-auto mb-6 max-w-fit shadow-inner">
           <Tab
             as="template"
             v-slot="{ selected }"
-            class="mx-4"
             v-for="head in tabHeading"
+            :key="head"
           >
             <button
-              class="outline-none"
-              :class="{ 'text-fungo-red font-fungo-500 border-b-2 border-fungo-red': selected, 'text-fungo-darkblue': !selected }"
+              class="px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 outline-none whitespace-nowrap"
+              :class="selected
+                ? 'bg-[#e10600] text-white shadow-md shadow-red-900/40'
+                : 'text-white/60 hover:text-white hover:bg-white/10'"
             >
               {{ head }}
             </button>
