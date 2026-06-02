@@ -94,6 +94,8 @@ const player = computed(() => sourceData.value?.player || {
   age: null,
   grade: '',
   position: '',
+  positions: [],
+  jersey: null,
   throws: '',
   bats: '',
   level: '',
@@ -311,38 +313,75 @@ const scoreCards = computed(() => ([
              Col 2 (narrow): 6 score cards stacked
              Col 3 (wide): rankings, insights, detail cards
         ════════════════════════════════════════════════════════════ -->
-        <div class="grid grid-cols-1 gap-4 xl:grid-cols-[360px_220px_1fr]">
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-[300px_1fr_1fr]">
 
           <!-- ── COLUMN 1 : Hero + narrative ── -->
           <div class="flex flex-col gap-4">
 
-            <!-- Hero card with action-shot background -->
+            <!-- Hero card — ModalPlayer style -->
             <div class="relative overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style="min-height:340px">
-              <!-- Action-shot background — blurred + darkened -->
-              <div
-                class="absolute inset-0 bg-cover bg-top"
-                :style="`background-image:url('${player.picture || updatedLogo}')`"
-              ></div>
-              <div class="absolute inset-0 bg-gradient-to-b from-[#0a1020]/30 via-[#0a1020]/60 to-[#0a1020]/95 backdrop-blur-[2px]"></div>
+              <!-- blurred bg -->
+              <div class="absolute inset-0 bg-cover bg-center scale-110"
+                :style="`background-image:url('${player.picture || updatedLogo}')`"></div>
+              <div class="absolute inset-0 bg-gradient-to-b from-[#060b14]/50 via-[#060b14]/75 to-[#060b14]/97 backdrop-blur-[3px]"></div>
 
-              <!-- Content over the background -->
-              <div class="relative z-10 flex flex-col items-center px-5 pb-5 pt-6 text-center">
-                <!-- Profile circle -->
-                <div class="mb-3 h-24 w-24 overflow-hidden rounded-full ring-4 ring-[#C00000]/60 shadow-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
+              <div class="relative z-10 flex flex-col items-center px-5 pb-6 pt-5 text-center">
+                <!-- Avatar -->
+                <div class="mb-3 h-[110px] w-[110px] overflow-hidden rounded-full ring-4 ring-[#C00000] shadow-2xl bg-slate-800 flex-shrink-0">
                   <img :src="player.picture || updatedLogo" :alt="player.name" class="h-full w-full object-cover object-top" />
                 </div>
 
-                <!-- Name + basics -->
-                <h2 class="text-2xl font-black uppercase tracking-wide text-white drop-shadow">{{ player.name || 'Player' }}</h2>
-                <p class="mt-0.5 text-xs font-semibold uppercase tracking-widest text-white/60">
-                  {{ player.position || '—' }} &nbsp;·&nbsp; {{ player.throws ? `Throws ${player.throws}` : '' }}{{ player.bats ? ` / Bats ${player.bats}` : '' }}
-                </p>
-                <p class="mt-0.5 text-xs text-white/45">
-                  Age {{ player.age || '—' }}&nbsp;·&nbsp;{{ player.height || '—' }}&nbsp;·&nbsp;{{ player.weight ? `${player.weight} lbs` : '—' }}
+                <!-- Name + jersey -->
+                <h2 class="text-xl font-black uppercase tracking-wide text-white drop-shadow leading-tight">
+                  {{ player.name || 'Player' }}
+                  <span v-if="player.jersey" class="ml-1 text-[#C00000]">#{{ player.jersey }}</span>
+                </h2>
+
+                <!-- Role badge -->
+                <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-white/50">
+                  {{ player.role === 'two-way' ? 'TWO-WAY' : player.role === 'pitcher' ? 'PITCHER' : 'HITTER' }}
                 </p>
 
+                <!-- Divider -->
+                <div class="my-3 w-full border-t border-white/10"></div>
+
+                <!-- Info rows -->
+                <div class="w-full flex flex-col gap-2 text-xs">
+                  <div v-if="player.positions?.length" class="flex justify-between">
+                    <span class="text-white/45 font-semibold uppercase tracking-wider">Position</span>
+                    <span class="font-black text-white">{{ player.positions.join(' · ') }}</span>
+                  </div>
+                  <div v-if="player.throws" class="flex justify-between">
+                    <span class="text-white/45 font-semibold uppercase tracking-wider">Throws</span>
+                    <span class="font-black text-white">{{ player.throws }}</span>
+                  </div>
+                  <div v-if="player.bats" class="flex justify-between">
+                    <span class="text-white/45 font-semibold uppercase tracking-wider">Bats</span>
+                    <span class="font-black text-white">{{ player.bats }}</span>
+                  </div>
+                  <div v-if="player.height" class="flex justify-between">
+                    <span class="text-white/45 font-semibold uppercase tracking-wider">Height</span>
+                    <span class="font-black text-white">{{ player.height }}</span>
+                  </div>
+                  <div v-if="player.age" class="flex justify-between">
+                    <span class="text-white/45 font-semibold uppercase tracking-wider">Age</span>
+                    <span class="font-black text-white">{{ player.age }}</span>
+                  </div>
+                  <div v-if="player.weight" class="flex justify-between">
+                    <span class="text-white/45 font-semibold uppercase tracking-wider">Weight</span>
+                    <span class="font-black text-white">{{ player.weight }} lbs</span>
+                  </div>
+                  <div v-if="player.level" class="flex justify-between">
+                    <span class="text-white/45 font-semibold uppercase tracking-wider">Level</span>
+                    <span class="font-black text-white capitalize">{{ player.level }}</span>
+                  </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="my-3 w-full border-t border-white/10"></div>
+
                 <!-- Quick stat pills -->
-                <div class="mt-4 flex flex-wrap justify-center gap-2">
+                <div class="flex flex-wrap justify-center gap-2">
                   <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
                     EV {{ current.avg_exit_velocity ?? '—' }} mph
                   </span>

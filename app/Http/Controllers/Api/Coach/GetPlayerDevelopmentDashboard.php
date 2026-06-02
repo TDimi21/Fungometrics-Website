@@ -37,7 +37,7 @@ class GetPlayerDevelopmentDashboard extends Controller
 
             // Check player exists before entering the cache closure so a missing
             // player never gets cached as an empty array.
-            $player = User::with(['profile', 'player'])->find($playerId);
+            $player = User::with(['profile', 'player', 'positions'])->find($playerId);
             if (!$player) {
                 return response()->json([
                     'code'    => '066-NF',
@@ -182,6 +182,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'age' => $this->resolveAge($player->player?->born_date),
                         'grade' => null,
                         'position' => $role === 'two-way' ? 'Two-way' : ucfirst($role),
+                        'positions' => $player->positions->pluck('position')->toArray(),
+                        'jersey' => $player->player?->number_in_shirt,
                         'throws' => $player->player?->throw_side,
                         'bats' => $player->player?->hit_side,
                         'height' => $this->resolveHeight($player->player?->height_in_ft, $player->player?->height_in_inch),
