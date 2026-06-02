@@ -29,6 +29,8 @@ import { TableCancel } from "@/components/icons";
 import Loader from "../components/Loader.vue";
 import axios from "axios";
 import { useAxiosAuth } from "@/composables/axios-auth.js";
+import TickerBar from "./TickerBar.vue";
+import TickerBar from "./TickerBar.vue";
 import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.png";
 import stadiumBackground from "@/assets/img/training/baseball field.jpeg";
 
@@ -513,6 +515,9 @@ watch(
           </div>
         </div>
       </header>
+
+      <!-- Scrolling top-10 ticker -->
+      <TickerBar />
 
       <main
         class="app-main-shell min-h-screen pt-6 pb-24 px-0 overflow-hidden bg-[#060b14]"
