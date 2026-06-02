@@ -1780,40 +1780,76 @@ watch(
             </div>
 
             <!-- Scrollable card list -->
-            <div v-else class="flex flex-col gap-2 overflow-y-auto pr-1" style="max-height: 480px; scrollbar-width: thin; scrollbar-color: rgba(192,0,0,0.3) transparent;">
+            <div v-else class="flex flex-col gap-3 overflow-y-auto pr-1" style="max-height: 480px; scrollbar-width: thin; scrollbar-color: rgba(192,0,0,0.3) transparent;">
               <div
                 v-for="p in devBoard" :key="p.id"
-                class="rounded-xl border border-white/8 bg-white/4 hover:bg-white/8 transition p-3 flex flex-col gap-2"
+                class="relative rounded-2xl overflow-hidden cursor-pointer group"
+                style="min-height: 120px;"
+                @click="openDevPlayerDetail(p)"
               >
-                <!-- Top row: jersey + name + score -->
-                <div class="flex items-center gap-2 min-w-0">
-                  <span class="text-[10px] font-black text-white/35 shrink-0">#{{ p.jersey ?? '—' }}</span>
-                  <span class="text-sm font-black text-white truncate flex-1">{{ p.name }}</span>
-                  <span
-                    class="text-xs font-black px-2 py-0.5 rounded-full shrink-0 tabular-nums"
-                    :style="p.scores?.overall != null ? { backgroundColor: scoreColor(p.scores.overall) + '22', color: scoreColor(p.scores.overall) } : { color: 'rgba(255,255,255,0.2)' }"
-                  >{{ p.scores?.overall != null ? Math.round(p.scores.overall) : '—' }}</span>
+                <!-- Background photo -->
+                <div class="absolute inset-0">
+                  <img
+                    v-if="p.picture"
+                    :src="p.picture"
+                    class="w-full h-full object-cover object-top"
+                    :alt="p.name"
+                  />
+                  <div v-else class="w-full h-full bg-gradient-to-br from-[#1a2030] to-[#0a1020] flex items-center justify-center">
+                    <img :src="updatedLogo" class="w-12 h-12 opacity-20 object-contain" />
+                  </div>
                 </div>
 
-                <!-- Status + trend -->
-                <div class="flex items-center gap-2">
-                  <span
-                    class="text-[10px] font-black px-2 py-0.5 rounded-full"
-                    :class="[statusConfig[p.status]?.color ?? 'text-white/30', statusConfig[p.status]?.bg ?? 'bg-white/5']"
-                  >{{ statusConfig[p.status]?.label ?? p.status ?? '—' }}</span>
-                  <span class="text-sm" :class="trendColor(p.trend)">{{ trendIcon(p.trend) }}</span>
-                </div>
+                <!-- Dark gradient overlay -->
+                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20"></div>
 
-                <!-- Dev buttons -->
-                <div class="flex gap-1.5 flex-wrap">
-                  <button
-                    class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-[#C00000]/15 border border-[#C00000]/30 text-red-300 hover:bg-[#C00000]/30 transition"
-                    @click="openDevPlayerDetail(p)"
-                  >Development</button>
-                  <button
-                    class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition"
-                    @click="router.push('/roster')"
-                  >Roster</button>
+                <!-- Content overlay -->
+                <div class="relative z-10 flex flex-col justify-between h-full p-3" style="min-height: 120px;">
+                  <!-- Top: name + jersey # small + trend -->
+                  <div class="flex items-start justify-between gap-1">
+                    <div class="flex flex-col leading-tight">
+                      <span class="text-xs font-black text-white drop-shadow">{{ p.name }}</span>
+                      <span v-if="p.jersey != null" class="text-[11px] font-black text-white/40 leading-tight">#{{ p.jersey }}</span>
+                    </div>
+                    <span class="text-base leading-none" :class="trendColor(p.trend)">{{ trendIcon(p.trend) }}</span>
+                  </div>
+
+                  <!-- Bottom section: left = height/weight, right = velocity stats -->
+                  <div class="flex items-end justify-between gap-2 mt-auto">
+                    <!-- Left: height + weight -->
+                    <div v-if="p.height_ft != null || p.weight != null" class="flex items-center gap-1.5 text-[10px] text-white/60 font-bold">
+                      <span v-if="p.height_ft != null">{{ p.height_ft }}'{{ p.height_in != null ? p.height_in + '"' : '' }}</span>
+                      <span v-if="p.height_ft != null && p.weight != null" class="text-white/25">·</span>
+                      <span v-if="p.weight != null">{{ p.weight }} lbs</span>
+                    </div>
+                    <div v-else></div>
+
+                    <!-- Right: FB + EV labeled velocity stats -->
+                    <div class="flex items-stretch gap-1.5 shrink-0">
+                      <div
+                        v-if="p.scores?.bullpen != null"
+                        class="flex flex-col items-center px-2.5 py-1 rounded-lg bg-[#C00000]/70 border border-[#C00000] text-white"
+                      >
+                        <span class="text-[9px] font-black uppercase tracking-widest leading-none opacity-80">FB</span>
+                        <span class="text-sm font-black leading-tight tabular-nums">{{ p.scores.bullpen }}</span>
+                      </div>
+                      <div
+                        v-if="p.top_ev_mph != null"
+                        class="flex flex-col items-center px-2.5 py-1 rounded-lg bg-green-600/70 border border-green-500 text-white"
+                      >
+                        <span class="text-[9px] font-black uppercase tracking-widest leading-none opacity-80">EV</span>
+                        <span class="text-sm font-black leading-tight tabular-nums">{{ p.top_ev_mph }}</span>
+                      </div>
+                      <div
+                        v-if="p.scores?.overall != null"
+                        class="flex flex-col items-center px-2.5 py-1 rounded-lg"
+                        :style="{ backgroundColor: scoreColor(p.scores.overall) + '28', border: '1px solid ' + scoreColor(p.scores.overall) + '55' }"
+                      >
+                        <span class="text-[9px] font-black uppercase tracking-widest leading-none opacity-80" :style="{ color: scoreColor(p.scores.overall) }">OVR</span>
+                        <span class="text-sm font-black leading-tight tabular-nums" :style="{ color: scoreColor(p.scores.overall) }">{{ Math.round(p.scores.overall) }}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

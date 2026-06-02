@@ -178,6 +178,32 @@ class GetPlayerDevelopmentBoard extends Controller
                 $cageByPlayer = $allCage->groupBy('user_id');
                 $evByPlayer   = $allEV->groupBy('user_id');
 
+                // ── Top EV per player: max velocity across all batting + cage + EV practices ──
+                // Uses a direct aggregated query (not limited to last-10-sessions) so it matches
+                // exactly what GetPlayerDevelopmentDashboard shows as "Max EV".
+                $batMaxEV = BattingPracticeResult::where('team_id', $teamId)
+                    ->whereIn('batter_id', $playerIds)
+                    ->where('velocity', '>', 0)
+                    ->selectRaw('batter_id as player_id, MAX(velocity) as max_vel')
+                    ->groupBy('batter_id')
+                    ->pluck('max_vel', 'player_id');
+
+                $cageMaxEV = CagePracticeResult::where('team_id', $teamId)
+                    ->whereIn('user_id', $playerIds)
+                    ->where('launch_angle_velocity', '>', 0)
+                    ->selectRaw('user_id as player_id, MAX(launch_angle_velocity) as max_vel')
+                    ->groupBy('user_id')
+                    ->pluck('max_vel', 'player_id');
+
+                $evMaxEV = ExitVelocityPractice::whereIn('user_id', $playerIds)
+                    ->where('velocity', '>', 0)
+                    ->where(function ($q) use ($teamId) {
+                        $q->where('team_id', $teamId)->orWhereNull('team_id');
+                    })
+                    ->selectRaw('user_id as player_id, MAX(velocity) as max_vel')
+                    ->groupBy('user_id')
+                    ->pluck('max_vel', 'player_id');
+
                 $board = [];
 
                 foreach ($playerIds as $playerId) {
@@ -283,11 +309,28 @@ class GetPlayerDevelopmentBoard extends Controller
                         $status = 'steady';
                     }
 
+                    // ── Top EV mph: max across batting, cage, and EV practice ──────
+                    $topEvMph = null;
+                    try {
+                        $candidates = array_filter([
+                            $batMaxEV->get($playerId),
+                            $cageMaxEV->get($playerId),
+                            $evMaxEV->get($playerId),
+                        ], fn($v) => $v !== null && $v > 0);
+                        $topEvMph = count($candidates) > 0 ? (int) max($candidates) : null;
+                    } catch (\Throwable $e) {
+                        Log::warning("DevBoard topEvMph player {$playerId}: " . $e->getMessage());
+                    }
+
                     $board[] = [
                         'id'          => $playerId,
                         'name'        => $name,
                         'jersey'      => $user->player?->number_in_shirt ?? null,
                         'picture'     => $profile?->picture ?? null,
+                        'height_ft'   => $user->player?->height_in_ft ?? null,
+                        'height_in'   => $user->player?->height_in_inch ?? null,
+                        'weight'      => $user->player?->weight ?? null,
+                        'top_ev_mph'  => $topEvMph,
                         'scores' => [
                             'overall' => $overall,
                             'batting' => $fpsRecent !== null ? (int) round($fpsRecent) : null,
