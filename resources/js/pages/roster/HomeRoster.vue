@@ -79,13 +79,15 @@ const getCoachesByRoster = async(page = 1) => {
     await axiosGet(`coach/roster/coaches`, data)
       .then((response) => {
         if (response) {
-          tableDataCoaches.value = response.data.data
+          tableDataCoaches.value = Array.isArray(response.data.data) ? response.data.data : []
           coachesDataDefault.value = tableDataCoaches.value
           // pages.value = response.data.meta.links
         }
       })
+    if (!Array.isArray(tableDataCoaches.value)) tableDataCoaches.value = []
     tableDataCoaches.value.splice(0, 0, userData)
   } catch (error) {
+    if (!Array.isArray(tableDataCoaches.value)) tableDataCoaches.value = []
     tableDataCoaches.value.splice(0, 0, userData)
     // await toast.fire({
     //   icon: 'error',
