@@ -16,6 +16,7 @@ import useChart from '@/composables/useChart.js'
 import useChartOptions from '@/composables/useChartOptions.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useRoute, useRouter } from 'vue-router'
+import { computeStrengthAssessmentScore } from '@/features/development/lib/strengthAssessmentScore.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -1263,15 +1264,153 @@ const submitMobilityAssessment = async () => {
   }
 }
 
+// ── Strength Assessment ──────────────────────────────────────────────
+const strengthPlayers = ref([])
+const strengthPlayersLoading = ref(false)
+const strengthSaving = ref(false)
+const strengthHistoryLoading = ref(false)
+const strengthHistory = ref([])
+const strengthAssessmentType = ref('first_time')
+const strengthSelectedPlayerId = ref('')
+const strengthMessage = ref({ type: '', text: '' })
+const strengthHelpOpen = ref('')
+
+const toggleStrengthHelp = (section) => {
+  strengthHelpOpen.value = strengthHelpOpen.value === section ? '' : section
+}
+
+const strengthForm = ref({
+  fitness_date: new Date().toISOString().slice(0, 10),
+  squat_percentile: '',
+  deadlift_percentile: '',
+  lunge_percentile: '',
+  bench_press_percentile: '',
+  pull_up_percentile: '',
+  push_up_percentile: '',
+  broad_jump_percentile: '',
+  vertical_jump_percentile: '',
+  sprint_10yd_percentile: '',
+  med_ball_rotational_percentile: '',
+  exit_velocity_percentile: '',
+  bat_speed_percentile: '',
+})
+
+const computedStrength = computed(() => computeStrengthAssessmentScore(strengthForm.value))
+
+const strengthFormComplete = computed(() => {
+  const f = strengthForm.value
+  return (
+    !!f.fitness_date &&
+    f.squat_percentile !== '' &&
+    f.deadlift_percentile !== '' &&
+    f.lunge_percentile !== '' &&
+    f.bench_press_percentile !== '' &&
+    f.pull_up_percentile !== '' &&
+    f.push_up_percentile !== '' &&
+    f.broad_jump_percentile !== '' &&
+    f.vertical_jump_percentile !== '' &&
+    f.sprint_10yd_percentile !== '' &&
+    f.med_ball_rotational_percentile !== '' &&
+    f.exit_velocity_percentile !== '' &&
+    f.bat_speed_percentile !== ''
+  )
+})
+
+const latestStrengthRecord = computed(() =>
+  Array.isArray(strengthHistory.value) && strengthHistory.value.length ? strengthHistory.value[0] : null
+)
+
+const latestStrengthScore = computed(() => {
+  const s = Number(latestStrengthRecord.value?.strength_score)
+  return Number.isFinite(s) ? s : null
+})
+
+const strengthDelta = computed(() => {
+  if (latestStrengthScore.value == null) return null
+  return computedStrength.value.score - latestStrengthScore.value
+})
+
+const fetchStrengthPlayers = async () => {
+  strengthPlayersLoading.value = true
+  try {
+    const res = await axiosGet('coach/roster/players')
+    strengthPlayers.value = (res?.data?.data ?? []).map((p) => ({
+      id: p.id,
+      name: p?.name?.full || `${p?.name?.first || ''} ${p?.name?.last || ''}`.trim() || `Player #${p.id}`,
+    }))
+  } catch {
+    strengthPlayers.value = []
+  } finally {
+    strengthPlayersLoading.value = false
+  }
+}
+
+const fetchStrengthHistory = async () => {
+  strengthMessage.value = { type: '', text: '' }
+  if (!strengthSelectedPlayerId.value) {
+    strengthHistory.value = []
+    return
+  }
+  strengthHistoryLoading.value = true
+  try {
+    const res = await axiosGet(`player/fitness/${strengthSelectedPlayerId.value}`)
+    strengthHistory.value = Array.isArray(res?.data?.data) ? res.data.data : []
+  } catch {
+    strengthHistory.value = []
+  } finally {
+    strengthHistoryLoading.value = false
+  }
+}
+
+watch(() => strengthSelectedPlayerId.value, () => { fetchStrengthHistory() })
+
+const submitStrengthAssessment = async () => {
+  strengthMessage.value = { type: '', text: '' }
+  if (!strengthSelectedPlayerId.value) {
+    strengthMessage.value = { type: 'error', text: 'Select a player first.' }
+    return
+  }
+  if (!strengthFormComplete.value) {
+    strengthMessage.value = { type: 'error', text: 'Complete all strength tests before saving.' }
+    return
+  }
+  if (strengthAssessmentType.value === 'first_time' && latestStrengthScore.value != null) {
+    strengthMessage.value = { type: 'error', text: 'This player already has a strength baseline. Use Reassessment.' }
+    return
+  }
+  if (strengthAssessmentType.value === 'reassessment' && latestStrengthScore.value == null) {
+    strengthMessage.value = { type: 'error', text: 'No baseline found yet. Choose First-time Assessment.' }
+    return
+  }
+  strengthSaving.value = true
+  try {
+    await axiosPost('player/fitness', {
+      user_id: strengthSelectedPlayerId.value,
+      fitness_date: strengthForm.value.fitness_date,
+      strength_score: computedStrength.value.score,
+    })
+    await fetchStrengthHistory()
+    strengthMessage.value = { type: 'success', text: `Saved! Strength score ${computedStrength.value.score} (${computedStrength.value.labels.overall}) saved to player record.` }
+  } catch {
+    strengthMessage.value = { type: 'error', text: 'Could not save strength assessment.' }
+  } finally {
+    strengthSaving.value = false
+  }
+}
+// ── End Strength Assessment ───────────────────────────────────────────
+
 const ensureQuickStatsLoaded = async () => {
   if (quickStatsLoaded.value) return
 
-  if (user.userData.type !== 'player') await fetchMobilityPlayers()
+  if (user.userData.type !== 'player') {
+    await fetchMobilityPlayers()
+    await fetchStrengthPlayers()
+  }
 
   quickStatsLoaded.value = true
 }
 
-const allowedDashboardTabs = ['overview', 'development', 'quickstats']
+const allowedDashboardTabs = ['overview', 'development', 'quickstats', 'strength']
 
 const setDashTab = (tab) => {
   const nextTab = allowedDashboardTabs.includes(tab) ? tab : 'overview'
@@ -1391,6 +1530,16 @@ watch(
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
             :class="dashTab === 'development' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
           >Player Development</button>
+          <button
+            @click="setDashTab('quickstats')"
+            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
+            :class="dashTab === 'quickstats' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
+          >Mobility</button>
+          <button
+            @click="setDashTab('strength')"
+            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
+            :class="dashTab === 'strength' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
+          >Strength</button>
         </div>
 
         <!-- OVERVIEW TAB -->
@@ -2054,6 +2203,214 @@ watch(
 
         </div><!-- end quickstats tab -->
 
+        <!-- STRENGTH ASSESSMENT TAB -->
+        <div v-if="dashTab === 'strength'" class="strength-assessment flex flex-col gap-5">
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
+            <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 class="text-base font-black uppercase tracking-widest text-white">Strength Assessment</h2>
+                <p class="text-xs text-white/45 mt-1">Enter each test as a 0–100 percentile vs. your team or age-group norms. Saved score feeds the player development strength rating.</p>
+              </div>
+              <div class="text-xs text-white/50">Step 1: type · Step 2: player · Step 3: percentiles · Step 4: save</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5">
+            <!-- Left: form -->
+            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
+              <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-4">Assessment Form</h3>
+
+              <!-- Type + Date -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <div class="md:col-span-2">
+                  <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Assessment Type</label>
+                  <div class="flex gap-2">
+                    <button type="button"
+                      class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
+                      :class="strengthAssessmentType === 'first_time' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
+                      @click="strengthAssessmentType = 'first_time'"
+                    >First-time Assessment</button>
+                    <button type="button"
+                      class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
+                      :class="strengthAssessmentType === 'reassessment' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
+                      @click="strengthAssessmentType = 'reassessment'"
+                    >Reassessment</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Assessment Date</label>
+                  <input v-model="strengthForm.fitness_date" type="date" class="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-red-400/60" />
+                </div>
+              </div>
+
+              <!-- Player select -->
+              <div class="mb-4">
+                <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Player</label>
+                <select
+                  v-model="strengthSelectedPlayerId"
+                  class="str-select w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-red-400/60"
+                  :disabled="strengthPlayersLoading"
+                >
+                  <option value="">Select player</option>
+                  <option v-for="p in strengthPlayers" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
+                </select>
+              </div>
+
+              <!-- Test inputs grid -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <!-- Lower Body -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('lower_body')">
+                    <span>Lower Body Strength (30%)</span>
+                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'lower_body' ? 'Hide guide' : 'How to score' }}</span>
+                  </button>
+                  <div v-if="strengthHelpOpen === 'lower_body'" class="str-test-help">
+                    Score each lift as a percentile (0–100) relative to your team. 50 = team average. Squat: back or front squat 1RM. Deadlift: trap bar or conventional. Lunge: walking lunge load or bodyweight reps.
+                  </div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
+                    <input v-model="strengthForm.squat_percentile" type="number" min="0" max="100" step="1" placeholder="Squat percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.deadlift_percentile" type="number" min="0" max="100" step="1" placeholder="Deadlift percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.lunge_percentile" type="number" min="0" max="100" step="1" placeholder="Lunge percentile (0–100)" class="str-input" />
+                  </div>
+                </div>
+
+                <!-- Upper Body -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('upper_body')">
+                    <span>Upper Body Strength (20%)</span>
+                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'upper_body' ? 'Hide guide' : 'How to score' }}</span>
+                  </button>
+                  <div v-if="strengthHelpOpen === 'upper_body'" class="str-test-help">
+                    Bench Press: 1RM relative to bodyweight. Pull-ups: max reps or weighted. Push-ups: max reps. Score each as percentile vs. team/age norms.
+                  </div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
+                    <input v-model="strengthForm.bench_press_percentile" type="number" min="0" max="100" step="1" placeholder="Bench press percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.pull_up_percentile" type="number" min="0" max="100" step="1" placeholder="Pull-up percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.push_up_percentile" type="number" min="0" max="100" step="1" placeholder="Push-up percentile (0–100)" class="str-input" />
+                  </div>
+                </div>
+
+                <!-- Explosive Power -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('explosive')">
+                    <span>Explosive Power (25%)</span>
+                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'explosive' ? 'Hide guide' : 'How to score' }}</span>
+                  </button>
+                  <div v-if="strengthHelpOpen === 'explosive'" class="str-test-help">
+                    Broad Jump: standing broad jump in inches. Vertical Jump: max vertical in inches. 10-yd Sprint: timed in seconds (lower is better — invert when scoring).
+                  </div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
+                    <input v-model="strengthForm.broad_jump_percentile" type="number" min="0" max="100" step="1" placeholder="Broad jump percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.vertical_jump_percentile" type="number" min="0" max="100" step="1" placeholder="Vertical jump percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.sprint_10yd_percentile" type="number" min="0" max="100" step="1" placeholder="10-yd sprint percentile (0–100)" class="str-input" />
+                  </div>
+                </div>
+
+                <!-- Rotational Power -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('rotational')">
+                    <span>Rotational Power (25%)</span>
+                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'rotational' ? 'Hide guide' : 'How to score' }}</span>
+                  </button>
+                  <div v-if="strengthHelpOpen === 'rotational'" class="str-test-help">
+                    Med Ball Rotational Throw: distance in feet, score vs. team norms. Exit Velocity: avg EV from batting sessions (auto-pulled if available). Bat Speed: mph from Blast or HitTrax.
+                  </div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
+                    <input v-model="strengthForm.med_ball_rotational_percentile" type="number" min="0" max="100" step="1" placeholder="Med ball rotational throw percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.exit_velocity_percentile" type="number" min="0" max="100" step="1" placeholder="Exit velocity percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.bat_speed_percentile" type="number" min="0" max="100" step="1" placeholder="Bat speed percentile (0–100)" class="str-input" />
+                  </div>
+                </div>
+
+              </div><!-- end test grid -->
+
+              <div class="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  class="px-4 py-2 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black uppercase tracking-wide disabled:opacity-60"
+                  :disabled="strengthSaving || !strengthSelectedPlayerId || !strengthFormComplete"
+                  @click="submitStrengthAssessment"
+                >
+                  {{ strengthSaving ? 'Saving...' : 'Save Strength Assessment' }}
+                </button>
+                <span v-if="strengthMessage.text" class="text-sm" :class="strengthMessage.type === 'success' ? 'text-green-300' : 'text-red-300'">{{ strengthMessage.text }}</span>
+              </div>
+            </div><!-- end left form -->
+
+            <!-- Right: live score + baseline -->
+            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
+              <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Score + Baseline</h3>
+
+              <!-- Live score card -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
+                <p class="text-[11px] uppercase tracking-widest text-white/45">Computed Strength Score</p>
+                <p class="mt-1 text-4xl font-black" :style="{ color: scoreColor(computedStrength.score) }">{{ computedStrength.hasData ? computedStrength.score : '—' }}</p>
+                <p class="mt-1 text-sm font-bold text-white/80">{{ computedStrength.hasData ? computedStrength.labels.overall : 'Enter percentiles to compute' }}</p>
+                <p class="text-xs text-white/45 mt-1">0–100 FMTRX Strength Score. Saved value replaces the weight-room calculated score in player development.</p>
+
+                <div class="mt-3 space-y-2">
+                  <div v-for="(key, label) in { 'Lower Body': 'lowerBody', 'Upper Body': 'upperBody', 'Explosive Power': 'explosivePower', 'Rotational Power': 'rotationalPower' }" :key="key" class="flex items-center justify-between text-xs">
+                    <span class="text-white/60">{{ key }}</span>
+                    <span class="font-black" :style="{ color: scoreColor(computedStrength.parts[label]) }">
+                      {{ computedStrength.hasData ? `${computedStrength.parts[label]} · ${computedStrength.labels[label]}` : '—' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Parts breakdown shorthand -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
+                <p class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Profile Preview</p>
+                <div class="space-y-1.5">
+                  <div class="flex justify-between text-xs">
+                    <span class="text-white/50">Lower Body</span>
+                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.lowerBody} — ${computedStrength.labels.lowerBody}` : '—' }}</span>
+                  </div>
+                  <div class="flex justify-between text-xs">
+                    <span class="text-white/50">Upper Body</span>
+                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.upperBody} — ${computedStrength.labels.upperBody}` : '—' }}</span>
+                  </div>
+                  <div class="flex justify-between text-xs">
+                    <span class="text-white/50">Explosive Power</span>
+                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.explosivePower} — ${computedStrength.labels.explosivePower}` : '—' }}</span>
+                  </div>
+                  <div class="flex justify-between text-xs">
+                    <span class="text-white/50">Rotational Power</span>
+                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.rotationalPower} — ${computedStrength.labels.rotationalPower}` : '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Baseline -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
+                <p class="text-[11px] uppercase tracking-widest text-white/45">Latest Baseline</p>
+                <div v-if="strengthHistoryLoading" class="text-sm text-white/40">Loading baseline...</div>
+                <div v-else-if="latestStrengthRecord">
+                  <p class="text-lg font-black text-white">{{ latestStrengthScore }}</p>
+                  <p class="text-xs text-white/50">{{ formatDate(latestStrengthRecord.fitness_date || latestStrengthRecord.created_at) }}</p>
+                  <p v-if="strengthDelta != null" class="text-xs mt-1" :class="strengthDelta >= 0 ? 'text-green-300' : 'text-red-300'">
+                    {{ strengthDelta >= 0 ? '+' : '' }}{{ strengthDelta }} vs latest
+                  </p>
+                </div>
+                <p v-else class="text-sm text-white/35">No prior strength baseline for this player.</p>
+              </div>
+
+              <!-- Guide -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Guide</p>
+                <ul class="text-xs text-white/65 space-y-1 list-disc pl-4">
+                  <li>Enter all values as percentile rank vs. your team or age-group norms (0 = lowest, 100 = best).</li>
+                  <li>50 = exactly team average for each metric.</li>
+                  <li>For exit velocity and bat speed, use the player's session average vs. team average.</li>
+                  <li>Score feeds player development Strength component (20% of FMTRX score).</li>
+                  <li>Use Reassessment when re-testing after a training block.</li>
+                </ul>
+              </div>
+            </div><!-- end right panel -->
+          </div>
+        </div><!-- end strength tab -->
+
       </div>
     </div>
     <!-- Player Development Detail Modal -->
@@ -2502,4 +2859,79 @@ watch(
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-thumb { background: #C00000; border-radius: 5px; }
 ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+
+/* ── Strength Assessment ─────────────────────────────── */
+.str-input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(248, 250, 252, 0.95);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.str-input:focus {
+  border-color: rgba(192, 0, 0, 0.65);
+}
+
+.str-input::placeholder {
+  color: rgba(226, 232, 240, 0.45);
+}
+
+.str-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%23E2E8F0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 12px;
+}
+
+.str-select::-ms-expand { display: none; }
+
+.strength-assessment p,
+.strength-assessment span,
+.strength-assessment label,
+.strength-assessment li,
+.strength-assessment button,
+.strength-assessment h2,
+.strength-assessment h3,
+.strength-assessment input,
+.strength-assessment select,
+.strength-assessment option {
+  font-weight: 700;
+}
+
+.str-test-title {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  color: rgba(248, 250, 252, 0.88);
+}
+
+.str-test-help-cta {
+  color: rgba(252, 165, 165, 0.95);
+  font-size: 10px;
+}
+
+.str-test-help {
+  margin-bottom: 0.65rem;
+  border: 1px solid rgba(192, 0, 0, 0.35);
+  background: rgba(192, 0, 0, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.74rem;
+  color: rgba(254, 226, 226, 0.98);
+  line-height: 1.35;
+}
 </style>

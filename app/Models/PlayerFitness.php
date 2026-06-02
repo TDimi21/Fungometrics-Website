@@ -36,6 +36,7 @@ class PlayerFitness extends Model
         'sleep_quality_1_to_5',
         'recovery_score',
         'mobility_score',
+        'strength_score',
     ];
 
     protected $casts =[
@@ -51,6 +52,7 @@ class PlayerFitness extends Model
         'sleep_quality_1_to_5' => 'integer',
         'recovery_score' => 'integer',
         'mobility_score' => 'integer',
+        'strength_score' => 'integer',
     ];
 
     public function user(): BelongsTo

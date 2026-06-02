@@ -39,6 +39,7 @@ class FitnessRequest extends FormRequest
             'sleep_quality_1_to_5'=>['nullable','integer','min:1','max:5'],
             'recovery_score'=>['nullable','integer','min:0','max:100'],
             'mobility_score'=>['nullable','integer','min:0','max:100'],
+            'strength_score'=>['nullable','integer','min:0','max:100'],
         ];
     }
 

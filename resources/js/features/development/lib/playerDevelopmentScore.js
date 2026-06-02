@@ -54,7 +54,11 @@ function trendScoreFromSummary(summary = {}) {
 
 export function buildPlayerDevelopmentModel(input = {}, history = [], role = 'two-way') {
   const pScore = performanceScore(input, role);
-  const strength = computeStrengthScore(input);
+  const strengthComputed = computeStrengthScore(input);
+  const strengthExplicit = num(input.strength_score);
+  const strength = strengthExplicit !== null
+    ? { ...strengthComputed, score: Math.round(clamp(strengthExplicit)) }
+    : strengthComputed;
   const mobilityComputed = computeMobilityScore(input);
   const mobilityExplicit = num(input.mobility_score);
   const mobility = mobilityExplicit !== null
