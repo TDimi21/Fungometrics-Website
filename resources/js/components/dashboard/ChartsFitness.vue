@@ -38,6 +38,82 @@ const getOrderArray = () => normalizedResponse.value
   .slice()
   .sort((a, b) => new Date(b.fitness_date).getTime() - new Date(a.fitness_date).getTime())
 
+// ── Weight-over-time chart (always shown) ─────────────────────────────────────
+const weightChartData = computed(() => {
+  const sorted = normalizedResponse.value
+    .filter(r => r.body_weight > 0 && r.fitness_date)
+    .slice()
+    .sort((a, b) => new Date(a.fitness_date) - new Date(b.fitness_date))
+  return {
+    dates: sorted.map(r => new Date(r.fitness_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })),
+    values: sorted.map(r => parseFloat(r.body_weight)),
+  }
+})
+
+const weightSeries = computed(() => [{
+  name: 'Body Weight (lb)',
+  data: weightChartData.value.values,
+}])
+
+const weightChartOptions = computed(() => ({
+  chart: {
+    type: 'line',
+    height: 260,
+    background: 'transparent',
+    toolbar: { show: false },
+    zoom: { enabled: false },
+    animations: { enabled: true, speed: 500 },
+  },
+  stroke: { curve: 'smooth', width: 3 },
+  colors: ['#C00000'],
+  fill: {
+    type: 'gradient',
+    gradient: {
+      shade: 'dark',
+      type: 'vertical',
+      shadeIntensity: 0.4,
+      gradientToColors: ['#ff6666'],
+      opacityFrom: 0.15,
+      opacityTo: 0.01,
+    },
+  },
+  markers: {
+    size: 5,
+    colors: ['#C00000'],
+    strokeColors: '#fff',
+    strokeWidth: 2,
+    hover: { size: 7 },
+  },
+  dataLabels: { enabled: false },
+  grid: {
+    borderColor: 'rgba(255,255,255,0.07)',
+    row: { colors: ['transparent'], opacity: 1 },
+  },
+  xaxis: {
+    categories: weightChartData.value.dates,
+    labels: {
+      style: { colors: 'rgba(255,255,255,0.5)', fontSize: '11px', fontWeight: 600 },
+      rotate: -35,
+      rotateAlways: false,
+    },
+    axisBorder: { color: 'rgba(255,255,255,0.1)' },
+    axisTicks: { color: 'rgba(255,255,255,0.1)' },
+  },
+  yaxis: {
+    min: (min) => Math.max(0, min - 10),
+    labels: {
+      style: { colors: 'rgba(255,255,255,0.5)', fontSize: '11px', fontWeight: 600 },
+      formatter: (v) => `${v} lb`,
+    },
+  },
+  tooltip: {
+    theme: 'dark',
+    y: { formatter: (v) => `${v} lb` },
+  },
+  theme: { mode: 'dark' },
+}))
+
+
 const entriesModelYAxis= ref('')
 const entriesOptionYAxis = ref([
   {label: 'Bench Press', key: '1', title: 'Bench Press'},
@@ -488,11 +564,62 @@ const computeFmtrxStrengthScore = (entry) => {
 
 <template>
   <Loader v-show="!isLoading.status"/>
-  <div class="w-auto mt-2 px-1 sm:px-6">
-    <div class="grid grid-cols-5 gap-2 sm:gap-4 mt-8">
-      <div class="w-full flex flex-col items-center col-span-2">
-        <label for="entries">Select Y-axis Data:</label>
-        <div class="relative w-full">
+  <div class="charts-wrap">
+
+    <!-- ── Weight Over Time (always visible) ───────────────────────────────── -->
+    <div v-if="weightChartData.values.length > 0" class="weight-chart-card">
+      <div class="weight-chart-header">
+        <div>
+          <p class="weight-chart-title">Body Weight Over Time</p>
+          <p class="weight-chart-sub">{{ weightChartData.values.length }} data point{{ weightChartData.values.length !== 1 ? 's' : '' }}</p>
+        </div>
+        <div class="weight-stat-pills">
+          <div class="weight-stat-pill">
+            <span class="pill-val">{{ weightChartData.values[weightChartData.values.length - 1] }} lb</span>
+            <span class="pill-lbl">Current</span>
+          </div>
+          <div v-if="weightChartData.values.length > 1" class="weight-stat-pill" :class="weightChartData.values[weightChartData.values.length-1] - weightChartData.values[0] <= 0 ? 'pill-green' : 'pill-red'">
+            <span class="pill-val">{{ (weightChartData.values[weightChartData.values.length-1] - weightChartData.values[0] > 0 ? '+' : '') + (weightChartData.values[weightChartData.values.length-1] - weightChartData.values[0]).toFixed(1) }} lb</span>
+            <span class="pill-lbl">Change</span>
+          </div>
+          <div v-if="weightChartData.values.length > 0" class="weight-stat-pill">
+            <span class="pill-val">{{ Math.min(...weightChartData.values) }} lb</span>
+            <span class="pill-lbl">Low</span>
+          </div>
+          <div v-if="weightChartData.values.length > 0" class="weight-stat-pill">
+            <span class="pill-val">{{ Math.max(...weightChartData.values) }} lb</span>
+            <span class="pill-lbl">High</span>
+          </div>
+        </div>
+      </div>
+      <apexchart
+        width="100%"
+        type="area"
+        height="240"
+        :options="weightChartOptions"
+        :series="weightSeries"
+      />
+    </div>
+
+    <!-- Empty state if no weight data -->
+    <div v-else class="weight-empty">
+      <svg class="w-10 h-10 text-white/20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <p class="text-white/40 text-sm font-semibold">No weight data recorded yet</p>
+    </div>
+
+    <!-- Divider -->
+    <div class="section-divider">
+      <span>Custom Metric Chart</span>
+    </div>
+
+    <!-- ── Custom metric explorer (existing) ───────────────────────────────── -->
+    <div class="w-auto px-1 sm:px-4">
+      <div class="grid grid-cols-5 gap-2 sm:gap-4 mt-4">
+        <div class="w-full flex flex-col items-center col-span-2">
+          <label for="entries">Select Y-axis Data:</label>
+          <div class="relative w-full">
           <select class="selectd-form" v-model="entriesModelYAxis" style="z-index: 9" @change="onChange($event)">
             <option class="text-fungo-darkblue" value="" disabled selected>Select your option</option>
             <option class="text-fungo-darkblue" v-for="(item, index) in entriesOptionYAxis" :value="item">{{ item.label }}</option>
@@ -519,17 +646,129 @@ const computeFmtrxStrengthScore = (entry) => {
       </div>
     </div>
 
-    <div class="w-full my-10" v-if="showChart || tableData.length > 0">
-      <hr class="bg-fungo-gray8 h-1 mt-2 mb-5">
-      <div>
-        <apexchart width="100%" type="line" height="500px" :options="dinamicChartOptionsFitness(entriesModelYAxis.title, categoriesMonths)" :series="series"/>
+    <div class="w-full my-6" v-if="showChart || tableData.length > 0">
+        <hr class="bg-fungo-gray8 h-1 mt-2 mb-5">
+        <div>
+          <apexchart width="100%" type="line" height="500px" :options="dinamicChartOptionsFitness(entriesModelYAxis.title, categoriesMonths)" :series="series"/>
+        </div>
       </div>
-    </div>
 
-  </div>
+    </div><!-- end custom metric explorer -->
+  </div><!-- end charts-wrap -->
 </template>
 
 <style scoped>
+
+.charts-wrap {
+  background: #060b14;
+  min-height: 100%;
+  padding: 16px;
+  color: white;
+}
+
+/* ── Weight chart card ── */
+.weight-chart-card {
+  background: linear-gradient(160deg, #0f1a2e 0%, #0b1120 100%);
+  border: 1px solid rgba(192,0,0,0.2);
+  border-radius: 14px;
+  padding: 16px 16px 8px;
+  margin-bottom: 4px;
+}
+.weight-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.weight-chart-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+}
+.weight-chart-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  font-weight: 600;
+  margin-top: 2px;
+}
+.weight-stat-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.weight-stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 8px;
+  padding: 5px 10px;
+  min-width: 56px;
+}
+.weight-stat-pill.pill-green { border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
+.weight-stat-pill.pill-red   { border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
+.pill-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+}
+.pill-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-top: 2px;
+}
+
+.weight-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.02);
+  border: 1px dashed rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 32px 16px;
+  margin-bottom: 4px;
+}
+
+/* ── Divider ── */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 12px;
+}
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+}
+.section-divider span {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+label {
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
 
 ::-webkit-scrollbar {
   width: 4px;
