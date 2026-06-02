@@ -1545,7 +1545,7 @@ watch(
         <!-- OVERVIEW TAB -->
         <div v-if="dashTab === 'overview'">
 
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+          <div class="grid grid-cols-1 xl:grid-cols-[1fr_1fr_260px] gap-5 mb-5">
 
           <!-- ── Player Development Board ── -->
           <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
@@ -1754,6 +1754,66 @@ watch(
                   <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-black" :style="{ backgroundColor: scoreColor(row.score) + '22', color: scoreColor(row.score) }">
                     {{ scoreGrade(row.score) }}
                   </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Player Cards ── -->
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-4 shadow-xl flex flex-col min-h-0">
+            <div class="flex items-center justify-between mb-3 shrink-0">
+              <h2 class="text-sm font-black uppercase tracking-widest text-white">Roster</h2>
+              <button
+                class="text-[10px] font-black uppercase tracking-widest text-[#C00000] hover:text-red-400 transition"
+                @click="setDashTab('development')"
+              >View All →</button>
+            </div>
+
+            <!-- Loading -->
+            <div v-if="devBoardLoading" class="flex flex-col gap-2">
+              <div v-for="i in 6" :key="i" class="h-14 rounded-xl bg-white/5 animate-pulse"></div>
+            </div>
+
+            <!-- Empty -->
+            <div v-else-if="!devBoard.length" class="flex-1 flex items-center justify-center text-white/25 text-sm">
+              No players yet
+            </div>
+
+            <!-- Scrollable card list -->
+            <div v-else class="flex flex-col gap-2 overflow-y-auto pr-1" style="max-height: 480px; scrollbar-width: thin; scrollbar-color: rgba(192,0,0,0.3) transparent;">
+              <div
+                v-for="p in devBoard" :key="p.id"
+                class="rounded-xl border border-white/8 bg-white/4 hover:bg-white/8 transition p-3 flex flex-col gap-2"
+              >
+                <!-- Top row: jersey + name + score -->
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="text-[10px] font-black text-white/35 shrink-0">#{{ p.jersey ?? '—' }}</span>
+                  <span class="text-sm font-black text-white truncate flex-1">{{ p.name }}</span>
+                  <span
+                    class="text-xs font-black px-2 py-0.5 rounded-full shrink-0 tabular-nums"
+                    :style="p.scores?.overall != null ? { backgroundColor: scoreColor(p.scores.overall) + '22', color: scoreColor(p.scores.overall) } : { color: 'rgba(255,255,255,0.2)' }"
+                  >{{ p.scores?.overall != null ? Math.round(p.scores.overall) : '—' }}</span>
+                </div>
+
+                <!-- Status + trend -->
+                <div class="flex items-center gap-2">
+                  <span
+                    class="text-[10px] font-black px-2 py-0.5 rounded-full"
+                    :class="[statusConfig[p.status]?.color ?? 'text-white/30', statusConfig[p.status]?.bg ?? 'bg-white/5']"
+                  >{{ statusConfig[p.status]?.label ?? p.status ?? '—' }}</span>
+                  <span class="text-sm" :class="trendColor(p.trend)">{{ trendIcon(p.trend) }}</span>
+                </div>
+
+                <!-- Dev buttons -->
+                <div class="flex gap-1.5 flex-wrap">
+                  <button
+                    class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-[#C00000]/15 border border-[#C00000]/30 text-red-300 hover:bg-[#C00000]/30 transition"
+                    @click="openDevPlayerDetail(p)"
+                  >Development</button>
+                  <button
+                    class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition"
+                    @click="router.push('/roster')"
+                  >Roster</button>
                 </div>
               </div>
             </div>
