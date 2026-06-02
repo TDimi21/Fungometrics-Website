@@ -120,7 +120,7 @@ const percentileRows = computed(() => {
   return [
     row('Max EV', 'max_exit_velocity', ' mph'),
     row('Avg EV', 'avg_exit_velocity', ' mph'),
-    row('Max Pitch Velo', 'max_pitch_velocity', ' mph'),
+    row('Avg FB Velo', 'avg_fb_velocity', ' mph'),
     row('BP Score', 'bp_score'),
     row('Bullpen Score', 'bullpen_score'),
     row('Vertical Jump', 'vertical_jump', ' in'),
@@ -162,6 +162,7 @@ const scoreDetailByKey = computed(() => {
   ]
 
   const perfPitcherInputs = [
+    ['Avg FB Velocity', n(curr.avg_fb_velocity)],
     ['Avg Pitch Velocity', n(curr.avg_pitch_velocity)],
     ['Max Pitch Velocity', n(curr.max_pitch_velocity)],
     ['Bullpen Score', n(curr.bullpen_score)],
@@ -338,7 +339,7 @@ const scoreCards = computed(() => ([
                     EV {{ current.avg_exit_velocity ?? '—' }} mph
                   </span>
                   <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
-                    Velo {{ current.avg_pitch_velocity ?? '—' }} mph
+                    Avg FB {{ current.avg_fb_velocity ?? '—' }} mph
                   </span>
                   <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
                     BP {{ current.bp_score ?? '—' }}
@@ -356,12 +357,12 @@ const scoreCards = computed(() => ([
               <p class="mb-3 text-[11px] text-white/40">Current baseline from latest data points.</p>
               <div class="space-y-2 text-xs">
                 <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Exit Velocity</span>
+                  <span class="text-white/55">Avg Exit Velocity</span>
                   <span class="font-black text-white">{{ current.avg_exit_velocity ?? '—' }} mph</span>
                 </div>
                 <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Pitch Velocity</span>
-                  <span class="font-black text-white">{{ current.avg_pitch_velocity ?? '—' }} mph</span>
+                  <span class="text-white/55">Avg FB Velocity</span>
+                  <span class="font-black text-white">{{ current.avg_fb_velocity ?? '—' }} mph</span>
                 </div>
                 <div class="flex justify-between border-b border-white/5 pb-1.5">
                   <span class="text-white/55">Batting Score</span>
@@ -394,7 +395,7 @@ const scoreCards = computed(() => ([
                 {{ model.trend?.status || '—' }}
               </p>
               <div class="space-y-2 text-xs">
-                <div v-for="([label, key]) in [['EV','avg_exit_velocity'],['Pitch Velo','avg_pitch_velocity'],['Hard Contact','hard_contact_percentage'],['Command','command_score'],['Strength','rotational_power_score'],['Sleep','sleep_hours']]" :key="key"
+                <div v-for="([label, key]) in [['EV','avg_exit_velocity'],['Avg FB Velo','avg_fb_velocity'],['Hard Contact','hard_contact_percentage'],['Command','command_score'],['Strength','rotational_power_score'],['Sleep','sleep_hours']]" :key="key"
                   class="flex justify-between border-b border-white/5 pb-1.5 last:border-0 last:pb-0">
                   <span class="text-white/55">{{ label }}</span>
                   <span class="font-black"

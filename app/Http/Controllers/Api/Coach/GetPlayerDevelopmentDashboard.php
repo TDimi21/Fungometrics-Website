@@ -125,6 +125,7 @@ class GetPlayerDevelopmentDashboard extends Controller
 
                 $trend = [
                     'avg_exit_velocity' => $this->deltaBlock($battingAggCurrent['avg_exit_velocity'], $battingAggPrev['avg_exit_velocity']),
+                    'avg_fb_velocity'   => $this->deltaBlock($bullpenAggCurrent['avg_fb_velocity'], $bullpenAggPrev['avg_fb_velocity']),
                     'avg_pitch_velocity' => $this->deltaBlock($bullpenAggCurrent['avg_pitch_velocity'], $bullpenAggPrev['avg_pitch_velocity']),
                     'hard_contact_percentage' => $this->deltaBlock($battingAggCurrent['hard_contact_percentage'], $battingAggPrev['hard_contact_percentage']),
                     'command_score' => $this->deltaBlock($bullpenAggCurrent['command_score'], $bullpenAggPrev['command_score']),
@@ -184,6 +185,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'bp_score' => $bpScore,
                         'cage_score' => $cageScore,
                         'live_ab_score' => null,
+                        'avg_fb_velocity'    => $bullpenAggCurrent['avg_fb_velocity'],
                         'avg_pitch_velocity' => $bullpenAggCurrent['avg_pitch_velocity'],
                         'max_pitch_velocity' => $bullpenAggCurrent['max_pitch_velocity'],
                         'bullpen_score' => $bullpenScore,
@@ -223,6 +225,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                             'date' => $now->copy()->subDays(45)->toDateString(),
                             'avg_exit_velocity' => $battingAggPrev['avg_exit_velocity'],
                             'hard_contact_percentage' => $battingAggPrev['hard_contact_percentage'],
+                            'avg_fb_velocity'    => $bullpenAggPrev['avg_fb_velocity'],
                             'avg_pitch_velocity' => $bullpenAggPrev['avg_pitch_velocity'],
                             'command_score' => $bullpenAggPrev['command_score'],
                             'bp_score' => $bpScore ? round((float) $bpScore - 2, 1) : null,
@@ -236,6 +239,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                             'date' => $now->copy()->subDays(7)->toDateString(),
                             'avg_exit_velocity' => $battingAggCurrent['avg_exit_velocity'],
                             'hard_contact_percentage' => $battingAggCurrent['hard_contact_percentage'],
+                            'avg_fb_velocity'    => $bullpenAggCurrent['avg_fb_velocity'],
                             'avg_pitch_velocity' => $bullpenAggCurrent['avg_pitch_velocity'],
                             'command_score' => $bullpenAggCurrent['command_score'],
                             'bp_score' => $bpScore,
@@ -254,6 +258,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                             'max_exit_velocity' => $battingAggCurrent['max_exit_velocity'],
                             'hard_contact_percentage' => $battingAggCurrent['hard_contact_percentage'],
                             'swing_miss_percentage' => $battingAggCurrent['swing_miss_percentage'],
+                            'avg_fb_velocity'    => $bullpenAggCurrent['avg_fb_velocity'],
                             'avg_pitch_velocity' => $bullpenAggCurrent['avg_pitch_velocity'],
                             'max_pitch_velocity' => $bullpenAggCurrent['max_pitch_velocity'],
                             'command_score' => $bullpenAggCurrent['command_score'],
@@ -268,6 +273,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                             'max_exit_velocity' => $battingAggPrev['max_exit_velocity'],
                             'hard_contact_percentage' => $battingAggPrev['hard_contact_percentage'],
                             'swing_miss_percentage' => $battingAggPrev['swing_miss_percentage'],
+                            'avg_fb_velocity'    => $bullpenAggPrev['avg_fb_velocity'],
                             'avg_pitch_velocity' => $bullpenAggPrev['avg_pitch_velocity'],
                             'max_pitch_velocity' => $bullpenAggPrev['max_pitch_velocity'],
                             'command_score' => $bullpenAggPrev['command_score'],
@@ -355,12 +361,14 @@ class GetPlayerDevelopmentDashboard extends Controller
     private function aggregateBullpen(Collection $bullpen): array
     {
         $velocities = $bullpen->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
+        $fbVelocities = $bullpen->where('intended_pitch_type', 'FB')->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
         $total = max(1, $bullpen->count());
         $strikes = $bullpen->where('is_strike', true)->count();
 
         $strikePct = $bullpen->count() > 0 ? round(($strikes / $total) * 100, 1) : null;
 
         return [
+            'avg_fb_velocity'    => $fbVelocities->count() > 0 ? round((float) $fbVelocities->avg(), 1) : null,
             'avg_pitch_velocity' => $velocities->count() > 0 ? round((float) $velocities->avg(), 1) : null,
             'max_pitch_velocity' => $velocities->count() > 0 ? round((float) $velocities->max(), 1) : null,
             'strike_percentage' => $strikePct,
