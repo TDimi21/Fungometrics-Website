@@ -157,7 +157,8 @@ const chartOptions = computed(() => ({
     zoom: { enabled: false },
     animations: { enabled: true, speed: 350 },
   },
-  stroke: { curve: 'smooth', width: activeMetrics.value.length > 1 ? 2.5 : 3 },
+  stroke: { curve: 'monotoneCubic', width: activeMetrics.value.length > 1 ? 2.5 : 3 },
+  connectNulls: true,
   colors: chartColors.value,
   fill: {
     type: activeMetrics.value.length === 1 ? 'gradient' : 'solid',
