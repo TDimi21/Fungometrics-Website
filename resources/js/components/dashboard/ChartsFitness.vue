@@ -160,12 +160,12 @@ const chartOptions = computed(() => ({
     min: (min) => Math.max(0, parseFloat((min * 0.94).toFixed(1))),
     labels: {
       style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
-      formatter: (v) => v != null ? `${v} ${activeMetrics.value[0].unit}` : '',
+      formatter: (v) => v != null ? `${parseFloat(v).toFixed(1)} ${activeMetrics.value[0].unit}` : '',
     },
   } : {
     labels: {
       style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
-      formatter: (v) => v != null ? String(v) : '',
+      formatter: (v) => v != null ? parseFloat(v).toFixed(1) : '',
     },
   },
   tooltip: {
@@ -283,78 +283,90 @@ const computeFmtrxStrengthScore = (entry) => {
 
     <!-- ── Interactive metric chart ───────────────────────────────────────── -->
     <div class="metric-chart-card">
+      <div class="three-col">
 
-      <!-- Metric selector buttons -->
-      <div class="selector-group">
-        <button
-          v-for="m in METRICS"
-          :key="m.key"
-          class="selector-btn"
-          :class="{ active: activeMetricKeys.has(m.key) }"
-          :style="activeMetricKeys.has(m.key) ? { background: m.color, borderColor: m.color } : {}"
-          @click="toggleMetric(m.key)"
-        >{{ m.label }}</button>
-      </div>
-
-      <!-- Date range buttons -->
-      <div class="range-group">
-        <button
-          v-for="r in DATE_RANGES"
-          :key="r.months"
-          class="range-btn"
-          :class="{ active: activeDateRange === r.months }"
-          @click="activeDateRange = r.months"
-        >{{ r.label }}</button>
-      </div>
-
-      <!-- Per-metric stat rows -->
-      <div v-if="hasAnyData" class="stats-block">
-        <div v-for="s in metricStats" :key="s.key" class="stat-row">
-          <div class="stat-metric-label" :style="{ color: s.color }">
-            <span class="stat-dot" :style="{ background: s.color }"></span>
-            {{ s.label }}
-          </div>
-          <div class="stat-pills">
-            <div v-if="s.current !== null" class="stat-pill">
-              <span class="pill-val">{{ s.current }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
-              <span class="pill-lbl">Current</span>
-            </div>
-            <div v-if="s.change !== null" class="stat-pill" :class="s.good ? 'pill-good' : 'pill-bad'">
-              <span class="pill-val">{{ s.change > 0 ? '+' : '' }}{{ s.change }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
-              <span class="pill-lbl">Change</span>
-            </div>
-            <div v-if="s.low !== null" class="stat-pill">
-              <span class="pill-val">{{ s.low }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
-              <span class="pill-lbl">Low</span>
-            </div>
-            <div v-if="s.high !== null" class="stat-pill">
-              <span class="pill-val">{{ s.high }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
-              <span class="pill-lbl">High</span>
-            </div>
-            <div v-if="s.count" class="stat-pill">
-              <span class="pill-val">{{ s.count }}</span>
-              <span class="pill-lbl">Points</span>
-            </div>
+        <!-- ── Col 1: Metric selector buttons ── -->
+        <div class="col-metrics">
+          <div class="col-label">Metrics</div>
+          <div class="selector-group">
+            <button
+              v-for="m in METRICS"
+              :key="m.key"
+              class="selector-btn"
+              :class="{ active: activeMetricKeys.has(m.key) }"
+              :style="activeMetricKeys.has(m.key) ? { background: m.color, borderColor: m.color } : {}"
+              @click="toggleMetric(m.key)"
+            >{{ m.label }}</button>
           </div>
         </div>
-      </div>
 
-      <!-- Chart -->
-      <div v-if="hasAnyData" class="chart-area">
-        <apexchart
-          width="100%"
-          type="line"
-          height="260"
-          :options="chartOptions"
-          :series="chartSeries"
-          :key="[...activeMetricKeys].join('_') + '_' + activeDateRange"
-        />
-      </div>
-      <div v-else class="chart-empty">
-        <svg class="w-8 h-8 text-white/20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-        </svg>
-        <p class="text-white/35 text-sm font-semibold">No data for this selection</p>
+        <!-- ── Col 2: Date range buttons ── -->
+        <div class="col-dates">
+          <div class="col-label">Date Range</div>
+          <div class="range-group">
+            <button
+              v-for="r in DATE_RANGES"
+              :key="r.months"
+              class="range-btn"
+              :class="{ active: activeDateRange === r.months }"
+              @click="activeDateRange = r.months"
+            >{{ r.label }}</button>
+          </div>
+        </div>
+
+        <!-- ── Col 3: Stats + Chart ── -->
+        <div class="col-chart">
+          <!-- Per-metric stat rows -->
+          <div v-if="hasAnyData" class="stats-block">
+            <div v-for="s in metricStats" :key="s.key" class="stat-row">
+              <div class="stat-metric-label" :style="{ color: s.color }">
+                <span class="stat-dot" :style="{ background: s.color }"></span>
+                {{ s.label }}
+              </div>
+              <div class="stat-pills">
+                <div v-if="s.current !== null" class="stat-pill">
+                  <span class="pill-val">{{ parseFloat(s.current).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
+                  <span class="pill-lbl">Current</span>
+                </div>
+                <div v-if="s.change !== null" class="stat-pill" :class="s.good ? 'pill-good' : 'pill-bad'">
+                  <span class="pill-val">{{ s.change > 0 ? '+' : '' }}{{ parseFloat(s.change).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
+                  <span class="pill-lbl">Change</span>
+                </div>
+                <div v-if="s.low !== null" class="stat-pill">
+                  <span class="pill-val">{{ parseFloat(s.low).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
+                  <span class="pill-lbl">Low</span>
+                </div>
+                <div v-if="s.high !== null" class="stat-pill">
+                  <span class="pill-val">{{ parseFloat(s.high).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span>
+                  <span class="pill-lbl">High</span>
+                </div>
+                <div v-if="s.count" class="stat-pill">
+                  <span class="pill-val">{{ s.count }}</span>
+                  <span class="pill-lbl">Points</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div v-if="hasAnyData" class="chart-area">
+            <apexchart
+              width="100%"
+              type="line"
+              height="260"
+              :options="chartOptions"
+              :series="chartSeries"
+              :key="[...activeMetricKeys].join('_') + '_' + activeDateRange"
+            />
+          </div>
+          <div v-else class="chart-empty">
+            <svg class="w-8 h-8 text-white/20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <p class="text-white/35 text-sm font-semibold">No data for this selection</p>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -378,16 +390,43 @@ const computeFmtrxStrengthScore = (entry) => {
   border-radius: 14px;
   padding: 16px;
   margin-bottom: 4px;
+}
+
+/* ── 3-column grid ── */
+.three-col {
+  display: grid;
+  grid-template-columns: 140px 100px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.col-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 8px;
+}
+.col-metrics {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+}
+.col-dates {
+  display: flex;
+  flex-direction: column;
+}
+.col-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
 }
 
 /* ── Metric selector ── */
 .selector-group {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 5px;
 }
 .selector-btn {
   font-size: 11px;
@@ -417,8 +456,8 @@ const computeFmtrxStrengthScore = (entry) => {
 /* ── Date range selector ── */
 .range-group {
   display: flex;
+  flex-direction: column;
   gap: 5px;
-  flex-wrap: wrap;
 }
 .range-btn {
   font-size: 11px;
