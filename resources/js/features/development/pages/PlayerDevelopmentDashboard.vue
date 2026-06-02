@@ -339,7 +339,7 @@ const scoreCards = computed(() => ([
                     EV {{ current.avg_exit_velocity ?? '—' }} mph
                   </span>
                   <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
-                    Avg FB {{ current.avg_fb_velocity ?? '—' }} mph
+                    {{ current.avg_fb_velocity != null ? 'Avg FB' : 'Velo' }} {{ current.avg_fb_velocity ?? current.avg_pitch_velocity ?? '—' }} mph
                   </span>
                   <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white">
                     BP {{ current.bp_score ?? '—' }}
@@ -361,8 +361,8 @@ const scoreCards = computed(() => ([
                   <span class="font-black text-white">{{ current.avg_exit_velocity ?? '—' }} mph</span>
                 </div>
                 <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Avg FB Velocity</span>
-                  <span class="font-black text-white">{{ current.avg_fb_velocity ?? '—' }} mph</span>
+                  <span class="text-white/55">{{ current.avg_fb_velocity != null ? 'Avg FB Velocity' : 'Avg Pitch Velo' }}</span>
+                  <span class="font-black text-white">{{ current.avg_fb_velocity ?? current.avg_pitch_velocity ?? '—' }} mph</span>
                 </div>
                 <div class="flex justify-between border-b border-white/5 pb-1.5">
                   <span class="text-white/55">Batting Score</span>
