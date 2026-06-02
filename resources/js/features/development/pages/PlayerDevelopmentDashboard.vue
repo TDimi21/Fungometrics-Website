@@ -18,6 +18,7 @@ import RecoverySleepCard from '../components/RecoverySleepCard.vue'
 import StrengthMetricsCard from '../components/StrengthMetricsCard.vue'
 import MobilityAssessmentCard from '../components/MobilityAssessmentCard.vue'
 
+import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 import { buildPlayerDevelopmentModel } from '../lib/playerDevelopmentScore'
 import { getAgeGroup, getMetricPercentile, getPercentileLabel } from '../lib/percentileEngine'
 import { buildCorrelationInsights } from '../lib/correlationEngine'
@@ -310,9 +311,8 @@ const scoreCards = computed(() => ([
             <div class="relative overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style="min-height:340px">
               <!-- Action-shot background — blurred + darkened -->
               <div
-                v-if="player.picture"
                 class="absolute inset-0 bg-cover bg-top"
-                :style="`background-image:url('${player.picture}')`"
+                :style="`background-image:url('${player.picture || updatedLogo}')`"
               ></div>
               <div class="absolute inset-0 bg-gradient-to-b from-[#0a1020]/30 via-[#0a1020]/60 to-[#0a1020]/95 backdrop-blur-[2px]"></div>
 
@@ -320,8 +320,7 @@ const scoreCards = computed(() => ([
               <div class="relative z-10 flex flex-col items-center px-5 pb-5 pt-6 text-center">
                 <!-- Profile circle -->
                 <div class="mb-3 h-24 w-24 overflow-hidden rounded-full ring-4 ring-[#C00000]/60 shadow-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
-                  <img v-if="player.picture" :src="player.picture" :alt="player.name" class="h-full w-full object-cover object-top" />
-                  <span v-else class="text-4xl font-black text-white/40">{{ (player.name || 'P').charAt(0).toUpperCase() }}</span>
+                  <img :src="player.picture || updatedLogo" :alt="player.name" class="h-full w-full object-cover object-top" />
                 </div>
 
                 <!-- Name + basics -->
@@ -425,35 +424,41 @@ const scoreCards = computed(() => ([
 
           </div><!-- /col 1 -->
 
-          <!-- ── COLUMN 2 : 6 Score cards stacked ── -->
-          <div class="flex flex-col gap-3">
-            <p class="text-[10px] font-black uppercase tracking-widest text-white/30 px-1">Development Scores</p>
-            <button
-              v-for="(card, idx) in scoreCards"
-              :key="idx"
-              type="button"
-              class="w-full rounded-xl border p-4 text-left transition hover:brightness-110"
-              :class="card.score >= 85 ? 'border-emerald-400/30 bg-emerald-950/40' : card.score >= 70 ? 'border-yellow-400/30 bg-yellow-950/40' : 'border-red-400/30 bg-red-950/40'"
-              @click="selectedScoreKey = card.key"
-            >
-              <p class="text-[10px] font-black uppercase tracking-widest"
-                :class="card.score >= 85 ? 'text-emerald-400/70' : card.score >= 70 ? 'text-yellow-400/70' : 'text-red-400/70'">
-                {{ card.title }}
-              </p>
-              <p class="mt-1.5 text-4xl font-black leading-none"
-                :class="card.score >= 85 ? 'text-emerald-300' : card.score >= 70 ? 'text-yellow-300' : 'text-red-300'">
-                {{ card.score ?? 0 }}
-              </p>
-              <p class="mt-1 text-[10px] text-white/35">{{ card.subtitle }}</p>
-              <p class="mt-0.5 text-[10px] text-white/25">click for details</p>
-            </button>
-          </div><!-- /col 2 -->
-
-          <!-- ── COLUMN 3 : Deep-dive data ── -->
+          <!-- ── COLUMN 2 : Percentile Rankings ── -->
           <div class="flex flex-col gap-4">
             <PercentileRankingsTable :rows="percentileRows" />
             <CorrelationInsightsCard :insights="insights" />
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+          </div><!-- /col 2 -->
+
+          <!-- ── COLUMN 3 : Score cards + deep-dive ── -->
+          <div class="flex flex-col gap-4">
+            <!-- 6 score cards in a 2-col mini-grid -->
+            <div>
+              <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-white/30 px-1">Development Scores</p>
+              <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <button
+                  v-for="(card, idx) in scoreCards"
+                  :key="idx"
+                  type="button"
+                  class="w-full rounded-xl border p-4 text-left transition hover:brightness-110"
+                  :class="card.score >= 85 ? 'border-emerald-400/30 bg-emerald-950/40' : card.score >= 70 ? 'border-yellow-400/30 bg-yellow-950/40' : 'border-red-400/30 bg-red-950/40'"
+                  @click="selectedScoreKey = card.key"
+                >
+                  <p class="text-[10px] font-black uppercase tracking-widest"
+                    :class="card.score >= 85 ? 'text-emerald-400/70' : card.score >= 70 ? 'text-yellow-400/70' : 'text-red-400/70'">
+                    {{ card.title }}
+                  </p>
+                  <p class="mt-1.5 text-4xl font-black leading-none"
+                    :class="card.score >= 85 ? 'text-emerald-300' : card.score >= 70 ? 'text-yellow-300' : 'text-red-300'">
+                    {{ card.score ?? 0 }}
+                  </p>
+                  <p class="mt-1 text-[10px] text-white/35">{{ card.subtitle }}</p>
+                  <p class="mt-0.5 text-[10px] text-white/25">click for details</p>
+                </button>
+              </div>
+            </div>
+            <!-- Detail cards -->
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
               <RecoverySleepCard :recovery="model.recovery" :current="current" />
               <StrengthMetricsCard :strength="model.strength" />
               <MobilityAssessmentCard :mobility="model.mobility" />
