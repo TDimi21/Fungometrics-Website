@@ -64,6 +64,14 @@ const selectedPracticeTable = computed(() => {
   return PracticeTable
 })
 
+const sessionTs = (item) => {
+  const date = item?.updated_at ?? item?.created_at ?? item?.date ?? item?.started ?? item?.start ?? null
+  const ts = date ? new Date(date).getTime() : 0
+  return Number.isFinite(ts) ? ts : 0
+}
+
+const sortNewestFirst = (arr) => [...(Array.isArray(arr) ? arr : [])].sort((a, b) => sessionTs(b) - sessionTs(a))
+
 const getTrainigsByType = async(page = 1) => {
   const typesTraining = [
     { name: "batting", pass: 'B' },
@@ -88,10 +96,10 @@ const getTrainigsByType = async(page = 1) => {
         if (response) {
           console.log(response.data.data);
           if (userData.type == 'player') {
-            tableData.value =  response.data.data.data.filter(item => item.modes == 'WB' || item.modes == 'LT' || item.modes == 'EV' )
+            tableData.value = sortNewestFirst(response.data.data.data.filter(item => item.modes == 'WB' || item.modes == 'LT' || item.modes == 'EV' ))
             pages.value = response.data.links
           } else {
-            tableData.value =  response.data.data.filter(item => item.mode == 'WB' || item.mode == 'LT' || item.mode == 'EV' )
+            tableData.value = sortNewestFirst(response.data.data.filter(item => item.mode == 'WB' || item.mode == 'LT' || item.mode == 'EV' ))
             pages.value = response.data.meta.links
           }
         }
@@ -102,10 +110,10 @@ const getTrainigsByType = async(page = 1) => {
       .then((response) => {
         if (response) {
           if (userData.type == 'player') {
-            tableData.value = response.data.data.data.filter(item => item.type == type)
+            tableData.value = sortNewestFirst(response.data.data.data.filter(item => item.type == type))
             pages.value = response.data.links
           } else {
-            tableData.value = response.data.data
+            tableData.value = sortNewestFirst(response.data.data)
             pages.value = response.data.meta.links
           }
         }
@@ -116,10 +124,10 @@ const getTrainigsByType = async(page = 1) => {
       .then(async(response) => {
         if (response) {
           if (userData.type == 'player') {
-            tableData.value = response.data.data.data.filter(item => item.type == type)
+            tableData.value = sortNewestFirst(response.data.data.data.filter(item => item.type == type))
             pages.value = response.data.links
           } else {
-            tableData.value = response.data.data
+            tableData.value = sortNewestFirst(response.data.data)
             pages.value = response.data.meta.links
 			  console.log("data to find missing logo", response.data.data);
           }

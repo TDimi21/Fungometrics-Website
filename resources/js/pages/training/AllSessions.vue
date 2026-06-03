@@ -1,12 +1,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useTeamStore } from '@/store/team'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import Layout from '@/layout/Layout.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { axiosGet } = useAxiosAuth()
 const { team } = storeToRefs(useTeamStore())
 
@@ -29,6 +30,15 @@ const SESSION_REPORT_TYPE = {
   long_toss: 'long_toss', weight_ball: 'weight_ball', exit_velocity: 'exit_velocity',
 }
 
+const ONE_HOUR_MS = 3600000
+
+const SESSION_MODE_TO_FILTER = {
+  EV: 'exit_velocity',
+  LT: 'long_toss',
+  WB: 'weight_ball',
+  HP: 'live',
+}
+
 const FILTERS = [
   { key: 'all',           label: 'All'          },
   { key: 'batting',       label: 'Batting'      },
@@ -43,6 +53,96 @@ const FILTERS = [
 const formatDate = (d) => {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+const normalizeMode = (modeLike) => {
+  const mode = String(modeLike || '').trim().toUpperCase()
+  if (!mode) return null
+  if (mode === 'EV') return 'EV'
+  if (mode === 'WB') return 'WB'
+  if (mode === 'LT' || mode.includes('LONG')) return 'LT'
+  if (mode === 'HP') return 'HP'
+  return mode
+}
+
+const tryLen = (arr) => (Array.isArray(arr) ? arr.length : undefined)
+
+const computeTotalBalls = (session, sourceType) => {
+  const modeHint = normalizeMode(session?.mode || session?.modes)
+  const explicitCount =
+    (typeof session?.total_balls === 'number' ? session.total_balls : undefined) ??
+    (typeof session?.total_ball === 'number' ? session.total_ball : undefined) ??
+    (typeof session?.balls === 'number' ? session.balls : undefined) ??
+    (typeof session?.pitches_count === 'number' ? session.pitches_count : undefined) ??
+    (typeof session?.total_pitches === 'number' ? session.total_pitches : undefined) ??
+    (typeof session?.throws_count === 'number' ? session.throws_count : undefined)
+
+  if (typeof explicitCount === 'number') return explicitCount
+
+  if (sourceType === 'B') {
+    const v = tryLen(session?.batting) ?? tryLen(session?.practice_match_result) ?? tryLen(session?.results)
+    if (v !== undefined) return v
+  }
+
+  if (sourceType === 'P') {
+    const v = tryLen(session?.bullpen) ?? tryLen(session?.pitchers) ?? tryLen(session?.practice_match_result) ?? tryLen(session?.results) ?? tryLen(session?.pitches)
+    if (v !== undefined) return v
+  }
+
+  if (sourceType === 'C') {
+    const v = tryLen(session?.cage) ?? tryLen(session?.batters) ?? tryLen(session?.practice_match_result) ?? tryLen(session?.results)
+    if (v !== undefined) return v
+  }
+
+  if (sourceType === 'T') {
+    const v = tryLen(session?.practice_match_result) ?? tryLen(session?.results)
+    if (v !== undefined) return v
+    if (modeHint === 'LT') {
+      const lt = tryLen(session?.throws)
+      if (lt !== undefined) return lt
+    }
+  }
+
+  return 0
+}
+
+const shouldShowPlayerSession = (session) => {
+  if (!session) return false
+  const hasBalls = Number(session.total_balls || 0) > 0
+  const isDone = Number(session.is_completed) === 2
+  const isFreshSelfCreated = Boolean(
+    session.created_by_self &&
+    session._date &&
+    (Date.now() - new Date(session._date).getTime()) < ONE_HOUR_MS
+  )
+  return hasBalls || isDone || isFreshSelfCreated
+}
+
+const mapPlayerSession = (session, sourceType, createdBySelf = false) => {
+  const mode = normalizeMode(session?.mode || session?.modes)
+  const date = session?.created_at || session?.updated_at || session?.date || session?.started || null
+  const resolvedType = sourceType || String(session?.type || '').toUpperCase()
+
+  let type = 'live'
+  if (resolvedType === 'B') type = 'batting'
+  else if (resolvedType === 'P') type = 'bullpen'
+  else if (resolvedType === 'C') type = 'cage'
+  else if (resolvedType === 'L') type = 'live'
+  else if (resolvedType === 'T') type = SESSION_MODE_TO_FILTER[mode] || 'live'
+
+  const reportType = resolvedType === 'T'
+    ? SESSION_REPORT_TYPE[type] || null
+    : SESSION_REPORT_TYPE[type] || null
+
+  return {
+    ...session,
+    _type: type,
+    _date: date,
+    _reportType: reportType,
+    total_balls: computeTotalBalls(session, resolvedType),
+    is_completed: session?.is_completed === 2 || session?.is_completed === 1 || session?.is_completed === true || session?.finished === true ? 2 : 1,
+    created_by_self: createdBySelf,
+  }
 }
 
 const playerNames = (session) => {
@@ -63,26 +163,79 @@ const sessionTotals = computed(() => {
   return { total, done }
 })
 
+const loadCoachSessions = async () => {
+  if (!team.value?.id) return
+  const { data } = await axiosGet('coach/sessions/lasts/' + team.value.id)
+  const d = data?.data ?? {}
+  const all = []
+  for (const [type, items] of Object.entries(d)) {
+    if (Array.isArray(items)) items.forEach((item) => all.push({ ...item, _type: type }))
+  }
+  all.sort((a, b) => new Date(b.updated_at ?? b.created_at) - new Date(a.updated_at ?? a.created_at))
+  sessions.value = all
+}
+
+const loadPlayerSessions = async () => {
+  const [battingRes, bullpenRes, cageRes, trainingRes, createdRes] = await Promise.all([
+    axiosGet('player/sessions/batting').catch(() => null),
+    axiosGet('player/sessions/bullpen').catch(() => null),
+    axiosGet('player/sessions/cage').catch(() => null),
+    axiosGet('player/sessions/training').catch(() => null),
+    axiosGet('player/sessions/created').catch(() => null),
+  ])
+
+  const batting = battingRes?.data?.data?.data || []
+  const bullpen = bullpenRes?.data?.data?.data || []
+  const cage = cageRes?.data?.data?.data || []
+  const training = trainingRes?.data?.data?.data || []
+  const created = createdRes?.data?.data?.data || []
+
+  const withCreated = (base, createdType) => {
+    const ids = new Set(base.map((s) => s?.id).filter(Boolean))
+    const extra = created.filter((s) => String(s?.type || '').toUpperCase() === createdType && !ids.has(s?.id))
+    return [...base, ...extra]
+  }
+
+  const battingWithCreated = withCreated(batting, 'B')
+  const bullpenWithCreated = withCreated(bullpen, 'P')
+  const cageWithCreated = withCreated(cage, 'C')
+  const trainingWithCreated = withCreated(training, 'T')
+  const liveabWithCreated = withCreated([], 'L')
+  const selfCreatedIds = new Set(created.map((s) => s?.id).filter(Boolean))
+
+  sessions.value = [
+    ...battingWithCreated.map((s) => mapPlayerSession(s, 'B', selfCreatedIds.has(s?.id))),
+    ...bullpenWithCreated.map((s) => mapPlayerSession(s, 'P', selfCreatedIds.has(s?.id))),
+    ...cageWithCreated.map((s) => mapPlayerSession(s, 'C', selfCreatedIds.has(s?.id))),
+    ...liveabWithCreated.map((s) => mapPlayerSession(s, 'L', selfCreatedIds.has(s?.id))),
+    ...trainingWithCreated.map((s) => mapPlayerSession(s, 'T', selfCreatedIds.has(s?.id))),
+  ]
+    .filter((s) => s?.id)
+    .filter(shouldShowPlayerSession)
+    .sort((a, b) => new Date(b?._date || 0) - new Date(a?._date || 0))
+    .slice(0, 8)
+}
+
 onMounted(async () => {
-  if (!team.value?.id) { loading.value = false; return }
+  loading.value = true
   try {
-    const { data } = await axiosGet('coach/sessions/lasts/' + team.value.id)
-    const d = data?.data ?? {}
-    const all = []
-    for (const [type, items] of Object.entries(d)) {
-      if (Array.isArray(items)) items.forEach(item => all.push({ ...item, _type: type }))
+    if (route.query?.scope === 'player') {
+      await loadPlayerSessions()
+    } else {
+      await loadCoachSessions()
     }
-    all.sort((a, b) => new Date(b.updated_at ?? b.created_at) - new Date(a.updated_at ?? a.created_at))
-    sessions.value = all
-  } catch (e) { console.warn('AllSessions load error', e) }
-  finally { loading.value = false }
+  } catch (e) {
+    console.warn('AllSessions load error', e)
+  } finally {
+    loading.value = false
+  }
 })
 
 const openReport = (session) => {
-  const type = SESSION_REPORT_TYPE[session._type]
+  const type = session?._reportType || SESSION_REPORT_TYPE[session._type]
   if (!type) return
-  const note = session.end_note || null
-  const date = session.updated_at ?? session.created_at ?? null
+  const note = session?.end_note || null
+  const date = session?._date ?? session?.updated_at ?? session?.created_at ?? null
   router.push({ name: 'session.report', params: { id: session.id, type }, query: { date, note } })
 }
 </script>
@@ -103,7 +256,7 @@ const openReport = (session) => {
             </button>
             <div class="min-w-0">
               <h1 class="truncate text-white font-black text-xl tracking-wide">Session Reports</h1>
-              <p class="truncate text-white/45 text-xs uppercase tracking-wider">{{ team?.name || 'Team' }}</p>
+              <p class="truncate text-white/45 text-xs uppercase tracking-wider">{{ team?.name || 'Player Sessions' }}</p>
             </div>
           </div>
 
@@ -164,7 +317,11 @@ const openReport = (session) => {
           :key="session.id"
           @click="openReport(session)"
           class="flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition group"
-          :class="[TYPE_COLOR[session._type]?.bg ?? 'bg-white/5', TYPE_COLOR[session._type]?.border ?? 'border-white/10', 'hover:brightness-125']"
+          :class="[
+            TYPE_COLOR[session._type]?.bg ?? 'bg-white/5',
+            TYPE_COLOR[session._type]?.border ?? 'border-white/10',
+            (session._reportType || SESSION_REPORT_TYPE[session._type]) ? 'hover:brightness-125 cursor-pointer' : 'opacity-70 cursor-default'
+          ]"
         >
           <!-- Type badge -->
           <span
@@ -175,7 +332,7 @@ const openReport = (session) => {
           <!-- Info -->
           <div class="flex-1 min-w-0">
             <p class="text-white/85 text-sm font-bold truncate">
-              {{ formatDate(session.updated_at ?? session.created_at) }}
+              {{ formatDate(session._date ?? session.updated_at ?? session.created_at) }}
             </p>
             <p v-if="playerNames(session)" class="text-white/40 text-xs truncate mt-0.5">
               {{ playerNames(session) }}
@@ -188,7 +345,10 @@ const openReport = (session) => {
             class="shrink-0 text-[10px] font-black text-emerald-400 border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 rounded-lg"
           >✓ DONE</span>
 
-          <span class="text-[10px] font-black tracking-wider uppercase text-white/45">Report ›</span>
+          <span
+            v-if="session._reportType || SESSION_REPORT_TYPE[session._type]"
+            class="text-[10px] font-black tracking-wider uppercase text-white/45"
+          >Report ›</span>
         </div>
       </div>
 

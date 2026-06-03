@@ -36,10 +36,19 @@ const statTabs = [
   { key: 'longToss', label: 'Long Toss' },
 ]
 
-const POOR = '#191C4A'
-const AVG = '#8C234A'
-const GREAT = '#ff2d55'
+const POOR = '#ef4444'
+const AVG = '#facc15'
+const GREAT = '#22c55e'
 const ONE_HOUR_MS = 3600000
+
+const WEIGHTED_VELO_SCALES = {
+  3: { min: 60, max: 110, thresholds: [75, 88] },
+  4: { min: 58, max: 108, thresholds: [72, 85] },
+  5: { min: 55, max: 100, thresholds: [68, 80] },
+  6: { min: 52, max: 95, thresholds: [65, 77] },
+  7: { min: 50, max: 92, thresholds: [62, 74] },
+  9: { min: 45, max: 85, thresholds: [58, 70] },
+}
 
 const SESSION_MODE_LABEL_MAP = {
   EV: 'Exit Velocity',
@@ -55,6 +64,16 @@ const SESSION_REPORT_TYPE = {
   EV: 'exit_velocity',
   LT: 'long_toss',
   WB: 'weight_ball',
+}
+
+const SESSION_TYPE_COLOR = {
+  batting:       { bg: 'bg-sky-500/20', border: 'border-sky-500/40', text: 'text-sky-300', label: 'BATTING' },
+  bullpen:       { bg: 'bg-violet-500/20', border: 'border-violet-500/40', text: 'text-violet-300', label: 'BULLPEN' },
+  cage:          { bg: 'bg-emerald-500/20', border: 'border-emerald-500/40', text: 'text-emerald-300', label: 'CAGE' },
+  live:          { bg: 'bg-orange-500/20', border: 'border-orange-500/40', text: 'text-orange-300', label: 'LIVE AB' },
+  long_toss:     { bg: 'bg-pink-500/20', border: 'border-pink-500/40', text: 'text-pink-300', label: 'LONG TOSS' },
+  weight_ball:   { bg: 'bg-yellow-500/20', border: 'border-yellow-500/40', text: 'text-yellow-300', label: 'WEIGHT BALL' },
+  exit_velocity: { bg: 'bg-red-500/20', border: 'border-red-500/40', text: 'text-red-300', label: 'EXIT VEL' },
 }
 
 const asArray = (val) => {
@@ -111,6 +130,33 @@ const parseNum = (row, keys) => {
     const n = Number(row?.[k])
     if (Number.isFinite(n) && n > 0) return n
   }
+  return null
+}
+
+const parseHop = (row) => {
+  const raw = row?.player_hop ?? row?.hop ?? row?.hops ?? row?.hop_count ?? row?.number_of_hops ?? row?.bounce ?? null
+  if (raw == null) return null
+
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? raw : null
+  }
+
+  if (typeof raw === 'string') {
+    const direct = Number(raw)
+    if (Number.isFinite(direct)) return direct
+    const match = raw.match(/\d+/)
+    return match ? Number(match[0]) : null
+  }
+
+  if (typeof raw === 'object') {
+    const candidates = [raw?.value, raw?.hop, raw?.hops, raw?.count, ...Object.values(raw)]
+    for (const candidate of candidates) {
+      if (candidate == null) continue
+      const n = typeof candidate === 'number' ? candidate : Number(String(candidate).match(/\d+/)?.[0] ?? candidate)
+      if (Number.isFinite(n)) return n
+    }
+  }
+
   return null
 }
 
@@ -263,6 +309,21 @@ const classifyTrajectory = (row) => {
   }
   return null
 }
+
+const isSwingMiss = (row) => {
+  const raw = String(
+    row?.type_of_hit_msg ||
+    row?.batting?.type_of_hit ||
+    row?.type_of_hit ||
+    row?.batting?.trajectory ||
+    row?.trajectory ||
+    '',
+  ).toUpperCase().trim()
+
+  return ['SM', 'SW/MISS', 'SWING MISS', 'MISS', 'SWING AND MISS'].includes(raw)
+}
+
+const upper = (v) => String(v || '').toUpperCase().trim()
 
 const getSessionRows = (session) => {
   const rows = []
@@ -570,7 +631,7 @@ const speedLine = computed(() => {
 })
 
 const openSessionReports = () => {
-  router.push({ name: 'sessions.all' })
+  router.push({ name: 'sessions.all', query: { scope: 'player' } })
 }
 
 const sessionCounts = computed(() => {
@@ -628,24 +689,158 @@ const openRecapReport = (session) => {
   })
 }
 
+const recapTypeKey = (session) => {
+  const source = String(session?._sourceType || '').toUpperCase()
+  const mode = String(session?._mode || '').toUpperCase()
+
+  if (source === 'B') return 'batting'
+  if (source === 'P') return 'bullpen'
+  if (source === 'C') return 'cage'
+  if (source === 'L') return 'live'
+  if (source === 'T') {
+    if (mode === 'EV') return 'exit_velocity'
+    if (mode === 'LT') return 'long_toss'
+    if (mode === 'WB') return 'weight_ball'
+    return 'live'
+  }
+
+  return 'live'
+}
+
+const recapTypeStyle = (session) => {
+  const key = recapTypeKey(session)
+  return SESSION_TYPE_COLOR[key] || SESSION_TYPE_COLOR.live
+}
+
 const battingBreakdown = computed(() => {
   const rows = battingSessions.value.flatMap((s) => getSessionRows(s))
-  const ev = rows.map((r) => parseNum(r, ['velocity', 'exit_velocity', 'miles_per_hour', 'mph'])).filter((v) => v !== null)
-  const la = rows.map((r) => parseNum(r, ['launch_angle', 'angle'])).filter((v) => v !== null)
-  const hardHit = ev.filter((v) => v >= 90).length
-  const trajectories = rows.map(classifyTrajectory).filter(Boolean)
-  const gb = trajectories.filter((t) => t === 'GB').length
-  const ld = trajectories.filter((t) => t === 'LD').length
-  const fb = trajectories.filter((t) => t === 'FB').length
+
+  const swings = rows
+    .filter((r) => r && typeof r === 'object')
+    .map((r) => {
+      const ev = parseNum(r, ['velocity', 'exit_velocity', 'miles_per_hour', 'mph'])
+        ?? parseNum(r?.batting || {}, ['velocity', 'exit_velocity', 'miles_per_hour', 'mph'])
+
+      const qoc = upper(
+        r?.batting?.quality_of_contact ||
+        r?.quality_of_contact ||
+        r?.quality_of_contact_msg,
+      )
+
+      const toh = upper(
+        r?.batting?.type_of_hit ||
+        r?.type_of_hit ||
+        r?.type_of_hit_msg,
+      )
+
+      const dir = upper(
+        r?.batting?.field_direction ||
+        r?.field_direction,
+      )
+
+      const pitchMark = Number(r?.pitch_mark ?? r?.batting?.pitch_mark ?? 0)
+
+      return {
+        ev: Number.isFinite(ev) && ev >= 10 && ev <= 125 ? ev : null,
+        qoc,
+        toh,
+        dir,
+        pitchMark: Number.isFinite(pitchMark) ? pitchMark : 0,
+        isMiss: qoc === 'MF' || qoc === 'F' || isSwingMiss(r),
+      }
+    })
+
+  const total = swings.length
+  const evBalls = swings.filter((s) => s.ev !== null)
+  const hardCount = evBalls.filter((s) => s.ev >= 90).length
+  const hardPct = pct(hardCount, evBalls.length)
+  const missCount = swings.filter((s) => s.isMiss).length
+  const missPct = pct(missCount, total)
+  const avgEV = fmt(avgOf(evBalls.map((s) => s.ev)) ?? null, 1)
+  const topEV = fmt(maxOf(evBalls.map((s) => s.ev)), 1)
+
+  const sprayBalls = swings.filter((s) => s.dir && !s.isMiss)
+  const lfPct = pct(sprayBalls.filter((s) => s.dir === 'LF').length, sprayBalls.length)
+  const cfPct = pct(sprayBalls.filter((s) => s.dir === 'CF').length, sprayBalls.length)
+  const rfPct = pct(sprayBalls.filter((s) => s.dir === 'RF').length, sprayBalls.length)
+
+  const contactBalls = swings.filter((s) => !s.isMiss)
+  const bpGb = contactBalls.filter((s) => s.toh === 'GB').length
+  const bpLd = contactBalls.filter((s) => s.toh === 'LD').length
+  const bpFb = contactBalls.filter((s) => s.toh === 'FB').length
+  const bpPf = contactBalls.filter((s) => s.toh === 'PF').length
+  const trajTotal = bpGb + bpLd + bpFb + bpPf
+
+  const gbPct = pct(bpGb, trajTotal)
+  const ldPct = pct(bpLd, trajTotal)
+  const fbPct = pct(bpFb, trajTotal)
+  const pfPct = pct(bpPf, trajTotal)
+
+  const avgEVNum = Number(avgEV)
+  const missPctNum = Number(missPct)
+  const evScore = Number.isFinite(avgEVNum) ? (Math.min(avgEVNum, 110) / 110) * 100 : 0
+  const hdLdRate = total > 0 ? ((hardCount + bpLd) / total) * 100 : 0
+  const missAdj = Number.isFinite(missPctNum) ? (100 - missPctNum) : 0
+  const damageScore = total > 0 ? fmt(evScore * 0.4 + hdLdRate * 0.35 + missAdj * 0.25, 1) : null
+
+  const pitchBalls = swings.filter((s) => s.pitchMark > 0 && ['H', 'A', 'W'].includes(s.qoc))
+  let upperH = 0; let lowerH = 0; let innerH = 0; let outerH = 0
+  let upperN = 0; let lowerN = 0; let innerN = 0; let outerN = 0
+  pitchBalls.forEach((s) => {
+    const m = Number(s.pitchMark)
+    const col = Math.floor((m - 1) / 60) + 1
+    const row = ((m - 1) % 60) + 1
+    const isHard = s.qoc === 'H'
+    if (row < 30) { upperN++; if (isHard) upperH++ } else { lowerN++; if (isHard) lowerH++ }
+    if (col > 30) { innerN++; if (isHard) innerH++ } else { outerN++; if (isHard) outerH++ }
+  })
+
+  const zonePerf = pitchBalls.length >= 5
+    ? {
+      upperHardPct: pct(upperH, upperN),
+      lowerHardPct: pct(lowerH, lowerN),
+      innerHardPct: pct(innerH, innerN),
+      outerHardPct: pct(outerH, outerN),
+    }
+    : null
+
+  const compCount = swings.filter((s) => s.qoc === 'H' || (s.qoc === 'A' && (s.toh === 'LD' || s.toh === 'FB'))).length
+  const compPct = pct(compCount, total)
+
+  let consistency = null
+  if (swings.length >= 20) {
+    const first10 = swings.slice(0, 10)
+    const last10 = swings.slice(-10)
+    const first10Ev = first10.filter((s) => s.ev !== null).map((s) => s.ev)
+    const last10Ev = last10.filter((s) => s.ev !== null).map((s) => s.ev)
+    const avgF10 = avgOf(first10Ev)
+    const avgL10 = avgOf(last10Ev)
+    consistency = {
+      hardDrop: first10.filter((s) => s.qoc === 'H').length - last10.filter((s) => s.qoc === 'H').length,
+      missDiff: last10.filter((s) => s.isMiss).length - first10.filter((s) => s.isMiss).length,
+      evDrop: (avgF10 != null && avgL10 != null) ? fmt(avgF10 - avgL10, 1) : null,
+    }
+  }
+
   return {
-    swings: rows.length,
-    maxEV: fmt(maxOf(ev), 1),
-    avgEV: fmt(avgOf(ev) ?? null, 1),
-    hardPct: pct(hardHit, ev.length),
-    avgLA: fmt(avgOf(la) ?? null, 1),
-    gbPct: pct(gb, trajectories.length),
-    ldPct: pct(ld, trajectories.length),
-    fbPct: pct(fb, trajectories.length),
+    swings: total,
+    maxEV: topEV,
+    avgEV,
+    hardPct,
+    missPct,
+    sprayTotal: sprayBalls.length,
+    lfPct,
+    cfPct,
+    rfPct,
+    gbPct,
+    ldPct,
+    fbPct,
+    pfPct,
+    trajTotal,
+    damageScore,
+    zonePerf,
+    compPct,
+    consistency,
   }
 })
 
@@ -875,7 +1070,7 @@ const longTossBreakdown = computed(() => {
   })
   const rows = ltSessions.flatMap((s) => getSessionRows(s))
   const dists = rows.map((r) => parseNum(r, ['distance', 'dist', 'throw_distance', 'feet'])).filter((v) => v !== null)
-  const hops = rows.map((r) => Number(r?.player_hop ?? r?.hop ?? r?.hops ?? NaN))
+  const hops = rows.map((r) => parseHop(r))
   const hopAvg = (n) => {
     const vals = rows
       .filter((r, idx) => Number(hops[idx]) === n)
@@ -883,6 +1078,14 @@ const longTossBreakdown = computed(() => {
       .filter((v) => v !== null)
     return fmt(avgOf(vals) ?? null, 1)
   }
+
+  const hopCount = (n) => hops.filter((h) => Number(h) === n).length
+  const hop0Count = hopCount(0)
+  const hop1Count = hopCount(1)
+  const hop2Count = hopCount(2)
+  const hop3Count = hopCount(3)
+  const hopTotal = hop0Count + hop1Count + hop2Count + hop3Count
+
   return {
     throws: rows.length,
     maxDist: fmt(maxOf(dists), 1),
@@ -891,21 +1094,21 @@ const longTossBreakdown = computed(() => {
     hop1: hopAvg(1),
     hop2: hopAvg(2),
     hop3: hopAvg(3),
+    hop0Count,
+    hop1Count,
+    hop2Count,
+    hop3Count,
+    hopTotal,
+    hop0Pct: pct(hop0Count, hopTotal),
+    hop1Pct: pct(hop1Count, hopTotal),
+    hop2Pct: pct(hop2Count, hopTotal),
+    hop3Pct: pct(hop3Count, hopTotal),
   }
 })
 
 const metricRows = computed(() => {
   if (activeStatTab.value === 'bp') {
-    const b = battingBreakdown.value
-    return [
-      { label: 'Max Exit Velocity', value: b.maxEV, unit: 'mph', min: 40, max: 110, thresholds: [75, 95] },
-      { label: 'Avg Exit Velocity', value: b.avgEV, unit: 'mph', min: 40, max: 105, thresholds: [60, 80] },
-      { label: 'Hard Contact %', value: b.hardPct, unit: '%', min: 0, max: 70, thresholds: [20, 40] },
-      { label: 'Avg Launch Angle', value: b.avgLA, unit: '°', min: -5, max: 45, thresholds: [8, 25] },
-      { label: 'Ground Ball %', value: b.gbPct, unit: '%', min: 0, max: 70, thresholds: [25, 45] },
-      { label: 'Line Drive %', value: b.ldPct, unit: '%', min: 0, max: 70, thresholds: [20, 40] },
-      { label: 'Fly Ball %', value: b.fbPct, unit: '%', min: 0, max: 70, thresholds: [20, 40] },
-    ]
+    return []
   }
   if (activeStatTab.value === 'bullpen') {
     const b = bullpenBreakdown.value
@@ -935,10 +1138,23 @@ const metricRows = computed(() => {
   }
   if (activeStatTab.value === 'weighted') {
     const w = weightedBreakdown.value
+    const byWeightRows = w.byWeight.map((entry) => {
+      const scale = WEIGHTED_VELO_SCALES[entry.weight] || { min: 45, max: 110, thresholds: [65, 80] }
+      return {
+        label: `${entry.weight} oz Avg Velo (${entry.count})`,
+        value: entry.avgVelo,
+        unit: 'mph',
+        min: scale.min,
+        max: scale.max,
+        thresholds: scale.thresholds,
+      }
+    })
+
     return [
       { label: 'Total Throws', value: w.throws, unit: '', min: 0, max: 100, thresholds: [20, 50] },
       { label: 'Max Throw Velo', value: w.maxVelo, unit: 'mph', min: 45, max: 110, thresholds: [70, 88] },
       { label: 'Avg Throw Velo', value: w.avgVelo, unit: 'mph', min: 45, max: 100, thresholds: [65, 80] },
+      ...byWeightRows,
     ]
   }
   if (activeStatTab.value === 'longToss') {
@@ -973,9 +1189,10 @@ const barPercent = (row) => {
 
 const barColor = (row) => {
   const value = Number(row.value)
-  if (!Number.isFinite(value) || !row.thresholds) return 'rgba(255,255,255,0.4)'
-  if (value < row.thresholds[0]) return POOR
-  if (value < row.thresholds[1]) return AVG
+  if (!Number.isFinite(value)) return 'rgba(255,255,255,0.4)'
+  const p = barPercent(row)
+  if (p < 100 / 3) return POOR
+  if (p < 200 / 3) return AVG
   return GREAT
 }
 
@@ -1142,10 +1359,20 @@ onMounted(loadData)
                   :key="s.id"
                   type="button"
                   @click="openRecapReport(s)"
-                  class="flex w-full items-center justify-between rounded-lg border border-white/10 bg-[#0b1230] px-3 py-2 text-left transition"
-                  :class="s._reportType ? 'hover:border-[#ff2d55]/60 hover:bg-[#0f173f] cursor-pointer' : 'opacity-70 cursor-default'"
+                  class="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition"
+                  :class="[
+                    recapTypeStyle(s).bg,
+                    recapTypeStyle(s).border,
+                    s._reportType ? 'hover:border-[#ff2d55]/60 hover:bg-[#0f173f] cursor-pointer' : 'opacity-70 cursor-default'
+                  ]"
                 >
                   <div class="min-w-0">
+                    <span
+                      class="mb-1 inline-flex rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                      :class="[recapTypeStyle(s).bg, recapTypeStyle(s).border, recapTypeStyle(s).text]"
+                    >
+                      {{ recapTypeStyle(s).label }}
+                    </span>
                     <p class="text-sm font-bold text-white/90 truncate">{{ s._label }}</p>
                     <p class="text-xs text-white/60">{{ (s._date || '').toString().slice(0, 10) || '—' }}</p>
                   </div>
@@ -1156,22 +1383,143 @@ onMounted(loadData)
           </div>
 
           <div class="rounded-2xl border border-white/10 bg-[#0b1230]/75 p-4">
-            <h2 class="text-lg font-black tracking-wide mb-3">Stats</h2>
-            <div class="mb-4 flex flex-wrap gap-2">
-            <button
-              v-for="tab in statTabs"
-              :key="tab.key"
-              class="rounded-full border px-4 py-2 text-sm font-black"
-              :class="activeStatTab === tab.key ? 'border-[#ff2d55] bg-[#ff2d55] text-white' : 'border-white/20 bg-white/5 text-white/65'"
-              @click="activeStatTab = tab.key"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
+            <div class="sticky top-0 z-30 -mx-4 mb-4 border-b border-white/10 bg-[#0b1230]/95 px-4 pb-3 pt-1 backdrop-blur">
+              <h2 class="text-lg font-black tracking-wide mb-3">Stats</h2>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="tab in statTabs"
+                  :key="tab.key"
+                  class="rounded-full border px-4 py-2 text-sm font-black"
+                  :class="activeStatTab === tab.key ? 'border-[#ff2d55] bg-[#ff2d55] text-white' : 'border-white/20 bg-white/5 text-white/65'"
+                  @click="activeStatTab = tab.key"
+                >
+                  {{ tab.label }}
+                </button>
+              </div>
+            </div>
 
           <div v-if="loading" class="py-10 text-center text-white/50">Loading player stats…</div>
 
           <div v-else class="space-y-3">
+            <div
+              v-if="activeStatTab === 'bp'"
+              class="rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+            >
+              <p class="text-xs font-black tracking-widest uppercase text-white/60">
+                Contact Metrics ({{ battingBreakdown.swings }} swings)
+              </p>
+            </div>
+
+            <template v-if="activeStatTab === 'bp'">
+              <div v-if="battingBreakdown.swings < 1" class="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-center text-sm text-white/45">
+                Log BP sessions to unlock detailed contact metrics.
+              </div>
+
+              <template v-else>
+                <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <p class="text-xs font-black tracking-wider uppercase text-white/70">Hard Contact %</p>
+                    <p class="text-sm font-black text-white">{{ battingBreakdown.hardPct ?? '—' }}<span v-if="battingBreakdown.hardPct !== null" class="text-white/65 ml-1">%</span></p>
+                  </div>
+                  <div class="h-2.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full bg-[#22c55e]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.hardPct || 0)))}%` }"></div></div>
+                </div>
+
+                <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <p class="text-xs font-black tracking-wider uppercase text-white/70">Miss %</p>
+                    <p class="text-sm font-black text-white">{{ battingBreakdown.missPct ?? '—' }}<span v-if="battingBreakdown.missPct !== null" class="text-white/65 ml-1">%</span></p>
+                  </div>
+                  <div class="h-2.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full bg-[#ff2d55]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.missPct || 0)))}%` }"></div></div>
+                </div>
+
+                <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <p class="text-xs font-black tracking-wider uppercase text-white/70">Avg Exit Velocity</p>
+                    <p class="text-sm font-black text-white">{{ battingBreakdown.avgEV ?? '—' }}<span v-if="battingBreakdown.avgEV !== null" class="text-white/65 ml-1">mph</span></p>
+                  </div>
+                  <div class="h-2.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full bg-[#facc15]" :style="{ width: `${Math.max(0, Math.min(100, ((Number(battingBreakdown.avgEV || 0) - 40) / 60) * 100))}%` }"></div></div>
+                </div>
+
+                <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <p class="text-xs font-black tracking-wider uppercase text-white/70">Top Exit Velocity</p>
+                    <p class="text-sm font-black text-white">{{ battingBreakdown.maxEV ?? '—' }}<span v-if="battingBreakdown.maxEV !== null" class="text-white/65 ml-1">mph</span></p>
+                  </div>
+                  <div class="h-2.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full bg-[#22c55e]" :style="{ width: `${Math.max(0, Math.min(100, ((Number(battingBreakdown.maxEV || 0) - 50) / 60) * 100))}%` }"></div></div>
+                </div>
+
+                <div v-if="battingBreakdown.sprayTotal >= 3" class="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <p class="mb-3 text-xs font-black tracking-widest uppercase text-white/60">Spray Distribution ({{ battingBreakdown.sprayTotal }} balls in play)</p>
+                  <div class="h-6 rounded-md overflow-hidden bg-white/10 flex">
+                    <div v-if="(battingBreakdown.lfPct || 0) > 0" class="h-full bg-[#ff2d55]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.lfPct || 0)))}%` }"></div>
+                    <div v-if="(battingBreakdown.cfPct || 0) > 0" class="h-full bg-[#3498DB]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.cfPct || 0)))}%` }"></div>
+                    <div v-if="(battingBreakdown.rfPct || 0) > 0" class="h-full bg-[#2ECC71]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.rfPct || 0)))}%` }"></div>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between text-xs font-black">
+                    <span class="text-[#ff2d55]">Left {{ battingBreakdown.lfPct ?? 0 }}%</span>
+                    <span class="text-[#3498DB]">Center {{ battingBreakdown.cfPct ?? 0 }}%</span>
+                    <span class="text-[#2ECC71]">Right {{ battingBreakdown.rfPct ?? 0 }}%</span>
+                  </div>
+                </div>
+
+                <div v-if="battingBreakdown.trajTotal >= 3" class="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <p class="mb-3 text-xs font-black tracking-widest uppercase text-white/60">Batted Ball Profile ({{ battingBreakdown.trajTotal }} contact balls)</p>
+                  <div class="h-6 rounded-md overflow-hidden bg-white/10 flex">
+                    <div v-if="(battingBreakdown.gbPct || 0) > 0" class="h-full bg-[#F39C12]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.gbPct || 0)))}%` }"></div>
+                    <div v-if="(battingBreakdown.ldPct || 0) > 0" class="h-full bg-[#2ECC71]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.ldPct || 0)))}%` }"></div>
+                    <div v-if="(battingBreakdown.fbPct || 0) > 0" class="h-full bg-[#3498DB]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.fbPct || 0)))}%` }"></div>
+                    <div v-if="(battingBreakdown.pfPct || 0) > 0" class="h-full bg-[#9B59B6]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.pfPct || 0)))}%` }"></div>
+                  </div>
+                  <div class="mt-2 flex flex-wrap items-center justify-between gap-y-1 text-xs font-black">
+                    <span class="text-[#F39C12]">GB {{ battingBreakdown.gbPct ?? 0 }}%</span>
+                    <span class="text-[#2ECC71]">LD {{ battingBreakdown.ldPct ?? 0 }}%</span>
+                    <span class="text-[#3498DB]">FB {{ battingBreakdown.fbPct ?? 0 }}%</span>
+                    <span class="text-[#9B59B6]">PF {{ battingBreakdown.pfPct ?? 0 }}%</span>
+                  </div>
+                </div>
+
+                <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <p class="text-xs font-black tracking-wider uppercase text-white/70">Damage Score™</p>
+                    <p class="text-sm font-black text-white">{{ battingBreakdown.damageScore ?? '—' }}</p>
+                  </div>
+                  <div class="h-2.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full bg-[#ff2d55]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.damageScore || 0)))}%` }"></div></div>
+                </div>
+
+                <div v-if="battingBreakdown.zonePerf" class="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <p class="mb-3 text-xs font-black tracking-widest uppercase text-white/60">Zone Hard Contact %</p>
+                  <div class="space-y-2">
+                    <div v-for="z in [
+                      { label: 'Upper Zone', value: battingBreakdown.zonePerf.upperHardPct },
+                      { label: 'Lower Zone', value: battingBreakdown.zonePerf.lowerHardPct },
+                      { label: 'Inner Half', value: battingBreakdown.zonePerf.innerHardPct },
+                      { label: 'Outer Half', value: battingBreakdown.zonePerf.outerHardPct },
+                    ]" :key="z.label" class="rounded-lg border border-white/10 bg-[#0b1230] p-3">
+                      <div class="mb-1 flex items-center justify-between gap-3"><p class="text-xs font-bold text-white/80">{{ z.label }}</p><p class="text-xs font-black text-white">{{ z.value ?? '—' }}<span v-if="z.value !== null">%</span></p></div>
+                      <div class="h-2.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full bg-[#22c55e]" :style="{ width: `${Math.max(0, Math.min(100, Number(z.value || 0)))}%` }"></div></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <p class="text-xs font-black tracking-wider uppercase text-white/70">Competitive Swing %</p>
+                    <p class="text-sm font-black text-white">{{ battingBreakdown.compPct ?? '—' }}<span v-if="battingBreakdown.compPct !== null" class="text-white/65 ml-1">%</span></p>
+                  </div>
+                  <div class="h-2.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full bg-[#facc15]" :style="{ width: `${Math.max(0, Math.min(100, Number(battingBreakdown.compPct || 0)))}%` }"></div></div>
+                </div>
+
+                <div v-if="battingBreakdown.consistency" class="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <p class="mb-3 text-xs font-black tracking-widest uppercase text-white/60">Round Consistency (first 10 vs last 10)</p>
+                  <div class="space-y-2 text-xs">
+                    <div class="flex items-center justify-between"><span class="text-white/65">Hard Contact Change</span><span class="font-black text-white">{{ battingBreakdown.consistency.hardDrop > 0 ? `-${battingBreakdown.consistency.hardDrop}` : battingBreakdown.consistency.hardDrop < 0 ? `+${Math.abs(battingBreakdown.consistency.hardDrop)}` : '→ Same' }}</span></div>
+                    <div class="flex items-center justify-between"><span class="text-white/65">Miss Change</span><span class="font-black text-white">{{ battingBreakdown.consistency.missDiff > 0 ? `+${battingBreakdown.consistency.missDiff} more` : battingBreakdown.consistency.missDiff < 0 ? `${battingBreakdown.consistency.missDiff} fewer` : '→ Same' }}</span></div>
+                    <div v-if="battingBreakdown.consistency.evDrop !== null" class="flex items-center justify-between"><span class="text-white/65">EV Drop</span><span class="font-black text-white">{{ battingBreakdown.consistency.evDrop > 0 ? `-${battingBreakdown.consistency.evDrop} mph` : battingBreakdown.consistency.evDrop < 0 ? `+${Math.abs(battingBreakdown.consistency.evDrop)} mph` : '→ Steady' }}</span></div>
+                  </div>
+                </div>
+              </template>
+            </template>
+
             <div
               v-if="activeStatTab === 'bullpen'"
               class="rounded-xl border border-white/10 bg-white/5 px-4 py-3"
@@ -1191,6 +1539,7 @@ onMounted(loadData)
             </div>
 
             <div
+              v-if="activeStatTab !== 'bp'"
               v-for="row in metricRows"
               :key="row.label"
               class="rounded-xl border border-white/10 bg-white/5 px-4 py-3"
@@ -1298,11 +1647,83 @@ onMounted(loadData)
               </div>
             </div>
 
+            <div
+              v-if="activeStatTab === 'exitVel' && (exitVelBreakdown.gbPct || 0) + (exitVelBreakdown.ldPct || 0) + (exitVelBreakdown.fbPct || 0) > 0"
+              class="rounded-xl border border-white/10 bg-white/5 p-4"
+            >
+              <p class="mb-3 text-xs font-black tracking-widest uppercase text-white/60">
+                Batted Ball Profile (EV Training)
+              </p>
+
+              <div class="h-6 rounded-md overflow-hidden bg-white/10 flex">
+                <div
+                  v-if="(exitVelBreakdown.gbPct || 0) > 0"
+                  class="h-full bg-[#191C4A]"
+                  :style="{ width: `${Math.max(0, Math.min(100, Number(exitVelBreakdown.gbPct || 0)))}%` }"
+                ></div>
+                <div
+                  v-if="(exitVelBreakdown.ldPct || 0) > 0"
+                  class="h-full bg-[#8C234A]"
+                  :style="{ width: `${Math.max(0, Math.min(100, Number(exitVelBreakdown.ldPct || 0)))}%` }"
+                ></div>
+                <div
+                  v-if="(exitVelBreakdown.fbPct || 0) > 0"
+                  class="h-full bg-[#ff2d55]"
+                  :style="{ width: `${Math.max(0, Math.min(100, Number(exitVelBreakdown.fbPct || 0)))}%` }"
+                ></div>
+              </div>
+
+              <div class="mt-2 flex items-center justify-between text-xs font-black">
+                <span class="text-[#191C4A]">GB {{ exitVelBreakdown.gbPct ?? 0 }}%</span>
+                <span class="text-[#8C234A]">LD {{ exitVelBreakdown.ldPct ?? 0 }}%</span>
+                <span class="text-[#ff2d55]">FB {{ exitVelBreakdown.fbPct ?? 0 }}%</span>
+              </div>
+            </div>
+
+            <div
+              v-if="activeStatTab === 'longToss' && (longTossBreakdown.hopTotal || 0) > 0"
+              class="rounded-xl border border-white/10 bg-white/5 p-4"
+            >
+              <p class="mb-3 text-xs font-black tracking-widest uppercase text-white/60">
+                Hop Distribution ({{ longTossBreakdown.hopTotal }} throws)
+              </p>
+
+              <div class="h-6 rounded-md overflow-hidden bg-white/10 flex">
+                <div
+                  v-if="(longTossBreakdown.hop0Pct || 0) > 0"
+                  class="h-full bg-[#ff2d55]"
+                  :style="{ width: `${Math.max(0, Math.min(100, Number(longTossBreakdown.hop0Pct || 0)))}%` }"
+                ></div>
+                <div
+                  v-if="(longTossBreakdown.hop1Pct || 0) > 0"
+                  class="h-full bg-[#8C234A]"
+                  :style="{ width: `${Math.max(0, Math.min(100, Number(longTossBreakdown.hop1Pct || 0)))}%` }"
+                ></div>
+                <div
+                  v-if="(longTossBreakdown.hop2Pct || 0) > 0"
+                  class="h-full bg-[#3498DB]"
+                  :style="{ width: `${Math.max(0, Math.min(100, Number(longTossBreakdown.hop2Pct || 0)))}%` }"
+                ></div>
+                <div
+                  v-if="(longTossBreakdown.hop3Pct || 0) > 0"
+                  class="h-full bg-[#2ECC71]"
+                  :style="{ width: `${Math.max(0, Math.min(100, Number(longTossBreakdown.hop3Pct || 0)))}%` }"
+                ></div>
+              </div>
+
+              <div class="mt-2 flex flex-wrap items-center justify-between gap-y-1 text-xs font-black">
+                <span class="text-[#ff2d55]">0 Hops {{ longTossBreakdown.hop0Pct ?? 0 }}%</span>
+                <span class="text-[#8C234A]">1 Hop {{ longTossBreakdown.hop1Pct ?? 0 }}%</span>
+                <span class="text-[#3498DB]">2 Hops {{ longTossBreakdown.hop2Pct ?? 0 }}%</span>
+                <span class="text-[#2ECC71]">3 Hops {{ longTossBreakdown.hop3Pct ?? 0 }}%</span>
+              </div>
+            </div>
+
             <div class="pt-2">
               <div class="flex items-center justify-center gap-8 text-[10px] font-black tracking-widest uppercase">
-                <span class="text-[#191C4A]">Poor</span>
-                <span class="text-[#8C234A]">Average</span>
-                <span class="text-[#ff2d55]">Great</span>
+                <span class="text-[#ef4444]">Poor</span>
+                <span class="text-[#facc15]">Average</span>
+                <span class="text-[#22c55e]">Great</span>
               </div>
             </div>
           </div>

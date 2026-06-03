@@ -30,6 +30,7 @@ import Loader from "../components/Loader.vue";
 import axios from "axios";
 import { useAxiosAuth } from "@/composables/axios-auth.js";
 import TickerBar from "./TickerBar.vue";
+import PlayerTickerBar from "./PlayerTickerBar.vue";
 import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.png";
 import stadiumBackground from "@/assets/img/training/baseball field.jpeg";
 
@@ -484,11 +485,11 @@ watch(
                 @error="onTopHeaderLogoError"
               />
             </div>
+          </div>
 
-            <div class="min-w-0">
-              <p class="top-brand-subtitle">Official Team</p>
-              <p class="top-brand-title truncate">{{ team?.name || 'Fungo Metrics Team' }}</p>
-            </div>
+          <div class="top-brand-ticker">
+            <PlayerTickerBar v-if="userType === 'player'" />
+            <TickerBar v-else />
           </div>
 
           <div class="top-brand-social">
@@ -514,9 +515,6 @@ watch(
           </div>
         </div>
       </header>
-
-      <!-- Scrolling top-10 ticker -->
-      <TickerBar />
 
       <main
         class="app-main-shell min-h-screen pt-6 pb-24 px-0 overflow-hidden bg-[#060b14]"
@@ -931,6 +929,18 @@ watch(
   min-width: 0;
 }
 
+.top-brand-ticker {
+  flex: 1;
+  min-width: 0;
+}
+
+.top-brand-ticker :deep(.ticker-bar) {
+  height: 38px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+}
+
 .top-brand-logo-wrap {
   height: 58px;
   width: auto;
@@ -1001,12 +1011,17 @@ watch(
     min-height: var(--top-brand-height);
   }
 
-  .top-brand-title {
-    font-size: 1.1rem;
+  .top-brand-ticker :deep(.ticker-label) {
+    display: none;
   }
 
   .top-brand-logo-wrap {
     height: 46px;
+  }
+
+  .top-brand-ticker :deep(.ticker-item) {
+    padding: 0 7px;
+    font-size: 12px;
   }
 }
 

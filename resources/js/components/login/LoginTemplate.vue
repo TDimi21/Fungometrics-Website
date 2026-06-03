@@ -1,5 +1,5 @@
 <script setup>
-import {reactive} from 'vue'
+import { reactive, ref, computed } from 'vue'
 import {BigButtonField, InputBase, LabelField, PasswordField, SwitchField} from '../../components/form'
 import axios from "axios";
 import {toast} from "../../utils/AlertPlugin";
@@ -27,6 +27,12 @@ const teamStore = useTeamStore();
 const playerStore = usePlayerStore();
 const isLoading = reactive({status: true})
 const formData = reactive({user: '', password: '', remember: false})
+const loginMode = ref(props.title === 'player' ? 'claim' : 'email')
+const claimForm = reactive({ phone: '', teamCode: '' })
+const isPlayerLogin = computed(() => props.title === 'player')
+const isClaimMode = computed(() => isPlayerLogin.value && loginMode.value === 'claim')
+
+const normalizeDigits = (value) => String(value || '').replace(/\D+/g, '')
 
 const getTeamIdCandidates = (teamLike) => {
   const ids = [teamLike?.id_team, teamLike?.id]
@@ -72,6 +78,36 @@ const pickBestTeamForCoach = async (api_url, token, teams) => {
   return list[0]
 }
 
+const applyAuthSession = async ({ payload, apiUrl }) => {
+  const token = payload?.token
+  const user = payload?.user || null
+  const team = payload?.team || null
+  const teams = user?.teams || []
+
+  if (!token || !user) {
+    throw new Error('missing auth payload')
+  }
+
+  setToken(token)
+  isLogged.status = true
+  localStorage.setItem('auth', JSON.stringify({ token }))
+  await userStore.setData(user)
+
+  if ((user?.type || '').toLowerCase() === 'player') {
+    await teamStore.setTeam(team || {})
+    await teamStore.setTeams(team ? [team] : [])
+    await router.push('/player-dashboard')
+    return
+  }
+
+  const rosterTeams = Array.isArray(teams) ? teams : []
+  const selectedTeam = await pickBestTeamForCoach(apiUrl, token, rosterTeams)
+  await teamStore.setTeam(selectedTeam ?? rosterTeams[0] ?? team ?? {})
+  await teamStore.setTeams(rosterTeams)
+  await playerStore.setPlayers(user?.players || [])
+  await router.push('/dashboard')
+}
+
 
 const submitForm = async () => {
   isLoading.status =!isLoading.status;
@@ -82,7 +118,7 @@ const submitForm = async () => {
     console.log('login', response.data.data);
     if(props.title === response.data.data.type){
       console.log("Paso 2");
-      isLogged.status = !isLogged.status;
+      isLogged.status = true;
        toast.fire({
         icon: 'success',
         title: 'Login User',
@@ -134,6 +170,54 @@ const submitForm = async () => {
   })
 }
 
+const submitClaimForm = async () => {
+  const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
+  const phone = normalizeDigits(claimForm.phone)
+  const teamCode = String(claimForm.teamCode || '').trim().toUpperCase()
+
+  if (phone.length < 10) {
+    await toast.fire({ icon: 'warning', title: 'Claim Warning', text: 'Enter your full mobile number.' })
+    return
+  }
+
+  if (teamCode.length !== 6) {
+    await toast.fire({ icon: 'warning', title: 'Claim Warning', text: 'Team code must be 6 characters.' })
+    return
+  }
+
+  isLoading.status = !isLoading.status
+  try {
+    const dataForm = new FormData()
+    dataForm.append('phone', phone)
+    dataForm.append('team_code', teamCode)
+
+    const response = await axios.post(api_url + 'player/join', dataForm)
+    const body = response?.data || {}
+
+    if (body?.status === 'not_registered') {
+      await toast.fire({
+        icon: 'warning',
+        title: 'Not Registered',
+        text: 'No account found with that phone number. Please create your player account first.',
+      })
+      await router.push('/register/player')
+      return
+    }
+
+    if (body?.status !== 'success' || !body?.data?.token) {
+      throw new Error(body?.message || 'Invalid phone number or team code')
+    }
+
+    await applyAuthSession({ payload: body.data, apiUrl: api_url })
+    await toast.fire({ icon: 'success', title: 'Claim Complete', text: body?.message || 'Profile claimed successfully.' })
+  } catch (error) {
+    const message = error?.response?.data?.message || error?.message || 'Could not claim profile. Please try again.'
+    await toast.fire({ icon: 'error', title: 'Claim Error', text: message })
+  } finally {
+    isLoading.status = !isLoading.status
+  }
+}
+
 </script>
 
 <template>
@@ -148,8 +232,29 @@ const submitForm = async () => {
           props.title
         }}</strong></h2></div>
 
+      <div v-if="isPlayerLogin" class="w-full max-w-xl mb-4">
+        <div class="inline-flex p-1 rounded-xl bg-white/10 border border-white/20">
+          <button
+            type="button"
+            class="px-4 py-2 text-xs font-black tracking-wider rounded-lg transition"
+            :class="loginMode === 'email' ? 'bg-[#C00000] text-white' : 'text-white/75 hover:text-white'"
+            @click="loginMode = 'email'"
+          >
+            Email Login
+          </button>
+          <button
+            type="button"
+            class="px-4 py-2 text-xs font-black tracking-wider rounded-lg transition"
+            :class="loginMode === 'claim' ? 'bg-[#C00000] text-white' : 'text-white/75 hover:text-white'"
+            @click="loginMode = 'claim'"
+          >
+            Claim Code
+          </button>
+        </div>
+      </div>
+
       <!-- form section -->
-      <FormKit type="form" :actions="false" @submit="submitForm" >
+      <FormKit v-if="!isClaimMode" type="form" :actions="false" @submit="submitForm" >
 <div class="grid grid-rows-2 lg:grid-cols-2 lg:gap-x-12">
 
       <FormKit
@@ -175,6 +280,39 @@ const submitForm = async () => {
         </div>
 </div>
       </FormKit>
+
+      <form v-else class="w-full max-w-xl" @submit.prevent="submitClaimForm">
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="block text-sm font-bold text-white mb-2">Mobile Number</label>
+            <input
+              v-model="claimForm.phone"
+              type="tel"
+              autocomplete="tel"
+              placeholder="(555) 867-5309"
+              class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-white mb-2">Team Code</label>
+            <input
+              v-model="claimForm.teamCode"
+              type="text"
+              maxlength="6"
+              autocomplete="off"
+              placeholder="HAWK7X"
+              @input="claimForm.teamCode = String(claimForm.teamCode || '').toUpperCase()"
+              class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2 uppercase tracking-[0.18em]"
+            />
+          </div>
+          <p class="text-xs text-white/75">
+            Use the same mobile number your coach used when adding your profile.
+          </p>
+          <div class="grid place-content-center">
+            <BigButtonField color="red" label="Claim Profile" type="submit"></BigButtonField>
+          </div>
+        </div>
+      </form>
       <!-- end form section -->
 
       <div class="grid place-content-center">
