@@ -1,9 +1,20 @@
 <script setup>
 import { computed } from 'vue'
 
+let inputTelUid = 0
 
 const props = defineProps({
   modelValue: [String, Number, Boolean, Object],
+  id: {
+    type: String,
+    required: false,
+    default: ''
+  },
+  name: {
+    type: String,
+    required: false,
+    default: ''
+  },
   placeholder: {
     type: String,
     required: false
@@ -30,6 +41,10 @@ const value = computed({
   }
 })
 
+const fallbackId = `input-tel-${++inputTelUid}`
+const inputId = computed(() => props.id || fallbackId)
+const inputName = computed(() => props.name || inputId.value)
+
 const inputClass = [
   props.transparent ? 'bg-transparent border border-fungo-lightblue' : 'bg-white border border-fungo-darkblue text-fungo-darkblue',
   props.inputClasses
@@ -54,6 +69,8 @@ function filterKey (e) {
     <input
         class="h-10 rounded appearance-none w-[100%] float-right input-tel-text"
         :class="inputClass"
+      :id="inputId"
+      :name="inputName"
         type="number"
         v-model="value"
         @keydown="filterKey"

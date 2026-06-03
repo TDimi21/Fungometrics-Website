@@ -1,6 +1,5 @@
 <script setup>
-import axios from 'axios'
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useTeamStore } from "@/store/team"
@@ -30,13 +29,6 @@ const { userData } = useUserStore();
 const { axiosGet } = useAxiosAuth()
 const route = useRoute()
 const isPlayerLogin = ref(false)
-
-const props = defineProps({
-  slug: {
-    type: String,
-    required: true
-  }
-})
 
 const dataTeam = ref({
   selectTeam : "",
@@ -153,6 +145,28 @@ const tableData = ref({
 
 const loading = ref(false)
 
+const countSelectedOptions = (options) => {
+  if (!options || typeof options !== 'object') return 0
+  return Object.values(options).reduce((total, value) => {
+    if (!Array.isArray(value)) return total
+    return total + value.length
+  }, 0)
+}
+
+const hasAnyStatisticsData = (payload) => {
+  const sections = ['batting', 'bullpen', 'cage', 'exit_velocity', 'long_toss', 'weight_ball', 'live']
+  return sections.some((sectionName) => {
+    const section = payload?.[sectionName]
+    if (!section || typeof section !== 'object') return false
+    return Object.values(section).some((entry) => {
+      if (!entry || typeof entry !== 'object') return false
+      const hasPlayers = entry.players && Object.keys(entry.players).length > 0
+      const hasTeamTotals = entry.team_totals && Object.keys(entry.team_totals).length > 0
+      return hasPlayers || hasTeamTotals
+    })
+  })
+}
+
 const getStatistic = () => {
   loading.value = true
   tableData.value = {
@@ -243,6 +257,11 @@ const getStatistic = () => {
       throw new Error('Select a session training!')
     }
 
+    const optionsCount = countSelectedOptions(dataFilter.value.options)
+    if ((Object.keys(dataFilter.value.options).length <= 0 || optionsCount <= 0) && dataFilter.value.sessions.length > 0) {
+      dataFilter.value.options = buildOptionsFromSessions(dataFilter.value.sessions)
+    }
+
     if(Object.keys(dataFilter.value.options).length <= 0){
       throw new Error('Select a training option!')
     }
@@ -256,14 +275,29 @@ const getStatistic = () => {
       players: isPlayerLogin.value ? [String(userData.id)] : dataFilter.value.players,
       options: dataFilter.value.options
     }).then((data)=> {
-      console.log(data.data.data)
-      setBattingAllTables(data.data.data)
-      setBullpenAllTables(data.data.data)
-      setCageAllTables(data.data.data)
-      setExitVelocityTables(data.data.data)
-      setLongTossTables(data.data.data)
-      setWeigthBallTables(data.data.data)
-      setLiveTables(data.data.data)
+      const payload = data?.data?.data || {}
+      setBattingAllTables(payload)
+      setBullpenAllTables(payload)
+      setCageAllTables(payload)
+      setExitVelocityTables(payload)
+      setLongTossTables(payload)
+      setWeigthBallTables(payload)
+      setLiveTables(payload)
+      if (!hasAnyStatisticsData(payload)) {
+        toast.fire({
+          icon: 'info',
+          title: 'No data',
+          text: 'No statistics found for the selected filters.',
+        })
+      }
+    }).catch((error) => {
+      console.log(error)
+      toast.fire({
+        icon: 'error',
+        title: 'Request failed',
+        text: error?.response?.data?.message || error?.message || 'Unable to load statistics.',
+      })
+    }).finally(() => {
       loading.value = false
     })
   } catch (error) {
@@ -352,11 +386,12 @@ const setPlayerList = async (idTeam) =>{
 
 
 const setBattingAllTables = (data) => {
+  const batting = data?.batting && typeof data.batting === 'object' ? data.batting : {}
   let keys = Object.keys(tableData.value.batting)
   for (const key of keys) {
-    if(Object.hasOwnProperty.call(data['batting'], key)){
-      const elementP = data['batting'][key]['players']
-      const elementT = data['batting'][key]['team_totals']
+    if(Object.hasOwnProperty.call(batting, key)){
+      const elementP = batting[key]['players']
+      const elementT = batting[key]['team_totals']
       tableData.value.batting[key]['players'] = addNameToPlayersData(elementP)
       tableData.value.batting[key]['team'] = elementT
     }
@@ -364,11 +399,12 @@ const setBattingAllTables = (data) => {
 }
 
 const setBullpenAllTables = (data) => {
+  const bullpen = data?.bullpen && typeof data.bullpen === 'object' ? data.bullpen : {}
   let keys = Object.keys(tableData.value.bullpen)
   for (const key of keys) {
-    if(Object.hasOwnProperty.call(data['bullpen'], key)){
-      const elementP = data['bullpen'][key]['players']
-      const elementT = data['bullpen'][key]['team_totals']
+    if(Object.hasOwnProperty.call(bullpen, key)){
+      const elementP = bullpen[key]['players']
+      const elementT = bullpen[key]['team_totals']
       tableData.value.bullpen[key]['players'] = addNameToPlayersData(elementP)
       tableData.value.bullpen[key]['team'] = elementT
     }
@@ -377,11 +413,12 @@ const setBullpenAllTables = (data) => {
 
 
 const setCageAllTables = (data) => {
+  const cage = data?.cage && typeof data.cage === 'object' ? data.cage : {}
   let keys = Object.keys(tableData.value.cage)
   for (const key of keys) {
-    if(Object.hasOwnProperty.call(data['cage'], key)){
-      const elementP = data['cage'][key]['players']
-      const elementT = data['cage'][key]['team_totals']
+    if(Object.hasOwnProperty.call(cage, key)){
+      const elementP = cage[key]['players']
+      const elementT = cage[key]['team_totals']
       tableData.value.cage[key]['players'] = addNameToPlayersData(elementP)
       tableData.value.cage[key]['team'] = elementT
     }
@@ -389,11 +426,12 @@ const setCageAllTables = (data) => {
 }
 
 const setExitVelocityTables = (data) => {
+  const exitVelocity = data?.exit_velocity && typeof data.exit_velocity === 'object' ? data.exit_velocity : {}
   let keys = Object.keys(tableData.value.exit_velocity)
   for (const key of keys) {
-    if(Object.hasOwnProperty.call(data['exit_velocity'], key)){
-      const elementP = data['exit_velocity'][key]['players']
-      const elementT = data['exit_velocity'][key]['team_totals']
+    if(Object.hasOwnProperty.call(exitVelocity, key)){
+      const elementP = exitVelocity[key]['players']
+      const elementT = exitVelocity[key]['team_totals']
       tableData.value.exit_velocity[key]['players'] = addNameToPlayersData(elementP)
       tableData.value.exit_velocity[key]['team'] = elementT
     }
@@ -401,11 +439,12 @@ const setExitVelocityTables = (data) => {
 }
 
 const setLongTossTables = (data) => {
+  const longToss = data?.long_toss && typeof data.long_toss === 'object' ? data.long_toss : {}
   let keys = Object.keys(tableData.value.long_toss)
   for (const key of keys) {
-    if(Object.hasOwnProperty.call(data['long_toss'], key)){
-      const elementP = data['long_toss'][key]['players']
-      const elementT = data['long_toss'][key]['team_totals']
+    if(Object.hasOwnProperty.call(longToss, key)){
+      const elementP = longToss[key]['players']
+      const elementT = longToss[key]['team_totals']
       tableData.value.long_toss[key]['players'] = addNameToPlayersData(elementP)
       tableData.value.long_toss[key]['team'] = elementT
     }
@@ -413,11 +452,12 @@ const setLongTossTables = (data) => {
 }
 
 const setWeigthBallTables = (data) => {
+  const weightBall = data?.weight_ball && typeof data.weight_ball === 'object' ? data.weight_ball : {}
   let keys = Object.keys(tableData.value.weight_ball)
   for (const key of keys) {
-    if(Object.hasOwnProperty.call(data['weight_ball'], key)){
-      const elementP = data['weight_ball'][key]['players']
-      const elementT = data['weight_ball'][key]['team_totals']
+    if(Object.hasOwnProperty.call(weightBall, key)){
+      const elementP = weightBall[key]['players']
+      const elementT = weightBall[key]['team_totals']
       tableData.value.weight_ball[key]['players'] = addNameToPlayersData(elementP)
       tableData.value.weight_ball[key]['team'] = elementT
     }
@@ -425,16 +465,16 @@ const setWeigthBallTables = (data) => {
 }
 
 const setLiveTables = (data) => {
+  const live = data?.live && typeof data.live === 'object' ? data.live : {}
   let keys = Object.keys(tableData.value.live)
   for (const key of keys) {
-    if(Object.hasOwnProperty.call(data['live'], key)){
-      const elementP = data['live'][key]['players']
-      const elementT = data['live'][key]['team_totals']
+    if(Object.hasOwnProperty.call(live, key)){
+      const elementP = live[key]['players']
+      const elementT = live[key]['team_totals']
       tableData.value.live[key]['players'] = addNameToPlayersData(elementP)
       tableData.value.live[key]['team'] = elementT
     }
   }
-	console.log("TableData", tableData.value);
 }
 
 const addNameToPlayersData = (players) => {
@@ -520,29 +560,29 @@ const addNameToPlayersData = (players) => {
 
             <!-- Date range -->
             <div class="flex flex-col gap-2">
-              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Since When</label>
-              <InputBase v-model="dataFilter.sinceWhen" inputType="date" inputClasses="w-full rounded-lg border border-white/20 bg-white/10 text-white px-3 py-2 text-sm outline-none" required="true"/>
+              <label for="stats-since" class="text-[10px] font-black uppercase tracking-widest text-white/40">Since When</label>
+              <InputBase id="stats-since" name="since_when" v-model="dataFilter.sinceWhen" inputType="date" inputClasses="w-full rounded-lg border border-white/20 bg-white/10 text-white px-3 py-2 text-sm outline-none" required="true"/>
             </div>
             <div class="flex flex-col gap-2">
-              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Until</label>
-              <InputBase v-model="dataFilter.until" inputType="date" inputClasses="w-full rounded-lg border border-white/20 bg-white/10 text-white px-3 py-2 text-sm outline-none" required="true"/>
+              <label for="stats-until" class="text-[10px] font-black uppercase tracking-widest text-white/40">Until</label>
+              <InputBase id="stats-until" name="until" v-model="dataFilter.until" inputType="date" inputClasses="w-full rounded-lg border border-white/20 bg-white/10 text-white px-3 py-2 text-sm outline-none" required="true"/>
             </div>
 
             <!-- Players -->
             <div v-if="!isPlayerLogin" class="flex flex-col gap-2">
-              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Players</label>
+              <p class="text-[10px] font-black uppercase tracking-widest text-white/40">Players</p>
               <DropDownMultiple v-model="dataFilter.players" :options="optionsPlayer" />
             </div>
 
             <!-- Sessions -->
             <div class="flex flex-col gap-2">
-              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Session Types</label>
+              <p class="text-[10px] font-black uppercase tracking-widest text-white/40">Session Types</p>
               <DropDownMultiple v-model="dataFilter.sessions" :options="optionsSession"/>
             </div>
 
             <!-- Options -->
             <div class="flex flex-col gap-2">
-              <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Training Options</label>
+              <p class="text-[10px] font-black uppercase tracking-widest text-white/40">Training Options</p>
               <DropDownOptionsOfSession v-model="dataFilter.options" :seletedSessionShow="dataFilter.sessions"/>
             </div>
 

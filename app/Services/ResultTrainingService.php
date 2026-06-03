@@ -64,12 +64,37 @@ final class ResultTrainingService
      */
     public static function getCageResults(string $team, array $players, array $dates)
     {
-
-        return CagePracticeResult::with('profile')
-            ->where('team_id', '=', $team)
+        $query = CagePracticeResult::with('profile')
             ->whereDate('created_at', '>=', $dates[0])
             ->whereDate('created_at', '<=', $dates[1])
-            ->whereIn('user_id', $players)
+            ->whereIn('user_id', $players);
+
+        if ($team !== '') {
+            $query->where('team_id', '=', $team);
+        }
+
+        $direct = $query->get();
+        if ($direct->count() > 0 || empty($players)) {
+            return $direct;
+        }
+
+        // Player fallback: sessions assigned to player but result row may not carry user_id consistently
+        $practiceIds = Practice::query()
+            ->where('type', PracticeTypes::CAGE->value)
+            ->where('user_id', $players[0])
+            ->whereDate('created_at', '>=', $dates[0])
+            ->whereDate('created_at', '<=', $dates[1])
+            ->pluck('id')
+            ->all();
+
+        if (empty($practiceIds)) {
+            return $direct;
+        }
+
+        return CagePracticeResult::with('profile')
+            ->whereIn('practice_id', $practiceIds)
+            ->whereDate('created_at', '>=', $dates[0])
+            ->whereDate('created_at', '<=', $dates[1])
             ->get();
 
     }
@@ -81,23 +106,62 @@ final class ResultTrainingService
      */
     public static function getBattingResults(string $team, array $players, array $dates)
     {
-        $batting = BattingPracticeResult::where('team_id', $team)
+        $battingQuery = BattingPracticeResult::query()
             ->whereDate('created_at', '>=', $dates[0])
             ->whereDate('created_at', '<=', $dates[1])
-            ->where('is_in_match', false)
-            ->whereIn('batter_id', $players)
-            ->get();
+            ->whereIn('batter_id', $players);
+
+        if ($team !== '') {
+            $battingQuery->where('is_in_match', false);
+        }
+
+        if ($team !== '') {
+            $battingQuery->where('team_id', $team);
+        }
+
+        $batting = $battingQuery->get();
+
+        if ($team === '' && $batting->count() === 0 && !empty($players)) {
+            $practiceIds = Practice::query()
+                ->where('type', PracticeTypes::BATTING->value)
+                ->where('user_id', $players[0])
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->pluck('id')
+                ->all();
+
+            if (!empty($practiceIds)) {
+                $batting = BattingPracticeResult::query()
+                    ->whereIn('practice_id', $practiceIds)
+                    ->whereDate('created_at', '>=', $dates[0])
+                    ->whereDate('created_at', '<=', $dates[1])
+                    ->get();
+
+                if ($team !== '') {
+                    $batting = $batting->where('is_in_match', false)->values();
+                }
+            }
+        }
 
         // Also include Scripted BP swings for the same team / date range
-        $scriptedPracticeIds = Practice::where('team_id', $team)
-            ->where('type', PracticeTypes::BATTING->value)
-            ->whereDate('created_at', '>=', $dates[0])
-            ->whereDate('created_at', '<=', $dates[1])
-            ->pluck('id')
-            ->all();
+        $scriptedPracticeIds = [];
+        if ($team !== '') {
+            $scriptedPracticeIds = Practice::where('team_id', $team)
+                ->where('type', PracticeTypes::BATTING->value)
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->pluck('id')
+                ->all();
+        }
 
         $scriptedSwings = collect();
-        if (!empty($scriptedPracticeIds)) {
+        if ($team === '') {
+            $rawSwings = ScriptedBpSwing::whereIn('batter_id', $players)
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->get();
+            $scriptedSwings = self::normalizeScriptedSwings($rawSwings);
+        } elseif (!empty($scriptedPracticeIds)) {
             $rawSwings = ScriptedBpSwing::whereIn('practice_id', $scriptedPracticeIds)
                 ->whereIn('batter_id', $players)
                 ->get();
@@ -114,11 +178,60 @@ final class ResultTrainingService
      */
     public static function getBullpenResults(string $team, array $players, array $dates)
     {
-        return BullpenPracticeResult::where('team_id', $team)
+        $baseQuery = BullpenPracticeResult::query()
             ->whereDate('created_at', '>=', $dates[0])
             ->whereDate('created_at', '<=', $dates[1])
-            ->where('is_in_match', false)
-            ->whereIn('pitcher_id', $players)
+            ->whereIn('pitcher_id', $players);
+
+        if ($team !== '') {
+            $baseQuery->where('is_in_match', false);
+        }
+
+        if ($team === '') {
+            $direct = $baseQuery->get();
+
+            if ($direct->count() > 0 || empty($players)) {
+                return $direct;
+            }
+
+            $practiceIds = Practice::query()
+                ->where('type', PracticeTypes::BULLPEN->value)
+                ->where('user_id', $players[0])
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->pluck('id')
+                ->all();
+
+            if (empty($practiceIds)) {
+                return $direct;
+            }
+
+            return BullpenPracticeResult::query()
+                ->whereIn('practice_id', $practiceIds)
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->get();
+        }
+
+        $direct = (clone $baseQuery)
+            ->where('team_id', $team)
+            ->get();
+
+        if ($direct->count() > 0) {
+            return $direct;
+        }
+
+        $teamPracticeIds = Practice::where('team_id', $team)
+            ->where('type', PracticeTypes::BULLPEN->value)
+            ->pluck('id')
+            ->all();
+
+        if (empty($teamPracticeIds)) {
+            return collect();
+        }
+
+        return $baseQuery
+            ->whereIn('practice_id', $teamPracticeIds)
             ->get();
 
     }
@@ -137,6 +250,32 @@ final class ResultTrainingService
 
         if (!empty($players)) {
             $baseQuery->whereIn('user_id', $players);
+        }
+
+        if ($team === '') {
+            $direct = $baseQuery->get();
+
+            if ($direct->count() > 0 || empty($players)) {
+                return $direct;
+            }
+
+            $practiceIds = Practice::query()
+                ->where('type', PracticeTypes::TRAINING->value)
+                ->where('user_id', $players[0])
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->pluck('id')
+                ->all();
+
+            if (empty($practiceIds)) {
+                return $direct;
+            }
+
+            return LongTossPractice::query()
+                ->whereIn('practice_id', $practiceIds)
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->get();
         }
 
         // Primary path: rows where team_id is populated
@@ -179,6 +318,32 @@ final class ResultTrainingService
             $baseQuery->whereIn('user_id', $players);
         }
 
+        if ($team === '') {
+            $direct = $baseQuery->get();
+
+            if ($direct->count() > 0 || empty($players)) {
+                return $direct;
+            }
+
+            $practiceIds = Practice::query()
+                ->where('type', PracticeTypes::TRAINING->value)
+                ->where('user_id', $players[0])
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->pluck('id')
+                ->all();
+
+            if (empty($practiceIds)) {
+                return $direct;
+            }
+
+            return WeightBallPractice::query()
+                ->whereIn('practice_id', $practiceIds)
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->get();
+        }
+
         // Primary path: rows where team_id is populated
         $direct = (clone $baseQuery)
             ->where('team_id', $team)
@@ -217,6 +382,32 @@ final class ResultTrainingService
 
         if (!empty($players)) {
             $baseQuery->whereIn('user_id', $players);
+        }
+
+        if ($team === '') {
+            $direct = $baseQuery->get();
+
+            if ($direct->count() > 0 || empty($players)) {
+                return $direct;
+            }
+
+            $practiceIds = Practice::query()
+                ->where('type', PracticeTypes::TRAINING->value)
+                ->where('user_id', $players[0])
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->pluck('id')
+                ->all();
+
+            if (empty($practiceIds)) {
+                return $direct;
+            }
+
+            return ExitVelocityPractice::query()
+                ->whereIn('practice_id', $practiceIds)
+                ->whereDate('created_at', '>=', $dates[0])
+                ->whereDate('created_at', '<=', $dates[1])
+                ->get();
         }
 
         // Primary path: rows where team_id is populated

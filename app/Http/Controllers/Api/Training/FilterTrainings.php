@@ -15,6 +15,7 @@ use App\Utils\Filters\ExitVelocityFilters;
 use App\Utils\Filters\LiveABFilters;
 use App\Utils\Filters\LongTossFilters;
 use App\Utils\Filters\WeightBallFilters;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -32,6 +33,7 @@ class FilterTrainings extends Controller
             $data=[];
             $params = $request->validated();
             $params['team'] = $request->team;
+            $params['dates'] = $this->normalizeDates($params['dates']);
             $params['options'] = $this->decodeOptions($params['options']);
 
             $data['batting'] = $this->battingFilters($params);
@@ -134,10 +136,42 @@ class FilterTrainings extends Controller
   public function decodeOptions($options)
   {
       if(is_array($options)) {
-          return $options;
+          return $this->normalizeOptions($options);
       }
 
       $options_array = json_decode($options, true, 512, JSON_THROW_ON_ERROR);
-      return $options_array;
+      return $this->normalizeOptions($options_array);
+  }
+
+  private function normalizeOptions(array $options): array
+  {
+      foreach ($options as $sessionType => $selectedOptions) {
+          if (!is_array($selectedOptions)) {
+              $options[$sessionType] = [];
+              continue;
+          }
+
+          $options[$sessionType] = array_values(array_map(
+              static fn ($value): int => (int) $value,
+              array_filter($selectedOptions, static fn ($value): bool => is_numeric($value))
+          ));
+      }
+
+      return $options;
+  }
+
+  private function normalizeDates(array $dates): array
+  {
+      $since = $dates[0] ?? null;
+      $until = $dates[1] ?? null;
+
+      if (!$since || !$until) {
+          return $dates;
+      }
+
+      return [
+          Carbon::parse((string) $since)->toDateString(),
+          Carbon::parse((string) $until)->toDateString(),
+      ];
   }
 }

@@ -2,9 +2,20 @@
   import { computed } from 'vue'
   import ArrowDownIcon from "../icons/ArrowDownIcon.vue";
 
+  let selectUid = 0
 
   const props = defineProps({
     modelValue: [String, Number, Boolean, Object],
+    id: {
+      type: String,
+      required: false,
+      default: ''
+    },
+    name: {
+      type: String,
+      required: false,
+      default: ''
+    },
     inputClasses: {
       type: String,
       required: false,
@@ -31,6 +42,10 @@
     }
   })
 
+  const fallbackId = `select-field-${++selectUid}`
+  const selectId = computed(() => props.id || fallbackId)
+  const selectName = computed(() => props.name || selectId.value)
+
 
   const inputClass = [
     'bg-white border border-fungo-darkblue text-fungo-darkblue rounded-[5px]',
@@ -41,7 +56,7 @@
 <template>
   <slot>
   <div class="relative w-full">
-    <select class="bg-white h-10 appearance-none bg-none w-full" :class="inputClass" v-model="value" style="z-index: 9">
+    <select :id="selectId" :name="selectName" class="bg-white h-10 appearance-none bg-none w-full" :class="inputClass" v-model="value" style="z-index: 9">
       <option class="text-fungo-darkblue" v-for="(state, index) in options" :value="index">{{ state }}</option>
     </select>
     <div class="arrow-position"> <ArrowDownIcon color="26364D"/> </div>

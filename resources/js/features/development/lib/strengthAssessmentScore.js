@@ -1,4 +1,4 @@
-/**
+npm ci --legacy-peer-deps && npm run build/**
  * Strength Assessment Score — FMTRX
  *
  * Inputs are 0-100 percentile values entered by the coach.

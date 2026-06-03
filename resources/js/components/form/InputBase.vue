@@ -1,9 +1,20 @@
 <script setup>
 import { computed } from 'vue'
 
+let inputBaseUid = 0
 
 const props = defineProps({
   modelValue: [String, Number, Boolean, Object],
+  id: {
+    type: String,
+    required: false,
+    default: ''
+  },
+  name: {
+    type: String,
+    required: false,
+    default: ''
+  },
   inputType: {
     type: String,
     required: false,
@@ -60,6 +71,11 @@ const value = computed({
   }
 })
 
+const fallbackId = `input-base-${++inputBaseUid}`
+
+const inputId = computed(() => props.id || fallbackId)
+const inputName = computed(() => props.name || inputId.value)
+
 
 const inputClass = [
   props.transparent ? 'bg-transparent border border-fungo-lightblue' : 'bg-white border border-fungo-darkblue text-fungo-darkblue',
@@ -72,6 +88,8 @@ const inputClass = [
   <input
       class="h-10 rounded appearance-none "
       :class="inputClass"
+      :id="inputId"
+      :name="inputName"
       :type="props.inputType"
       v-model="value"
       :disabled="props.enableInput"

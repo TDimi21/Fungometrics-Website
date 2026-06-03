@@ -377,8 +377,10 @@ onMounted(async () => {
           </div>
 
           <div v-if="!isPlayerLogin" class="mb-4">
-            <label class="block text-sm font-black uppercase tracking-wider text-white/60 mb-2">Team</label>
+            <label for="new-stats-team" class="block text-sm font-black uppercase tracking-wider text-white/60 mb-2">Team</label>
             <select
+              id="new-stats-team"
+              name="team"
               v-model="selectedTeamId"
               class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-white outline-none"
               @change="loadTeamPlayers(selectedTeamId)"
