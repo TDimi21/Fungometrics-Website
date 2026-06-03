@@ -120,6 +120,18 @@ class SaveAssessment extends Controller
                 $data['assessed_by'] = (string) optional($request->user())->id;
             }
 
+            // Mobile may send null/empty team_id in some flows; infer from player-team pivot.
+            if (!isset($data['team_id']) || !$data['team_id']) {
+                $inferredTeamId = PlayerTeam::query()
+                    ->where('user_id', (string) $request->user_id)
+                    ->whereNotNull('team_id')
+                    ->value('team_id');
+
+                if ($inferredTeamId) {
+                    $data['team_id'] = (string) $inferredTeamId;
+                }
+            }
+
             $player = Player::query()->where('user_id', (string) $request->user_id)->first();
             $assessmentDate = isset($data['assessment_date']) ? (string) $data['assessment_date'] : null;
             $ageYears = $this->computeAgeYears(optional($player)->born_date, $assessmentDate);
