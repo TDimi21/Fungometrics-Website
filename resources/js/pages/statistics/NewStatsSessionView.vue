@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/vue'
 import Layout from '@/layout/Layout.vue'
+import { useUserStore } from '@/store/user'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { toast } from '@/utils/AlertPlugin'
 import SessionHeatmapPanel from '@/components/statistics/session/SessionHeatmapPanel.vue'
@@ -28,6 +29,7 @@ import {
 
 const route = useRoute()
 const { axiosGet } = useAxiosAuth()
+const { userData } = useUserStore()
 
 const loading = ref(false)
 const teamName = ref('Team')
@@ -190,6 +192,8 @@ const selectedSessionIds = computed(() => {
 })
 
 const teamId = computed(() => String(route.query?.team || ''))
+const playerId = computed(() => String(route.query?.playerId || ''))
+const isPlayerScope = computed(() => Boolean(playerId.value))
 const sinceWhen = computed(() => String(route.query?.since || ''))
 const until = computed(() => String(route.query?.until || ''))
 
@@ -1401,6 +1405,13 @@ const buildOptionsFromSession = () => {
 }
 
 const loadTeamPlayers = async () => {
+  if (isPlayerScope.value) {
+    playersMap.value = {
+      [playerId.value]: String(route.query?.playerName || userData?.name?.full || userData?.name || 'Player'),
+    }
+    return
+  }
+
   const res = await axiosGet(`coach/teams/${teamId.value}`)
   const players = Array.isArray(res?.data?.data) ? res.data.data : []
   const map = {}
@@ -1417,7 +1428,11 @@ const loadAggregateTotalsAndPercentages = async () => {
     options: buildOptionsFromSession(),
   }
 
-  const res = await axiosGet(`result/statistics/${teamId.value}`, payload)
+  const endpoint = isPlayerScope.value
+    ? `result/statistics/player/${playerId.value}`
+    : `result/statistics/${teamId.value}`
+
+  const res = await axiosGet(endpoint, payload)
   const data = res?.data?.data || {}
   const sectionKeyMap = {
     B: 'batting',
@@ -1455,54 +1470,74 @@ const loadAggregateTotalsAndPercentages = async () => {
 }
 
 const loadAllPitchesAndVeloData = async () => {
-  const sessionsRes = await axiosGet(`coach/sessions/lasts/${teamId.value}`)
-  const sessionsData = sessionsRes?.data?.data || sessionsRes?.data || {}
+  let list = []
 
-  const key = sessionListKeyBySession[selectedSession.value]
-  let list = sessionsData?.[key] || []
-
-  if (selectedSession.value === 'EV' && (!Array.isArray(list) || list.length === 0)) {
-    const trainingFallback =
-      sessionsData?.training ||
-      sessionsData?.trainings ||
-      sessionsData?.all_training ||
-      []
-
-    if (Array.isArray(trainingFallback) && trainingFallback.length > 0) {
-      list = trainingFallback.filter((s) => {
-        const mode = String(s?.mode ?? s?.modes ?? '').toUpperCase()
-        return ['EV', 'EXIT_VELOCITY', 'EXITVELOCITY'].includes(mode)
-      })
+  if (isPlayerScope.value) {
+    if (selectedSession.value === 'B') {
+      const res = await axiosGet('player/sessions/batting')
+      list = res?.data?.data?.data || []
+    } else if (selectedSession.value === 'P') {
+      const res = await axiosGet('player/sessions/bullpen')
+      list = res?.data?.data?.data || []
+    } else if (selectedSession.value === 'C') {
+      const res = await axiosGet('player/sessions/cage')
+      list = res?.data?.data?.data || []
+    } else {
+      const res = await axiosGet('player/sessions/training')
+      const training = res?.data?.data?.data || []
+      const mode = String(selectedSession.value).toUpperCase()
+      list = training.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === mode)
     }
-  }
+  } else {
+    const sessionsRes = await axiosGet(`coach/sessions/lasts/${teamId.value}`)
+    const sessionsData = sessionsRes?.data?.data || sessionsRes?.data || {}
 
-  if (selectedSession.value === 'LT' && (!Array.isArray(list) || list.length === 0)) {
-    const trainingFallback =
-      sessionsData?.training ||
-      sessionsData?.trainings ||
-      sessionsData?.all_training ||
-      []
+    const key = sessionListKeyBySession[selectedSession.value]
+    list = sessionsData?.[key] || []
 
-    if (Array.isArray(trainingFallback) && trainingFallback.length > 0) {
-      list = trainingFallback.filter((s) => {
-        const mode = String(s?.mode ?? s?.modes ?? '').toUpperCase()
-        return ['LT', 'LONG_TOSS', 'LONGTOSS'].includes(mode)
-      })
+    if (selectedSession.value === 'EV' && (!Array.isArray(list) || list.length === 0)) {
+      const trainingFallback =
+        sessionsData?.training ||
+        sessionsData?.trainings ||
+        sessionsData?.all_training ||
+        []
+
+      if (Array.isArray(trainingFallback) && trainingFallback.length > 0) {
+        list = trainingFallback.filter((s) => {
+          const mode = String(s?.mode ?? s?.modes ?? '').toUpperCase()
+          return ['EV', 'EXIT_VELOCITY', 'EXITVELOCITY'].includes(mode)
+        })
+      }
     }
-  }
 
-  if (selectedSession.value === 'WB' && (!Array.isArray(list) || list.length === 0)) {
-    const trainingFallback =
-      sessionsData?.training ||
-      sessionsData?.trainings ||
-      sessionsData?.all_training ||
-      []
+    if (selectedSession.value === 'LT' && (!Array.isArray(list) || list.length === 0)) {
+      const trainingFallback =
+        sessionsData?.training ||
+        sessionsData?.trainings ||
+        sessionsData?.all_training ||
+        []
 
-    if (Array.isArray(trainingFallback) && trainingFallback.length > 0) {
-      list = trainingFallback.filter((s) => {
-        const mode = String(s?.mode ?? s?.modes ?? '').toUpperCase()
-        return ['WB', 'WEIGHT_BALL', 'WEIGHTBALL'].includes(mode)
-      })
+      if (Array.isArray(trainingFallback) && trainingFallback.length > 0) {
+        list = trainingFallback.filter((s) => {
+          const mode = String(s?.mode ?? s?.modes ?? '').toUpperCase()
+          return ['LT', 'LONG_TOSS', 'LONGTOSS'].includes(mode)
+        })
+      }
+    }
+
+    if (selectedSession.value === 'WB' && (!Array.isArray(list) || list.length === 0)) {
+      const trainingFallback =
+        sessionsData?.training ||
+        sessionsData?.trainings ||
+        sessionsData?.all_training ||
+        []
+
+      if (Array.isArray(trainingFallback) && trainingFallback.length > 0) {
+        list = trainingFallback.filter((s) => {
+          const mode = String(s?.mode ?? s?.modes ?? '').toUpperCase()
+          return ['WB', 'WEIGHT_BALL', 'WEIGHTBALL'].includes(mode)
+        })
+      }
     }
   }
 
@@ -1552,7 +1587,7 @@ const loadAllPitchesAndVeloData = async () => {
 }
 
 const boot = async () => {
-  if (!teamId.value || !supportsTabsView.value) {
+  if ((!teamId.value && !isPlayerScope.value) || !supportsTabsView.value) {
     toast.fire({ icon: 'warning', title: 'Validation', text: 'This New Stats view needs a valid session type.' })
     return
   }
@@ -1572,7 +1607,7 @@ const boot = async () => {
 }
 
 onMounted(() => {
-  teamName.value = String(route.query?.teamName || 'Team')
+  teamName.value = String(route.query?.teamName || route.query?.playerName || 'Team')
   boot()
 })
 </script>

@@ -3,12 +3,15 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useTeamStore } from '@/store/team'
+import { useUserStore } from '@/store/user'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { toast } from '@/utils/AlertPlugin'
 
 const router = useRouter()
 const { teams } = useTeamStore()
+const { userData } = useUserStore()
 const { axiosGet } = useAxiosAuth()
+const isPlayerLogin = computed(() => userData?.type === 'player')
 
 const selectedTab = ref('stats')
 const selectedTeamId = ref('')
@@ -63,6 +66,15 @@ const buildOptionsFromSessions = (sessions) => {
 }
 
 const loadTeamPlayers = async (teamId) => {
+  if (isPlayerLogin.value) {
+    teamPlayers.value = [{
+      id: String(userData.id),
+      name: userData?.name?.full || userData?.name || 'Player',
+    }]
+    selectedPlayers.value = [String(userData.id)]
+    return
+  }
+
   if (!teamId) return
   try {
     const response = await axiosGet(`coach/teams/${teamId}`)
@@ -194,12 +206,19 @@ const buildStatsQuery = () => {
   const routeSession = isBS ? 'L' : selectedSession
 
   const query = {
-    team: String(selectedTeamId.value),
-    teamName: (teams.find((t) => String(t.id) === String(selectedTeamId.value))?.name || 'Team'),
+    team: isPlayerLogin.value ? '' : String(selectedTeamId.value),
+    teamName: isPlayerLogin.value
+      ? (userData?.name?.full || userData?.name || 'Player')
+      : (teams.find((t) => String(t.id) === String(selectedTeamId.value))?.name || 'Team'),
     since: sinceWhen.value,
     until: until.value,
     players: selectedPlayers.value.join(','),
     session: routeSession,
+  }
+
+  if (isPlayerLogin.value) {
+    query.playerId = String(userData.id)
+    query.playerName = userData?.name?.full || userData?.name || 'Player'
   }
 
   if (isBS) query.tab = 'BOX SCORE'
@@ -215,10 +234,30 @@ const openSessionPicker = async () => {
   try {
     const selectedSession = selectedSessions.value[0]
     const routeSession = selectedSession === 'BS' ? 'L' : selectedSession
-    const sessionsRes = await axiosGet(`coach/sessions/lasts/${selectedTeamId.value}`)
-    const sessionsData = sessionsRes?.data?.data || sessionsRes?.data || {}
+    let filtered = []
+    if (isPlayerLogin.value) {
+      if (routeSession === 'B') {
+        const res = await axiosGet('player/sessions/batting')
+        filtered = res?.data?.data?.data || []
+      } else if (routeSession === 'P') {
+        const res = await axiosGet('player/sessions/bullpen')
+        filtered = res?.data?.data?.data || []
+      } else if (routeSession === 'C') {
+        const res = await axiosGet('player/sessions/cage')
+        filtered = res?.data?.data?.data || []
+      } else {
+        const res = await axiosGet('player/sessions/training')
+        const training = res?.data?.data?.data || []
+        const mode = String(routeSession).toUpperCase()
+        filtered = training.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === mode)
+      }
+    } else {
+      const sessionsRes = await axiosGet(`coach/sessions/lasts/${selectedTeamId.value}`)
+      const sessionsData = sessionsRes?.data?.data || sessionsRes?.data || {}
+      filtered = resolveSessionList(sessionsData, routeSession)
+    }
 
-    const filtered = resolveSessionList(sessionsData, routeSession)
+    filtered = filtered
       .filter((session) => inDateRange(session))
       .filter((session) => sessionHasSelectedPlayers(session))
 
@@ -257,7 +296,7 @@ const goToPractice = () => {
 }
 
 const openStatistics = () => {
-  if (!selectedTeamId.value) {
+  if (!isPlayerLogin.value && !selectedTeamId.value) {
     toast.fire({ icon: 'warning', title: 'Validation', text: 'Select a team first.' })
     return
   }
@@ -284,6 +323,11 @@ const openStatistics = () => {
 }
 
 onMounted(async () => {
+  if (isPlayerLogin.value) {
+    await loadTeamPlayers('')
+    return
+  }
+
   if (Array.isArray(teams) && teams.length > 0) {
     selectedTeamId.value = teams[0].id
     await loadTeamPlayers(selectedTeamId.value)
@@ -332,7 +376,7 @@ onMounted(async () => {
             </button>
           </div>
 
-          <div class="mb-4">
+          <div v-if="!isPlayerLogin" class="mb-4">
             <label class="block text-sm font-black uppercase tracking-wider text-white/60 mb-2">Team</label>
             <select
               v-model="selectedTeamId"
@@ -343,10 +387,15 @@ onMounted(async () => {
             </select>
           </div>
 
+          <div v-else class="mb-4 rounded-xl border border-white/15 bg-white/5 p-3">
+            <p class="text-xs uppercase tracking-widest text-white/45">Player Scope</p>
+            <p class="text-sm font-black text-white mt-1">{{ userData?.name?.full || userData?.name || 'Player' }}</p>
+          </div>
+
           <div class="mb-4">
             <div class="flex items-center justify-between gap-3 mb-3">
               <h2 class="text-2xl md:text-3xl font-black">Select Players ({{ selectedCountLabel }})</h2>
-              <div class="flex items-center gap-2">
+              <div v-if="!isPlayerLogin" class="flex items-center gap-2">
                 <button type="button" class="rounded-lg bg-[#ff2d55] px-3 py-1.5 text-sm font-black" @click="selectAllPlayers">All</button>
                 <button type="button" class="rounded-lg bg-[#ff2d55] px-3 py-1.5 text-sm font-black" @click="deselectAllPlayers">None</button>
               </div>
@@ -361,7 +410,7 @@ onMounted(async () => {
                 :class="selectedPlayers.includes(player.id)
                   ? 'border-[#ff2d55] bg-[#ff2d55]/20 text-white'
                   : 'border-[#ff2d55]/70 bg-white/5 text-white/80 hover:bg-white/10'"
-                @click="togglePlayerSelection(player.id)"
+                @click="!isPlayerLogin && togglePlayerSelection(player.id)"
               >
                 {{ player.name }}
               </button>

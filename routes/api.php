@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\Player\GetCagePractices;
 use App\Http\Controllers\Api\Player\GetFitness;
 use App\Http\Controllers\Api\Player\GetTrainingPractices;
 use App\Http\Controllers\Api\Player\JoinTeamByCode;
+use App\Http\Controllers\Api\Player\GetPlayerFilteredStatistics;
 use App\Http\Controllers\Api\Player\SaveFitness;
 use App\Http\Controllers\Api\Player\SetPlayerCredentials;
 use App\Http\Controllers\Api\Coach\SaveAssessment;
@@ -234,6 +235,7 @@ Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
         '/statistics/{team}',
         FilterTrainings::class
     );
+    Route::middleware(['ability:player'])->get('/statistics/player/{player}', GetPlayerFilteredStatistics::class);
 });
 
 Route::middleware(['auth:sanctum'])->prefix('sessions')->group(function (): void {

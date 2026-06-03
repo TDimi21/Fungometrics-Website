@@ -4,6 +4,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useTeamStore } from "@/store/team"
+import { useUserStore } from "@/store/user"
 import {toast} from "@/utils/AlertPlugin"
 import { SelectTeams, DropDownMultiple } from '@/components/shared'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
@@ -25,8 +26,10 @@ import {
 } from '@/components/globalStats/index.js'
 
 const { teams } = useTeamStore();
+const { userData } = useUserStore();
 const { axiosGet } = useAxiosAuth()
 const route = useRoute()
+const isPlayerLogin = ref(false)
 
 const props = defineProps({
   slug: {
@@ -244,10 +247,13 @@ const getStatistic = () => {
       throw new Error('Select a training option!')
     }
 
-    let id = dataTeam.value.selectTeam == '' ? teams[0].id : dataTeam.value.selectTeam
-    axiosGet('result/statistics/'+ id, {
+    const endpoint = isPlayerLogin.value
+      ? 'result/statistics/player/' + userData.id
+      : 'result/statistics/' + (dataTeam.value.selectTeam == '' ? teams[0].id : dataTeam.value.selectTeam)
+
+    axiosGet(endpoint, {
       dates: 	[  dataFilter.value.sinceWhen, dataFilter.value.until],
-      players: dataFilter.value.players,
+      players: isPlayerLogin.value ? [String(userData.id)] : dataFilter.value.players,
       options: dataFilter.value.options
     }).then((data)=> {
       console.log(data.data.data)
@@ -272,6 +278,15 @@ const getStatistic = () => {
 }
 
 onMounted(async () => {
+  isPlayerLogin.value = userData?.type === 'player'
+
+  if (isPlayerLogin.value) {
+    optionsPlayer.value = {
+      [String(userData.id)]: userData?.name?.full || userData?.name || 'Player',
+    }
+    dataFilter.value.players = [String(userData.id)]
+  }
+
   await setPlayerList()
 
   if (route.query?.auto !== '1') {
@@ -314,6 +329,14 @@ const format = (current_datetime)=>{
 }
 
 const setPlayerList = async (idTeam) =>{
+  if (isPlayerLogin.value) {
+    optionsPlayer.value = {
+      [String(userData.id)]: userData?.name?.full || userData?.name || 'Player',
+    }
+    dataFilter.value.players = [String(userData.id)]
+    return
+  }
+
   let id = idTeam ?? teams[0].id
   await axiosGet('coach/teams/'+ id).then((response)=>{
     let player = {}
@@ -451,6 +474,7 @@ const addNameToPlayersData = (players) => {
               New
             </RouterLink>
             <button
+              v-if="!isPlayerLogin"
               type="button"
               class="rounded-xl border border-red-400/60 bg-red-500/20 px-4 py-2 text-xs font-black tracking-wider text-red-200 hover:bg-red-500/30 transition"
               @click="$emit('open-add-player')"
@@ -464,7 +488,7 @@ const addNameToPlayersData = (players) => {
           <h2 class="text-xs font-black uppercase tracking-widest text-white/40 mb-4">Filters</h2>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <!-- Team selector -->
-            <div class="lg:col-span-2">
+            <div v-if="!isPlayerLogin" class="lg:col-span-2">
               <div class="relative overflow-hidden rounded-2xl border border-white/20 shadow-2xl backdrop-blur-xl p-4 cursor-pointer hover:bg-white/15 transition"
                 v-for="t in teams" :key="t.id"
                 :class="dataTeam.selectTeam == t.id ? 'border-red-500/60 bg-white/10' : 'bg-white/5'"
@@ -489,6 +513,11 @@ const addNameToPlayersData = (players) => {
               </div>
             </div>
 
+            <div v-else class="lg:col-span-2 rounded-xl border border-white/15 bg-white/5 p-3">
+              <p class="text-xs uppercase tracking-widest text-white/45">Player Scope</p>
+              <p class="text-sm font-black text-white mt-1">{{ userData?.name?.full || userData?.name || 'Player' }}</p>
+            </div>
+
             <!-- Date range -->
             <div class="flex flex-col gap-2">
               <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Since When</label>
@@ -500,7 +529,7 @@ const addNameToPlayersData = (players) => {
             </div>
 
             <!-- Players -->
-            <div class="flex flex-col gap-2">
+            <div v-if="!isPlayerLogin" class="flex flex-col gap-2">
               <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Players</label>
               <DropDownMultiple v-model="dataFilter.players" :options="optionsPlayer" />
             </div>
