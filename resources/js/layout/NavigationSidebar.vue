@@ -164,25 +164,17 @@ onMounted(() => {
         url: '/training-player/training-mode'
       },
       {
-        title: 'Practice Sessions',
+        title: 'Statistics',
         iconPath: iconStartPractice,
-        startWith: '/sesion',
+        startWith: ['/statistic', '/new-statistic'],
         child: [
           {
-            title: 'Batting practice',
-            url: '/training/batting'
+            title: 'Legacy Statistics',
+            url: '/statistic'
           },
           {
-            title: 'Bullpen practice',
-            url: '/training/bullpen'
-          },
-          {
-            title: 'Cage practice',
-            url: '/training/cage'
-          },
-          {
-            title: 'Training mode',
-            url: '/training/training-mode'
+            title: 'New Statistics',
+            url: '/new-statistic'
           },
         ]
       }
