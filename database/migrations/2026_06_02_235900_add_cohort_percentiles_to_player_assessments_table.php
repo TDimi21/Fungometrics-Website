@@ -11,8 +11,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('player_assessments', function (Blueprint $table): void {
-            $table->json('team_percentiles')->nullable()->after('overall_score');
-            $table->json('age_group_percentiles')->nullable()->after('team_percentiles');
+            $table->longText('team_percentiles')->nullable()->after('overall_score');
+            $table->longText('age_group_percentiles')->nullable()->after('team_percentiles');
             $table->unsignedTinyInteger('overall_team_percentile')->nullable()->after('age_group_percentiles');
             $table->unsignedTinyInteger('overall_age_percentile')->nullable()->after('overall_team_percentile');
             $table->unsignedTinyInteger('age_group_years')->nullable()->after('overall_age_percentile');
