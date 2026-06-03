@@ -856,6 +856,7 @@ const devDetailModal = ref({ visible: false, loading: false })
 const selectedDevPlayer = ref(null)
 const selectedDevCard = ref(null)
 const selectedDevStats = ref(null)
+const selectedDevLive = ref(null)
 const playerCardsLoaded = ref(false)
 const teamPlayerCards = ref([])
 
@@ -962,17 +963,146 @@ const ensureTeamPlayerCards = async () => {
   playerCardsLoaded.value = true
 }
 
+const firstDefined = (...vals) => {
+  for (const v of vals) {
+    if (v !== undefined && v !== null && v !== '') return v
+  }
+  return null
+}
+
+const withOneDecimal = (v) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.round(n * 10) / 10 : null
+}
+
+const normalizeDevScoresFromLive = (current = {}) => ({
+  batting: firstDefined(current.bp_score, current.batting_score, current.fps),
+  bullpen: firstDefined(current.bullpen_score, current.bps),
+  cage: firstDefined(current.cage_score, current.fcs),
+  ev: firstDefined(current.ev_score, current.evs, current.avg_exit_velocity),
+  overall: firstDefined(
+    current.development_index,
+    current.overall,
+    withOneDecimal(avg([current.bp_score, current.bullpen_score, current.cage_score, current.ev_score, current.evs].filter((x) => Number.isFinite(Number(x)))))
+  ),
+})
+
+const makeCardFromLive = (livePlayer, current) => {
+  if (!livePlayer && !current) return null
+  const heightFt = Number.isFinite(Number(livePlayer?.height_ft)) ? Number(livePlayer.height_ft) : null
+  const heightIn = Number.isFinite(Number(livePlayer?.height_in)) ? Number(livePlayer.height_in) : null
+  const bornDate = livePlayer?.born_date ?? livePlayer?.dob ?? null
+
+  return {
+    id: livePlayer?.id ?? null,
+    profile: {
+      first_name: livePlayer?.first_name ?? null,
+      last_name: livePlayer?.last_name ?? null,
+      full_name: livePlayer?.name ?? null,
+      picture: livePlayer?.picture ?? null,
+      level: livePlayer?.level ?? null,
+    },
+    physical: {
+      height_ft: heightFt,
+      height_in: heightIn,
+      born_date: bornDate,
+      hit_side: livePlayer?.bats ?? null,
+      throw_side: livePlayer?.throws ?? null,
+      jersey_number: livePlayer?.jersey ?? null,
+    },
+    fitness: {
+      body_weight: current?.body_weight ?? livePlayer?.weight ?? null,
+      bench_press: current?.bench_press ?? null,
+      front_squat: current?.front_squat ?? null,
+      power_clean: current?.power_clean ?? null,
+      date: current?.date ?? null,
+    },
+  }
+}
+
+const makeStatsFromLive = (current = {}) => {
+  if (!current || Object.keys(current).length === 0) return null
+  return {
+    top: {
+      max_exit_velocity: current.max_exit_velocity != null ? [current.max_exit_velocity] : [],
+      max_fast_ball: current.max_fb_velocity != null ? [current.max_fb_velocity] : [],
+      max_long_toss: current.max_long_toss != null ? [current.max_long_toss] : [],
+      max_weight_ball: current.max_weight_ball != null ? [current.max_weight_ball] : [],
+    },
+    avg: {
+      avg_exit_velocity: current.avg_exit_velocity ?? null,
+      avg_pitch_velocity: current.avg_pitch_velocity ?? null,
+    },
+    max: {
+      body_weight: current.body_weight ?? null,
+      bench_press: current.bench_press ?? null,
+      front_squat: current.front_squat ?? null,
+      pull_ups: current.pull_ups ?? null,
+      push_ups: current.push_ups ?? null,
+    },
+  }
+}
+
 const openDevPlayerDetail = async (player) => {
   selectedDevPlayer.value = player
   selectedDevCard.value = null
   selectedDevStats.value = null
+  selectedDevLive.value = null
   devDetailModal.value = { visible: true, loading: true }
   try {
     await ensureTeamPlayerCards()
-    selectedDevCard.value = (teamPlayerCards.value ?? []).find((c) => c.id === player.id) ?? null
+    const playerId = String(player?.id ?? '')
+    selectedDevCard.value = (teamPlayerCards.value ?? []).find((c) => String(c?.id) === playerId) ?? null
 
-    const { data } = await axiosGet('coach/statistics/' + player.id)
-    selectedDevStats.value = data?.data ?? null
+    const [statsRes, devRes] = await Promise.allSettled([
+      axiosGet('coach/statistics/' + player.id),
+      getActiveTeamIdCandidates().length
+        ? withTeamIdFallbackGet((id) => `coach/development/teams/${id}/players/${player.id}?days=60`)
+        : Promise.resolve(null),
+    ])
+
+    const statsData = statsRes.status === 'fulfilled' ? (statsRes.value?.data?.data ?? null) : null
+    const devData = devRes.status === 'fulfilled' ? (devRes.value?.data?.data ?? null) : null
+    selectedDevLive.value = devData
+
+    const livePlayer = devData?.player ?? null
+    const liveCurrent = devData?.current ?? null
+
+    if (!selectedDevCard.value) {
+      selectedDevCard.value = makeCardFromLive(livePlayer, liveCurrent)
+    }
+
+    const liveScoreMap = normalizeDevScoresFromLive(liveCurrent ?? {})
+    const liveFitness = {
+      body_weight: liveCurrent?.body_weight ?? null,
+      bench_press: liveCurrent?.bench_press ?? null,
+      front_squat: liveCurrent?.front_squat ?? null,
+      power_clean: liveCurrent?.power_clean ?? null,
+      pull_ups: liveCurrent?.pull_ups ?? null,
+      push_ups: liveCurrent?.push_ups ?? null,
+      date: liveCurrent?.date ?? null,
+    }
+
+    selectedDevPlayer.value = {
+      ...player,
+      id: player?.id ?? livePlayer?.id ?? playerId,
+      name: firstDefined(player?.name, livePlayer?.name, selectedDevCard.value?.profile?.full_name, 'Player'),
+      jersey: firstDefined(player?.jersey, livePlayer?.jersey, selectedDevCard.value?.physical?.jersey_number),
+      scores: {
+        ...liveScoreMap,
+        ...(player?.scores ?? {}),
+      },
+      prev_scores: {
+        ...(player?.prev_scores ?? {}),
+      },
+      fitness: {
+        ...liveFitness,
+        ...(selectedDevCard.value?.fitness ?? {}),
+        ...(player?.fitness ?? {}),
+      },
+    }
+
+    selectedDevStats.value = statsData ?? makeStatsFromLive(liveCurrent ?? {})
   } catch (e) {
     console.warn('openDevPlayerDetail', e)
   } finally {
@@ -981,7 +1111,36 @@ const openDevPlayerDetail = async (player) => {
 }
 
 const closeDevPlayerDetail = () => {
+  if (devOnlyMode.value) {
+    router.replace({ name: 'playerDashboard' })
+    return
+  }
   devDetailModal.value.visible = false
+}
+
+const devPlayerQueryId = computed(() => String(route.query?.devPlayerId || '').trim())
+const devOnlyMode = computed(() => String(route.query?.devOnly || '') === '1')
+const autoOpenedDevPlayerId = ref('')
+
+const tryOpenDevPlayerFromQuery = async () => {
+  const queryId = devPlayerQueryId.value
+  if (!queryId) return
+  if (autoOpenedDevPlayerId.value === queryId) return
+
+  const fromBoard = (devBoard.value || []).find((p) => String(p?.id) === queryId)
+  const fallbackPlayer = {
+    id: queryId,
+    name: String(route.query?.playerName || 'Player').trim() || 'Player',
+    status: 'no_data',
+    scores: {},
+    prev_scores: {},
+  }
+
+  autoOpenedDevPlayerId.value = queryId
+  if (!devOnlyMode.value && dashTab.value !== 'overview') {
+    dashTab.value = 'overview'
+  }
+  await openDevPlayerDetail(fromBoard || fallbackPlayer)
 }
 
 const quickStatsLoaded = ref(false)
@@ -1446,6 +1605,26 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => devPlayerQueryId.value,
+  async (nextId) => {
+    if (!nextId) {
+      autoOpenedDevPlayerId.value = ''
+      return
+    }
+    await tryOpenDevPlayerFromQuery()
+  },
+  { immediate: true }
+)
+
+watch(
+  () => devBoard.value,
+  async () => {
+    await tryOpenDevPlayerFromQuery()
+  },
+  { deep: false }
+)
+
 const hydrateDashboardFromCache = () => {
   const cache = readDashboardCache()
   if (!cache) return false
@@ -1511,7 +1690,7 @@ watch(
 <template>
   <Layout>
     <div class="min-h-screen bg-[#060b14] text-white">
-      <div class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
+      <div v-show="!devOnlyMode" class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
 
         <!-- Page title -->
         <div class="flex items-center gap-3 mb-5">

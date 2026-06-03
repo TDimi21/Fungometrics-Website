@@ -2,7 +2,7 @@
 import Layout from '@/layout/Layout.vue'
 import { InputBase, BigButtonField, InutTel, LabelField } from '@/components/form'
 import { SearchIcon, ArrowHeadRightIcon, ArrowRightIcon } from '@/components/icons'
-import {ref, onMounted, reactive} from 'vue'
+import {ref, onMounted, reactive, watch} from 'vue'
 import { CoachTable, PlayerTable, ModalSearchPlayer, ModalSearchCoach, RosterCard } from '@/components/roster'
 import { useUserStore } from '@/store/user'
 import {useTeamStore} from "@/store/team";
@@ -12,6 +12,7 @@ import { toast } from "@/utils/AlertPlugin"
 import Loader from "@/components/Loader.vue";
 import axios from "axios";
 import { storeToRefs } from 'pinia'
+import { useRoute } from 'vue-router'
 
 const { axiosGet, axiosDelete } = useAxiosAuth()
 const {userData} = useUserStore();
@@ -19,6 +20,7 @@ const {team } = useTeamStore();
 const playerStore = usePlayerStore()
 
 const { players } = storeToRefs(playerStore)
+const route = useRoute()
 
 const pages = ref([])
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
@@ -44,6 +46,7 @@ const isLoadingPlayer = ref(false)
 const tableDataPlayers = ref([])
 const playerLinks = ref([])
 const tableDataCoaches = ref([])
+const autoOpenPlayerId = ref('')
 
 //Constantes para modals
 const isOpenModalCoach = ref(false)
@@ -375,6 +378,22 @@ const updateTable = (item) => {
   getPlayerByTeam()
 }
 
+watch(
+  () => [route.query.focusPlayer, route.query.openMetrics, tableDataPlayers.value.length],
+  () => {
+    const shouldOpen = String(route.query.openMetrics || '') === '1'
+    const focusPlayer = String(route.query.focusPlayer || '').trim()
+    if (!shouldOpen || !focusPlayer) {
+      autoOpenPlayerId.value = ''
+      return
+    }
+
+    const exists = tableDataPlayers.value.some((p) => String(p?.id) === focusPlayer)
+    autoOpenPlayerId.value = exists ? focusPlayer : ''
+  },
+  { immediate: true }
+)
+
 const normalizeDigits = (value = '') => String(value).replace(/\D+/g, '')
 
 const copyToClipboard = async (value, successTitle = 'Copied') => {
@@ -597,6 +616,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
             :item="item"
             type="player"
             :idTeam="team.id"
+            :auto-open-metrics="String(item.id) === autoOpenPlayerId"
             @remove-item="updateTable(true)"
           />
         </div>

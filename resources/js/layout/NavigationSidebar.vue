@@ -144,24 +144,27 @@ onMounted(() => {
         url: '/player-dashboard'
       },
       {
-        title: 'Batting sessions',
+        title: 'Sessions',
         iconPath: iconSessionPractice,
-        url: '/training-player/batting'
-      },
-      {
-        title: 'Bullpen sessions',
-        iconPath: iconSessionPractice,
-        url: '/training-player/bullpen'
-      },
-      {
-        title: 'Cage sessions',
-        iconPath: iconSessionPractice,
-        url: '/training-player/cage'
-      },
-      {
-        title: 'Training sessions',
-        iconPath: iconSessionPractice,
-        url: '/training-player/training-mode'
+        startWith: '/training-player',
+        child: [
+          {
+            title: 'Batting sessions',
+            url: '/training-player/batting'
+          },
+          {
+            title: 'Bullpen sessions',
+            url: '/training-player/bullpen'
+          },
+          {
+            title: 'Cage sessions',
+            url: '/training-player/cage'
+          },
+          {
+            title: 'Training sessions',
+            url: '/training-player/training-mode'
+          },
+        ]
       },
       {
         title: 'Statistics',

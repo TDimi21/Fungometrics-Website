@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Modal } from '@/components/shared'
 import { toast } from '@/utils/AlertPlugin'
@@ -13,6 +13,7 @@ const props = defineProps({
   item: { type: Object, required: true },
   type: { type: String, default: 'player' }, // 'player' | 'coach'
   idTeam: { type: String, required: true },
+  autoOpenMetrics: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['remove-item'])
@@ -47,6 +48,17 @@ const showMetrics = async () => {
     isLoadingModal.value = false
   }
 }
+
+const hasAutoOpened = ref(false)
+watch(
+  () => props.autoOpenMetrics,
+  async (shouldOpen) => {
+    if (!shouldOpen || hasAutoOpened.value || props.type !== 'player') return
+    hasAutoOpened.value = true
+    await showMetrics()
+  },
+  { immediate: true }
+)
 
 // ── Derived display values ────────────────────────────────────────────────────
 const avatarSrc = props.item.avatar ?? null
