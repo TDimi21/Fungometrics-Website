@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
 import { useUserStore } from '@/store/user'
@@ -8,6 +9,7 @@ import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const { userData } = useUserStore()
 const { axiosGet } = useAxiosAuth()
+const router = useRouter()
 
 const loading = ref(false)
 const activeTopTab = ref('stats')
@@ -20,6 +22,7 @@ const playerMetricsScore = ref({})
 const battingSessions = ref([])
 const bullpenSessions = ref([])
 const cageSessions = ref([])
+const createdSessions = ref([])
 const cageStatRows = ref([])
 const trainingSessions = ref([])
 const playerFitnessLatest = ref(null)
@@ -36,6 +39,23 @@ const statTabs = [
 const POOR = '#191C4A'
 const AVG = '#8C234A'
 const GREAT = '#ff2d55'
+const ONE_HOUR_MS = 3600000
+
+const SESSION_MODE_LABEL_MAP = {
+  EV: 'Exit Velocity',
+  LT: 'Long Toss',
+  WB: 'Weighted Ball',
+  HP: 'Hit or Pitch',
+}
+
+const SESSION_REPORT_TYPE = {
+  B: 'batting',
+  P: 'bullpen',
+  C: 'cage',
+  EV: 'exit_velocity',
+  LT: 'long_toss',
+  WB: 'weight_ball',
+}
 
 const asArray = (val) => {
   if (Array.isArray(val)) return val
@@ -92,6 +112,109 @@ const parseNum = (row, keys) => {
     if (Number.isFinite(n) && n > 0) return n
   }
   return null
+}
+
+const tryLen = (arr) => (Array.isArray(arr) ? arr.length : undefined)
+
+const normalizeMode = (modeLike) => {
+  const mode = String(modeLike || '').trim().toUpperCase()
+  if (!mode) return null
+  if (mode === 'EV') return 'EV'
+  if (mode === 'WB') return 'WB'
+  if (mode === 'LT' || mode.includes('LONG')) return 'LT'
+  if (mode === 'HP') return 'HP'
+  return mode
+}
+
+const isCompletedSession = (session) => (
+  session?.is_completed === 2 ||
+  session?.is_completed === 1 ||
+  session?.is_completed === true ||
+  session?.finished === true
+)
+
+const computeTotalBalls = (session, sourceType) => {
+  const modeHint = normalizeMode(session?.mode || session?.modes)
+  const explicitCount =
+    (typeof session?.total_balls === 'number' ? session.total_balls : undefined) ??
+    (typeof session?.total_ball === 'number' ? session.total_ball : undefined) ??
+    (typeof session?.balls === 'number' ? session.balls : undefined) ??
+    (typeof session?.pitches_count === 'number' ? session.pitches_count : undefined) ??
+    (typeof session?.total_pitches === 'number' ? session.total_pitches : undefined) ??
+    (typeof session?.throws_count === 'number' ? session.throws_count : undefined)
+
+  if (typeof explicitCount === 'number') return explicitCount
+
+  if (sourceType === 'B') {
+    const v = tryLen(session?.batting) ?? tryLen(session?.practice_match_result) ?? tryLen(session?.results)
+    if (v !== undefined) return v
+  }
+
+  if (sourceType === 'P') {
+    const v = tryLen(session?.bullpen) ?? tryLen(session?.pitchers) ?? tryLen(session?.practice_match_result) ?? tryLen(session?.results) ?? tryLen(session?.pitches)
+    if (v !== undefined) return v
+  }
+
+  if (sourceType === 'C') {
+    const v = tryLen(session?.cage) ?? tryLen(session?.batters) ?? tryLen(session?.practice_match_result) ?? tryLen(session?.results)
+    if (v !== undefined) return v
+  }
+
+  if (sourceType === 'T') {
+    const v = tryLen(session?.practice_match_result) ?? tryLen(session?.results)
+    if (v !== undefined) return v
+    if (modeHint === 'LT') {
+      const lt = tryLen(session?.throws)
+      if (lt !== undefined) return lt
+    }
+  }
+
+  return 0
+}
+
+const mapRecentSession = (session, sourceType, createdBySelf = false) => {
+  const mode = normalizeMode(session?.mode || session?.modes)
+  const date = session?.created_at || session?.updated_at || session?.date || session?.started || null
+  const resolvedType = sourceType || String(session?.type || '').toUpperCase()
+  const reportType = resolvedType === 'T'
+    ? (SESSION_REPORT_TYPE[mode] || null)
+    : (SESSION_REPORT_TYPE[resolvedType] || null)
+
+  const label = resolvedType === 'T'
+    ? (SESSION_MODE_LABEL_MAP[mode] || 'Training Mode')
+    : (resolvedType === 'B'
+      ? 'Batting Practice'
+      : resolvedType === 'P'
+        ? 'Bullpen Practice'
+        : resolvedType === 'C'
+          ? 'Cage Practice'
+          : resolvedType === 'L'
+            ? 'LiveAB Practice'
+            : 'Training Mode')
+
+  return {
+    ...session,
+    _label: label,
+    _date: date,
+    _sourceType: resolvedType,
+    _mode: mode,
+    _reportType: reportType,
+    total_balls: computeTotalBalls(session, resolvedType),
+    is_completed: isCompletedSession(session) ? 2 : 1,
+    created_by_self: createdBySelf,
+  }
+}
+
+const shouldShowRecentSession = (session) => {
+  if (!session) return false
+  const hasBalls = Number(session.total_balls || 0) > 0
+  const isDone = Number(session.is_completed) === 2
+  const isFreshSelfCreated = Boolean(
+    session.created_by_self &&
+    session._date &&
+    (Date.now() - new Date(session._date).getTime()) < ONE_HOUR_MS
+  )
+  return hasBalls || isDone || isFreshSelfCreated
 }
 
 const fmt = (v, d = 1) => (Number.isFinite(v) ? Number(v.toFixed(d)) : null)
@@ -211,6 +334,24 @@ const formatHeight = (ft, inch, composed) => {
   }
   if (typeof composed === 'string' && composed.trim()) return composed.trim()
   return '—'
+}
+
+const formatGradYearShort = (yearLike) => {
+  if (yearLike == null) return null
+  const raw = String(yearLike).trim()
+  if (!raw) return null
+  const digits = raw.replace(/[^0-9]/g, '')
+  if (digits.length < 2) return null
+  return `'${digits.slice(-2).padStart(2, '0')}`
+}
+
+const deriveGradYearFromBirthdate = (...birthCandidates) => {
+  const raw = birthCandidates.find((v) => v != null && String(v).trim() !== '')
+  if (!raw) return null
+  const dob = new Date(raw)
+  if (Number.isNaN(dob.getTime())) return null
+  const gradYear = dob.getFullYear() + 18
+  return formatGradYearShort(gradYear)
 }
 
 const formatPositions = (positionsRaw) => {
@@ -366,13 +507,28 @@ const coachProfile = computed(() => {
   const team = userData?.team || {}
   const first = pick(p?.first_name, userData?.name?.first, userData?.first_name) || ''
   const last = pick(p?.last_name, userData?.name?.last, userData?.last_name) || ''
+  const derivedGradYear = deriveGradYearFromBirthdate(
+    p?.born_date,
+    p?.birth_date,
+    p?.date_of_birth,
+    p?.birthdate,
+    p?.dob,
+    userData?.born_date,
+    userData?.birth_date,
+    userData?.date_of_birth,
+    userData?.birthdate,
+    userData?.dob,
+    player?.born_date,
+    player?.birth_date,
+    player?.date_of_birth,
+  )
 
   return {
     fullName: asDisplay(pick([first, last].filter(Boolean).join(' '), userData?.name?.full, userData?.name, userData?.user?.name?.full), 'Player'),
     jersey: asDisplay(pick(player?.number_in_shirt, userData?.shirt_number, player?.jersey, p?.jersey)),
     bats: asDisplay(pick(player?.hit_side, userData?.hit_side, player?.batting_side, player?.bats, p?.bats)),
     throws: asDisplay(pick(player?.throw_side, userData?.throw_side, player?.throws, player?.throwing_side, p?.throws)),
-    gradYear: asDisplay(pick(player?.graduation_year, userData?.graduation_year, player?.grad_year, p?.graduation_year)),
+    gradYear: asDisplay(derivedGradYear || formatGradYearShort(pick(player?.graduation_year, userData?.graduation_year, player?.grad_year, p?.graduation_year))),
     school: asDisplay(pick(player?.school_name, userData?.school_name, player?.school, userData?.school, p?.school)),
     role: asDisplay(pick(player?.role, p?.role)),
     team: asDisplay(pick(team?.name, userData?.team_name, player?.team_name, p?.team_name)),
@@ -385,6 +541,37 @@ const schoolTeamText = computed(() => {
     .filter((v) => v && v !== '—')
   return parts.length ? parts.join(' · ') : '—'
 })
+
+const metricValue = (...keys) => {
+  const fit = playerFitnessLatest.value || {}
+  for (const key of keys) {
+    const v = fit?.[key]
+    if (v == null) continue
+    const s = String(v).trim()
+    if (!s || s === 'null' || s === 'undefined') continue
+    return s
+  }
+  return '-'
+}
+
+const strengthLine = computed(() => {
+  const bench = metricValue('bench_press', 'bench', 'benchpress')
+  const dl = metricValue('dead_lift', 'deadlift', 'dead')
+  const bs = metricValue('back_squat', 'backsquat', 'back')
+  const fs = metricValue('front_squat', 'frontsquat', 'front')
+  const clean = metricValue('power_clean', 'clean', 'powerclean')
+  return `Bench ${bench} · DL ${dl} · BS ${bs} · FS ${fs} · Clean ${clean}`
+})
+
+const speedLine = computed(() => {
+  const forty = metricValue('yd_40_dash', 'dash_40', 'forty', '40_time')
+  const sixty = metricValue('yd_60_dash', 'dash_60', 'sixty', '60_time')
+  return `40 ${forty} · 60 ${sixty}`
+})
+
+const openSessionReports = () => {
+  router.push({ name: 'sessions.all' })
+}
 
 const sessionCounts = computed(() => {
   const weighted = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === 'WB')
@@ -402,16 +589,44 @@ const sessionCounts = computed(() => {
 })
 
 const recentSessions = computed(() => {
-  const tagged = [
-    ...battingSessions.value.map((s) => ({ ...s, _label: 'Batting Practice' })),
-    ...bullpenSessions.value.map((s) => ({ ...s, _label: 'Bullpen Practice' })),
-    ...cageSessions.value.map((s) => ({ ...s, _label: 'Cage Practice' })),
-    ...trainingSessions.value.map((s) => ({ ...s, _label: String(s?.modes || s?.mode || 'Training').toUpperCase() })),
+  const created = Array.isArray(createdSessions.value) ? createdSessions.value : []
+
+  const withCreated = (base, createdType) => {
+    const ids = new Set(base.map((s) => s?.id).filter(Boolean))
+    const extra = created.filter((s) => String(s?.type || '').toUpperCase() === createdType && !ids.has(s?.id))
+    return [...base, ...extra]
+  }
+
+  const batting = withCreated(battingSessions.value, 'B')
+  const bullpen = withCreated(bullpenSessions.value, 'P')
+  const cage = withCreated(cageSessions.value, 'C')
+  const training = withCreated(trainingSessions.value, 'T')
+  const liveab = withCreated([], 'L')
+  const selfCreatedIds = new Set(created.map((s) => s?.id).filter(Boolean))
+
+  return [
+    ...batting.map((s) => mapRecentSession(s, 'B', selfCreatedIds.has(s?.id))),
+    ...bullpen.map((s) => mapRecentSession(s, 'P', selfCreatedIds.has(s?.id))),
+    ...cage.map((s) => mapRecentSession(s, 'C', selfCreatedIds.has(s?.id))),
+    ...liveab.map((s) => mapRecentSession(s, 'L', selfCreatedIds.has(s?.id))),
+    ...training.map((s) => mapRecentSession(s, 'T', selfCreatedIds.has(s?.id))),
   ]
-  return tagged
-    .sort((a, b) => new Date(b?.created_at || b?.date || 0) - new Date(a?.created_at || a?.date || 0))
+    .filter((s) => s?.id)
+    .filter(shouldShowRecentSession)
+    .sort((a, b) => new Date(b?._date || 0) - new Date(a?._date || 0))
     .slice(0, 8)
 })
+
+const openRecapReport = (session) => {
+  if (!session?.id || !session?._reportType) return
+  const date = session?._date || null
+  const note = session?.end_note || null
+  router.push({
+    name: 'session.report',
+    params: { id: session.id, type: session._reportType },
+    query: { date, note },
+  })
+}
 
 const battingBreakdown = computed(() => {
   const rows = battingSessions.value.flatMap((s) => getSessionRows(s))
@@ -767,11 +982,12 @@ const barColor = (row) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [battingRes, bullpenRes, cageRes, trainingRes, fitnessRes] = await Promise.all([
+    const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, fitnessRes] = await Promise.all([
       axiosGet('player/sessions/batting').catch(() => null),
       axiosGet('player/sessions/bullpen').catch(() => null),
       axiosGet('player/sessions/cage').catch(() => null),
       axiosGet('player/sessions/training').catch(() => null),
+      axiosGet('player/sessions/created').catch(() => null),
       developmentPlayerId.value ? axiosGet(`player/fitness/${developmentPlayerId.value}`).catch(() => null) : Promise.resolve(null),
     ])
 
@@ -779,6 +995,7 @@ const loadData = async () => {
     bullpenSessions.value = bullpenRes?.data?.data?.data || []
     cageSessions.value = cageRes?.data?.data?.data || []
     trainingSessions.value = trainingRes?.data?.data?.data || []
+    createdSessions.value = createdRes?.data?.data?.data || []
 
     const cageStatResults = await Promise.all(
       cageSessions.value
@@ -814,32 +1031,49 @@ onMounted(loadData)
               <div class="relative z-10">
               <h2 class="text-lg font-black tracking-wide mb-3">Player Profile</h2>
 
-              <div class="mb-3 rounded-xl border border-white/10 bg-white/5 p-3">
-                <p class="text-xl font-black tracking-wide text-white">{{ playerName }}</p>
-                <p class="mt-1 text-xs text-white/70">
-                  Height: {{ profile.height }} · Weight: {{ profile.weight }} · Position: {{ profile.position }}
-                </p>
+              <div class="mb-3 overflow-hidden rounded-xl border border-white/20 bg-white/10">
+                <div class="relative h-52 w-full">
+                  <img :src="playerImageSrc" :alt="playerName" class="h-full w-full object-cover object-top" />
+                  <div class="absolute inset-0 bg-gradient-to-r from-[#050b1f]/90 via-[#050b1f]/65 to-[#050b1f]/20"></div>
+
+                  <p class="absolute right-4 top-3 text-4xl font-black text-white/95">#{{ coachProfile.jersey !== '—' ? coachProfile.jersey : '' }}</p>
+
+                  <div class="absolute left-4 right-4 bottom-3">
+                    <div class="min-w-0 pr-2">
+                      <p class="truncate text-3xl font-black tracking-wide text-white">{{ playerName }}</p>
+                      <p class="mt-1 text-xl text-white/90">Height: {{ profile.height }}</p>
+                      <p class="text-xl text-white/90">Weight: {{ profile.weight }}</p>
+                      <p class="text-xl text-white/90">Position: {{ profile.position }}</p>
+                      <p class="mt-1 truncate text-sm text-white/70">{{ strengthLine }}</p>
+                      <p class="truncate text-sm text-white/70">{{ speedLine }}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div class="space-y-2 mb-3">
-                <div class="h-40 w-full rounded-xl border border-white/25 bg-white/10 overflow-hidden">
-                  <img :src="playerImageSrc" :alt="playerName" class="h-full w-full object-cover object-top" />
-                </div>
-
-                <RouterLink
-                  to="#"
-                  @click.prevent="openPlayerMetricsModal"
-                  class="flex w-full items-center justify-center rounded-xl border border-[#ff2d55]/60 bg-[#ff2d55]/25 px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
-                >
-                  Player Metrics
-                </RouterLink>
-
+              <div class="mb-3 space-y-2">
                 <RouterLink
                   :to="developmentRoute"
-                  class="flex w-full items-center justify-center rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
+                  class="flex w-full items-center justify-center rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
                 >
                   Development Profile
                 </RouterLink>
+
+                <button
+                  type="button"
+                  @click="openPlayerMetricsModal"
+                  class="flex w-full items-center justify-center rounded-xl border border-[#ff2d55]/60 bg-[#ff2d55] px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
+                >
+                  Player Metrics ›
+                </button>
+
+                <button
+                  type="button"
+                  @click="openSessionReports"
+                  class="flex w-full items-center justify-center rounded-xl border border-[#8C234A]/80 bg-[#8C234A] px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
+                >
+                  Session Reports ›
+                </button>
               </div>
 
               <div class="grid grid-cols-2 gap-3 text-sm">
@@ -903,14 +1137,20 @@ onMounted(loadData)
               <h2 class="text-lg font-black tracking-wide mb-3">Recap</h2>
               <div v-if="recentSessions.length === 0" class="text-sm text-white/50">No recent sessions found.</div>
               <div v-else class="space-y-2">
-                <div
+                <button
                   v-for="s in recentSessions"
                   :key="s.id"
-                  class="flex items-center justify-between rounded-lg border border-white/10 bg-[#0b1230] px-3 py-2"
+                  type="button"
+                  @click="openRecapReport(s)"
+                  class="flex w-full items-center justify-between rounded-lg border border-white/10 bg-[#0b1230] px-3 py-2 text-left transition"
+                  :class="s._reportType ? 'hover:border-[#ff2d55]/60 hover:bg-[#0f173f] cursor-pointer' : 'opacity-70 cursor-default'"
                 >
-                  <p class="text-sm font-bold text-white/90">{{ s._label }}</p>
-                  <p class="text-xs text-white/60">{{ (s.created_at || s.date || '').toString().slice(0, 10) || '—' }}</p>
-                </div>
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold text-white/90 truncate">{{ s._label }}</p>
+                    <p class="text-xs text-white/60">{{ (s._date || '').toString().slice(0, 10) || '—' }}</p>
+                  </div>
+                  <p class="text-xs font-black text-white/40" v-if="s._reportType">REPORT ›</p>
+                </button>
               </div>
             </div>
           </div>

@@ -57,6 +57,12 @@ const filtered = computed(() =>
   filter.value === 'all' ? sessions.value : sessions.value.filter(s => s._type === filter.value)
 )
 
+const sessionTotals = computed(() => {
+  const total = sessions.value.length
+  const done = sessions.value.filter((s) => s.is_completed === true || s.is_completed === 1 || s.is_completed === 2).length
+  return { total, done }
+})
+
 onMounted(async () => {
   if (!team.value?.id) { loading.value = false; return }
   try {
@@ -83,32 +89,56 @@ const openReport = (session) => {
 
 <template>
   <Layout>
-    <div class="min-h-screen bg-[#080c1a] pb-20">
+    <div class="min-h-screen bg-[#060b14] text-white pb-20">
 
       <!-- Header -->
-      <div class="flex items-center gap-3 px-5 pt-6 pb-4 border-b border-white/5">
+      <div class="px-4 pt-5">
+        <div class="rounded-2xl border border-white/10 bg-[#0b1230]/75 p-4">
+          <div class="flex items-center gap-3">
+            <button @click="router.back()"
+              class="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition shrink-0">
+              <svg class="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <div class="min-w-0">
+              <h1 class="truncate text-white font-black text-xl tracking-wide">Session Reports</h1>
+              <p class="truncate text-white/45 text-xs uppercase tracking-wider">{{ team?.name || 'Team' }}</p>
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-3">
+            <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p class="text-[10px] font-black tracking-widest uppercase text-white/55">Total Sessions</p>
+              <p class="mt-1 text-2xl font-black">{{ sessionTotals.total }}</p>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p class="text-[10px] font-black tracking-widest uppercase text-white/55">Completed</p>
+              <p class="mt-1 text-2xl font-black">{{ sessionTotals.done }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 px-5 pt-4 pb-2">
         <button @click="router.back()"
-          class="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition shrink-0">
+          class="w-8 h-8 hidden items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition shrink-0">
           <svg class="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
         </button>
-        <div>
-          <h1 class="text-white font-black text-lg">All Sessions</h1>
-          <p class="text-white/35 text-xs">{{ team?.name }}</p>
-        </div>
-        <span v-if="!loading" class="ml-auto text-white/30 text-sm">{{ filtered.length }} sessions</span>
+        <span v-if="!loading" class="ml-auto text-white/40 text-xs uppercase tracking-wider">{{ filtered.length }} shown</span>
       </div>
 
       <!-- Filter chips -->
-      <div class="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
+      <div class="flex gap-2 px-4 py-2 overflow-x-auto scrollbar-hide">
         <button
           v-for="f in FILTERS" :key="f.key"
           @click="filter = f.key"
-          class="shrink-0 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border transition"
+          class="shrink-0 px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider border transition"
           :class="filter === f.key
-            ? 'bg-red-500 border-red-500 text-white'
-            : 'bg-white/5 border-white/10 text-white/50 hover:border-white/25 hover:text-white/70'"
+            ? 'bg-[#ff2d55] border-[#ff2d55] text-white'
+            : 'bg-white/5 border-white/15 text-white/60 hover:border-white/30 hover:text-white/85'"
         >{{ f.label }}</button>
       </div>
 
@@ -128,7 +158,7 @@ const openReport = (session) => {
       </div>
 
       <!-- Session list -->
-      <div v-else class="px-4 space-y-2 mt-1">
+      <div v-else class="px-4 space-y-2 mt-2">
         <div
           v-for="session in filtered"
           :key="session.id"
@@ -158,10 +188,7 @@ const openReport = (session) => {
             class="shrink-0 text-[10px] font-black text-emerald-400 border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 rounded-lg"
           >✓ DONE</span>
 
-          <!-- Chevron -->
-          <svg class="w-4 h-4 text-white/20 shrink-0 group-hover:text-white/40 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
+          <span class="text-[10px] font-black tracking-wider uppercase text-white/45">Report ›</span>
         </div>
       </div>
 
