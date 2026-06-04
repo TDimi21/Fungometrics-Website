@@ -8,7 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AssessmentRequest;
 use App\Models\Player;
 use App\Models\PlayerAssessment;
+use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
+use App\Services\AthleticPerformanceIndexService;
 use App\Services\CreateServiceData;
 use Carbon\Carbon;
 use Exception;
@@ -234,6 +236,20 @@ class SaveAssessment extends Controller
             ]);
 
             $assessment = (new CreateServiceData(new PlayerAssessment()))->handle($data);
+
+            try {
+                $latestFitness = PlayerFitness::query()
+                    ->where('user_id', (string) $request->user_id)
+                    ->orderByDesc('fitness_date')
+                    ->orderByDesc('created_at')
+                    ->first();
+
+                if ($latestFitness) {
+                    (new AthleticPerformanceIndexService())->calculateAndSave($latestFitness);
+                }
+            } catch (Exception $scoreException) {
+                Log::warning('SaveAssessment score sync warning: ' . $scoreException->getMessage());
+            }
 
             // Bust relevant caches
             $teamIds = PlayerTeam::where('user_id', (string) $request->user_id)

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Coach;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\GetPlayerDevelopmentDashboardRequest;
+use App\Models\AthleticPerformanceScore;
 use App\Models\BattingPracticeResult;
 use App\Models\BullpenPracticeResult;
 use App\Models\CagePracticeResult;
@@ -134,6 +135,17 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ->orderByDesc('created_at')
                     ->first();
 
+                $athleticLatest = AthleticPerformanceScore::where('player_id', $playerId)
+                    ->orderByDesc('calculated_at')
+                    ->orderByDesc('created_at')
+                    ->first();
+
+                $athleticPrev = AthleticPerformanceScore::where('player_id', $playerId)
+                    ->where('id', '!=', $athleticLatest?->id)
+                    ->orderByDesc('calculated_at')
+                    ->orderByDesc('created_at')
+                    ->first();
+
                 $battingAggCurrent = $this->aggregateBatting($battingLast30, $evCurrent);
                 $battingAggPrev = $this->aggregateBatting($battingPrev30, collect());
                 $bullpenAggCurrent = $this->aggregateBullpen($bullpenLast30, $bullpenAllLast30);
@@ -172,6 +184,10 @@ class GetPlayerDevelopmentDashboard extends Controller
                     'bp_score' => $this->deltaBlock($bpScore, $bpScore ? $bpScore - 2 : null),
                     'bullpen_score' => $this->deltaBlock($bullpenScore, $bullpenScore ? $bullpenScore - 2 : null),
                     'rotational_power_score' => $this->deltaBlock($strengthScore, $strengthPrev),
+                    'athletic_performance_index' => $this->deltaBlock(
+                        $athleticLatest?->overall_api_score !== null ? (float) $athleticLatest->overall_api_score : null,
+                        $athleticPrev?->overall_api_score !== null ? (float) $athleticPrev->overall_api_score : null
+                    ),
                     'mobility_score' => $this->deltaBlock(
                         $fitnessLatest?->mobility_score !== null ? (float) $fitnessLatest->mobility_score : null,
                         $fitnessPrev?->mobility_score !== null ? (float) $fitnessPrev->mobility_score : null
@@ -239,6 +255,12 @@ class GetPlayerDevelopmentDashboard extends Controller
 
                         'body_weight' => $fitnessLatest?->body_weight,
                         'strength_score' => $strengthScore,
+                        'athletic_performance_index' => $athleticLatest?->overall_api_score,
+                        'athletic_grade_label' => $athleticLatest?->grade_label,
+                        'athletic_projection_label' => $athleticLatest?->projection_label,
+                        'athletic_team_percentile' => $athleticLatest?->team_percentile,
+                        'athletic_team_rank' => $athleticLatest?->team_rank,
+                        'athletic_team_count' => $athleticLatest?->team_count,
                         'mobility_score' => $fitnessLatest?->mobility_score,
                         'recovery_score' => $fitnessLatest?->recovery_score,
                         'bench_press' => $fitnessLatest?->bench_press,
@@ -330,11 +352,38 @@ class GetPlayerDevelopmentDashboard extends Controller
                     'scores' => [
                         'performance_score' => $performanceScore,
                         'strength_score' => $strengthScore,
+                        'athletic_performance_index' => $athleticLatest?->overall_api_score,
                         'mobility_score' => $mobilityScore,
                         'recovery_score' => $recoveryScore,
                         'trend_score' => $trendScore,
                         'current_development_score' => $developmentIndex,
                     ],
+                    'athletic_performance' => $athleticLatest ? [
+                        'overall_api_score' => $athleticLatest->overall_api_score,
+                        'grade_label' => $athleticLatest->grade_label,
+                        'projection_label' => $athleticLatest->projection_label,
+                        'strength_score' => $athleticLatest->strength_score,
+                        'power_score' => $athleticLatest->power_score,
+                        'speed_score' => $athleticLatest->speed_score,
+                        'baseball_score' => $athleticLatest->baseball_score,
+                        'recovery_mobility_score' => $athleticLatest->recovery_mobility_score,
+                        'lower_body_strength_score' => $athleticLatest->lower_body_strength_score,
+                        'upper_body_strength_score' => $athleticLatest->upper_body_strength_score,
+                        'relative_strength_score' => $athleticLatest->relative_strength_score,
+                        'team_percentile' => $athleticLatest->team_percentile,
+                        'team_rank' => $athleticLatest->team_rank,
+                        'team_count' => $athleticLatest->team_count,
+                        'strengths' => $athleticLatest->strengths,
+                        'weaknesses' => $athleticLatest->weaknesses,
+                        'development_plan' => $athleticLatest->development_plan,
+                        'trend' => $this->resolveTrendLabel(
+                            $athleticLatest->overall_api_score,
+                            $athleticPrev?->overall_api_score,
+                        ),
+                        'change' => ($athleticLatest->overall_api_score !== null && $athleticPrev?->overall_api_score !== null)
+                            ? round((float) $athleticLatest->overall_api_score - (float) $athleticPrev->overall_api_score, 2)
+                            : null,
+                    ] : null,
                     'data_gaps' => [
                         'mobility' => $fitnessLatest?->mobility_score === null,
                         'recovery' => $fitnessLatest?->recovery_score === null,
@@ -704,5 +753,24 @@ class GetPlayerDevelopmentDashboard extends Controller
         $inch = is_numeric($in) ? (int) $in : 0;
 
         return "{$feet}'{$inch}\"";
+    }
+
+    private function resolveTrendLabel($current, $previous): string
+    {
+        if (!is_numeric($current) || !is_numeric($previous)) {
+            return 'no_change';
+        }
+
+        $delta = (float) $current - (float) $previous;
+
+        if ($delta > 0) {
+            return 'improved';
+        }
+
+        if ($delta < 0) {
+            return 'declined';
+        }
+
+        return 'no_change';
     }
 }

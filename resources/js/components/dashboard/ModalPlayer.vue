@@ -89,6 +89,16 @@ import {useRouter} from "vue-router"
     power_clean: "",
     hand_strength: "",
     dead_lift: "",
+    push_ups: "",
+    pull_ups: "",
+    vertical_jump: "",
+    broad_jump: "",
+    med_ball_rotational_throw: "",
+    sprint_10yd: "",
+    exit_velo: "",
+    bat_speed: "",
+    throwing_velo: "",
+    pitch_velo: "",
     yd_40_dash: "",
     yd_60_dash: "",
     sleep_hours: "",
@@ -169,6 +179,16 @@ import {useRouter} from "vue-router"
       power_clean: pickLatest('power_clean'),
       hand_strength: pickLatest('hand_strength'),
       dead_lift: pickLatest('dead_lift'),
+      push_ups: pickLatest('push_ups'),
+      pull_ups: pickLatest('pull_ups'),
+      vertical_jump: pickLatest('vertical_jump'),
+      broad_jump: pickLatest('broad_jump'),
+      med_ball_rotational_throw: pickLatest('med_ball_rotational_throw'),
+      sprint_10yd: pickLatest('sprint_10yd'),
+      exit_velo: pickLatest('exit_velo'),
+      bat_speed: pickLatest('bat_speed'),
+      throwing_velo: pickLatest('throwing_velo'),
+      pitch_velo: pickLatest('pitch_velo'),
       yd_40_dash: pickLatest('yd_40_dash'),
       yd_60_dash: pickLatest('yd_60_dash'),
     }
@@ -224,6 +244,16 @@ import {useRouter} from "vue-router"
     dataForm.append('power_clean', parseInt(dataFitness.power_clean == "" || dataFitness.power_clean == undefined ? 0 : dataFitness.power_clean))
     dataForm.append('hand_strength', parseFloat(dataFitness.hand_strength == "" || dataFitness.hand_strength == undefined ? 0.0 : dataFitness.hand_strength))
     dataForm.append('dead_lift', parseInt(dataFitness.dead_lift == "" || dataFitness.dead_lift == undefined ? 0 : dataFitness.dead_lift))
+    dataForm.append('push_ups', parseInt(dataFitness.push_ups == "" || dataFitness.push_ups == undefined ? 0 : dataFitness.push_ups))
+    dataForm.append('pull_ups', parseInt(dataFitness.pull_ups == "" || dataFitness.pull_ups == undefined ? 0 : dataFitness.pull_ups))
+    dataForm.append('vertical_jump', parseFloat(dataFitness.vertical_jump == "" || dataFitness.vertical_jump == undefined ? 0.0 : dataFitness.vertical_jump))
+    dataForm.append('broad_jump', parseFloat(dataFitness.broad_jump == "" || dataFitness.broad_jump == undefined ? 0.0 : dataFitness.broad_jump))
+    dataForm.append('med_ball_rotational_throw', parseFloat(dataFitness.med_ball_rotational_throw == "" || dataFitness.med_ball_rotational_throw == undefined ? 0.0 : dataFitness.med_ball_rotational_throw))
+    dataForm.append('sprint_10yd', parseFloat(dataFitness.sprint_10yd == "" || dataFitness.sprint_10yd == undefined ? 0.0 : dataFitness.sprint_10yd))
+    dataForm.append('exit_velo', parseFloat(dataFitness.exit_velo == "" || dataFitness.exit_velo == undefined ? 0.0 : dataFitness.exit_velo))
+    dataForm.append('bat_speed', parseFloat(dataFitness.bat_speed == "" || dataFitness.bat_speed == undefined ? 0.0 : dataFitness.bat_speed))
+    dataForm.append('throwing_velo', parseFloat(dataFitness.throwing_velo == "" || dataFitness.throwing_velo == undefined ? 0.0 : dataFitness.throwing_velo))
+    dataForm.append('pitch_velo', parseFloat(dataFitness.pitch_velo == "" || dataFitness.pitch_velo == undefined ? 0.0 : dataFitness.pitch_velo))
     dataForm.append('yd_40_dash', parseFloat(dataFitness.yd_40_dash == "" || dataFitness.yd_40_dash == undefined ? 0.0 : dataFitness.yd_40_dash))
     dataForm.append('yd_60_dash', parseFloat(dataFitness.yd_60_dash == "" || dataFitness.yd_60_dash == undefined ? 0.0 : dataFitness.yd_60_dash))
     dataForm.append('body_weight', parseFloat(dataFitness.body_weight == "" || dataFitness.body_weight == undefined ? 0.0 : dataFitness.body_weight))
@@ -470,12 +500,52 @@ import {useRouter} from "vue-router"
                                 <InputBase v-model="dataFitness.hand_strength" inputType="number" class="max-w-[100%]"/>
                               </div>
                               <div class="text-white/85">
+                                <LabelField text="Push Ups (reps)" :required="false"/>
+                                <InputBase v-model="dataFitness.push_ups" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="Pull-Ups (reps)" :required="false"/>
+                                <InputBase v-model="dataFitness.pull_ups" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="Vertical Jump (in)" :required="false"/>
+                                <InputBase v-model="dataFitness.vertical_jump" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="Broad Jump (in)" :required="false"/>
+                                <InputBase v-model="dataFitness.broad_jump" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="Med Ball Rot Throw (ft)" :required="false"/>
+                                <InputBase v-model="dataFitness.med_ball_rotational_throw" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="10 Yard (sec)" :required="false"/>
+                                <InputBase v-model="dataFitness.sprint_10yd" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
                                 <LabelField text="40 Time" :required="false"/>
                                 <InputBase v-model="dataFitness.yd_40_dash" inputType="number" class="max-w-[100%]"/>
                               </div>
                               <div class="text-white/85">
                                 <LabelField text="60 Time" :required="false"/>
                                 <InputBase v-model="dataFitness.yd_60_dash" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="Exit Velo (mph)" :required="false"/>
+                                <InputBase v-model="dataFitness.exit_velo" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="Bat Speed (mph)" :required="false"/>
+                                <InputBase v-model="dataFitness.bat_speed" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="Throwing Velo (mph)" :required="false"/>
+                                <InputBase v-model="dataFitness.throwing_velo" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="Pitch Velo (mph)" :required="false"/>
+                                <InputBase v-model="dataFitness.pitch_velo" inputType="number" class="max-w-[100%]"/>
                               </div>
                               <div class="text-white/85">
                                 <LabelField text="Sleep Hours" :required="false"/>

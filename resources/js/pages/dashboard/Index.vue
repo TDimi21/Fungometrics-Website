@@ -1052,6 +1052,17 @@ const makeCardFromLive = (livePlayer, current) => {
       bench_press: current?.bench_press ?? null,
       front_squat: current?.front_squat ?? null,
       power_clean: current?.power_clean ?? null,
+      hand_strength: current?.hand_strength ?? null,
+      push_ups: current?.push_ups ?? null,
+      pull_ups: current?.pull_ups ?? null,
+      vertical_jump: current?.vertical_jump ?? null,
+      broad_jump: current?.broad_jump ?? null,
+      med_ball_rotational_throw: current?.med_ball_rotational_throw ?? null,
+      sprint_10yd: current?.sprint_10yd ?? null,
+      exit_velo: current?.exit_velo ?? null,
+      bat_speed: current?.bat_speed ?? null,
+      throwing_velo: current?.throwing_velo ?? null,
+      pitch_velo: current?.pitch_velo ?? null,
       date: current?.date ?? null,
     },
   }
@@ -1076,6 +1087,15 @@ const makeStatsFromLive = (current = {}) => {
       front_squat: current.front_squat ?? null,
       pull_ups: current.pull_ups ?? null,
       push_ups: current.push_ups ?? null,
+      hand_strength: current.hand_strength ?? null,
+      vertical_jump: current.vertical_jump ?? null,
+      broad_jump: current.broad_jump ?? null,
+      med_ball_rotational_throw: current.med_ball_rotational_throw ?? null,
+      sprint_10yd: current.sprint_10yd ?? null,
+      exit_velo: current.exit_velo ?? null,
+      bat_speed: current.bat_speed ?? null,
+      throwing_velo: current.throwing_velo ?? null,
+      pitch_velo: current.pitch_velo ?? null,
     },
   }
 }
@@ -1125,8 +1145,17 @@ const openDevPlayerDetail = async (player) => {
       bench_press: liveCurrent?.bench_press ?? null,
       front_squat: liveCurrent?.front_squat ?? null,
       power_clean: liveCurrent?.power_clean ?? null,
+      hand_strength: liveCurrent?.hand_strength ?? null,
       pull_ups: liveCurrent?.pull_ups ?? null,
       push_ups: liveCurrent?.push_ups ?? null,
+      vertical_jump: liveCurrent?.vertical_jump ?? null,
+      broad_jump: liveCurrent?.broad_jump ?? null,
+      med_ball_rotational_throw: liveCurrent?.med_ball_rotational_throw ?? null,
+      sprint_10yd: liveCurrent?.sprint_10yd ?? null,
+      exit_velo: liveCurrent?.exit_velo ?? null,
+      bat_speed: liveCurrent?.bat_speed ?? null,
+      throwing_velo: liveCurrent?.throwing_velo ?? null,
+      pitch_velo: liveCurrent?.pitch_velo ?? null,
       date: liveCurrent?.date ?? null,
     }
 
@@ -1489,6 +1518,16 @@ const strengthForm = ref({
   dead_lift_lbs: '',
   power_clean_lbs: '',
   hand_strength_lbs: '',
+  push_ups: '',
+  pull_ups: '',
+  vertical_jump_inches: '',
+  broad_jump_inches: '',
+  med_ball_rotational_throw_ft: '',
+  sprint_10yd_sec: '',
+  exit_velocity_mph: '',
+  bat_speed_mph: '',
+  throwing_velo_mph: '',
+  pitch_velo_mph: '',
   yd_40_dash_sec: '',
   yd_60_dash_sec: '',
   sleep_hours: '',
@@ -1510,6 +1549,16 @@ const strengthFormComplete = computed(() => {
     f.dead_lift_lbs !== '' &&
     f.power_clean_lbs !== '' &&
     f.hand_strength_lbs !== '' &&
+    f.push_ups !== '' &&
+    f.pull_ups !== '' &&
+    f.vertical_jump_inches !== '' &&
+    f.broad_jump_inches !== '' &&
+    f.med_ball_rotational_throw_ft !== '' &&
+    f.sprint_10yd_sec !== '' &&
+    f.exit_velocity_mph !== '' &&
+    f.bat_speed_mph !== '' &&
+    f.throwing_velo_mph !== '' &&
+    f.pitch_velo_mph !== '' &&
     f.yd_40_dash_sec !== '' &&
     f.yd_60_dash_sec !== '' &&
     f.sleep_hours !== '' &&
@@ -1597,6 +1646,16 @@ const submitStrengthAssessment = async () => {
       dead_lift: Number(strengthForm.value.dead_lift_lbs || 0),
       power_clean: Number(strengthForm.value.power_clean_lbs || 0),
       hand_strength: Number(strengthForm.value.hand_strength_lbs || 0),
+      push_ups: Number(strengthForm.value.push_ups || 0),
+      pull_ups: Number(strengthForm.value.pull_ups || 0),
+      vertical_jump: Number(strengthForm.value.vertical_jump_inches || 0),
+      broad_jump: Number(strengthForm.value.broad_jump_inches || 0),
+      med_ball_rotational_throw: Number(strengthForm.value.med_ball_rotational_throw_ft || 0),
+      sprint_10yd: Number(strengthForm.value.sprint_10yd_sec || 0),
+      exit_velo: Number(strengthForm.value.exit_velocity_mph || 0),
+      bat_speed: Number(strengthForm.value.bat_speed_mph || 0),
+      throwing_velo: Number(strengthForm.value.throwing_velo_mph || 0),
+      pitch_velo: Number(strengthForm.value.pitch_velo_mph || 0),
       yd_40_dash: Number(strengthForm.value.yd_40_dash_sec || 0),
       yd_60_dash: Number(strengthForm.value.yd_60_dash_sec || 0),
       sleep_hours: Number(strengthForm.value.sleep_hours || 0),
@@ -2594,11 +2653,11 @@ watch(
                 <!-- Lower Body -->
                 <div class="rounded-xl border border-white/10 bg-white/5 p-3">
                   <button type="button" class="str-test-title" @click="toggleStrengthHelp('lower_body')">
-                    <span>Weight Room Metrics</span>
+                    <span>Strength</span>
                     <span class="str-test-help-cta">{{ strengthHelpOpen === 'lower_body' ? 'Hide guide' : 'How to score' }}</span>
                   </button>
                   <div v-if="strengthHelpOpen === 'lower_body'" class="str-test-help">
-                    Enter absolute loads in lbs. FMTRX grades by lift quality and bodyweight-relative strength.
+                    Main strength tests including bodyweight lifts.
                   </div>
                   <div class="grid grid-cols-1 gap-2 mt-2">
                     <input v-model="strengthForm.body_weight_lbs" type="number" min="0" step="0.1" placeholder="Weight (lbs)" class="str-input" />
@@ -2606,36 +2665,42 @@ watch(
                     <input v-model="strengthForm.back_squat_lbs" type="number" min="0" step="1" placeholder="Back Squat (lbs)" class="str-input" />
                     <input v-model="strengthForm.bench_press_lbs" type="number" min="0" step="1" placeholder="Bench Press (lbs)" class="str-input" />
                     <input v-model="strengthForm.dead_lift_lbs" type="number" min="0" step="1" placeholder="Deadlift (lbs)" class="str-input" />
+                    <input v-model="strengthForm.push_ups" type="number" min="0" step="1" placeholder="Push Ups (reps)" class="str-input" />
+                    <input v-model="strengthForm.pull_ups" type="number" min="0" step="1" placeholder="Pull-Ups (reps)" class="str-input" />
+                  </div>
+                </div>
+
+                <!-- Power -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('power')">
+                    <span>Power</span>
+                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'power' ? 'Hide guide' : 'How to score' }}</span>
+                  </button>
+                  <div v-if="strengthHelpOpen === 'power'" class="str-test-help">
+                    Explosive outputs in the weight room and jump/throw testing.
+                  </div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
                     <input v-model="strengthForm.power_clean_lbs" type="number" min="0" step="1" placeholder="Power Clean (lbs)" class="str-input" />
                     <input v-model="strengthForm.hand_strength_lbs" type="number" min="0" step="0.1" placeholder="Hand Strength (lbs)" class="str-input" />
+                    <input v-model="strengthForm.vertical_jump_inches" type="number" min="0" step="0.1" placeholder="Vertical Jump (inches)" class="str-input" />
+                    <input v-model="strengthForm.broad_jump_inches" type="number" min="0" step="0.1" placeholder="Broad Jump (inches)" class="str-input" />
+                    <input v-model="strengthForm.med_ball_rotational_throw_ft" type="number" min="0" step="0.1" placeholder="Med Ball Rotational Throw (ft)" class="str-input" />
                   </div>
                 </div>
 
-                <!-- Upper Body -->
+                <!-- Speed -->
                 <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('upper_body')">
-                    <span>Speed Metrics</span>
-                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'upper_body' ? 'Hide guide' : 'How to score' }}</span>
+                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('speed')">
+                    <span>Speed</span>
+                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'speed' ? 'Hide guide' : 'How to score' }}</span>
                   </button>
-                  <div v-if="strengthHelpOpen === 'upper_body'" class="str-test-help">
-                    Enter sprint times in seconds. Lower times are graded higher.
+                  <div v-if="strengthHelpOpen === 'speed'" class="str-test-help">
+                    Sprint metrics in seconds. Lower values grade higher.
                   </div>
                   <div class="grid grid-cols-1 gap-2 mt-2">
+                    <input v-model="strengthForm.sprint_10yd_sec" type="number" min="0" step="0.01" placeholder="10 Yard (sec)" class="str-input" />
                     <input v-model="strengthForm.yd_40_dash_sec" type="number" min="0" step="0.01" placeholder="40 Time (sec)" class="str-input" />
                     <input v-model="strengthForm.yd_60_dash_sec" type="number" min="0" step="0.01" placeholder="60 Time (sec)" class="str-input" />
-                  </div>
-                </div>
-
-                <!-- Explosive Power -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('explosive')">
-                    <span>Recovery Metrics</span>
-                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'explosive' ? 'Hide guide' : 'How to score' }}</span>
-                  </button>
-                  <div v-if="strengthHelpOpen === 'explosive'" class="str-test-help">
-                    Add sleep and recovery markers used on the roster card. These influence readiness and total strength profile quality.
-                  </div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
                     <input v-model="strengthForm.sleep_hours" type="number" min="0" max="24" step="0.1" placeholder="Sleep Hours" class="str-input" />
                     <input v-model="strengthForm.sleep_quality_1_to_5" type="number" min="1" max="5" step="1" placeholder="Sleep Quality (1-5)" class="str-input" />
                     <input v-model="strengthForm.recovery_score" type="number" min="0" max="100" step="1" placeholder="Recovery Score (0-100)" class="str-input" />
@@ -2643,19 +2708,20 @@ watch(
                   </div>
                 </div>
 
-                <!-- Rotational Power -->
+                <!-- Baseball Metrics -->
                 <div class="rounded-xl border border-white/10 bg-white/5 p-3">
                   <button type="button" class="str-test-title" @click="toggleStrengthHelp('rotational')">
-                    <span>Roster Sync</span>
+                    <span>Baseball Metrics</span>
                     <span class="str-test-help-cta">{{ strengthHelpOpen === 'rotational' ? 'Hide guide' : 'How to score' }}</span>
                   </button>
                   <div v-if="strengthHelpOpen === 'rotational'" class="str-test-help">
-                    Saving here writes directly to player fitness metrics. The roster card updates with Weight, Squats, Bench, Deadlift, Clean, 40/60, Sleep, Recovery, Mobility, and Hand Strength.
+                    Baseball-specific outputs synced to roster metrics.
                   </div>
                   <div class="grid grid-cols-1 gap-2 mt-2">
-                    <div class="text-xs text-white/65 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                      Duplicate percentile fields were removed. This assessment now uses one source of truth: raw player metrics.
-                    </div>
+                    <input v-model="strengthForm.exit_velocity_mph" type="number" min="0" step="0.1" placeholder="Exit Velo (mph)" class="str-input" />
+                    <input v-model="strengthForm.bat_speed_mph" type="number" min="0" step="0.1" placeholder="Bat Speed (mph)" class="str-input" />
+                    <input v-model="strengthForm.throwing_velo_mph" type="number" min="0" step="0.1" placeholder="Throwing Velo (mph)" class="str-input" />
+                    <input v-model="strengthForm.pitch_velo_mph" type="number" min="0" step="0.1" placeholder="Pitch Velo (mph)" class="str-input" />
                   </div>
                 </div>
 
@@ -2686,7 +2752,7 @@ watch(
                 <p class="text-xs text-white/45 mt-1">0–100 FMTRX Strength Score. Saved value replaces the weight-room calculated score in player development.</p>
 
                 <div class="mt-3 space-y-2">
-                  <div v-for="(key, label) in { 'Lower Body': 'lowerBody', 'Upper Body': 'upperBody', 'Explosive Power': 'explosivePower', 'Rotational Power': 'rotationalPower' }" :key="key" class="flex items-center justify-between text-xs">
+                  <div v-for="(key, label) in { 'Strength': 'strength', 'Power': 'power', 'Speed': 'speed', 'Baseball': 'baseball' }" :key="key" class="flex items-center justify-between text-xs">
                     <span class="text-white/60">{{ key }}</span>
                     <span class="font-black" :style="{ color: scoreColor(computedStrength.parts[label]) }">
                       {{ computedStrength.hasData ? `${computedStrength.parts[label]} · ${computedStrength.labels[label]}` : '—' }}
@@ -2700,24 +2766,20 @@ watch(
                 <p class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Profile Preview</p>
                 <div class="space-y-1.5">
                   <div class="flex justify-between text-xs">
-                    <span class="text-white/50">Lower Body</span>
-                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.lowerBody} — ${computedStrength.labels.lowerBody}` : '—' }}</span>
+                    <span class="text-white/50">Strength</span>
+                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.strength} — ${computedStrength.labels.strength}` : '—' }}</span>
                   </div>
                   <div class="flex justify-between text-xs">
-                    <span class="text-white/50">Upper Body</span>
-                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.upperBody} — ${computedStrength.labels.upperBody}` : '—' }}</span>
+                    <span class="text-white/50">Power</span>
+                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.power} — ${computedStrength.labels.power}` : '—' }}</span>
                   </div>
                   <div class="flex justify-between text-xs">
-                    <span class="text-white/50">Explosive Power</span>
-                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.explosivePower} — ${computedStrength.labels.explosivePower}` : '—' }}</span>
+                    <span class="text-white/50">Speed</span>
+                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.speed} — ${computedStrength.labels.speed}` : '—' }}</span>
                   </div>
                   <div class="flex justify-between text-xs">
-                    <span class="text-white/50">Rotational Power</span>
-                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.rotationalPower} — ${computedStrength.labels.rotationalPower}` : '—' }}</span>
-                  </div>
-                  <div class="flex justify-between text-xs">
-                    <span class="text-white/50">Readiness</span>
-                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.readiness} — ${computedStrength.labels.readiness}` : '—' }}</span>
+                    <span class="text-white/50">Baseball</span>
+                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.baseball} — ${computedStrength.labels.baseball}` : '—' }}</span>
                   </div>
                 </div>
               </div>

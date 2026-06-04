@@ -6,10 +6,10 @@
  * then combined into section and overall scores.
  *
  * Formula:
- *   Strength Base (50%): front squat 25% · back squat 25% · deadlift 30% · bench 20%
- *   Power (20%): power clean 70% · hand strength 30%
- *   Speed (20%): 40 time 45% · 60 time 55%
- *   Recovery/Mobility (10%): sleep hours 20% · sleep quality 20% · recovery 30% · mobility 30%
+ *   Strength (30%): front squat · back squat · deadlift · bench · pull-ups · push-ups
+ *   Power (25%): power clean · vertical jump · broad jump · med-ball rotational throw · hand strength
+ *   Speed (20%): 10-yd · 40-yd · 60-yd sprint (lower is better)
+ *   Baseball Metrics (25%): exit velo · bat speed · throwing velo · pitch velo
  */
 
 const toNum = (v) => {
@@ -80,10 +80,19 @@ export function computeStrengthAssessmentScore(input = {}) {
   const t40 = pick('yd_40_dash_sec', 'yd_40_dash', 'dash_40');
   const t60 = pick('yd_60_dash_sec', 'yd_60_dash', 'dash_60');
 
-  const sleepHours = pick('sleep_hours');
-  const sleepQuality = pick('sleep_quality_1_to_5', 'sleep_quality');
-  const recovery = pick('recovery_score');
-  const mobility = pick('mobility_score');
+  const pushUps = pick('push_ups', 'pushups');
+  const pullUps = pick('pull_ups', 'pullups');
+
+  const verticalJump = pick('vertical_jump_inches', 'vertical_jump');
+  const broadJump = pick('broad_jump_inches', 'broad_jump');
+  const medBall = pick('med_ball_rotational_throw_ft', 'med_ball_rotational_throw', 'med_ball_rotational_ft');
+
+  const t10 = pick('sprint_10yd_sec', 'yd_10_dash_sec', 'yd_10_dash', 'ten_yard');
+
+  const exitVelo = pick('exit_velocity_mph', 'exit_velo', 'exit_velocity');
+  const batSpeed = pick('bat_speed_mph', 'bat_speed');
+  const throwingVelo = pick('throwing_velo_mph', 'throwing_velo', 'throwing_velocity');
+  const pitchVelo = pick('pitch_velo_mph', 'pitch_velo', 'pitch_velocity');
 
   const frontRatio = bw && bw > 0 && front ? front / bw : null;
   const backRatio = bw && bw > 0 && back ? back / bw : null;
@@ -99,25 +108,32 @@ export function computeStrengthAssessmentScore(input = {}) {
 
   const handScore = mapHigherBetter(hand, [[45, 25], [60, 45], [75, 62], [90, 78], [105, 92], [120, 100]]);
 
+  const pushUpsScore = mapHigherBetter(pushUps, [[10, 20], [20, 40], [30, 60], [45, 78], [60, 92], [75, 100]]);
+  const pullUpsScore = mapHigherBetter(pullUps, [[1, 20], [4, 40], [7, 60], [11, 78], [16, 92], [22, 100]]);
+
+  const verticalJumpScore = mapHigherBetter(verticalJump, [[12, 20], [16, 40], [20, 60], [24, 78], [28, 92], [32, 100]]);
+  const broadJumpScore = mapHigherBetter(broadJump, [[55, 20], [70, 40], [80, 60], [90, 78], [100, 92], [110, 100]]);
+  const medBallScore = mapHigherBetter(medBall, [[14, 20], [18, 40], [22, 60], [26, 78], [30, 92], [35, 100]]);
+
+  const dash10Score = mapLowerBetter(t10, [[1.45, 100], [1.55, 92], [1.65, 78], [1.75, 62], [1.90, 45], [2.05, 25]]);
   const dash40Score = mapLowerBetter(t40, [[4.4, 100], [4.6, 92], [4.8, 78], [5.0, 62], [5.2, 45], [5.5, 25]]);
   const dash60Score = mapLowerBetter(t60, [[6.3, 100], [6.5, 92], [6.7, 78], [6.9, 62], [7.2, 45], [7.6, 25]]);
 
-  const sleepHoursScore = mapHigherBetter(sleepHours, [[5.0, 30], [6.0, 50], [7.0, 72], [8.0, 90], [9.0, 100]]);
-  const sleepQualityScore = mapHigherBetter(sleepQuality, [[1, 20], [2, 40], [3, 65], [4, 85], [5, 100]]);
-  const recoveryScoreNorm = mapHigherBetter(recovery, [[40, 30], [55, 50], [70, 70], [85, 90], [95, 100]]);
-  const mobilityScoreNorm = mapHigherBetter(mobility, [[40, 30], [55, 50], [70, 70], [85, 90], [95, 100]]);
+  const exitVeloScore = mapHigherBetter(exitVelo, [[60, 20], [70, 40], [80, 60], [90, 78], [98, 92], [105, 100]]);
+  const batSpeedScore = mapHigherBetter(batSpeed, [[50, 20], [60, 40], [68, 60], [75, 78], [82, 92], [88, 100]]);
+  const throwingVeloScore = mapHigherBetter(throwingVelo, [[55, 20], [65, 40], [75, 60], [82, 78], [88, 92], [94, 100]]);
+  const pitchVeloScore = mapHigherBetter(pitchVelo, [[55, 20], [65, 40], [75, 60], [82, 78], [88, 92], [94, 100]]);
 
-  const lowerBody = clamp(frontScore * 0.25 + backScore * 0.25 + deadScore * 0.30 + benchScore * 0.20);
-  const upperBody = clamp(benchScore * 0.70 + handScore * 0.30);
-  const explosivePower = clamp(cleanScore * 0.70 + handScore * 0.30);
-  const rotationalPower = clamp(dash40Score * 0.45 + dash60Score * 0.55);
-  const readinessScore = clamp(sleepHoursScore * 0.20 + sleepQualityScore * 0.20 + recoveryScoreNorm * 0.30 + mobilityScoreNorm * 0.30);
+  const strengthScore = clamp(frontScore * 0.20 + backScore * 0.20 + deadScore * 0.22 + benchScore * 0.18 + pullUpsScore * 0.10 + pushUpsScore * 0.10);
+  const powerScore = clamp(cleanScore * 0.30 + verticalJumpScore * 0.20 + broadJumpScore * 0.20 + medBallScore * 0.20 + handScore * 0.10);
+  const speedScore = clamp(dash10Score * 0.45 + dash40Score * 0.30 + dash60Score * 0.25);
+  const baseballScore = clamp(exitVeloScore * 0.30 + batSpeedScore * 0.25 + throwingVeloScore * 0.20 + pitchVeloScore * 0.25);
 
   const overall = clamp(
-    lowerBody      * 0.50 +
-    explosivePower * 0.20 +
-    rotationalPower * 0.20 +
-    readinessScore * 0.10,
+    strengthScore * 0.30 +
+    powerScore * 0.25 +
+    speedScore * 0.20 +
+    baseballScore * 0.25,
   );
 
   const hasData = [
@@ -130,28 +146,32 @@ export function computeStrengthAssessmentScore(input = {}) {
     input.hand_strength_lbs,
     input.yd_40_dash_sec,
     input.yd_60_dash_sec,
-    input.sleep_hours,
-    input.sleep_quality_1_to_5,
-    input.recovery_score,
-    input.mobility_score,
+    input.push_ups,
+    input.pull_ups,
+    input.vertical_jump_inches,
+    input.broad_jump_inches,
+    input.med_ball_rotational_throw_ft,
+    input.sprint_10yd_sec,
+    input.exit_velocity_mph,
+    input.bat_speed_mph,
+    input.throwing_velo_mph,
+    input.pitch_velo_mph,
   ].some((v) => toNum(v) !== null && toNum(v) > 0);
 
   return {
     score:  Math.round(overall),
     hasData,
     parts: {
-      lowerBody:      Math.round(lowerBody),
-      upperBody:      Math.round(upperBody),
-      explosivePower: Math.round(explosivePower),
-      rotationalPower: Math.round(rotationalPower),
-      readiness: Math.round(readinessScore),
+      strength: Math.round(strengthScore),
+      power: Math.round(powerScore),
+      speed: Math.round(speedScore),
+      baseball: Math.round(baseballScore),
     },
     labels: {
-      lowerBody:      getStrengthLabel(lowerBody),
-      upperBody:      getStrengthLabel(upperBody),
-      explosivePower: getStrengthLabel(explosivePower),
-      rotationalPower: getStrengthLabel(rotationalPower),
-      readiness: getStrengthLabel(readinessScore),
+      strength: getStrengthLabel(strengthScore),
+      power: getStrengthLabel(powerScore),
+      speed: getStrengthLabel(speedScore),
+      baseball: getStrengthLabel(baseballScore),
       overall:        getStrengthLabel(overall),
     },
   };

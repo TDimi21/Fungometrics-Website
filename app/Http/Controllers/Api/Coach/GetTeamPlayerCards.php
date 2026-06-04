@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Coach;
 
 use App\Http\Controllers\Controller;
+use App\Models\AthleticPerformanceScore;
 use App\Models\BullpenPracticeResult;
 use App\Models\ExitVelocityPractice;
 use App\Models\PlayerFitness;
@@ -53,6 +54,13 @@ class GetTeamPlayerCards extends Controller
                     ->unique('user_id')
                     ->keyBy('user_id');
 
+                $latestAthleticScores = AthleticPerformanceScore::whereIn('player_id', $playerIds)
+                    ->orderByDesc('calculated_at')
+                    ->orderByDesc('created_at')
+                    ->get()
+                    ->unique('player_id')
+                    ->keyBy('player_id');
+
                 // Max bullpen velocity per pitcher (pitcher_id maps to user id)
                 $maxBullpenVelo = BullpenPracticeResult::whereIn('pitcher_id', $playerIds)
                     ->selectRaw('pitcher_id, MAX(miles_per_hour) as max_velo')
@@ -65,10 +73,11 @@ class GetTeamPlayerCards extends Controller
                     ->groupBy('user_id')
                     ->pluck('max_ev', 'user_id');
 
-                return $users->map(function (User $user) use ($latestFitness, $maxBullpenVelo, $maxExitVelo) {
+                return $users->map(function (User $user) use ($latestFitness, $latestAthleticScores, $maxBullpenVelo, $maxExitVelo) {
                 $profile = $user->profile;
                 $player  = $user->player;
                 $fitness = $latestFitness->get($user->id);
+                $athletic = $latestAthleticScores->get($user->id);
 
                 return [
                     'id'    => $user->id,
@@ -116,6 +125,20 @@ class GetTeamPlayerCards extends Controller
 
                     // Canonical strength metric for dashboards/leaderboards
                     'fmtrxx_strength_score' => $this->computeFmtrxxStrengthScore($fitness),
+                    'athletic_performance' => $athletic ? [
+                        'overall_api_score' => $athletic->overall_api_score,
+                        'grade_label' => $athletic->grade_label,
+                        'projection_label' => $athletic->projection_label,
+                        'strength_score' => $athletic->strength_score,
+                        'power_score' => $athletic->power_score,
+                        'speed_score' => $athletic->speed_score,
+                        'baseball_score' => $athletic->baseball_score,
+                        'recovery_mobility_score' => $athletic->recovery_mobility_score,
+                        'team_percentile' => $athletic->team_percentile,
+                        'team_rank' => $athletic->team_rank,
+                        'team_count' => $athletic->team_count,
+                        'calculated_at' => $athletic->calculated_at,
+                    ] : null,
 
                     // ── Session Velocity Stats ─────────────────────────────────
                     'stats' => [

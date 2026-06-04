@@ -8,7 +8,7 @@ const props = defineProps({
   }
 })
 const tableHeadings = ref([
-  "DATE", "WEIGHT", "BENCH PRESS", "FR. SQUAT", "BACK SQUAT", "DEADLIFT", "CLEAN", "HAND STR", "40", "60", "SLEEP HRS", "SLEEP Q", "RECOVERY", "MOBILITY"
+  "DATE", "WEIGHT", "BENCH PRESS", "FR. SQUAT", "BACK SQUAT", "DEADLIFT", "CLEAN", "HAND STR", "PUSH UPS", "PULL UPS", "VERT", "BROAD", "MED BALL ROT", "10Y", "40", "60", "EXIT VELO", "BAT SPEED", "THROW VELO", "PITCH VELO", "SLEEP HRS", "SLEEP Q", "RECOVERY", "MOBILITY"
 ])
 
 const date = (info) => {
@@ -68,11 +68,41 @@ const date = (info) => {
             <td class="w-[100px] max-w-[100px]">
               {{ item.hand_strength ?? "" }}
             </td>
+            <td class="w-[100px] max-w-[100px]">
+              {{ item.push_ups ?? "" }}
+            </td>
+            <td class="w-[100px] max-w-[100px]">
+              {{ item.pull_ups ?? "" }}
+            </td>
+            <td class="w-[100px] max-w-[100px]">
+              {{ item.vertical_jump ?? "" }}
+            </td>
+            <td class="w-[100px] max-w-[100px]">
+              {{ item.broad_jump ?? "" }}
+            </td>
+            <td class="w-[120px] max-w-[120px]">
+              {{ item.med_ball_rotational_throw ?? "" }}
+            </td>
+            <td class="w-[90px] max-w-[90px]">
+              {{ item.sprint_10yd ?? "" }}
+            </td>
             <td class="w-[150px] max-w-[150px]">
               {{ item.yd_40_dash ?? "" }}
             </td>
             <td class="w-[150px] max-w-[150px]">
               {{ item.yd_60_dash ?? "" }}
+            </td>
+            <td class="w-[120px] max-w-[120px]">
+              {{ item.exit_velo ?? "" }}
+            </td>
+            <td class="w-[120px] max-w-[120px]">
+              {{ item.bat_speed ?? "" }}
+            </td>
+            <td class="w-[120px] max-w-[120px]">
+              {{ item.throwing_velo ?? "" }}
+            </td>
+            <td class="w-[120px] max-w-[120px]">
+              {{ item.pitch_velo ?? "" }}
             </td>
             <td class="w-[140px] max-w-[140px]">
               {{ item.sleep_hours ?? "" }}

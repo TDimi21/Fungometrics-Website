@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Player\FitnessRequest;
 use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
+use App\Services\AthleticPerformanceIndexService;
 use App\Services\CreateServiceData;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -27,6 +28,12 @@ class SaveFitness extends Controller
         try {
 
             $saveData = (new CreateServiceData(new PlayerFitness()))->handle($request->validated());
+
+            try {
+                (new AthleticPerformanceIndexService())->calculateAndSave($saveData);
+            } catch (Exception $scoreException) {
+                Log::warning('SaveFitness score calculation warning: ' . $scoreException->getMessage());
+            }
 
             $teamIds = PlayerTeam::where('user_id', (string) $request->user_id)
                 ->whereNotNull('team_id')

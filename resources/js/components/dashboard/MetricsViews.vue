@@ -51,6 +51,16 @@ import { TableTop, TableTotal } from './index'
     power_clean: "",
     hand_strength: "",
     dead_lift: "",
+    pull_ups: "",
+    push_ups: "",
+    vertical_jump: "",
+    broad_jump: "",
+    med_ball_rotational_throw: "",
+    sprint_10yd: "",
+    exit_velo: "",
+    bat_speed: "",
+    throwing_velo: "",
+    pitch_velo: "",
     yd_40_dash: "",
     yd_60_dash: "",
     sleep_hours: "",
@@ -69,6 +79,16 @@ import { TableTop, TableTotal } from './index'
     let valuePower = 0
     let valueHand = 0
     let valueDead = 0
+    let valuePullUps = 0
+    let valuePushUps = 0
+    let valueVerticalJump = 0
+    let valueBroadJump = 0
+    let valueMedBallRotationalThrow = 0
+    let valueSprint10yd = 0
+    let valueExitVelo = 0
+    let valueBatSpeed = 0
+    let valueThrowingVelo = 0
+    let valuePitchVelo = 0
     let value40 = 0
     let value60 = 0
     let valueSleepHours = 0
@@ -87,6 +107,16 @@ import { TableTop, TableTotal } from './index'
           valuePower = item.power_clean == 0 || item.power_clean == undefined ? valuePower : item.power_clean
           valueHand = item.hand_strength == 0 || item.hand_strength == undefined ? valueHand : item.hand_strength
           valueDead = item.dead_lift == 0 || item.dead_lift == undefined ? valueDead : item.dead_lift
+          valuePullUps = item.pull_ups == 0 || item.pull_ups == undefined ? valuePullUps : item.pull_ups
+          valuePushUps = item.push_ups == 0 || item.push_ups == undefined ? valuePushUps : item.push_ups
+          valueVerticalJump = item.vertical_jump == 0 || item.vertical_jump == undefined ? valueVerticalJump : item.vertical_jump
+          valueBroadJump = item.broad_jump == 0 || item.broad_jump == undefined ? valueBroadJump : item.broad_jump
+          valueMedBallRotationalThrow = item.med_ball_rotational_throw == 0 || item.med_ball_rotational_throw == undefined ? valueMedBallRotationalThrow : item.med_ball_rotational_throw
+          valueSprint10yd = item.sprint_10yd == 0 || item.sprint_10yd == undefined ? valueSprint10yd : item.sprint_10yd
+          valueExitVelo = item.exit_velo == 0 || item.exit_velo == undefined ? valueExitVelo : item.exit_velo
+          valueBatSpeed = item.bat_speed == 0 || item.bat_speed == undefined ? valueBatSpeed : item.bat_speed
+          valueThrowingVelo = item.throwing_velo == 0 || item.throwing_velo == undefined ? valueThrowingVelo : item.throwing_velo
+          valuePitchVelo = item.pitch_velo == 0 || item.pitch_velo == undefined ? valuePitchVelo : item.pitch_velo
           value40 = item.yd_40_dash == 0 || item.yd_40_dash == undefined ? value40 : item.yd_40_dash
           value60 = item.yd_60_dash == 0 || item.yd_60_dash == undefined ? value60 : item.yd_60_dash
           valueSleepHours = item.sleep_hours == 0 || item.sleep_hours == undefined ? valueSleepHours : item.sleep_hours
@@ -104,6 +134,16 @@ import { TableTop, TableTotal } from './index'
         power_clean: valuePower,
         hand_strength: valueHand,
         dead_lift: valueDead,
+        pull_ups: valuePullUps,
+        push_ups: valuePushUps,
+        vertical_jump: valueVerticalJump,
+        broad_jump: valueBroadJump,
+        med_ball_rotational_throw: valueMedBallRotationalThrow,
+        sprint_10yd: valueSprint10yd,
+        exit_velo: valueExitVelo,
+        bat_speed: valueBatSpeed,
+        throwing_velo: valueThrowingVelo,
+        pitch_velo: valuePitchVelo,
         yd_40_dash: value40,
         yd_60_dash: value60,
         sleep_hours: valueSleepHours,
@@ -153,8 +193,18 @@ import { TableTop, TableTotal } from './index'
         { key:'back_squat',   label:'Back Squat',  unit:'lb', lowerBetter:false },
         { key:'power_clean',  label:'Power Clean', unit:'lb', lowerBetter:false },
         { key:'hand_strength', label:'Hand Strength', unit:'lb', lowerBetter:false },
+        { key:'push_ups', label:'Push Ups', unit:'reps', lowerBetter:false },
+        { key:'pull_ups', label:'Pull-Ups', unit:'reps', lowerBetter:false },
+        { key:'vertical_jump', label:'Vertical Jump', unit:'in', lowerBetter:false },
+        { key:'broad_jump', label:'Broad Jump', unit:'in', lowerBetter:false },
+        { key:'med_ball_rotational_throw', label:'Med Ball Rot Throw', unit:'ft', lowerBetter:false },
+        { key:'sprint_10yd', label:'10 Yard', unit:'s', lowerBetter:true },
         { key:'yd_40_dash',   label:'40 Time',     unit:'s',  lowerBetter:true  },
         { key:'yd_60_dash',   label:'60 Time',     unit:'s',  lowerBetter:true  },
+        { key:'exit_velo', label:'Exit Velo', unit:'mph', lowerBetter:false },
+        { key:'bat_speed', label:'Bat Speed', unit:'mph', lowerBetter:false },
+        { key:'throwing_velo', label:'Throwing Velo', unit:'mph', lowerBetter:false },
+        { key:'pitch_velo', label:'Pitch Velo', unit:'mph', lowerBetter:false },
         { key:'sleep_hours',  label:'Sleep Hours', unit:'hrs', lowerBetter:false },
         { key:'sleep_quality_1_to_5', label:'Sleep Quality', unit:'/5', lowerBetter:false },
         { key:'recovery_score', label:'Recovery Score', unit:'/100', lowerBetter:false },
