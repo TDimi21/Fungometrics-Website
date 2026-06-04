@@ -91,6 +91,7 @@ function openModal() {
   isOpen.value = true;
 }
 const userType = computed(() => userData.value?.type ?? null);
+const dashboardHomeRoute = computed(() => userType.value === 'player' ? '/player-dashboard' : '/dashboard');
 const coachDisplayName = computed(() => userData.value?.name?.full ?? "+ (503) 7851 - 7268");
 let player = reactive({
   type: [],
@@ -477,14 +478,14 @@ watch(
       <header class="top-brand-nav w-full">
         <div class="top-brand-content">
           <div class="top-brand-left">
-            <div class="top-brand-logo-wrap">
+            <RouterLink :to="dashboardHomeRoute" class="top-brand-logo-wrap" title="Go to dashboard">
               <img
                 :src="teamHeaderLogo"
                 alt="Team logo"
                 class="top-brand-logo"
                 @error="onTopHeaderLogoError"
               />
-            </div>
+            </RouterLink>
           </div>
 
           <div class="top-brand-ticker">

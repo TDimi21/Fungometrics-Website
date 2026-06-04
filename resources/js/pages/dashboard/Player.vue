@@ -465,28 +465,17 @@ const developmentPlayerId = computed(() => {
   )
 })
 
-const developmentRoute = computed(() => {
-  if (!developmentPlayerId.value) {
-    return { name: 'development.index' }
-  }
-
-  const teamId =
-    userData?.team?.id ||
-    userData?.team?.id_team ||
-    userData?.team_id ||
-    null
-
-  return {
-    name: 'development.player',
-    params: {
-      playerId: developmentPlayerId.value,
-    },
+const openDevelopmentProfile = async () => {
+  await router.push({
+    name: 'dashboard',
     query: {
-      teamId: teamId || undefined,
+      tab: 'overview',
+      devOnly: '1',
+      devPlayerId: developmentPlayerId.value || undefined,
       playerName: playerName.value,
     },
-  }
-})
+  })
+}
 
 const modalPlayerItem = computed(() => {
   const profileData = userData?.profile || {}
@@ -1276,12 +1265,13 @@ onMounted(loadData)
               </div>
 
               <div class="mb-3 space-y-2">
-                <RouterLink
-                  :to="developmentRoute"
+                <button
+                  type="button"
+                  @click="openDevelopmentProfile"
                   class="flex w-full items-center justify-center rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
                 >
                   Development Profile
-                </RouterLink>
+                </button>
 
                 <button
                   type="button"
