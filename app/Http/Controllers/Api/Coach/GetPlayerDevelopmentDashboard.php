@@ -11,6 +11,7 @@ use App\Models\BullpenPracticeResult;
 use App\Models\CagePracticeResult;
 use App\Models\ExitVelocityPractice;
 use App\Models\PlayerFitness;
+use App\Models\PlayerTeam;
 use App\Models\User;
 use App\Services\Statistics\BattingStatisticsService;
 use App\Services\Statistics\BullpenStatisticsService;
@@ -32,6 +33,31 @@ class GetPlayerDevelopmentDashboard extends Controller
             $teamId = (string) $validated['team'];
             $playerId = (string) $validated['player'];
             $days = (int) ($validated['days'] ?? 60);
+
+            $authUser = $request->user();
+            if ($authUser && $authUser->tokenCan('player')) {
+                if ((string) $authUser->id !== $playerId) {
+                    return response()->json([
+                        'code'    => '066-AUTH',
+                        'message' => 'You can only access your own development dashboard',
+                        'status'  => 'error',
+                        'data'    => [],
+                    ], HttpCodes::HTTP_FORBIDDEN);
+                }
+
+                $isOnTeam = PlayerTeam::where('team_id', $teamId)
+                    ->where('user_id', (string) $authUser->id)
+                    ->exists();
+
+                if (!$isOnTeam) {
+                    return response()->json([
+                        'code'    => '066-TEAM',
+                        'message' => 'Player is not linked to this team',
+                        'status'  => 'error',
+                        'data'    => [],
+                    ], HttpCodes::HTTP_FORBIDDEN);
+                }
+            }
 
             $cacheKey = "dev_dashboard_v2_{$teamId}_{$playerId}_{$days}";
 

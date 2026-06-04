@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
+import { useUserStore } from '@/store/user'
 
 import PlayerSnapshotCard from '../components/PlayerSnapshotCard.vue'
 import DevelopmentScoreCard from '../components/DevelopmentScoreCard.vue'
@@ -27,6 +28,33 @@ import { buildRecommendations } from '../lib/recommendationEngine'
 const route = useRoute()
 const { axiosGet } = useAxiosAuth()
 const { team } = storeToRefs(useTeamStore())
+const user = useUserStore()
+
+const isPlayerUser = computed(() => String(user.userData?.type || '').toLowerCase() === 'player')
+const selfPlayerId = computed(() =>
+  user.userData?.id ||
+  user.userData?.user?.id ||
+  user.userData?.player?.id ||
+  user.userData?.user?.player?.id ||
+  null
+)
+
+const resolvedTeamId = computed(() =>
+  team.value?.id ||
+  team.value?.id_team ||
+  user.userData?.team?.id ||
+  user.userData?.team?.id_team ||
+  String(route.query?.teamId || '') ||
+  null
+)
+
+const resolvedPlayerId = computed(() =>
+  isPlayerUser.value
+    ? (selfPlayerId.value || route.params?.playerId || null)
+    : (route.params?.playerId || selfPlayerId.value || null)
+)
+
+const backRoute = computed(() => (isPlayerUser.value ? '/player-dashboard' : '/dashboard?tab=development'))
 
 const sourceData = ref(null)
 const loading = ref(false)
@@ -38,8 +66,8 @@ const loadLiveData = async () => {
   loadError.value = ''
   sourceData.value = null
 
-  const playerId = route.params?.playerId
-  const teamId = team.value?.id || String(route.query?.teamId || '')
+  const playerId = resolvedPlayerId.value
+  const teamId = resolvedTeamId.value
 
   if (!playerId) {
     loadError.value = 'No player selected. Navigate here from the Team Development board.'
@@ -52,7 +80,11 @@ const loadLiveData = async () => {
 
   loading.value = true
   try {
-    const { data } = await axiosGet(`coach/development/teams/${teamId}/players/${playerId}`, { days: 60 })
+    const endpoint = isPlayerUser.value
+      ? `player/development/teams/${teamId}/players/${playerId}`
+      : `coach/development/teams/${teamId}/players/${playerId}`
+
+    const { data } = await axiosGet(endpoint, { days: 60 })
     const payload = data?.data
 
     if (payload?.player && payload?.current) {
@@ -81,7 +113,7 @@ const loadLiveData = async () => {
 }
 
 watch(
-  () => [route.params?.playerId, team.value?.id],
+  () => [route.params?.playerId, route.query?.teamId, team.value?.id, team.value?.id_team, user.userData?.id],
   () => { loadLiveData() },
   { immediate: true }
 )
@@ -291,11 +323,11 @@ const scoreCards = computed(() => ([
 
       <!-- Top nav bar -->
       <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-900/70 px-4 py-2">
-        <RouterLink to="/dashboard?tab=development" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">← Back</RouterLink>
+        <RouterLink :to="backRoute" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">← Back</RouterLink>
         <RouterLink to="/development" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Player</RouterLink>
-        <RouterLink to="/development/team" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Team</RouterLink>
-        <RouterLink to="/development/coach" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Coach</RouterLink>
-        <RouterLink to="/development/admin/benchmarks" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Admin</RouterLink>
+        <RouterLink v-if="!isPlayerUser" to="/development/team" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Team</RouterLink>
+        <RouterLink v-if="!isPlayerUser" to="/development/coach" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Coach</RouterLink>
+        <RouterLink v-if="!isPlayerUser" to="/development/admin/benchmarks" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Admin</RouterLink>
       </div>
 
       <!-- Status messages -->

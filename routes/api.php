@@ -150,6 +150,7 @@ Route::prefix('player')->group(function (): void {
         Route::get('sessions/bullpen', GetBullpenPractices::class);
         Route::get('sessions/cage', GetCagePractices::class);
         Route::get('sessions/training', GetTrainingPractices::class);
+        Route::middleware('plan:view_advanced_stats')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
     });
 });
 

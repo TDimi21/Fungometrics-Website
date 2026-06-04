@@ -470,12 +470,19 @@ const developmentRoute = computed(() => {
     return { name: 'development.index' }
   }
 
+  const teamId =
+    userData?.team?.id ||
+    userData?.team?.id_team ||
+    userData?.team_id ||
+    null
+
   return {
-    name: 'dashboard',
+    name: 'development.player',
+    params: {
+      playerId: developmentPlayerId.value,
+    },
     query: {
-      tab: 'overview',
-      devOnly: '1',
-      devPlayerId: developmentPlayerId.value,
+      teamId: teamId || undefined,
       playerName: playerName.value,
     },
   }

@@ -912,11 +912,27 @@ const playerBestAndNeeds = computed(() => {
 const playerRecentSessions = computed(() => {
   const pid = selectedDevPlayer.value?.id
   if (!pid) return []
+  const pidStr = String(pid)
   return (recentSessions.value ?? []).filter((s) => {
     const lineup = Array.isArray(s.lineup) ? s.lineup : []
-    return lineup.some((l) =>
-      l?.user?.id === pid || l?.user_id === pid || l?.id === pid
-    )
+    const lineupMatch = lineup.some((l) => {
+      const cand = l?.user?.id ?? l?.user_id ?? l?.id ?? null
+      return cand != null && String(cand) === pidStr
+    })
+    if (lineupMatch) return true
+
+    const directCandidates = [
+      s?.user_id,
+      s?.player_id,
+      s?.batter_id,
+      s?.pitcher_id,
+      s?.created_by,
+      s?.profile?.id,
+      s?.player?.id,
+      s?.user?.id,
+    ]
+
+    return directCandidates.some((cand) => cand != null && String(cand) === pidStr)
   }).slice(0, 10)
 })
 
@@ -968,6 +984,27 @@ const firstDefined = (...vals) => {
     if (v !== undefined && v !== null && v !== '') return v
   }
   return null
+}
+
+const hasAnyValue = (obj) => {
+  if (!obj || typeof obj !== 'object') return false
+  return Object.values(obj).some((v) => {
+    if (v === null || v === undefined || v === '') return false
+    if (Array.isArray(v)) return v.length > 0
+    if (typeof v === 'object') return hasAnyValue(v)
+    return true
+  })
+}
+
+const mergePreferDefined = (...sources) => {
+  const out = {}
+  for (const src of sources) {
+    if (!src || typeof src !== 'object') continue
+    for (const [k, v] of Object.entries(src)) {
+      if (v !== undefined && v !== null && v !== '') out[k] = v
+    }
+  }
+  return out
 }
 
 const withOneDecimal = (v) => {
@@ -1054,10 +1091,20 @@ const openDevPlayerDetail = async (player) => {
     const playerId = String(player?.id ?? '')
     selectedDevCard.value = (teamPlayerCards.value ?? []).find((c) => String(c?.id) === playerId) ?? null
 
+    const isPlayerUser = String(user.userData?.type || '').toLowerCase() === 'player'
+    const teamLikeForDev = getActiveTeamIdCandidates().length
+      ? team.value
+      : (user.userData?.team || null)
+
+    const devPathBuilder = (id) =>
+      isPlayerUser
+        ? `player/development/teams/${id}/players/${player.id}?days=60`
+        : `coach/development/teams/${id}/players/${player.id}?days=60`
+
     const [statsRes, devRes] = await Promise.allSettled([
-      axiosGet('coach/statistics/' + player.id),
-      getActiveTeamIdCandidates().length
-        ? withTeamIdFallbackGet((id) => `coach/development/teams/${id}/players/${player.id}?days=60`)
+      axiosGet('coach/statistics/' + player.id).catch(() => null),
+      teamLikeForDev
+        ? withTeamIdFallbackGet(devPathBuilder, teamLikeForDev).catch(() => null)
         : Promise.resolve(null),
     ])
 
@@ -1088,21 +1135,14 @@ const openDevPlayerDetail = async (player) => {
       id: player?.id ?? livePlayer?.id ?? playerId,
       name: firstDefined(player?.name, livePlayer?.name, selectedDevCard.value?.profile?.full_name, 'Player'),
       jersey: firstDefined(player?.jersey, livePlayer?.jersey, selectedDevCard.value?.physical?.jersey_number),
-      scores: {
-        ...liveScoreMap,
-        ...(player?.scores ?? {}),
-      },
+      scores: mergePreferDefined(player?.scores ?? {}, liveScoreMap),
       prev_scores: {
         ...(player?.prev_scores ?? {}),
       },
-      fitness: {
-        ...liveFitness,
-        ...(selectedDevCard.value?.fitness ?? {}),
-        ...(player?.fitness ?? {}),
-      },
+      fitness: mergePreferDefined(player?.fitness ?? {}, selectedDevCard.value?.fitness ?? {}, liveFitness),
     }
 
-    selectedDevStats.value = statsData ?? makeStatsFromLive(liveCurrent ?? {})
+    selectedDevStats.value = hasAnyValue(statsData) ? statsData : makeStatsFromLive(liveCurrent ?? {})
   } catch (e) {
     console.warn('openDevPlayerDetail', e)
   } finally {
@@ -2868,7 +2908,7 @@ watch(
 
                 <!-- Coach Assessment Tool: Strength + Mobility -->
                 <CoachAssessmentPanel
-                  v-if="selectedDevPlayer?.id"
+                  v-if="selectedDevPlayer?.id && user.userData.type !== 'player'"
                   :player-id="selectedDevPlayer.id"
                   :player-name="selectedDevPlayer.name"
                 />
