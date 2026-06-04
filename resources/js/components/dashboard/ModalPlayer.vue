@@ -87,6 +87,7 @@ import {useRouter} from "vue-router"
     front_squat: "",
     back_squat: "",
     power_clean: "",
+    hand_strength: "",
     dead_lift: "",
     yd_40_dash: "",
     yd_60_dash: "",
@@ -166,6 +167,7 @@ import {useRouter} from "vue-router"
       front_squat: pickLatest('front_squat'),
       back_squat: pickLatest('back_squat'),
       power_clean: pickLatest('power_clean'),
+      hand_strength: pickLatest('hand_strength'),
       dead_lift: pickLatest('dead_lift'),
       yd_40_dash: pickLatest('yd_40_dash'),
       yd_60_dash: pickLatest('yd_60_dash'),
@@ -220,6 +222,7 @@ import {useRouter} from "vue-router"
     dataForm.append('front_squat', parseInt(dataFitness.front_squat == "" || dataFitness.front_squat == undefined ? 0 : dataFitness.front_squat))
     dataForm.append('back_squat', parseInt(dataFitness.back_squat == "" || dataFitness.back_squat == undefined ? 0 : dataFitness.back_squat))
     dataForm.append('power_clean', parseInt(dataFitness.power_clean == "" || dataFitness.power_clean == undefined ? 0 : dataFitness.power_clean))
+    dataForm.append('hand_strength', parseFloat(dataFitness.hand_strength == "" || dataFitness.hand_strength == undefined ? 0.0 : dataFitness.hand_strength))
     dataForm.append('dead_lift', parseInt(dataFitness.dead_lift == "" || dataFitness.dead_lift == undefined ? 0 : dataFitness.dead_lift))
     dataForm.append('yd_40_dash', parseFloat(dataFitness.yd_40_dash == "" || dataFitness.yd_40_dash == undefined ? 0.0 : dataFitness.yd_40_dash))
     dataForm.append('yd_60_dash', parseFloat(dataFitness.yd_60_dash == "" || dataFitness.yd_60_dash == undefined ? 0.0 : dataFitness.yd_60_dash))
@@ -461,6 +464,10 @@ import {useRouter} from "vue-router"
                               <div class="text-white/85">
                                 <LabelField text="Clean" :required="false"/>
                                 <InputBase v-model="dataFitness.power_clean" inputType="number" class="max-w-[100%]"/>
+                              </div>
+                              <div class="text-white/85">
+                                <LabelField text="Hand Strength (lbs)" :required="false"/>
+                                <InputBase v-model="dataFitness.hand_strength" inputType="number" class="max-w-[100%]"/>
                               </div>
                               <div class="text-white/85">
                                 <LabelField text="40 Time" :required="false"/>

@@ -8,7 +8,7 @@ const props = defineProps({
   }
 })
 const tableHeadings = ref([
-  "DATE", "WEIGHT", "BENCH PRESS", "FR. SQUAT", "BACK SQUAT", "DEADLIFT", "CLEAN", "40", "60", "SLEEP HRS", "SLEEP Q", "RECOVERY", "MOBILITY"
+  "DATE", "WEIGHT", "BENCH PRESS", "FR. SQUAT", "BACK SQUAT", "DEADLIFT", "CLEAN", "HAND STR", "40", "60", "SLEEP HRS", "SLEEP Q", "RECOVERY", "MOBILITY"
 ])
 
 const date = (info) => {
@@ -64,6 +64,9 @@ const date = (info) => {
             </td>
             <td class="w-[100px] max-w-[100px]">
               {{ item.power_clean ?? "" }}
+            </td>
+            <td class="w-[100px] max-w-[100px]">
+              {{ item.hand_strength ?? "" }}
             </td>
             <td class="w-[150px] max-w-[150px]">
               {{ item.yd_40_dash ?? "" }}

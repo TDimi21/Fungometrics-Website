@@ -49,6 +49,7 @@ import { TableTop, TableTotal } from './index'
     front_squat: "",
     back_squat: "",
     power_clean: "",
+    hand_strength: "",
     dead_lift: "",
     yd_40_dash: "",
     yd_60_dash: "",
@@ -66,6 +67,7 @@ import { TableTop, TableTotal } from './index'
     let valueFront = 0
     let valueBack = 0
     let valuePower = 0
+    let valueHand = 0
     let valueDead = 0
     let value40 = 0
     let value60 = 0
@@ -83,6 +85,7 @@ import { TableTop, TableTotal } from './index'
           valueFront = item.front_squat == 0 || item.front_squat == undefined ? valueFront : item.front_squat
           valueBack = item.back_squat == 0 || item.back_squat == undefined ? valueBack : item.back_squat
           valuePower = item.power_clean == 0 || item.power_clean == undefined ? valuePower : item.power_clean
+          valueHand = item.hand_strength == 0 || item.hand_strength == undefined ? valueHand : item.hand_strength
           valueDead = item.dead_lift == 0 || item.dead_lift == undefined ? valueDead : item.dead_lift
           value40 = item.yd_40_dash == 0 || item.yd_40_dash == undefined ? value40 : item.yd_40_dash
           value60 = item.yd_60_dash == 0 || item.yd_60_dash == undefined ? value60 : item.yd_60_dash
@@ -99,6 +102,7 @@ import { TableTop, TableTotal } from './index'
         front_squat: valueFront,
         back_squat: valueBack,
         power_clean: valuePower,
+        hand_strength: valueHand,
         dead_lift: valueDead,
         yd_40_dash: value40,
         yd_60_dash: value60,
@@ -148,6 +152,7 @@ import { TableTop, TableTotal } from './index'
         { key:'dead_lift',    label:'Deadlift',    unit:'lb', lowerBetter:false },
         { key:'back_squat',   label:'Back Squat',  unit:'lb', lowerBetter:false },
         { key:'power_clean',  label:'Power Clean', unit:'lb', lowerBetter:false },
+        { key:'hand_strength', label:'Hand Strength', unit:'lb', lowerBetter:false },
         { key:'yd_40_dash',   label:'40 Time',     unit:'s',  lowerBetter:true  },
         { key:'yd_60_dash',   label:'60 Time',     unit:'s',  lowerBetter:true  },
         { key:'sleep_hours',  label:'Sleep Hours', unit:'hrs', lowerBetter:false },

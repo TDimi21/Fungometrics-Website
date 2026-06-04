@@ -31,6 +31,7 @@ class FitnessRequest extends FormRequest
             'front_squat'=>['nullable','integer'],
             'back_squat'=>['nullable','integer'],
             'power_clean'=>['nullable','integer'],
+            'hand_strength'=>['nullable','numeric','min:0'],
             'dead_lift'=>['nullable','integer'],
             'yd_40_dash'=>['nullable','numeric'],
             'yd_60_dash'=>['nullable','numeric'],

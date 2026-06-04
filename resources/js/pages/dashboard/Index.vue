@@ -1482,18 +1482,19 @@ const toggleStrengthHelp = (section) => {
 
 const strengthForm = ref({
   fitness_date: new Date().toISOString().slice(0, 10),
-  squat_percentile: '',
-  deadlift_percentile: '',
-  lunge_percentile: '',
-  bench_press_percentile: '',
-  pull_up_percentile: '',
-  push_up_percentile: '',
-  broad_jump_percentile: '',
-  vertical_jump_percentile: '',
-  sprint_10yd_percentile: '',
-  med_ball_rotational_percentile: '',
-  exit_velocity_percentile: '',
-  bat_speed_percentile: '',
+  body_weight_lbs: '',
+  front_squat_lbs: '',
+  back_squat_lbs: '',
+  bench_press_lbs: '',
+  dead_lift_lbs: '',
+  power_clean_lbs: '',
+  hand_strength_lbs: '',
+  yd_40_dash_sec: '',
+  yd_60_dash_sec: '',
+  sleep_hours: '',
+  sleep_quality_1_to_5: '',
+  recovery_score: '',
+  mobility_score: '',
 })
 
 const computedStrength = computed(() => computeStrengthAssessmentScore(strengthForm.value))
@@ -1502,18 +1503,19 @@ const strengthFormComplete = computed(() => {
   const f = strengthForm.value
   return (
     !!f.fitness_date &&
-    f.squat_percentile !== '' &&
-    f.deadlift_percentile !== '' &&
-    f.lunge_percentile !== '' &&
-    f.bench_press_percentile !== '' &&
-    f.pull_up_percentile !== '' &&
-    f.push_up_percentile !== '' &&
-    f.broad_jump_percentile !== '' &&
-    f.vertical_jump_percentile !== '' &&
-    f.sprint_10yd_percentile !== '' &&
-    f.med_ball_rotational_percentile !== '' &&
-    f.exit_velocity_percentile !== '' &&
-    f.bat_speed_percentile !== ''
+    f.body_weight_lbs !== '' &&
+    f.front_squat_lbs !== '' &&
+    f.back_squat_lbs !== '' &&
+    f.bench_press_lbs !== '' &&
+    f.dead_lift_lbs !== '' &&
+    f.power_clean_lbs !== '' &&
+    f.hand_strength_lbs !== '' &&
+    f.yd_40_dash_sec !== '' &&
+    f.yd_60_dash_sec !== '' &&
+    f.sleep_hours !== '' &&
+    f.sleep_quality_1_to_5 !== '' &&
+    f.recovery_score !== '' &&
+    f.mobility_score !== ''
   )
 })
 
@@ -1588,6 +1590,19 @@ const submitStrengthAssessment = async () => {
     await axiosPost('player/fitness', {
       user_id: strengthSelectedPlayerId.value,
       fitness_date: strengthForm.value.fitness_date,
+      body_weight: Number(strengthForm.value.body_weight_lbs || 0),
+      front_squat: Number(strengthForm.value.front_squat_lbs || 0),
+      back_squat: Number(strengthForm.value.back_squat_lbs || 0),
+      bench_press: Number(strengthForm.value.bench_press_lbs || 0),
+      dead_lift: Number(strengthForm.value.dead_lift_lbs || 0),
+      power_clean: Number(strengthForm.value.power_clean_lbs || 0),
+      hand_strength: Number(strengthForm.value.hand_strength_lbs || 0),
+      yd_40_dash: Number(strengthForm.value.yd_40_dash_sec || 0),
+      yd_60_dash: Number(strengthForm.value.yd_60_dash_sec || 0),
+      sleep_hours: Number(strengthForm.value.sleep_hours || 0),
+      sleep_quality_1_to_5: Number(strengthForm.value.sleep_quality_1_to_5 || 0),
+      recovery_score: Number(strengthForm.value.recovery_score || 0),
+      mobility_score: Number(strengthForm.value.mobility_score || 0),
       strength_score: computedStrength.value.score,
     })
     await fetchStrengthHistory()
@@ -2526,9 +2541,9 @@ watch(
             <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 class="text-base font-black uppercase tracking-widest text-white">Strength Assessment</h2>
-                <p class="text-xs text-white/45 mt-1">Enter each test as a 0–100 percentile vs. your team or age-group norms. Saved score feeds the player development strength rating.</p>
+                <p class="text-xs text-white/45 mt-1">Enter the same roster fitness metrics (weights, times, recovery, mobility). FMTRX auto-grades and updates player metrics cards.</p>
               </div>
-              <div class="text-xs text-white/50">Step 1: type · Step 2: player · Step 3: percentiles · Step 4: save</div>
+              <div class="text-xs text-white/50">Step 1: type · Step 2: player · Step 3: roster metrics · Step 4: save</div>
             </div>
           </div>
 
@@ -2579,64 +2594,68 @@ watch(
                 <!-- Lower Body -->
                 <div class="rounded-xl border border-white/10 bg-white/5 p-3">
                   <button type="button" class="str-test-title" @click="toggleStrengthHelp('lower_body')">
-                    <span>Lower Body Strength (30%)</span>
+                    <span>Weight Room Metrics</span>
                     <span class="str-test-help-cta">{{ strengthHelpOpen === 'lower_body' ? 'Hide guide' : 'How to score' }}</span>
                   </button>
                   <div v-if="strengthHelpOpen === 'lower_body'" class="str-test-help">
-                    Score each lift as a percentile (0–100) relative to your team. 50 = team average. Squat: back or front squat 1RM. Deadlift: trap bar or conventional. Lunge: walking lunge load or bodyweight reps.
+                    Enter absolute loads in lbs. FMTRX grades by lift quality and bodyweight-relative strength.
                   </div>
                   <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.squat_percentile" type="number" min="0" max="100" step="1" placeholder="Squat percentile (0–100)" class="str-input" />
-                    <input v-model="strengthForm.deadlift_percentile" type="number" min="0" max="100" step="1" placeholder="Deadlift percentile (0–100)" class="str-input" />
-                    <input v-model="strengthForm.lunge_percentile" type="number" min="0" max="100" step="1" placeholder="Lunge percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.body_weight_lbs" type="number" min="0" step="0.1" placeholder="Weight (lbs)" class="str-input" />
+                    <input v-model="strengthForm.front_squat_lbs" type="number" min="0" step="1" placeholder="Front Squat (lbs)" class="str-input" />
+                    <input v-model="strengthForm.back_squat_lbs" type="number" min="0" step="1" placeholder="Back Squat (lbs)" class="str-input" />
+                    <input v-model="strengthForm.bench_press_lbs" type="number" min="0" step="1" placeholder="Bench Press (lbs)" class="str-input" />
+                    <input v-model="strengthForm.dead_lift_lbs" type="number" min="0" step="1" placeholder="Deadlift (lbs)" class="str-input" />
+                    <input v-model="strengthForm.power_clean_lbs" type="number" min="0" step="1" placeholder="Power Clean (lbs)" class="str-input" />
+                    <input v-model="strengthForm.hand_strength_lbs" type="number" min="0" step="0.1" placeholder="Hand Strength (lbs)" class="str-input" />
                   </div>
                 </div>
 
                 <!-- Upper Body -->
                 <div class="rounded-xl border border-white/10 bg-white/5 p-3">
                   <button type="button" class="str-test-title" @click="toggleStrengthHelp('upper_body')">
-                    <span>Upper Body Strength (20%)</span>
+                    <span>Speed Metrics</span>
                     <span class="str-test-help-cta">{{ strengthHelpOpen === 'upper_body' ? 'Hide guide' : 'How to score' }}</span>
                   </button>
                   <div v-if="strengthHelpOpen === 'upper_body'" class="str-test-help">
-                    Bench Press: 1RM relative to bodyweight. Pull-ups: max reps or weighted. Push-ups: max reps. Score each as percentile vs. team/age norms.
+                    Enter sprint times in seconds. Lower times are graded higher.
                   </div>
                   <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.bench_press_percentile" type="number" min="0" max="100" step="1" placeholder="Bench press percentile (0–100)" class="str-input" />
-                    <input v-model="strengthForm.pull_up_percentile" type="number" min="0" max="100" step="1" placeholder="Pull-up percentile (0–100)" class="str-input" />
-                    <input v-model="strengthForm.push_up_percentile" type="number" min="0" max="100" step="1" placeholder="Push-up percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.yd_40_dash_sec" type="number" min="0" step="0.01" placeholder="40 Time (sec)" class="str-input" />
+                    <input v-model="strengthForm.yd_60_dash_sec" type="number" min="0" step="0.01" placeholder="60 Time (sec)" class="str-input" />
                   </div>
                 </div>
 
                 <!-- Explosive Power -->
                 <div class="rounded-xl border border-white/10 bg-white/5 p-3">
                   <button type="button" class="str-test-title" @click="toggleStrengthHelp('explosive')">
-                    <span>Explosive Power (25%)</span>
+                    <span>Recovery Metrics</span>
                     <span class="str-test-help-cta">{{ strengthHelpOpen === 'explosive' ? 'Hide guide' : 'How to score' }}</span>
                   </button>
                   <div v-if="strengthHelpOpen === 'explosive'" class="str-test-help">
-                    Broad Jump: standing broad jump in inches. Vertical Jump: max vertical in inches. 10-yd Sprint: timed in seconds (lower is better — invert when scoring).
+                    Add sleep and recovery markers used on the roster card. These influence readiness and total strength profile quality.
                   </div>
                   <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.broad_jump_percentile" type="number" min="0" max="100" step="1" placeholder="Broad jump percentile (0–100)" class="str-input" />
-                    <input v-model="strengthForm.vertical_jump_percentile" type="number" min="0" max="100" step="1" placeholder="Vertical jump percentile (0–100)" class="str-input" />
-                    <input v-model="strengthForm.sprint_10yd_percentile" type="number" min="0" max="100" step="1" placeholder="10-yd sprint percentile (0–100)" class="str-input" />
+                    <input v-model="strengthForm.sleep_hours" type="number" min="0" max="24" step="0.1" placeholder="Sleep Hours" class="str-input" />
+                    <input v-model="strengthForm.sleep_quality_1_to_5" type="number" min="1" max="5" step="1" placeholder="Sleep Quality (1-5)" class="str-input" />
+                    <input v-model="strengthForm.recovery_score" type="number" min="0" max="100" step="1" placeholder="Recovery Score (0-100)" class="str-input" />
+                    <input v-model="strengthForm.mobility_score" type="number" min="0" max="100" step="1" placeholder="Mobility Score (0-100)" class="str-input" />
                   </div>
                 </div>
 
                 <!-- Rotational Power -->
                 <div class="rounded-xl border border-white/10 bg-white/5 p-3">
                   <button type="button" class="str-test-title" @click="toggleStrengthHelp('rotational')">
-                    <span>Rotational Power (25%)</span>
+                    <span>Roster Sync</span>
                     <span class="str-test-help-cta">{{ strengthHelpOpen === 'rotational' ? 'Hide guide' : 'How to score' }}</span>
                   </button>
                   <div v-if="strengthHelpOpen === 'rotational'" class="str-test-help">
-                    Med Ball Rotational Throw: distance in feet, score vs. team norms. Exit Velocity: avg EV from batting sessions (auto-pulled if available). Bat Speed: mph from Blast or HitTrax.
+                    Saving here writes directly to player fitness metrics. The roster card updates with Weight, Squats, Bench, Deadlift, Clean, 40/60, Sleep, Recovery, Mobility, and Hand Strength.
                   </div>
                   <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.med_ball_rotational_percentile" type="number" min="0" max="100" step="1" placeholder="Med ball rotational throw percentile (0–100)" class="str-input" />
-                    <input v-model="strengthForm.exit_velocity_percentile" type="number" min="0" max="100" step="1" placeholder="Exit velocity percentile (0–100)" class="str-input" />
-                    <input v-model="strengthForm.bat_speed_percentile" type="number" min="0" max="100" step="1" placeholder="Bat speed percentile (0–100)" class="str-input" />
+                    <div class="text-xs text-white/65 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                      Duplicate percentile fields were removed. This assessment now uses one source of truth: raw player metrics.
+                    </div>
                   </div>
                 </div>
 
@@ -2663,7 +2682,7 @@ watch(
               <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
                 <p class="text-[11px] uppercase tracking-widest text-white/45">Computed Strength Score</p>
                 <p class="mt-1 text-4xl font-black" :style="{ color: scoreColor(computedStrength.score) }">{{ computedStrength.hasData ? computedStrength.score : '—' }}</p>
-                <p class="mt-1 text-sm font-bold text-white/80">{{ computedStrength.hasData ? computedStrength.labels.overall : 'Enter percentiles to compute' }}</p>
+                <p class="mt-1 text-sm font-bold text-white/80">{{ computedStrength.hasData ? computedStrength.labels.overall : 'Enter test metrics to compute' }}</p>
                 <p class="text-xs text-white/45 mt-1">0–100 FMTRX Strength Score. Saved value replaces the weight-room calculated score in player development.</p>
 
                 <div class="mt-3 space-y-2">
@@ -2696,6 +2715,10 @@ watch(
                     <span class="text-white/50">Rotational Power</span>
                     <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.rotationalPower} — ${computedStrength.labels.rotationalPower}` : '—' }}</span>
                   </div>
+                  <div class="flex justify-between text-xs">
+                    <span class="text-white/50">Readiness</span>
+                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.readiness} — ${computedStrength.labels.readiness}` : '—' }}</span>
+                  </div>
                 </div>
               </div>
 
@@ -2717,9 +2740,11 @@ watch(
               <div class="rounded-xl border border-white/10 bg-white/5 p-3">
                 <p class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Guide</p>
                 <ul class="text-xs text-white/65 space-y-1 list-disc pl-4">
-                  <li>Enter all values as percentile rank vs. your team or age-group norms (0 = lowest, 100 = best).</li>
-                  <li>50 = exactly team average for each metric.</li>
-                  <li>For exit velocity and bat speed, use the player's session average vs. team average.</li>
+                  <li>Use raw roster metrics only (lbs/times/scores), not percentiles.</li>
+                  <li>Duplicate percentile inputs were removed to avoid conflicting data.</li>
+                  <li>For sprint fields (40/60), lower time grades higher.</li>
+                  <li>Hand Strength is measured in lbs and now included in scoring.</li>
+                  <li>Saving this form updates the player fitness metrics shown in roster cards.</li>
                   <li>Score feeds player development Strength component (20% of FMTRX score).</li>
                   <li>Use Reassessment when re-testing after a training block.</li>
                 </ul>
