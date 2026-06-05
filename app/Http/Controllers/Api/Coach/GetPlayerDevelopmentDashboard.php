@@ -11,6 +11,7 @@ use App\Models\BattingPracticeResult;
 use App\Models\BullpenPracticeResult;
 use App\Models\CagePracticeResult;
 use App\Models\ExitVelocityPractice;
+use App\Models\PlayerAssessment;
 use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
 use App\Models\User;
@@ -215,6 +216,14 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $trendScore = $this->computeTrendScore($trend);
                 $mobilityScore = $fitnessLatest?->mobility_score !== null ? (float) $fitnessLatest->mobility_score : null;
                 $recoveryScore = $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null;
+                $verticalJump = ($fitnessLatest?->vertical_jump !== null && (float) $fitnessLatest->vertical_jump > 0)
+                    ? (float) $fitnessLatest->vertical_jump
+                    : ($this->latestPositiveFitnessMetric($playerId, 'vertical_jump')
+                        ?? $this->latestPositiveAssessmentMetric($playerId, 'vertical_jump_in'));
+                $broadJump = ($fitnessLatest?->broad_jump !== null && (float) $fitnessLatest->broad_jump > 0)
+                    ? (float) $fitnessLatest->broad_jump
+                    : ($this->latestPositiveFitnessMetric($playerId, 'broad_jump')
+                        ?? $this->latestPositiveAssessmentMetric($playerId, 'broad_jump_in'));
 
                 $developmentIndex = $this->computeDevelopmentIndex(
                     $performanceScore,
@@ -282,8 +291,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'yd_60_dash' => $fitnessLatest?->yd_60_dash,
                         'pull_ups' => $fitnessLatest?->pull_ups,
                         'push_ups' => $fitnessLatest?->push_ups,
-                        'vertical_jump' => $fitnessLatest?->vertical_jump,
-                        'broad_jump' => $fitnessLatest?->broad_jump,
+                        'vertical_jump' => $verticalJump,
+                        'broad_jump' => $broadJump,
                         'med_ball_rotational_throw' => $fitnessLatest?->med_ball_rotational_throw,
                         'exit_velo' => $fitnessLatest?->exit_velo,
                         'bat_speed' => $fitnessLatest?->bat_speed,
@@ -812,6 +821,40 @@ class GetPlayerDevelopmentDashboard extends Controller
         $inch = is_numeric($in) ? (int) $in : 0;
 
         return "{$feet}'{$inch}\"";
+    }
+
+    private function latestPositiveFitnessMetric(string $playerId, string $metric): ?float
+    {
+        if (!in_array($metric, ['vertical_jump', 'broad_jump'], true)) {
+            return null;
+        }
+
+        $value = PlayerFitness::query()
+            ->where('user_id', $playerId)
+            ->whereNotNull($metric)
+            ->where($metric, '>', 0)
+            ->orderByDesc('fitness_date')
+            ->orderByDesc('created_at')
+            ->value($metric);
+
+        return $value !== null ? (float) $value : null;
+    }
+
+    private function latestPositiveAssessmentMetric(string $playerId, string $metric): ?float
+    {
+        if (!in_array($metric, ['vertical_jump_in', 'broad_jump_in'], true)) {
+            return null;
+        }
+
+        $value = PlayerAssessment::query()
+            ->where('user_id', $playerId)
+            ->whereNotNull($metric)
+            ->where($metric, '>', 0)
+            ->orderByDesc('assessment_date')
+            ->orderByDesc('created_at')
+            ->value($metric);
+
+        return $value !== null ? (float) $value : null;
     }
 
     private function resolveTrendLabel($current, $previous): string

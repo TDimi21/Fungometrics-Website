@@ -11,13 +11,14 @@ export function getAgeGroup(player = {}) {
   const age = asNumber(player.age);
   if (!age) return '14';
   if (age <= 9) return '9U';
-  if (age === 10) return '10';
-  if (age === 11) return '11';
-  if (age === 12) return '12';
-  if (age === 13) return '13';
-  if (age === 14) return '14';
-  if (age === 15) return '15';
-  if (age <= 17) return '16';
+    if (age === 10) return '10';
+    if (age === 11) return '11';
+    if (age === 12) return '12';
+    if (age === 13) return '13';
+    if (age === 14) return '14';
+    if (age === 15) return '15';
+    if (age === 16) return '16';
+    if (age === 17) return '17';
   return '18';
 }
 

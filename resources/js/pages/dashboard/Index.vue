@@ -1523,10 +1523,22 @@ const fetchMobilityPlayers = async () => {
   mobilityPlayersLoading.value = true
   try {
     const res = await axiosGet('coach/roster/players')
-    mobilityPlayers.value = (res?.data?.data ?? []).map((p) => ({
-      id: p.id,
-      name: p?.name?.full || `${p?.name?.first || ''} ${p?.name?.last || ''}`.trim() || `Player #${p.id}`,
-    }))
+    const payload = res?.data?.data
+    const rawPlayers = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : []
+
+    mobilityPlayers.value = rawPlayers
+      .map((p) => {
+        const id = p?.id ?? p?.user_id ?? null
+        return {
+          id,
+          name: p?.name?.full || `${p?.name?.first || ''} ${p?.name?.last || ''}`.trim() || `Player #${id}`,
+        }
+      })
+      .filter((p) => p.id)
   } catch {
     mobilityPlayers.value = []
   } finally {
@@ -1644,10 +1656,17 @@ const strengthForm = ref({
   sleep_hours: '',
   sleep_quality_1_to_5: '',
   recovery_score: '',
-  mobility_score: '',
 })
 
-const computedStrength = computed(() => computeStrengthAssessmentScore(strengthForm.value))
+const latestStrengthMobilityScore = computed(() => {
+  const s = Number(latestStrengthRecord.value?.mobility_score)
+  return Number.isFinite(s) ? s : null
+})
+
+const computedStrength = computed(() => computeStrengthAssessmentScore({
+  ...strengthForm.value,
+  mobility_score: latestStrengthMobilityScore.value,
+}))
 
 const strengthFormComplete = computed(() => {
   const f = strengthForm.value
@@ -1674,8 +1693,7 @@ const strengthFormComplete = computed(() => {
     f.yd_60_dash_sec !== '' &&
     f.sleep_hours !== '' &&
     f.sleep_quality_1_to_5 !== '' &&
-    f.recovery_score !== '' &&
-    f.mobility_score !== ''
+    f.recovery_score !== ''
   )
 })
 
@@ -1697,12 +1715,45 @@ const fetchStrengthPlayers = async () => {
   strengthPlayersLoading.value = true
   try {
     const res = await axiosGet('coach/roster/players')
-    strengthPlayers.value = (res?.data?.data ?? []).map((p) => ({
-      id: p.id,
-      name: p?.name?.full || `${p?.name?.first || ''} ${p?.name?.last || ''}`.trim() || `Player #${p.id}`,
-    }))
+    const payload = res?.data?.data
+    const rawPlayers = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : []
+
+    let mapped = rawPlayers
+      .map((p) => {
+        const id = p?.id ?? p?.user_id ?? null
+        return {
+          id,
+          name: p?.name?.full || `${p?.name?.first || ''} ${p?.name?.last || ''}`.trim() || `Player #${id}`,
+        }
+      })
+      .filter((p) => p.id)
+
+    if (!mapped.length && Array.isArray(devBoard.value) && devBoard.value.length) {
+      mapped = devBoard.value
+        .map((p) => ({ id: p?.id, name: p?.name || `Player #${p?.id}` }))
+        .filter((p) => p.id)
+    }
+
+    strengthPlayers.value = mapped
+
+    if (!strengthSelectedPlayerId.value && strengthPlayers.value.length) {
+      strengthSelectedPlayerId.value = String(strengthPlayers.value[0].id)
+    }
   } catch {
-    strengthPlayers.value = []
+    const fallback = Array.isArray(devBoard.value)
+      ? devBoard.value
+          .map((p) => ({ id: p?.id, name: p?.name || `Player #${p?.id}` }))
+          .filter((p) => p.id)
+      : []
+    strengthPlayers.value = fallback
+
+    if (!strengthSelectedPlayerId.value && strengthPlayers.value.length) {
+      strengthSelectedPlayerId.value = String(strengthPlayers.value[0].id)
+    }
   } finally {
     strengthPlayersLoading.value = false
   }
@@ -1772,7 +1823,7 @@ const submitStrengthAssessment = async () => {
       sleep_hours: Number(strengthForm.value.sleep_hours || 0),
       sleep_quality_1_to_5: Number(strengthForm.value.sleep_quality_1_to_5 || 0),
       recovery_score: Number(strengthForm.value.recovery_score || 0),
-      mobility_score: Number(strengthForm.value.mobility_score || 0),
+      ...(latestStrengthMobilityScore.value !== null ? { mobility_score: latestStrengthMobilityScore.value } : {}),
       strength_score: computedStrength.value.score,
     })
     await fetchStrengthHistory()
@@ -1822,9 +1873,13 @@ watch(
 
 watch(
   () => dashTab.value,
-  (tab) => {
-    if (tab === 'quickstats') {
-      ensureQuickStatsLoaded().catch(e => console.warn('ensureQuickStatsLoaded error:', e?.message ?? e))
+  async (tab) => {
+    if (tab === 'quickstats' || tab === 'strength') {
+      await ensureQuickStatsLoaded().catch(e => console.warn('ensureQuickStatsLoaded error:', e?.message ?? e))
+    }
+
+    if (tab === 'strength' && !strengthPlayersLoading.value && !strengthPlayers.value.length) {
+      await fetchStrengthPlayers().catch(e => console.warn('fetchStrengthPlayers error:', e?.message ?? e))
     }
   },
   { immediate: true }
@@ -2815,7 +2870,6 @@ watch(
                     <input v-model="strengthForm.sleep_hours" type="number" min="0" max="24" step="0.1" placeholder="Sleep Hours" class="str-input" />
                     <input v-model="strengthForm.sleep_quality_1_to_5" type="number" min="1" max="5" step="1" placeholder="Sleep Quality (1-5)" class="str-input" />
                     <input v-model="strengthForm.recovery_score" type="number" min="0" max="100" step="1" placeholder="Recovery Score (0-100)" class="str-input" />
-                    <input v-model="strengthForm.mobility_score" type="number" min="0" max="100" step="1" placeholder="Mobility Score (0-100)" class="str-input" />
                   </div>
                 </div>
 
@@ -2842,7 +2896,7 @@ watch(
                 <button
                   type="button"
                   class="px-4 py-2 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black uppercase tracking-wide disabled:opacity-60"
-                  :disabled="strengthSaving || !strengthSelectedPlayerId || !strengthFormComplete"
+                  :disabled="strengthSaving || !strengthSelectedPlayerId"
                   @click="submitStrengthAssessment"
                 >
                   {{ strengthSaving ? 'Saving...' : 'Save Strength Assessment' }}

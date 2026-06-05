@@ -139,11 +139,50 @@ const player = computed(() => sourceData.value?.player || {
 const model = computed(() => buildPlayerDevelopmentModel(current.value, history.value, player.value.role))
 const ageGroup = computed(() => getAgeGroup(player.value))
 
+const asNumeric = (v) => (Number.isFinite(Number(v)) ? Number(v) : null)
+const parseInches = (raw) => {
+  const direct = asNumeric(raw)
+  if (direct !== null) return direct
+  const text = String(raw ?? '').trim()
+  if (!text) return null
+
+  // Supports: 7'3", 7 ft 3 in, 87 in
+  const ftIn = text.match(/^(\d+(?:\.\d+)?)\s*(?:'|ft|feet)\s*(\d+(?:\.\d+)?)?\s*(?:"|in|inch|inches)?$/i)
+  if (ftIn) {
+    const feet = Number(ftIn[1] || 0)
+    const inches = Number(ftIn[2] || 0)
+    return feet * 12 + inches
+  }
+
+  const inchesOnly = text.match(/^(\d+(?:\.\d+)?)\s*(?:"|in|inch|inches)$/i)
+  if (inchesOnly) return Number(inchesOnly[1])
+
+  return null
+}
+
+const firstParsedValue = (obj, keys = [], parser = asNumeric) => {
+  for (const k of keys) {
+    const parsed = parser(obj?.[k])
+    if (parsed !== null) return parsed
+  }
+  return null
+}
+
+const firstPositiveParsedValue = (obj, keys = [], parser = asNumeric) => {
+  for (const k of keys) {
+    const parsed = parser(obj?.[k])
+    if (parsed !== null && parsed > 0) return parsed
+  }
+  return null
+}
+
 // Patch current with FB velocity fallbacks so all consumers get a value
 const effectiveCurrent = computed(() => ({
   ...current.value,
   avg_fb_velocity: current.value?.avg_fb_velocity ?? current.value?.avg_pitch_velocity ?? null,
   max_fb_velocity: current.value?.max_fb_velocity ?? current.value?.max_pitch_velocity ?? null,
+  vertical_jump: firstPositiveParsedValue(current.value, ['vertical_jump', 'vertical_jump_inches', 'verticalJump', 'verticalJumpInches'], parseInches),
+  broad_jump: firstPositiveParsedValue(current.value, ['broad_jump', 'broad_jump_inches', 'broadJump', 'broadJumpInches'], parseInches),
 }))
 
 const percentileRows = computed(() => {
@@ -157,12 +196,15 @@ const percentileRows = computed(() => {
     }
     const benchmarkKey = opts.benchmarkKey === null ? null : (opts.benchmarkKey || benchmarkKeyMap[key] || key)
     const hasValue = value !== null && value !== undefined
-    const percentile = benchmarkKey && hasValue
-      ? getMetricPercentile(benchmarkKey, value, ageGroup.value, levelForBenchmarks)
-      : null
+    const percentile = opts.scale100 && hasValue
+      ? Math.max(0, Math.min(100, Math.round(Number(value))))
+      : (benchmarkKey && hasValue
+        ? getMetricPercentile(benchmarkKey, value, ageGroup.value, levelForBenchmarks)
+        : null)
 
     let label = 'No benchmark'
-    if (benchmarkKey === null) label = 'N/A'
+    if (opts.scale100 && hasValue) label = getPercentileLabel(percentile)
+    else if (benchmarkKey === null) label = 'N/A'
     else if (!hasValue) label = 'No value'
     else if (percentile !== null) label = getPercentileLabel(percentile)
 
@@ -179,8 +221,8 @@ const percentileRows = computed(() => {
     row('Avg EV', 'avg_exit_velocity', ' mph'),
     row('Max FB Velo', 'max_fb_velocity', ' mph'),
     row('Avg FB Velo', 'avg_fb_velocity', ' mph'),
-    row('BP Score', 'bp_score', '', { benchmarkKey: null }),
-    row('Bullpen Score', 'bullpen_score', '', { benchmarkKey: null }),
+    row('BP Score', 'bp_score', '', { scale100: true }),
+    row('Bullpen Score', 'bullpen_score', '', { scale100: true }),
     row('Vertical Jump', 'vertical_jump', ' in'),
     row('Broad Jump', 'broad_jump', ' in'),
     row('Sleep Hours', 'sleep_hours', ' hrs'),

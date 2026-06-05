@@ -53,20 +53,31 @@ export const DEFAULT_AGE_PERCENTILE_BENCHMARKS = [
   { metric_key: 'avg_pitch_velocity', age_group: '18',  level: 'travel', p10: 70, p25: 75, p50: 80, p75: 86, p90: 91, p95: 94, p99: 98, source: 'FMTRX v2', active: true },
 
   // ── VERTICAL JUMP (inches) ──────────────────────────────────────────────────
-  { metric_key: 'vertical_jump', age_group: '9U', level: 'travel', p10: 9,  p25: 11, p50: 14, p75: 17, p90: 20, p95: 22, p99: 25, source: 'FMTRX v2', active: true },
-  { metric_key: 'vertical_jump', age_group: '11',  level: 'travel', p10: 11, p25: 14, p50: 17, p75: 20, p90: 23, p95: 25, p99: 28, source: 'FMTRX v2', active: true },
-  { metric_key: 'vertical_jump', age_group: '13',  level: 'travel', p10: 13, p25: 16, p50: 19, p75: 22, p90: 25, p95: 27, p99: 30, source: 'FMTRX v2', active: true },
-  { metric_key: 'vertical_jump', age_group: '14',  level: 'travel', p10: 14, p25: 17, p50: 20, p75: 23, p90: 26, p95: 28, p99: 31, source: 'FMTRX v2', active: true },
-  { metric_key: 'vertical_jump', age_group: '16',  level: 'travel', p10: 16, p25: 19, p50: 23, p75: 27, p90: 30, p95: 32, p99: 36, source: 'FMTRX v2', active: true },
-  { metric_key: 'vertical_jump', age_group: '18',  level: 'travel', p10: 18, p25: 22, p50: 26, p75: 30, p90: 34, p95: 36, p99: 40, source: 'FMTRX v2', active: true },
+  // Updated from provided age table (p25/p50/p75/p90). 9U represents age 9 and under.
+  { metric_key: 'vertical_jump', age_group: '9U', level: 'travel', p10: 7,  p25: 9,  p50: 11, p75: 13, p90: 15, p95: 16, p99: 17, source: 'FMTRX v3', active: true },
+  { metric_key: 'vertical_jump', age_group: '10', level: 'travel', p10: 8,  p25: 10, p50: 12, p75: 14, p90: 16, p95: 17, p99: 18, source: 'FMTRX v3', active: true },
+  { metric_key: 'vertical_jump', age_group: '11', level: 'travel', p10: 9,  p25: 11, p50: 13, p75: 15, p90: 18, p95: 19, p99: 20, source: 'FMTRX v3', active: true },
+  { metric_key: 'vertical_jump', age_group: '12', level: 'travel', p10: 10, p25: 12, p50: 14, p75: 17, p90: 20, p95: 21, p99: 22, source: 'FMTRX v3', active: true },
+  { metric_key: 'vertical_jump', age_group: '13', level: 'travel', p10: 11, p25: 13, p50: 16, p75: 19, p90: 22, p95: 23, p99: 24, source: 'FMTRX v3', active: true },
+  { metric_key: 'vertical_jump', age_group: '14', level: 'travel', p10: 13, p25: 15, p50: 18, p75: 21, p90: 24, p95: 25, p99: 26, source: 'FMTRX v3', active: true },
+  { metric_key: 'vertical_jump', age_group: '15', level: 'travel', p10: 14, p25: 16, p50: 20, p75: 23, p90: 26, p95: 27, p99: 28, source: 'FMTRX v3', active: true },
+  { metric_key: 'vertical_jump', age_group: '16', level: 'travel', p10: 16, p25: 18, p50: 22, p75: 25, p90: 28, p95: 29, p99: 30, source: 'FMTRX v3', active: true },
+  { metric_key: 'vertical_jump', age_group: '17', level: 'travel', p10: 17, p25: 19, p50: 23, p75: 27, p90: 30, p95: 31, p99: 32, source: 'FMTRX v3', active: true },
+  { metric_key: 'vertical_jump', age_group: '18', level: 'travel', p10: 18, p25: 20, p50: 24, p75: 28, p90: 31, p95: 32, p99: 33, source: 'FMTRX v3', active: true },
 
   // ── BROAD JUMP (inches) ─────────────────────────────────────────────────────
-  { metric_key: 'broad_jump', age_group: '9U', level: 'travel', p10: 42, p25: 50, p50: 58, p75: 66, p90: 73, p95: 77, p99: 83, source: 'FMTRX v2', active: true },
-  { metric_key: 'broad_jump', age_group: '11',  level: 'travel', p10: 52, p25: 60, p50: 68, p75: 76, p90: 83, p95: 87, p99: 93, source: 'FMTRX v2', active: true },
-  { metric_key: 'broad_jump', age_group: '13',  level: 'travel', p10: 60, p25: 67, p50: 75, p75: 83, p90: 90, p95: 94, p99: 100, source: 'FMTRX v2', active: true },
-  { metric_key: 'broad_jump', age_group: '14',  level: 'travel', p10: 62, p25: 70, p50: 78, p75: 86, p90: 94, p95: 99, p99: 106, source: 'FMTRX v2', active: true },
-  { metric_key: 'broad_jump', age_group: '16',  level: 'travel', p10: 70, p25: 78, p50: 87, p75: 96, p90: 104, p95: 109, p99: 116, source: 'FMTRX v2', active: true },
-  { metric_key: 'broad_jump', age_group: '18',  level: 'travel', p10: 76, p25: 85, p50: 95, p75: 104, p90: 112, p95: 117, p99: 124, source: 'FMTRX v2', active: true },
+  // Updated from provided age table (feet/inches converted to total inches; p25/p50/p75/p90 exact)
+  // 9U represents age 9 and under.
+  { metric_key: 'broad_jump', age_group: '9U', level: 'travel', p10: 42, p25: 50, p50: 57, p75: 65, p90: 71, p95: 75, p99: 79, source: 'FMTRX v3', active: true },
+  { metric_key: 'broad_jump', age_group: '10', level: 'travel', p10: 47, p25: 55, p50: 63, p75: 72, p90: 78, p95: 82, p99: 86, source: 'FMTRX v3', active: true },
+  { metric_key: 'broad_jump', age_group: '11', level: 'travel', p10: 52, p25: 60, p50: 68, p75: 77, p90: 84, p95: 88, p99: 92, source: 'FMTRX v3', active: true },
+  { metric_key: 'broad_jump', age_group: '12', level: 'travel', p10: 56, p25: 64, p50: 73, p75: 83, p90: 90, p95: 94, p99: 98, source: 'FMTRX v3', active: true },
+  { metric_key: 'broad_jump', age_group: '13', level: 'travel', p10: 61, p25: 69, p50: 79, p75: 89, p90: 96, p95: 100, p99: 104, source: 'FMTRX v3', active: true },
+  { metric_key: 'broad_jump', age_group: '14', level: 'travel', p10: 66, p25: 74, p50: 84, p75: 94, p90: 102, p95: 106, p99: 110, source: 'FMTRX v3', active: true },
+  { metric_key: 'broad_jump', age_group: '15', level: 'travel', p10: 70, p25: 78, p50: 89, p75: 99, p90: 107, p95: 111, p99: 115, source: 'FMTRX v3', active: true },
+  { metric_key: 'broad_jump', age_group: '16', level: 'travel', p10: 74, p25: 82, p50: 93, p75: 103, p90: 111, p95: 115, p99: 119, source: 'FMTRX v3', active: true },
+  { metric_key: 'broad_jump', age_group: '17', level: 'travel', p10: 77, p25: 85, p50: 96, p75: 106, p90: 114, p95: 118, p99: 122, source: 'FMTRX v3', active: true },
+  { metric_key: 'broad_jump', age_group: '18', level: 'travel', p10: 79, p25: 87, p50: 98, p75: 108, p90: 116, p95: 120, p99: 124, source: 'FMTRX v3', active: true },
 
   // ── 60-YD SPRINT (seconds, lower is better) ─────────────────────────────────
   { metric_key: 'sprint_time', age_group: '9U', level: 'travel', p10: 10.8, p25: 10.2, p50: 9.5, p75: 9.0, p90: 8.6, p95: 8.3, p99: 8.0, source: 'FMTRX v2', active: true, lower_is_better: true },

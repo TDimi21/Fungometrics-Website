@@ -20,7 +20,7 @@ defineProps({ rows: { type: Array, default: () => [] } })
           <tr v-for="(r, idx) in rows" :key="idx" class="border-t border-white/10">
             <td class="py-2 pr-4">{{ r.metric }}</td>
             <td class="py-2 pr-4">{{ r.value }}</td>
-            <td class="py-2 pr-4">{{ r.percentile ? `${r.percentile}th` : '—' }}</td>
+            <td class="py-2 pr-4">{{ r.percentile !== null && r.percentile !== undefined ? `${r.percentile}th` : '—' }}</td>
             <td class="py-2">{{ r.label }}</td>
           </tr>
         </tbody>
