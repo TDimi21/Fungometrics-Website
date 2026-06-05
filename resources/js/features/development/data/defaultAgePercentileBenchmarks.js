@@ -26,17 +26,29 @@ export const DEFAULT_AGE_PERCENTILE_BENCHMARKS = [
 
   // ── MAX PITCH VELOCITY (mph) ────────────────────────────────────────────────
   { metric_key: 'max_pitch_velocity', age_group: '9U', level: 'travel', p10: 40, p25: 45, p50: 51, p75: 57, p90: 62, p95: 65, p99: 69, source: 'FMTRX v2', active: true },
+  // age 10 derived as midpoint between 9U and 11
+  { metric_key: 'max_pitch_velocity', age_group: '10', level: 'travel', p10: 44, p25: 49, p50: 55, p75: 61, p90: 66, p95: 69, p99: 73, source: 'FMTRX v2 (interpolated)', active: true },
   { metric_key: 'max_pitch_velocity', age_group: '11',  level: 'travel', p10: 48, p25: 53, p50: 59, p75: 65, p90: 70, p95: 73, p99: 77, source: 'FMTRX v2', active: true },
+  // age 12 derived as midpoint between 11 and 13
+  { metric_key: 'max_pitch_velocity', age_group: '12', level: 'travel', p10: 52, p25: 57, p50: 63, p75: 69, p90: 74, p95: 77, p99: 81, source: 'FMTRX v2 (interpolated)', active: true },
   { metric_key: 'max_pitch_velocity', age_group: '13',  level: 'travel', p10: 56, p25: 61, p50: 67, p75: 72, p90: 77, p95: 80, p99: 84, source: 'FMTRX v2', active: true },
   { metric_key: 'max_pitch_velocity', age_group: '14',  level: 'travel', p10: 60, p25: 65, p50: 71, p75: 77, p90: 82, p95: 85, p99: 89, source: 'FMTRX v2', active: true },
+  // age 15 derived as midpoint between 14 and 16
+  { metric_key: 'max_pitch_velocity', age_group: '15', level: 'travel', p10: 64, p25: 69, p50: 75, p75: 81, p90: 86, p95: 89, p99: 93, source: 'FMTRX v2 (interpolated)', active: true },
   { metric_key: 'max_pitch_velocity', age_group: '16',  level: 'travel', p10: 68, p25: 73, p50: 79, p75: 85, p90: 90, p95: 93, p99: 97, source: 'FMTRX v2', active: true },
   { metric_key: 'max_pitch_velocity', age_group: '18',  level: 'travel', p10: 74, p25: 79, p50: 85, p75: 91, p90: 96, p95: 99, p99: 103, source: 'FMTRX v2', active: true },
 
   // ── AVG PITCH VELOCITY (mph) ────────────────────────────────────────────────
   { metric_key: 'avg_pitch_velocity', age_group: '9U', level: 'travel', p10: 35, p25: 40, p50: 46, p75: 52, p90: 57, p95: 60, p99: 64, source: 'FMTRX v2', active: true },
+  // age 10 derived as midpoint between 9U and 11
+  { metric_key: 'avg_pitch_velocity', age_group: '10', level: 'travel', p10: 39, p25: 44, p50: 50, p75: 56, p90: 61, p95: 64, p99: 68, source: 'FMTRX v2 (interpolated)', active: true },
   { metric_key: 'avg_pitch_velocity', age_group: '11',  level: 'travel', p10: 43, p25: 48, p50: 54, p75: 60, p90: 65, p95: 68, p99: 72, source: 'FMTRX v2', active: true },
+  // age 12 derived as midpoint between 11 and 13
+  { metric_key: 'avg_pitch_velocity', age_group: '12', level: 'travel', p10: 48, p25: 53, p50: 58, p75: 64, p90: 69, p95: 72, p99: 76, source: 'FMTRX v2 (interpolated)', active: true },
   { metric_key: 'avg_pitch_velocity', age_group: '13',  level: 'travel', p10: 52, p25: 57, p50: 62, p75: 67, p90: 72, p95: 75, p99: 79, source: 'FMTRX v2', active: true },
   { metric_key: 'avg_pitch_velocity', age_group: '14',  level: 'travel', p10: 56, p25: 61, p50: 66, p75: 71, p90: 76, p95: 79, p99: 83, source: 'FMTRX v2', active: true },
+  // age 15 derived as midpoint between 14 and 16
+  { metric_key: 'avg_pitch_velocity', age_group: '15', level: 'travel', p10: 60, p25: 65, p50: 70, p75: 75, p90: 80, p95: 83, p99: 87, source: 'FMTRX v2 (interpolated)', active: true },
   { metric_key: 'avg_pitch_velocity', age_group: '16',  level: 'travel', p10: 63, p25: 68, p50: 73, p75: 78, p90: 83, p95: 86, p99: 90, source: 'FMTRX v2', active: true },
   { metric_key: 'avg_pitch_velocity', age_group: '18',  level: 'travel', p10: 70, p25: 75, p50: 80, p75: 86, p90: 91, p95: 94, p99: 98, source: 'FMTRX v2', active: true },
 

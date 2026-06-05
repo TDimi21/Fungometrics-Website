@@ -147,14 +147,30 @@ const effectiveCurrent = computed(() => ({
 }))
 
 const percentileRows = computed(() => {
-  const row = (metric, key, suffix = '') => {
+  const levelForBenchmarks = String(player.value?.level || 'travel').toLowerCase()
+
+  const row = (metric, key, suffix = '', opts = {}) => {
     const value = effectiveCurrent.value?.[key]
-    const percentile = getMetricPercentile(key, value, ageGroup.value, player.value.level)
+    const benchmarkKeyMap = {
+      max_fb_velocity: 'max_pitch_velocity',
+      avg_fb_velocity: 'avg_pitch_velocity',
+    }
+    const benchmarkKey = opts.benchmarkKey === null ? null : (opts.benchmarkKey || benchmarkKeyMap[key] || key)
+    const hasValue = value !== null && value !== undefined
+    const percentile = benchmarkKey && hasValue
+      ? getMetricPercentile(benchmarkKey, value, ageGroup.value, levelForBenchmarks)
+      : null
+
+    let label = 'No benchmark'
+    if (benchmarkKey === null) label = 'N/A'
+    else if (!hasValue) label = 'No value'
+    else if (percentile !== null) label = getPercentileLabel(percentile)
+
     return {
       metric,
-      value: value !== null && value !== undefined ? `${value}${suffix}` : '—',
+      value: hasValue ? `${value}${suffix}` : '—',
       percentile,
-      label: percentile !== null ? getPercentileLabel(percentile) : 'No benchmark',
+      label,
     }
   }
 
@@ -163,8 +179,8 @@ const percentileRows = computed(() => {
     row('Avg EV', 'avg_exit_velocity', ' mph'),
     row('Max FB Velo', 'max_fb_velocity', ' mph'),
     row('Avg FB Velo', 'avg_fb_velocity', ' mph'),
-    row('BP Score', 'bp_score'),
-    row('Bullpen Score', 'bullpen_score'),
+    row('BP Score', 'bp_score', '', { benchmarkKey: null }),
+    row('Bullpen Score', 'bullpen_score', '', { benchmarkKey: null }),
     row('Vertical Jump', 'vertical_jump', ' in'),
     row('Broad Jump', 'broad_jump', ' in'),
     row('Sleep Hours', 'sleep_hours', ' hrs'),
