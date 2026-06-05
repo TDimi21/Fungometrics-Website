@@ -20,7 +20,7 @@ const { axiosGet, axiosPost } = useAxiosAuth()
 const { team } = storeToRefs(useTeamStore())
 
 // ─── tabs ─────────────────────────────────────────────────────────────────────
-const tab = ref('strength') // 'strength' | 'mobility' | 'reports'
+const tab = ref('reports') // reports-only view
 const selectedReport = ref(null)
 
 // ─── form state ───────────────────────────────────────────────────────────────
@@ -194,167 +194,21 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
       <div>
-        <div class="text-[10px] uppercase tracking-widest text-white/40 mb-0.5">Coach Assessment Tool</div>
-        <div class="text-base font-black text-white">{{ playerName || 'Player' }} — Strength &amp; Mobility</div>
-        <div class="text-[11px] text-white/45 mt-0.5">Enter raw test values (lbs/in/sec). Team + age-group percentiles are auto-calculated on save.</div>
-      </div>
-      <div class="assessment-select-wrap">
-        <label class="assessment-select-label">Assessment</label>
-        <select v-model="tab" class="assessment-select">
-          <option value="strength">Strength</option>
-          <option value="mobility">Mobility</option>
-          <option value="reports">Reports</option>
-        </select>
+        <div class="text-[10px] uppercase tracking-widest text-white/40 mb-0.5">Coach Assessment Reports</div>
+        <div class="text-base font-black text-white">{{ playerName || 'Player' }} — Past Reports</div>
+        <div class="text-[11px] text-white/45 mt-0.5">Historical saved assessments for this player.</div>
       </div>
     </div>
 
-    <!-- ── STRENGTH TAB ──────────────────────────────────────────────────────── -->
-    <div v-if="tab === 'strength'">
-
-      <!-- Live score strip -->
-      <div class="score-strip mb-5">
-        <div v-for="(sec, i) in [
-          { label: 'Lower Body',       val: liveScore.parts.lowerBody,       color: '#3B82F6' },
-          { label: 'Upper Body',       val: liveScore.parts.upperBody,       color: '#A855F7' },
-          { label: 'Explosive Power',  val: liveScore.parts.explosivePower,  color: '#F59E0B' },
-          { label: 'Rotational',       val: liveScore.parts.rotationalPower, color: '#EF4444' },
-        ]" :key="i" class="score-tile">
-          <div class="score-tile-val" :style="{ color: scoreColor(val) }">{{ sec.val || '—' }}</div>
-          <div class="score-tile-label">{{ sec.label }}</div>
-        </div>
-        <div class="score-tile score-tile--overall">
-          <div class="score-tile-val score-tile-val--big" :style="{ color: scoreColor(liveScore.score) }">{{ liveScore.score || '—' }}</div>
-          <div class="score-tile-label">Overall</div>
-          <div class="score-tile-label" :style="{ color: scoreColor(liveScore.score) }">{{ liveScore.labels.overall }}</div>
-        </div>
-      </div>
-
-      <!-- Sections -->
-      <div class="flex flex-col gap-5">
-        <div v-for="section in strengthSections" :key="section.key" class="section-card">
-          <div class="section-header" :style="{ borderLeftColor: section.color }">
-            <span class="section-title">{{ section.label }}</span>
-            <span class="section-score" :style="{ color: scoreColor(liveScore.parts[section.key]) }">
-              {{ liveScore.parts[section.key] || '—' }} / 100
-            </span>
-          </div>
-          <div class="section-body">
-            <div v-for="field in section.fields" :key="field.pctKey" class="field-row">
-              <div class="field-label">{{ field.label }}</div>
-              <div class="field-inputs">
-                <!-- Raw value (optional) -->
-                <div v-if="field.rawKey" class="raw-wrap">
-                  <input
-                    v-model.number="form[field.rawKey]"
-                    type="number"
-                    :placeholder="field.rawLabel"
-                    class="raw-input"
-                    min="0"
-                  />
-                </div>
-                <!-- Percentile 0-100 -->
-                <div class="pct-wrap">
-                  <input
-                    v-model.number="form[field.pctKey]"
-                    type="range"
-                    min="0" max="100" step="1"
-                    class="pct-slider"
-                    :style="{ '--pct-color': section.color }"
-                  />
-                  <span class="pct-val" :style="{ color: scoreColor(form[field.pctKey]) }">
-                    {{ form[field.pctKey] ?? 0 }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Date + Notes -->
-      <div class="mt-4 flex flex-col gap-3">
-        <div class="flex gap-3 flex-wrap">
-          <div class="flex flex-col gap-1 flex-1 min-w-[140px]">
-            <label class="field-label">Assessment Date</label>
-            <input v-model="form.assessment_date" type="date" class="raw-input w-full" />
-          </div>
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="field-label">Coach Notes</label>
-          <textarea v-model="form.notes" rows="3" placeholder="Key observations, areas to target..." class="notes-input" />
-        </div>
-      </div>
-
-      <div class="mt-5 flex justify-end gap-2">
-        <button @click="tab = 'mobility'" class="btn-secondary">Next: Mobility →</button>
-        <button @click="submit" :disabled="saving" class="btn-primary">
-          {{ saving ? 'Saving...' : '💾 Save Assessment' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- ── MOBILITY TAB ─────────────────────────────────────────────────────── -->
-    <div v-if="tab === 'mobility'">
-
-      <!-- Live mobility score -->
-      <div class="mb-5 flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/5">
-        <div class="text-center">
-          <div class="text-4xl font-black" :style="{ color: scoreColor(liveMobility) }">
-            {{ liveMobility ?? '—' }}
-          </div>
-          <div class="text-[10px] uppercase tracking-widest text-white/40 mt-1">Mobility Score</div>
-        </div>
-        <div class="flex-1">
-          <div class="text-base font-bold" :style="{ color: scoreColor(liveMobility) }">{{ liveMobilityLabel }}</div>
-          <div class="text-xs text-white/50 mt-1">Rate each area 0–10 where 0 = severely restricted, 10 = elite range of motion</div>
-        </div>
-      </div>
-
-      <!-- Mobility fields -->
-      <div class="flex flex-col gap-4">
-        <div v-for="mf in mobilityFields" :key="mf.key" class="section-card">
-          <div class="flex items-center justify-between mb-3">
-            <div>
-              <div class="text-sm font-bold text-white">{{ mf.label }}</div>
-              <div class="text-[11px] text-white/40">{{ mf.tip }}</div>
-            </div>
-            <span class="text-xl font-black" :style="{ color: scoreColor((form[mf.key] ?? 0) * 10) }">
-              {{ form[mf.key] ?? 0 }}<span class="text-xs font-normal text-white/40">/10</span>
-            </span>
-          </div>
-          <input
-            v-model.number="form[mf.key]"
-            type="range" min="0" max="10" step="1"
-            class="pct-slider w-full"
-            style="--pct-color: #2ECC71"
-          />
-          <!-- Tap labels -->
-          <div class="flex justify-between text-[9px] text-white/25 mt-1 px-0.5">
-            <span>Restricted</span><span>Limited</span><span>Average</span><span>Good</span><span>Elite</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-5 flex justify-between gap-2">
-        <button @click="tab = 'strength'" class="btn-secondary">← Back to Strength</button>
-        <button @click="submit" :disabled="saving" class="btn-primary">
-          {{ saving ? 'Saving...' : '💾 Save Assessment' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- ── REPORTS TAB ──────────────────────────────────────────────────────── -->
-    <div v-if="tab === 'reports'">
+    <!-- ── REPORTS ──────────────────────────────────────────────────────────── -->
+    <div>
       <div v-if="loadingHx" class="py-10 text-center text-white/40 text-sm animate-pulse">Loading history...</div>
 
       <div v-else-if="!history.length" class="py-10 text-center text-white/30 text-sm">
-        No assessments yet for this player.<br/>
-        <button @click="tab = 'strength'" class="mt-3 btn-secondary text-xs">+ New Assessment</button>
+        No assessment reports yet for this player.
       </div>
 
       <div v-else class="flex flex-col gap-3">
-        <button @click="tab = 'strength'" class="btn-primary self-start mb-1">+ New Assessment</button>
-
         <div class="report-table-wrap">
           <div class="report-table-header">
             <div>Date</div>
