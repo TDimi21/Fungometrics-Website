@@ -986,6 +986,117 @@ const firstDefined = (...vals) => {
   return null
 }
 
+const firstNumeric = (...vals) => {
+  const toNumCandidate = (value) => {
+    if (value === undefined || value === null || value === '') return null
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        const n = toNumCandidate(entry)
+        if (n !== null) return n
+      }
+      return null
+    }
+
+    if (typeof value === 'object') {
+      const objCandidates = [
+        value.value,
+        value.max,
+        value.avg,
+        value.current,
+        value.reps,
+        value.score,
+      ]
+      for (const entry of objCandidates) {
+        const n = toNumCandidate(entry)
+        if (n !== null) return n
+      }
+      return null
+    }
+
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+
+  for (const v of vals) {
+    const n = toNumCandidate(v)
+    if (n !== null) return n
+  }
+  return null
+}
+
+const strengthChartValues = computed(() => {
+  const maxStats = selectedDevStats.value?.max ?? {}
+  const liveCurrent = selectedDevLive.value?.current ?? {}
+  const playerFitness = selectedDevPlayer.value?.fitness ?? {}
+  const cardFitness = selectedDevCard.value?.fitness ?? {}
+
+  const pullUps = firstNumeric(
+    maxStats.pull_ups,
+    maxStats.pullups,
+    maxStats.pull_up,
+    maxStats.pullUp,
+    liveCurrent.pull_ups,
+    liveCurrent.pullups,
+    liveCurrent.pull_up,
+    liveCurrent.pullUp,
+    playerFitness.pull_ups,
+    playerFitness.pullups,
+    playerFitness.pull_up,
+    playerFitness.pullUp,
+    cardFitness.pull_ups,
+    cardFitness.pullups,
+    cardFitness.pull_up,
+    cardFitness.pullUp,
+  )
+
+  const pushUps = firstNumeric(
+    maxStats.push_ups,
+    maxStats.pushups,
+    maxStats.push_up,
+    maxStats.pushUp,
+    liveCurrent.push_ups,
+    liveCurrent.pushups,
+    liveCurrent.push_up,
+    liveCurrent.pushUp,
+    playerFitness.push_ups,
+    playerFitness.pushups,
+    playerFitness.push_up,
+    playerFitness.pushUp,
+    cardFitness.push_ups,
+    cardFitness.pushups,
+    cardFitness.push_up,
+    cardFitness.pushUp,
+  )
+
+  return {
+    bodyWeight: firstNumeric(
+      maxStats.body_weight,
+      maxStats.weight,
+      liveCurrent.body_weight,
+      liveCurrent.weight,
+      playerFitness.body_weight,
+      playerFitness.weight,
+      cardFitness.body_weight,
+      cardFitness.weight,
+    ),
+    benchPress: firstNumeric(
+      maxStats.bench_press,
+      liveCurrent.bench_press,
+      playerFitness.bench_press,
+      cardFitness.bench_press,
+    ),
+    frontSquat: firstNumeric(
+      maxStats.front_squat,
+      liveCurrent.front_squat,
+      playerFitness.front_squat,
+      cardFitness.front_squat,
+    ),
+    pullUps,
+    pushUps,
+  }
+})
+
 const hasAnyValue = (obj) => {
   if (!obj || typeof obj !== 'object') return false
   return Object.values(obj).some((v) => {
@@ -2986,11 +3097,11 @@ watch(
 
                 <!-- Strength Standards Reference -->
                 <StrengthStandardsCard
-                  :body-weight="selectedDevStats?.max?.body_weight ?? selectedDevPlayer?.fitness?.body_weight ?? selectedDevCard?.fitness?.body_weight ?? null"
-                  :bench-press="selectedDevStats?.max?.bench_press || selectedDevPlayer?.fitness?.bench_press || selectedDevCard?.fitness?.bench_press || null"
-                  :front-squat="selectedDevStats?.max?.front_squat || selectedDevPlayer?.fitness?.front_squat || selectedDevCard?.fitness?.front_squat || null"
-                  :pull-ups="selectedDevStats?.max?.pull_ups ?? selectedDevPlayer?.fitness?.pull_ups ?? selectedDevCard?.fitness?.pull_ups ?? null"
-                  :push-ups="selectedDevStats?.max?.push_ups ?? selectedDevPlayer?.fitness?.push_ups ?? selectedDevCard?.fitness?.push_ups ?? null"
+                  :body-weight="strengthChartValues.bodyWeight"
+                  :bench-press="strengthChartValues.benchPress"
+                  :front-squat="strengthChartValues.frontSquat"
+                  :pull-ups="strengthChartValues.pullUps"
+                  :push-ups="strengthChartValues.pushUps"
                 />
 
                 <!-- Coach Assessment Tool: Strength + Mobility -->

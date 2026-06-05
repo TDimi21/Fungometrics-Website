@@ -1,88 +1,22 @@
 <script setup>
 /**
  * CoachAssessmentPanel.vue
- * Coach-facing strength + mobility assessment scorer.
- * Submits to POST /api/assessments, loads history from GET /api/assessments/player/{id}.
+ * Coach-facing assessment reports viewer.
+ * Loads history from GET /api/assessments/player/{id}.
  */
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
-import { useTeamStore } from '@/store/team.js'
-import { storeToRefs } from 'pinia'
-import { computeStrengthAssessmentScore, getStrengthLabel } from '@/features/development/lib/strengthAssessmentScore.js'
-import { toast } from '@/utils/AlertPlugin'
 
 const props = defineProps({
   playerId: { type: String, required: true },
   playerName: { type: String, default: '' },
 })
 
-const { axiosGet, axiosPost } = useAxiosAuth()
-const { team } = storeToRefs(useTeamStore())
-
-// ─── tabs ─────────────────────────────────────────────────────────────────────
-const tab = ref('reports') // reports-only view
+const { axiosGet } = useAxiosAuth()
 const selectedReport = ref(null)
 
-// ─── form state ───────────────────────────────────────────────────────────────
-const saving    = ref(false)
 const loadingHx = ref(false)
 const history   = ref([])
-
-const form = ref({
-  assessment_date: new Date().toISOString().slice(0, 10),
-  notes: '',
-  // strength raw
-  squat_lbs: null, deadlift_lbs: null, bench_lbs: null,
-  broad_jump_in: null, vertical_jump_in: null, sprint_10yd_sec: null,
-  // strength percentiles
-  squat_percentile: null, deadlift_percentile: null, lunge_percentile: null,
-  bench_press_percentile: null, pull_up_percentile: null, push_up_percentile: null,
-  broad_jump_percentile: null, vertical_jump_percentile: null, sprint_10yd_percentile: null,
-  med_ball_rotational_percentile: null, exit_velocity_percentile: null, bat_speed_percentile: null,
-  // mobility (0-10)
-  hip_mobility: null, shoulder_mobility: null, ankle_mobility: null,
-  hip_flexor_mobility: null, rotational_mobility: null,
-})
-
-// ─── live score preview ────────────────────────────────────────────────────────
-const liveScore = computed(() => computeStrengthAssessmentScore({
-  squat_percentile:               form.value.squat_percentile ?? 0,
-  deadlift_percentile:            form.value.deadlift_percentile ?? 0,
-  lunge_percentile:               form.value.lunge_percentile ?? 0,
-  bench_press_percentile:         form.value.bench_press_percentile ?? 0,
-  pull_up_percentile:             form.value.pull_up_percentile ?? 0,
-  push_up_percentile:             form.value.push_up_percentile ?? 0,
-  broad_jump_percentile:          form.value.broad_jump_percentile ?? 0,
-  vertical_jump_percentile:       form.value.vertical_jump_percentile ?? 0,
-  sprint_10yd_percentile:         form.value.sprint_10yd_percentile ?? 0,
-  med_ball_rotational_percentile: form.value.med_ball_rotational_percentile ?? 0,
-  exit_velocity_percentile:       form.value.exit_velocity_percentile ?? 0,
-  bat_speed_percentile:           form.value.bat_speed_percentile ?? 0,
-}))
-
-const mobilityFields = [
-  { key: 'hip_mobility',        label: 'Hip Mobility',          tip: 'Hip flexion/extension range' },
-  { key: 'shoulder_mobility',   label: 'Shoulder / T-Spine',    tip: 'Overhead reach & thoracic rotation' },
-  { key: 'ankle_mobility',      label: 'Ankle Dorsiflexion',    tip: 'Ability to drive knee over toe' },
-  { key: 'hip_flexor_mobility', label: 'Hip Flexor / Hamstring',tip: 'Flexibility under load' },
-  { key: 'rotational_mobility', label: 'Rotational Range',      tip: 'Core/trunk rotation ROM' },
-]
-
-const liveMobility = computed(() => {
-  const vals = mobilityFields.map(f => form.value[f.key]).filter(v => v !== null && v !== '')
-  if (!vals.length) return null
-  return Math.round((vals.reduce((a, b) => a + Number(b), 0) / vals.length) * 10)
-})
-
-const liveMobilityLabel = computed(() => {
-  const s = liveMobility.value
-  if (s === null) return '—'
-  if (s >= 85) return 'Elite'
-  if (s >= 70) return 'Good'
-  if (s >= 55) return 'Average'
-  if (s >= 40) return 'Limited'
-  return 'Restricted'
-})
 
 // ─── score colour helper ───────────────────────────────────────────────────────
 const scoreColor = (s) => {
@@ -93,42 +27,6 @@ const scoreColor = (s) => {
   if (s >= 40) return '#E67E22'
   return '#E74C3C'
 }
-
-// ─── strength section definitions ────────────────────────────────────────────
-const strengthSections = [
-  {
-    key: 'lowerBody', label: '🦵 Lower Body', color: '#3B82F6',
-    fields: [
-      { pctKey: 'squat_percentile',    rawKey: 'squat_lbs',    label: 'Back Squat',  rawLabel: 'Squat (lbs)',    rawType: 'integer' },
-      { pctKey: 'deadlift_percentile', rawKey: 'deadlift_lbs', label: 'Deadlift',    rawLabel: 'Deadlift (lbs)', rawType: 'integer' },
-      { pctKey: 'lunge_percentile',    rawKey: null,           label: 'Lunge',       rawLabel: null },
-    ],
-  },
-  {
-    key: 'upperBody', label: '💪 Upper Body', color: '#A855F7',
-    fields: [
-      { pctKey: 'bench_press_percentile', rawKey: 'bench_lbs', label: 'Bench Press', rawLabel: 'Bench (lbs)', rawType: 'integer' },
-      { pctKey: 'pull_up_percentile',     rawKey: null,        label: 'Pull-Ups',    rawLabel: null },
-      { pctKey: 'push_up_percentile',     rawKey: null,        label: 'Push-Ups',    rawLabel: null },
-    ],
-  },
-  {
-    key: 'explosivePower', label: '⚡ Explosive Power', color: '#F59E0B',
-    fields: [
-      { pctKey: 'broad_jump_percentile',    rawKey: 'broad_jump_in',    label: 'Broad Jump',    rawLabel: 'Distance (in)', rawType: 'integer' },
-      { pctKey: 'vertical_jump_percentile', rawKey: 'vertical_jump_in', label: 'Vertical Jump', rawLabel: 'Height (in)',   rawType: 'integer' },
-      { pctKey: 'sprint_10yd_percentile',   rawKey: 'sprint_10yd_sec',  label: '10-Yd Sprint',  rawLabel: 'Time (sec)',    rawType: 'decimal' },
-    ],
-  },
-  {
-    key: 'rotationalPower', label: '🌀 Rotational Power', color: '#EF4444',
-    fields: [
-      { pctKey: 'med_ball_rotational_percentile', rawKey: null, label: 'Med Ball Throw', rawLabel: null },
-      { pctKey: 'exit_velocity_percentile',       rawKey: null, label: 'Exit Velocity',  rawLabel: null },
-      { pctKey: 'bat_speed_percentile',           rawKey: null, label: 'Bat Speed',      rawLabel: null },
-    ],
-  },
-]
 
 // ─── load history ─────────────────────────────────────────────────────────────
 const loadHistory = async () => {
@@ -150,41 +48,6 @@ const loadHistory = async () => {
 
 onMounted(loadHistory)
 watch(() => props.playerId, loadHistory)
-watch(tab, (val) => {
-  if (val === 'reports' && !selectedReport.value && history.value.length) {
-    selectedReport.value = history.value[0]
-  }
-})
-
-// ─── submit ───────────────────────────────────────────────────────────────────
-const submit = async () => {
-  saving.value = true
-  try {
-    const payload = {
-      user_id:        props.playerId,
-      team_id:        team.value?.id_team ?? team.value?.id ?? null,
-      assessment_date: form.value.assessment_date,
-      type:           'full',
-      notes:          form.value.notes || null,
-    }
-
-    // include all non-null form fields
-    for (const [k, v] of Object.entries(form.value)) {
-      if (k === 'assessment_date' || k === 'notes') continue
-      if (v !== null && v !== '') payload[k] = Number(v)
-    }
-
-    await axiosPost('assessments', payload)
-    toast('Assessment saved!', 'success')
-    await loadHistory()
-    selectedReport.value = history.value[0] ?? null
-    tab.value = 'reports'
-  } catch (e) {
-    toast('Failed to save assessment. Please try again.', 'error')
-  } finally {
-    saving.value = false
-  }
-}
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 </script>
@@ -296,180 +159,6 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '
   background: rgba(255,255,255,0.03);
   padding: 1.25rem;
 }
-
-/* assessment dropdown */
-.assessment-select-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.assessment-select-label {
-  font-size: 10px;
-  color: rgba(255,255,255,0.45);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 700;
-}
-.assessment-select {
-  min-width: 170px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(255,255,255,0.05);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 10px;
-  outline: none;
-}
-.assessment-select option {
-  color: #111;
-}
-
-/* score strip */
-.score-strip {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.score-tile {
-  flex: 1;
-  min-width: 70px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  background: rgba(255,255,255,0.04);
-  padding: 10px 8px;
-  text-align: center;
-}
-.score-tile--overall {
-  border-color: rgba(192,0,0,0.35);
-  background: rgba(192,0,0,0.08);
-}
-.score-tile-val {
-  font-size: 1.4rem;
-  font-weight: 900;
-  line-height: 1;
-}
-.score-tile-val--big {
-  font-size: 2rem;
-}
-.score-tile-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(255,255,255,0.4);
-  margin-top: 3px;
-}
-
-/* section card */
-.section-card {
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  background: rgba(255,255,255,0.03);
-  padding: 14px;
-}
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-left: 3px solid;
-  padding-left: 10px;
-  margin-bottom: 12px;
-}
-.section-title {
-  font-size: 13px;
-  font-weight: 800;
-  color: #fff;
-}
-.section-score {
-  font-size: 12px;
-  font-weight: 800;
-}
-.section-body { display: flex; flex-direction: column; gap: 10px; }
-
-/* field row */
-.field-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.field-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.65);
-  min-width: 110px;
-  flex-shrink: 0;
-}
-.field-inputs { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; }
-.raw-wrap { flex-shrink: 0; }
-.raw-input {
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
-  color: #fff;
-  font-size: 12px;
-  padding: 4px 8px;
-  width: 80px;
-  outline: none;
-}
-.raw-input:focus { border-color: rgba(192,0,0,0.5); }
-.raw-input::placeholder { color: rgba(255,255,255,0.25); }
-
-/* percentile slider */
-.pct-wrap { display: flex; align-items: center; gap: 8px; flex: 1; }
-.pct-slider {
-  flex: 1;
-  height: 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  border-radius: 2px;
-  background: rgba(255,255,255,0.12);
-  outline: none;
-  cursor: pointer;
-  accent-color: var(--pct-color, #C00000);
-}
-.pct-val {
-  font-size: 13px;
-  font-weight: 900;
-  min-width: 28px;
-  text-align: right;
-}
-
-/* notes */
-.notes-input {
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 12px;
-  padding: 8px 10px;
-  width: 100%;
-  resize: vertical;
-  outline: none;
-}
-.notes-input:focus { border-color: rgba(192,0,0,0.5); }
-
-/* buttons */
-.btn-primary {
-  padding: 8px 20px;
-  border-radius: 8px;
-  background: #C00000;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.btn-primary:hover:not(:disabled) { background: #a00000; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-secondary {
-  padding: 8px 16px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.7);
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid rgba(255,255,255,0.12);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.btn-secondary:hover { background: rgba(255,255,255,0.12); color: #fff; }
 
 /* history */
 .history-card {

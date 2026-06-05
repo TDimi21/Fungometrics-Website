@@ -113,6 +113,45 @@ class SaveAssessment extends Controller
         return [$teamValues, $ageValues];
     }
 
+    /**
+     * Build a fitness snapshot payload from assessment data so assessment becomes
+     * the authoritative update for player metrics.
+     */
+    private function buildFitnessSnapshotData(array $data): array
+    {
+        $toFloat = static fn ($k) => isset($data[$k]) && $data[$k] !== '' && $data[$k] !== null
+            ? (float) $data[$k]
+            : null;
+
+        $toInt = static fn ($k) => isset($data[$k]) && $data[$k] !== '' && $data[$k] !== null
+            ? (int) round((float) $data[$k])
+            : null;
+
+        $mobilityFields = ['hip_mobility', 'shoulder_mobility', 'ankle_mobility', 'hip_flexor_mobility', 'rotational_mobility'];
+        $mobilityVals = array_values(array_filter(
+            array_map(fn (string $f) => $toInt($f), $mobilityFields),
+            fn ($v) => $v !== null
+        ));
+
+        $mobilityScore = count($mobilityVals) > 0
+            ? (int) round((array_sum($mobilityVals) / count($mobilityVals)) * 10)
+            : null;
+
+        return array_filter([
+            'user_id' => (string) ($data['user_id'] ?? ''),
+            'fitness_date' => isset($data['assessment_date']) && $data['assessment_date'] ? (string) $data['assessment_date'] : now()->toDateString(),
+            'body_weight' => $toFloat('body_weight_lbs'),
+            'back_squat' => $toInt('squat_lbs'),
+            'dead_lift' => $toInt('deadlift_lbs'),
+            'bench_press' => $toInt('bench_lbs'),
+            'broad_jump' => $toFloat('broad_jump_in'),
+            'vertical_jump' => $toFloat('vertical_jump_in'),
+            'sprint_10yd' => $toFloat('sprint_10yd_sec'),
+            'mobility_score' => $mobilityScore,
+            'strength_score' => isset($data['strength_overall_score']) ? (int) $data['strength_overall_score'] : null,
+        ], fn ($v) => $v !== null && $v !== '');
+    }
+
     public function __invoke(AssessmentRequest $request): JsonResponse
     {
         try {
@@ -237,6 +276,26 @@ class SaveAssessment extends Controller
 
             $assessment = (new CreateServiceData(new PlayerAssessment()))->handle($data);
 
+            // Keep player metrics in sync with coach assessment (assessment is authoritative).
+            try {
+                $fitnessSnapshot = $this->buildFitnessSnapshotData($data);
+                if (!empty($fitnessSnapshot['user_id'])) {
+                    $fitnessDate = (string) ($fitnessSnapshot['fitness_date'] ?? now()->toDateString());
+
+                    $playerFitness = PlayerFitness::query()->updateOrCreate(
+                        [
+                            'user_id' => (string) $fitnessSnapshot['user_id'],
+                            'fitness_date' => $fitnessDate,
+                        ],
+                        $fitnessSnapshot
+                    );
+
+                    (new AthleticPerformanceIndexService())->calculateAndSave($playerFitness);
+                }
+            } catch (Exception $fitnessException) {
+                Log::warning('SaveAssessment fitness sync warning: ' . $fitnessException->getMessage());
+            }
+
             try {
                 $latestFitness = PlayerFitness::query()
                     ->where('user_id', (string) $request->user_id)
@@ -261,6 +320,12 @@ class SaveAssessment extends Controller
             foreach ($teamIds as $teamId) {
                 Cache::forget("player_cards_v3_{$teamId}");
                 Cache::forget("player_dev_board_{$teamId}");
+                Cache::forget("performance_overview_{$teamId}");
+                Cache::forget("dashboard_graphics_{$teamId}");
+                foreach ([30, 60, 90, 120] as $days) {
+                    Cache::forget("dev_dashboard_{$teamId}_{$request->user_id}_{$days}");
+                    Cache::forget("dev_dashboard_v2_{$teamId}_{$request->user_id}_{$days}");
+                }
             }
 
             return response()->json([
