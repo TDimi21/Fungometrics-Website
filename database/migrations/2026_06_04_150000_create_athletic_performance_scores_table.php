@@ -35,9 +35,11 @@ return new class extends Migration
             $table->unsignedInteger('team_rank')->nullable();
             $table->unsignedInteger('team_count')->nullable();
 
-            $table->json('strengths')->nullable();
-            $table->json('weaknesses')->nullable();
-            $table->json('development_plan')->nullable();
+            // MariaDB compatibility: some production MariaDB versions reject JSON columns.
+            // We store JSON payloads in LONGTEXT and rely on Eloquent array casts.
+            $table->longText('strengths')->nullable();
+            $table->longText('weaknesses')->nullable();
+            $table->longText('development_plan')->nullable();
 
             $table->timestamp('calculated_at')->nullable();
             $table->timestamps();
