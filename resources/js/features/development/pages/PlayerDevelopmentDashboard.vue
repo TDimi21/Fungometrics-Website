@@ -181,8 +181,18 @@ const effectiveCurrent = computed(() => ({
   ...current.value,
   avg_fb_velocity: current.value?.avg_fb_velocity ?? current.value?.avg_pitch_velocity ?? null,
   max_fb_velocity: current.value?.max_fb_velocity ?? current.value?.max_pitch_velocity ?? null,
+  body_weight: firstPositiveParsedValue(current.value, ['body_weight', 'bodyWeight'], asNumeric),
+  front_squat: firstPositiveParsedValue(current.value, ['front_squat', 'frontSquat'], asNumeric),
+  bench_press: firstPositiveParsedValue(current.value, ['bench_press', 'benchPress'], asNumeric),
+  dead_lift: firstPositiveParsedValue(current.value, ['dead_lift', 'trap_bar_deadlift', 'trapBarDeadlift'], asNumeric),
+  back_squat: firstPositiveParsedValue(current.value, ['back_squat', 'backSquat'], asNumeric),
+  power_clean: firstPositiveParsedValue(current.value, ['power_clean', 'powerClean'], asNumeric),
+  hand_strength: firstPositiveParsedValue(current.value, ['hand_strength', 'handStrength'], asNumeric),
   vertical_jump: firstPositiveParsedValue(current.value, ['vertical_jump', 'vertical_jump_inches', 'verticalJump', 'verticalJumpInches'], parseInches),
   broad_jump: firstPositiveParsedValue(current.value, ['broad_jump', 'broad_jump_inches', 'broadJump', 'broadJumpInches'], parseInches),
+  med_ball_rotational_throw: firstPositiveParsedValue(current.value, ['med_ball_rotational_throw', 'medBallRotationalThrow'], asNumeric),
+  exit_velo: firstPositiveParsedValue(current.value, ['exit_velo', 'exitVelo'], asNumeric),
+  bat_speed: firstPositiveParsedValue(current.value, ['bat_speed', 'batSpeed'], asNumeric),
 }))
 
 const percentileRows = computed(() => {
@@ -196,21 +206,22 @@ const percentileRows = computed(() => {
     }
     const benchmarkKey = opts.benchmarkKey === null ? null : (opts.benchmarkKey || benchmarkKeyMap[key] || key)
     const hasValue = value !== null && value !== undefined
-    const percentile = opts.scale100 && hasValue
+    const hasUsableValue = hasValue && Number(value) !== 0
+    const percentile = opts.scale100 && hasUsableValue
       ? Math.max(0, Math.min(100, Math.round(Number(value))))
-      : (benchmarkKey && hasValue
+      : (benchmarkKey && hasUsableValue
         ? getMetricPercentile(benchmarkKey, value, ageGroup.value, levelForBenchmarks)
         : null)
 
     let label = 'No benchmark'
-    if (opts.scale100 && hasValue) label = getPercentileLabel(percentile)
+    if (!hasUsableValue) label = ''
+    else if (opts.scale100) label = getPercentileLabel(percentile)
     else if (benchmarkKey === null) label = 'N/A'
-    else if (!hasValue) label = 'No value'
     else if (percentile !== null) label = getPercentileLabel(percentile)
 
     return {
       metric,
-      value: hasValue ? `${value}${suffix}` : '—',
+      value: hasUsableValue ? `${value}${suffix}` : '—',
       percentile,
       label,
     }
@@ -221,10 +232,20 @@ const percentileRows = computed(() => {
     row('Avg EV', 'avg_exit_velocity', ' mph'),
     row('Max FB Velo', 'max_fb_velocity', ' mph'),
     row('Avg FB Velo', 'avg_fb_velocity', ' mph'),
+    row('Body Weight', 'body_weight', ' lbs'),
+    row('Front Squat', 'front_squat', ' lbs'),
+    row('Bench Press', 'bench_press', ' lbs'),
+    row('Deadlift', 'dead_lift', ' lbs'),
+    row('Back Squat', 'back_squat', ' lbs'),
+    row('Power Clean', 'power_clean', ' lbs'),
+    row('Hand Strength', 'hand_strength', ' lbs'),
     row('BP Score', 'bp_score', '', { scale100: true }),
     row('Bullpen Score', 'bullpen_score', '', { scale100: true }),
     row('Vertical Jump', 'vertical_jump', ' in'),
     row('Broad Jump', 'broad_jump', ' in'),
+    row('Med Ball Rot Throw', 'med_ball_rotational_throw', ' mph'),
+    row('Exit Velo', 'exit_velo', ' mph'),
+    row('Bat Speed', 'bat_speed', ' mph'),
     row('Sleep Hours', 'sleep_hours', ' hrs'),
     row('Recovery Score', 'recovery_score'),
   ]
@@ -598,7 +619,7 @@ const scoreCards = computed(() => ([
 
           <!-- ── COLUMN 3 : Percentile Rankings + detail cards ── -->
           <div class="flex flex-col gap-4">
-            <PercentileRankingsTable :rows="percentileRows" />
+            <PercentileRankingsTable :rows="percentileRows" :age-label="player.age || ageGroup" />
             <CorrelationInsightsCard :insights="insights" />
             <!-- Detail cards -->
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">

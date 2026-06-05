@@ -27,7 +27,8 @@ export function getPercentileLabel(percentile) {
   if (p >= 90) return 'Elite';
   if (p >= 75) return 'Above Average';
   if (p >= 50) return 'Average';
-  return 'Below Average';
+  if (p >= 25) return 'Below Average';
+  return 'Needs Development';
 }
 
 export function getBenchmarkRow(metricKey, ageGroup, level = 'travel', benchmarks = DEFAULT_AGE_PERCENTILE_BENCHMARKS) {
@@ -104,9 +105,21 @@ export function getBenchmarkRow(metricKey, ageGroup, level = 'travel', benchmark
 }
 
 export function getMetricPercentile(metricKey, value, ageGroup, level = 'travel', benchmarks = DEFAULT_AGE_PERCENTILE_BENCHMARKS) {
-  const row = getBenchmarkRow(metricKey, ageGroup, level, benchmarks);
   const v = asNumber(value);
-  if (!row || v === null) return null;
+  if (v === null) return null;
+
+  // Sleep uses fixed performance targets (not age-based percentiles)
+  if (metricKey === 'sleep_hours') {
+    if (v >= 9) return 100;
+    if (v >= 8) return 90;
+    if (v >= 7) return 80;
+    if (v >= 6) return 65;
+    if (v >= 5) return 45;
+    return 25;
+  }
+
+  const row = getBenchmarkRow(metricKey, ageGroup, level, benchmarks);
+  if (!row) return null;
 
   // Primary scale derives from admin P50 + P90 anchors.
   // This creates a continuous percentile curve where:

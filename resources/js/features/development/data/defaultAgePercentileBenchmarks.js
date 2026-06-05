@@ -79,6 +79,112 @@ export const DEFAULT_AGE_PERCENTILE_BENCHMARKS = [
   { metric_key: 'broad_jump', age_group: '17', level: 'travel', p10: 77, p25: 85, p50: 96, p75: 106, p90: 114, p95: 118, p99: 122, source: 'FMTRX v3', active: true },
   { metric_key: 'broad_jump', age_group: '18', level: 'travel', p10: 79, p25: 87, p50: 98, p75: 108, p90: 116, p95: 120, p99: 124, source: 'FMTRX v3', active: true },
 
+  // ── BODY WEIGHT (lbs) ──────────────────────────────────────────────────────
+  { metric_key: 'body_weight', age_group: '9U', level: 'travel', p25: 60, p50: 75, p75: 85, p90: 95, source: 'FMTRX v4', active: true },
+  { metric_key: 'body_weight', age_group: '10', level: 'travel', p25: 70, p50: 85, p75: 100, p90: 115, source: 'FMTRX v4', active: true },
+  { metric_key: 'body_weight', age_group: '11', level: 'travel', p25: 80, p50: 95, p75: 110, p90: 125, source: 'FMTRX v4', active: true },
+  { metric_key: 'body_weight', age_group: '12', level: 'travel', p25: 90, p50: 110, p75: 125, p90: 145, source: 'FMTRX v4', active: true },
+  { metric_key: 'body_weight', age_group: '13', level: 'travel', p25: 100, p50: 125, p75: 145, p90: 165, source: 'FMTRX v4', active: true },
+  { metric_key: 'body_weight', age_group: '14', level: 'travel', p25: 110, p50: 140, p75: 160, p90: 185, source: 'FMTRX v4', active: true },
+  { metric_key: 'body_weight', age_group: '15', level: 'travel', p25: 120, p50: 155, p75: 175, p90: 200, source: 'FMTRX v4', active: true },
+  { metric_key: 'body_weight', age_group: '16', level: 'travel', p25: 130, p50: 165, p75: 190, p90: 215, source: 'FMTRX v4', active: true },
+  { metric_key: 'body_weight', age_group: '17', level: 'travel', p25: 140, p50: 175, p75: 205, p90: 225, source: 'FMTRX v4', active: true },
+  { metric_key: 'body_weight', age_group: '18', level: 'travel', p25: 145, p50: 180, p75: 210, p90: 235, source: 'FMTRX v4', active: true },
+
+  // ── FRONT SQUAT (lbs) ──────────────────────────────────────────────────────
+  { metric_key: 'front_squat', age_group: '10', level: 'travel', p25: 45, p50: 65, p75: 85, p90: 105, source: 'FMTRX v4', active: true },
+  { metric_key: 'front_squat', age_group: '11', level: 'travel', p25: 65, p50: 85, p75: 115, p90: 135, source: 'FMTRX v4', active: true },
+  { metric_key: 'front_squat', age_group: '12', level: 'travel', p25: 85, p50: 115, p75: 145, p90: 175, source: 'FMTRX v4', active: true },
+  { metric_key: 'front_squat', age_group: '13', level: 'travel', p25: 105, p50: 145, p75: 185, p90: 225, source: 'FMTRX v4', active: true },
+  { metric_key: 'front_squat', age_group: '14', level: 'travel', p25: 125, p50: 175, p75: 225, p90: 275, source: 'FMTRX v4', active: true },
+  { metric_key: 'front_squat', age_group: '15', level: 'travel', p25: 145, p50: 205, p75: 265, p90: 315, source: 'FMTRX v4', active: true },
+  { metric_key: 'front_squat', age_group: '16', level: 'travel', p25: 165, p50: 235, p75: 295, p90: 355, source: 'FMTRX v4', active: true },
+  { metric_key: 'front_squat', age_group: '17', level: 'travel', p25: 185, p50: 255, p75: 325, p90: 385, source: 'FMTRX v4', active: true },
+  { metric_key: 'front_squat', age_group: '18', level: 'travel', p25: 195, p50: 275, p75: 345, p90: 405, source: 'FMTRX v4', active: true },
+
+  // ── BENCH PRESS (lbs) ──────────────────────────────────────────────────────
+  { metric_key: 'bench_press', age_group: '10', level: 'travel', p25: 45, p50: 55, p75: 75, p90: 95, source: 'FMTRX v4', active: true },
+  { metric_key: 'bench_press', age_group: '11', level: 'travel', p25: 55, p50: 75, p75: 95, p90: 115, source: 'FMTRX v4', active: true },
+  { metric_key: 'bench_press', age_group: '12', level: 'travel', p25: 65, p50: 95, p75: 115, p90: 145, source: 'FMTRX v4', active: true },
+  { metric_key: 'bench_press', age_group: '13', level: 'travel', p25: 75, p50: 115, p75: 145, p90: 175, source: 'FMTRX v4', active: true },
+  { metric_key: 'bench_press', age_group: '14', level: 'travel', p25: 95, p50: 135, p75: 165, p90: 205, source: 'FMTRX v4', active: true },
+  { metric_key: 'bench_press', age_group: '15', level: 'travel', p25: 115, p50: 155, p75: 195, p90: 235, source: 'FMTRX v4', active: true },
+  { metric_key: 'bench_press', age_group: '16', level: 'travel', p25: 125, p50: 175, p75: 215, p90: 255, source: 'FMTRX v4', active: true },
+  { metric_key: 'bench_press', age_group: '17', level: 'travel', p25: 145, p50: 195, p75: 235, p90: 285, source: 'FMTRX v4', active: true },
+  { metric_key: 'bench_press', age_group: '18', level: 'travel', p25: 155, p50: 205, p75: 255, p90: 305, source: 'FMTRX v4', active: true },
+
+  // ── DEADLIFT (lbs) ─────────────────────────────────────────────────────────
+  { metric_key: 'dead_lift', age_group: '10', level: 'travel', p25: 75, p50: 105, p75: 135, p90: 165, source: 'FMTRX v4', active: true },
+  { metric_key: 'dead_lift', age_group: '11', level: 'travel', p25: 95, p50: 135, p75: 175, p90: 215, source: 'FMTRX v4', active: true },
+  { metric_key: 'dead_lift', age_group: '12', level: 'travel', p25: 115, p50: 165, p75: 215, p90: 265, source: 'FMTRX v4', active: true },
+  { metric_key: 'dead_lift', age_group: '13', level: 'travel', p25: 145, p50: 205, p75: 265, p90: 325, source: 'FMTRX v4', active: true },
+  { metric_key: 'dead_lift', age_group: '14', level: 'travel', p25: 175, p50: 245, p75: 315, p90: 385, source: 'FMTRX v4', active: true },
+  { metric_key: 'dead_lift', age_group: '15', level: 'travel', p25: 205, p50: 295, p75: 365, p90: 435, source: 'FMTRX v4', active: true },
+  { metric_key: 'dead_lift', age_group: '16', level: 'travel', p25: 235, p50: 335, p75: 405, p90: 495, source: 'FMTRX v4', active: true },
+  { metric_key: 'dead_lift', age_group: '17', level: 'travel', p25: 255, p50: 365, p75: 455, p90: 545, source: 'FMTRX v4', active: true },
+  { metric_key: 'dead_lift', age_group: '18', level: 'travel', p25: 275, p50: 405, p75: 495, p90: 585, source: 'FMTRX v4', active: true },
+
+  // ── POWER CLEAN (lbs) ──────────────────────────────────────────────────────
+  { metric_key: 'power_clean', age_group: '10', level: 'travel', p25: 45, p50: 65, p75: 85, p90: 105, source: 'FMTRX v4', active: true },
+  { metric_key: 'power_clean', age_group: '11', level: 'travel', p25: 55, p50: 85, p75: 115, p90: 135, source: 'FMTRX v4', active: true },
+  { metric_key: 'power_clean', age_group: '12', level: 'travel', p25: 75, p50: 105, p75: 145, p90: 175, source: 'FMTRX v4', active: true },
+  { metric_key: 'power_clean', age_group: '13', level: 'travel', p25: 95, p50: 135, p75: 185, p90: 225, source: 'FMTRX v4', active: true },
+  { metric_key: 'power_clean', age_group: '14', level: 'travel', p25: 115, p50: 165, p75: 225, p90: 275, source: 'FMTRX v4', active: true },
+  { metric_key: 'power_clean', age_group: '15', level: 'travel', p25: 135, p50: 195, p75: 265, p90: 315, source: 'FMTRX v4', active: true },
+  { metric_key: 'power_clean', age_group: '16', level: 'travel', p25: 155, p50: 225, p75: 295, p90: 355, source: 'FMTRX v4', active: true },
+  { metric_key: 'power_clean', age_group: '17', level: 'travel', p25: 175, p50: 255, p75: 335, p90: 395, source: 'FMTRX v4', active: true },
+  { metric_key: 'power_clean', age_group: '18', level: 'travel', p25: 185, p50: 275, p75: 355, p90: 425, source: 'FMTRX v4', active: true },
+
+  // ── HAND STRENGTH (lbs) ────────────────────────────────────────────────────
+  { metric_key: 'hand_strength', age_group: '9U', level: 'travel', p25: 37, p50: 45, p75: 53, p90: 61, source: 'FMTRX v4', active: true },
+  { metric_key: 'hand_strength', age_group: '10', level: 'travel', p25: 42, p50: 51, p75: 60, p90: 70, source: 'FMTRX v4', active: true },
+  { metric_key: 'hand_strength', age_group: '11', level: 'travel', p25: 48, p50: 58, p75: 68, p90: 78, source: 'FMTRX v4', active: true },
+  { metric_key: 'hand_strength', age_group: '12', level: 'travel', p25: 55, p50: 66, p75: 77, p90: 89, source: 'FMTRX v4', active: true },
+  { metric_key: 'hand_strength', age_group: '13', level: 'travel', p25: 62, p50: 74, p75: 87, p90: 100, source: 'FMTRX v4', active: true },
+  { metric_key: 'hand_strength', age_group: '14', level: 'travel', p25: 70, p50: 83, p75: 97, p90: 112, source: 'FMTRX v4', active: true },
+  { metric_key: 'hand_strength', age_group: '15', level: 'travel', p25: 77, p50: 92, p75: 107, p90: 123, source: 'FMTRX v4', active: true },
+  { metric_key: 'hand_strength', age_group: '16', level: 'travel', p25: 83, p50: 99, p75: 115, p90: 132, source: 'FMTRX v4', active: true },
+  { metric_key: 'hand_strength', age_group: '17', level: 'travel', p25: 88, p50: 105, p75: 122, p90: 140, source: 'FMTRX v4', active: true },
+  { metric_key: 'hand_strength', age_group: '18', level: 'travel', p25: 92, p50: 110, p75: 128, p90: 147, source: 'FMTRX v4', active: true },
+
+  // ── MED BALL ROTATIONAL THROW, 6 LB BALL (mph) ─────────────────────────────
+  // Provided FMTRX table ages 5–18. 9U row supports current <=9 age-group mapping.
+  { metric_key: 'med_ball_rotational_throw', age_group: '5', level: 'travel', p25: 10, p50: 13, p75: 16, p90: 19, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '6', level: 'travel', p25: 12, p50: 15, p75: 18, p90: 21, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '7', level: 'travel', p25: 14, p50: 17, p75: 20, p90: 23, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '8', level: 'travel', p25: 16, p50: 19, p75: 23, p90: 26, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '9', level: 'travel', p25: 18, p50: 22, p75: 26, p90: 30, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '9U', level: 'travel', p25: 18, p50: 22, p75: 26, p90: 30, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '10', level: 'travel', p25: 20, p50: 24, p75: 28, p90: 32, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '11', level: 'travel', p25: 22, p50: 27, p75: 31, p90: 36, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '12', level: 'travel', p25: 25, p50: 30, p75: 35, p90: 40, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '13', level: 'travel', p25: 28, p50: 34, p75: 40, p90: 46, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '14', level: 'travel', p25: 31, p50: 38, p75: 44, p90: 50, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '15', level: 'travel', p25: 34, p50: 42, p75: 48, p90: 55, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '16', level: 'travel', p25: 37, p50: 45, p75: 52, p90: 60, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '17', level: 'travel', p25: 39, p50: 48, p75: 55, p90: 63, source: 'FMTRX v4 (6lb)', active: true },
+  { metric_key: 'med_ball_rotational_throw', age_group: '18', level: 'travel', p25: 41, p50: 50, p75: 58, p90: 66, source: 'FMTRX v4 (6lb)', active: true },
+
+  // ── EXIT VELO (mph, fitness station metric) ───────────────────────────────
+  { metric_key: 'exit_velo', age_group: '9U', level: 'travel', p25: 45, p50: 50, p75: 55, p90: 60, source: 'FMTRX v4', active: true },
+  { metric_key: 'exit_velo', age_group: '10', level: 'travel', p25: 50, p50: 55, p75: 60, p90: 65, source: 'FMTRX v4', active: true },
+  { metric_key: 'exit_velo', age_group: '11', level: 'travel', p25: 55, p50: 60, p75: 65, p90: 72, source: 'FMTRX v4', active: true },
+  { metric_key: 'exit_velo', age_group: '12', level: 'travel', p25: 60, p50: 66, p75: 73, p90: 80, source: 'FMTRX v4', active: true },
+  { metric_key: 'exit_velo', age_group: '13', level: 'travel', p25: 65, p50: 72, p75: 80, p90: 86, source: 'FMTRX v4', active: true },
+  { metric_key: 'exit_velo', age_group: '14', level: 'travel', p25: 70, p50: 78, p75: 85, p90: 91, source: 'FMTRX v4', active: true },
+  { metric_key: 'exit_velo', age_group: '15', level: 'travel', p25: 75, p50: 83, p75: 90, p90: 95, source: 'FMTRX v4', active: true },
+  { metric_key: 'exit_velo', age_group: '16', level: 'travel', p25: 80, p50: 87, p75: 94, p90: 99, source: 'FMTRX v4', active: true },
+  { metric_key: 'exit_velo', age_group: '17', level: 'travel', p25: 82, p50: 89, p75: 97, p90: 102, source: 'FMTRX v4', active: true },
+  { metric_key: 'exit_velo', age_group: '18', level: 'travel', p25: 85, p50: 92, p75: 100, p90: 105, source: 'FMTRX v4', active: true },
+
+  // ── BAT SPEED (mph) ────────────────────────────────────────────────────────
+  { metric_key: 'bat_speed', age_group: '9U', level: 'travel', p25: 38, p50: 42, p75: 46, p90: 50, source: 'FMTRX v4', active: true },
+  { metric_key: 'bat_speed', age_group: '10', level: 'travel', p25: 45, p50: 50, p75: 55, p90: 60, source: 'FMTRX v4', active: true },
+  { metric_key: 'bat_speed', age_group: '12', level: 'travel', p25: 52, p50: 58, p75: 64, p90: 70, source: 'FMTRX v4', active: true },
+  { metric_key: 'bat_speed', age_group: '14', level: 'travel', p25: 60, p50: 66, p75: 72, p90: 78, source: 'FMTRX v4', active: true },
+  { metric_key: 'bat_speed', age_group: '16', level: 'travel', p25: 67, p50: 73, p75: 79, p90: 85, source: 'FMTRX v4', active: true },
+  { metric_key: 'bat_speed', age_group: '18', level: 'travel', p25: 70, p50: 77, p75: 84, p90: 90, source: 'FMTRX v4', active: true },
+
   // ── 60-YD SPRINT (seconds, lower is better) ─────────────────────────────────
   { metric_key: 'sprint_time', age_group: '9U', level: 'travel', p10: 10.8, p25: 10.2, p50: 9.5, p75: 9.0, p90: 8.6, p95: 8.3, p99: 8.0, source: 'FMTRX v2', active: true, lower_is_better: true },
   { metric_key: 'sprint_time', age_group: '11',  level: 'travel', p10: 9.8,  p25: 9.2,  p50: 8.6, p75: 8.1, p90: 7.7, p95: 7.5, p99: 7.2, source: 'FMTRX v2', active: true, lower_is_better: true },
@@ -103,13 +209,16 @@ export const DEFAULT_AGE_PERCENTILE_BENCHMARKS = [
   { metric_key: 'trap_bar_deadlift', age_group: '16',  level: 'travel', p10: 145, p25: 185, p50: 235, p75: 290, p90: 340, p95: 375, p99: 425, source: 'FMTRX v2', active: true },
   { metric_key: 'trap_bar_deadlift', age_group: '18',  level: 'travel', p10: 175, p25: 225, p50: 285, p75: 345, p90: 400, p95: 440, p99: 495, source: 'FMTRX v2', active: true },
 
-  // ── BACK SQUAT (lbs) ────────────────────────────────────────────────────────
-  { metric_key: 'back_squat', age_group: '9U', level: 'travel', p10: 35,  p25: 50,  p50: 65,  p75: 85,  p90: 105, p95: 120, p99: 140, source: 'FMTRX v2', active: true },
-  { metric_key: 'back_squat', age_group: '11',  level: 'travel', p10: 55,  p25: 75,  p50: 100, p75: 130, p90: 160, p95: 180, p99: 210, source: 'FMTRX v2', active: true },
-  { metric_key: 'back_squat', age_group: '13',  level: 'travel', p10: 80,  p25: 105, p50: 140, p75: 180, p90: 220, p95: 248, p99: 285, source: 'FMTRX v2', active: true },
-  { metric_key: 'back_squat', age_group: '14',  level: 'travel', p10: 95,  p25: 125, p50: 165, p75: 205, p90: 245, p95: 275, p99: 315, source: 'FMTRX v2', active: true },
-  { metric_key: 'back_squat', age_group: '16',  level: 'travel', p10: 125, p25: 160, p50: 205, p75: 255, p90: 300, p95: 335, p99: 385, source: 'FMTRX v2', active: true },
-  { metric_key: 'back_squat', age_group: '18',  level: 'travel', p10: 155, p25: 200, p50: 255, p75: 310, p90: 360, p95: 395, p99: 450, source: 'FMTRX v2', active: true },
+  // ── BACK SQUAT (lbs) ───────────────────────────────────────────────────────
+  { metric_key: 'back_squat', age_group: '10', level: 'travel', p25: 65, p50: 95, p75: 125, p90: 155, source: 'FMTRX v4', active: true },
+  { metric_key: 'back_squat', age_group: '11', level: 'travel', p25: 85, p50: 125, p75: 165, p90: 205, source: 'FMTRX v4', active: true },
+  { metric_key: 'back_squat', age_group: '12', level: 'travel', p25: 105, p50: 155, p75: 205, p90: 255, source: 'FMTRX v4', active: true },
+  { metric_key: 'back_squat', age_group: '13', level: 'travel', p25: 135, p50: 185, p75: 245, p90: 305, source: 'FMTRX v4', active: true },
+  { metric_key: 'back_squat', age_group: '14', level: 'travel', p25: 165, p50: 225, p75: 295, p90: 355, source: 'FMTRX v4', active: true },
+  { metric_key: 'back_squat', age_group: '15', level: 'travel', p25: 195, p50: 275, p75: 345, p90: 425, source: 'FMTRX v4', active: true },
+  { metric_key: 'back_squat', age_group: '16', level: 'travel', p25: 225, p50: 315, p75: 395, p90: 485, source: 'FMTRX v4', active: true },
+  { metric_key: 'back_squat', age_group: '17', level: 'travel', p25: 245, p50: 355, p75: 445, p90: 535, source: 'FMTRX v4', active: true },
+  { metric_key: 'back_squat', age_group: '18', level: 'travel', p25: 265, p50: 385, p75: 485, p90: 575, source: 'FMTRX v4', active: true },
 
   // ── MOBILITY SCORE (0-100) ──────────────────────────────────────────────────
   { metric_key: 'mobility_score', age_group: '9U', level: 'travel', p10: 45, p25: 55, p50: 67, p75: 78, p90: 87, p95: 92, p99: 97, source: 'FMTRX v2', active: true },

@@ -224,6 +224,36 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ? (float) $fitnessLatest->broad_jump
                     : ($this->latestPositiveFitnessMetric($playerId, 'broad_jump')
                         ?? $this->latestPositiveAssessmentMetric($playerId, 'broad_jump_in'));
+                $bodyWeight = ($fitnessLatest?->body_weight !== null && (float) $fitnessLatest->body_weight > 0)
+                    ? (float) $fitnessLatest->body_weight
+                    : $this->latestPositiveFitnessMetric($playerId, 'body_weight');
+                $benchPress = ($fitnessLatest?->bench_press !== null && (float) $fitnessLatest->bench_press > 0)
+                    ? (float) $fitnessLatest->bench_press
+                    : $this->latestPositiveFitnessMetric($playerId, 'bench_press');
+                $backSquat = ($fitnessLatest?->back_squat !== null && (float) $fitnessLatest->back_squat > 0)
+                    ? (float) $fitnessLatest->back_squat
+                    : $this->latestPositiveFitnessMetric($playerId, 'back_squat');
+                $frontSquat = ($fitnessLatest?->front_squat !== null && (float) $fitnessLatest->front_squat > 0)
+                    ? (float) $fitnessLatest->front_squat
+                    : $this->latestPositiveFitnessMetric($playerId, 'front_squat');
+                $deadLift = ($fitnessLatest?->dead_lift !== null && (float) $fitnessLatest->dead_lift > 0)
+                    ? (float) $fitnessLatest->dead_lift
+                    : $this->latestPositiveFitnessMetric($playerId, 'dead_lift');
+                $powerClean = ($fitnessLatest?->power_clean !== null && (float) $fitnessLatest->power_clean > 0)
+                    ? (float) $fitnessLatest->power_clean
+                    : $this->latestPositiveFitnessMetric($playerId, 'power_clean');
+                $handStrength = ($fitnessLatest?->hand_strength !== null && (float) $fitnessLatest->hand_strength > 0)
+                    ? (float) $fitnessLatest->hand_strength
+                    : $this->latestPositiveFitnessMetric($playerId, 'hand_strength');
+                $medBallRotThrow = ($fitnessLatest?->med_ball_rotational_throw !== null && (float) $fitnessLatest->med_ball_rotational_throw > 0)
+                    ? (float) $fitnessLatest->med_ball_rotational_throw
+                    : $this->latestPositiveFitnessMetric($playerId, 'med_ball_rotational_throw');
+                $exitVelo = ($fitnessLatest?->exit_velo !== null && (float) $fitnessLatest->exit_velo > 0)
+                    ? (float) $fitnessLatest->exit_velo
+                    : $this->latestPositiveFitnessMetric($playerId, 'exit_velo');
+                $batSpeed = ($fitnessLatest?->bat_speed !== null && (float) $fitnessLatest->bat_speed > 0)
+                    ? (float) $fitnessLatest->bat_speed
+                    : $this->latestPositiveFitnessMetric($playerId, 'bat_speed');
 
                 $developmentIndex = $this->computeDevelopmentIndex(
                     $performanceScore,
@@ -272,7 +302,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'strike_percentage' => $bullpenAggCurrent['strike_percentage'],
                         'pitch_quality_score' => $bullpenAggCurrent['command_score'],
 
-                        'body_weight' => $fitnessLatest?->body_weight,
+                        'body_weight' => $bodyWeight,
                         'strength_score' => $strengthScore,
                         'athletic_performance_index' => $athleticLatest?->overall_api_score,
                         'athletic_grade_label' => $athleticLatest?->grade_label,
@@ -282,20 +312,22 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'athletic_team_count' => $athleticLatest?->team_count,
                         'mobility_score' => $fitnessLatest?->mobility_score,
                         'recovery_score' => $fitnessLatest?->recovery_score,
-                        'bench_press' => $fitnessLatest?->bench_press,
-                        'back_squat' => $fitnessLatest?->back_squat,
-                        'front_squat' => $fitnessLatest?->front_squat,
-                        'trap_bar_deadlift' => $fitnessLatest?->dead_lift,
-                        'power_clean' => $fitnessLatest?->power_clean,
+                        'bench_press' => $benchPress,
+                        'back_squat' => $backSquat,
+                        'front_squat' => $frontSquat,
+                        'trap_bar_deadlift' => $deadLift,
+                        'dead_lift' => $deadLift,
+                        'power_clean' => $powerClean,
+                        'hand_strength' => $handStrength,
                         'yd_40_dash' => $fitnessLatest?->yd_40_dash,
                         'yd_60_dash' => $fitnessLatest?->yd_60_dash,
                         'pull_ups' => $fitnessLatest?->pull_ups,
                         'push_ups' => $fitnessLatest?->push_ups,
                         'vertical_jump' => $verticalJump,
                         'broad_jump' => $broadJump,
-                        'med_ball_rotational_throw' => $fitnessLatest?->med_ball_rotational_throw,
-                        'exit_velo' => $fitnessLatest?->exit_velo,
-                        'bat_speed' => $fitnessLatest?->bat_speed,
+                        'med_ball_rotational_throw' => $medBallRotThrow,
+                        'exit_velo' => $exitVelo,
+                        'bat_speed' => $batSpeed,
                         'throwing_velo' => $fitnessLatest?->throwing_velo,
                         'pitch_velo' => $fitnessLatest?->pitch_velo,
 
@@ -825,7 +857,20 @@ class GetPlayerDevelopmentDashboard extends Controller
 
     private function latestPositiveFitnessMetric(string $playerId, string $metric): ?float
     {
-        if (!in_array($metric, ['vertical_jump', 'broad_jump'], true)) {
+        if (!in_array($metric, [
+            'vertical_jump',
+            'broad_jump',
+            'body_weight',
+            'bench_press',
+            'back_squat',
+            'front_squat',
+            'dead_lift',
+            'power_clean',
+            'hand_strength',
+            'med_ball_rotational_throw',
+            'exit_velo',
+            'bat_speed',
+        ], true)) {
             return null;
         }
 
