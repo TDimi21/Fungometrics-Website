@@ -49,6 +49,7 @@ class SaveFitness extends Controller
 
                 foreach ([30, 60, 90, 120] as $days) {
                     Cache::forget("dev_dashboard_{$teamId}_{$request->user_id}_{$days}");
+                    Cache::forget("dev_dashboard_v2_{$teamId}_{$request->user_id}_{$days}");
                 }
             }
 

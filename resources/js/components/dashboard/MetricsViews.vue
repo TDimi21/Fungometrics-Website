@@ -1,6 +1,6 @@
 <script setup>
 import { InputBase, LabelField} from '@/components/form'
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, watch } from 'vue'
 import { TableTop, TableTotal } from './index'
 
   const props = defineProps({
@@ -9,9 +9,9 @@ import { TableTop, TableTotal } from './index'
       required: true
     },
     data: {
-      type: Object,
+      type: [Array, Object],
       required: true,
-      default: {}
+      default: () => []
     },
     score: {
       type: Object,
@@ -25,8 +25,10 @@ import { TableTop, TableTotal } from './index'
     },
   })
 
-  onMounted(() => {
-    updateInfo()
+  const normalizedData = computed(() => {
+    if (Array.isArray(props.data)) return props.data
+    if (Array.isArray(props.data?.data)) return props.data.data
+    return []
   })
 
   let player = reactive({
@@ -96,8 +98,8 @@ import { TableTop, TableTotal } from './index'
     let valueRecovery = 0
     let valueMobility = 0
 
-    if (Array.isArray(props.data) && props.data.length !== 0) {
-      const orderArray = props.data.slice().sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    if (normalizedData.value.length !== 0) {
+      const orderArray = normalizedData.value.slice().sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       orderArray.forEach(item => {
         if (item) {
           valueWeight =  item.body_weight == 0 || item.body_weight == undefined ? valueWeight : item.body_weight
@@ -154,16 +156,46 @@ import { TableTop, TableTotal } from './index'
     }
   }
 
+  watch(
+    normalizedData,
+    () => updateInfo(),
+    { immediate: true, deep: true }
+  )
+
+  const latestUpdateByKey = computed(() => {
+    const map = {}
+    const rows = normalizedData.value
+    const keys = [
+      'body_weight', 'front_squat', 'bench_press', 'dead_lift', 'back_squat', 'power_clean',
+      'hand_strength', 'push_ups', 'pull_ups', 'vertical_jump', 'broad_jump',
+      'med_ball_rotational_throw', 'sprint_10yd', 'yd_40_dash', 'yd_60_dash',
+      'exit_velo', 'bat_speed', 'throwing_velo', 'pitch_velo', 'sleep_hours',
+      'sleep_quality_1_to_5', 'recovery_score', 'mobility_score',
+    ]
+
+    for (const key of keys) {
+      const latestRow = rows
+        .filter((r) => Number(r?.[key]) > 0)
+        .slice()
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
+      const fallback = rows.length ? rows[rows.length - 1] : null
+      const date = latestRow?.created_at ?? fallback?.created_at ?? null
+      map[key] = date
+    }
+
+    return map
+  })
+
   const boolTop = ref(false);
   const boolTotal = ref(false);
 
   // Returns { raw, pct, dir: 'good'|'bad'|'same' } over last 6 months
   // lowerBetter: weight, dash times
   const getChange = (key, lowerBetter = false) => {
-    if (!Array.isArray(props.data) || !props.data.length) return null
+    if (!normalizedData.value.length) return null
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-    const valid = props.data
+    const valid = normalizedData.value
       .filter(r => r[key] != null && parseFloat(r[key]) > 0)
       .slice()
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
@@ -211,14 +243,14 @@ import { TableTop, TableTotal } from './index'
         { key:'mobility_score', label:'Mobility Score', unit:'/100', lowerBetter:false },
       ]" :key="m.key">
         <div class="metric-label">{{ m.label }}</div>
-        <div class="metric-date" v-if="data?.length > 0">
-          Updated: {{ new Date(data.filter(r=>r[m.key]>0).slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0]?.created_at ?? data[data.length-1]?.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) }}
+        <div class="metric-date" v-if="normalizedData.length > 0">
+          Updated: {{ latestUpdateByKey[m.key] ? new Date(latestUpdateByKey[m.key]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—' }}
         </div>
         <div class="metric-value">{{ dataFitness[m.key] || '—' }} <span v-if="dataFitness[m.key]" class="metric-unit">{{ m.unit }}</span></div>
         <div v-if="getChange(m.key, m.lowerBetter)" class="metric-change" :class="'change-' + getChange(m.key, m.lowerBetter).dir">
           {{ getChange(m.key, m.lowerBetter).raw > 0 ? '+' : '' }}{{ getChange(m.key, m.lowerBetter).raw.toFixed(1) }}
         </div>
-        <div v-else-if="data?.length > 1" class="metric-change change-same">—</div>
+        <div v-else-if="normalizedData.length > 1" class="metric-change change-same">—</div>
       </div>
     </div>
   </div>

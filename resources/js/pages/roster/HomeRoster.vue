@@ -106,12 +106,21 @@ const getPlayerByTeam = async(page = 1) => {
   const data = {}
   try {
     isLoadingPlayer.value = true
-    await axiosGet(`coach/teams/${team.id}`, data)
+    const teamId = team?.id ?? team?.id_team
+    if (!teamId) {
+      tableDataPlayers.value = []
+      playersDataDefault.value = []
+      return
+    }
+    await axiosGet(`coach/teams/${teamId}`, data)
       .then((response) => {
         if (response) {
-          tableDataPlayers.value = response.data.data
+          const payload = response?.data?.data
+          tableDataPlayers.value = Array.isArray(payload)
+            ? payload
+            : (Array.isArray(payload?.players) ? payload.players : [])
           playersDataDefault.value = tableDataPlayers.value
-          playerLinks.value = response.data.links
+          playerLinks.value = response?.data?.links ?? response?.data?.meta?.links ?? []
           playerStore.setPlayers(tableDataPlayers.value)
         }
       })

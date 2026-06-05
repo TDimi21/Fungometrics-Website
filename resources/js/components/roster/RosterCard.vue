@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Modal } from '@/components/shared'
 import { toast } from '@/utils/AlertPlugin'
@@ -32,14 +32,27 @@ const isLoadingModal = ref(false)
 const dataMetric     = ref([])
 const dataScore      = ref({})
 
+const resolvedPlayerId = computed(() => {
+  if (props.type !== 'player') return null
+  return (
+    props.item?.user_id ||
+    props.item?.user?.id ||
+    props.item?.player?.id ||
+    props.item?.id ||
+    null
+  )
+})
+
 const showMetrics = async () => {
   if (props.type !== 'player') return
+  const pid = resolvedPlayerId.value
+  if (!pid) return
   isLoadingModal.value = true
   isOpenModal.value = true
   try {
     const [scoreRes, fitnessRes] = await Promise.all([
-      axiosGet(`coach/statistics/${props.item.id}`).catch(() => null),
-      axiosGet(`player/fitness/${props.item.id}`).catch(() => null),
+      axiosGet(`coach/statistics/${pid}`).catch(() => null),
+      axiosGet(`player/fitness/${pid}`).catch(() => null),
     ])
     dataScore.value  = scoreRes?.data?.data  ?? {}
     const raw        = fitnessRes?.data?.data
@@ -61,28 +74,73 @@ watch(
 )
 
 // ── Derived display values ────────────────────────────────────────────────────
-const avatarSrc = props.item.avatar ?? null
+const cardEntity = computed(() => props.item?.user ?? props.item ?? {})
 
-const fullName = (() => {
-  if (props.item.profile) {
-    return `${props.item.profile.first_name ?? ''} ${props.item.profile.last_name ?? ''}`.trim()
+const avatarSrc = computed(() => (
+  cardEntity.value?.avatar
+  ?? cardEntity.value?.profile?.picture
+  ?? props.item?.avatar
+  ?? props.item?.profile?.picture
+  ?? null
+))
+
+const fullName = computed(() => {
+  const p = cardEntity.value?.profile || props.item?.profile || {}
+  const first = p?.first_name || cardEntity.value?.name?.first || props.item?.name?.first || ''
+  const last = p?.last_name || cardEntity.value?.name?.last || props.item?.name?.last || ''
+  const full = `${first} ${last}`.trim()
+  return full || cardEntity.value?.name?.full || props.item?.name?.full || cardEntity.value?.name || props.item?.name || '—'
+})
+
+const initials = computed(() =>
+  String(fullName.value || '')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('')
+)
+
+const positions = computed(() => {
+  const raw = cardEntity.value?.positions ?? props.item?.positions ?? []
+  return Array.isArray(raw)
+    ? raw.map(p => (typeof p === 'object' ? p.position : p)).filter(Boolean).join(', ') || null
+    : null
+})
+const jersey    = computed(() => cardEntity.value?.shirt_number ?? cardEntity.value?.number_in_shirt ?? props.item?.shirt_number ?? props.item?.number_in_shirt ?? cardEntity.value?.player?.number_in_shirt ?? null)
+const phone     = computed(() => cardEntity.value?.phone ?? props.item?.phone ?? null)
+const email     = computed(() => cardEntity.value?.email ?? props.item?.email ?? null)
+const heightFt  = computed(() => cardEntity.value?.body?.ft ?? cardEntity.value?.player?.height_in_ft ?? props.item?.body?.ft ?? null)
+const heightIn  = computed(() => cardEntity.value?.body?.inch ?? cardEntity.value?.player?.height_in_inch ?? props.item?.body?.inch ?? null)
+
+const modalItem = computed(() => {
+  const p = cardEntity.value?.profile || props.item?.profile || {}
+  const pl = cardEntity.value?.player || props.item?.player || {}
+  return {
+    ...(props.item || {}),
+    id: resolvedPlayerId.value || props.item?.id || null,
+    avatar: avatarSrc.value,
+    email: email.value,
+    phone: phone.value,
+    name: {
+      first: p?.first_name || '',
+      last: p?.last_name || '',
+      full: fullName.value,
+    },
+    body: {
+      ...(props.item?.body || {}),
+      ft: heightFt.value,
+      inch: heightIn.value,
+      full_height: heightFt.value != null ? `${heightFt.value}.${heightIn.value ?? 0}` : null,
+    },
+    shirt_number: jersey.value,
+    number_in_shirt: jersey.value,
+    throw_side: pl?.throw_side ?? props.item?.throw_side ?? null,
+    hit_side: pl?.hit_side ?? props.item?.hit_side ?? null,
+    born: props.item?.born ?? (pl?.born_date ? { date: pl.born_date } : undefined),
+    positions: Array.isArray(cardEntity.value?.positions) ? cardEntity.value.positions : (props.item?.positions ?? []),
   }
-  return props.item.name?.full ?? props.item.name ?? '—'
-})()
-
-const initials = fullName
-  .split(' ')
-  .filter(Boolean)
-  .slice(0, 2)
-  .map(w => w[0].toUpperCase())
-  .join('')
-
-const positions = props.item.positions?.map(p => p.position).join(', ') ?? null
-const jersey    = props.item.shirt_number ?? null
-const phone     = props.item.phone ?? null
-const email     = props.item.email ?? null
-const heightFt  = props.item.body?.ft ?? null
-const heightIn  = props.item.body?.inch ?? null
+})
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 const confirmDelete = (e) => { e.stopPropagation(); isOpenDeleteModal.value = true }
@@ -179,7 +237,7 @@ const submitDelete = async () => {
       <!-- Edit — players only (have a detail page) -->
       <router-link
         v-if="type === 'player'"
-        :to="{ path: `/roster/player/${item.id}`, params: { playerData: item } }"
+        :to="{ path: `/roster/player/${resolvedPlayerId || item.id}`, params: { playerData: modalItem } }"
         @click.stop
          class="flex-1 flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10
            text-white text-xs font-black py-2 rounded-xl border border-white/20 transition"
@@ -235,7 +293,7 @@ const submitDelete = async () => {
   <ModalPlayer
     v-if="isOpenModal"
     :isOpen="isOpenModal"
-    :item="item"
+    :item="modalItem"
     :response="dataMetric"
     :score="dataScore"
     @closeModal="isOpenModal = false"

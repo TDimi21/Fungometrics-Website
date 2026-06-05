@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { computed, ref, reactive } from "vue";
 import ModalPlayer from "./dashboard/ModalPlayer.vue";
 import { useAxiosAuth } from "@/composables/axios-auth.js";
 
@@ -11,39 +11,47 @@ const props = defineProps({
   },
 });
 
+const resolvedPlayerId = computed(() =>
+  props.item?.user_id || props.item?.user?.id || props.item?.player?.id || props.item?.id || null
+)
+
 const isOpenModal = ref(false);
 const isLoading = reactive({ status: true });
-const dataMetric = ref({});
+const dataMetric = ref([]);
 const dataScore = ref({});
 
 const getFitnessPlayer = async () => {
   try {
-    isLoading.status = true;
-    const { data } = await axiosGet(`player/fitness/${props.item.id}`);
-    dataMetric.value = data.data;
+    const pid = resolvedPlayerId.value;
+    if (!pid) return;
+    const { data } = await axiosGet(`player/fitness/${pid}`);
+    const rows = data?.data;
+    dataMetric.value = Array.isArray(rows) ? rows : (rows ? [rows] : []);
   } catch (error) {
     console.log(error);
-  } finally {
-    isLoading.status = false;
   }
 };
 
 const getScorePlayer = async () => {
   try {
-    isLoading.status = true;
-    const { data } = await axiosGet(`coach/statistics/${props.item.id}`);
+    const pid = resolvedPlayerId.value;
+    if (!pid) return;
+    const { data } = await axiosGet(`coach/statistics/${pid}`);
     dataScore.value = data.data;
   } catch (error) {
     console.log(error);
-  } finally {
-    isLoading.status = false;
   }
 };
 
 const showModal = async () => {
-  await getScorePlayer();
-  await getFitnessPlayer();
+  if (!resolvedPlayerId.value) return;
+  isLoading.status = true;
   isOpenModal.value = true;
+  try {
+    await Promise.all([getScorePlayer(), getFitnessPlayer()]);
+  } finally {
+    isLoading.status = false;
+  }
 };
 
 const close = () => {
