@@ -29,8 +29,12 @@ const isLoading = reactive({status: true})
 const formData = reactive({user: '', password: '', remember: false})
 const loginMode = ref(props.title === 'player' ? 'claim' : 'email')
 const claimForm = reactive({ phone: '', teamCode: '' })
+const claimStep = ref('find')
+const claimedSession = ref(null)
+const claimCredentials = reactive({ email: '', password: '', confirmPassword: '' })
 const isPlayerLogin = computed(() => props.title === 'player')
 const isClaimMode = computed(() => isPlayerLogin.value && loginMode.value === 'claim')
+const isClaimCredentialsStep = computed(() => isClaimMode.value && claimStep.value === 'credentials')
 
 const normalizeDigits = (value) => String(value || '').replace(/\D+/g, '')
 
@@ -106,6 +110,11 @@ const applyAuthSession = async ({ payload, apiUrl }) => {
   await teamStore.setTeams(rosterTeams)
   await playerStore.setPlayers(user?.players || [])
   await router.push('/dashboard')
+}
+
+const userNeedsCredentials = (user) => {
+  const email = String(user?.email || '').trim()
+  return !email || !email.includes('@')
 }
 
 
@@ -185,7 +194,7 @@ const submitClaimForm = async () => {
     return
   }
 
-  isLoading.status = !isLoading.status
+  isLoading.status = false
   try {
     const dataForm = new FormData()
     dataForm.append('phone', phone)
@@ -208,13 +217,95 @@ const submitClaimForm = async () => {
       throw new Error(body?.message || 'Invalid phone number or team code')
     }
 
+    const token = body?.data?.token
+    const user = body?.data?.user
+    if (userNeedsCredentials(user)) {
+      claimedSession.value = body.data
+      claimCredentials.email = String(user?.email || '').trim().toLowerCase()
+      claimCredentials.password = ''
+      claimCredentials.confirmPassword = ''
+      claimStep.value = 'credentials'
+      await toast.fire({
+        icon: 'info',
+        title: 'Set Login Credentials',
+        text: 'Set your email and password to finish claiming your profile.',
+      })
+      return
+    }
+
     await applyAuthSession({ payload: body.data, apiUrl: api_url })
     await toast.fire({ icon: 'success', title: 'Claim Complete', text: body?.message || 'Profile claimed successfully.' })
   } catch (error) {
     const message = error?.response?.data?.message || error?.message || 'Could not claim profile. Please try again.'
     await toast.fire({ icon: 'error', title: 'Claim Error', text: message })
   } finally {
-    isLoading.status = !isLoading.status
+    isLoading.status = true
+  }
+}
+
+const submitClaimCredentials = async () => {
+  const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
+  const email = String(claimCredentials.email || '').trim().toLowerCase()
+  const password = String(claimCredentials.password || '')
+  const confirmation = String(claimCredentials.confirmPassword || '')
+  const token = claimedSession.value?.token
+
+  if (!token) {
+    await toast.fire({ icon: 'warning', title: 'Claim Warning', text: 'Claim session expired. Please claim again.' })
+    claimStep.value = 'find'
+    return
+  }
+
+  if (!email || !email.includes('@')) {
+    await toast.fire({ icon: 'warning', title: 'Email Required', text: 'Enter a valid email address.' })
+    return
+  }
+
+  if (password.length < 8) {
+    await toast.fire({ icon: 'warning', title: 'Password Too Short', text: 'Password must be at least 8 characters.' })
+    return
+  }
+
+  if (password !== confirmation) {
+    await toast.fire({ icon: 'warning', title: 'Validation', text: 'Passwords do not match.' })
+    return
+  }
+
+  isLoading.status = false
+  try {
+    const dataForm = new FormData()
+    dataForm.append('email', email)
+    dataForm.append('password', password)
+    dataForm.append('password_confirmation', confirmation)
+
+    const response = await axios.post(api_url + 'player/set-credentials', dataForm, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    const body = response?.data || {}
+    if (body?.status !== 'success') {
+      throw new Error(body?.message || 'Could not save credentials')
+    }
+
+    const payload = {
+      ...(claimedSession.value || {}),
+      user: {
+        ...(claimedSession.value?.user || {}),
+        email,
+      },
+    }
+
+    await applyAuthSession({ payload, apiUrl: api_url })
+    claimStep.value = 'find'
+    claimedSession.value = null
+    await toast.fire({ icon: 'success', title: 'Claim Complete', text: 'Your profile is now ready to use.' })
+  } catch (error) {
+    const message = error?.response?.data?.message || error?.message || 'Failed to save credentials. Please try again.'
+    await toast.fire({ icon: 'error', title: 'Claim Error', text: message })
+  } finally {
+    isLoading.status = true
   }
 }
 
@@ -281,7 +372,7 @@ const submitClaimForm = async () => {
 </div>
       </FormKit>
 
-      <form v-else class="w-full max-w-xl" @submit.prevent="submitClaimForm">
+      <form v-else-if="!isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
         <div class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-sm font-bold text-white mb-2">Mobile Number</label>
@@ -310,6 +401,56 @@ const submitClaimForm = async () => {
           </p>
           <div class="grid place-content-center">
             <BigButtonField color="red" label="Claim Profile" type="submit"></BigButtonField>
+          </div>
+        </div>
+      </form>
+
+      <form v-else class="w-full max-w-xl" @submit.prevent="submitClaimCredentials">
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="block text-sm font-bold text-white mb-2">Email Address</label>
+            <input
+              v-model="claimCredentials.email"
+              type="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-white mb-2">New Password</label>
+            <input
+              v-model="claimCredentials.password"
+              type="password"
+              autocomplete="new-password"
+              placeholder="At least 8 characters"
+              class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-white mb-2">Confirm Password</label>
+            <input
+              v-model="claimCredentials.confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Re-enter password"
+              class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2"
+            />
+          </div>
+          <p class="text-xs text-white/75">
+            This is required one time to finish claiming your profile.
+          </p>
+          <div class="grid place-content-center">
+            <BigButtonField color="red" label="Set Credentials" type="submit"></BigButtonField>
+          </div>
+          <div class="grid place-content-center">
+            <button
+              type="button"
+              class="text-xs font-bold tracking-wider text-white/80 hover:text-white"
+              @click="claimStep = 'find'"
+            >
+              Back to claim form
+            </button>
           </div>
         </div>
       </form>

@@ -269,26 +269,30 @@ const submitAddPlayer = async () => {
       isAddPlayer.value = false
       router.go(router.currentRoute)
     }).catch(async function (error){
-      if (error.response.data.code === '001V' || error.response.status === 422 ) {
-        const errorsObject = error.response.data.data.errors
-        let errorMessage = ''
-        let isAllow = false
-        for (const [key, value] of Object.entries(errorsObject)) {
-          if(!isAllow){
-            isAllow = true
-            errorMessage = value
+      const status = error?.response?.status
+      const code = error?.response?.data?.code
+      const errorsObject = error?.response?.data?.data?.errors ?? error?.response?.data?.errors ?? null
+
+      if (code === '001V' || status === 422) {
+        let errorMessage = error?.response?.data?.message || 'Validation error'
+        if (errorsObject && typeof errorsObject === 'object') {
+          const first = Object.values(errorsObject).flat()?.[0]
+          if (first) {
+            errorMessage = first
           }
         }
+
         await toast.fire({
           icon: 'warning',
           title: 'Player Warning !!!',
           text: errorMessage,
         })
       } else {
+        const message = error?.response?.data?.message || error?.message || 'Unknown error'
         await toast.fire({
           icon: 'error',
           title: 'Player Error !!!',
-          text: "strike 3 is out, have a internal problem, " +error.response.data.message,
+          text: 'strike 3 is out, have a internal problem, ' + message,
         })
       }
       isLoading.status =!isLoading.status;
