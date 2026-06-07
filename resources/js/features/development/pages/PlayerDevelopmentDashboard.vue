@@ -30,6 +30,10 @@ const { axiosGet } = useAxiosAuth()
 const { team } = storeToRefs(useTeamStore())
 const user = useUserStore()
 
+const routePlayerId = computed(() =>
+  route.params?.playerId || String(route.query?.playerId || '').trim() || null
+)
+
 const isPlayerUser = computed(() => String(user.userData?.type || '').toLowerCase() === 'player')
 const selfPlayerId = computed(() =>
   user.userData?.id ||
@@ -50,11 +54,24 @@ const resolvedTeamId = computed(() =>
 
 const resolvedPlayerId = computed(() =>
   isPlayerUser.value
-    ? (selfPlayerId.value || route.params?.playerId || null)
-    : (route.params?.playerId || selfPlayerId.value || null)
+    ? (selfPlayerId.value || routePlayerId.value || null)
+    : (routePlayerId.value || null)
 )
 
 const backRoute = computed(() => (isPlayerUser.value ? '/player-dashboard' : '/dashboard?tab=development'))
+const playerTabRoute = computed(() => {
+  const pid = resolvedPlayerId.value
+  if (!pid) return '/development'
+
+  const query = {}
+  if (resolvedTeamId.value) query.teamId = resolvedTeamId.value
+  if (selectedPlayerName.value) query.playerName = selectedPlayerName.value
+
+  return {
+    path: `/development/player/${pid}`,
+    query,
+  }
+})
 
 const sourceData = ref(null)
 const loading = ref(false)
@@ -403,7 +420,7 @@ const scoreCards = computed(() => ([
       <!-- Top nav bar -->
       <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-900/70 px-4 py-2">
         <RouterLink :to="backRoute" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">← Back</RouterLink>
-        <RouterLink to="/development" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Player</RouterLink>
+        <RouterLink :to="playerTabRoute" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Player</RouterLink>
         <RouterLink v-if="!isPlayerUser" to="/development/team" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Team</RouterLink>
         <RouterLink v-if="!isPlayerUser" to="/development/coach" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Coach</RouterLink>
         <RouterLink v-if="!isPlayerUser" to="/development/admin/benchmarks" class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-800">Admin</RouterLink>

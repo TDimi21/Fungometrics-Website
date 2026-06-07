@@ -31,7 +31,7 @@ class PracticePlayersResource extends JsonResource
                 'last' => $data->profile?->last_name,
                 'full' => $data->profile?->first_name.' '.$data->profile?->last_name,
             ],
-            'picture' => $data->profile?->picture,
+            'picture' => $data->profile?->picture ?? config('services.images.logo'),
             'shirt_number' => $data->player->number_in_shirt ?? '?',
             'body' => [
                 'ft' => $data->player?->height_in_ft,

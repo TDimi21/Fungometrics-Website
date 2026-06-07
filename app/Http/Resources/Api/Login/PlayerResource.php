@@ -23,7 +23,7 @@ class PlayerResource extends JsonResource
             'email' => $this['player']['email'],
             'phone' => $this['player']['phone'],
             'type'=>$this['player']['type'],
-            'avatar' => $this['profile']['picture'],
+            'avatar' => $this['profile']['picture'] ?? config('services.images.logo'),
             'name' => [
                 'full' => sprintf('%s %s', $this['profile']['first_name'], $this['profile']['last_name']),
                 'first' => $this['profile']['first_name'],

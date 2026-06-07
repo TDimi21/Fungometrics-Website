@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { TableEdit } from '@/components/icons'
-import DefaultImg from '@/assets/img/noavatar.png'
+import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.png'
 import {useTrainingStore} from "../../../store/training";
 import router from "../../../../router";
 import { useAxiosAuth } from '@/composables/axios-auth.js'

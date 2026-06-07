@@ -12,7 +12,7 @@ import Loader from "../../components/Loader.vue";
 import { useRouter } from 'vue-router'
 import { useUserStore } from "@/store/user";
 import { usePlayerStore } from '@/store/players.js'
-import DefaultImg from '@/assets/img/noavatar.png'
+import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const router = useRouter()
 const { team, teams } = useTeamStore();

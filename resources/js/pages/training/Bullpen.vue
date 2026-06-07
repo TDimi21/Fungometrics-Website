@@ -13,7 +13,7 @@ import { usePlayerStore } from '@/store/players.js'
 import Loader from "../../components/Loader.vue";
 import router from "../../../router";
 import { useUserStore } from "@/store/user";
-import DefaultImg from '@/assets/img/noavatar.png'
+import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const {team, teams} = useTeamStore();
 const {axiosPost, axiosPut} = useAxiosAuth()

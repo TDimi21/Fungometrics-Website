@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { TableEdit } from '@/components/icons'
 import {useTrainingStore} from "../../store/training";
 import router from "../../../router";
-import DefaultImg from '@/assets/img/noavatar.png'
+import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const training = useTrainingStore();
 

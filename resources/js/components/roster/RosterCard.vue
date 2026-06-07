@@ -8,6 +8,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/store/players.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
+import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -25,6 +26,7 @@ const isOpenDeleteModal = ref(false)
 const playerStore = usePlayerStore()
 const { players } = storeToRefs(playerStore)
 const { axiosGet } = useAxiosAuth()
+const apiOrigin = String(api_url || '').replace(/\/api\/?$/i, '').replace(/\/$/, '')
 
 // ── Metrics modal (players only) ─────────────────────────────────────────────
 const isOpenModal    = ref(false)
@@ -84,6 +86,37 @@ const avatarSrc = computed(() => (
   ?? null
 ))
 
+const normalizeAvatarSrc = (raw) => {
+  const src = String(raw ?? '').trim()
+  if (!src) return null
+
+  const invalid = new Set(['avatar', 'null', 'undefined', 'nan', '[object object]'])
+  if (invalid.has(src.toLowerCase())) return null
+
+  if (/^https?:\/\//i.test(src)) return src
+  if (src.startsWith('data:image/')) return src
+
+  const clean = src.replace(/^\/+/, '')
+  if (!clean) return null
+
+  if (apiOrigin) {
+    if (clean.startsWith('public/')) return `${apiOrigin}/${clean}`
+    if (clean.startsWith('storage/')) return `${apiOrigin}/public/${clean}`
+    if (clean.startsWith('players/')) return `${apiOrigin}/public/storage/${clean}`
+    if (clean.startsWith('teams/')) return `${apiOrigin}/public/storage/${clean}`
+  }
+
+  return clean
+}
+
+const imageFailed = ref(false)
+watch(avatarSrc, () => { imageFailed.value = false })
+
+const resolvedAvatarSrc = computed(() => {
+  if (imageFailed.value) return updatedLogo
+  return normalizeAvatarSrc(avatarSrc.value) || updatedLogo
+})
+
 const fullName = computed(() => {
   const p = cardEntity.value?.profile || props.item?.profile || {}
   const first = p?.first_name || cardEntity.value?.name?.first || props.item?.name?.first || ''
@@ -91,15 +124,6 @@ const fullName = computed(() => {
   const full = `${first} ${last}`.trim()
   return full || cardEntity.value?.name?.full || props.item?.name?.full || cardEntity.value?.name || props.item?.name || '—'
 })
-
-const initials = computed(() =>
-  String(fullName.value || '')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w[0].toUpperCase())
-    .join('')
-)
 
 const positions = computed(() => {
   const raw = cardEntity.value?.positions ?? props.item?.positions ?? []
@@ -190,14 +214,13 @@ const submitDelete = async () => {
       <div class="relative mb-3">
         <div class="w-16 h-16 rounded-full ring-2 ring-app-red/50 overflow-hidden bg-app-navy flex items-center justify-center">
           <img
-            v-if="avatarSrc"
-            :src="avatarSrc"
+            :src="resolvedAvatarSrc"
             alt="Avatar"
             loading="lazy"
             decoding="async"
             class="w-full h-full object-cover"
+            @error="imageFailed = true"
           />
-          <span v-else class="text-xl font-bold text-white/80 select-none">{{ initials }}</span>
         </div>
   
       </div>

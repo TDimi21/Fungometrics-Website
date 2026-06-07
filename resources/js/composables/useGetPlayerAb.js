@@ -1,6 +1,6 @@
 import { useLiveABStore } from '@/store/liveAB.js'
 import { storeToRefs } from 'pinia'
-import defaultIMg from '@/assets/img/noavatar.png'
+import defaultIMg from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 export const useGetPlayerAb = () => {
   const useLiveAB = useLiveABStore()

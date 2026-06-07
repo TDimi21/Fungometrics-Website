@@ -12,7 +12,7 @@ import { Modal } from '@/components/shared'
 import { storeToRefs } from 'pinia'
 import Loader from "../../components/Loader.vue";
 import { useRouter } from 'vue-router'
-import DefaultImg from '@/assets/img/noavatar.png'
+import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.png'
 import LiveABLogoPractice from "../../components/graphics/LiveABLogoPractice.vue";
 import { PitchAndTrajectoryBtn, Counters, EndLiveABModal, BasesAndQtyContact } from '@/components/liveAB'
 import { usePlayerStore } from '@/store/players.js'

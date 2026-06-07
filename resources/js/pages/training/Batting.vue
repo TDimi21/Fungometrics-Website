@@ -13,7 +13,7 @@ import {Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot} from 
 import { usePlayerStore } from '@/store/players.js'
 import Loader from "../../components/Loader.vue";
 import {useRouter} from 'vue-router'
-import DefaultImg from '@/assets/img/noavatar.png'
+import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.png'
 import { useUserStore } from "@/store/user";
 
 const router = useRouter()
