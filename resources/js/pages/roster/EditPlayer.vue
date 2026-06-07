@@ -98,7 +98,7 @@ const submitUpdate = async () => {
   dataForm.append('email', player.value.email)
   dataForm.append('phone', player.value.mobileNumber)
   if(imageTemp == undefined){
-    dataForm.append('picture', "https://fungometrics.s3.amazonaws.com/logo.png")
+    dataForm.append('picture', "https://fungometrics.s3.amazonaws.com/updatedlogo.png")
   }else{
     dataForm.append('picture', imageTemp)
   }

@@ -137,7 +137,7 @@ const changePassword = async () => {
                 <template v-if="userData.avatar != null">
                   <img :src="userData.avatar" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
                 </template>
-                <img v-else src="../../assets/img/layout/logofungo-nav.png" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
+                <img v-else src="../../assets/img/login/assteslogin/updatedlogo.png" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
               </div>
             </div>
             <div v-else>
@@ -145,7 +145,7 @@ const changePassword = async () => {
                 <template v-if="team.logo != null">
                   <img :src="team.logo" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px]">
                 </template>
-                <img v-else src="../../assets/img/layout/logofungo-nav.png" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
+                <img v-else src="../../assets/img/login/assteslogin/updatedlogo.png" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
               </div>
             </div>
           </div>

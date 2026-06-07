@@ -352,7 +352,7 @@ const setListThrowWeightBall = (data) => {
 }
 
 const getPlayerCell = (picture, name, lastName, id) => {
-  picture = picture ? picture : 'https://fungometrics.s3.amazonaws.com/logo.png';
+  picture = picture ? picture : 'https://fungometrics.s3.amazonaws.com/updatedlogo.png';
   return `
   <td id="${id}">
     <div class="flex flex-row justify-start">

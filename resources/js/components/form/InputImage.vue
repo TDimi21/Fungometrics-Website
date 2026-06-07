@@ -1,6 +1,6 @@
 <script setup>
 import { computed, reactive } from "vue";
-import defaultImg from "../../assets/img/layout/logofungo-nav.png";
+import defaultImg from "../../assets/img/login/assteslogin/updatedlogo.png";
 
 let defaultImage = defaultImg;
 

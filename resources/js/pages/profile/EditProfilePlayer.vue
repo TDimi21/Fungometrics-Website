@@ -8,41 +8,103 @@ import {
 } from "../../components/form";
 import { ArrowRightIcon } from "@/components/icons";
 import { playerTypes } from "../../utils";
-import { reactive } from "vue";
+import { onMounted, reactive } from "vue";
 import { useUserStore } from "@/store/user";
 import Loader from "@/components/Loader.vue";
 import { useRouter } from "vue-router";
 import { states } from "../../utils";
 import { toast } from "../../utils/AlertPlugin";
 
-const { userData } = useUserStore();
+const userStore = useUserStore();
 const isLoading = reactive({ status: true });
 const router = useRouter();
-const token = JSON.parse(localStorage.getItem("auth")).token;
+const authToken = (() => {
+  try {
+    return JSON.parse(localStorage.getItem("auth") || "{}")?.token ?? "";
+  } catch {
+    return "";
+  }
+})();
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
+
+const getUserDataSnapshot = () => {
+  const data = userStore?.userData ?? {};
+  if (data && Object.keys(data).length) return data;
+
+  try {
+    const raw = sessionStorage.getItem("user");
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed?.userData ?? parsed?.state?.userData ?? {};
+  } catch {
+    return {};
+  }
+};
+
+const resolveBornDate = (user = {}) => (
+  user?.born?.date
+  ?? user?.born_date
+  ?? user?.player?.born_date
+  ?? ""
+);
+
+const resolvePositions = (user = {}) => {
+  const raw = Array.isArray(user?.positions) ? user.positions : [];
+  return raw
+    .map((types) => String(types?.position ?? types ?? "").trim())
+    .filter(Boolean);
+};
+
+const seedUser = getUserDataSnapshot();
 let player = reactive({
   type: [],
-  heightFt: userData.ft ?? 0,
-  heightInch: userData.inch ?? 0,
-  born: userData.born.date ?? "",
-  shirt_number: userData.shirt_number,
-  firstName: userData.name.first,
-  lastName: userData.name.last,
-  email: userData.email,
-  mobileNumber: userData.phone,
-  avatar: userData.avatar ?? "../../assets/img/layout/logofungo-nav.png",
+  heightFt: seedUser?.ft ?? seedUser?.player?.height_in_ft ?? 0,
+  heightInch: seedUser?.inch ?? seedUser?.player?.height_in_inch ?? 0,
+  born: resolveBornDate(seedUser),
+  shirt_number: seedUser?.shirt_number ?? seedUser?.player?.number_in_shirt ?? "",
+  firstName: seedUser?.name?.first ?? seedUser?.profile?.first_name ?? "",
+  lastName: seedUser?.name?.last ?? seedUser?.profile?.last_name ?? "",
+  email: seedUser?.email ?? "",
+  mobileNumber: seedUser?.phone ?? "",
+  avatar: seedUser?.avatar ?? seedUser?.profile?.picture ?? "../../assets/img/login/assteslogin/updatedlogo.png",
   sides: {
-    pitch: userData.throw_side,
-    hit: userData.hit_side,
+    pitch: seedUser?.throw_side ?? seedUser?.player?.throw_side ?? "",
+    hit: seedUser?.hit_side ?? seedUser?.player?.hit_side ?? "",
   },
-  weight: userData.weight ?? 0,
+  weight: seedUser?.weight ?? seedUser?.player?.weight ?? 0,
 });
 
-userData.positions.forEach((types) => {
-  const value = String(types?.position ?? '').trim()
+resolvePositions(seedUser).forEach((value) => {
   if (value && !player.type.includes(value)) {
     player.type.push(value)
   }
+});
+
+const hydratePlayerForm = () => {
+  const current = getUserDataSnapshot();
+  if (!current || !Object.keys(current).length) return;
+
+  player.heightFt = current?.ft ?? current?.player?.height_in_ft ?? player.heightFt ?? 0;
+  player.heightInch = current?.inch ?? current?.player?.height_in_inch ?? player.heightInch ?? 0;
+  player.born = resolveBornDate(current) || player.born || "";
+  player.shirt_number = current?.shirt_number ?? current?.player?.number_in_shirt ?? player.shirt_number ?? "";
+  player.firstName = current?.name?.first ?? current?.profile?.first_name ?? player.firstName ?? "";
+  player.lastName = current?.name?.last ?? current?.profile?.last_name ?? player.lastName ?? "";
+  player.email = current?.email ?? player.email ?? "";
+  player.mobileNumber = current?.phone ?? player.mobileNumber ?? "";
+  player.avatar = current?.avatar ?? current?.profile?.picture ?? player.avatar;
+  player.sides.pitch = current?.throw_side ?? current?.player?.throw_side ?? player.sides.pitch ?? "";
+  player.sides.hit = current?.hit_side ?? current?.player?.hit_side ?? player.sides.hit ?? "";
+  player.weight = current?.weight ?? current?.player?.weight ?? player.weight ?? 0;
+
+  const pos = resolvePositions(current);
+  if (pos.length) {
+    player.type = [...new Set(pos.map((p) => String(p).trim()))];
+  }
+};
+
+onMounted(() => {
+  hydratePlayerForm();
 });
 
 const normalizeType = (type) => String(type ?? '').trim().toUpperCase()
@@ -78,7 +140,7 @@ const submitUpdate = async () => {
     if (player.avatar instanceof File) {
       dataForm.append("picture", player.avatar);
     } else {
-      dataForm.append("picture", userData.avatar ?? "");
+      dataForm.append("picture", getUserDataSnapshot()?.avatar ?? "");
     }
 
     dataForm.append("profile[name][first]", player.firstName);
@@ -100,32 +162,65 @@ const submitUpdate = async () => {
     });
     const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
     const config = {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${authToken}` },
     };
 
+    const currentUser = getUserDataSnapshot();
+    const currentUserId = currentUser?.id;
+    if (!currentUserId) {
+      isLoading.status = !isLoading.status;
+      await toast.fire({
+        icon: "error",
+        title: "Player Error !!!",
+        text: "Unable to resolve player profile id. Please sign in again.",
+      });
+      return;
+    }
+
     await axios
-      .post(api_url + "edit/players/" + userData.id, dataForm, config)
+      .post(api_url + "edit/players/" + currentUserId, dataForm, config)
       .then(async function (response) {
         if (response) {
           console.log(response.data.data);
           const data = response.data.data;
-          userData.name.first = data.profile.first_name;
-          userData.name.last = data.profile.last_name;
-          userData.name.full = `${data.profile.first_name} ${data.profile.last_name}`;
-          ((userData.avatar = data.profile.picture),
-            (userData.phone = data.phone));
-          userData.born.date = data.player.born_date;
-          userData.city = data.profile.city;
-          userData.state = data.profile.state;
-          userData.hit_side = data.player.hit_side;
-          userData.shirt_number = data.player.number_in_shirt;
-          userData.positions = data.positions;
-          userData.throw_side = data.player.throw_side;
-          userData.weight = data.player.weight;
-          userData.zip = data.profile.zip;
-          userData.inch = data.player.height_in_inch;
-          userData.ft = data.player.height_in_ft;
-          console.log(userData);
+
+          const mergedUser = {
+            ...currentUser,
+            email: data?.email ?? currentUser?.email ?? player.email,
+            phone: data?.phone ?? currentUser?.phone ?? player.mobileNumber,
+            avatar: data?.profile?.picture ?? currentUser?.avatar ?? player.avatar,
+            city: data?.profile?.city ?? currentUser?.city ?? "",
+            state: data?.profile?.state ?? currentUser?.state ?? "",
+            zip: data?.profile?.zip ?? currentUser?.zip ?? "",
+            hit_side: data?.player?.hit_side ?? currentUser?.hit_side ?? player.sides.hit,
+            throw_side: data?.player?.throw_side ?? currentUser?.throw_side ?? player.sides.pitch,
+            shirt_number: data?.player?.number_in_shirt ?? currentUser?.shirt_number ?? player.shirt_number,
+            weight: data?.player?.weight ?? currentUser?.weight ?? player.weight,
+            inch: data?.player?.height_in_inch ?? currentUser?.inch ?? player.heightInch,
+            ft: data?.player?.height_in_ft ?? currentUser?.ft ?? player.heightFt,
+            positions: Array.isArray(data?.positions) ? data.positions : (currentUser?.positions ?? []),
+            name: {
+              first: data?.profile?.first_name ?? currentUser?.name?.first ?? player.firstName,
+              last: data?.profile?.last_name ?? currentUser?.name?.last ?? player.lastName,
+              full: `${data?.profile?.first_name ?? currentUser?.name?.first ?? player.firstName} ${data?.profile?.last_name ?? currentUser?.name?.last ?? player.lastName}`.trim(),
+            },
+            born: {
+              date: data?.player?.born_date ?? currentUser?.born?.date ?? player.born,
+            },
+            profile: {
+              ...(currentUser?.profile ?? {}),
+              first_name: data?.profile?.first_name ?? currentUser?.profile?.first_name ?? player.firstName,
+              last_name: data?.profile?.last_name ?? currentUser?.profile?.last_name ?? player.lastName,
+              picture: data?.profile?.picture ?? currentUser?.profile?.picture ?? player.avatar,
+              city: data?.profile?.city ?? currentUser?.profile?.city ?? currentUser?.city ?? "",
+              state: data?.profile?.state ?? currentUser?.profile?.state ?? currentUser?.state ?? "",
+              zip: data?.profile?.zip ?? currentUser?.profile?.zip ?? currentUser?.zip ?? "",
+            },
+          };
+
+          await userStore.setData(mergedUser);
+          hydratePlayerForm();
+
           isLoading.status = !isLoading.status;
           toast.fire({
             icon: "success",

@@ -39,7 +39,7 @@ return [
     ],
 
     'images'=>[
-        'logo'=>env('DEFAULT_LOGO', 'https://fungometrics.s3.amazonaws.com/logo.png'),
+        'logo'=>env('DEFAULT_LOGO', 'https://fungometrics.s3.amazonaws.com/updatedlogo.png'),
     ]
 
 ];

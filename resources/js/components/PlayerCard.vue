@@ -78,7 +78,7 @@ const close = () => {
       </template>
       <img
         v-else
-        src="../assets/img/layout/logofungo-nav.png"
+        src="../assets/img/login/assteslogin/updatedlogo.png"
         alt=""
         class="player-avatar object-cover"
       />

@@ -17,7 +17,7 @@ class UploadS3File
      */
     public static function getUrl(mixed $file, string $folder = '/'): string
     {
-        $url = config('services.images.logo', 'https://fungometrics.s3.amazonaws.com/logo.png');
+        $url = config('services.images.logo', 'https://fungometrics.s3.amazonaws.com/updatedlogo.png');
         try {
             $filename = "fungo-".time().'.'.$file->extension();
             $disk = config('filesystems.default') === 's3' ? 's3' : 'public';

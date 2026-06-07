@@ -195,7 +195,7 @@ const submitAddPlayer = async () => {
             full:
               tempResponse.profile.first_name + tempResponse.profile.last_name,
           },
-          avatar: "https://fungometrics.s3.amazonaws.com/logo.png",
+          avatar: "https://fungometrics.s3.amazonaws.com/updatedlogo.png",
           body: {
             ft: null,
             inch: null,

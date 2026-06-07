@@ -8,91 +8,172 @@ import {
   LabelField
 } from '@/components/form'
 import { ArrowRightIcon, ArrowHeadRightIcon, ArrowDownIcon } from '@/components/icons'
-import {reactive} from 'vue'
+import { onMounted, reactive, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/store/user'
-import {useTeamStore} from "@/store/team";
-import Loader from "@/components/Loader.vue";
-import {useRouter} from "vue-router"
-import {states} from '../../utils'
-import {toast} from "../../utils/AlertPlugin";
+import { useTeamStore } from '@/store/team'
+import Loader from '@/components/Loader.vue'
+import { useRouter } from 'vue-router'
+import { states } from '../../utils'
+import { toast } from '../../utils/AlertPlugin'
 
-const {userData} = useUserStore();
-const {team, setTeam } = useTeamStore();
-const isLoading = reactive({status: true})
+const userStore = useUserStore()
+const teamStore = useTeamStore()
+const { userData } = storeToRefs(userStore)
+const { team } = storeToRefs(teamStore)
+const { setTeam } = teamStore
+const isLoading = reactive({ status: true })
 const router = useRouter()
-const token = JSON.parse(localStorage.getItem('auth')).token
-const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
+const token = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('auth') || '{}')?.token ?? ''
+  } catch {
+    return ''
+  }
+})()
+const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
+
+const getUserSnapshot = () => {
+  const current = userData?.value ?? {}
+  if (current && Object.keys(current).length) return current
+  try {
+    const raw = sessionStorage.getItem('user')
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed?.userData ?? parsed?.state?.userData ?? {}
+  } catch {
+    return {}
+  }
+}
+
+const getTeamSnapshot = () => {
+  const current = team?.value ?? {}
+  if (current && Object.keys(current).length) return current
+  try {
+    const raw = sessionStorage.getItem('team')
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed?.team ?? parsed?.state?.team ?? {}
+  } catch {
+    return {}
+  }
+}
+
+const userSeed = getUserSnapshot()
+const teamSeed = getTeamSnapshot()
+
 const coach = reactive({
-  firstName: userData.name.first,
-  lastName: userData.name.last,
-  email: userData.email,
-  mobileNumber: userData.phone,
-  // levels: userData.level,
-  city: userData.city,
-  avatar: team.logo ?? '../../assets/img/layout/logofungo-nav.png',
-  state: userData.state,
-  zipCode: userData.zip,
-});
+  firstName: userSeed?.name?.first ?? userSeed?.profile?.first_name ?? '',
+  lastName: userSeed?.name?.last ?? userSeed?.profile?.last_name ?? '',
+  email: userSeed?.email ?? '',
+  mobileNumber: userSeed?.phone ?? '',
+  city: userSeed?.city ?? userSeed?.profile?.city ?? '',
+  avatar: userSeed?.avatar ?? userSeed?.profile?.picture ?? '../../assets/img/login/assteslogin/updatedlogo.png',
+  state: userSeed?.state ?? userSeed?.profile?.state ?? '',
+  zipCode: userSeed?.zip ?? userSeed?.profile?.zip ?? '',
+})
+
 const teamData = reactive({
-  name: team.name,
-  zip: team.zip,
-  state: team.state,
-  logo: team.logo ?? '../../assets/img/layout/logofungo-nav.png',
-  city: ''
-});
+  name: teamSeed?.name ?? '',
+  zip: teamSeed?.zip ?? '',
+  state: teamSeed?.state ?? '',
+  logo: teamSeed?.logo ?? '../../assets/img/login/assteslogin/updatedlogo.png',
+  city: teamSeed?.city ?? '',
+})
+
+const hydrateEditProfileForms = () => {
+  const u = getUserSnapshot()
+  const t = getTeamSnapshot()
+
+  coach.firstName = u?.name?.first ?? u?.profile?.first_name ?? coach.firstName ?? ''
+  coach.lastName = u?.name?.last ?? u?.profile?.last_name ?? coach.lastName ?? ''
+  coach.email = u?.email ?? coach.email ?? ''
+  coach.mobileNumber = u?.phone ?? coach.mobileNumber ?? ''
+  coach.city = u?.city ?? u?.profile?.city ?? coach.city ?? ''
+  coach.state = u?.state ?? u?.profile?.state ?? coach.state ?? ''
+  coach.zipCode = u?.zip ?? u?.profile?.zip ?? coach.zipCode ?? ''
+  coach.avatar = u?.avatar ?? u?.profile?.picture ?? coach.avatar
+
+  teamData.name = t?.name ?? teamData.name ?? ''
+  teamData.zip = t?.zip ?? teamData.zip ?? ''
+  teamData.state = t?.state ?? teamData.state ?? ''
+  teamData.logo = t?.logo ?? teamData.logo
+  teamData.city = t?.city ?? teamData.city ?? ''
+}
+
+onMounted(() => {
+  hydrateEditProfileForms()
+})
+
+watch(() => userData.value, () => {
+  hydrateEditProfileForms()
+}, { deep: false })
+
+watch(() => team.value, () => {
+  hydrateEditProfileForms()
+}, { deep: false })
 
 const submitEditTeam = async () => {
-  isLoading.status =!isLoading.status;
-  const imageTemp = teamData.logo.files[0] ?? team.logo
-  if(teamData.name == "" || teamData.zip == "" || teamData.state == ""){
+  isLoading.status = !isLoading.status
+  const imageTemp = teamData?.logo instanceof File
+    ? teamData.logo
+    : teamData?.logo?.files?.[0] ?? null
+
+  if (teamData.name == '' || teamData.zip == '' || teamData.state == '') {
     toast.fire({
       icon: 'warning',
       title: 'Validation !!!',
       text: 'You must complete all the fields of team',
     })
-    isLoading.status =!isLoading.status;
-  }else{
-    let dataForm = new FormData();
-    if(imageTemp == undefined || imageTemp == team.logo){
-      dataForm.append('logo', team.logo)
-    }else{
-      dataForm.append('logo', imageTemp)
-    }
+    isLoading.status = !isLoading.status
+  } else {
+    let dataForm = new FormData()
+
+    if (imageTemp) dataForm.append('logo', imageTemp)
+    else dataForm.append('logo', team.value?.logo ?? '')
 
     dataForm.append('name', teamData.name)
-    dataForm.append('state', teamData.state,)
+    dataForm.append('state', teamData.state)
 
     const config = {
       headers: { Authorization: `Bearer ${token}` }
-    };
-    await axios.post(api_url+'coach/edit/teams/'+team.id, dataForm, config).then(async function (response) {
+    }
+
+    await axios.post(api_url + 'coach/edit/teams/' + team.value?.id, dataForm, config).then(async function (response) {
       let tempResponse = response.data.data
       let teamToSetInStore = {
-        "id": tempResponse.id,
-        "name": tempResponse.name,
-        "logo": tempResponse.logo,
-        "zip": tempResponse.zip,
-        "state": tempResponse.state,
-        "created_at": tempResponse.created_at,
-        "updated_at": tempResponse.updated_at,
-        "num_players": team.num_players
+        id: tempResponse.id,
+        name: tempResponse.name,
+        logo: tempResponse.logo,
+        zip: tempResponse.zip,
+        state: tempResponse.state,
+        city: tempResponse.city,
+        created_at: tempResponse.created_at,
+        updated_at: tempResponse.updated_at,
+        num_players: team.value?.num_players,
       }
-      await setTeam(teamToSetInStore);
+
+      await setTeam(teamToSetInStore)
+      teamData.name = teamToSetInStore.name ?? teamData.name
+      teamData.zip = teamToSetInStore.zip ?? teamData.zip
+      teamData.state = teamToSetInStore.state ?? teamData.state
+      teamData.logo = teamToSetInStore.logo ?? teamData.logo
+
       toast.fire({
         icon: 'success',
         title: 'Team Update',
         text: response.data.message,
       })
-      isLoading.status =!isLoading.status;
-      router.replace("/")
-    }).catch(async function (error){
-      console.log(error.response);
-      if (error.response.data.code === '001V' || error.response.status === 422 ) {
+      isLoading.status = !isLoading.status
+      router.replace('/')
+    }).catch(async function (error) {
+      console.log(error.response)
+      if (error.response.data.code === '001V' || error.response.status === 422) {
         const errorsObject = error.response.data.data.errors
         let errorMessage = ''
         let isAllow = false
         for (const [key, value] of Object.entries(errorsObject)) {
-          if(!isAllow){
+          if (!isAllow) {
             isAllow = true
             errorMessage = value
           }
@@ -102,72 +183,93 @@ const submitEditTeam = async () => {
           title: 'Team Warning !!!',
           text: errorMessage,
         })
-        isLoading.status =!isLoading.status;
+        isLoading.status = !isLoading.status
       } else {
         await toast.fire({
           icon: 'error',
           title: 'Team Error !!!',
-          text: "strike 3 is out, have a internal problem, " +error.response.data.message,
+          text: 'strike 3 is out, have a internal problem, ' + error.response.data.message,
         })
-        isLoading.status =!isLoading.status;
+        isLoading.status = !isLoading.status
       }
     })
   }
 }
 
 const submitEditCoach = async () => {
-  isLoading.status =!isLoading.status;
-  const imageTemp = coach.avatar.files[0] ?? team.logo
-  if(coach.firstName == "" || coach.lastName == "" || coach.email == "" || coach.mobileNumber == ""){
+  isLoading.status = !isLoading.status
+  const imageTemp = coach?.avatar instanceof File
+    ? coach.avatar
+    : coach?.avatar?.files?.[0] ?? null
+  const currentUser = getUserSnapshot()
+
+  if (coach.firstName == '' || coach.lastName == '' || coach.email == '' || coach.mobileNumber == '') {
     toast.fire({
       icon: 'warning',
       title: 'Validation !!!',
       text: 'You must complete all the fields of coach',
     })
-    isLoading.status =!isLoading.status;
-  }else{
-    let dataForm = new FormData();
-    if(imageTemp == undefined || imageTemp == team.logo){
-      dataForm.append('picture', team.logo)
-    }else{
-      dataForm.append('picture', imageTemp)
-    }
+    isLoading.status = !isLoading.status
+  } else {
+    let dataForm = new FormData()
+    if (imageTemp) dataForm.append('picture', imageTemp)
+    else dataForm.append('picture', currentUser?.avatar ?? currentUser?.profile?.picture ?? '')
 
     dataForm.append('first_name', coach.firstName)
     dataForm.append('last_name', coach.lastName)
     dataForm.append('email', coach.email)
     dataForm.append('phone', coach.mobileNumber)
-    dataForm.append('state', coach.state,)
-    dataForm.append('city', coach.city,)
+    dataForm.append('state', coach.state)
+    dataForm.append('city', coach.city)
+
     const config = {
       headers: { Authorization: `Bearer ${token}` }
-    };
-    await axios.post(api_url+'coach/edit/', dataForm, config).then(async function (response) {
+    }
+
+    await axios.post(api_url + 'coach/edit/', dataForm, config).then(async function (response) {
       let tempResponse = response.data.data
-      userData.name.first = coach.firstName
-      userData.name.last = coach.lastName
-      userData.name.full = `${coach.firstName} ${coach.lastName}`
-      userData.avatar = tempResponse.profile.picture
-      userData.phone = coach.mobileNumber
-      userData.state = coach.state
-      userData.zip = coach.zipCode
-      userData.city = coach.city
+      const mergedUser = {
+        ...currentUser,
+        email: coach.email,
+        phone: coach.mobileNumber,
+        avatar: tempResponse?.profile?.picture ?? currentUser?.avatar ?? currentUser?.profile?.picture ?? coach.avatar,
+        state: coach.state,
+        city: coach.city,
+        zip: coach.zipCode,
+        name: {
+          first: coach.firstName,
+          last: coach.lastName,
+          full: `${coach.firstName} ${coach.lastName}`.trim(),
+        },
+        profile: {
+          ...(currentUser?.profile ?? {}),
+          first_name: coach.firstName,
+          last_name: coach.lastName,
+          picture: tempResponse?.profile?.picture ?? currentUser?.profile?.picture ?? currentUser?.avatar,
+          state: coach.state,
+          city: coach.city,
+          zip: coach.zipCode,
+        },
+      }
+
+      await userStore.setData(mergedUser)
+      hydrateEditProfileForms()
 
       toast.fire({
         icon: 'success',
         title: 'Coach Update',
         text: response.data.message,
       })
-      isLoading.status =!isLoading.status;
-      router.replace("/")
-    }).catch(async function (error){
-      console.log(error.response);
-      if (error.response.data.code === '001V' || error.response.status === 422 ) {
+      isLoading.status = !isLoading.status
+      router.replace('/')
+    }).catch(async function (error) {
+      console.log(error.response)
+      if (error.response.data.code === '001V' || error.response.status === 422) {
         const errorsObject = error.response.data.data.errors
         let errorMessage = ''
         let isAllow = false
         for (const [key, value] of Object.entries(errorsObject)) {
-          if(!isAllow){
+          if (!isAllow) {
             isAllow = true
             errorMessage = value
           }
@@ -177,14 +279,14 @@ const submitEditCoach = async () => {
           title: 'Coach Warning !!!',
           text: errorMessage,
         })
-        isLoading.status =!isLoading.status;
+        isLoading.status = !isLoading.status
       } else {
         await toast.fire({
           icon: 'error',
           title: 'Team Error !!!',
-          text: "strike 3 is out, have a internal problem, " +error.response.data.message,
+          text: 'strike 3 is out, have a internal problem, ' + error.response.data.message,
         })
-        isLoading.status =!isLoading.status;
+        isLoading.status = !isLoading.status
       }
     })
   }
