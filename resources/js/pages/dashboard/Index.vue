@@ -260,6 +260,35 @@ const playerCardsByName = computed(() => {
 
 const top10PlayerName = (item) => item?.name ?? '—'
 
+const top10MetricValue = (item, tab) => {
+  if (!tab) return null
+  if (tab.value === 12) return toNumeric(item?.score)
+  return toNumeric(item?.[tab.key])
+}
+
+const dedupeTop10Players = (rows, tab) => {
+  const map = new Map()
+  for (const row of (rows ?? [])) {
+    const name = top10PlayerName(row)
+    const key = normalizePlayerName(name)
+    if (!key) continue
+
+    const metricValue = top10MetricValue(row, tab)
+    const current = map.get(key)
+
+    if (!current || (metricValue ?? -Infinity) > (current._metricValue ?? -Infinity)) {
+      map.set(key, {
+        ...row,
+        _metricValue: metricValue,
+      })
+    }
+  }
+
+  return [...map.values()]
+    .sort((a, b) => (b?._metricValue ?? -Infinity) - (a?._metricValue ?? -Infinity))
+    .slice(0, 10)
+}
+
 const top10PlayerInitials = (item) => {
   const name = top10PlayerName(item)
   return name
@@ -282,7 +311,7 @@ const top10PlayerAvatar = (item) => {
 const top10FallbackAvatar = updatedLogo
 
 const topStrengthRows = computed(() => {
-  return (teamPlayerCards.value ?? [])
+  const rows = (teamPlayerCards.value ?? [])
     .map((card) => ({
       name:
         card?.profile?.full_name
@@ -292,15 +321,67 @@ const topStrengthRows = computed(() => {
       avatar: card?.profile?.picture ?? null,
       score: toNumeric(card?.fmtrxx_strength_score),
     }))
-    .filter(row => row.score !== null)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10)
+
+  return dedupeTop10Players(rows, { value: 12, key: 'score' })
 })
 
 const top10Rows = computed(() => {
-  if (top10Tab.value === 12) return topStrengthRows.value
-  return (top10Data.value ?? []).slice(0, 10)
+  if (top10Tab.value === 12) return topStrengthRows.value.slice(0, 10)
+  return dedupeTop10Players(top10Data.value ?? [], activeTop10Tab.value)
 })
+
+const top10Modal = ref({ visible: false, loading: false, tab: null, rows: [] })
+
+const closeTop10Modal = () => {
+  top10Modal.value.visible = false
+}
+
+const loadTop10RowsForTab = async (tab, force = true) => {
+  if (!tab) return []
+  if (tab.value === 12) {
+    await ensureTeamPlayerCards()
+    return topStrengthRows.value.slice(0, 10)
+  }
+
+  if (!getActiveTeamIdCandidates().length) return []
+
+  const { data } = await withTeamIdFallbackPost(
+    (id) => 'table/' + id,
+    () => ({ option: tab.value, range: top10Range.value })
+  )
+
+  const rows = dedupeTop10Players(data?.data?.all ?? [], tab)
+
+  if (tab.value === top10Tab.value || force) {
+    top10Data.value = rows
+    writeDashboardCache({
+      top10Data: top10Data.value,
+      top10Tab: tab.value,
+      top10Range: top10Range.value,
+    })
+  }
+
+  return rows
+}
+
+const openTop10Modal = async (tab) => {
+  if (!tab) return
+  top10Tab.value = tab.value
+  top10Modal.value = { visible: true, loading: true, tab, rows: [] }
+  try {
+    const rows = await loadTop10RowsForTab(tab, true)
+    top10Modal.value = { visible: true, loading: false, tab, rows }
+  } catch (e) {
+    console.warn('openTop10Modal', e)
+    top10Modal.value = { visible: true, loading: false, tab, rows: [] }
+  }
+}
+
+const formatTop10MetricValue = (item, tab) => {
+  const value = top10MetricValue(item, tab)
+  if (value === null) return '—'
+  return `${value}${tab?.suffix ?? ''}`
+}
 
 // ── Player Development Board ──────────────────────────────────────────────────
 const devBoard = ref([])
@@ -372,11 +453,7 @@ const getTop10 = async (force = false) => {
   if (!getActiveTeamIdCandidates().length) return
   top10Loading.value = true
   try {
-    const { data } = await withTeamIdFallbackPost(
-      (id) => 'table/' + id,
-      () => ({ option: top10Tab.value, range: top10Range.value })
-    )
-    top10Data.value = data?.data?.all ?? []
+    top10Data.value = await loadTop10RowsForTab(activeTop10Tab.value, force)
     writeDashboardCache({
       top10Data: top10Data.value,
       top10Tab: top10Tab.value,
@@ -2345,16 +2422,19 @@ watch(
 
               <!-- Player Leaders view -->
               <template v-if="top10Mode === 'players'">
-                <!-- Tab pills -->
-                <div class="flex flex-wrap gap-1.5 mb-5">
+                <!-- Metric cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
                   <button
                     v-for="tab in top10Tabs" :key="tab.value"
-                    @click="switchTop10Tab(tab.value)"
-                    class="px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wide transition-all border"
+                    @click="openTop10Modal(tab)"
+                    class="text-left rounded-xl border p-3 transition-all"
                     :class="top10Tab === tab.value
-                      ? 'bg-[#C00000] border-[#C00000] text-white shadow-lg shadow-red-900/30'
-                      : 'bg-transparent border-white/15 text-white/40 hover:border-white/40 hover:text-white'"
-                  >{{ tab.label }}</button>
+                      ? 'bg-[#C00000]/20 border-[#C00000]/60 text-white shadow-lg shadow-red-900/30'
+                      : 'bg-white/[0.04] border-white/15 text-white/80 hover:border-white/35 hover:bg-white/[0.07]'"
+                  >
+                    <div class="text-[11px] font-black uppercase tracking-widest">{{ tab.label }}</div>
+                    <div class="mt-2 text-xs text-white/60">Open modal to view top 10 players</div>
+                  </button>
                 </div>
 
                 <!-- Range filter -->
@@ -2364,7 +2444,7 @@ watch(
                     <button
                       v-for="r in [{ l: 'All', v: 0 }, { l: '1Y', v: 12 }, { l: '1M', v: 6 }, { l: '1W', v: 3 }]"
                       :key="r.v"
-                      @click="top10Range = r.v; top10Tab === 12 ? ensureTeamPlayerCards() : getTop10()"
+                      @click="top10Range = r.v; top10Tab === 12 ? ensureTeamPlayerCards() : getTop10(true)"
                       class="px-2.5 py-1 rounded-lg text-xs font-bold transition border"
                       :class="top10Range === r.v
                         ? 'bg-white/15 border-white/30 text-white'
@@ -2373,40 +2453,15 @@ watch(
                   </div>
                 </div>
 
-                <!-- Loading -->
-                <div v-if="top10Loading" class="flex justify-center py-8">
-                  <svg class="animate-spin w-6 h-6 text-[#C00000]" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                  </svg>
-                </div>
-
-                <!-- Empty -->
-                <div v-else-if="!top10Rows.length" class="text-white/25 text-sm text-center py-8">No data for this period</div>
-
-                <!-- Rows -->
-                <div v-else class="flex flex-col gap-1.5">
-                  <div
-                    v-for="(item, idx) in top10Rows" :key="idx"
-                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/5 hover:bg-white/5 hover:border-white/15 transition cursor-pointer group"
-                  >
-                    <span class="w-5 text-center text-sm font-black shrink-0"
-                      :class="idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-400' : 'text-white/30'">
-                      {{ idx + 1 }}
-                    </span>
-                    <div class="flex-1 min-w-0 flex items-center gap-2">
-                      <div class="w-7 h-7 rounded-full overflow-hidden ring-1 ring-white/20 bg-[#0f172a] shrink-0 flex items-center justify-center">
-                        <img
-                          :src="top10PlayerAvatar(item) || top10FallbackAvatar"
-                          alt="player avatar"
-                          class="w-full h-full object-cover"
-                        />
-                      </div>
-                      <span class="text-sm font-bold text-white truncate">{{ top10PlayerName(item) }}</span>
-                    </div>
-                    <span class="text-xs font-black text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full group-hover:bg-green-500/20 transition whitespace-nowrap">
-                      {{ top10Tab === 12 ? (item.score ?? '—') : (item[activeTop10Tab.key] ?? '—') }}{{ top10Tab !== 12 && item[activeTop10Tab.key] ? activeTop10Tab.suffix : '' }}
-                    </span>
+                <!-- Selected category quick preview -->
+                <div v-if="top10Rows.length" class="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-xs uppercase tracking-widest text-white/45">Selected Category</div>
+                    <button class="text-[10px] uppercase tracking-widest text-[#FCA5A5]" @click="openTop10Modal(activeTop10Tab)">Open Top 10</button>
+                  </div>
+                  <div class="mt-1.5 text-sm font-black text-white">{{ activeTop10Tab.label }}</div>
+                  <div class="mt-1 text-xs text-white/70">
+                    Leader: {{ top10PlayerName(top10Rows[0]) }} · {{ formatTop10MetricValue(top10Rows[0], activeTop10Tab) }}
                   </div>
                 </div>
               </template>
@@ -3206,6 +3261,66 @@ watch(
                   </div>
                   <p class="text-sm text-white/90 leading-relaxed">{{ coachTakeaway }}</p>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Top 10 Player Leaders Modal -->
+    <Teleport to="body">
+      <Transition name="sheet">
+        <div
+          v-if="top10Modal.visible"
+          class="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 overflow-y-auto"
+          style="background: rgba(0,0,0,0.65)"
+          @click.self="closeTop10Modal"
+        >
+          <div class="w-full max-w-xl bg-[#0d1b33] rounded-2xl pt-6 pb-6 px-4 sm:px-6 shadow-2xl border border-white/10 mt-1 sm:mt-2 max-h-[92vh] flex flex-col">
+            <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5"></div>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h2 class="text-xl font-black text-white">{{ top10Modal.tab?.label || 'Top 10 Players' }}</h2>
+                <p class="text-white/50 text-sm mt-0.5">Highest value per player (duplicates removed)</p>
+              </div>
+              <button class="text-white/60 hover:text-white text-sm font-black" @click="closeTop10Modal">Close</button>
+            </div>
+
+            <div v-if="top10Modal.loading" class="flex justify-center py-10">
+              <svg class="animate-spin w-6 h-6 text-[#C00000]" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+            </div>
+
+            <div v-else-if="!top10Modal.rows.length" class="text-white/40 text-sm py-10 text-center">No player data for this period</div>
+
+            <div v-else class="mt-4 flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto pr-1">
+              <div
+                v-for="(item, idx) in top10Modal.rows"
+                :key="`${top10PlayerName(item)}-${idx}`"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/10 bg-white/[0.03]"
+              >
+                <span
+                  class="w-5 text-center text-sm font-black shrink-0"
+                  :class="idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-400' : 'text-white/30'"
+                >
+                  {{ idx + 1 }}
+                </span>
+                <div class="flex-1 min-w-0 flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-full overflow-hidden ring-1 ring-white/20 bg-[#0f172a] shrink-0 flex items-center justify-center">
+                    <img
+                      :src="top10PlayerAvatar(item) || top10FallbackAvatar"
+                      alt="player avatar"
+                      class="w-full h-full object-cover"
+                    />
+                  </div>
+                  <span class="text-sm font-bold text-white truncate">{{ top10PlayerName(item) }}</span>
+                </div>
+                <span class="text-xs font-black text-green-300 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full whitespace-nowrap">
+                  {{ formatTop10MetricValue(item, top10Modal.tab) }}
+                </span>
               </div>
             </div>
           </div>

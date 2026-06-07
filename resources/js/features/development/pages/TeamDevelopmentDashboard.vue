@@ -30,6 +30,12 @@ const perf = ref({})
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
 const selectedPlayers = ref([])
+const priorityTop10Modal = ref({
+  open: false,
+  key: null,
+  label: '',
+  unit: '',
+})
 
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : null)
 const clamp = (x, min = 0, max = 100) => Math.max(min, Math.min(max, x))
@@ -461,6 +467,50 @@ const trendChip = (delta) => {
   if (d > 0) return { text: `↑ +${round1(d)}`, cls: 'text-emerald-300' }
   return { text: `↓ ${round1(d)}`, cls: 'text-red-300' }
 }
+
+const normalizePlayerName = (name) => String(name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+
+const openPriorityTop10 = (metric) => {
+  if (!metric?.key) return
+  priorityTop10Modal.value = {
+    open: true,
+    key: metric.key,
+    label: metric.label,
+    unit: metric.unit || '',
+  }
+}
+
+const closePriorityTop10 = () => {
+  priorityTop10Modal.value.open = false
+}
+
+const priorityTop10Rows = computed(() => {
+  const key = priorityTop10Modal.value.key
+  if (!key) return []
+
+  const byName = new Map()
+  for (const p of playersWithPercentile.value) {
+    const playerName = p?.name || 'Player'
+    const norm = normalizePlayerName(playerName)
+    if (!norm) continue
+    const value = n(p?.metrics?.[key])
+    if (value === null) continue
+
+    const current = byName.get(norm)
+    if (!current || value > current.value) {
+      byName.set(norm, {
+        id: p?.id,
+        name: playerName,
+        value,
+        trend: p?.trend || '—',
+      })
+    }
+  }
+
+  return [...byName.values()]
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10)
+})
 </script>
 
 <template>
@@ -527,13 +577,20 @@ const trendChip = (delta) => {
         <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
           <h3 class="text-lg font-semibold text-white">Priority Metric Cards</h3>
           <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div v-for="m in metricCardData" :key="m.key" class="rounded-lg border border-white/10 bg-white/5 p-3">
+            <button
+              v-for="m in metricCardData"
+              :key="m.key"
+              type="button"
+              class="rounded-lg border border-white/10 bg-white/5 p-3 text-left transition hover:border-white/25 hover:bg-white/10 cursor-pointer"
+              @click="openPriorityTop10(m)"
+            >
               <p class="text-[10px] uppercase tracking-wider text-white/40">{{ m.label }}</p>
               <p class="mt-1 text-2xl font-black" :class="m.tone">{{ m.value ?? '—' }}<span class="text-sm font-semibold">{{ m.unit ? ` ${m.unit}` : '' }}</span></p>
               <p class="mt-1 text-xs" :class="trendChip(m.delta).cls">{{ trendChip(m.delta).text }}</p>
               <p class="mt-1 text-xs text-slate-300">{{ m.status }}<span v-if="m.goal !== null"> · Goal {{ m.goal }}{{ m.unit ? ` ${m.unit}` : '' }}</span></p>
               <p class="mt-1 text-[11px] text-white/50">{{ m.insight }}</p>
-            </div>
+              <p class="mt-2 text-[10px] uppercase tracking-wider text-red-200/80">Tap to view Top 10 players</p>
+            </button>
           </div>
         </div>
 
@@ -687,6 +744,48 @@ const trendChip = (delta) => {
           </div>
         </div>
       </template>
+
+      <Teleport to="body">
+        <Transition name="fade">
+          <div
+            v-if="priorityTop10Modal.open"
+            class="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-3 sm:p-6"
+            @click.self="closePriorityTop10"
+          >
+            <div class="w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0c1630] shadow-2xl max-h-[92vh] flex flex-col">
+              <div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                <div>
+                  <p class="text-xs uppercase tracking-widest text-white/45">Priority Metric Top 10</p>
+                  <h3 class="text-lg font-semibold text-white">{{ priorityTop10Modal.label }}</h3>
+                </div>
+                <button type="button" class="rounded-md border border-white/20 px-2 py-1 text-xs text-slate-200 hover:bg-white/10" @click="closePriorityTop10">Close</button>
+              </div>
+
+              <div class="overflow-y-auto p-4">
+                <div v-if="!priorityTop10Rows.length" class="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                  No player data available for this metric yet.
+                </div>
+
+                <div v-else class="space-y-2">
+                  <div
+                    v-for="(row, idx) in priorityTop10Rows"
+                    :key="`${row.name}-${idx}`"
+                    class="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span class="w-6 text-center text-sm font-black" :class="idx === 0 ? 'text-yellow-300' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-300' : 'text-slate-500'">{{ idx + 1 }}</span>
+                      <span class="text-sm font-semibold text-white">{{ row.name }}</span>
+                    </div>
+                    <div class="text-sm font-black text-emerald-300">
+                      {{ row.value }}{{ priorityTop10Modal.unit ? ` ${priorityTop10Modal.unit}` : '' }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
     </div>
   </Layout>
 </template>
