@@ -45,7 +45,17 @@ class LiveABPracticeResult extends Model
         'is_ball',
         'batting_result_id',
         'pitching_result_id',
-        'count_b_s'
+        'count_b_s',
+        // Game-engine play result fields
+        'play_result',
+        'outs_recorded',
+        'runs_scored',
+        'rbi',
+        'is_safe',
+        'sac_fly',
+        'sac_bunt',
+        'runners_before',
+        'runners_after',
     ];
 
     public function practice(): BelongsTo

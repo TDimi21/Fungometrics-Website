@@ -106,7 +106,17 @@ class EditLiveABResultPractice extends Controller
                 'isStrike' => $isStrike,
                 'isBall' => $isBall,
                 'bases' => $requestData['bases'],
-                'count_b_s' => "{$numStrike}-{$numBall}"
+                'count_b_s' => "{$numStrike}-{$numBall}",
+                // Game-engine play result fields
+                'play_result'    => $requestData['play_result'] ?? null,
+                'outs_recorded'  => $requestData['outs_recorded'] ?? 0,
+                'runs_scored'    => $requestData['runs_scored'] ?? 0,
+                'rbi'            => $requestData['rbi'] ?? 0,
+                'is_safe'        => $requestData['is_safe'] ?? false,
+                'sac_fly'        => $requestData['sac_fly'] ?? false,
+                'sac_bunt'       => $requestData['sac_bunt'] ?? false,
+                'runners_before' => isset($requestData['runners_before']) ? json_encode($requestData['runners_before']) : null,
+                'runners_after'  => isset($requestData['runners_after'])  ? json_encode($requestData['runners_after'])  : null,
             ]);
             DB::commit();
             $response = [
