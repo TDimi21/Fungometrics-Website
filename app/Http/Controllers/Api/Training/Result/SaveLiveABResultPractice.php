@@ -30,6 +30,11 @@ class SaveLiveABResultPractice extends Controller
     {
         try {
 
+            $hasBattingZoneColumn = Schema::hasColumn('batting_practice_results', 'zone');
+            $hasBullpenZoneColumn = Schema::hasColumn('bullpen_practice_results', 'zone');
+            $hasTurnPitchesColumn = Schema::hasColumn('live_a_b_practice_results', 'turn_pitches');
+            $hasCountBsColumn = Schema::hasColumn('live_a_b_practice_results', 'count_b_s');
+
             $count = LiveABPracticeResult::where('practice_id', '=', $request->practice_id)->count();
 
             DB::beginTransaction();
@@ -43,7 +48,7 @@ class SaveLiveABResultPractice extends Controller
             $zone = $typeOfHit === BattingTrajectory::HIT_BY_PITCH->value
                 ? SidesPitchPosition::ZONE_BALL->value
                 : ($requestData['zone'] ?? SidesPitchPosition::ZONE_BALL->value);
-            $batting = (new CreateServiceData(new BattingPracticeResult()))->handle([
+            $battingPayload = [
                 'practice_id' => $requestData['practice_id'],
                 'team_id' => $requestData['batting']['team_id'],
                 'batter_id' => $requestData['batting']['batter_id'],
@@ -57,9 +62,15 @@ class SaveLiveABResultPractice extends Controller
                 'velocity' => $requestData['batting']['velocity'],
                 'sort' => $sortValue,
                 'is_in_match' => true,
-                'zone' => $zone
-            ]);
-            $pitching = (new CreateServiceData(new BullpenPracticeResult()))->handle([
+            ];
+
+            if ($hasBattingZoneColumn) {
+                $battingPayload['zone'] = $zone;
+            }
+
+            $batting = (new CreateServiceData(new BattingPracticeResult()))->handle($battingPayload);
+
+            $pitchingPayload = [
                 'practice_id' => $requestData['practice_id'],
                 'team_id' => $requestData['pitching']['team_id'],
                 'pitcher_id' => $requestData['pitching']['pitcher_id'],
@@ -71,9 +82,13 @@ class SaveLiveABResultPractice extends Controller
                 'trajectory' => $typeOfHit,
                 'is_in_match' => true,
                 'sort' => $sortValue,
-                'zone' => $zone
+            ];
 
-            ]);
+            if ($hasBullpenZoneColumn) {
+                $pitchingPayload['zone'] = $zone;
+            }
+
+            $pitching = (new CreateServiceData(new BullpenPracticeResult()))->handle($pitchingPayload);
 
             $isHit = false;
             $isStrike = false;
@@ -163,7 +178,6 @@ class SaveLiveABResultPractice extends Controller
             $liveAbPayload = [
                 'practice_id' => $requestData['practice_id'],
                 'turn' => $requestData['turn']['turn'],
-                'turn_pitches' => $requestData['turn']['pitches'],
                 'turn_strike' => $numStrike,
                 'turn_ball' => $numBall,
                 'turn_is_over' => $requestData['turn']['is_over'],
@@ -174,8 +188,15 @@ class SaveLiveABResultPractice extends Controller
                 'bases' => $requestData['bases'],
                 'batting_result_id' => $batting->id,
                 'pitching_result_id' => $pitching->id,
-                'count_b_s' => $count_b_s,
             ];
+
+            if ($hasTurnPitchesColumn) {
+                $liveAbPayload['turn_pitches'] = $requestData['turn']['pitches'];
+            }
+
+            if ($hasCountBsColumn) {
+                $liveAbPayload['count_b_s'] = $count_b_s;
+            }
 
             // Backward compatibility: some environments may not have the
             // 2026 play-result columns migrated yet.
@@ -228,6 +249,9 @@ class SaveLiveABResultPractice extends Controller
             Log::error('SaveLiveABResultPractice error', [
                 'message' => $exception->getMessage(),
                 'practice_id' => $request->practice_id,
+                'payload' => $request->validated(),
+                'line' => $exception->getLine(),
+                'file' => $exception->getFile(),
             ]);
 
             return response()->json($response, HttpCodes::HTTP_INTERNAL_SERVER_ERROR);
