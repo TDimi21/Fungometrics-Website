@@ -1,4 +1,4 @@
-tail -n 120 storage/logs/laravel.log<?php
+<?php
 
 declare(strict_types=1);
 
