@@ -8,8 +8,10 @@ use App\Exceptions\NotFound;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\PracticesTeamList;
 use App\Models\CoachTeam;
+use App\Models\Concerns\PracticeTypes;
 use App\Models\Concerns\UserTypes;
 use App\Models\Practice;
+use App\Models\TeamsLiveAB;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,10 +33,10 @@ class GetTeamsPracticesSessionsByType extends Controller
                 $teams = CoachTeam::where('coach_id', Auth::id())
                     ->pluck('team_id')
                     ->all();
-                $practices = Practice::select('practices.*')
+
+                $practiceQuery = Practice::select('practices.*')
                     ->with('team', 'lineup.user.profile')
                     ->where('type', '=', $request->type)
-                    ->whereIn('team_id', $teams)
                     ->when(request('search'), function ($query) use ($request): void {
                         collect(explode(' ', $request->search))->filter()->each(function ($term) use ($query): void {
                             $query->where(function ($query) use ($term): void {
@@ -49,8 +51,22 @@ class GetTeamsPracticesSessionsByType extends Controller
                                     });
                             });
                         });
-                    })
-                    ->paginate();
+                    });
+
+                // LiveAB sessions can involve two teams; include by TeamsLiveAB membership
+                // so sessions created with team_id set to the opposite side still appear.
+                if ((string) $request->type === PracticeTypes::LIVE_AB->value) {
+                    $livePracticeIds = TeamsLiveAB::whereIn('team_id', $teams)
+                        ->distinct()
+                        ->pluck('practice_id')
+                        ->all();
+
+                    $practiceQuery->whereIn('id', $livePracticeIds);
+                } else {
+                    $practiceQuery->whereIn('team_id', $teams);
+                }
+
+                $practices = $practiceQuery->paginate();
             } else {
                 $practices = Practice::with('team')
                     ->where('user_id', Auth::id())
