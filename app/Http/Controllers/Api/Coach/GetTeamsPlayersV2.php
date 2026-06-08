@@ -57,6 +57,8 @@ class GetTeamsPlayersV2 extends Controller
                     'logo'        => $team->logo ?? '',
                     'num_players' => count($team->team_players),
                     'join_code'   => $team->join_code,
+                    'is_dummy'    => (bool) $team->is_dummy,
+                    'owner_team_id' => $team->owner_team_id,
                 ];
             });
 

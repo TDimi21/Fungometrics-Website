@@ -30,6 +30,8 @@ class Team extends Model
         'state',
         'zip',
         'join_code',
+        'is_dummy',
+        'owner_team_id',
     ];
 
     public static function generateJoinCode(): string
