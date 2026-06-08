@@ -12,6 +12,7 @@ use App\Models\BullpenPracticeResult;
 use App\Models\Concerns\BattingTrajectory;
 use App\Models\Concerns\SidesPitchPosition;
 use App\Models\LiveABPracticeResult;
+use App\Models\Practice;
 use App\Services\CreateServiceData;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -40,6 +41,47 @@ class SaveLiveABResultPractice extends Controller
             DB::beginTransaction();
             $sortValue = $count++;
             $requestData = $request->validated();
+
+            $practiceId = (string) ($requestData['practice_id'] ?? '');
+            $battingTeamId = (string) ($requestData['batting']['team_id'] ?? '');
+            $pitchingTeamId = (string) ($requestData['pitching']['team_id'] ?? '');
+            $batterId = (string) ($requestData['batting']['batter_id'] ?? '');
+            $pitcherId = (string) ($requestData['pitching']['pitcher_id'] ?? '');
+
+            if (!Practice::query()->where('id', $practiceId)->exists()) {
+                DB::rollBack();
+
+                return response()->json([
+                    'code' => '010-E',
+                    'message' => 'invalid practice_id for liveab result',
+                    'status' => 'error',
+                    'data' => [
+                        'practice_id' => $practiceId,
+                    ],
+                ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $hasDummyIds = str_starts_with($battingTeamId, 'dummy-')
+                || str_starts_with($pitchingTeamId, 'dummy-')
+                || str_starts_with($batterId, 'DUMMY-')
+                || str_starts_with($pitcherId, 'DUMMY-');
+
+            if ($hasDummyIds) {
+                DB::rollBack();
+
+                return response()->json([
+                    'code' => '010-E',
+                    'message' => 'dummy ids are offline-only and cannot be saved online',
+                    'status' => 'error',
+                    'data' => [
+                        'batting_team_id' => $battingTeamId,
+                        'pitching_team_id' => $pitchingTeamId,
+                        'batter_id' => $batterId,
+                        'pitcher_id' => $pitcherId,
+                    ],
+                ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
             $typeOfHit = $requestData['type_of_hit'] ?? BattingTrajectory::TAKE->value;
             $fieldMark = isset($requestData['batting']['field_mark']) && $requestData['batting']['field_mark'] !== null
                 ? (int) $requestData['batting']['field_mark']
