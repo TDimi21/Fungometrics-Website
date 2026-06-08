@@ -9,9 +9,11 @@ use App\Http\Requests\Api\Training\AddNewLiveABSessionRequest;
 use App\Http\Resources\Api\PracticeLiveABSessionResource;
 use App\Models\Concerns\PracticeModes;
 use App\Models\Concerns\PracticeTypes;
+use App\Models\Player;
 use App\Models\Practice;
 use App\Models\PracticeLineUp;
 use App\Models\TeamsLiveAB;
+use App\Models\User;
 use App\Services\CreateServiceData;
 use Carbon\Carbon;
 use Exception;
@@ -36,12 +38,46 @@ class AddNewLiveABSession extends Controller
             $dataRequest['started'] = Carbon::now();
             $dataRequest['modes'] = $dataRequest['modes']??PracticeModes::HIT_OR_PITCH->value;
             $dataRequest['type'] = $dataRequest['type']??PracticeTypes::LIVE_AB->value;
+
+            $teamsInput = $dataRequest['teams'] ?? [];
+            $playersInput = $dataRequest['players'] ?? [];
+
+            $teamA = (string) ($teamsInput['a'] ?? $teamsInput[0] ?? '');
+            $teamB = (string) ($teamsInput['b'] ?? $teamsInput[1] ?? '');
+
+            if ('' === $teamA || '' === $teamB) {
+                DB::rollBack();
+                return response()->json([
+                    'code' => '022-E',
+                    'message' => 'teams a and b are required',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $batters = $playersInput['a'] ?? $playersInput[0] ?? [];
+            $pitchers = $playersInput['b'] ?? $playersInput[1] ?? [];
+
+            if (!is_array($batters) || !is_array($pitchers) || count($batters) === 0 || count($pitchers) === 0) {
+                DB::rollBack();
+                return response()->json([
+                    'code' => '022-E',
+                    'message' => 'players a and b must be non-empty arrays',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            // Keep a canonical team on the practice row for compatibility with
+            // existing joins/listing queries that rely on practices.team_id.
+            $dataRequest['team_id'] = $teamB;
+
             $practice = (new CreateServiceData(new Practice()))->handle($dataRequest);
             $players = null;
 
             $teams = null;
             $seenTeamIds = [];
-            foreach ($dataRequest['teams'] as $team) {
+            foreach ([$teamA, $teamB] as $team) {
                 if (in_array($team, $seenTeamIds, true)) continue; // skip duplicates
                 $seenTeamIds[] = $team;
                 $teams[] = (new CreateServiceData(new TeamsLiveAB()))->handle([
@@ -50,13 +86,28 @@ class AddNewLiveABSession extends Controller
                 ]);
             }
 
-            foreach ($dataRequest['players'] as $key=>$team) {
+            foreach (['a' => $batters, 'b' => $pitchers] as $key => $team) {
                 foreach ($team as $player) {
+                    $incomingId = (string) ($player['id'] ?? '');
+                    if ('' === $incomingId) {
+                        throw new Exception('lineup player id is required');
+                    }
+
+                    // Mobile payload can carry either users.id or players.id.
+                    // practice_line_ups.user_id requires users.id.
+                    $resolvedUserId = User::query()->where('id', $incomingId)->value('id');
+                    if (!$resolvedUserId) {
+                        $resolvedUserId = Player::query()->where('id', $incomingId)->value('user_id');
+                    }
+                    if (!$resolvedUserId) {
+                        throw new Exception('invalid lineup player id: '.$incomingId);
+                    }
+
                     $players[$key][] = (new CreateServiceData(new PracticeLineUp()))
                         ->handle([
                             'practice_id' => $practice->id,
-                            'user_id' => $player['id'],
-                            'sort' => $player['sort'],
+                            'user_id' => $resolvedUserId,
+                            'sort' => (int) ($player['sort'] ?? 0),
                             'is_batting'=>'a' === $key,
                             'is_pitching'=>'b' === $key,
                         ]);
@@ -77,7 +128,7 @@ class AddNewLiveABSession extends Controller
 
             // Bust the GetLastSessions server cache for both teams so the
             // list screen shows this new session immediately (cache TTL = 300 s)
-            foreach ($dataRequest['teams'] as $teamId) {
+            foreach ([$teamA, $teamB] as $teamId) {
                 Cache::forget("last_sessions_{$teamId}");
             }
 
@@ -90,7 +141,12 @@ class AddNewLiveABSession extends Controller
                 'status' => 'error',
                 'data' => [],
             ];
-            Log::error($exception->getMessage());
+            Log::error('AddNewLiveABSession error', [
+                'message' => $exception->getMessage(),
+                'payload' => $request->all(),
+                'line' => $exception->getLine(),
+                'file' => $exception->getFile(),
+            ]);
             return response()->json($response, HttpCodes::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
