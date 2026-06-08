@@ -34,7 +34,10 @@ class SaveLiveABResultPractice extends Controller
             DB::beginTransaction();
             $sortValue = $count++;
             $requestData = $request->validated();
-            $zone = $requestData['type_of_hit'] === BattingTrajectory::HIT_BY_PITCH->value ? 'B' : $requestData['zone'];
+            $typeOfHit = $requestData['type_of_hit'] ?? BattingTrajectory::TAKE->value;
+            $zone = $typeOfHit === BattingTrajectory::HIT_BY_PITCH->value
+                ? SidesPitchPosition::ZONE_BALL->value
+                : ($requestData['zone'] ?? SidesPitchPosition::ZONE_BALL->value);
             $batting = (new CreateServiceData(new BattingPracticeResult()))->handle([
                 'practice_id' => $requestData['practice_id'],
                 'team_id' => $requestData['batting']['team_id'],
@@ -42,7 +45,7 @@ class SaveLiveABResultPractice extends Controller
                 'is_contact' => $requestData['is_contact'],
                 'pitch_location' => $requestData['pitch_location'],
                 'quality_of_contact' => $requestData['batting']['quality_of_contact'],
-                'type_of_hit' => $requestData['type_of_hit'],
+                'type_of_hit' => $typeOfHit,
                 'field_mark' => $requestData['batting']['field_mark'],
                 'pitch_mark' => $requestData['pitch_mark'],
                 'field_direction' => $requestData['batting']['field_direction'],
@@ -60,7 +63,7 @@ class SaveLiveABResultPractice extends Controller
                 'isStrike' => false,
                 'miles_per_hour' => $requestData['pitching']['miles_per_hour'],
                 'type_throw' => $requestData['pitching']['type_throw'],
-                'trajectory' => $requestData['type_of_hit'],
+                'trajectory' => $typeOfHit,
                 'is_in_match' => true,
                 'sort' => $sortValue,
                 'zone' => $zone
@@ -78,18 +81,18 @@ class SaveLiveABResultPractice extends Controller
             $scenario = "{$numBall}-{$numStrike}";
 
 
-            $isHit = $this->validateHit($requestData['type_of_hit']);
+            $isHit = $this->validateHit($typeOfHit);
 
-            if ($requestData['type_of_hit'] === BattingTrajectory::HIT_BY_PITCH->value) {
+            if ($typeOfHit === BattingTrajectory::HIT_BY_PITCH->value) {
                 $isStrike = false;
                 $isBall = false;
                 $requestData['bases'] = 6;
                 $numBall = $requestData['turn']['ball'];
                 $numStrike = $requestData['turn']['strike'];
             } else {
-                if ($requestData['zone'] === SidesPitchPosition::ZONE_BALL->value) {
+                if ($zone === SidesPitchPosition::ZONE_BALL->value) {
                     $isBall = true;
-                    if (BattingTrajectory::FOUL->value === $requestData['type_of_hit']) {
+                    if (BattingTrajectory::FOUL->value === $typeOfHit) {
                         $isBall = false;
                         if ($numStrike < 2) {
                             $numStrike++;
@@ -98,7 +101,7 @@ class SaveLiveABResultPractice extends Controller
                             $numStrike = $numStrike;
                             $numBall = $numBall;
                         }
-                    } elseif (BattingTrajectory::SWING_MISS->value === $requestData['type_of_hit']) {
+                    } elseif (BattingTrajectory::SWING_MISS->value === $typeOfHit) {
                         $isBall = false;
                         $numBall = $numBall;
                         $numStrike++;
@@ -108,7 +111,7 @@ class SaveLiveABResultPractice extends Controller
 
                 } else {
                     $isStrike = true;
-                    if (BattingTrajectory::FOUL->value === $requestData['type_of_hit']) {
+                    if (BattingTrajectory::FOUL->value === $typeOfHit) {
                         if ($numStrike < 2) {
                             $numStrike++;
                             $numBall = $numBall;
@@ -128,12 +131,12 @@ class SaveLiveABResultPractice extends Controller
                 $count_b_s = '0-0';
             } elseif (
                 '3-2' === $scenario &&
-                BattingTrajectory::FOUL->value === $requestData['type_of_hit']) {
+                BattingTrajectory::FOUL->value === $typeOfHit) {
                 $count_b_s = '3-2';
 
             } elseif (
                 '0-2' === $scenario &&
-                BattingTrajectory::FOUL->value === $requestData['type_of_hit']) {
+                BattingTrajectory::FOUL->value === $typeOfHit) {
                 $count_b_s = '0-2';
             } else {
                 $count_b_s = $scenario;
@@ -142,10 +145,10 @@ class SaveLiveABResultPractice extends Controller
 
             if (3 === $numStrike
                 || 4 === $numBall
-                || BattingTrajectory::HIT_BY_PITCH->value === $requestData['type_of_hit']
-                || BattingTrajectory::LINE_DRIVE->value === $requestData['type_of_hit']
-                || BattingTrajectory::GROUND_BALL->value === $requestData['type_of_hit']
-                || BattingTrajectory::FLY_BALL->value === $requestData['type_of_hit']
+                || BattingTrajectory::HIT_BY_PITCH->value === $typeOfHit
+                || BattingTrajectory::LINE_DRIVE->value === $typeOfHit
+                || BattingTrajectory::GROUND_BALL->value === $typeOfHit
+                || BattingTrajectory::FLY_BALL->value === $typeOfHit
             ) {
                 $requestData['turn']['is_over'] = true;
             } else {
@@ -214,6 +217,7 @@ class SaveLiveABResultPractice extends Controller
             BattingTrajectory::TAKE->value,
             BattingTrajectory::FOUL->value,
             BattingTrajectory::HIT_BY_PITCH->value => false,
+            default => false,
 
         };
     }
