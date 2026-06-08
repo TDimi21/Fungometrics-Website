@@ -15,6 +15,7 @@ use App\Models\LiveABPracticeResult;
 use App\Services\CreateServiceData;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
@@ -64,7 +65,7 @@ class SaveLiveABResultPractice extends Controller
                 'pitcher_id' => $requestData['pitching']['pitcher_id'],
                 'pitch_side' => $requestData['pitch_location'],
                 'pitch_mark' => $requestData['pitch_mark'],
-                'isStrike' => false,
+                'is_strike' => false,
                 'miles_per_hour' => $requestData['pitching']['miles_per_hour'],
                 'type_throw' => $pitchType,
                 'trajectory' => $typeOfHit,
@@ -159,7 +160,7 @@ class SaveLiveABResultPractice extends Controller
                 $requestData['turn']['is_over'] = false;
             }
 
-            $result = (new CreateServiceData(new LiveABPracticeResult()))->handle([
+            $liveAbPayload = [
                 'practice_id' => $requestData['practice_id'],
                 'turn' => $requestData['turn']['turn'],
                 'turn_pitches' => $requestData['turn']['pitches'],
@@ -174,17 +175,38 @@ class SaveLiveABResultPractice extends Controller
                 'batting_result_id' => $batting->id,
                 'pitching_result_id' => $pitching->id,
                 'count_b_s' => $count_b_s,
-                // Game-engine play result fields (sent from mobile Ball-In-Play screen)
-                'play_result'    => $requestData['play_result'] ?? null,
-                'outs_recorded'  => $requestData['outs_recorded'] ?? 0,
-                'runs_scored'    => $requestData['runs_scored'] ?? 0,
-                'rbi'            => $requestData['rbi'] ?? 0,
-                'is_safe'        => $requestData['is_safe'] ?? false,
-                'sac_fly'        => $requestData['sac_fly'] ?? false,
-                'sac_bunt'       => $requestData['sac_bunt'] ?? false,
-                'runners_before' => isset($requestData['runners_before']) ? json_encode($requestData['runners_before']) : null,
-                'runners_after'  => isset($requestData['runners_after'])  ? json_encode($requestData['runners_after'])  : null,
+            ];
+
+            // Backward compatibility: some environments may not have the
+            // 2026 play-result columns migrated yet.
+            $hasPlayResultColumns = Schema::hasColumns('live_a_b_practice_results', [
+                'play_result',
+                'outs_recorded',
+                'runs_scored',
+                'rbi',
+                'is_safe',
+                'sac_fly',
+                'sac_bunt',
+                'runners_before',
+                'runners_after',
             ]);
+
+            if ($hasPlayResultColumns) {
+                $liveAbPayload = array_merge($liveAbPayload, [
+                    // Game-engine play result fields (sent from mobile Ball-In-Play screen)
+                    'play_result'    => $requestData['play_result'] ?? null,
+                    'outs_recorded'  => $requestData['outs_recorded'] ?? 0,
+                    'runs_scored'    => $requestData['runs_scored'] ?? 0,
+                    'rbi'            => $requestData['rbi'] ?? 0,
+                    'is_safe'        => $requestData['is_safe'] ?? false,
+                    'sac_fly'        => $requestData['sac_fly'] ?? false,
+                    'sac_bunt'       => $requestData['sac_bunt'] ?? false,
+                    'runners_before' => isset($requestData['runners_before']) ? json_encode($requestData['runners_before']) : null,
+                    'runners_after'  => isset($requestData['runners_after'])  ? json_encode($requestData['runners_after'])  : null,
+                ]);
+            }
+
+            $result = (new CreateServiceData(new LiveABPracticeResult()))->handle($liveAbPayload);
 
             DB::commit();
             $response = [
@@ -203,7 +225,10 @@ class SaveLiveABResultPractice extends Controller
                 'status' => 'error',
                 'data' => []
             ];
-            Log::error($exception->getMessage());
+            Log::error('SaveLiveABResultPractice error', [
+                'message' => $exception->getMessage(),
+                'practice_id' => $request->practice_id,
+            ]);
 
             return response()->json($response, HttpCodes::HTTP_INTERNAL_SERVER_ERROR);
         }
