@@ -40,7 +40,10 @@ class AddNewLiveABSession extends Controller
             $players = null;
 
             $teams = null;
+            $seenTeamIds = [];
             foreach ($dataRequest['teams'] as $team) {
+                if (in_array($team, $seenTeamIds, true)) continue; // skip duplicates
+                $seenTeamIds[] = $team;
                 $teams[] = (new CreateServiceData(new TeamsLiveAB()))->handle([
                     'team_id'=>$team,
                     'practice_id'=>$practice->id
