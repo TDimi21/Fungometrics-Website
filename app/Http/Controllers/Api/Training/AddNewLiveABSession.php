@@ -71,6 +71,13 @@ class AddNewLiveABSession extends Controller
                 ]),
             ];
             DB::commit();
+
+            // Bust the GetLastSessions server cache for both teams so the
+            // list screen shows this new session immediately (cache TTL = 300 s)
+            foreach ($dataRequest['teams'] as $teamId) {
+                Cache::forget("last_sessions_{$teamId}");
+            }
+
             return response()->json($response, HttpCodes::HTTP_CREATED);
         } catch (Exception $exception) {
             DB::rollBack();
