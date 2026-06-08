@@ -35,6 +35,10 @@ class SaveLiveABResultPractice extends Controller
             $sortValue = $count++;
             $requestData = $request->validated();
             $typeOfHit = $requestData['type_of_hit'] ?? BattingTrajectory::TAKE->value;
+            $fieldMark = isset($requestData['batting']['field_mark']) && $requestData['batting']['field_mark'] !== null
+                ? (int) $requestData['batting']['field_mark']
+                : 0;
+            $pitchType = $requestData['pitching']['type_throw'] ?? 'FB';
             $zone = $typeOfHit === BattingTrajectory::HIT_BY_PITCH->value
                 ? SidesPitchPosition::ZONE_BALL->value
                 : ($requestData['zone'] ?? SidesPitchPosition::ZONE_BALL->value);
@@ -46,7 +50,7 @@ class SaveLiveABResultPractice extends Controller
                 'pitch_location' => $requestData['pitch_location'],
                 'quality_of_contact' => $requestData['batting']['quality_of_contact'],
                 'type_of_hit' => $typeOfHit,
-                'field_mark' => $requestData['batting']['field_mark'],
+                'field_mark' => $fieldMark,
                 'pitch_mark' => $requestData['pitch_mark'],
                 'field_direction' => $requestData['batting']['field_direction'],
                 'velocity' => $requestData['batting']['velocity'],
@@ -62,7 +66,7 @@ class SaveLiveABResultPractice extends Controller
                 'pitch_mark' => $requestData['pitch_mark'],
                 'isStrike' => false,
                 'miles_per_hour' => $requestData['pitching']['miles_per_hour'],
-                'type_throw' => $requestData['pitching']['type_throw'],
+                'type_throw' => $pitchType,
                 'trajectory' => $typeOfHit,
                 'is_in_match' => true,
                 'sort' => $sortValue,
