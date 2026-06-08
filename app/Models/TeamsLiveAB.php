@@ -25,11 +25,13 @@ class TeamsLiveAB extends Model
         'id' => 'string',
         'team_id' => 'string',
         'practice_id' => 'string',
+        'batting' => 'boolean',
     ];
 
     protected $fillable = [
         'team_id',
         'practice_id',
+        'batting',
     ];
 
     public function team(): BelongsTo

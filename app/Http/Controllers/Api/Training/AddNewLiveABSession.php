@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
 class AddNewLiveABSession extends Controller
@@ -74,16 +75,21 @@ class AddNewLiveABSession extends Controller
 
             $practice = (new CreateServiceData(new Practice()))->handle($dataRequest);
             $players = null;
+            $hasTeamsLiveAbBattingColumn = Schema::hasColumn('teams_live_a_b_s', 'batting');
 
             $teams = null;
             $seenTeamIds = [];
-            foreach ([$teamA, $teamB] as $team) {
+            foreach (['a' => $teamA, 'b' => $teamB] as $side => $team) {
                 if (in_array($team, $seenTeamIds, true)) continue; // skip duplicates
                 $seenTeamIds[] = $team;
-                $teams[] = (new CreateServiceData(new TeamsLiveAB()))->handle([
+                $teamPayload = [
                     'team_id'=>$team,
                     'practice_id'=>$practice->id
-                ]);
+                ];
+                if ($hasTeamsLiveAbBattingColumn) {
+                    $teamPayload['batting'] = 'a' === $side;
+                }
+                $teams[] = (new CreateServiceData(new TeamsLiveAB()))->handle($teamPayload);
             }
 
             foreach (['a' => $batters, 'b' => $pitchers] as $key => $team) {
