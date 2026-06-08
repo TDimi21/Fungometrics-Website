@@ -35,6 +35,7 @@ const tableHeadings = ref([
   { title: "b/s", is_sort: true, filter: 'batting.zone'},
   { title: "Q.C", is_sort: true, filter: 'batting.quality_of_contact'},
   { title: "TOTAL BASES", is_sort: true, filter: 'bases'},
+  { title: "OUTS", is_sort: true, filter: 'outs_recorded'},
   { title: "TRAJ.", is_sort: true, filter: 'pitching.trajectory'},
   { title: "DIRECTION", is_sort: true, filter: 'batting.field_direction'},
   { title: "PITCH VELOCITY", is_sort: true, filter: 'pitching.miles_per_hour'},
@@ -124,29 +125,67 @@ const editData = (data) => {
   // })
 }
 
-const showTotalBasesValue = (item) => {
-  let valueToShow = ''
-  if(item.bases == 7 && item.pitching.trajectory != 'F' && item.count_b_s.split('-')[1] == 2) {
-    valueToShow = 'K'
-  } else if(item.count_b_s.split('-')[1] == 2 && item.pitching.zone == 'B' && item.pitching.trajectory == 'SM'){
-    valueToShow = 'K'
-  } else if (item.count_b_s.split('-')[1] == 2 && item.pitching.zone == 'S' && item.pitching.trajectory == 'TK'){
-    valueToShow = 'K'
-  } else if (item.bases === 4) {
-    valueToShow = 'BB'
-  } else if (item.bases == 6) {
-    valueToShow = 'HBP'
-  } else if (item.bases === 5) {
-    valueToShow = 'HR'
-  } else if (item.bases === 8){
-    valueToShow = 'Out/E'
-  } else if(item.bases == 7 && item.pitching.trajectory == 'F'){
-    valueToShow = '-'
-  } else {
-    valueToShow = item.bases === 0 ? '-' : item.bases + 'B'
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const normalizePlayResult = (item) => String(item?.play_result || '').toLowerCase()
+
+const getStrikeCountBefore = (item) => {
+  const count = String(item?.count_b_s || '')
+  const parts = count.split('-')
+  return toNumber(parts?.[1], 0)
+}
+
+const isDroppedThirdStrikeSafe = (item) => {
+  const playResult = normalizePlayResult(item)
+  return playResult.includes('dropped') && playResult.includes('safe')
+}
+
+const isStrikeoutEvent = (item) => {
+  const playResult = normalizePlayResult(item)
+  if (playResult.includes('strikeout') || playResult === 'k') return true
+
+  const strikesBefore = getStrikeCountBefore(item)
+  const zone = String(item?.batting?.zone || item?.pitching?.zone || '').toUpperCase()
+  const trajectory = String(item?.pitching?.trajectory || '').toUpperCase()
+  const bases = toNumber(item?.bases, 0)
+
+  if (bases === 7 && trajectory !== 'F') return true
+
+  if (strikesBefore === 2) {
+    if (zone === 'S' && ['TK', 'SM'].includes(trajectory)) return true
+    if (zone === 'B' && trajectory === 'SM') return true
   }
 
-  return valueToShow
+  return false
+}
+
+const outsRecordedForRow = (item) => {
+  const explicitOuts = item?.outs_recorded
+  if (explicitOuts !== undefined && explicitOuts !== null && explicitOuts !== '') {
+    return toNumber(explicitOuts, 0)
+  }
+
+  if (isDroppedThirdStrikeSafe(item)) return 0
+  if (isStrikeoutEvent(item)) return 1
+
+  return toNumber(item?.bases, 0) === 8 ? 1 : 0
+}
+
+const showTotalBasesValue = (item) => {
+  const bases = toNumber(item?.bases, 0)
+
+  if (isDroppedThirdStrikeSafe(item)) return 'K (safe)'
+  if (isStrikeoutEvent(item)) return 'K'
+  if (bases === 4) return 'BB'
+  if (bases === 6) return 'HBP'
+  if (bases === 5) return 'HR'
+  if (bases === 8) return 'Out/E'
+  if (bases === 0) return '-'
+
+  return `${bases}B`
 }
 </script>
 <template>
@@ -171,7 +210,7 @@ const showTotalBasesValue = (item) => {
 
       <tbody>
         <tr v-if="props.isLoading" class="w-full">
-          <td colspan="13" class="w-full text-center py-5">
+          <td colspan="14" class="w-full text-center py-5">
             <div class="animate-pulse grid grid-cols-4 gap-x-2">
               <div class="h-3 bg-slate-300 rounded-lg"></div>
               <div class="h-3 bg-slate-300 rounded-lg"></div>
@@ -218,6 +257,7 @@ const showTotalBasesValue = (item) => {
           <td class="min-w-[100px]">{{ item.batting.zone == 'S' ? 'Strike' : 'Ball'  }}</td>
           <td class="min-w-[100px]">{{ item.batting.quality_of_contact === 'N' ? '-' :  item.batting.quality_of_contact }}</td>
           <td class="min-w-[100px]">{{ showTotalBasesValue(item) }}</td>
+          <td class="min-w-[100px]">{{ outsRecordedForRow(item) }}</td>
           <td class="min-w-[100px]">{{ item.pitching.trajectory }}</td>
           <td class="min-w-[100px]">{{ item.batting.field_direction ? item.batting.field_direction : '-' }}</td>
           <td class="min-w-[100px]">{{ item.pitching.miles_per_hour !== 0 ? item.pitching.miles_per_hour : '-' }}</td>

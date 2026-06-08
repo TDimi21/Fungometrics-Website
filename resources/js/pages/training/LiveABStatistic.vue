@@ -87,6 +87,7 @@ const excelExportDataAB = () => {
       'B_S': iterator.batting.zone == "S" ? "Strike" : "Ball",
       'Q_S': iterator.batting.quality_of_contact,
       'total_B': showTotalBasesValue(iterator),
+      'outs': outsRecordedForRow(iterator),
       'trajectory': iterator.pitching.trajectory,
       'direction': iterator.batting.field_direction ?? '-',
       'pitch_vel': iterator.pitching.miles_per_hour ?? 0,
@@ -105,6 +106,7 @@ const excelExportDataAB = () => {
     'B/S': 'B_S',
     'Q.C': 'Q_S',
     'Total Bases': 'total_B',
+    'Outs': 'outs',
     'Trajectory': 'trajectory',
     'Direction': 'direction',
     'Pitch velocity': 'pitch_vel',
@@ -112,25 +114,67 @@ const excelExportDataAB = () => {
   }
 }
 
-const showTotalBasesValue = (item) => {
-  let valueToShow = ''
-  if (item.bases == 7 && item.pitching.trajectory != 'F') {
-    valueToShow = 'K'
-  } else if (item.bases === 4) {
-    valueToShow = 'BB'
-  } else if (item.bases == 6) {
-    valueToShow = 'HBP'
-  } else if (item.bases === 5) {
-    valueToShow = 'HR'
-  } else if (item.bases === 8) {
-    valueToShow = 'Out/E'
-  } else if (item.bases == 7 && item.pitching.trajectory == 'F') {
-    valueToShow = '-'
-  } else {
-    valueToShow = item.bases === 0 ? '-' : item.bases + 'B'
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const normalizePlayResult = (item) => String(item?.play_result || '').toLowerCase()
+
+const getStrikeCountBefore = (item) => {
+  const count = String(item?.count_b_s || '')
+  const parts = count.split('-')
+  return toNumber(parts?.[1], 0)
+}
+
+const isDroppedThirdStrikeSafe = (item) => {
+  const playResult = normalizePlayResult(item)
+  return playResult.includes('dropped') && playResult.includes('safe')
+}
+
+const isStrikeoutEvent = (item) => {
+  const playResult = normalizePlayResult(item)
+  if (playResult.includes('strikeout') || playResult === 'k') return true
+
+  const strikesBefore = getStrikeCountBefore(item)
+  const zone = String(item?.batting?.zone || item?.pitching?.zone || '').toUpperCase()
+  const trajectory = String(item?.pitching?.trajectory || '').toUpperCase()
+  const bases = toNumber(item?.bases, 0)
+
+  if (bases === 7 && trajectory !== 'F') return true
+
+  if (strikesBefore === 2) {
+    if (zone === 'S' && ['TK', 'SM'].includes(trajectory)) return true
+    if (zone === 'B' && trajectory === 'SM') return true
   }
 
-  return valueToShow
+  return false
+}
+
+const outsRecordedForRow = (item) => {
+  const explicitOuts = item?.outs_recorded
+  if (explicitOuts !== undefined && explicitOuts !== null && explicitOuts !== '') {
+    return toNumber(explicitOuts, 0)
+  }
+
+  if (isDroppedThirdStrikeSafe(item)) return 0
+  if (isStrikeoutEvent(item)) return 1
+
+  return toNumber(item?.bases, 0) === 8 ? 1 : 0
+}
+
+const showTotalBasesValue = (item) => {
+  const bases = toNumber(item?.bases, 0)
+
+  if (isDroppedThirdStrikeSafe(item)) return 'K (safe)'
+  if (isStrikeoutEvent(item)) return 'K'
+  if (bases === 4) return 'BB'
+  if (bases === 6) return 'HBP'
+  if (bases === 5) return 'HR'
+  if (bases === 8) return 'Out/E'
+  if (bases === 0) return '-'
+
+  return `${bases}B`
 }
 </script>
 <template>
