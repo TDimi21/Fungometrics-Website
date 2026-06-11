@@ -53,15 +53,25 @@ class GetTeamsPracticesSessionsByType extends Controller
                         });
                     });
 
-                // LiveAB sessions can involve two teams; include by TeamsLiveAB membership
-                // so sessions created with team_id set to the opposite side still appear.
+                // LiveAB sessions can involve two teams. Show a session when EITHER
+                // its practices.team_id is one of the coach's teams (covers legacy
+                // sessions and the canonical team) OR it appears in the TeamsLiveAB
+                // join (covers sessions where team_id is the opposite side). Using
+                // only the join breaks any practice that has no TeamsLiveAB rows yet
+                // (e.g. sessions created before that table was populated), which made
+                // an empty whereIn() hide every LiveAB session.
                 if ((string) $request->type === PracticeTypes::LIVE_AB->value) {
                     $livePracticeIds = TeamsLiveAB::whereIn('team_id', $teams)
                         ->distinct()
                         ->pluck('practice_id')
                         ->all();
 
-                    $practiceQuery->whereIn('id', $livePracticeIds);
+                    $practiceQuery->where(function ($query) use ($teams, $livePracticeIds): void {
+                        $query->whereIn('team_id', $teams);
+                        if (!empty($livePracticeIds)) {
+                            $query->orWhereIn('id', $livePracticeIds);
+                        }
+                    });
                 } else {
                     $practiceQuery->whereIn('team_id', $teams);
                 }

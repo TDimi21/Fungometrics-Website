@@ -49,6 +49,10 @@ class GetLastSessions extends Controller
                     ->orderByDesc('updated_at')
                     ->limit(70)->get();
 
+                // LiveAB sessions can be keyed either by practices.team_id (legacy /
+                // canonical team) or via the TeamsLiveAB join (opposite side). Match on
+                // EITHER so sessions without join rows still appear. Constrain to the
+                // LiveAB type so the team_id branch doesn't pull in other practice types.
                 $practicesliveIds = TeamsLiveAB::where('team_id', '=', $teamId)
                     ->pluck('practice_id')->unique()->all();
                 $practiceslive = Practice::with([
@@ -66,7 +70,13 @@ class GetLastSessions extends Controller
                         'weightBall',
                         'exitVelocity',
                     ])
-                    ->whereIn('id', $practicesliveIds)
+                    ->where('type', PracticeTypes::LIVE_AB->value)
+                    ->where(function ($query) use ($teamId, $practicesliveIds): void {
+                        $query->where('team_id', $teamId);
+                        if (!empty($practicesliveIds)) {
+                            $query->orWhereIn('id', $practicesliveIds);
+                        }
+                    })
                     ->orderByDesc('updated_at')
                     ->limit(10)->get()->all();
 

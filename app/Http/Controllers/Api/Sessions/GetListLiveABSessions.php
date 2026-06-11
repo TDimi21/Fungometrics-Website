@@ -8,6 +8,7 @@ use App\Exceptions\NotFound;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ListLiveABPracticesResource;
 use App\Models\CoachTeam;
+use App\Models\Concerns\PracticeTypes;
 use App\Models\Practice;
 use App\Models\TeamsLiveAB;
 use Exception;
@@ -35,10 +36,16 @@ class GetListLiveABSessions extends Controller
             $teamsPractices = TeamsLiveAB::whereIn('team_id', $teams)
                 ->distinct()
                 ->get(['practice_id'])->pluck('practice_id')->all();
-            if (0 ===count($teamsPractices)) {
-                throw new NotFound();
-            }
-            $practices = Practice::with('lineup', 'liveABTeams.team')->whereIn('id', $teamsPractices)
+            // Match LiveAB practices by EITHER the TeamsLiveAB join OR practices.team_id
+            // so legacy sessions (created before TeamsLiveAB was populated) still list.
+            $practices = Practice::with('lineup', 'liveABTeams.team')
+                ->where('type', PracticeTypes::LIVE_AB->value)
+                ->where(function ($query) use ($teams, $teamsPractices): void {
+                    $query->whereIn('team_id', $teams);
+                    if (!empty($teamsPractices)) {
+                        $query->orWhereIn('id', $teamsPractices);
+                    }
+                })
                 ->paginate();
 
             $practicesCollection = ListLiveABPracticesResource::collection($practices)->response()->getData(true);
