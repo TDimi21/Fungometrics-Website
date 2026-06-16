@@ -189,20 +189,21 @@ const showTotalBasesValue = (item) => {
 }
 </script>
 <template>
-  <section class="mt-4 overflow-x-auto">
-    <table class="w-full border-separate space-y-6 text-fungo-darkblue">
+  <section class="mt-6 rounded-xl bg-app-card text-white overflow-x-auto p-4 shadow-lg">
+    <h3 class="text-app-gold font-semibold tracking-wide mb-4 px-1">BALL BY BALL</h3>
+    <table class="w-full border-collapse text-sm">
 
-      <thead class="bg-fungo-lightblue">
-        <tr class="divide-x divide-[#000]">
+      <thead>
+        <tr class="text-left">
           <th
             v-for="(heading, index) in tableHeadings"
             :key="index"
-            class="py-3 px-2 md:px-0 font-fungo-500 uppercase w-min"
+            class="py-2 px-3 text-app-muted uppercase font-medium whitespace-nowrap"
             @click="$emit('sortData', heading.filter)"
           >
-            <span role="button" class="flex flex-row justify-evenly items-center cursor-pointer">
-              <label>{{ heading.title }}</label>
-              <img v-if="heading.is_sort" src="@/assets/img/icons/sort-solid.svg" alt="sort data" class="w-2">
+            <span role="button" class="flex flex-row justify-center items-center gap-2 cursor-pointer hover:text-app-gold transition-colors">
+              <label class="cursor-pointer">{{ heading.title }}</label>
+              <img v-if="heading.is_sort" src="@/assets/img/icons/sort-solid.svg" alt="sort data" class="w-2 opacity-50">
             </span>
           </th>
         </tr>
@@ -212,18 +213,18 @@ const showTotalBasesValue = (item) => {
         <tr v-if="props.isLoading" class="w-full">
           <td colspan="14" class="w-full text-center py-5">
             <div class="animate-pulse grid grid-cols-4 gap-x-2">
-              <div class="h-3 bg-slate-300 rounded-lg"></div>
-              <div class="h-3 bg-slate-300 rounded-lg"></div>
-              <div class="h-3 bg-slate-300 rounded-lg"></div>
-              <div class="h-3 bg-slate-300 rounded-lg"></div>
+              <div class="h-3 bg-white/10 rounded-lg"></div>
+              <div class="h-3 bg-white/10 rounded-lg"></div>
+              <div class="h-3 bg-white/10 rounded-lg"></div>
+              <div class="h-3 bg-white/10 rounded-lg"></div>
             </div>
           </td>
         </tr>
         <tr v-else-if="props.tableData == null || props.tableData == undefined" class="w-full">
-          <td colspan="9" class="text-fungo-darkblue text-3xl text-center">There is no data</td>
+          <td colspan="14" class="text-app-muted text-xl text-center py-6">There is no data</td>
         </tr>
-        <tr v-else v-for="(item, index) in props.tableData" :key="index" class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative">
-          <td>
+        <tr v-else v-for="(item, index) in props.tableData" :key="index" class="border-t border-white/5 even:bg-white/[0.02] hover:bg-app-card-hover transition-colors">
+          <td class="text-app-gold font-semibold">
             {{ item.sort + 1 }}
           </td>
           <td class="w-[100px] lg:w-[250px] lg:max-w-[250px]">
@@ -231,7 +232,7 @@ const showTotalBasesValue = (item) => {
               <img
                 :src="item.pitching.profile.picture ? item.pitching.profile.picture : defaultIMg"
                 :alt="`Photo of ${item.pitching.profile.first_name}`"
-                class="w-[70px] h-[70px] rounded-full border-[5px] border-fungo-gray"
+                class="w-[70px] h-[70px] rounded-full border-[3px] border-white/10"
               >
               <p class="">
                 {{ item.pitching.profile.first_name }} {{ item.pitching.profile.last_name }}
@@ -243,7 +244,7 @@ const showTotalBasesValue = (item) => {
               <img
                 :src="item.batting.profile.picture ? item.batting.profile.picture : defaultIMg"
                 :alt="`Photo of ${item.batting.profile.first_name}`"
-                class="w-[70px] h-[70px] rounded-full border-[5px] border-fungo-gray"
+                class="w-[70px] h-[70px] rounded-full border-[3px] border-white/10"
               >
               <p class="">
                 {{ item.batting.profile.first_name }} {{ item.batting.profile.last_name }}
@@ -256,15 +257,15 @@ const showTotalBasesValue = (item) => {
           <td class="min-w-[100px]">{{ item.pitching.type_throw == 'CB' ? 'CV' : item.pitching.type_throw == 'N' ? '-' : item.pitching.type_throw }}</td>
           <td class="min-w-[100px]">{{ item.batting.zone == 'S' ? 'Strike' : 'Ball'  }}</td>
           <td class="min-w-[100px]">{{ item.batting.quality_of_contact === 'N' ? '-' :  item.batting.quality_of_contact }}</td>
-          <td class="min-w-[100px]">{{ showTotalBasesValue(item) }}</td>
+          <td class="min-w-[100px] text-app-gold font-semibold">{{ showTotalBasesValue(item) }}</td>
           <td class="min-w-[100px]">{{ outsRecordedForRow(item) }}</td>
           <td class="min-w-[100px]">{{ item.pitching.trajectory }}</td>
           <td class="min-w-[100px]">{{ item.batting.field_direction ? item.batting.field_direction : '-' }}</td>
           <td class="min-w-[100px]">{{ item.pitching.miles_per_hour !== 0 ? item.pitching.miles_per_hour : '-' }}</td>
           <td class="min-w-[100px]">{{ item.batting.velocity !== 0 ? item.batting.velocity : '-' }}</td>
-          <td class="flex min-w-[100px] justify-center justify-items-center">
+          <td class="min-w-[100px] text-center">
             <button
-              class="rounded-full hover:bg-fungo-gray2 p-2 transition-[background-color] ease-in duration-200"
+              class="rounded-full hover:bg-white/10 p-2 transition-[background-color] ease-in duration-200"
               v-on:click="editData(item)">
               <TableEdit />
             </button>
@@ -276,25 +277,7 @@ const showTotalBasesValue = (item) => {
 </template>
 
 <style scoped>
-table {
-  border-spacing: 0 10px;
-}
-
 table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
-}
-
-table tbody tr::after {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #ADE8F4;
-}
-
-table tbody tr:nth-child(even)::after {
-  background-color: #DADADA;
+  @apply text-center py-3 px-1 2xl:px-5;
 }
 </style>

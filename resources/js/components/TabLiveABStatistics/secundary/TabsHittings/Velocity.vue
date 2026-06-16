@@ -1,312 +1,173 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useTeamStore } from "@/store/team"
+import { ref, computed, onMounted } from 'vue'
 
 const props = defineProps({
-  tableData: {
-    type: Object,
-    required: false,
-    default: {}
-  }
+  tableData: { type: Object, required: false, default: () => ({}) },
 })
-
-const { team } = useTeamStore()
-
-const playerVelocities = ref([])
-
-const tableOneHeadings = ref([
-  'SWING #', 'VELOCITY'
-])
-
-const tableTwoHeadings = ref([
-"ld", "fb", "gb", "Max Fb", "player"
-])
 
 const buttonsGroup = ref([
-  { text: 'All', typeHit: 'All' },
-  { text: 'Ground', typeHit: 'GB' },
-  { text: 'Fly ball', typeHit: 'FB' },
-  { text: 'Line drive', typeHit: 'LD' },
+  { text: 'ALL',      typeHit: 'All' },
+  { text: 'GB',       typeHit: 'GB'  },
+  { text: 'FLY BALL', typeHit: 'FB'  },
+  { text: 'LINE DR.', typeHit: 'LD'  },
 ])
 
-const currentIndex = ref(0)
-const activeRow = ref('1')
+// Matching app's exit-velocity breakdown rows
+const EV_ROWS = [
+  { key: 'MAX', label: 'MAX EV',      color: '#37474f' },
+  { key: 'LD',  label: 'LINE DRIVE',  color: '#1565c0' },
+  { key: 'FB',  label: 'FLY BALL',    color: '#558b2f' },
+  { key: 'GB',  label: 'GROUND BALL', color: '#2e7d32' },
+]
 
-const filterBytrajecotry = (index, typeHit) => {
+const TRAJ_MAP = { GB: 'GB', FB: 'FB', LD: 'LD' }
+
+const currentIndex = ref(0)
+const playerVelocities = ref([])
+const viewMode = ref('list') // 'list' | 'field' (field not yet implemented)
+
+const filterByTrajectory = (index, typeHit) => {
   playerVelocities.value = []
   currentIndex.value = index
-
   Object.values(props.tableData).forEach(player => {
-
-    player.forEach(track => {
-        if (track.batting.type_of_hit === typeHit && typeHit !== 'All') {
-          playerVelocities.value.push(track)
-        } else if (typeHit === 'All') {
-          playerVelocities.value.push(track)
-        }
+    player.forEach(ball => {
+      if (typeHit === 'All' || ball.batting?.type_of_hit === typeHit)
+        if (ball.batting?.velocity > 0) playerVelocities.value.push(ball)
     })
   })
 }
 
-const filterRowByVelocity = (allContact, trajectory) => {
-  let velocities = 0
-  let counter = 0
-
-  allContact.filter(item => {
-    if (item.pitching.type_throw.includes(trajectory)) {
-      if (item.pitching.miles_per_hour != 0) {
-        velocities += item.pitching.miles_per_hour
-        counter++
-      }
-      if (counter != 0) {
-        velocities = velocities / counter
-      }
-    }
-  })
-
-  return velocities.toFixed(2)
-}
-
-const getMaxVelocity = (allContact) => {
+// Max EV for a player array, optional trajectory filter
+const maxEV = (balls, traj = null) => {
   let max = 0
-  allContact.forEach(element => {
-    if (max < element.batting.velocity) {
-      max = element.batting.velocity
-    }
+  balls.forEach(b => {
+    if ((traj === null || b.batting?.type_of_hit === traj) && b.batting?.velocity > max)
+      max = b.batting.velocity
   })
-
-  return max
+  return max > 0 ? max.toFixed(2) : '0.00'
 }
 
-const getMaxTrajectoryOfTeam = () => {
+// Team-level helpers
+const teamMaxEV = computed(() => {
   let max = 0
-  Object.values(props.tableData).forEach(item => {
-    item.forEach(element => {
-      if (max < element.batting.velocity) {
-        max = element.batting.velocity
-      }
-    })
-  })
-
-  return max
-}
-
-const filterByFirstRowTable = () => {
-  activeRow.value = '1'
-  playerVelocities.value = []
-
-  Object.values(props.tableData).forEach(item => {
-    item.forEach(player => {
-      if (player.batting.velocity !== 0) playerVelocities.value.push(player)
-    })
-  })
-}
-
-const contactAllLocationCount = (allContact, trajectory) => {
-  let velocities = 0
-  let counter = 0
-
-  Object.values(allContact).forEach(contact => {
-    contact.filter(item => {
-      if (item.pitching.type_throw.includes(trajectory)) {
-        if (item.pitching.miles_per_hour != 0) {
-          velocities += item.pitching.miles_per_hour
-          counter++
-        }
-        if (counter != 0) {
-          velocities = velocities / counter
-        }
-      }
-    })
-  })
-
-  return velocities.toFixed(2)
-}
-
-const filterByPlayer = (player, id) => {
-  activeRow.value = id
-  
-  playerVelocities.value = player.filter(item => item.batting.velocity !== 0)
-}
-
-onMounted(() => {
-  Object.values(props.tableData).forEach(item => {
-    item.forEach(player => {
-      if (player.batting.velocity !== 0) playerVelocities.value.push(player)
-    })
-  })
+  Object.values(props.tableData).forEach(p => p.forEach(b => { if (b.batting?.velocity > max) max = b.batting.velocity }))
+  return max > 0 ? max.toFixed(2) : '0.00'
 })
+
+const teamEVByTraj = (traj) => {
+  let max = 0
+  Object.values(props.tableData).forEach(p =>
+    p.forEach(b => { if (b.batting?.type_of_hit === traj && b.batting?.velocity > max) max = b.batting.velocity })
+  )
+  return max > 0 ? max.toFixed(2) : '0.00'
+}
+
+const evRowTeamVal = (row) => row.key === 'MAX' ? teamMaxEV.value : teamEVByTraj(row.key)
+const evRowPlayerVal = (balls, row) => row.key === 'MAX' ? maxEV(balls) : maxEV(balls, row.key)
+
+// Color-code velocity value in the list
+const velColor = (ball) => {
+  const dir = ball.batting?.pitch_location ?? ''
+  if (dir.includes('L')) return 'text-green-400'
+  if (dir.includes('C')) return 'text-yellow-400'
+  return 'text-blue-400'
+}
+
+const playerIds = computed(() => Object.keys(props.tableData))
+
+onMounted(() => filterByTrajectory(0, 'All'))
 </script>
+
 <template>
-  <section class="mt-5">
-    <div class="grid grid-cols-3 bg-fungo-lightblue divide-x divide-[#000] text-center py-2 uppercase">
-      <div class="col-span-2">
-        <p>LIST OF VELOCITIES</p>
-      </div>
-      <div>
-        VELOCITY BREAKDOWN
-      </div>
-    </div>
+  <section class="mt-6 rounded-xl bg-app-card text-white p-5 shadow-lg overflow-x-auto">
+    <div class="flex flex-col xl:flex-row gap-6">
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-7 lg:gap-x-8 mt-10 gap-y-8">
-      <div class="grid lg:grid-cols-1 bg-white rounded-[10px] h-min button-group px-7 py-9 gap-y-3">
-        <div class="flex flex-col space-y-3 mb-4">
-          <article class="flex row border-l-4 border-fungo-blue3 items-center space-x-2 bg-fungo-gray2 w-full py-1 rounded-md justify-center">
-            <span>Left</span>
-            <img src="@/assets/img/training/balltraining-green.svg" alt="ball blue">
-          </article>
+      <!-- Left: filter buttons -->
+      <div class="flex flex-col gap-2 min-w-[150px]">
+        <p class="text-app-muted text-xs uppercase font-semibold mb-1">Filter</p>
+        <button
+          v-for="(btn, i) in buttonsGroup" :key="i"
+          class="py-2 px-4 rounded-lg font-semibold text-sm border transition-colors uppercase tracking-wide"
+          :class="currentIndex === i ? 'bg-app-red border-app-red text-white' : 'border-white/20 text-white/70 hover:text-white hover:border-white/50'"
+          @click="filterByTrajectory(i, btn.typeHit)"
+        >{{ btn.text }}</button>
 
-          <article class="flex row border-l-4 border-fungo-blue3 items-center space-x-2 bg-fungo-gray2 w-full py-1 rounded-md justify-center">
-            <span>Middle</span>
-            <img src="@/assets/img/training/balltraining.svg" alt="ball blue">
-          </article>
-
-          <article class="flex row border-l-4 border-fungo-dark-gray items-center space-x-2 bg-fungo-gray2 w-full py-1 rounded-md justify-center">
-            <span>Right</span>
-            <img src="@/assets/img/training/balltraining-blue.svg" alt="ball blue">
-          </article>
+        <!-- Direction legend -->
+        <div class="mt-4 flex flex-col gap-1 text-xs">
+          <div class="flex items-center gap-2 text-green-400"><span class="w-2 h-2 rounded-full bg-green-400"></span> Left</div>
+          <div class="flex items-center gap-2 text-yellow-400"><span class="w-2 h-2 rounded-full bg-yellow-400"></span> Mid</div>
+          <div class="flex items-center gap-2 text-blue-400"><span class="w-2 h-2 rounded-full bg-blue-400"></span> Right</div>
         </div>
-        <p class="text-fungo-red">Select</p>
-        <button v-for="(button, index) in buttonsGroup" :key="index"
-          class="rounded-[5px] border border-fungo-darkblue py-1" @click="filterBytrajecotry(index, button.typeHit)"
-          :class="{ 'bg-fungo-red text-white border-fungo-red': currentIndex === index }">
-          {{ button.text }}
-        </button>
-      </div>
-      <div class="pitch-table col-span-3 px-5 py-4">
-        <table class="w-full border-collapse text-fungo-darkblue">
 
-          <thead class="bg-fungo-lightblue">
-            <tr class="divide-x divide-[#000]">
-              <th v-for="(heading, index) in tableOneHeadings" :key="index"
-                class="py-3 px-2 font-fungo-500 uppercase w-min">
-                {{ heading }}
-              </th>
+        <!-- List / Field toggle -->
+        <div class="mt-4 flex gap-2">
+          <button @click="viewMode = 'list'"
+            class="flex-1 py-1 rounded text-xs font-semibold border transition-colors"
+            :class="viewMode === 'list' ? 'bg-app-red border-app-red text-white' : 'border-white/20 text-white/60'">
+            List
+          </button>
+          <button @click="viewMode = 'field'"
+            class="flex-1 py-1 rounded text-xs font-semibold border transition-colors"
+            :class="viewMode === 'field' ? 'bg-app-red border-app-red text-white' : 'border-white/20 text-white/60'">
+            Field
+          </button>
+        </div>
+      </div>
+
+      <!-- Velocity list -->
+      <div class="w-full xl:w-[180px] flex-shrink-0">
+        <table class="w-full text-sm border-collapse">
+          <thead>
+            <tr class="bg-app-surface">
+              <th class="py-2 px-3 text-center text-white/60 text-xs uppercase">SWING #</th>
+              <th class="py-2 px-3 text-center text-white/60 text-xs uppercase">EXIT VEL</th>
             </tr>
           </thead>
-
           <tbody>
-            <tr v-for="(velocity, id) in playerVelocities"
-              :key="id"
-              class="bg-white even:bg-fungo-gray4 relative"
-              :class="
-              {'text-green-600' : velocity.batting.pitch_location.includes('L'),
-                'text-fungo-darkblue-hover' : velocity.batting.pitch_location.includes('R'),
-                'text-yellow-600' : velocity.batting.pitch_location.includes('C')
-              }"
-            >
-              <td>{{ velocity.sort + 1 }}</td>
-              <td>{{ velocity.batting.velocity }}</td>
+            <tr v-for="(ball, idx) in playerVelocities" :key="idx"
+              class="border-t border-white/5 even:bg-white/[0.02]">
+              <td class="py-2 px-3 text-center text-white/60 text-sm">{{ ball.sort + 1 }}</td>
+              <td class="py-2 px-3 text-center font-bold text-sm" :class="velColor(ball)">
+                {{ ball.batting?.velocity ?? '–' }}
+              </td>
+            </tr>
+            <tr v-if="!playerVelocities.length">
+              <td colspan="2" class="py-4 text-center text-app-muted text-xs">No data</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div class="pitch-table col-span-3 px-5 py-4">
-        <table class="w-full border-collapse text-fungo-darkblue">
-
-          <thead class="bg-fungo-lightblue">
-            <tr class="divide-x divide-[#000]">
-              <th v-for="(heading, index) in tableTwoHeadings" :key="index"
-                class="py-3 px-2 font-fungo-500 uppercase w-min">
-                {{ heading }}
+      <!-- Max EV breakdown table (rows = trajectory type, cols = players) -->
+      <div class="flex-1 min-w-0">
+        <h3 class="text-app-gold font-semibold tracking-widest mb-3 text-xs uppercase">Exit Velocity Breakdown</h3>
+        <table class="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              <th class="w-[110px] py-2"></th>
+              <th class="py-2 px-3 text-center text-app-gold font-bold text-xs uppercase">TEAM</th>
+              <th v-for="id in playerIds" :key="id" class="py-2 px-3 text-center text-white/70 font-medium text-xs uppercase whitespace-nowrap">
+                {{ props.tableData[id]?.[0]?.batting?.profile?.first_name?.charAt(0) ?? '' }}.
+                {{ props.tableData[id]?.[0]?.batting?.profile?.last_name ?? id }}
               </th>
             </tr>
           </thead>
-
           <tbody>
-            <tr
-              class="bg-white even:bg-fungo-gray4 relative cursor-pointer"
-              :class=" {'active-row text-white opacity-60' : activeRow == '1' } "
-              @click="filterByFirstRowTable"
-            >
-              <td >
-                {{ contactAllLocationCount(props.tableData, 'LD') }}
+            <tr v-for="row in EV_ROWS" :key="row.key" class="border-t border-white/5">
+              <td class="py-3 px-3 font-bold text-xs text-center rounded-l text-white" :style="{ backgroundColor: row.color }">
+                {{ row.label }}
               </td>
-              <td>
-                {{ contactAllLocationCount(props.tableData, 'FB') }}
+              <td class="py-3 px-4 text-center text-app-gold font-semibold">
+                {{ evRowTeamVal(row) }}
               </td>
-              <td>
-                {{ contactAllLocationCount(props.tableData, 'GB') }}
+              <td v-for="id in playerIds" :key="id" class="py-3 px-4 text-center text-white/80">
+                {{ evRowPlayerVal(props.tableData[id], row) }}
               </td>
-              <td>
-                {{ getMaxTrajectoryOfTeam() }}
-              </td>
-              <td>
-                {{ team.name }}
-              </td>
-            </tr>
-            <tr v-for="(velocity, id) in tableData" :key="id"
-              class="bg-white even:bg-fungo-gray4 relative cursor-pointer"
-              :id="id"
-              :class="{ 'active-row text-white opacity-60': activeRow == id }"
-              @click="filterByPlayer(velocity, id)">
-              <td>{{ filterRowByVelocity(velocity, 'LD') }}</td>
-              <td>{{ filterRowByVelocity(velocity, 'FB') }}</td>
-              <td>{{ filterRowByVelocity(velocity, 'GB') }}</td>
-              <td>{{ getMaxVelocity(velocity) }}</td>
-              <td>{{ velocity[0].batting.profile.first_name }}</td>
-              
             </tr>
           </tbody>
         </table>
       </div>
+
     </div>
   </section>
 </template>
-<style scoped>
-.pitch-table {
-  @apply rounded-[20px] bg-white;
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
-}
-
-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
-}
-
-table tbody tr::after {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #ADE8F4;
-}
-
-table tbody tr:nth-child(even)::after {
-  background-color: #DADADA;
-}
-
-.button-group {
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
-}
-
-.ball-header {
-  background-repeat: no-repeat;
-  background-size: contain;
-  height: 25px;
-  width: 25px;
-  background-position: center;
-}
-
-.ball-header.foul {
-  background-image: url("../../assets/img/login/assteslogin/ballbutton.svg");
-}
-
-.ball-header.weack {
-  background-image: url("../../assets/img/training/balltraining-green.svg");
-}
-
-.ball-header.average {
-  background-image: url("../../assets/img/training/balltraining.svg");
-}
-
-.ball-header.hard {
-  background-image: url("../../assets/img/training/balltraining-blue.svg");
-}
-
-.active-row {
-  background-color: #0096C7 !important;
-}
-</style>

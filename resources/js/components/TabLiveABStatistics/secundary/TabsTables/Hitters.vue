@@ -21,27 +21,27 @@ const headings = computed(() => {
 })
 </script>
 <template>
-  <section class="mt-4 overflow-x-auto">
+  <section class="mt-6 rounded-xl bg-app-card text-white overflow-x-auto p-4 shadow-lg">
     <div class="flex flex-row justify-center items-center space-x-4">
       <span>Basic</span>
       <Switch
         v-model="isBasic"
-        :class="isBasic ? 'bg-fungo-darkblue' : 'bg-fungo-blue2'"
+        :class="isBasic ? 'bg-app-card' : 'bg-app-blue'"
         class="relative inline-flex h-[28px] w-[64px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75"
       >
         <span class="sr-only">Use setting</span>
         <span
           aria-hidden="true"
           :class="isBasic ? 'translate-x-9' : 'translate-x-0'"
-          class="pointer-events-none inline-block h-[25px] w-[25px] transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out"
+          class="pointer-events-none inline-block h-[25px] w-[25px] transform rounded-full bg-app-card shadow-lg ring-0 transition duration-200 ease-in-out"
         />
       </Switch>
       <span>Advance</span>
     </div>
-    <table class="w-full border-separate space-y-6 text-fungo-darkblue">
+    <table class="w-full border-separate space-y-6 text-white">
 
-      <thead class="bg-fungo-lightblue">
-        <tr class="divide-x divide-[#000]">
+      <thead class="bg-app-surface">
+        <tr class="divide-x divide-white/10">
           <th v-for="(heading, index) in headings" :key="index" class="py-3 px-2 md:px-0 font-fungo-500 uppercase w-min">
             {{ heading }}
           </th>
@@ -50,18 +50,18 @@ const headings = computed(() => {
 
       <tbody>
         <!-- <tr v-if="isLoading" class="w-full">
-          <td colspan="9" class="text-fungo-darkblue text-3xl text-center">Loading data...</td>
+          <td colspan="9" class="text-white text-3xl text-center">Loading data...</td>
         </tr>
         <tr v-else-if="!tableData.length > 0" class="w-full">
-          <td colspan="9" class="text-fungo-darkblue text-3xl text-center">There is no data</td>
+          <td colspan="9" class="text-white text-3xl text-center">There is no data</td>
         </tr> -->
         <template v-if="!isBasic">
-          <tr v-for="(item, index) in tableData['hitter-basic'].players" :key="index" class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative">
+          <tr v-for="(item, index) in tableData['hitter-basic'].players" :key="index" class="bg-app-card even:bg-white/[0.02] border-l border-white/5 relative">
             <td class="w-[100px] lg:w-[250px] lg:max-w-[250px]">
               <div class="grid grid-cols-2 place-items-center w-[200px] lg:w-auto">
                 <img
                   :src="getPlayerInfo(index).avatar"
-                  class="w-[70px] h-[70px] rounded-full border-[5px] border-fungo-gray"
+                  class="w-[70px] h-[70px] rounded-full border-[5px] border-white/10"
                 >
                 <p class="">
                   {{ getPlayerInfo(index).name.full }}
@@ -84,7 +84,7 @@ const headings = computed(() => {
             <td>{{ item.SLG }}</td>
             <td>{{ item.SLG }}</td>
           </tr>
-          <tr class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative">
+          <tr class="bg-app-card even:bg-white/[0.02] border-l border-white/5 relative">
             <td>Team</td>
             <td>{{ tableData['hitter-basic'].team_totals.AB }}</td>
             <td>{{ tableData['hitter-basic'].team_totals.PA }}</td>
@@ -105,12 +105,12 @@ const headings = computed(() => {
         </template>
 
         <template v-else>
-          <tr v-for="(item, index) in tableData['hitter-advance'].players" :key="index" class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative">
+          <tr v-for="(item, index) in tableData['hitter-advance'].players" :key="index" class="bg-app-card even:bg-white/[0.02] border-l border-white/5 relative">
             <td class="w-[100px] lg:w-[250px] lg:max-w-[250px]">
               <div class="grid grid-cols-2 place-items-center w-[200px] lg:w-auto">
                 <img
                   :src="getPlayerInfo(index).avatar"
-                  class="w-[70px] h-[70px] rounded-full border-[5px] border-fungo-gray"
+                  class="w-[70px] h-[70px] rounded-full border-[5px] border-white/10"
                 >
                 <p class="">
                   {{ getPlayerInfo(index).name.full }}
@@ -134,7 +134,7 @@ const headings = computed(() => {
             <td>{{ item.FLYP }} %</td>
             <td>{{ item.BABIP }}</td>
           </tr>
-          <tr class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative">
+          <tr class="bg-app-card even:bg-white/[0.02] border-l border-white/5 relative">
             <td>Team</td>
             <td>{{ tableData['hitter-advance'].team_totals.AB }}</td>
             <td>{{ tableData['hitter-advance'].team_totals.PA }}</td>
@@ -175,10 +175,10 @@ table tbody tr::after {
   top: 0;
   height: 100%;
   width: 3px;
-  background-color: #ADE8F4;
+  background-color: #FFD700;
 }
 
 table tbody tr:nth-child(even)::after {
-  background-color: #DADADA;
+  background-color: rgba(255,255,255,0.12);
 }
 </style>

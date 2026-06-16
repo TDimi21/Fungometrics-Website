@@ -20,8 +20,9 @@ const { players } = usePlayerStore()
 const tableHeadings = ['count', 'fb', 'ch', 'cv', 'sl', 'other', 'total']
 const counterHeaderTable = ['', '0-0', '0-1', '0-2', '1-0', '1-1', '1-2', '2-0', '2-1', '2-2', '3-0', '3-1', '3-2', 'Total']
 
+const pitchBS = props.tableData?.pitch?.['b-s'] ?? {}
 const playersOptions = players.filter(playr => {
-  let toSet = Object.keys(props.tableData.pitch['b-s'])
+  let toSet = Object.keys(pitchBS)
   if (toSet.includes(playr.id)) {
     return playr
   }
@@ -43,7 +44,7 @@ onBeforeMount(() => {
 
 </script>
 <template>
-  <section class="mt-4 overflow-x-auto">
+  <section class="mt-6 rounded-xl bg-app-card text-white overflow-x-auto p-4 shadow-lg">
     <div class="flex flex-row flex-wrap justify-center items-center space-x-3">
       <label for="select-batter">Select hitter</label>
       <select @change="onChangeOption($event)">
@@ -52,10 +53,10 @@ onBeforeMount(() => {
         <option value="team">Team</option>
       </select>
     </div>
-    <table class="w-full border-separate space-y-6 text-fungo-darkblue">
+    <table class="w-full border-separate space-y-6 text-white">
 
-      <thead class="bg-fungo-lightblue">
-        <tr class="divide-x divide-[#000]">
+      <thead class="bg-app-surface">
+        <tr class="divide-x divide-white/10">
           <th v-for="(heading, index) in tableHeadings" :key="index" class="py-3 px-2 md:px-0 font-fungo-500 uppercase w-min">
             {{ heading }}
           </th>
@@ -66,7 +67,7 @@ onBeforeMount(() => {
         <tr
           v-for="(item, index) in (currentPlayer == 'team' ? props.teamData.pitch['b-s'] : props.tableData.pitch['b-s'][currentPlayer.id])"
           :key="index"
-          class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative"
+          class="bg-app-card even:bg-white/[0.02] border-l border-white/5 relative"
         >
           <td>{{ index }}</td>
           <td>{{ item.FB }}</td>
@@ -79,20 +80,20 @@ onBeforeMount(() => {
       </tbody>
     </table>
   </section>
-  <section class="my-5 py-4">
+  <section class="my-6 rounded-xl bg-app-card text-white p-4 shadow-lg">
     <div class="mx-auto w-[20%] mb-5">
       <BigButtonField label="Total Pitch per AB" color="red" />
     </div>
     <table class="w-full border-separate space-y-6">
-      <thead class="bg-fungo-lightblue">
+      <thead class="bg-app-surface">
         <tr>
           <th colspan="7" class="py-3">TOTAL PITCH PER BAT</th>
         </tr>
       </thead>
 
       <tbody>
-        <tr class="bg-white">
-          <td class="bg-fungo-lightblue">PITCHES</td>
+        <tr class="bg-app-card">
+          <td class="bg-app-surface">PITCHES</td>
           <td>1</td>
           <td>2</td>
           <td>3</td>
@@ -100,16 +101,16 @@ onBeforeMount(() => {
           <td>5</td>
           <td>6+</td>
         </tr>
-        <tr class="bg-fungo-gray4">
-          <td class="bg-fungo-lightblue">TOTAL AB</td>
+        <tr class="bg-white/[0.03]">
+          <td class="bg-app-surface">TOTAL AB</td>
           <template v-for="(item, index) in (currentPlayer == 'team' ? props.teamData.ab : props.tableData.ab[currentPlayer.id])" :key="index">
             <td v-if="index !== 'count' && index !== 'sumpitches'">{{ item.count }}</td>
           </template>
         </tr>
       </tbody>
 
-      <tfoot class="bg-fungo-lightblue text-center">
-        <tr class="divide-x divide-[#000]">
+      <tfoot class="bg-app-surface text-center">
+        <tr class="divide-x divide-white/10">
           <td class="py-3 px-2 md:px-0 font-fungo-500 uppercase w-min">
             %
           </td>
@@ -126,11 +127,11 @@ onBeforeMount(() => {
 
     <table class="mt-7 w-full border-separate space-y-6 counters">
       <thead>
-        <tr class="bg-fungo-lightblue">
+        <tr class="bg-app-surface">
           <th
             v-for="(heading, index) in counterHeaderTable"
             :key="index"
-            class="first:bg-fungo-gray2 py-2"
+            class="first:bg-app-surface py-2"
           >
             {{ heading }}
           </th>
@@ -138,75 +139,75 @@ onBeforeMount(() => {
       </thead>
       <tbody>
         <tr>
-          <td class="bg-fungo-lightblue">#Of Weak</td>
+          <td class="bg-app-surface">#Of Weak</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData.contact['b-s'] : props.tableData.contact['b-s'][currentPlayer.id])">
             <td>{{ contact.Weak }}</td>
           </template>
         </tr>
         <tr>
-          <td class="bg-fungo-lightblue">#of average</td>
+          <td class="bg-app-surface">#of average</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData.contact['b-s'] : props.tableData.contact['b-s'][currentPlayer.id])">
             <td>{{ contact.Average }}</td>
           </template>
         </tr>
 
         <tr>
-          <td class="bg-fungo-lightblue">#of hard</td>
+          <td class="bg-app-surface">#of hard</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData.contact['b-s'] : props.tableData.contact['b-s'][currentPlayer.id])">
             <td>{{ contact.Hard }}</td>
           </template>
         </tr>
         <tr>
-          <td class="bg-fungo-lightblue">#of gb</td>
+          <td class="bg-app-surface">#of gb</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData.trajectory['b-s'] : props.tableData.trajectory['b-s'][currentPlayer.id])">
             <td>{{ contact.GB }}</td>
           </template>
         </tr>
 
         <tr>
-          <td class="bg-fungo-lightblue">#of ld</td>
+          <td class="bg-app-surface">#of ld</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData.trajectory['b-s'] : props.tableData.trajectory['b-s'][currentPlayer.id])">
             <td>{{ contact.LD }}</td>
           </template>
         </tr>
 
         <tr>
-          <td class="bg-fungo-lightblue">#of fly</td>
+          <td class="bg-app-surface">#of fly</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData.trajectory['b-s'] : props.tableData.trajectory['b-s'][currentPlayer.id])">
             <td>{{ contact.Fly }}</td>
           </template>
         </tr>
 
         <tr>
-          <td class="bg-fungo-lightblue">1b</td>
+          <td class="bg-app-surface">1b</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData['1b']['b-s'] : props.tableData['1b'][currentPlayer.id])">
             <td>{{ contact }}</td>
           </template>
         </tr>
 
         <tr>
-          <td class="bg-fungo-lightblue">#sw / miss</td>
+          <td class="bg-app-surface">#sw / miss</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData.trajectory['b-s'] : props.tableData.trajectory['b-s'][currentPlayer.id])">
             <td>{{ contact.SW }}</td>
           </template>
         </tr>
 
         <tr>
-          <td class="bg-fungo-lightblue">xbh</td>
+          <td class="bg-app-surface">xbh</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData.XBH['b-s'] : props.tableData.XHB[currentPlayer.id])">
             <td>{{ contact }}</td>
           </template>
         </tr>
 
         <tr>
-          <td class="bg-fungo-lightblue">ba. avg.</td>
+          <td class="bg-app-surface">ba. avg.</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData.bat_avg['b-s'] : props.tableData.bat_avg[currentPlayer.id])">
             <td>{{ contact }}</td>
           </template>
         </tr>
 
         <tr>
-          <td class="bg-fungo-lightblue">slg%</td>
+          <td class="bg-app-surface">slg%</td>
           <template v-for="(contact, index) in (currentPlayer == 'team' ? props.teamData['SLG%']['b-s'] : props.tableData.SLG[currentPlayer.id])">
             <td>{{ contact }}</td>
           </template>
@@ -232,14 +233,14 @@ table tbody tr::after {
   top: 0;
   height: 100%;
   width: 3px;
-  background-color: #ADE8F4;
+  background-color: #FFD700;
 }
 
 table tbody tr:nth-child(even)::after {
-  background-color: #DADADA;
+  background-color: rgba(255,255,255,0.12);
 }
 
 table.counters tbody tr td:not(:first-child) {
-  @apply bg-fungo-gray4;
+  @apply bg-white/[0.03];
 }
 </style>

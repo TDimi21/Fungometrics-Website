@@ -49,7 +49,7 @@ const getPlayersFromTeam = async () => {
   let filterPlayers = await useTeam.getTeamsFromApi()
   let playersToAdd = []
   filterPlayers.forEach(element => {
-    if (element.players.length > 0) {
+    if (element.players?.length > 0) {
       element.players.forEach(playr => {
         playersToAdd.push(playr)
       })
@@ -181,7 +181,7 @@ const showTotalBasesValue = (item) => {
   <Layout>
     <practice-title title="LiveAB Mode Practices Statistics" />
 
-    <section class="bg-fungo-gray3 w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%]">
+    <section class="bg-app-surface w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%]">
       <div class="flex flex-col items-center space-y-6 lg:flex-row lg:space-y-0 lg:space-x-3">
         <div class="w-max">
           <batting-logo-practice class="h-[80px] w-[80px] hidden lg:block" />
@@ -203,7 +203,7 @@ const showTotalBasesValue = (item) => {
           </form>
         </div>
         <div class="w-[100%] lg:w-[50%] flex justify-between items-center">
-          <download-excel class="flex w-[100px] gap-2 bg-white p-3 rounded-r-full" :data="excelDataExport"
+          <download-excel class="flex w-[110px] gap-2 items-center justify-center bg-app-card hover:bg-app-card-hover text-white p-3 rounded-r-full cursor-pointer transition-colors border border-white/10" :data="excelDataExport"
             :fields="excelHeaderData" :name="'liveABBallxBallTable.xls'">
             <div>Excel</div>
             <svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -219,10 +219,10 @@ const showTotalBasesValue = (item) => {
     <!-- tab navigation -->
     <section class="mt-[200px] lg:mt-[120px] md:px-[5%]">
       <tab-group>
-        <tab-list class="border-b-2 border-fungo-gray3">
+        <tab-list class="border-b-2 border-white/10">
           <tab as="template" v-slot="{ selected }" class="mx-4" v-for="head in tabHeading">
-            <button class="outline-none"
-              :class="{ 'text-fungo-red font-fungo-500 border-b-2 border-fungo-red': selected, 'text-fungo-darkblue': !selected }">
+            <button class="outline-none pb-2"
+              :class="{ 'text-app-gold font-fungo-500 border-b-2 border-app-gold': selected, 'text-app-muted hover:text-white': !selected }">
               {{ head }}
             </button>
           </tab>

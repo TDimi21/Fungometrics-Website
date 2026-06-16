@@ -30,7 +30,8 @@ export const useTeamStore = defineStore('teams',()=>{
     const getTeamsFromApi = async() => {
       try {
         const { data } = await axiosGet('coach/teams')
-        return data.data
+        // Normalize: dummy/auto-created teams can come back without a players array.
+        return (data.data ?? []).map(team => ({ ...team, players: team.players ?? [] }))
       } catch (error) {
         console.log(error);
         return []

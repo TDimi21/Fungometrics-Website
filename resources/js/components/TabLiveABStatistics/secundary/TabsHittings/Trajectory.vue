@@ -1,32 +1,38 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { PrintFieldData } from '@/components/shared'
 import { useGetPlayerAb } from '@/composables/useGetPlayerAb.js'
 
 const props = defineProps({
-  tableData: {
-    type: Object,
-    required: false,
-    default: {}
-  }
+  tableData: { type: Object, required: false, default: () => ({}) },
 })
 
 const { getPlayerInfo } = useGetPlayerAb()
 
-const tableHeadings = ref([
-  "fb", "sw/miss", "foul", "ld", "gb", "total", "player"
-])
 const buttonsGroup = ref([
-  { text: 'All', typeHit: 'All' },
-  { text: 'Left', typeHit: 'L' },
-  { text: 'Middle', typeHit: 'C' },
-  { text: 'Right', typeHit: 'R' },
+  { text: 'ALL',    typeHit: 'All' },
+  { text: 'LEFT',   typeHit: 'L'   },
+  { text: 'MIDDLE', typeHit: 'C'   },
+  { text: 'RIGHT',  typeHit: 'R'   },
 ])
+
+const TRAJ_ROWS = [
+  { key: 'TOTAL-FB',    label: 'FLY BALL',    color: '#558b2f' },
+  { key: 'TOTAL-LD',    label: 'LINE DRIVE',   color: '#1565c0' },
+  { key: 'TOTAL-GB',    label: 'GROUND BALL',  color: '#2e7d32' },
+  { key: 'TOTAL-SM',    label: 'SW/MISS',      color: '#bf360c' },
+  { key: 'TOTAL-FOUL',  label: 'FOUL',         color: '#6a1b9a' },
+  { key: 'TOTAL-SWINGS',label: 'TOTAL',        color: '#263238', isTotal: true },
+]
 
 const currentIndex = ref(0)
-let coordinates = ref([])
+const coordinates = ref([])
 const activeRow = ref('1')
 
+const getALlPitchMark = () => {
+  const src = props.tableData['hitter-trajectory']?.team_totals?.['SPRAY-PITCH-LOCATION'] ?? []
+  src.forEach(el => coordinates.value.push({ point: el.field_mark, feature: el.type_of_hit }))
+}
 
 const filterPointsByFirstRowTable = () => {
   coordinates.value = []
@@ -35,193 +41,90 @@ const filterPointsByFirstRowTable = () => {
 }
 
 const filterByTrajectory = (index, type) => {
-  let toRecorring
   coordinates.value = []
   currentIndex.value = index
-
-  if (activeRow.value == '1') {
-    toRecorring = props.tableData['hitter-trajectory'].team_totals['SPRAY-PITCH-LOCATION']
-    toRecorring.forEach(item => {
-      if (item.field_direction !== null && item.field_direction.includes(type)) {
-        coordinates.value.push({point: item.field_mark, feature: item.type_of_hit})
-      }
-
-      if (type == 'All') {
-        coordinates.value.push({point: item.field_mark, feature: item.type_of_hit})
-      }
-    })
-
-  } else {
-    toRecorring = props.tableData['hitter-trajectory'].players[activeRow.value]
-
-    toRecorring['SPRAY-PITCH-LOCATION'].forEach(item => {
-      if (item.field_direction !== null && item.field_direction.includes(type)) {
-        coordinates.value.push({point: item.field_mark, feature: item.type_of_hit})
-      }
-
-      if (type == 'All') {
-        coordinates.value.push({point: item.field_mark, feature: item.type_of_hit})
-      }
-    })
-  }
+  const src = activeRow.value === '1'
+    ? props.tableData['hitter-trajectory']?.team_totals?.['SPRAY-PITCH-LOCATION'] ?? []
+    : props.tableData['hitter-trajectory']?.players?.[activeRow.value]?.['SPRAY-PITCH-LOCATION'] ?? []
+  src.forEach(item => {
+    if (type === 'All' || (item.field_direction !== null && item.field_direction?.includes(type)))
+      coordinates.value.push({ point: item.field_mark, feature: item.type_of_hit })
+  })
 }
 
 const filterPointsByRowTable = (player, id) => {
   coordinates.value = []
   activeRow.value = id
-  player['SPRAY-PITCH-LOCATION'].forEach(element => {
-    coordinates.value.push({point: element.field_mark, feature: element.type_of_hit })
-  })
+  player['SPRAY-PITCH-LOCATION']?.forEach(el =>
+    coordinates.value.push({ point: el.field_mark, feature: el.type_of_hit })
+  )
 }
 
+onMounted(getALlPitchMark)
 
-const getALlPitchMark = () => {
-  let toRecorring = props.tableData['hitter-trajectory'].team_totals['SPRAY-PITCH-LOCATION']
+const trajData = computed(() => props.tableData['hitter-trajectory'] ?? { team_totals: {}, players: {} })
+const playerIds = computed(() => Object.keys(trajData.value.players ?? {}))
 
-  if (toRecorring != 0) {
-    toRecorring.forEach(element => {
-      coordinates.value.push({point: element.field_mark, feature: element.type_of_hit })
-    });
-  }
-}
-
-onMounted(() => {
-  getALlPitchMark()
-})
-
+const teamVal   = (row) => trajData.value.team_totals?.[row.key] ?? '–'
+const playerVal = (id, row) => trajData.value.players?.[id]?.[row.key] ?? '–'
 </script>
-<template>
-  <section class="mt-5">
-    <div class="grid grid-cols-3 bg-fungo-lightblue divide-x divide-[#000] text-center py-2">
-      <div class="col-span-2">
-        <p>Pitch Heat Map</p>
-      </div>
-      <div>
-        directional breakdown
-      </div>
-    </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-7 lg:gap-x-8 mt-10 gap-y-8">
-      <div class="grid lg:grid-cols-1 bg-white rounded-[10px] h-min button-group px-7 py-9 gap-y-3">
-        <p class="text-fungo-red">Select</p>
+<template>
+  <section class="mt-6 rounded-xl bg-app-card text-white p-5 shadow-lg overflow-x-auto">
+    <div class="flex flex-col xl:flex-row gap-6">
+
+      <!-- Left: direction filter buttons -->
+      <div class="flex flex-col gap-2 min-w-[150px]">
+        <p class="text-app-muted text-xs uppercase font-semibold mb-1">Direction</p>
         <button
-          v-for="(button, index) in buttonsGroup"
-          :key="index"
-          class="rounded-[5px] border border-fungo-darkblue py-1"
-          @click="filterByTrajectory(index, button.typeHit)"
-          :class="{'bg-fungo-red text-white border-fungo-red' : currentIndex === index}"
-        >
-          {{ button.text }}
-        </button>
+          v-for="(btn, i) in buttonsGroup" :key="i"
+          class="py-2 px-4 rounded-lg font-semibold text-sm border transition-colors uppercase tracking-wide"
+          :class="currentIndex === i ? 'bg-app-red border-app-red text-white' : 'border-white/20 text-white/70 hover:text-white hover:border-white/50'"
+          @click="filterByTrajectory(i, btn.typeHit)"
+        >{{ btn.text }}</button>
+
+        <!-- Direction legend -->
+        <div class="mt-4 flex flex-col gap-1 text-xs text-white/60">
+          <div class="flex items-center gap-2"><img src="@/assets/img/training/balltraining-green.svg" class="w-4 h-4"> Left</div>
+          <div class="flex items-center gap-2"><img src="@/assets/img/training/balltraining.svg" class="w-4 h-4"> Middle</div>
+          <div class="flex items-center gap-2"><img src="@/assets/img/training/balltraining-blue.svg" class="w-4 h-4"> Right</div>
+        </div>
       </div>
-      <div class="col-span-3 lg:col-span-1 xl:col-span-3 px-5">
+
+      <!-- Center: spray chart -->
+      <div class="flex-shrink-0 w-full xl:w-[260px]">
         <PrintFieldData :fieldCoordinates="coordinates" typeOfCondition="trajectory"/>
       </div>
 
-      <div class="pitch-table col-span-3 px-5 py-4">
-        <table class="w-full space-y-6 text-fungo-darkblue">
-
-          <thead class="bg-fungo-lightblue">
-            <tr class="bg-white pb-4">
-              <th class="ball-header purple"></th>
-              <th class="ball-header white"></th>
-              <th class="ball-header left"></th>
-              <th class="ball-header middle"></th>
-              <th class="ball-header right"></th>
-            </tr>
+      <!-- Right: trajectory table (rows = type, cols = players) -->
+      <div class="flex-1 min-w-0">
+        <h3 class="text-app-gold font-semibold tracking-widest mb-3 text-xs uppercase">Trajectory Breakdown</h3>
+        <table class="w-full text-sm border-collapse">
+          <thead>
             <tr>
-              <th class="bg-white h-[10px]"></th>
-            </tr>
-            <tr class="divide-x divide-[#000]">
-              <th v-for="(heading, index) in tableHeadings" :key="index"
-                class="py-3 px-2 font-fungo-500 uppercase w-min">
-                {{ heading }}
+              <th class="w-[100px] py-2"></th>
+              <th class="py-2 px-3 text-center text-app-gold font-bold text-xs uppercase">TEAM</th>
+              <th v-for="id in playerIds" :key="id" class="py-2 px-3 text-center text-white/70 font-medium text-xs uppercase whitespace-nowrap">
+                {{ getPlayerInfo(id).name?.last ?? id }}
               </th>
             </tr>
           </thead>
-
           <tbody>
-            <tr
-              class="bg-white even:bg-fungo-gray4 relative cursor-pointer"
-              :class=" {'active-row text-white opacity-60' : activeRow == '1' } "
-              @click="filterPointsByFirstRowTable"
-            >
-              <td>{{ props.tableData['hitter-trajectory'].team_totals['TOTAL-FB'] }}</td>
-              <td>{{ props.tableData['hitter-trajectory'].team_totals['TOTAL-SM'] }}</td>
-              <td>{{ props.tableData['hitter-trajectory'].team_totals['TOTAL-FOUL'] }}</td>
-              <td>{{ props.tableData['hitter-trajectory'].team_totals['TOTAL-LD'] }}</td>
-              <td>{{ props.tableData['hitter-trajectory'].team_totals['TOTAL-GB'] }}</td>
-              <td>{{ props.tableData['hitter-trajectory'].team_totals['TOTAL-SWINGS'] }}</td>
-              <td>Team</td>
-            </tr>
-            <tr
-              v-for="(item, id) in props.tableData['hitter-trajectory'].players"
-              :key="id"
-              class="bg-white even:bg-fungo-gray4 relative cursor-pointer"
-              @click=" filterPointsByRowTable(item, id) "
-              :class=" {'active-row text-white opacity-60' : activeRow == id } "
-              :id="id"
-            >
-              <td>{{ item['TOTAL-FB'] }}</td>
-              <td>{{ item['TOTAL-SM'] }}</td>
-              <td>{{ item['TOTAL-FOUL'] }}</td>
-              <td>{{ item['TOTAL-LD'] }}</td>
-              <td>{{ item['TOTAL-GB'] }}</td>
-              <td>{{ item['TOTAL-SWINGS'] }}</td>
-              <td>{{ getPlayerInfo(id).name.first }}</td>
+            <tr v-for="row in TRAJ_ROWS" :key="row.key" class="border-t border-white/5">
+              <td class="py-3 px-3 font-bold text-xs text-center rounded-l text-white" :style="{ backgroundColor: row.color }">
+                {{ row.label }}
+              </td>
+              <td class="py-3 px-4 text-center font-semibold" :class="row.isTotal ? 'text-white' : 'text-app-gold'">
+                {{ teamVal(row) }}
+              </td>
+              <td v-for="id in playerIds" :key="id" class="py-3 px-4 text-center text-white/80">
+                {{ playerVal(id, row) }}
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
+
     </div>
   </section>
 </template>
-<style scoped>
-.pitch-table {
-  @apply rounded-[20px] bg-white;
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
-}
-.button-group {
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
-}
-.ball-header {
-  background-repeat: no-repeat;
-  background-size: contain;
-  height: 25px;
-  width: 25px;
-  background-position: center;
-}
-.ball-header.left {
-  background-image: url("@/assets/img/training/balltraining-green.svg");
-}
-.ball-header.middle {
-  background-image: url("@/assets/img/training/balltraining.svg");
-}
-.ball-header.right {
-  background-image: url("@/assets/img/training/balltraining-blue.svg");
-}
-.ball-header.white {
-  background-image: url("@/assets/img/training/ball-white.svg");
-}
-.ball-header.purple {
-  background-image: url("@/assets/img/training/ball-purple.svg");
-}
-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
-}
-table tbody tr::after{
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #ADE8F4;
-}
-table tbody tr:nth-child(even)::after{
-  background-color: #DADADA;
-}
-.active-row {
-  background-color: #0096C7 !important;
-}
-</style>

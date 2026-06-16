@@ -59,6 +59,7 @@ module.exports = {
         "app-surface": "#141830",
         "app-card":    "#1A1F45",
         "app-card-hover":"#1E2450",
+        "app-gold":    "#FFD700",
       },
       boxShadow: {
         'fungo-but-shadow': '0 10px 10px 5px rgba(0, 0, 0, 0.3),0 -5px 10px 0px' +
