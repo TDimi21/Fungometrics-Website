@@ -1,12 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { dataCoordinates } from "@/utils/dataCoordinatesField";
+import { dataCoordinates } from "@/utils/dataCoordinatesField"
 
 const props = defineProps({
   fieldCoordinates: {
     type: Object
   },
-  typeOfCondition: { /* posible values [qtyContact, trajectory or ...] */
+  typeOfCondition: {
     type: String,
     required: true
   }
@@ -18,79 +18,68 @@ const defineConditionColor = () => {
   switch (props.typeOfCondition) {
     case 'qtyContact':
       conditionsOfColors.value = { first: 'MF', second: 'W', third: 'A', fourth: 'H' }
-      break;
-
+      break
     case 'trajectory':
       conditionsOfColors.value = { first: 'SM', second: 'F', third: 'LD', fourth: 'GB', fifty: 'FB' }
-      break;
+      break
   }
 }
 
-onMounted(() => {
-  defineConditionColor()
-})
+onMounted(defineConditionColor)
 </script>
 
 <template>
-  <div class=" grid grid-cols-[repeat(80,1fr)] zone-field">
-    <div v-for="cell in dataCoordinates"
+  <!-- aspect-ratio matches fieldbatting.png (439×282) so the grid covers it exactly -->
+  <div class="zone-field grid grid-cols-[repeat(80,1fr)] grid-rows-[repeat(81,1fr)] w-full">
+    <div
+      v-for="cell in dataCoordinates"
       :id="cell.point"
       class="cell"
       :class="{
-        'ballhit-field white' : fieldCoordinates.find(({ point, feature }) => point == cell.point && feature == conditionsOfColors.first),
-        'ballhit-field green' : fieldCoordinates.find(({ point, feature }) => point == cell.point && feature == conditionsOfColors.second),
+        'ballhit-field white'  : fieldCoordinates.find(({ point, feature }) => point == cell.point && feature == conditionsOfColors.first),
+        'ballhit-field green'  : fieldCoordinates.find(({ point, feature }) => point == cell.point && feature == conditionsOfColors.second),
         'ballhit-field yellow' : fieldCoordinates.find(({ point, feature }) => point == cell.point && feature == conditionsOfColors.third),
-        'ballhit-field blue' : fieldCoordinates.find(({ point, feature }) => point == cell.point && feature == conditionsOfColors.fourth),
+        'ballhit-field blue'   : fieldCoordinates.find(({ point, feature }) => point == cell.point && feature == conditionsOfColors.fourth),
         'ballhit-field purple' : fieldCoordinates.find(({ point, feature }) => point == cell.point && feature == conditionsOfColors.fifty)
       }"
-    >
-    </div>
+    />
   </div>
 </template>
+
 <script>
-export default {
-  name: 'GridField'
-}
+export default { name: 'GridField' }
 </script>
+
 <style scoped>
 .zone-field {
   background-image: url("../../assets/img/training/fieldbatting.png");
   background-repeat: no-repeat;
   background-size: 100% 100%;
   background-position: center;
+  /* image is 439×282 — aspect-ratio locks height proportional to width */
+  aspect-ratio: 439 / 282;
 }
 
 .cell {
-  @apply w-[0.265em] h-[0.26em] 2xl:h-[0.31em] 2xl:w-[0.365em]  xl:h-[0.21em] xl:w-[0.365em] ;
+  width: 100%;
+  height: 100%;
   cursor: pointer;
 }
 
-.foul-zone {
-  background-color: #852F4FAF;
-  @apply w-[0.265em] h-[0.26em] ;
-}
-
 .ballhit-field {
-  @apply w-[0.265em] h-[0.26em] scale-[3.5]
-  bg-no-repeat bg-cover xl:bg-contain;
-  position: relative;
+  width: 100%;
+  height: 100%;
+  transform: scale(3);
   background-color: transparent;
   background-repeat: no-repeat;
-  z-index: auto;
+  background-size: contain;
+  background-position: center;
+  position: relative;
+  z-index: 1;
 }
-.ballhit-field.white {
-  background-image: url("../../assets/img/login/assteslogin/ballbutton.svg");
-}
-.ballhit-field.green {
-  background-image: url("../../assets/img/training/balltraining-green.svg");
-}
-.ballhit-field.yellow {
-  background-image: url("../../assets/img/training/balltraining.svg");
-}
-.ballhit-field.blue {
-  background-image: url("../../assets/img/training/balltraining-blue.svg");
-}
-.ballhit-field.purple {
-  background-image: url("../../assets/img/training/ball-purple.svg");
-}
+.ballhit-field.white  { background-image: url("../../assets/img/login/assteslogin/ballbutton.svg"); }
+.ballhit-field.green  { background-image: url("../../assets/img/training/balltraining-green.svg"); }
+.ballhit-field.yellow { background-image: url("../../assets/img/training/balltraining.svg"); }
+.ballhit-field.blue   { background-image: url("../../assets/img/training/balltraining-blue.svg"); }
+.ballhit-field.purple { background-image: url("../../assets/img/training/ball-purple.svg"); }
 </style>

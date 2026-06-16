@@ -7,8 +7,11 @@ export const useGetPlayerAb = () => {
   const { teamsAndPlayers } = storeToRefs(useLiveAB)
 
   const getPlayerInfo = (playerId) => {
-    
-    let toResponse = teamsAndPlayers.value.find(item => item.id === playerId)
+    let toResponse = teamsAndPlayers.value.find(item => String(item.id) === String(playerId))
+
+    if (!toResponse) {
+      return { avatar: defaultIMg, name: { first: '', last: playerId, full: playerId } }
+    }
 
     return {
       avatar: toResponse.avatar != null ? toResponse.avatar : defaultIMg,

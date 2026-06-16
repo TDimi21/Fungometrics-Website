@@ -31,7 +31,7 @@ onMounted(() => {
 })
 </script>
 <template>
-  <div class="grid grid-cols-[repeat(60,1fr)]  zone-catcher">
+  <div class="zone-catcher grid grid-cols-[repeat(60,1fr)] grid-rows-[repeat(60,1fr)] w-full">
 
     <div
       v-for="cell in dataCoordinates"
@@ -54,27 +54,30 @@ onMounted(() => {
 </script>
 <style scoped>
 
-.cell {
-  @apply w-[0.35em] h-[0.37em]  xl:w-[0.31em] xl:h-[0.41em] ;
-  cursor: pointer;
-}
-
 .zone-catcher {
   background-image: url("../../assets/img/training/catcher.png");
   background-repeat: no-repeat;
   background-size: 100% 100%;
   background-position: center;
-  height: 600px;
+  aspect-ratio: 598 / 740;
 }
 
+.cell {
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
 
-.ballhit{
-  @apply w-[0.265em] h-[0.26em] scale-[3.5]
-  bg-no-repeat bg-cover xl:bg-contain;
+.ballhit {
+  width: 100%;
+  height: 100%;
   position: relative;
+  transform: scale(4);
   background-color: transparent;
   background-repeat: no-repeat;
-  z-index: auto;
+  background-size: contain;
+  background-position: center;
+  z-index: 1;
 }
 .ballhit.cv {
   background-image: url("../../assets/img/training/balltraining-green.svg");

@@ -29,12 +29,38 @@ const excelDataExport = ref([])
 const { teamsAndPlayers } = storeToRefs(useLiveAB)
 const isLoading = ref(false)
 
+const buildPlayersFromBallData = () => {
+  const playerMap = {}
+  ;(statisticsData.value.ball_x_ball ?? []).forEach(ball => {
+    if (ball.batting?.batter_id && ball.batting?.profile) {
+      const id = String(ball.batting.batter_id)
+      const p = ball.batting.profile
+      playerMap[id] = {
+        id,
+        name: { first: p.first_name ?? '', last: p.last_name ?? '', full: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() },
+        avatar: p.picture ?? null,
+      }
+    }
+    if (ball.pitching?.pitcher_id && ball.pitching?.profile) {
+      const id = String(ball.pitching.pitcher_id)
+      const p = ball.pitching.profile
+      playerMap[id] = {
+        id,
+        name: { first: p.first_name ?? '', last: p.last_name ?? '', full: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() },
+        avatar: p.picture ?? null,
+      }
+    }
+  })
+  teamsAndPlayers.value = Object.values(playerMap)
+}
+
 const getStatistic = async () => {
   try {
     isLoading.value = !isLoading.value
     await axiosGet(`statistics/${route.params.id}/liveab`)
       .then(response => {
         statisticsData.value = response.data.data
+        buildPlayersFromBallData()
         excelExportDataAB()
       })
 
@@ -71,7 +97,6 @@ const sortData = (key) => {
 
 onMounted(() => {
   getStatistic()
-  getPlayersFromTeam()
 })
 
 const excelExportDataAB = () => {
@@ -179,54 +204,41 @@ const showTotalBasesValue = (item) => {
 </script>
 <template>
   <Layout>
-    <practice-title title="LiveAB Mode Practices Statistics" />
+    <!-- Page header: logo + title -->
+    <div class="flex items-center gap-4 mb-8 md:px-[5%]">
+      <batting-logo-practice class="h-[56px] w-[56px] flex-shrink-0" />
+      <h1 class="text-app-red text-2xl md:text-3xl font-bold tracking-wide">LiveAB Mode Practices Statistics</h1>
+    </div>
 
-    <section class="bg-app-surface w-full h-auto lg:h-[80px] absolute left-0 px-[10%] md:px-[5%]">
-      <div class="flex flex-col items-center space-y-6 lg:flex-row lg:space-y-0 lg:space-x-3">
-        <div class="w-max">
-          <batting-logo-practice class="h-[80px] w-[80px] hidden lg:block" />
-        </div>
-        <div class="w-full lg:w-[30%] hidden">
-          <div class="flex items-center space-x-3 flex-nowrap">
-            <label for="entries">Show</label>
-            <select-field v-model="entriesModel" :options="entriesOption" />
-          </div>
-        </div>
-        <div class="w-full lg:w-[50%] hidden">
-          <form action="" name="search-practice" class="flex flex-row items-center space-x-3 flex-nowrap">
-            <label for="search" class="block">Search</label>
-            <input-base v-model="searchPractice" inputType="search" class="inline-flex w-[65%]" />
-            <button type="submit" role="submit"
-              class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-fungo-red">
-              <search-icon />
-            </button>
-          </form>
-        </div>
-        <div class="w-[100%] lg:w-[50%] flex justify-between items-center">
-          <download-excel class="flex w-[110px] gap-2 items-center justify-center bg-app-card hover:bg-app-card-hover text-white p-3 rounded-r-full cursor-pointer transition-colors border border-white/10" :data="excelDataExport"
-            :fields="excelHeaderData" :name="'liveABBallxBallTable.xls'">
-            <div>Excel</div>
-            <svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Tabs + Export button -->
+    <section class="md:px-[5%]">
+      <tab-group>
+        <!-- Tab bar row: tabs left, Excel export right -->
+        <div class="flex items-center justify-between border-b-2 border-white/10 mb-4">
+          <tab-list class="flex">
+            <tab as="template" v-slot="{ selected }" v-for="head in tabHeading" :key="head">
+              <button class="outline-none pb-2 px-4 text-sm font-semibold transition-colors whitespace-nowrap"
+                :class="{ 'text-app-gold border-b-2 border-app-gold': selected, 'text-app-muted hover:text-white': !selected }">
+                {{ head }}
+              </button>
+            </tab>
+          </tab-list>
+
+          <download-excel
+            class="flex items-center gap-2 bg-app-card hover:bg-app-card-hover border border-white/10 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors mb-1 flex-shrink-0"
+            :data="excelDataExport"
+            :fields="excelHeaderData"
+            :name="'liveABBallxBallTable.xls'"
+          >
+            <svg width="14" height="17" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path fill-rule="evenodd" clip-rule="evenodd"
                 d="M18 7.71429H12.8571V0H5.14286V7.71429H0L9 16.7143L18 7.71429ZM7.71307 10.2863V2.57202H10.2845V10.2863H11.7888L8.99878 13.0763L6.20878 10.2863H7.71307ZM18 21.8571V19.2856H0V21.8571H18Z"
                 fill="#E10600" />
             </svg>
+            <span class="text-sm font-semibold">Export</span>
           </download-excel>
         </div>
-      </div>
-    </section>
 
-    <!-- tab navigation -->
-    <section class="mt-[200px] lg:mt-[120px] md:px-[5%]">
-      <tab-group>
-        <tab-list class="border-b-2 border-white/10">
-          <tab as="template" v-slot="{ selected }" class="mx-4" v-for="head in tabHeading">
-            <button class="outline-none pb-2"
-              :class="{ 'text-app-gold font-fungo-500 border-b-2 border-app-gold': selected, 'text-app-muted hover:text-white': !selected }">
-              {{ head }}
-            </button>
-          </tab>
-        </tab-list>
         <tab-panels>
           <tab-panel>
             <table-tab :stats-data="statisticsData" @sortData="sortData" :isLoading="isLoading"/>

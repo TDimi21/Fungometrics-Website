@@ -92,14 +92,14 @@ const playerVal = (id, row) => trajData.value.players?.[id]?.[row.key] ?? '–'
       </div>
 
       <!-- Center: spray chart -->
-      <div class="flex-shrink-0 w-full xl:w-[260px]">
-        <PrintFieldData :fieldCoordinates="coordinates" typeOfCondition="trajectory"/>
+      <div class="flex-shrink-0 w-full xl:w-[340px] flex flex-col">
+        <PrintFieldData :fieldCoordinates="coordinates" typeOfCondition="trajectory" class="flex-1 min-h-0"/>
       </div>
 
-      <!-- Right: trajectory table (rows = type, cols = players) -->
-      <div class="flex-1 min-w-0">
+      <!-- Right: trajectory table (rows = type, cols = players) — horizontal scroll for many players -->
+      <div class="flex-1 min-w-0 overflow-x-auto">
         <h3 class="text-app-gold font-semibold tracking-widest mb-3 text-xs uppercase">Trajectory Breakdown</h3>
-        <table class="w-full text-sm border-collapse">
+        <table class="min-w-max text-sm border-collapse">
           <thead>
             <tr>
               <th class="w-[100px] py-2"></th>

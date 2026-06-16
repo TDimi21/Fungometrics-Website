@@ -88,14 +88,14 @@ const playerVal = (id, row) => trajData.value.players?.[id]?.[row.key] ?? '–'
       </div>
 
       <!-- Center: field spray map -->
-      <div class="flex-shrink-0 w-full xl:w-[260px]">
-        <PrintFieldData :fieldCoordinates="coordinates" typeOfCondition="qtyContact"/>
+      <div class="flex-shrink-0 w-full xl:w-[340px] flex flex-col">
+        <PrintFieldData :fieldCoordinates="coordinates" typeOfCondition="qtyContact" class="flex-1 min-h-0"/>
       </div>
 
-      <!-- Right: trajectory stats table (rows = type, cols = players) -->
-      <div class="flex-1 min-w-0">
+      <!-- Right: trajectory stats table (rows = type, cols = players) — horizontal scroll for many players -->
+      <div class="flex-1 min-w-0 overflow-x-auto">
         <h3 class="text-app-gold font-semibold tracking-widest mb-3 text-xs uppercase">Contact Breakdown</h3>
-        <table class="w-full text-sm border-collapse">
+        <table class="min-w-max text-sm border-collapse">
           <thead>
             <tr>
               <th class="w-[90px] py-2"></th>

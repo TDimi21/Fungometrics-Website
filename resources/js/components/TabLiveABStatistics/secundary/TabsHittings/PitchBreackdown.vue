@@ -104,14 +104,14 @@ const playerVal = (id, row) => {
       </div>
 
       <!-- Center: catcher heatmap -->
-      <div class="flex-shrink-0 w-full xl:w-[260px]">
-        <PrintCatcherData :ballCoordinates="coordinates"/>
+      <div class="flex-shrink-0 w-full xl:w-[340px] flex flex-col">
+        <PrintCatcherData :ballCoordinates="coordinates" class="flex-1 min-h-0"/>
       </div>
 
-      <!-- Right: pitch-type % table (rows = type, cols = players) -->
-      <div class="flex-1 min-w-0">
+      <!-- Right: pitch-type % table (rows = type, cols = players) — horizontal scroll for many players -->
+      <div class="flex-1 min-w-0 overflow-x-auto">
         <h3 class="text-app-gold font-semibold tracking-widest mb-3 text-xs uppercase">Pitch Type Breakdown — % Seen per Batter</h3>
-        <table class="w-full text-sm border-collapse">
+        <table class="min-w-max text-sm border-collapse">
           <thead>
             <tr>
               <th class="w-[80px] py-2"></th>

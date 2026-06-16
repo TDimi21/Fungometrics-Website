@@ -84,14 +84,14 @@ const playerVal = (id, row) => contactData.value.players?.[id]?.[row.key] ?? 'â€
       </div>
 
       <!-- Center: catcher heatmap -->
-      <div class="flex-shrink-0 w-full xl:w-[260px]">
-        <PrintCatcherData :ballCoordinates="coordinates"/>
+      <div class="flex-shrink-0 w-full xl:w-[340px] flex flex-col">
+        <PrintCatcherData :ballCoordinates="coordinates" class="flex-1 min-h-0"/>
       </div>
 
-      <!-- Right: pitch-type contact table (rows = type, cols = pitchers) -->
-      <div class="flex-1 min-w-0">
+      <!-- Right: pitch-type contact table (rows = type, cols = pitchers) â€” horizontal scroll for many players -->
+      <div class="flex-1 min-w-0 overflow-x-auto">
         <h3 class="text-app-gold font-semibold tracking-widest mb-3 text-xs uppercase">Pitch Type Contact</h3>
-        <table class="w-full text-sm border-collapse">
+        <table class="min-w-max text-sm border-collapse">
           <thead>
             <tr>
               <th class="w-[100px] py-2"></th>

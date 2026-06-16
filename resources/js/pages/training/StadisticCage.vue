@@ -653,22 +653,11 @@ if(userData.type === 'coach'){
 <template>
   <Loader v-show="isSending" />
   <LayoutVue>
-    <PracticeTitle class="capitalize" :title="'Cage practices statistics'" />
-    <section class="flex w-full justify-between px-[5%]">
-      <div class="flex items-center w-max">
-        <CageIcon class="w-12 mr-2" />
-        <download-excel class="flex w-[100px] gap-2 bg-white p-3 rounded-r-full" :data="excelDataExport"
-          :fields="excelHeaderData" :name="'cageBallxBallTable.xls'">
-          <div>Excel</div>
-          <svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd"
-              d="M18 7.71429H12.8571V0H5.14286V7.71429H0L9 16.7143L18 7.71429ZM7.71307 10.2863V2.57202H10.2845V10.2863H11.7888L8.99878 13.0763L6.20878 10.2863H7.71307ZM18 21.8571V19.2856H0V21.8571H18Z"
-              fill="#E10600" />
-          </svg>
-        </download-excel>
-      </div>
-
-      <div v-if="userData.type !== 'player'" class="flex space-x-4">
+    <!-- Page header: icon + title -->
+    <div class="flex items-center gap-3 mb-8 md:px-[5%]">
+      <CageIcon class="w-10 flex-shrink-0" />
+      <h1 class="text-app-red text-2xl md:text-3xl font-bold tracking-wide">Cage Practices Statistics</h1>
+      <div v-if="userData.type !== 'player'" class="ml-auto flex gap-3">
         <template v-if="route.params.isComplete == 'true'">
           <form v-if="statusMsg === false" @submit.prevent="openSendMsgWindow(globalResponse.by_player)">
             <BigButtonField color="dark" label="Send sms to players" type="submit" />
@@ -678,17 +667,28 @@ if(userData.type === 'coach'){
           </form>
         </template>
       </div>
-    </section>
-    <section class="mt-[44px] lg:mt-[60px] md:px-[5%]">
+    </div>
+    <section class="md:px-[5%]">
       <TabGroup>
-        <TabList class="border-b-2 border-fungo-gray3">
-          <Tab as="template" v-slot="{ selected }" class="mx-4" v-for="head in tabHeading">
-            <button class="outline-none"
-              :class="{ 'text-fungo-red font-fungo-500 border-b-2 border-fungo-red': selected, 'text-fungo-darkblue': !selected }">
-              {{ head }}
-            </button>
-          </Tab>
-        </TabList>
+        <div class="flex items-center justify-between border-b-2 border-white/10 mb-4">
+          <TabList class="flex">
+            <Tab as="template" v-slot="{ selected }" class="mx-4" v-for="head in tabHeading">
+              <button class="outline-none pb-2 px-1 text-sm font-semibold transition-colors whitespace-nowrap"
+                :class="{ 'text-app-gold border-b-2 border-app-gold': selected, 'text-app-muted hover:text-white': !selected }">
+                {{ head }}
+              </button>
+            </Tab>
+          </TabList>
+          <download-excel
+            class="flex items-center gap-2 bg-app-card hover:bg-app-card-hover border border-white/10 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors mb-1 flex-shrink-0"
+            :data="excelDataExport" :fields="excelHeaderData" :name="'cageBallxBallTable.xls'"
+          >
+            <svg width="14" height="17" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M18 7.71429H12.8571V0H5.14286V7.71429H0L9 16.7143L18 7.71429ZM7.71307 10.2863V2.57202H10.2845V10.2863H11.7888L8.99878 13.0763L6.20878 10.2863H7.71307ZM18 21.8571V19.2856H0V21.8571H18Z" fill="#E10600" />
+            </svg>
+            <span class="text-sm font-semibold">Export</span>
+          </download-excel>
+        </div>
         <TabPanels>
           <TabPanel>
             <DynamicTable :is-sorteable="true" :is-loading="isLoading" :headings="ballxballHeadings"
