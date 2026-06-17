@@ -1,5 +1,5 @@
 <script setup>
-import {reactive, ref, onMounted} from 'vue'
+import {reactive, ref, computed, onMounted} from 'vue'
 import { TransitionRoot } from '@headlessui/vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
@@ -9,6 +9,7 @@ import iconStartPractice from "../assets/img/icons/i-start-practice.svg";
 import iconSessionPractice from "../assets/img/icons/i-practice-session.svg";
 import iconRoster from "../assets/img/icons/i-roster.svg";
 import iconManageTeam from "../assets/img/icons/i-manage-team.svg";
+import iconAdmin from "../assets/img/icons/i-admin.svg";
 import { useUserStore } from "@/store/user";
 
 let isActiveDropdonw = reactive({isVisible: false, key: []})
@@ -94,6 +95,11 @@ const sidebarItems = ref([
     iconPath: iconManageTeam,
     url: '/manage'
   },
+  {
+    title: 'Admin',
+    iconPath: iconAdmin,
+    url: '/admin'
+  },
 ])
 
 const showDropdown = (index) => {
@@ -127,6 +133,10 @@ const isParentActive = (item) => {
 
   return starts.some((prefix) => route.path.startsWith(prefix))
 }
+
+const isAdminUser = computed(() =>
+  String(userData.value?.email || '').toLowerCase() === 'admin@fungometrics.com'
+)
 
 const props = defineProps({
   collapse: {
@@ -189,7 +199,7 @@ onMounted(() => {
 <template>
   <nav class="flex-1 overflow-x-hidden overflow-y-auto text-white">
     <ul class="pb-2 divide-y-2 divide-fungo-dark-gray">
-      <li v-for="(item, index) in sidebarItems">
+      <li v-for="(item, index) in sidebarItems" v-show="item.title !== 'Admin' || isAdminUser">
         <button
           v-if="item.child"
           class="flex flex-row flex-nowrap items-center py-5 relative w-full"

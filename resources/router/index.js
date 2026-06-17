@@ -40,6 +40,14 @@ const PlayerDevelopmentDashboard = () => import('@/features/development/pages/Pl
 const TeamDevelopmentDashboard = () => import('@/features/development/pages/TeamDevelopmentDashboard.vue');
 const CoachDevelopmentDashboard = () => import('@/features/development/pages/CoachDevelopmentDashboard.vue');
 const AdminBenchmarksDashboard = () => import('@/features/development/pages/AdminBenchmarksDashboard.vue');
+const AdminDashboard   = () => import('@/pages/admin/AdminDashboard.vue');
+const AdminUsers       = () => import('@/pages/admin/AdminUsers.vue');
+const AdminUserDetail  = () => import('@/pages/admin/AdminUserDetail.vue');
+const AdminTeams       = () => import('@/pages/admin/AdminTeams.vue');
+const AdminRoles       = () => import('@/pages/admin/AdminRoles.vue');
+const AdminSecurity    = () => import('@/pages/admin/AdminSecurity.vue');
+const AdminAuditLogs   = () => import('@/pages/admin/AdminAuditLogs.vue');
+const AdminReports     = () => import('@/pages/admin/AdminReports.vue');
 
 //layout
 //Authenticated
@@ -336,6 +344,18 @@ const routes = [
 		meta: { requiresAuth: true },
 	},
   
+  // ── Admin routes ──────────────────────────────────────────────────────────
+  { name: 'admin.dashboard',  path: '/admin',                component: AdminDashboard,  meta: { requiresAuth: true } },
+  { name: 'admin.users',      path: '/admin/users',          component: AdminUsers,      meta: { requiresAuth: true } },
+  { name: 'admin.coaches',    path: '/admin/coaches',        component: AdminUsers,      meta: { requiresAuth: true } },
+  { name: 'admin.players',    path: '/admin/players',        component: AdminUsers,      meta: { requiresAuth: true } },
+  { name: 'admin.user-detail',path: '/admin/users/:id',      component: AdminUserDetail, meta: { requiresAuth: true }, props: true },
+  { name: 'admin.teams',      path: '/admin/teams',          component: AdminTeams,      meta: { requiresAuth: true } },
+  { name: 'admin.roles',      path: '/admin/roles',          component: AdminRoles,      meta: { requiresAuth: true } },
+  { name: 'admin.security',   path: '/admin/security',       component: AdminSecurity,   meta: { requiresAuth: true } },
+  { name: 'admin.auditlogs',  path: '/admin/audit-logs',     component: AdminAuditLogs,  meta: { requiresAuth: true } },
+  { name: 'admin.reports',    path: '/admin/reports',        component: AdminReports,    meta: { requiresAuth: true } },
+
   /* only for redundant player options */
   {
     name: "training-player",
@@ -391,4 +411,17 @@ router.beforeEach((to, from, next) => {
 		next();
 	}
 });
+
+router.beforeEach((to, from, next) => {
+	if (to.path.startsWith('/admin')) {
+		const { userData } = useUserStore();
+		const email = String(userData?.email || '').toLowerCase();
+		if (email !== 'admin@fungometrics.com') {
+			next('/dashboard');
+			return;
+		}
+	}
+	next();
+});
+
 export default router;

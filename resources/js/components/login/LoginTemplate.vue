@@ -145,7 +145,12 @@ const submitForm = async () => {
         await teamStore.setTeams(teams);
         await playerStore.setPlayers(response.data.data.players);
 
-        await router.push('/dashboard')
+        const loginEmail = String(response.data.data.email || '').toLowerCase()
+        if (loginEmail === 'admin@fungometrics.com') {
+          await router.push('/admin')
+        } else {
+          await router.push('/dashboard')
+        }
       }
     }else{
       await toast.fire({
