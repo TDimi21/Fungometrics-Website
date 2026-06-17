@@ -6,17 +6,17 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { PLAN_LABELS, groupFeatures } from '@/utils/plans.js'
 
 const router = useRouter()
-const route = useRoute()
+const route  = useRoute()
 const { axiosGet } = useAxiosAuth()
 
-const user = ref(null)
-const loading = ref(true)
-const saving = ref(false)
-const currentPlan = ref('free')
-const saveMsg = ref('')
+const user        = ref(null)
+const loading     = ref(true)
+const saving      = ref(false)
+const currentPlan = ref(null)   // null = unknown (player search doesn't return plan)
+const saveMsg     = ref('')
 const saveMsgType = ref('success')
 
-const COACH_PLANS = ['free', 'coach_basic', 'coach_pro']
+const COACH_PLANS  = ['free', 'coach_basic', 'coach_pro']
 const PLAYER_PLANS = ['free', 'player_basic', 'player_pro']
 
 const TAB_COLORS = {
@@ -24,50 +24,66 @@ const TAB_COLORS = {
   Player: { bg: 'rgba(22,163,74,0.18)',  text: '#4ADE80' },
 }
 
+// Normalize fields from both coach (profile.first_name) and player (name.first) responses
 function normalizeUser(u, role) {
   const nameObj = u.name && typeof u.name === 'object' ? u.name : null
-  const first = String(u.first_name || nameObj?.first || u.profile?.first_name || '').trim()
-  const last  = String(u.last_name  || nameObj?.last  || u.profile?.last_name  || '').trim()
-  const full  = first && last ? `${first} ${last}` : first || last || u.email || 'Unknown'
-  return { ...u, _first: first, _last: last, _full: full, _email: String(u.email || u.phone || ''), _role: role }
+  const first   = String(nameObj?.first || u.first_name || u.profile?.first_name || '').trim()
+  const last    = String(nameObj?.last  || u.last_name  || u.profile?.last_name  || '').trim()
+  const full    = nameObj?.full || (first && last ? `${first} ${last}` : first || last || u.email || 'Unknown')
+  return {
+    ...u,
+    _first:  first,
+    _last:   last,
+    _full:   full,
+    _email:  String(u.email || u.phone || ''),
+    _role:   role,
+    _teams:  Array.isArray(u.actual_team) ? u.actual_team : [],
+    _plan:   u.subscription_plan || null,
+  }
+}
+
+async function findInPages(endpoint, role) {
+  const id = String(route.params.id)
+  let page = 1
+  while (true) {
+    try {
+      const sep   = endpoint.includes('?') ? '&' : '?'
+      const res   = await axiosGet(`${endpoint}${sep}page=${page}`)
+      const outer = res.data?.data
+      const arr   = Array.isArray(outer?.data) ? outer.data
+                  : Array.isArray(outer)        ? outer
+                  : []
+      const found = arr.find(u => String(u.id) === id)
+      if (found) return normalizeUser(found, role)
+      if (!arr.length || (outer?.last_page != null && page >= outer.last_page)) break
+      page++
+    } catch (_) { break }
+  }
+  return null
 }
 
 async function loadUser() {
   const id = String(route.params.id)
 
-  // Try sessionStorage first (set by AdminUsers when tapping a row)
+  // Primary: sessionStorage (set by AdminUsers row tap — avoids re-fetching)
   try {
     const cached = sessionStorage.getItem(`admin_user_${id}`)
     if (cached) {
       const parsed = JSON.parse(cached)
-      user.value = parsed
-      currentPlan.value = parsed.subscription_plan || 'free'
+      user.value        = parsed
+      currentPlan.value = parsed._plan || parsed.subscription_plan || null
       loading.value = false
       return
     }
   } catch (_) {}
 
-  // Fallback: search all pages until we find this user
+  // Fallback: search all pages (coaches first, then players)
   try {
-    async function findInPages(endpoint, role) {
-      let page = 1
-      while (true) {
-        const res = await axiosGet(`${endpoint}&page=${page}`)
-        const inner = res.data?.data
-        const arr = Array.isArray(inner?.data) ? inner.data : []
-        const found = arr.find(u => String(u.id) === id)
-        if (found) return normalizeUser(found, role)
-        if (arr.length === 0 || (inner?.last_page != null && page >= inner.last_page)) break
-        page++
-      }
-      return null
-    }
-
-    const coachResult = await findInPages('coach/search/coaches?search=', 'Coach')
-    const found = coachResult ?? await findInPages('coach/search/players?search=', 'Player')
+    const found = await findInPages('coach/search/coaches?search=', 'Coach')
+              ?? await findInPages('coach/search/players?search=', 'Player')
     if (found) {
-      user.value = found
-      currentPlan.value = found.subscription_plan || 'free'
+      user.value        = found
+      currentPlan.value = found._plan
     }
   } catch (e) {
     console.error('AdminUserDetail load error', e)
@@ -77,41 +93,60 @@ async function loadUser() {
 
 onMounted(loadUser)
 
-const isCoach = computed(() => user.value?._role === 'Coach')
+const isCoach       = computed(() => user.value?._role === 'Coach')
 const availablePlans = computed(() => isCoach.value ? COACH_PLANS : PLAYER_PLANS)
-const featureGroups = computed(() => groupFeatures(currentPlan.value))
-const roleColor = computed(() => TAB_COLORS[user.value?._role] ?? { bg: 'rgba(255,255,255,0.1)', text: '#fff' })
+const featureGroups  = computed(() => groupFeatures(currentPlan.value || 'free'))
+const roleColor      = computed(() => TAB_COLORS[user.value?._role] ?? { bg: 'rgba(255,255,255,0.1)', text: '#fff' })
+const planLabel      = computed(() => currentPlan.value ? (PLAN_LABELS[currentPlan.value] ?? currentPlan.value) : 'Unknown')
 
 async function savePlan(plan) {
   if (plan === currentPlan.value) return
-  if (!confirm(`Change ${user.value?._full}'s plan to "${PLAN_LABELS[plan]}"?`)) return
-  saving.value = true
+  const name = user.value?._full ?? 'this user'
+  if (!confirm(`Change ${name}'s plan to "${PLAN_LABELS[plan]}"?`)) return
+
+  saving.value  = true
   saveMsg.value = ''
   try {
     const apiBase = import.meta.env.VITE_API_ENDPOINT || ''
-    const token = (() => {
-      try { return JSON.parse(localStorage.getItem('auth') || '{}')?.token || JSON.parse(sessionStorage.getItem('auth') || '{}')?.token || '' } catch (_) { return '' }
-    })()
-    const res = await fetch(`${apiBase}admin/users/${user.value.id}/plan`, {
-      method: 'PATCH',
+    let token = ''
+    try {
+      token = JSON.parse(localStorage.getItem('auth') || '{}')?.token
+            || JSON.parse(sessionStorage.getItem('auth') || '{}')?.token
+            || ''
+    } catch (_) {}
+
+    const res  = await fetch(`${apiBase}admin/users/${user.value.id}/plan`, {
+      method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ subscription_plan: plan }),
+      body:    JSON.stringify({ subscription_plan: plan }),
     })
     const data = await res.json()
+
     if (res.ok) {
-      currentPlan.value = plan
-      saveMsg.value = `Plan updated to "${PLAN_LABELS[plan]}"`
+      currentPlan.value  = plan
+      saveMsg.value     = `Plan updated to "${PLAN_LABELS[plan]}"`
       saveMsgType.value = 'success'
+      // Update cached user
+      try {
+        const id  = String(user.value.id)
+        const raw = sessionStorage.getItem(`admin_user_${id}`)
+        if (raw) {
+          const obj = JSON.parse(raw)
+          obj._plan = plan
+          obj.subscription_plan = plan
+          sessionStorage.setItem(`admin_user_${id}`, JSON.stringify(obj))
+        }
+      } catch (_) {}
     } else {
-      saveMsg.value = data?.message || 'Failed to update plan'
+      saveMsg.value     = data?.message || 'Failed to update plan'
       saveMsgType.value = 'error'
     }
-  } catch (e) {
-    saveMsg.value = 'Network error. Check connection.'
+  } catch (_) {
+    saveMsg.value     = 'Network error. Check connection.'
     saveMsgType.value = 'error'
   }
   saving.value = false
-  setTimeout(() => { saveMsg.value = '' }, 3000)
+  setTimeout(() => { saveMsg.value = '' }, 4000)
 }
 </script>
 
@@ -131,26 +166,44 @@ async function savePlan(plan) {
       <div class="w-8 h-8 border-2 border-app-red border-t-transparent rounded-full animate-spin"></div>
     </div>
 
-    <div v-else-if="!user" class="text-white/40 text-center py-12">User not found.</div>
+    <p v-else-if="!user" class="text-white/40 text-center py-12">User not found.</p>
 
     <div v-else class="space-y-5">
-      <!-- User Header -->
+
+      <!-- User Header Card -->
       <div class="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl p-5">
         <div class="w-14 h-14 rounded-full flex items-center justify-center font-black text-xl flex-shrink-0"
           :style="{ backgroundColor: roleColor.bg }">
-          <span :style="{ color: roleColor.text }">{{ (user._first[0] || user._full[0] || '?').toUpperCase() }}</span>
+          <span :style="{ color: roleColor.text }">
+            {{ (user._first[0] || user._full[0] || '?').toUpperCase() }}
+          </span>
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-white font-bold text-lg truncate">{{ user._full }}</p>
           <p class="text-white/45 text-sm mt-0.5 truncate">{{ user._email }}</p>
-          <span class="inline-block mt-1.5 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg"
+          <!-- Teams for players -->
+          <p v-if="user._role === 'Player' && user._teams.length"
+            class="text-white/30 text-xs mt-1 truncate">
+            {{ user._teams.map(t => t.name).join(' · ') }}
+          </p>
+          <span class="inline-block mt-2 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg"
             :style="{ backgroundColor: roleColor.bg, color: roleColor.text }">{{ user._role }}</span>
         </div>
       </div>
 
       <!-- Plan Selector -->
       <div>
-        <p class="text-white/35 text-xs font-bold tracking-widest uppercase mb-3">Subscription Plan</p>
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-white/35 text-xs font-bold tracking-widest uppercase">Subscription Plan</p>
+          <span class="text-white/40 text-xs">Current: <span class="text-app-gold font-semibold">{{ planLabel }}</span></span>
+        </div>
+
+        <!-- Player note: plan not returned by search API, but can still be changed -->
+        <div v-if="user._role === 'Player' && !currentPlan"
+          class="bg-white/5 border border-white/10 rounded-xl p-3 mb-3 text-white/40 text-xs text-center">
+          Current plan not visible from search API — select below to assign a plan.
+        </div>
+
         <div class="grid grid-cols-3 gap-2">
           <button
             v-for="plan in availablePlans" :key="plan"
@@ -170,18 +223,22 @@ async function savePlan(plan) {
           <div class="w-4 h-4 border border-app-red border-t-transparent rounded-full animate-spin"></div>
           Saving...
         </div>
-        <div v-if="saveMsg" class="mt-3 text-center text-sm font-semibold rounded-lg p-2"
-          :class="saveMsgType === 'success' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-app-red'">
-          {{ saveMsg }}
-        </div>
+        <Transition name="fade">
+          <div v-if="saveMsg" class="mt-3 text-center text-sm font-semibold rounded-lg p-2"
+            :class="saveMsgType === 'success' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-app-red'">
+            {{ saveMsg }}
+          </div>
+        </Transition>
       </div>
 
-      <!-- Features -->
-      <div>
+      <!-- Features for known plan -->
+      <div v-if="currentPlan">
         <p class="text-white/35 text-xs font-bold tracking-widest uppercase mb-1">Features Included</p>
-        <p class="text-white/25 text-xs mb-3">Based on current plan · {{ PLAN_LABELS[currentPlan] }}</p>
+        <p class="text-white/25 text-xs mb-3">Based on: {{ PLAN_LABELS[currentPlan] }}</p>
 
-        <div v-if="!Object.keys(featureGroups).length" class="text-white/25 text-sm text-center py-6">No features on this plan.</div>
+        <p v-if="!Object.keys(featureGroups).length" class="text-white/25 text-sm text-center py-6">
+          No features on this plan.
+        </p>
 
         <div v-for="(features, category) in featureGroups" :key="category"
           class="bg-white/4 border border-white/6 rounded-xl p-4 mb-3">
@@ -193,6 +250,12 @@ async function savePlan(plan) {
           </div>
         </div>
       </div>
+
     </div>
   </Layout>
 </template>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>

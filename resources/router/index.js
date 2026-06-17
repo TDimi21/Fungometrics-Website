@@ -48,6 +48,7 @@ const AdminRoles       = () => import('@/pages/admin/AdminRoles.vue');
 const AdminSecurity    = () => import('@/pages/admin/AdminSecurity.vue');
 const AdminAuditLogs   = () => import('@/pages/admin/AdminAuditLogs.vue');
 const AdminReports     = () => import('@/pages/admin/AdminReports.vue');
+const AdminPlans       = () => import('@/pages/admin/AdminPlans.vue');
 
 //layout
 //Authenticated
@@ -355,6 +356,7 @@ const routes = [
   { name: 'admin.security',   path: '/admin/security',       component: AdminSecurity,   meta: { requiresAuth: true } },
   { name: 'admin.auditlogs',  path: '/admin/audit-logs',     component: AdminAuditLogs,  meta: { requiresAuth: true } },
   { name: 'admin.reports',    path: '/admin/reports',        component: AdminReports,    meta: { requiresAuth: true } },
+  { name: 'admin.plans',      path: '/admin/plans',          component: AdminPlans,      meta: { requiresAuth: true } },
 
   /* only for redundant player options */
   {
@@ -399,7 +401,10 @@ router.beforeEach((to, from, next) => {
 
 	if (to.matched.some((record) => record.meta.guest)) {
 		if (isLogged.status) {
-			if (userData.type == "coach") {
+			const adminEmail = String(userData?.email || '').toLowerCase();
+			if (adminEmail === 'admin@fungometrics.com') {
+				next('/admin');
+			} else if (userData.type == "coach") {
 				next("/dashboard");
 			} else {
 				next("/player-dashboard");
@@ -413,14 +418,23 @@ router.beforeEach((to, from, next) => {
 });
 
 router.beforeEach((to, from, next) => {
+	const { userData } = useUserStore();
+	const email = String(userData?.email || '').toLowerCase();
+	const isAdmin = email === 'admin@fungometrics.com';
+
 	if (to.path.startsWith('/admin')) {
-		const { userData } = useUserStore();
-		const email = String(userData?.email || '').toLowerCase();
-		if (email !== 'admin@fungometrics.com') {
+		if (!isAdmin) {
 			next('/dashboard');
 			return;
 		}
 	}
+
+	// Keep admin inside the admin section — block access to coach/player-facing pages
+	if (isAdmin && !to.path.startsWith('/admin')) {
+		next('/admin');
+		return;
+	}
+
 	next();
 });
 

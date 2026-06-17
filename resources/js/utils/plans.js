@@ -153,8 +153,64 @@ export const FEATURE_META = {
   sms_results:              { label: 'SMS Results',               category: 'Other' },
 }
 
+const PLAN_OVERRIDE_KEY = 'admin_plan_feature_overrides'
+
+// Returns the active feature list for a plan — admin overrides take precedence.
+export function getActivePlanFeatures(plan) {
+  try {
+    const raw = localStorage.getItem(PLAN_OVERRIDE_KEY)
+    if (raw) {
+      const overrides = JSON.parse(raw)
+      if (Array.isArray(overrides[plan])) return overrides[plan]
+    }
+  } catch {}
+  return PLAN_FEATURES[plan] ?? []
+}
+
+export function loadPlanOverrides() {
+  try {
+    const raw = localStorage.getItem(PLAN_OVERRIDE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return null
+}
+
+export function savePlanOverrides(overrides) {
+  try {
+    localStorage.setItem(PLAN_OVERRIDE_KEY, JSON.stringify(overrides))
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function clearPlanOverrides() {
+  try { localStorage.removeItem(PLAN_OVERRIDE_KEY) } catch {}
+}
+
+// Full list of every known feature key (for admin to build the matrix).
+export function getAllFeatureKeys() {
+  return Object.keys(FEATURE_META)
+}
+
+export function hasFeature(plan, feature) {
+  return getActivePlanFeatures(plan).includes(feature)
+}
+
+export function getPlanLabel(plan) {
+  return PLAN_LABELS[plan] ?? 'Free'
+}
+
+export function isCoachPlan(plan) {
+  return plan === PLANS.COACH_BASIC || plan === PLANS.COACH_PRO
+}
+
+export function isPlayerPlan(plan) {
+  return plan === PLANS.PLAYER_BASIC || plan === PLANS.PLAYER_PRO
+}
+
 export function groupFeatures(plan) {
-  const features = PLAN_FEATURES[plan] ?? []
+  const features = getActivePlanFeatures(plan)
   const groups = {}
   features.forEach((key) => {
     const meta = FEATURE_META[key] || { label: key, category: 'Other' }

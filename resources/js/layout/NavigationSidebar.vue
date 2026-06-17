@@ -146,7 +146,18 @@ const props = defineProps({
 })
 
 onMounted(() => {
-  if (userData.value?.type == "player") {
+  if (isAdminUser.value) {
+    sidebarItems.value = [
+      { title: 'Dashboard',  iconPath: iconAdmin,           url: '/admin' },
+      { title: 'Users',      iconPath: iconRoster,          url: '/admin/users' },
+      { title: 'Teams',      iconPath: iconManageTeam,      url: '/admin/teams' },
+      { title: 'Plans',      iconPath: iconStartPractice,   url: '/admin/plans' },
+      { title: 'Audit Logs', iconPath: iconSessionPractice, url: '/admin/audit-logs' },
+      { title: 'Reports',    iconPath: iconStartPractice,   url: '/admin/reports' },
+      { title: 'Security',   iconPath: iconDashboard,       url: '/admin/security' },
+      { title: 'Roles',      iconPath: iconDashboard,       url: '/admin/roles' },
+    ]
+  } else if (userData.value?.type == "player") {
     sidebarItems.value = [
       {
         title: 'Dashboard',

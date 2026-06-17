@@ -11,7 +11,7 @@ const events = ref([])
 const loading = ref(true)
 const filter = ref('All')
 
-const ROLE_COLORS = { Coach: '#1D4ED8', Player: '#15803D' }
+const ROLE_COLOR = '#1D4ED8'   // coaches only
 const EVENT_CONFIG = {
   login:    { label: 'Logged In',         color: '#22C55E', bg: 'rgba(34,197,94,0.12)',  icon: 'M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1' },
   register: { label: 'New Registration',  color: '#60A5FA', bg: 'rgba(96,165,250,0.12)', icon: 'M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z' },
@@ -36,16 +36,25 @@ function formatRelative(dateStr) {
   } catch (_) { return '' }
 }
 
+// coaches: paginator shape — res.data.data.data[]
+// players: flat array     — res.data.data[]
+// Players don't expose created_at / updated_at via SearchPlayersResource, so only coaches are used here.
 async function fetchAllPages(endpoint) {
   const all = []
   let page = 1
   while (true) {
-    const res = await axiosGet(`${endpoint}&page=${page}`)
-    const inner = res.data?.data
-    const arr = Array.isArray(inner?.data) ? inner.data : []
-    all.push(...arr)
-    if (arr.length === 0 || (inner?.last_page != null && page >= inner.last_page)) break
-    page++
+    try {
+      const sep   = endpoint.includes('?') ? '&' : '?'
+      const res   = await axiosGet(`${endpoint}${sep}page=${page}`)
+      const outer = res.data?.data
+      const arr   = Array.isArray(outer?.data) ? outer.data
+                  : Array.isArray(outer)        ? outer
+                  : []
+      if (!arr.length) break
+      all.push(...arr)
+      if (outer?.last_page != null && page >= outer.last_page) break
+      page++
+    } catch (_) { break }
   }
   return all
 }
@@ -54,13 +63,13 @@ function buildEvents(users, role) {
   const cutoff = Date.now() - THIRTY_DAYS_MS
   const result = []
   for (const u of users) {
-    const nameObj = u.name && typeof u.name === 'object' ? u.name : null
-    const first = String(u.first_name || nameObj?.first || u.profile?.first_name || '').trim()
-    const last  = String(u.last_name  || nameObj?.last  || u.profile?.last_name  || '').trim()
-    const full  = first && last ? `${first} ${last}` : first || last || u.email || '—'
-    const initials = [first[0], last[0]].filter(Boolean).join('').toUpperCase() || '?'
-    const email = u.email || u.phone || ''
-    if (u.updated_at && new Date(u.updated_at).getTime() >= cutoff) {
+    const nameObj  = u.name && typeof u.name === 'object' ? u.name : null
+    const first    = String(nameObj?.first || u.first_name || u.profile?.first_name || '').trim()
+    const last     = String(nameObj?.last  || u.last_name  || u.profile?.last_name  || '').trim()
+    const full     = nameObj?.full || (first && last ? `${first} ${last}` : first || last || u.email || '—')
+    const initials = ([first[0], last[0]].filter(Boolean).join('') || '?').toUpperCase()
+    const email    = u.email || u.phone || ''
+    if (u.updated_at && u.updated_at !== u.created_at && new Date(u.updated_at).getTime() >= cutoff) {
       result.push({ key: `login-${role}-${u.id}`, type: 'login', full, initials, role, email, dateStr: u.updated_at })
     }
     if (u.created_at && new Date(u.created_at).getTime() >= cutoff) {
@@ -73,11 +82,10 @@ function buildEvents(users, role) {
 async function fetchEvents() {
   loading.value = true
   try {
-    const [coaches, players] = await Promise.all([
-      fetchAllPages('coach/search/coaches?search='),
-      fetchAllPages('coach/search/players?search='),
-    ])
-    const all = [...buildEvents(coaches, 'Coach'), ...buildEvents(players, 'Player')]
+    // Only coaches have created_at / updated_at via the search API.
+    // SearchPlayersResource does not select those columns.
+    const coaches = await fetchAllPages('coach/search/coaches?search=')
+    const all = buildEvents(coaches, 'Coach')
     all.sort((a, b) => new Date(b.dateStr) - new Date(a.dateStr))
     events.value = all
   } catch (e) {
@@ -136,6 +144,11 @@ const filtered = computed(() => {
       <span class="flex-1 text-right text-white/25 text-xs font-semibold tracking-wide">LAST 30 DAYS</span>
     </div>
 
+    <!-- Coaches only note -->
+    <div class="bg-white/4 border border-white/8 rounded-xl px-4 py-2.5 mb-4 text-white/30 text-xs">
+      Coach accounts only — player accounts don't expose login/registration timestamps via the current API.
+    </div>
+
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-12">
       <div class="w-8 h-8 border-2 border-app-red border-t-transparent rounded-full animate-spin"></div>
@@ -157,7 +170,7 @@ const filtered = computed(() => {
         </div>
         <!-- Avatar -->
         <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white text-sm flex-shrink-0"
-          :style="{ backgroundColor: ROLE_COLORS[item.role] ?? 'rgba(255,255,255,0.15)' }">
+          :style="{ backgroundColor: ROLE_COLOR ?? 'rgba(255,255,255,0.15)' }">
           {{ item.initials }}
         </div>
         <!-- Info -->
@@ -165,7 +178,7 @@ const filtered = computed(() => {
           <div class="flex items-center gap-2">
             <span class="text-white font-semibold text-sm truncate">{{ item.full }}</span>
             <span class="text-xs font-bold text-white px-1.5 py-0.5 rounded flex-shrink-0"
-              :style="{ backgroundColor: ROLE_COLORS[item.role] ?? '#555' }">{{ item.role }}</span>
+              :style="{ backgroundColor: ROLE_COLOR ?? '#555' }">{{ item.role }}</span>
           </div>
           <p class="font-medium text-xs mt-0.5" :style="{ color: EVENT_CONFIG[item.type]?.color }">{{ EVENT_CONFIG[item.type]?.label }}</p>
           <p class="text-white/30 text-xs mt-0.5 truncate">{{ item.email }}</p>

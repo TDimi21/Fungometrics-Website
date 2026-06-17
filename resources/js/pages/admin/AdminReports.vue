@@ -1,17 +1,67 @@
 <script setup>
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
+import { useAxiosAuth } from '@/composables/axios-auth.js'
 
 const router = useRouter()
+const { axiosGet } = useAxiosAuth()
 
-const STAT_ROWS = [
-  { label: 'Total Logins (30 days)',   value: '384', trend: '+12%', up: true },
-  { label: 'Avg Sessions / Day',       value: '12.8', trend: '+3%', up: true },
-  { label: 'Failed Logins',            value: '27', trend: '-8%',  up: false },
-  { label: 'New Registrations',        value: '14', trend: '+40%', up: true },
-  { label: 'Active Users (7 days)',    value: '38', trend: '+5%',  up: true },
-  { label: 'Locked Accounts',          value: '2',  trend: '0%',   up: false },
-]
+const coachCount  = ref('—')
+const playerCount = ref('—')
+const loading     = ref(true)
+
+async function fetchAllPages(endpoint) {
+  const all = []
+  let page = 1
+  while (true) {
+    try {
+      const sep   = endpoint.includes('?') ? '&' : '?'
+      const res   = await axiosGet(`${endpoint}${sep}page=${page}`)
+      const outer = res.data?.data
+      const arr   = Array.isArray(outer?.data) ? outer.data
+                  : Array.isArray(outer)        ? outer
+                  : []
+      if (!arr.length) break
+      all.push(...arr)
+      if (outer?.last_page != null && page >= outer.last_page) break
+      page++
+    } catch (_) { break }
+  }
+  return all
+}
+
+onMounted(async () => {
+  try {
+    const [coaches, players] = await Promise.all([
+      fetchAllPages('coach/search/coaches?search='),
+      fetchAllPages('coach/search/players?search='),
+    ])
+    coachCount.value  = coaches.length
+    playerCount.value = players.length
+  } catch (e) {
+    console.error('AdminReports error', e)
+  }
+  loading.value = false
+})
+
+const userTypeData = computed(() => {
+  const coaches = typeof coachCount.value  === 'number' ? coachCount.value  : 0
+  const players = typeof playerCount.value === 'number' ? playerCount.value : 0
+  const total   = coaches + players + 1  // +1 admin
+  const pct     = (n) => total > 0 ? Math.round((n / total) * 100) : 0
+  return [
+    { label: 'Coaches', count: coachCount.value,  color: '#60A5FA', pct: pct(coaches) },
+    { label: 'Players', count: playerCount.value, color: '#4ADE80', pct: pct(players) },
+    { label: 'Admins',  count: 1,                 color: '#E10600', pct: pct(1) },
+  ]
+})
+
+const STAT_ROWS = computed(() => [
+  { label: 'Total Coaches',    value: coachCount.value,  trend: null },
+  { label: 'Total Players',    value: playerCount.value, trend: null },
+  { label: 'Total Users',      value: (typeof coachCount.value === 'number' && typeof playerCount.value === 'number') ? coachCount.value + playerCount.value + 1 : '—', trend: null },
+])
 
 const BAR_DATA = [
   { day: 'Mon', value: 18 },
@@ -22,14 +72,6 @@ const BAR_DATA = [
   { day: 'Sat', value: 8 },
   { day: 'Sun', value: 6 },
 ]
-
-const USER_TYPE_DATA = [
-  { label: 'Coaches', count: 9,  color: '#60A5FA', pct: 18 },
-  { label: 'Players', count: 41, color: '#4ADE80', pct: 76 },
-  { label: 'Admins',  count: 1,  color: '#E10600', pct: 2 },
-  { label: 'Pending', count: 3,  color: '#F59E0B', pct: 4 },
-]
-
 const MAX_BAR = Math.max(...BAR_DATA.map(d => d.value))
 </script>
 
@@ -47,14 +89,16 @@ const MAX_BAR = Math.max(...BAR_DATA.map(d => d.value))
 
     <!-- Key Metrics -->
     <div class="bg-white/5 border border-white/8 rounded-xl p-5 mb-5">
-      <p class="text-white/30 text-xs font-bold tracking-widest uppercase mb-4">Key Metrics — Last 30 Days</p>
-      <div v-for="(row, i) in STAT_ROWS" :key="row.label"
-        class="flex items-center justify-between py-3"
-        :class="i < STAT_ROWS.length - 1 ? 'border-b border-white/5' : ''">
-        <span class="text-white/60 text-sm">{{ row.label }}</span>
-        <div class="flex items-center gap-3">
+      <p class="text-white/30 text-xs font-bold tracking-widest uppercase mb-4">User Summary</p>
+      <div v-if="loading" class="flex justify-center py-6">
+        <div class="w-6 h-6 border-2 border-app-red border-t-transparent rounded-full animate-spin"></div>
+      </div>
+      <div v-else>
+        <div v-for="(row, i) in STAT_ROWS" :key="row.label"
+          class="flex items-center justify-between py-3"
+          :class="i < STAT_ROWS.length - 1 ? 'border-b border-white/5' : ''">
+          <span class="text-white/60 text-sm">{{ row.label }}</span>
           <span class="text-white font-bold text-base">{{ row.value }}</span>
-          <span class="text-xs font-semibold" :class="row.up ? 'text-green-400' : 'text-app-red'">{{ row.trend }}</span>
         </div>
       </div>
     </div>
@@ -76,7 +120,7 @@ const MAX_BAR = Math.max(...BAR_DATA.map(d => d.value))
     <!-- User Distribution -->
     <div class="bg-white/5 border border-white/8 rounded-xl p-5 mb-5">
       <p class="text-white/30 text-xs font-bold tracking-widest uppercase mb-4">User Distribution</p>
-      <div v-for="u in USER_TYPE_DATA" :key="u.label" class="mb-4 last:mb-0">
+      <div v-for="u in userTypeData" :key="u.label" class="mb-4 last:mb-0">
         <div class="flex items-center gap-2 mb-1.5">
           <div class="w-2 h-2 rounded-full flex-shrink-0" :style="{ backgroundColor: u.color }"></div>
           <span class="flex-1 text-white/65 text-sm">{{ u.label }}</span>
