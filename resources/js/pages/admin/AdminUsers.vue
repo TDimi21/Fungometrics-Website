@@ -15,10 +15,11 @@ const TAB_COLORS = {
   Player: { bg: 'rgba(22,163,74,0.18)',  text: '#4ADE80' },
 }
 
-const coaches = ref([])
-const players = ref([])
-const loading = ref(false)
-const search  = ref('')
+const coaches  = ref([])
+const players  = ref([])
+const loading  = ref(false)
+const search   = ref('')
+const apiError = ref('')   // shows actual API error instead of silent "no users found"
 const activeTab = ref(TABS.includes(route.query.tab) ? route.query.tab : 'All')
 
 // ── Bulk upgrade ─────────────────────────────────────────────────────────────
@@ -113,7 +114,7 @@ function dedupeById(arr) {
 
 // coaches: res.data.data is Laravel paginator { data:[...], last_page }
 // players: res.data.data is flat array (SearchPlayersResource, no last_page exposed)
-async function fetchAllPages(endpoint) {
+async function fetchAllPages(endpoint, label) {
   const all = []
   let page = 1
   while (true) {
@@ -128,17 +129,26 @@ async function fetchAllPages(endpoint) {
       all.push(...arr)
       if (outer?.last_page != null && page >= outer.last_page) break
       page++
-    } catch (_) { break }
+    } catch (err) {
+      const status  = err?.response?.status
+      const message = err?.response?.data?.message || err?.message || 'Unknown error'
+      // 404 = "no results" from the backend (not a real error for page overflow)
+      if (status !== 404) {
+        apiError.value += `${label}: HTTP ${status ?? '?'} — ${message}. `
+      }
+      break
+    }
   }
   return all
 }
 
 async function fetchAll() {
-  loading.value = true
+  loading.value  = true
+  apiError.value = ''
   try {
     const [rawCoaches, rawPlayers] = await Promise.all([
-      fetchAllPages('coach/search/coaches?search='),
-      fetchAllPages('coach/search/players?search='),
+      fetchAllPages('coach/search/coaches?search=', 'Coaches'),
+      fetchAllPages('coach/search/players?search=', 'Players'),
     ])
     coaches.value = dedupeById(rawCoaches)
       .map(u => normalizeUser(u, 'Coach'))
@@ -147,7 +157,7 @@ async function fetchAll() {
       .map(u => normalizeUser(u, 'Player'))
       .sort((a, b) => a._first.toLowerCase().localeCompare(b._first.toLowerCase()))
   } catch (e) {
-    console.error('AdminUsers fetch error', e)
+    apiError.value = `Fetch failed: ${e?.message || e}`
   }
   loading.value = false
 }
@@ -265,8 +275,16 @@ const headerTitle = computed(() => {
       <div class="w-8 h-8 border-2 border-app-red border-t-transparent rounded-full animate-spin"></div>
     </div>
 
+    <!-- API Error Banner -->
+    <div v-if="!loading && apiError"
+      class="bg-red-900/30 border border-app-red/50 rounded-xl p-4 mb-4 text-sm">
+      <p class="text-app-red font-bold mb-1">API Error — could not load users</p>
+      <p class="text-white/60 text-xs font-mono break-all">{{ apiError }}</p>
+      <button class="mt-3 text-xs text-white/50 underline hover:text-white" @click="fetchAll">Retry</button>
+    </div>
+
     <!-- List -->
-    <div v-else class="space-y-2">
+    <div v-else-if="!loading" class="space-y-2">
       <p v-if="!filtered.length" class="text-white/30 text-sm text-center py-10">No users found.</p>
       <button
         v-for="user in filtered" :key="`${user._role}-${user.id}`"

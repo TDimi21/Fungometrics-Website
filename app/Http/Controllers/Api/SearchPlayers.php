@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Exceptions\NotFound;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SearchPlayersResource;
 use Exception;
@@ -24,28 +23,28 @@ class SearchPlayers extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         try {
+            $name  = trim((string) ($request->name  ?? ''));
+            $phone = trim((string) ($request->phone ?? ''));
 
-            $name = $request->name ?? "";
-            $phone = $request->phone ?? "";
             $uniqueResults = $this->getDataFromNameAndPhone($phone, $name);
-            $combineData = $uniqueResults;
-            $responseData = collect(SearchPlayersResource::collection($uniqueResults));
-            $response = $this->paginator($responseData, 15);
-            $response = [
-                'code' => '042',
-                'message' => 'list of player search',
-                'status' => 'success',
-                'data' =>  collect()->merge($response['data'])->values(),
-                'links'=> $response['links'],
+            $responseData  = collect(SearchPlayersResource::collection($uniqueResults));
+            $paginatedPage = $this->paginator($responseData, 15);
 
+            $response = [
+                'code'    => '042',
+                'message' => 'list of player search',
+                'status'  => 'success',
+                'data'    => collect()->merge($paginatedPage['data'])->values(),
+                'links'   => $paginatedPage['links'],
             ];
+
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {
             $response = [
-                'code' => '042-E',
-                'message' => 'Not  Results Found',
-                'status' => 'error',
-                'data' => [],
+                'code'    => '042-E',
+                'message' => 'Not Results Found',
+                'status'  => 'error',
+                'data'    => [],
             ];
             Log::error($exception->getMessage());
             return response()->json($response, HttpCodes::HTTP_NOT_FOUND);
@@ -53,14 +52,15 @@ class SearchPlayers extends Controller
     }
 
     /**
-     * @param  mixed  $phone
-     * @param  mixed  $name
+     * @param  string  $phone
+     * @param  string  $name
      * @return mixed
-     * @throws NotFound
      */
-    public function getDataFromNameAndPhone(mixed $phone, mixed $name)
+    public function getDataFromNameAndPhone(string $phone, string $name): mixed
     {
-        $result = DB::table('users as u')
+        $hasFilter = $phone !== '' || $name !== '';
+
+        $query = DB::table('users as u')
             ->select(
                 'u.id as id',
                 'u.phone',
@@ -76,53 +76,64 @@ class SearchPlayers extends Controller
             )
             ->join('profiles as p', 'u.id', '=', 'p.user_id')
             ->join('players as p2', 'u.id', '=', 'p2.user_id')
-            ->join('player_teams as pt', 'u.id', '=', 'pt.user_id')
-            ->join('teams as t', 'pt.team_id', '=', 't.id')
-            ->where('u.type', '=', 'player')
-            ->where('u.phone', 'like', '%'.$phone.'%')
-            ->where('p.first_name', 'like', '%'.$name.'%')
-            ->get();
+            // LEFT JOIN so players with no team still appear (INNER JOIN hid them)
+            ->leftJoin('player_teams as pt', 'u.id', '=', 'pt.user_id')
+            ->leftJoin('teams as t', 'pt.team_id', '=', 't.id')
+            ->where('u.type', '=', 'player');
 
-
-        $data = $result->groupBy('id');
-        if (0 === $data->count()) {
-            throw new NotFound();
+        if ($hasFilter) {
+            // When a search term is provided, filter by phone AND/OR name.
+            // Also match players with NULL phone so they aren't silently excluded.
+            if ($phone !== '') {
+                $query->where(function ($q) use ($phone) {
+                    $q->where('u.phone', 'like', '%' . $phone . '%')
+                      ->orWhereNull('u.phone');
+                });
+            }
+            if ($name !== '') {
+                $query->where('p.first_name', 'like', '%' . $name . '%');
+            }
         }
+        // No filter → return ALL players (no WHERE clause on phone/name)
+
+        $result = $query->get();
+        $data   = $result->groupBy('id');
 
         return $data->map(function ($group) {
-            $teamInfo = $group->map(function ($subGroup) {
-                return [
-                    'id'        => $subGroup->team_id,
-                    'name'      => $subGroup->team_name,
-                    'join_code' => $subGroup->team_join_code ?? '',
-                ];
-            });
+            // Filter out NULL team rows that appear because of LEFT JOIN
+            $teamInfo = $group
+                ->filter(fn ($row) => $row->team_id !== null)
+                ->map(fn ($row) => [
+                    'id'        => $row->team_id,
+                    'name'      => $row->team_name,
+                    'join_code' => $row->team_join_code ?? '',
+                ]);
 
             return [
-                'id' => $group->first()->id,
-                'phone' => $group->first()->phone,
-                'email' => $group->first()->email,
-                'type' => $group->first()->type,
+                'id'         => $group->first()->id,
+                'phone'      => $group->first()->phone,
+                'email'      => $group->first()->email,
+                'type'       => $group->first()->type,
                 'first_name' => $group->first()->first_name,
-                'last_name' => $group->first()->last_name,
-                'picture' => $group->first()->picture,
-                'born_date' => $group->first()->born_date,
-                'teams' => $teamInfo->toArray(),
+                'last_name'  => $group->first()->last_name,
+                'picture'    => $group->first()->picture,
+                'born_date'  => $group->first()->born_date,
+                'teams'      => $teamInfo->values()->toArray(),
             ];
         });
     }
 
     /**
      * @param  \Illuminate\Support\Collection  $responseData
-     * @param $perPage
+     * @param  int  $perPage
      * @return array
      */
-    public function paginator(\Illuminate\Support\Collection $responseData, int $perPage=15): array
+    public function paginator(\Illuminate\Support\Collection $responseData, int $perPage = 15): array
     {
-        $page = LengthAwarePaginator::resolveCurrentPage();
+        $page    = LengthAwarePaginator::resolveCurrentPage();
         $segment = $responseData->slice(($page - 1) * $perPage, $perPage);
         $paginate = new LengthAwarePaginator($segment, $responseData->count(), $perPage);
-        $result = $paginate->toArray();
-        return $result;
+
+        return $paginate->toArray();
     }
 }
