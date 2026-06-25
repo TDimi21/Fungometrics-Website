@@ -78,13 +78,13 @@ const resetInputFile = (file) => {
 
         <div
           :class="inputClasses"
-          class="image-preview-panel bg-white rounded-md border border-fungo-darkblue min-h-[90px] mt-3.5 py-7 flex items-center justify-center"
+          class="image-preview-panel bg-white rounded-md border border-fungo-darkblue min-h-[90px] mt-3.5 py-7 flex items-center justify-center overflow-hidden"
         >
           <img
             v-if="image.src == ''"
             :src="defaultImage"
             alt="Picture"
-            class="object-center mx-auto"
+            class="object-center object-contain max-h-full max-w-full mx-auto"
           />
           <img
             v-else
@@ -95,7 +95,7 @@ const resetInputFile = (file) => {
             }"
             :src="image.src"
             alt="Picture"
-            class="object-center mx-auto"
+            class="object-center object-contain max-h-full max-w-full mx-auto"
           />
         </div>
       </div>

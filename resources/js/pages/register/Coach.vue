@@ -45,6 +45,15 @@ const userStore = useUserStore();
 const teamStore = useTeamStore();
 
 const submitCoach = async () => {
+  if (!props.user && coach.password !== coach.confirmPassword) {
+    toast.fire({
+      icon: 'warning',
+      title: 'Validation',
+      text: 'The passwords are not the same',
+    })
+    return;
+  }
+
   isLoading.status =!isLoading.status;
 
   let dataForm = new FormData();
@@ -54,7 +63,6 @@ const submitCoach = async () => {
   dataForm.append('zip', coach.zipCode)
   dataForm.append('state', coach.state,)
   dataForm.append('city', coach.city,)
-  dataForm.append('team', coach.teamName)
   dataForm.append('team', coach.teamName)
   dataForm.append('profile[name][first]', coach.firstName)
   dataForm.append('profile[name][last]', coach.lastName)
@@ -107,28 +115,27 @@ const submitCoach = async () => {
 </script>
 <template>
   <Loader v-show="!isLoading.status"/>
-  <div class="flex flex-row h-screen overflow-y-auto flex-nowrap lg:overflow-hidden font-fungo-poppins">
+  <div class="flex flex-row h-screen overflow-hidden flex-nowrap font-fungo-poppins">
     <BannerLeftRegister :background-image="imgPath" title="Coach"/>
-    <section class="w-full md:w-[65%]">
-      <RouterLink to="/" class="absolute right-6 top-6" ><img alt="Icon close view"
+    <section class="relative w-full md:w-[65%] h-screen overflow-y-auto">
+      <RouterLink to="/" class="absolute right-6 top-6 z-20" ><img alt="Icon close view"
                                                             src="@/assets/img/register/cancel.svg">
       </RouterLink>
-      <form class="w-full h-full" @submit.prevent="submitCoach">
+      <form class="flex flex-col w-full min-h-full" @submit.prevent="submitCoach">
         <div ref="divContainer"></div>
-        <!-- header form -->
+        <!-- header form: team logo + team name -->
         <div class="form-header">
-          <div  v-if="!props.user" class="w-[75%] flex flex-col items-center">
-            <div class="flex flex-col w-1/2">
-              <InputImage v-model="coach.teamLogo" label="Team logo"/>
-				
+          <template v-if="!props.user">
+            <div class="flex flex-col w-2/3 sm:w-1/2 lg:w-1/4">
+              <InputImage v-model="coach.teamLogo" label="Team logo" inputClasses="h-40"/>
             </div>
-            <div class="flex flex-col w-1/2 md:w-1/">
-              <LabelField :required="true" class="mt-8 mb-5 text-fungo-darkblue" text="Team Name"/>
-              <InputBase v-model="coach.teamName"/>
+            <div class="flex flex-col w-full sm:w-3/4 lg:w-2/5 lg:ml-11">
+              <LabelField :required="true" class="mb-3 text-fungo-darkblue" text="Team Name"/>
+              <InputBase v-model="coach.teamName" inputClasses="w-full"/>
             </div>
-          </div>
-          <div v-else>
-            <img alt="Fungo's logo" src="@/assets/img/login/assteslogin/logo-fungo.png">
+          </template>
+          <div v-else class="flex justify-center w-full">
+            <img class="h-36 object-contain" alt="Fungo's logo" src="@/assets/img/login/assteslogin/logo-fungo.png">
           </div>
         </div>
         <!-- end header form -->
@@ -137,60 +144,60 @@ const submitCoach = async () => {
         <div class="form-body">
 
           <!-- first row -->
-          <div class="flex flex-col justify-between lg:flex-row">
+          <div class="form-row">
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="First name"/>
-              <InputBase v-model="coach.firstName"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="First name"/>
+              <InputBase v-model="coach.firstName" inputClasses="w-full"/>
             </div>
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="Last name"/>
-              <InputBase v-model="coach.lastName"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="Last name"/>
+              <InputBase v-model="coach.lastName" inputClasses="w-full"/>
             </div>
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="E-Mail adress"/>
-              <InputBase v-model="coach.email" inputType="email"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="E-Mail address"/>
+              <InputBase v-model="coach.email" inputType="email" inputClasses="w-full"/>
             </div>
           </div>
 
           <!-- second row -->
-          <div class="flex flex-col justify-between lg:flex-row">
+          <div class="form-row">
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="Mobile number"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="Mobile number"/>
               <InutTel v-model="coach.mobileNumber" inputType="tel"/>
             </div>
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="Password"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="Password"/>
               <PasswordField v-model="coach.password"/>
             </div>
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="Confirm password"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="Confirm password"/>
               <PasswordField v-model="coach.confirmPassword"/>
             </div>
           </div>
 
           <!-- third row -->
-          <div class="flex flex-col justify-between lg:flex-row">
+          <div class="form-row">
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="Level"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="Level"/>
               <SelectField v-model="coach.levels" :options="coachLevels"/>
             </div>
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="City"/>
-              <InputBase v-model="coach.city"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="City"/>
+              <InputBase v-model="coach.city" inputClasses="w-full"/>
             </div>
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="State"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="State"/>
               <SelectField v-model="coach.state" :options="states"/>
             </div>
           </div>
 
           <!-- fourth row -->
-          <div class="flex flex-col justify-between space-y-4 lg:flex-row lg:space-y-0">
+          <div class="form-row sm:items-end">
             <div class="box-input-col">
-              <LabelField :required="true" class="mb-5 text-fungo-darkblue" text="Zip code"/>
-              <InputBase v-model="coach.zipCode"/>
+              <LabelField :required="true" class="mb-2 text-fungo-darkblue" text="Zip code"/>
+              <InputBase v-model="coach.zipCode" inputClasses="w-full"/>
             </div>
-            <div class="justify-end box-input-col">
+            <div class="box-input-col sm:flex-row sm:justify-end sm:items-end">
               <BigButtonField color="red" label="Register" type="submit"/>
             </div>
           </div>
@@ -203,15 +210,19 @@ const submitCoach = async () => {
 
 <style scoped>
 .form-header {
-  @apply bg-[#F7F8F9] h-[43%] flex flex-col justify-center items-center;
+  @apply bg-[#F7F8F9] flex flex-col sm:flex-row justify-center items-center gap-6 px-8 py-10 lg:py-12;
 }
 
 .form-body {
-  @apply bg-[#E7EAEE] h-full md:h-[70%] lg:h-[57%] px-20 py-12 2xl:px-28 2xl:pt-10 2xl:pb-20 flex flex-col justify-between;
+  @apply bg-[#E7EAEE] flex-1 flex flex-col justify-center gap-6 lg:gap-8 px-6 py-10 md:px-12 lg:px-16 2xl:px-28;
+}
+
+.form-row {
+  @apply flex flex-col gap-6 justify-between sm:flex-row lg:gap-8;
 }
 
 .box-input-col {
-  @apply flex flex-col w-full lg:w-[31%];
+  @apply flex flex-col w-full sm:w-[31%];
 }
 
 .loading {
