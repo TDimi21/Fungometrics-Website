@@ -88,10 +88,17 @@ const getCoachesByRoster = async(page = 1) => {
         }
       })
     if (!Array.isArray(tableDataCoaches.value)) tableDataCoaches.value = []
-    tableDataCoaches.value.splice(0, 0, userData)
+    // Only show the logged-in user in the COACHES list when they're actually a coach.
+    // Previously userData was prepended unconditionally, so a logged-in player showed
+    // up as a coach in the roster.
+    if (String(userData?.type || '').toLowerCase() === 'coach') {
+      tableDataCoaches.value.splice(0, 0, userData)
+    }
   } catch (error) {
     if (!Array.isArray(tableDataCoaches.value)) tableDataCoaches.value = []
-    tableDataCoaches.value.splice(0, 0, userData)
+    if (String(userData?.type || '').toLowerCase() === 'coach') {
+      tableDataCoaches.value.splice(0, 0, userData)
+    }
     // await toast.fire({
     //   icon: 'error',
     //   title: 'Error get data',

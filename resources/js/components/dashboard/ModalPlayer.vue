@@ -7,6 +7,7 @@ import { ref, reactive, computed } from 'vue'
 import {toast} from "../../utils/AlertPlugin";
 import Loader from "@/components/Loader.vue";
 import {useRouter} from "vue-router"
+import { useUserStore } from "@/store/user"
 
   const props = defineProps({
     isOpen: {
@@ -35,6 +36,14 @@ import {useRouter} from "vue-router"
   const view = ref("home")
   const isLoading = reactive({status: true})
   const router = useRouter()
+  const { userData } = useUserStore()
+  // A logged-in player can only edit their OWN profile (the player self-edit page),
+  // same target as Settings → Edit Profile. A coach edits a roster player.
+  const goToEditProfile = () => {
+    emit('closeModal')
+    const isPlayer = String(userData?.type || '').toLowerCase() === 'player'
+    router.push(isPlayer ? '/profile-player' : `/roster/player/${props.item.id}`)
+  }
   const token = (() => {
     try {
       const auth = JSON.parse(localStorage.getItem('auth') || '{}')
@@ -379,7 +388,7 @@ import {useRouter} from "vue-router"
                 <!-- BODY -->
                 <div class="flex flex-col gap-4 p-4">
                   <!-- Edit Profile -->
-                  <button class="edit-profile-link" @click="() => { emit('closeModal'); router.push(`/roster/player/${item.id}`) }">
+                  <button class="edit-profile-link" @click="goToEditProfile">
                     Edit Profile
                   </button>
 
