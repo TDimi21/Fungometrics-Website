@@ -37,11 +37,22 @@ class EditPlayers extends Controller
                 'last_name' => $request->get('profile')['name']['last'],
             ];
 
+            // Photo upload is best-effort. UploadS3File::getUrl() throws if the S3 write
+            // fails — but that must NOT roll back the rest of the save (height, name,
+            // positions, etc.). Catch it, keep the existing picture, and report the
+            // failure separately so the client can retry just the photo. This is why
+            // height previously "didn't recall": a failed photo upload reverted everything.
+            $photoError = null;
             if ($request->hasFile('picture')) {
-                $playerProfile['picture'] = UploadS3File::getUrl(
-                    $request->file('picture'),
-                    '/players',
-                );
+                try {
+                    $playerProfile['picture'] = UploadS3File::getUrl(
+                        $request->file('picture'),
+                        '/players',
+                    );
+                } catch (Exception $photoException) {
+                    $photoError = $photoException->getMessage();
+                    Log::error('Player photo upload failed for '.$request->id.': '.$photoError);
+                }
             }
             $player->profile->update($playerProfile);
             $playerInput = $request->get('player') ?? [];
@@ -64,10 +75,14 @@ class EditPlayers extends Controller
 
             $response = [
                 'code' => '033',
-                'message' => 'player updated',
+                'message' => $photoError ? 'player updated (photo not saved)' : 'player updated',
                 'status' => 'success',
+                'photo_uploaded' => $photoError === null,
                 'data' => User::with('profile', 'player', 'positions')->find($request->id),
             ];
+            if ($photoError) {
+                $response['photo_error'] = 'Photo could not be stored; other changes were saved.';
+            }
             DB::commit();
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {

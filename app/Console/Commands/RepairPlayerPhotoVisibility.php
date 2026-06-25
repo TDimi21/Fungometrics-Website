@@ -14,9 +14,10 @@ class RepairPlayerPhotoVisibility extends Command
 {
     protected $signature = 'players:repair-photo-visibility
         {--player= : Repair one player/user UUID}
+        {--prune-missing : Null out picture references whose S3 object no longer exists}
         {--dry-run : Report changes without writing to S3 or the database}';
 
-    protected $description = 'Make stored player photos public and replace malformed storage URLs with canonical S3 URLs';
+    protected $description = 'Make stored player photos public, replace malformed storage URLs with canonical S3 URLs, and optionally clear references to missing files';
 
     public function handle(): int
     {
@@ -29,14 +30,18 @@ class RepairPlayerPhotoVisibility extends Command
         }
 
         $dryRun = (bool) $this->option('dry-run');
+        $pruneMissing = (bool) $this->option('prune-missing');
         $checked = 0;
         $repaired = 0;
+        $pruned = 0;
         $failed = 0;
 
         $query->chunkById(100, function ($profiles) use (
             $dryRun,
+            $pruneMissing,
             &$checked,
             &$repaired,
+            &$pruned,
             &$failed,
         ): void {
             foreach ($profiles as $profile) {
@@ -49,8 +54,20 @@ class RepairPlayerPhotoVisibility extends Command
 
                 try {
                     if (!Storage::disk('s3')->exists($key)) {
-                        $this->warn("Missing {$profile->user_id}: {$key}");
-                        $failed++;
+                        // The DB points at an object that was never persisted (legacy
+                        // uploads that returned a URL even when the S3 write failed).
+                        // Optionally clear it so the app/web fall back to a clean
+                        // placeholder instead of a broken image.
+                        if ($pruneMissing) {
+                            if (!$dryRun) {
+                                $profile->forceFill(['picture' => null])->save();
+                            }
+                            $this->warn(($dryRun ? 'Would prune ' : 'Pruned ')."{$profile->user_id}: {$key} (missing)");
+                            $pruned++;
+                        } else {
+                            $this->warn("Missing {$profile->user_id}: {$key}");
+                            $failed++;
+                        }
                         continue;
                     }
 
@@ -73,7 +90,7 @@ class RepairPlayerPhotoVisibility extends Command
         }, 'id');
 
         $this->newLine();
-        $this->line("Checked: {$checked}; repaired: {$repaired}; failed: {$failed}");
+        $this->line("Checked: {$checked}; repaired: {$repaired}; pruned: {$pruned}; failed: {$failed}");
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }
