@@ -381,10 +381,24 @@ const asDisplay = (v, fallback = '—') => {
 }
 
 const normalizeImageSrc = (src) => {
-  const raw = String(src || '').trim()
-  if (!raw) return null
+  // Reject non-string junk (e.g. a File object left in the model) that would
+  // stringify to "[object File]" and render as a broken image.
+  if (!src || typeof src !== 'string') return null
+  const raw = src.trim()
+  if (!raw || raw.startsWith('[object')) return null
   if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:') || raw.startsWith('blob:')) return raw
-  return raw.startsWith('/') ? raw : `/${raw}`
+  // Relative path → resolve against the API host (where uploaded images live),
+  // NOT the current page origin (which is just the SPA shell).
+  const apiBase = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
+  const host = String(apiBase).replace(/\/api\/?$/, '').replace(/\/$/, '')
+  const path = raw.startsWith('/') ? raw : `/${raw}`
+  return host ? `${host}${path}` : path
+}
+
+// Fall back to the default logo if the avatar URL fails to load (dead link,
+// expired blob: from a previous session, wrong host, etc.) instead of a broken icon.
+const onAvatarError = (e) => {
+  if (e?.target && e.target.src !== updatedLogo) e.target.src = updatedLogo
 }
 
 const formatHeight = (ft, inch, composed) => {
@@ -1246,7 +1260,7 @@ onMounted(loadData)
 
               <div class="mb-3 overflow-hidden rounded-xl border border-white/20 bg-white/10">
                 <div class="relative h-52 w-full">
-                  <img :src="playerImageSrc" :alt="playerName" class="h-full w-full object-cover object-top" />
+                  <img :src="playerImageSrc" :alt="playerName" class="h-full w-full object-cover object-top" @error="onAvatarError" />
                   <div class="absolute inset-0 bg-gradient-to-r from-[#050b1f]/90 via-[#050b1f]/65 to-[#050b1f]/20"></div>
 
                   <p class="absolute right-4 top-3 text-4xl font-black text-white/95">#{{ coachProfile.jersey !== '—' ? coachProfile.jersey : '' }}</p>
