@@ -2,6 +2,7 @@
 import { computed, ref, reactive } from "vue";
 import ModalPlayer from "./dashboard/ModalPlayer.vue";
 import { useAxiosAuth } from "@/composables/axios-auth.js";
+import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.png";
 
 const { axiosGet } = useAxiosAuth();
 const props = defineProps({
@@ -73,12 +74,17 @@ const close = () => {
 
     <!-- Avatar with number badge -->
     <div class="relative mx-auto">
-      <template v-if="item.avatar != null">
-        <img :src="item.avatar" alt="" class="player-avatar object-cover" />
+      <template v-if="item.avatar != null && item.avatar !== ''">
+        <img
+          :src="item.avatar"
+          alt=""
+          class="player-avatar object-cover"
+          @error="(e) => { e.target.src = updatedLogo }"
+        />
       </template>
       <img
         v-else
-        src="../assets/img/login/assteslogin/updatedlogo.png"
+        :src="updatedLogo"
         alt=""
         class="player-avatar object-cover"
       />
