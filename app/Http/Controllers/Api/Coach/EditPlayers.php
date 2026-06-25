@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Coach;
 
 use App\Http\Controllers\Api\PlayerUtils;
-use App\Http\Controllers\Api\RoasterUtils;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\EditPlayerRequest;
 use App\Models\User;
@@ -38,8 +37,11 @@ class EditPlayers extends Controller
                 'last_name' => $request->get('profile')['name']['last'],
             ];
 
-            if (RoasterUtils::isImage($request->picture)) {
-                $playerProfile['picture'] = UploadS3File::getUrl($request->picture, '/players');
+            if ($request->hasFile('picture')) {
+                $playerProfile['picture'] = UploadS3File::getUrl(
+                    $request->file('picture'),
+                    '/players',
+                );
             }
             $player->profile->update($playerProfile);
             $playerInput = $request->get('player') ?? [];

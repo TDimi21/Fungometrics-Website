@@ -49,6 +49,10 @@ const resetInputFile = () => {
   emit("update:modelValue", "");
 };
 
+const handleImageError = () => {
+  image.src = defaultImage;
+};
+
 // Edit forms hydrate the v-model with the existing avatar URL after mount — reflect
 // that in the preview. A File model (newly picked) is handled by onFileChange, so
 // only react to string URLs / clears here.
@@ -109,6 +113,7 @@ watch(
             }"
             :src="image.src"
             alt="Picture"
+            @error="handleImageError"
             class="object-center object-contain max-h-full max-w-full mx-auto"
           />
         </div>

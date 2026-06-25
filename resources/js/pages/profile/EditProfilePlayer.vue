@@ -141,8 +141,6 @@ const submitUpdate = async () => {
     dataForm.append("phone", player.mobileNumber);
     if (player.avatar instanceof File) {
       dataForm.append("picture", player.avatar);
-    } else {
-      dataForm.append("picture", getUserDataSnapshot()?.avatar ?? "");
     }
 
     dataForm.append("profile[name][first]", player.firstName);

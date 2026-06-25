@@ -213,7 +213,6 @@ const submitEditCoach = async () => {
   } else {
     let dataForm = new FormData()
     if (imageTemp) dataForm.append('picture', imageTemp)
-    else dataForm.append('picture', currentUser?.avatar ?? currentUser?.profile?.picture ?? '')
 
     dataForm.append('first_name', coach.firstName)
     dataForm.append('last_name', coach.lastName)

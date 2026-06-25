@@ -37,6 +37,9 @@ class EditPlayerTest extends TestCase
 
 
         Storage::fake('s3');
+        config()->set('filesystems.default', 's3');
+        config()->set('filesystems.disks.s3.bucket', 'fungometrics');
+        config()->set('filesystems.disks.s3.region', 'eu-central-1');
         $data = [
             'email' => fake()->safeEmail,
             'phone' => fake()->phoneNumber,
@@ -73,6 +76,10 @@ class EditPlayerTest extends TestCase
         $this->assertEquals($data_response->data->player->hit_side, $data['player']['sides']['pitch']);
         $this->assertEquals($data_response->data->player->throw_side, $data['player']['sides']['hit']);
         $this->assertEquals(count($data['positions']), count($data_response->data->positions));
+        $imagePath = parse_url($data_response->data->profile->picture, PHP_URL_PATH);
+        $imagePath = ltrim((string) $imagePath, '/');
+        Storage::disk('s3')->assertExists($imagePath);
+        $this->assertSame('public', Storage::disk('s3')->getVisibility($imagePath));
     }
 
     public function test_edit_player_validations(): void
