@@ -8,7 +8,6 @@ use Exception;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
-use Throwable;
 
 class UploadS3File
 {
@@ -22,27 +21,16 @@ class UploadS3File
         try {
             $filename = "fungo-".time().'.'.$file->extension();
             $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-            $image = Storage::disk($disk)->putFileAs(
-                ltrim($folder, '/'),
-                $file,
-                $filename,
-                ['visibility' => 'public'],
-            );
+
+            // Write WITHOUT requesting a public-read ACL. The S3 bucket has ACLs locked
+            // down ("Block public ACLs" / Object Ownership = bucket owner enforced), so
+            // asking for a public ACL makes the PutObject FAIL and the object never lands
+            // (confirmed: such writes report success-ish but the object is missing from S3).
+            // Public read is granted by the bucket POLICY on players/*, so no per-object
+            // ACL is needed — or wanted.
+            $image = Storage::disk($disk)->putFileAs(ltrim($folder, '/'), $file, $filename);
             if (!$image) {
                 throw new RuntimeException('The profile image could not be stored.');
-            }
-
-            // Best-effort public ACL. Buckets with ACLs disabled ("Object Ownership:
-            // Bucket owner enforced") or "Block public ACLs" reject this — in that case
-            // public read comes from a bucket policy on players/* instead. Do NOT let an
-            // ACL rejection fail an upload whose object was written successfully.
-            try {
-                Storage::disk($disk)->setVisibility($image, 'public');
-            } catch (Throwable $aclException) {
-                Log::warning(
-                    'Could not set public ACL on '.$image.
-                    ' (bucket likely uses a policy for public read): '.$aclException->getMessage(),
-                );
             }
 
             return self::publicUrl($disk, $image);
