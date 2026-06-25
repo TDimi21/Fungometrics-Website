@@ -93,7 +93,9 @@ const typeClicked = (type) => {
 const submitUpdate = async () => {
   let playerPosition =[];
   isLoading.status =!isLoading.status;
-  const imageTemp = player.value.avatar.files[0]
+  // InputImage emits the selected File via v-model; undefined when unchanged so the
+  // existing avatar is preserved (backend ignores non-file picture values).
+  const imageTemp = player.value.avatar instanceof File ? player.value.avatar : undefined
   let dataForm = new FormData();
   dataForm.append('email', player.value.email)
   dataForm.append('phone', player.value.mobileNumber)

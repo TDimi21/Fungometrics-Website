@@ -51,7 +51,7 @@ const submitPlayer = async () => {
   } else {
     let playerPosition =[];
     isLoading.status =!isLoading.status;
-    const imageTemp = player.avatar.files[0] ;
+    const imageTemp = player.avatar instanceof File ? player.avatar : '';
     let dataForm = new FormData();
     dataForm.append('email', player.email.toLowerCase())
     dataForm.append('password', player.password)

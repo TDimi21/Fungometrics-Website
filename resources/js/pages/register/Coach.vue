@@ -75,7 +75,8 @@ const submitCoach = async () => {
     return ;
   }
 
-  const imageTemp = coach.teamLogo.files[0];
+  // InputImage now emits the selected File directly via v-model.
+  const imageTemp = coach.teamLogo instanceof File ? coach.teamLogo : '';
   dataForm.append('logo', imageTemp)
   await axios.post(api_url+'coach/register', dataForm
     ).then(async function (response) {
