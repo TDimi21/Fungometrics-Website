@@ -67,7 +67,7 @@ watch(
       <div class="w-full relative">
         <input
           ref="fileInput"
-          accept="image/png, image/gif, image/jpeg"
+          accept="image/*"
           class="hidden"
           type="file"
           @change="onFileChange"

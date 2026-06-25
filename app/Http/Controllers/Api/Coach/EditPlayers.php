@@ -42,13 +42,17 @@ class EditPlayers extends Controller
                 $playerProfile['picture'] = UploadS3File::getUrl($request->picture, '/players');
             }
             $player->profile->update($playerProfile);
+            $playerInput = $request->get('player') ?? [];
             $playerData = [
-                'height_in_ft' => $request->get('player')['ft'] ?? 0,
-                'height_in_inch' => $request->get('player')['inch'] ?? 0,
-                'born_date' => $request->get('player')['born'],
-                'number_in_shirt' => $request->get('player')['shirt'],
-                'hit_side'=>$request->get('player')['sides']['hit']??"",
-                'throw_side'=>$request->get('player')['sides']['pitch']??"",
+                'height_in_ft' => $playerInput['ft'] ?? 0,
+                'height_in_inch' => $playerInput['inch'] ?? 0,
+                // Use null-coalescing on every key. Previously ['born'] and ['shirt']
+                // were accessed directly, so a missing key threw "Undefined array key"
+                // and the whole save failed with "player not updated" (picture included).
+                'born_date' => $playerInput['born'] ?? null,
+                'number_in_shirt' => $playerInput['shirt'] ?? null,
+                'hit_side' => $playerInput['sides']['hit'] ?? "",
+                'throw_side' => $playerInput['sides']['pitch'] ?? "",
             ];
 
             $player->player()->updateOrCreate(['user_id' => $player->id], $playerData);

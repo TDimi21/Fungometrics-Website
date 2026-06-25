@@ -66,7 +66,9 @@ let player = reactive({
   lastName: seedUser?.name?.last ?? seedUser?.profile?.last_name ?? "",
   email: seedUser?.email ?? "",
   mobileNumber: seedUser?.phone ?? "",
-  avatar: seedUser?.avatar ?? seedUser?.profile?.picture ?? "../../assets/img/login/assteslogin/updatedlogo.png",
+  // Empty when there's no avatar — InputImage then shows its own bundled default.
+  // (Was a build-time source path "../../assets/..." which renders as a broken image.)
+  avatar: seedUser?.avatar ?? seedUser?.profile?.picture ?? "",
   sides: {
     pitch: seedUser?.throw_side ?? seedUser?.player?.throw_side ?? "",
     hit: seedUser?.hit_side ?? seedUser?.player?.hit_side ?? "",
