@@ -56,7 +56,11 @@ return [
             'public_url' => env('AWS_PUBLIC_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'visibility' => 'public',
+            // NO 'visibility' here. The bucket has ACLs locked down ("Block public ACLs"
+            // / Object Ownership = bucket owner enforced), so a per-object 'public' ACL
+            // makes PutObject FAIL and (with 'throw' => false) silently drop the object.
+            // Public read is granted by the bucket POLICY on players/* instead, so writes
+            // must send no ACL at all.
             'throw' => false,
         ],
 
