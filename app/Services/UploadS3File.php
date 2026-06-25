@@ -8,6 +8,7 @@ use Exception;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Throwable;
 
 class UploadS3File
 {
@@ -31,7 +32,18 @@ class UploadS3File
                 throw new RuntimeException('The profile image could not be stored.');
             }
 
-            Storage::disk($disk)->setVisibility($image, 'public');
+            // Best-effort public ACL. Buckets with ACLs disabled ("Object Ownership:
+            // Bucket owner enforced") or "Block public ACLs" reject this — in that case
+            // public read comes from a bucket policy on players/* instead. Do NOT let an
+            // ACL rejection fail an upload whose object was written successfully.
+            try {
+                Storage::disk($disk)->setVisibility($image, 'public');
+            } catch (Throwable $aclException) {
+                Log::warning(
+                    'Could not set public ACL on '.$image.
+                    ' (bucket likely uses a policy for public read): '.$aclException->getMessage(),
+                );
+            }
 
             return self::publicUrl($disk, $image);
         } catch (Exception $exception) {
