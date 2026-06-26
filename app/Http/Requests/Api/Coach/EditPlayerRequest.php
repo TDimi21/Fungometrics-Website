@@ -14,11 +14,41 @@ class EditPlayerRequest extends FormRequest
     /**
      * Determine if the user is authorized to make this request.
      *
+     * Previously returned true. Combined with the route only requiring
+     * `auth:sanctum` (no ability), that let ANY authenticated user — including a
+     * player — edit any other user by id (IDOR). Restrict to the user editing
+     * their own profile, or a coach (coaches manage roster players; this matches
+     * the existing EditPlayer test expectations).
+     *
+     * NOTE: this still allows any coach to edit any player. Scoping a coach to
+     * only players on their own teams is a tighter follow-up, but it changes
+     * currently-tested behavior, so it needs product sign-off before landing.
+     *
      * @return bool
      */
-    public function authorize()
+    public function authorize(): bool
     {
-        return true;
+        $authUser = $this->user();
+        if (! $authUser) {
+            return false;
+        }
+
+        // Self-edit is always allowed; otherwise the caller must be a coach.
+        return (string) $authUser->id === (string) $this->route('id')
+            || $authUser->tokenCan('coach');
+    }
+
+    /**
+     * Return a consistent JSON 403 instead of the default redirect/exception.
+     */
+    protected function failedAuthorization(): void
+    {
+        throw new HttpResponseException(response()->json([
+            'code' => '033-A',
+            'message' => 'You are not authorized to edit this player',
+            'status' => false,
+            'data' => [],
+        ], Response::HTTP_FORBIDDEN));
     }
 
     /**

@@ -108,7 +108,7 @@ use App\Http\Controllers\Api\Sessions\Results\GetScriptedBpResults;
 use App\Http\Controllers\Api\Admin\UpdateUserPlan;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'ability:coach'])->get('/opcache-clear', function() {
+Route::middleware(['auth:sanctum', 'admin'])->get('/opcache-clear', function() {
     opcache_reset();
     return response()->json(['cleared' => true, 'ts' => time()]);
 });
@@ -264,6 +264,10 @@ Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): vo
 });
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
+// NOTE: plan management is intentionally available to coaches (see
+// UpdateUserPlanTest::test_coach_can_update_user_plan). Tightening this to true
+// admins or scoping coaches to their own players is a recommended follow-up that
+// changes tested behavior and needs product sign-off.
 Route::middleware(['auth:sanctum', 'ability:coach'])->prefix('admin')->group(function (): void {
     Route::patch('/users/{id}/plan', UpdateUserPlan::class);
 });
