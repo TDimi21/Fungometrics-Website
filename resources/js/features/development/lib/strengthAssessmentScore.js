@@ -94,6 +94,12 @@ export function computeStrengthAssessmentScore(input = {}) {
   const throwingVelo = pick('throwing_velo_mph', 'throwing_velo', 'throwing_velocity');
   const pitchVelo = pick('pitch_velo_mph', 'pitch_velo', 'pitch_velocity');
 
+  // Recovery / sleep / mobility feed the speed section (mirrors the mobile app).
+  const sleepHours = pick('sleep_hours');
+  const sleepQuality = pick('sleep_quality_1_to_5', 'sleep_quality');
+  const recoveryScore = pick('recovery_score');
+  const mobilityScore = pick('mobility_score', 'mobility_overall_score');
+
   const frontRatio = bw && bw > 0 && front ? front / bw : null;
   const backRatio = bw && bw > 0 && back ? back / bw : null;
   const deadRatio = bw && bw > 0 && dead ? dead / bw : null;
@@ -124,17 +130,32 @@ export function computeStrengthAssessmentScore(input = {}) {
   const throwingVeloScore = mapHigherBetter(throwingVelo, [[55, 20], [65, 40], [75, 60], [82, 78], [88, 92], [94, 100]]);
   const pitchVeloScore = mapHigherBetter(pitchVelo, [[55, 20], [65, 40], [75, 60], [82, 78], [88, 92], [94, 100]]);
 
-  const strengthScore = clamp(frontScore * 0.20 + backScore * 0.20 + deadScore * 0.22 + benchScore * 0.18 + pullUpsScore * 0.10 + pushUpsScore * 0.10);
-  const powerScore = clamp(cleanScore * 0.30 + verticalJumpScore * 0.20 + broadJumpScore * 0.20 + medBallScore * 0.20 + handScore * 0.10);
-  const speedScore = clamp(dash10Score * 0.45 + dash40Score * 0.30 + dash60Score * 0.25);
-  const baseballScore = clamp(exitVeloScore * 0.30 + batSpeedScore * 0.25 + throwingVeloScore * 0.20 + pitchVeloScore * 0.25);
+  const sleepHoursScore = mapHigherBetter(sleepHours, [[5.0, 20], [6.0, 40], [7.0, 60], [8.0, 78], [9.0, 92], [10.0, 100]]);
+  const sleepQualityScore = mapHigherBetter(sleepQuality, [[1.5, 20], [2.2, 40], [3.0, 60], [3.8, 78], [4.4, 92], [5.0, 100]]);
+  const recoveryMapped = clamp(recoveryScore || 0);
+  const mobilityMapped = clamp(mobilityScore || 0);
 
-  const overall = clamp(
-    strengthScore * 0.30 +
-    powerScore * 0.25 +
-    speedScore * 0.20 +
-    baseballScore * 0.25,
-  );
+  // Weighted average over only entered metrics (score > 0), renormalizing the
+  // remaining weights. Identical to the mobile app's computeStrengthScore so the
+  // web and app produce the same assessment score for the same inputs.
+  const wavg = (pairs) => {
+    let sum = 0;
+    let w = 0;
+    for (const [score, weight] of pairs) {
+      if (Number.isFinite(score) && score > 0) {
+        sum += score * weight;
+        w += weight;
+      }
+    }
+    return w > 0 ? sum / w : 0;
+  };
+
+  const strengthScore = clamp(wavg([[frontScore, 0.18], [backScore, 0.20], [deadScore, 0.20], [benchScore, 0.17], [pullUpsScore, 0.12], [pushUpsScore, 0.13]]));
+  const powerScore = clamp(wavg([[cleanScore, 0.28], [handScore, 0.12], [verticalJumpScore, 0.22], [broadJumpScore, 0.22], [medBallScore, 0.16]]));
+  const speedScore = clamp(wavg([[dash10Score, 0.24], [dash40Score, 0.22], [dash60Score, 0.18], [sleepHoursScore, 0.12], [sleepQualityScore, 0.08], [recoveryMapped, 0.10], [mobilityMapped, 0.06]]));
+  const baseballScore = clamp(wavg([[exitVeloScore, 0.30], [batSpeedScore, 0.25], [throwingVeloScore, 0.20], [pitchVeloScore, 0.25]]));
+
+  const overall = clamp(wavg([[strengthScore, 0.30], [powerScore, 0.25], [speedScore, 0.20], [baseballScore, 0.25]]));
 
   const hasData = [
     input.body_weight_lbs,
