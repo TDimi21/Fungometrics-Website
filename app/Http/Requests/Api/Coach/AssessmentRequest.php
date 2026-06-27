@@ -63,6 +63,13 @@ class AssessmentRequest extends FormRequest
             'strength_overall_score'       => ['nullable', 'integer', 'min:0', 'max:100'],
             'mobility_overall_score'       => ['nullable', 'integer', 'min:0', 'max:100'],
             'overall_score'                => ['nullable', 'integer', 'min:0', 'max:100'],
+
+            // throwing workload + arm health
+            'body_weight_lbs'         => ['nullable', 'numeric', 'min:0', 'max:999'],
+            'throwing_workload_score' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'throwing_workload_level' => ['nullable', 'string', 'max:20'],
+            'throwing_workload_data'  => ['nullable', 'array'],
+            'arm_health_score'        => ['nullable', 'integer', 'min:0', 'max:100'],
         ];
     }
 
