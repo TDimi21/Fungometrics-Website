@@ -68,7 +68,8 @@ class AssessmentRequest extends FormRequest
             'body_weight_lbs'         => ['nullable', 'numeric', 'min:0', 'max:999'],
             'throwing_workload_score' => ['nullable', 'integer', 'min:0', 'max:100'],
             'throwing_workload_level' => ['nullable', 'string', 'max:20'],
-            'throwing_workload_data'  => ['nullable', 'array'],
+            // Accept either an array (new app) or a JSON string (older builds).
+            'throwing_workload_data'  => ['nullable'],
             'arm_health_score'        => ['nullable', 'integer', 'min:0', 'max:100'],
         ];
     }

@@ -81,8 +81,29 @@ class PlayerAssessment extends Model
         'assessment_date'  => 'date',
         'team_percentiles' => 'array',
         'age_group_percentiles' => 'array',
-        'throwing_workload_data' => 'array',
     ];
+
+    /**
+     * Accept throwing_workload_data as either an array (new app) or a JSON string
+     * (older app builds) and always store it as a JSON string. Avoids a hard
+     * dependency on the client sending one specific shape.
+     */
+    public function setThrowingWorkloadDataAttribute($value): void
+    {
+        $this->attributes['throwing_workload_data'] = is_array($value)
+            ? json_encode($value)
+            : $value;
+    }
+
+    public function getThrowingWorkloadDataAttribute($value)
+    {
+        if (is_array($value) || $value === null) {
+            return $value;
+        }
+        $decoded = json_decode((string) $value, true);
+
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
+    }
 
     public function user(): BelongsTo
     {
