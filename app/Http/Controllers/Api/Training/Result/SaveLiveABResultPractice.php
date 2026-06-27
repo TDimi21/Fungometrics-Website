@@ -254,6 +254,23 @@ class SaveLiveABResultPractice extends Controller
                 'runners_after',
             ]);
 
+            // Handedness frozen at pitch time for platoon splits. The app sends
+            // these at the top level of the request (and nested under
+            // batting/pitching); persist raw L/R/S so vs-LHP/RHP and vs-LHB/RHB
+            // are computed from immutable data. Guarded for envs not yet migrated.
+            $normalizeHand = static function ($value): ?string {
+                $c = strtoupper(trim((string) $value));
+                return in_array($c, ['L', 'R', 'S'], true) ? $c : null;
+            };
+            if (Schema::hasColumns('live_a_b_practice_results', ['batter_bats_snapshot', 'pitcher_throws_snapshot'])) {
+                $liveAbPayload['batter_bats_snapshot'] = $normalizeHand(
+                    $requestData['batter_bats_snapshot'] ?? ($requestData['batting']['batter_bats_snapshot'] ?? null),
+                );
+                $liveAbPayload['pitcher_throws_snapshot'] = $normalizeHand(
+                    $requestData['pitcher_throws_snapshot'] ?? ($requestData['pitching']['pitcher_throws_snapshot'] ?? null),
+                );
+            }
+
             if ($hasPlayResultColumns) {
                 $liveAbPayload = array_merge($liveAbPayload, [
                     // Game-engine play result fields (sent from mobile Ball-In-Play screen)

@@ -79,7 +79,10 @@ class SearchPlayers extends Controller
             // LEFT JOIN so players with no team still appear (INNER JOIN hid them)
             ->leftJoin('player_teams as pt', 'u.id', '=', 'pt.user_id')
             ->leftJoin('teams as t', 'pt.team_id', '=', 't.id')
-            ->where('u.type', '=', 'player');
+            ->where('u.type', '=', 'player')
+            // Scout/dummy opponent players must never surface in search — they are
+            // only reachable by opening their own (dummy) team.
+            ->where('u.is_dummy', false);
 
         if ($hasFilter) {
             // When a search term is provided, filter by phone AND/OR name.

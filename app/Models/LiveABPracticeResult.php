@@ -56,6 +56,9 @@ class LiveABPracticeResult extends Model
         'sac_bunt',
         'runners_before',
         'runners_after',
+        // Handedness frozen at pitch time for platoon splits (raw L/R/S)
+        'batter_bats_snapshot',
+        'pitcher_throws_snapshot',
     ];
 
     public function practice(): BelongsTo
