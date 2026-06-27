@@ -182,7 +182,9 @@ class SaveAssessment extends Controller
             $agePercentiles = [];
 
             foreach (self::RAW_PERCENTILE_METRICS as $rawKey => $cfg) {
-                if (!isset($data[$rawKey]) || $data[$rawKey] === null || $data[$rawKey] === '') {
+                // Only score metrics the coach actually entered. A missing or zero
+                // value is treated as "not tested" and excluded entirely.
+                if (!isset($data[$rawKey]) || $data[$rawKey] === null || $data[$rawKey] === '' || (float) $data[$rawKey] <= 0) {
                     continue;
                 }
 
@@ -221,43 +223,64 @@ class SaveAssessment extends Controller
                 : null;
 
             // ── Compute scores server-side from percentiles ───────────────────
-            $safe = fn ($k) => min(100, max(0, (int) ($data[$k] ?? 0)));
+            // Only metrics the coach actually entered (percentile > 0) count. Missing
+            // or zero inputs are excluded and the remaining weights renormalized, so
+            // an un-tested area stays blank (null) instead of being scored as 0 and
+            // dragging down the overall.
+            $weightedPresent = function (array $weighted) use ($data): ?int {
+                $sum = 0.0;
+                $weight = 0.0;
+                foreach ($weighted as [$key, $w]) {
+                    $v = (int) ($data[$key] ?? 0);
+                    if ($v > 0) {
+                        $sum += min(100, $v) * $w;
+                        $weight += $w;
+                    }
+                }
+                return $weight > 0.0 ? (int) round($sum / $weight) : null;
+            };
 
-            $sq  = $safe('squat_percentile');
-            $dl  = $safe('deadlift_percentile');
-            $lng = $safe('lunge_percentile');
-            $bp  = $safe('bench_press_percentile');
-            $pu  = $safe('pull_up_percentile');
-            $psh = $safe('push_up_percentile');
-            $bj  = $safe('broad_jump_percentile');
-            $vj  = $safe('vertical_jump_percentile');
-            $sp  = $safe('sprint_10yd_percentile');
-            $mb  = $safe('med_ball_rotational_percentile');
-            $ev  = $safe('exit_velocity_percentile');
-            $bs  = $safe('bat_speed_percentile');
+            // Same idea but over already-computed sub-scores, which may be null.
+            $weightedScores = function (array $weighted): ?int {
+                $sum = 0.0;
+                $weight = 0.0;
+                foreach ($weighted as [$score, $w]) {
+                    if ($score !== null && $score > 0) {
+                        $sum += $score * $w;
+                        $weight += $w;
+                    }
+                }
+                return $weight > 0.0 ? (int) round($sum / $weight) : null;
+            };
 
-            $lowerBody       = (int) round($sq * 0.60 + $dl * 0.25 + $lng * 0.15);
-            $upperBody       = (int) round($bp * 0.50 + $pu * 0.25 + $psh * 0.25);
-            $explosivePower  = (int) round($bj * 0.40 + $vj * 0.40 + $sp * 0.20);
-            $rotationalPower = (int) round($mb * 0.60 + $ev * 0.25 + $bs * 0.15);
-            $strengthOverall = (int) round(
-                $lowerBody      * 0.30 +
-                $upperBody      * 0.20 +
-                $explosivePower * 0.25 +
-                $rotationalPower * 0.25
-            );
+            $lowerBody = $weightedPresent([
+                ['squat_percentile', 0.60], ['deadlift_percentile', 0.25], ['lunge_percentile', 0.15],
+            ]);
+            $upperBody = $weightedPresent([
+                ['bench_press_percentile', 0.50], ['pull_up_percentile', 0.25], ['push_up_percentile', 0.25],
+            ]);
+            $explosivePower = $weightedPresent([
+                ['broad_jump_percentile', 0.40], ['vertical_jump_percentile', 0.40], ['sprint_10yd_percentile', 0.20],
+            ]);
+            $rotationalPower = $weightedPresent([
+                ['med_ball_rotational_percentile', 0.60], ['exit_velocity_percentile', 0.25], ['bat_speed_percentile', 0.15],
+            ]);
+            $strengthOverall = $weightedScores([
+                [$lowerBody, 0.30], [$upperBody, 0.20], [$explosivePower, 0.25], [$rotationalPower, 0.25],
+            ]);
 
-            // Mobility: average of provided 0-10 fields scaled to 0-100
+            // Mobility: average of entered (>0) 0-10 fields scaled to 0-100; blank if none.
             $mobilityFields = ['hip_mobility', 'shoulder_mobility', 'ankle_mobility', 'hip_flexor_mobility', 'rotational_mobility'];
-            $mobilityVals   = array_filter(array_map(fn ($f) => isset($data[$f]) ? (int) $data[$f] : null, $mobilityFields), fn ($v) => $v !== null);
+            $mobilityVals   = array_filter(
+                array_map(fn ($f) => isset($data[$f]) ? (int) $data[$f] : null, $mobilityFields),
+                fn ($v) => $v !== null && $v > 0
+            );
             $mobilityOverall = count($mobilityVals) > 0
                 ? (int) round((array_sum($mobilityVals) / count($mobilityVals)) * 10)
-                : 0;
+                : null;
 
-            // Combined overall
-            $overall = $strengthOverall > 0 && $mobilityOverall > 0
-                ? (int) round($strengthOverall * 0.70 + $mobilityOverall * 0.30)
-                : max($strengthOverall, $mobilityOverall);
+            // Combined overall: weighted over whichever of strength / mobility exists.
+            $overall = $weightedScores([[$strengthOverall, 0.70], [$mobilityOverall, 0.30]]);
 
             $data = array_merge($data, [
                 'strength_lower_body_score'    => $lowerBody,
