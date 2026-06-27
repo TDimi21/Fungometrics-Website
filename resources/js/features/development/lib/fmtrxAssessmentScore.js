@@ -116,8 +116,17 @@ export function computeFmtrxAssessment(form = {}) {
     return null;
   };
 
-  // Strength / Power / Speed / Baseball — reuse the aligned strength lib.
-  const strength = computeStrengthAssessmentScore(form);
+  const mobilityScore = computeMobilityScore(pick);
+
+  // Strength / Power / Speed / Baseball — reuse the aligned strength lib. The
+  // speed section uses a 0-100 mobility input; prefer an explicit mobility_score,
+  // otherwise the one derived from the individual mobility fields.
+  const strength = computeStrengthAssessmentScore({
+    ...form,
+    mobility_score: (form.mobility_score ?? '') !== '' && form.mobility_score !== null
+      ? form.mobility_score
+      : mobilityScore,
+  });
 
   // Athletic (overall athleticism: speed + explosiveness + arm)
   const athleticScore = Math.round(clamp(
@@ -164,8 +173,6 @@ export function computeFmtrxAssessment(form = {}) {
     (100 - clamp(workloadScore)) * 0.25 +
     (100 - mapHigherBetter(pick('arm_soreness'), [[0, 0], [2, 20], [4, 45], [6, 70], [8, 88], [10, 100]])) * 0.15,
   ));
-
-  const mobilityScore = computeMobilityScore(pick);
 
   // FMTRX Baseline composite
   const overallFMTRXScore = Math.round(clamp(

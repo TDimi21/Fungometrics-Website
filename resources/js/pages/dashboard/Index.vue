@@ -17,6 +17,7 @@ import useChartOptions from '@/composables/useChartOptions.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useRoute, useRouter } from 'vue-router'
 import { computeStrengthAssessmentScore } from '@/features/development/lib/strengthAssessmentScore.js'
+import { computeFmtrxAssessment, throwsPerDayOptions, pitchCountOptions, intensityOptions } from '@/features/development/lib/fmtrxAssessmentScore.js'
 import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
 import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
 
@@ -407,6 +408,16 @@ const statusConfig = {
 
 const trendIcon = (t) => t === 'up' ? '↑' : t === 'down' ? '↓' : '→'
 const trendColor = (t) => t === 'up' ? 'text-green-400' : t === 'down' ? 'text-red-400' : 'text-white/30'
+
+const devBoardPlayerInitials = (player) => {
+  const name = player?.name ?? ''
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase())
+    .join('') || '—'
+}
 
 const sessionTypes = [
   { key: 'batting',       label: 'BP' },
@@ -1733,6 +1744,36 @@ const strengthForm = ref({
   sleep_hours: '',
   sleep_quality_1_to_5: '',
   recovery_score: '',
+  // Mobility (0-5 each)
+  shoulder_mobility: '',
+  hip_mobility: '',
+  ankle_mobility: '',
+  hamstring_mobility: '',
+  t_spine_rotation: '',
+  overhead_squat: '',
+  single_leg_balance: '',
+  // Throwing workload
+  throwing_days_per_week: '',
+  throws_per_day_range: '',
+  weekly_pitch_count_range: '',
+  bullpens_per_week: '',
+  long_toss_sessions_per_week: '',
+  weighted_ball_sessions_per_week: '',
+  throwing_intensity: '',
+  // Arm health
+  arm_pain: '',
+  arm_soreness: '',
+  arm_care_completion: '',
+  // Hitting
+  max_exit_velo: '',
+  avg_exit_velo: '',
+  contact_percentage: '',
+  hard_hit_percentage: '',
+  whiff_percentage: '',
+  // Pitching
+  fastball_velocity: '',
+  strike_percentage: '',
+  command_percentage: '',
 })
 
 const latestStrengthMobilityScore = computed(() => {
@@ -1744,6 +1785,27 @@ const computedStrength = computed(() => computeStrengthAssessmentScore({
   ...strengthForm.value,
   mobility_score: latestStrengthMobilityScore.value,
 }))
+
+// Full FMTRX baseline breakdown (mirrors the mobile app's assessment).
+const computedFmtrx = computed(() => computeFmtrxAssessment({
+  ...strengthForm.value,
+  mobility_score: latestStrengthMobilityScore.value,
+}))
+
+const fmtrxSectionRows = computed(() => {
+  const f = computedFmtrx.value
+  return [
+    { label: 'Athletic', value: f.athletic },
+    { label: 'Strength', value: f.strength },
+    { label: 'Power', value: f.power },
+    { label: 'Speed', value: f.speed },
+    { label: 'Baseball', value: f.baseball },
+    { label: 'Mobility', value: f.mobility },
+    { label: 'Hitting', value: f.hitting },
+    { label: 'Pitching', value: f.pitching },
+    { label: 'Arm Health', value: f.armHealth },
+  ]
+})
 
 const strengthFormComplete = computed(() => {
   const f = strengthForm.value
@@ -2069,15 +2131,10 @@ watch(
             :class="dashTab === 'development' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
           >Player Development</button>
           <button
-            @click="setDashTab('quickstats')"
-            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
-            :class="dashTab === 'quickstats' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
-          >Mobility</button>
-          <button
             @click="setDashTab('strength')"
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
             :class="dashTab === 'strength' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
-          >Strength</button>
+          >Assessment</button>
         </div>
 
         <!-- OVERVIEW TAB -->
@@ -2146,7 +2203,18 @@ watch(
                   <div class="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_90px_70px_60px_auto] items-center gap-2 px-4 py-3">
                     <!-- Name + jersey -->
                     <div class="flex items-center gap-2 min-w-0">
-                      <span class="text-white/30 text-xs font-bold w-6 text-center shrink-0">#{{ player.jersey ?? '—' }}</span>
+                      <div class="w-8 h-8 rounded-full overflow-hidden ring-1 ring-white/15 bg-white/10 shrink-0 flex items-center justify-center">
+                        <img
+                          v-if="player.picture"
+                          :src="player.picture"
+                          :alt="player.name"
+                          class="w-full h-full object-cover"
+                        />
+                        <span v-else class="text-[10px] font-black text-white/55">
+                          {{ devBoardPlayerInitials(player) }}
+                        </span>
+                      </div>
+                      <span class="text-white/30 text-xs font-bold w-7 text-center shrink-0">#{{ player.jersey ?? '—' }}</span>
                       <button
                         class="text-sm font-black text-sky-300 hover:text-sky-200 truncate text-left"
                         @click.stop="openDevPlayerDetail(player)"
@@ -2820,7 +2888,7 @@ watch(
           <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
             <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 class="text-base font-black uppercase tracking-widest text-white">Strength Assessment</h2>
+                <h2 class="text-base font-black uppercase tracking-widest text-white">Assessment</h2>
                 <p class="text-xs text-white/45 mt-1">Enter the same roster fitness metrics (weights, times, recovery, mobility). FMTRX auto-grades and updates player metrics cards.</p>
               </div>
               <div class="text-xs text-white/50">Step 1: type · Step 2: player · Step 3: roster metrics · Step 4: save</div>
@@ -2945,6 +3013,79 @@ watch(
                   </div>
                 </div>
 
+                <!-- Mobility -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div class="str-test-title"><span>Mobility (0–5 each)</span></div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
+                    <input v-model="strengthForm.shoulder_mobility" type="number" min="0" max="5" step="1" placeholder="Shoulder" class="str-input" />
+                    <input v-model="strengthForm.hip_mobility" type="number" min="0" max="5" step="1" placeholder="Hip" class="str-input" />
+                    <input v-model="strengthForm.ankle_mobility" type="number" min="0" max="5" step="1" placeholder="Ankle" class="str-input" />
+                    <input v-model="strengthForm.hamstring_mobility" type="number" min="0" max="5" step="1" placeholder="Hamstring" class="str-input" />
+                    <input v-model="strengthForm.t_spine_rotation" type="number" min="0" max="5" step="1" placeholder="T-Spine Rotation" class="str-input" />
+                    <input v-model="strengthForm.overhead_squat" type="number" min="0" max="5" step="1" placeholder="Overhead Squat" class="str-input" />
+                    <input v-model="strengthForm.single_leg_balance" type="number" min="0" max="5" step="1" placeholder="Single-Leg Balance" class="str-input" />
+                  </div>
+                </div>
+
+                <!-- Throwing Workload -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div class="str-test-title"><span>Throwing Workload</span></div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
+                    <input v-model="strengthForm.throwing_days_per_week" type="number" min="0" max="7" step="1" placeholder="Throwing Days / Week" class="str-input" />
+                    <select v-model="strengthForm.throws_per_day_range" class="str-input">
+                      <option value="">Throws Per Day</option>
+                      <option v-for="o in throwsPerDayOptions" :key="o" :value="o">{{ o }}</option>
+                    </select>
+                    <select v-model="strengthForm.weekly_pitch_count_range" class="str-input">
+                      <option value="">Weekly Pitch Count</option>
+                      <option v-for="o in pitchCountOptions" :key="o" :value="o">{{ o }}</option>
+                    </select>
+                    <input v-model="strengthForm.bullpens_per_week" type="number" min="0" step="1" placeholder="Bullpens / Week" class="str-input" />
+                    <input v-model="strengthForm.long_toss_sessions_per_week" type="number" min="0" step="1" placeholder="Long Toss / Week" class="str-input" />
+                    <input v-model="strengthForm.weighted_ball_sessions_per_week" type="number" min="0" step="1" placeholder="Weighted Ball / Week" class="str-input" />
+                    <select v-model="strengthForm.throwing_intensity" class="str-input">
+                      <option value="">Throwing Intensity</option>
+                      <option v-for="o in intensityOptions" :key="o" :value="o">{{ o }}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Arm Health -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div class="str-test-title"><span>Arm Health</span></div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
+                    <select v-model="strengthForm.arm_pain" class="str-input">
+                      <option value="">Arm Pain?</option>
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                    <input v-model="strengthForm.arm_soreness" type="number" min="0" max="10" step="1" placeholder="Arm Soreness (0-10)" class="str-input" />
+                    <input v-model="strengthForm.arm_care_completion" type="number" min="0" max="100" step="1" placeholder="Arm Care Completion (0-100)" class="str-input" />
+                  </div>
+                </div>
+
+                <!-- Hitting -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div class="str-test-title"><span>Hitting</span></div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
+                    <input v-model="strengthForm.max_exit_velo" type="number" min="0" step="0.1" placeholder="Max Exit Velo (mph)" class="str-input" />
+                    <input v-model="strengthForm.avg_exit_velo" type="number" min="0" step="0.1" placeholder="Avg Exit Velo (mph)" class="str-input" />
+                    <input v-model="strengthForm.contact_percentage" type="number" min="0" max="100" step="1" placeholder="Contact %" class="str-input" />
+                    <input v-model="strengthForm.hard_hit_percentage" type="number" min="0" max="100" step="1" placeholder="Hard-Hit %" class="str-input" />
+                    <input v-model="strengthForm.whiff_percentage" type="number" min="0" max="100" step="1" placeholder="Whiff %" class="str-input" />
+                  </div>
+                </div>
+
+                <!-- Pitching -->
+                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div class="str-test-title"><span>Pitching</span></div>
+                  <div class="grid grid-cols-1 gap-2 mt-2">
+                    <input v-model="strengthForm.fastball_velocity" type="number" min="0" step="0.1" placeholder="Fastball Velo (mph)" class="str-input" />
+                    <input v-model="strengthForm.strike_percentage" type="number" min="0" max="100" step="1" placeholder="Strike %" class="str-input" />
+                    <input v-model="strengthForm.command_percentage" type="number" min="0" max="100" step="1" placeholder="Command %" class="str-input" />
+                  </div>
+                </div>
+
               </div><!-- end test grid -->
 
               <div class="mt-4 flex flex-wrap items-center gap-3">
@@ -2954,7 +3095,7 @@ watch(
                   :disabled="strengthSaving || !strengthSelectedPlayerId"
                   @click="submitStrengthAssessment"
                 >
-                  {{ strengthSaving ? 'Saving...' : 'Save Strength Assessment' }}
+                  {{ strengthSaving ? 'Saving...' : 'Save Assessment' }}
                 </button>
                 <span v-if="strengthMessage.text" class="text-sm" :class="strengthMessage.type === 'success' ? 'text-green-300' : 'text-red-300'">{{ strengthMessage.text }}</span>
               </div>
@@ -2964,43 +3105,22 @@ watch(
             <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
               <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Score + Baseline</h3>
 
-              <!-- Live score card -->
+              <!-- FMTRX Baseline (full assessment, mirrors the app) -->
               <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
-                <p class="text-[11px] uppercase tracking-widest text-white/45">Computed Strength Score</p>
-                <p class="mt-1 text-4xl font-black" :style="{ color: scoreColor(computedStrength.score) }">{{ computedStrength.hasData ? computedStrength.score : '—' }}</p>
-                <p class="mt-1 text-sm font-bold text-white/80">{{ computedStrength.hasData ? computedStrength.labels.overall : 'Enter test metrics to compute' }}</p>
-                <p class="text-xs text-white/45 mt-1">0–100 FMTRX Strength Score. Saved value replaces the weight-room calculated score in player development.</p>
+                <p class="text-[11px] uppercase tracking-widest text-white/45">FMTRX Baseline Score</p>
+                <p class="mt-1 text-4xl font-black" :style="{ color: scoreColor(computedFmtrx.overall) }">{{ computedFmtrx.overall || '—' }}</p>
+                <p class="mt-1 text-xs text-white/45">Composite of athletic, strength, mobility, hitting, pitching &amp; arm health.</p>
 
-                <div class="mt-3 space-y-2">
-                  <div v-for="(key, label) in { 'Strength': 'strength', 'Power': 'power', 'Speed': 'speed', 'Baseball': 'baseball' }" :key="key" class="flex items-center justify-between text-xs">
-                    <span class="text-white/60">{{ key }}</span>
-                    <span class="font-black" :style="{ color: scoreColor(computedStrength.parts[label]) }">
-                      {{ computedStrength.hasData ? `${computedStrength.parts[label]} · ${computedStrength.labels[label]}` : '—' }}
-                    </span>
+                <div class="mt-3 grid grid-cols-2 gap-2">
+                  <div v-for="row in fmtrxSectionRows" :key="row.label" class="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-xs">
+                    <span class="text-white/60">{{ row.label }}</span>
+                    <span class="font-black" :style="{ color: scoreColor(row.value) }">{{ row.value == null ? '—' : row.value }}</span>
                   </div>
                 </div>
-              </div>
 
-              <!-- Parts breakdown shorthand -->
-              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
-                <p class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Profile Preview</p>
-                <div class="space-y-1.5">
-                  <div class="flex justify-between text-xs">
-                    <span class="text-white/50">Strength</span>
-                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.strength} — ${computedStrength.labels.strength}` : '—' }}</span>
-                  </div>
-                  <div class="flex justify-between text-xs">
-                    <span class="text-white/50">Power</span>
-                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.power} — ${computedStrength.labels.power}` : '—' }}</span>
-                  </div>
-                  <div class="flex justify-between text-xs">
-                    <span class="text-white/50">Speed</span>
-                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.speed} — ${computedStrength.labels.speed}` : '—' }}</span>
-                  </div>
-                  <div class="flex justify-between text-xs">
-                    <span class="text-white/50">Baseball</span>
-                    <span class="font-black text-white">{{ computedStrength.hasData ? `${computedStrength.parts.baseball} — ${computedStrength.labels.baseball}` : '—' }}</span>
-                  </div>
+                <div class="mt-2 flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs" :style="{ background: (computedFmtrx.workloadColor || '#334155') + '22' }">
+                  <span class="text-white/60">Throwing Workload</span>
+                  <span class="font-black" :style="{ color: computedFmtrx.workloadColor }">{{ computedFmtrx.workload || 0 }} · {{ computedFmtrx.workloadLabel }}</span>
                 </div>
               </div>
 
