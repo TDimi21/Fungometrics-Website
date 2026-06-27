@@ -64,6 +64,12 @@ class PlayerAssessment extends Model
         'overall_team_percentile',
         'overall_age_percentile',
         'age_group_years',
+        // throwing workload + arm health
+        'body_weight_lbs',
+        'throwing_workload_score',
+        'throwing_workload_level',
+        'throwing_workload_data',
+        'arm_health_score',
         'notes',
     ];
 
@@ -75,6 +81,7 @@ class PlayerAssessment extends Model
         'assessment_date'  => 'date',
         'team_percentiles' => 'array',
         'age_group_percentiles' => 'array',
+        'throwing_workload_data' => 'array',
     ];
 
     public function user(): BelongsTo
