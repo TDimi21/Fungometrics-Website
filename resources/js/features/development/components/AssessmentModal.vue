@@ -7,6 +7,7 @@ import {
 const props = defineProps({
   visible: { type: Boolean, default: false },
   playerName: { type: String, default: '' },
+  playerId: { type: [String, Number], default: '' },
 })
 const emit = defineEmits(['close', 'save'])
 
@@ -66,8 +67,44 @@ const blankForm = () => ({
 })
 const form = reactive(blankForm())
 
+// ── Per-player draft (work on multiple players, finalize with Save Baseline) ──
+const draftKey = () => `fmtrx_assessment_draft_${props.playerId || 'unknown'}`
+const draftMsg = ref('')
+let draftMsgTimer = null
+const flashDraftMsg = (text) => {
+  draftMsg.value = text
+  if (draftMsgTimer) clearTimeout(draftMsgTimer)
+  draftMsgTimer = setTimeout(() => { draftMsg.value = '' }, 2500)
+}
+const loadDraft = () => {
+  Object.assign(form, blankForm())
+  try {
+    const raw = localStorage.getItem(draftKey())
+    if (raw) {
+      const saved = JSON.parse(raw)
+      Object.assign(form, saved)
+      // arrays/objects may have been blanked above; restore shapes
+      if (!Array.isArray(form.pitch_types)) form.pitch_types = []
+      if (!form.pitch_grades || typeof form.pitch_grades !== 'object') form.pitch_grades = {}
+    }
+  } catch (_) { /* ignore corrupt draft */ }
+}
+const saveDraft = () => {
+  try {
+    localStorage.setItem(draftKey(), JSON.stringify(form))
+    flashDraftMsg('Draft saved — you can switch players and come back.')
+  } catch (_) {
+    flashDraftMsg('Could not save draft (storage unavailable).')
+  }
+}
+const clearDraft = () => { try { localStorage.removeItem(draftKey()) } catch (_) { /* noop */ } }
+
+const hasSavedDraft = computed(() => {
+  try { return !!localStorage.getItem(draftKey()) } catch (_) { return false }
+})
+
 watch(() => props.visible, (v) => {
-  if (v) { Object.assign(form, blankForm()); stepIndex.value = 0 }
+  if (v) { loadDraft(); stepIndex.value = 0; draftMsg.value = '' }
 })
 
 const fmtrx = computed(() => {
@@ -141,7 +178,7 @@ const fmtrxTiles = computed(() => {
   ]
 })
 
-const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value } })
+const onSave = () => { clearDraft(); emit('save', { form: { ...form }, scores: { ...fmtrx.value } }) }
 </script>
 
 <template>
@@ -444,16 +481,24 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
             </div>
 
             <!-- Footer nav -->
-            <div class="sticky bottom-0 flex items-center justify-end gap-3 px-5 py-4 border-t border-white/10 bg-[#0a1020]/95 backdrop-blur sm:rounded-b-2xl">
-              <button v-if="stepIndex > 0" type="button" class="px-4 py-2.5 rounded-lg bg-white/5 border border-white/15 text-sm font-bold text-white/70" @click="back">
-                Back: {{ STEPS[stepIndex - 1].label }}
-              </button>
-              <button v-if="stepIndex < STEPS.length - 1" type="button" class="px-5 py-2.5 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black text-white" @click="next">
-                Next: {{ STEPS[stepIndex + 1].label }}
-              </button>
-              <button v-else type="button" class="px-5 py-2.5 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black text-white" @click="onSave">
-                Save Baseline
-              </button>
+            <div class="sticky bottom-0 px-5 py-4 border-t border-white/10 bg-[#0a1020]/95 backdrop-blur sm:rounded-b-2xl">
+              <div v-if="draftMsg" class="mb-2 text-xs font-bold text-green-300">{{ draftMsg }}</div>
+              <div class="flex items-center gap-3">
+                <button type="button" class="px-4 py-2.5 rounded-lg bg-white/5 border border-white/20 text-sm font-bold text-white/80" @click="saveDraft">
+                  Save Data
+                </button>
+                <span v-if="hasSavedDraft" class="text-[11px] text-white/40">Draft in progress</span>
+                <div class="flex-1"></div>
+                <button v-if="stepIndex > 0" type="button" class="px-4 py-2.5 rounded-lg bg-white/5 border border-white/15 text-sm font-bold text-white/70" @click="back">
+                  Back: {{ STEPS[stepIndex - 1].label }}
+                </button>
+                <button v-if="stepIndex < STEPS.length - 1" type="button" class="px-5 py-2.5 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black text-white" @click="next">
+                  Next: {{ STEPS[stepIndex + 1].label }}
+                </button>
+                <button v-else type="button" class="px-5 py-2.5 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black text-white" @click="onSave">
+                  Save Baseline
+                </button>
+              </div>
             </div>
 
           </div>
