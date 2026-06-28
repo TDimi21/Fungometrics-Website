@@ -1865,7 +1865,11 @@ const strengthDelta = computed(() => {
 const fetchStrengthPlayers = async () => {
   strengthPlayersLoading.value = true
   try {
-    const res = await axiosGet('coach/roster/players')
+    // Roster must reflect ONLY the currently selected team, not every player the
+    // coach is associated with. The team-scoped endpoint returns that team's
+    // players; fall back to the full roster only when no team is selected.
+    const teamId = activeTeamId.value
+    const res = await axiosGet(teamId ? `coach/teams/${teamId}` : 'coach/roster/players')
     const payload = res?.data?.data
     const rawPlayers = Array.isArray(payload)
       ? payload
@@ -1883,14 +1887,13 @@ const fetchStrengthPlayers = async () => {
       })
       .filter((p) => p.id)
 
-    if (!mapped.length && Array.isArray(devBoard.value) && devBoard.value.length) {
-      mapped = devBoard.value
-        .map((p) => ({ id: p?.id, name: p?.name || `Player #${p?.id}` }))
-        .filter((p) => p.id)
-    }
-
     strengthPlayers.value = mapped
 
+    // Drop a stale selection that isn't on this team, then default to the first.
+    if (strengthSelectedPlayerId.value &&
+        !mapped.some((p) => String(p.id) === String(strengthSelectedPlayerId.value))) {
+      strengthSelectedPlayerId.value = ''
+    }
     if (!strengthSelectedPlayerId.value && strengthPlayers.value.length) {
       strengthSelectedPlayerId.value = String(strengthPlayers.value[0].id)
     }
@@ -2106,6 +2109,10 @@ watch(
     // Priority 1 — fast/cached, render immediately
     getRecentSessions()
     getTop10()
+
+    // Selected team changed — the assessment roster must follow it.
+    strengthSelectedPlayerId.value = ''
+    fetchStrengthPlayers().catch(e => console.warn('fetchStrengthPlayers (team change) error:', e?.message ?? e))
 
     // Priority 2 — heavier, defer until after first paint
     setTimeout(() => {
