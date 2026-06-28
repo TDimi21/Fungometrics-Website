@@ -70,6 +70,11 @@ class PlayerAssessment extends Model
         'throwing_workload_level',
         'throwing_workload_data',
         'arm_health_score',
+        // hitting + pitching assessment
+        'hitting_score',
+        'hitting_data',
+        'pitching_score',
+        'pitching_data',
         'notes',
     ];
 
@@ -96,6 +101,40 @@ class PlayerAssessment extends Model
     }
 
     public function getThrowingWorkloadDataAttribute($value)
+    {
+        if (is_array($value) || $value === null) {
+            return $value;
+        }
+        $decoded = json_decode((string) $value, true);
+
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
+    }
+
+    public function setHittingDataAttribute($value): void
+    {
+        $this->attributes['hitting_data'] = is_array($value)
+            ? json_encode($value)
+            : $value;
+    }
+
+    public function getHittingDataAttribute($value)
+    {
+        if (is_array($value) || $value === null) {
+            return $value;
+        }
+        $decoded = json_decode((string) $value, true);
+
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
+    }
+
+    public function setPitchingDataAttribute($value): void
+    {
+        $this->attributes['pitching_data'] = is_array($value)
+            ? json_encode($value)
+            : $value;
+    }
+
+    public function getPitchingDataAttribute($value)
     {
         if (is_array($value) || $value === null) {
             return $value;

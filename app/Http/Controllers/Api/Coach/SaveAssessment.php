@@ -279,8 +279,24 @@ class SaveAssessment extends Controller
                 ? (int) round((array_sum($mobilityVals) / count($mobilityVals)) * 10)
                 : null;
 
-            // Combined overall: weighted over whichever of strength / mobility exists.
-            $overall = $weightedScores([[$strengthOverall, 0.70], [$mobilityOverall, 0.30]]);
+            $hittingScore = isset($data['hitting_score']) && $data['hitting_score'] !== null
+                ? (int) $data['hitting_score']
+                : null;
+            $pitchingScore = isset($data['pitching_score']) && $data['pitching_score'] !== null
+                ? (int) $data['pitching_score']
+                : null;
+            $armHealthScore = isset($data['arm_health_score']) && $data['arm_health_score'] !== null
+                ? (int) $data['arm_health_score']
+                : null;
+
+            // Full assessment overall: weighted over whichever sections exist.
+            $overall = $weightedScores([
+                [$strengthOverall, 0.24],
+                [$mobilityOverall, 0.18],
+                [$hittingScore, 0.20],
+                [$pitchingScore, 0.20],
+                [$armHealthScore, 0.18],
+            ]);
 
             $data = array_merge($data, [
                 'strength_lower_body_score'    => $lowerBody,

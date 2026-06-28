@@ -71,6 +71,12 @@ class AssessmentRequest extends FormRequest
             // Accept either an array (new app) or a JSON string (older builds).
             'throwing_workload_data'  => ['nullable'],
             'arm_health_score'        => ['nullable', 'integer', 'min:0', 'max:100'],
+
+            // hitting + pitching assessment
+            'hitting_score' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'hitting_data'  => ['nullable'],
+            'pitching_score' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'pitching_data'  => ['nullable'],
         ];
     }
 

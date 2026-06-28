@@ -35,9 +35,11 @@ const blankForm = () => ({
   throwing_velo_mph: '',
   // strength
   body_weight_lbs: '', front_squat_lbs: '', back_squat_lbs: '', bench_press_lbs: '',
-  dead_lift_lbs: '', pull_ups: '', push_ups: '', power_clean_lbs: '', hand_strength_lbs: '',
-  vertical_jump_inches: '', broad_jump_inches: '', med_ball_rotational_throw_ft: '', yd_40_dash_sec: '',
-  sleep_hours: '', sleep_quality_1_to_5: '', recovery_score: '',
+  dead_lift_lbs: '', pull_ups: '', push_ups: '', trap_bar_deadlift: '',
+  power_clean_lbs: '', grip_strength_left: '', grip_strength_right: '',
+  vertical_jump_inches: '', broad_jump_inches: '', med_ball_rotational_throw_ft: '', plank_hold: '',
+  yd_40_dash_sec: '', sleep_hours: '', sleep_quality_1_to_5: '', recovery_score: '',
+  strength_notes: '',
   // mobility (0-5)
   shoulder_mobility: '', hip_mobility: '', ankle_mobility: '', hamstring_mobility: '',
   t_spine_rotation: '', overhead_squat: '', single_leg_balance: '',
@@ -45,15 +47,17 @@ const blankForm = () => ({
   primary_throwing_role: '', throwing_days_per_week: '', bullpens_per_week: '',
   long_toss_sessions_per_week: '', weighted_ball_sessions_per_week: '', games_per_week: '',
   throws_per_day_range: '', weekly_pitch_count_range: '', weighted_ball_usage: '',
-  throwing_intensity: '', arm_fatigue: '', arm_soreness: '', arm_pain: '',
+  throwing_intensity: '', arm_fatigue: '', arm_soreness: '', arm_pain: '', arm_pain_notes: '',
   // hitting
   max_exit_velo: '', avg_exit_velo: '', contact_percentage: '', hard_hit_percentage: '',
   line_drive_percentage: '', chase_percentage: '', whiff_percentage: '', spray_tendency: '',
   // hitting mechanics (1-5)
   hit_setup: '', hit_load: '', hit_lower_half: '', hit_rotation: '',
   hit_barrel_path: '', hit_contact: '', hit_attack_angle: '', hit_balance: '',
+  hitting_notes: '',
   // pitching
   fastball_velocity: '', strike_percentage: '', command_percentage: '', pitch_types: [],
+  spin_metrics: '', pitching_notes: '',
   // pitching mechanics (1-5)
   pit_posture: '', pit_tempo: '', pit_lower_half: '', pit_front_leg: '',
   pit_hip_rotation: '', pit_core_stability: '',
@@ -66,7 +70,13 @@ watch(() => props.visible, (v) => {
   if (v) { Object.assign(form, blankForm()); stepIndex.value = 0 }
 })
 
-const fmtrx = computed(() => computeFmtrxAssessment(form))
+const fmtrx = computed(() => {
+  // Grip Strength L/R map to the lib's single hand_strength input (avg of the two).
+  const gl = Number(form.grip_strength_left) || 0
+  const gr = Number(form.grip_strength_right) || 0
+  const hand = gl > 0 && gr > 0 ? (gl + gr) / 2 : Math.max(gl, gr)
+  return computeFmtrxAssessment({ ...form, hand_strength_lbs: hand || '' })
+})
 const dash = (v) => (v === null || v === undefined || v === '' ? '—' : v)
 
 const roleOptions = ['SP', 'RP', '2-Way', 'C', 'INF', 'OF', 'UTIL']
@@ -199,16 +209,19 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
                         <input v-model="form.dead_lift_lbs" type="number" placeholder="Deadlift (lbs)" class="am-input" />
                         <input v-model="form.pull_ups" type="number" placeholder="Pull-Ups (reps)" class="am-input" />
                         <input v-model="form.push_ups" type="number" placeholder="Push-Ups (reps)" class="am-input" />
+                        <input v-model="form.trap_bar_deadlift" type="number" placeholder="Trap Bar Deadlift (lbs)" class="am-input" />
                       </div>
                     </div>
                     <div>
                       <div class="text-xs font-black uppercase tracking-widest text-white/55 mb-1.5">⚡ Power · <span :style="{ color: scoreColor(fmtrx.power) }">{{ dash(fmtrx.power) }} / 100</span></div>
                       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input v-model="form.power_clean_lbs" type="number" placeholder="Power Clean (lbs)" class="am-input" />
-                        <input v-model="form.hand_strength_lbs" type="number" placeholder="Hand Strength (lbs)" class="am-input" />
+                        <input v-model="form.grip_strength_left" type="number" placeholder="Grip Strength Left (lbs)" class="am-input" />
+                        <input v-model="form.grip_strength_right" type="number" placeholder="Grip Strength Right (lbs)" class="am-input" />
                         <input v-model="form.vertical_jump_inches" type="number" placeholder="Vertical Jump (in)" class="am-input" />
                         <input v-model="form.broad_jump_inches" type="number" placeholder="Broad Jump (in)" class="am-input" />
                         <input v-model="form.med_ball_rotational_throw_ft" type="number" placeholder="Med Ball Rotational (ft)" class="am-input" />
+                        <input v-model="form.plank_hold" type="number" placeholder="Plank Hold (sec)" class="am-input" />
                       </div>
                     </div>
                     <div>
