@@ -19,6 +19,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { computeStrengthAssessmentScore } from '@/features/development/lib/strengthAssessmentScore.js'
 import { computeFmtrxAssessment, throwsPerDayOptions, pitchCountOptions, intensityOptions } from '@/features/development/lib/fmtrxAssessmentScore.js'
 import AssessmentModal from '@/features/development/components/AssessmentModal.vue'
+import PlayerAssessmentReport from '@/features/development/components/PlayerAssessmentReport.vue'
 import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
 import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
 
@@ -2762,11 +2763,12 @@ watch(
           <div v-if="!strengthSelectedPlayerId" class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5 text-sm text-white/35">
             Select a player above to see their assessment reports.
           </div>
-          <CoachAssessmentPanel
+          <PlayerAssessmentReport
             v-else
             :key="`${strengthSelectedPlayerId}-${assessmentReportKey}`"
             :player-id="String(strengthSelectedPlayerId)"
             :player-name="selectedStrengthPlayerName"
+            :team-name="team?.name || team?.team_name || ''"
           />
         </div><!-- end strength tab -->
 
