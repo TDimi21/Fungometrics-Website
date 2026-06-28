@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import {
   computeFmtrxAssessment, throwsPerDayOptions, pitchCountOptions, intensityOptions, scoreColor,
 } from '@/features/development/lib/fmtrxAssessmentScore.js'
@@ -8,8 +8,17 @@ const props = defineProps({
   visible: { type: Boolean, default: false },
   playerName: { type: String, default: '' },
   playerId: { type: [String, Number], default: '' },
+  players: { type: Array, default: () => [] }, // [{ id, name }] roster for switching
 })
-const emit = defineEmits(['close', 'save'])
+const emit = defineEmits(['close', 'save', 'player-change'])
+
+// Active player inside the modal — lets the coach switch players without closing.
+const activePlayerId = ref('')
+const activePlayerName = computed(() => {
+  const p = (props.players || []).find(x => String(x.id) === String(activePlayerId.value))
+  return p?.name || props.playerName || '—'
+})
+const dirty = ref(false)
 
 // ── Wizard steps (mirror the mobile app) ─────────────────────────────────────
 const STEPS = [
@@ -68,7 +77,7 @@ const blankForm = () => ({
 const form = reactive(blankForm())
 
 // ── Per-player draft (work on multiple players, finalize with Save Baseline) ──
-const draftKey = () => `fmtrx_assessment_draft_${props.playerId || 'unknown'}`
+const draftKey = (id = activePlayerId.value) => `fmtrx_assessment_draft_${id || 'unknown'}`
 const draftMsg = ref('')
 let draftMsgTimer = null
 const flashDraftMsg = (text) => {
@@ -76,22 +85,25 @@ const flashDraftMsg = (text) => {
   if (draftMsgTimer) clearTimeout(draftMsgTimer)
   draftMsgTimer = setTimeout(() => { draftMsg.value = '' }, 2500)
 }
-const loadDraft = () => {
+const loadDraft = (id = activePlayerId.value) => {
   Object.assign(form, blankForm())
   try {
-    const raw = localStorage.getItem(draftKey())
+    const raw = localStorage.getItem(draftKey(id))
     if (raw) {
       const saved = JSON.parse(raw)
       Object.assign(form, saved)
-      // arrays/objects may have been blanked above; restore shapes
       if (!Array.isArray(form.pitch_types)) form.pitch_types = []
       if (!form.pitch_grades || typeof form.pitch_grades !== 'object') form.pitch_grades = {}
     }
   } catch (_) { /* ignore corrupt draft */ }
+  // Reset dirty after the deep watcher has flushed the programmatic changes.
+  applyingDraft = true
+  nextTick(() => { applyingDraft = false; dirty.value = false })
 }
 const saveDraft = () => {
   try {
     localStorage.setItem(draftKey(), JSON.stringify(form))
+    dirty.value = false
     flashDraftMsg('Draft saved — you can switch players and come back.')
   } catch (_) {
     flashDraftMsg('Could not save draft (storage unavailable).')
@@ -103,8 +115,34 @@ const hasSavedDraft = computed(() => {
   try { return !!localStorage.getItem(draftKey()) } catch (_) { return false }
 })
 
+// Any edit marks the form dirty (so we can warn before switching players).
+let applyingDraft = false
+watch(form, () => { if (!applyingDraft) dirty.value = true }, { deep: true })
+
+// Switch to another player, prompting to save first so nothing is lost.
+const switchPlayer = (newId) => {
+  if (!newId || String(newId) === String(activePlayerId.value)) return
+  if (dirty.value) {
+    const ok = window.confirm(
+      `Save ${activePlayerName.value}'s data before switching?\n\nClick OK to save this player, or Cancel to stay.`,
+    )
+    if (!ok) return // stay on the current player
+    saveDraft()
+  }
+  activePlayerId.value = String(newId)
+  emit('player-change', activePlayerId.value)
+  loadDraft()
+  stepIndex.value = 0
+  draftMsg.value = ''
+}
+
 watch(() => props.visible, (v) => {
-  if (v) { loadDraft(); stepIndex.value = 0; draftMsg.value = '' }
+  if (v) {
+    activePlayerId.value = props.playerId ? String(props.playerId) : ''
+    loadDraft()
+    stepIndex.value = 0
+    draftMsg.value = ''
+  }
 })
 
 const fmtrx = computed(() => {
@@ -191,9 +229,19 @@ const onSave = () => { clearDraft(); emit('save', { form: { ...form }, scores: {
             <!-- Header -->
             <div class="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-white/10 bg-[#0a1020]/95 backdrop-blur sm:rounded-t-2xl">
               <button class="text-[#ff5a5f] font-black text-sm" @click="emit('close')">&larr; Back</button>
-              <div class="text-center">
+              <div class="text-center flex-1 px-3 min-w-0">
                 <div class="text-white font-black text-lg leading-tight">Assessment</div>
-                <div class="text-white/45 text-xs">{{ playerName || '—' }}</div>
+                <div v-if="players.length" class="mt-0.5 inline-flex items-center gap-1">
+                  <select
+                    :value="activePlayerId"
+                    @change="switchPlayer($event.target.value)"
+                    class="max-w-[200px] appearance-none bg-transparent text-center text-white/70 text-xs font-bold outline-none cursor-pointer truncate"
+                  >
+                    <option v-for="p in players" :key="p.id" :value="String(p.id)" class="text-black">{{ p.name }}</option>
+                  </select>
+                  <span class="text-white/40 text-[10px]">▾</span>
+                </div>
+                <div v-else class="text-white/45 text-xs">{{ activePlayerName }}</div>
               </div>
               <button class="text-[#ff5a5f] font-bold text-sm" @click="emit('close')">Change</button>
             </div>

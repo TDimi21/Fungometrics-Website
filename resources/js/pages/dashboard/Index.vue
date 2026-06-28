@@ -3576,7 +3576,9 @@ watch(
       :visible="assessmentModalOpen"
       :player-name="selectedStrengthPlayerName"
       :player-id="strengthSelectedPlayerId"
+      :players="strengthPlayers"
       @close="assessmentModalOpen = false"
+      @player-change="strengthSelectedPlayerId = String($event)"
       @save="onAssessmentSaved"
     />
   </Layout>
