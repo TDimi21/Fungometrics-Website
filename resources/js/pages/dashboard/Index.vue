@@ -2415,8 +2415,8 @@ watch(
               No players yet
             </div>
 
-            <!-- Scrollable card list -->
-            <div v-else class="flex flex-col gap-3 overflow-y-auto pr-1" style="max-height: 480px; scrollbar-width: thin; scrollbar-color: rgba(192,0,0,0.3) transparent;">
+            <!-- Card list: full height when stacked (mobile/tablet), capped + scrollable only in the wide 3-column desktop layout. -->
+            <div v-else class="flex flex-col gap-3 pr-1 max-h-none xl:max-h-[480px] xl:overflow-y-auto" style="scrollbar-width: thin; scrollbar-color: rgba(192,0,0,0.3) transparent;">
               <div
                 v-for="p in devBoard" :key="p.id"
                 class="relative rounded-2xl overflow-hidden cursor-pointer group"
