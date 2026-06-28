@@ -12,6 +12,9 @@ const props = defineProps({
   report: { type: Object, default: null },
   teamName: { type: String, default: '' },
   showActions: { type: Boolean, default: true },
+  // Full assessment history for this player (newest first) — drives reassessment
+  // growth: total change since the first baseline and change since the previous one.
+  history: { type: Array, default: () => [] },
 })
 
 const parseData = (value) => {
