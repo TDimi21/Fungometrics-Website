@@ -235,6 +235,10 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
                         <input v-model="form.recovery_score" type="number" placeholder="Recovery (0-100)" class="am-input" />
                       </div>
                     </div>
+                    <div>
+                      <div class="text-xs font-black uppercase tracking-widest text-white/55 mb-1.5">Notes</div>
+                      <textarea v-model="form.strength_notes" rows="2" placeholder="Key observations, areas to target..." class="am-input w-full resize-none"></textarea>
+                    </div>
                   </div>
                 </div>
 
@@ -309,6 +313,7 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
                     <label class="flex items-center justify-between"><span class="text-sm text-white/80">Arm Pain</span>
                       <select v-model="form.arm_pain" class="am-input w-28"><option value="">—</option><option value="No">No</option><option value="Yes">Yes</option></select>
                     </label>
+                    <textarea v-if="form.arm_pain === 'Yes'" v-model="form.arm_pain_notes" rows="2" placeholder="Describe location, severity, when it started, throwing triggers, and any action plan..." class="am-input w-full resize-none"></textarea>
                   </div>
                 </div>
 
@@ -351,6 +356,8 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
                       </div>
                     </div>
                   </div>
+                  <div class="text-[11px] uppercase tracking-widest text-white/45 mt-3 mb-1">Notes</div>
+                  <textarea v-model="form.hitting_notes" rows="2" placeholder="Swing notes, approach, timing, barrel control, training priorities..." class="am-input w-full resize-none"></textarea>
                 </div>
 
                 <!-- PITCHING -->
@@ -386,6 +393,10 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
                       </div>
                     </div>
                   </div>
+                  <div class="text-[11px] uppercase tracking-widest text-white/45 mt-3 mb-1">Spin / Metrics</div>
+                  <input v-model="form.spin_metrics" type="text" placeholder="Spin rates, movement, pitch metrics..." class="am-input w-full" />
+                  <div class="text-[11px] uppercase tracking-widest text-white/45 mt-3 mb-1">Notes</div>
+                  <textarea v-model="form.pitching_notes" rows="2" placeholder="Delivery notes, pitch usage, development priorities, next bullpen focus..." class="am-input w-full resize-none"></textarea>
                 </div>
 
                 <!-- FMTRX SCORING -->
