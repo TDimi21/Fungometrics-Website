@@ -26,6 +26,7 @@ const TrackBullpen = () => import("@/pages/training/Bullpen.vue");
 const TrackTrainingMode = () => import("@/pages/training/TrainingMode.vue");
 const TrackTrainingCage = () => import("@/pages/training/TrainingCage.vue");
 const Roster = () => import("@/pages/roster/HomeRoster.vue");
+const PracticePlanner = () => import("@/pages/practice/PracticePlanner.vue");
 const Manage = () => import("@/pages/manage/HomeManage.vue");
 const CreateTeam = () => import("@/pages/manage/CreateTeam.vue");
 const EditProfile = () => import("@/pages/profile/EditProfile.vue");
@@ -280,6 +281,12 @@ const routes = [
 		name: "roster",
 		path: "/roster",
 		component: Roster,
+		meta: { requiresAuth: true },
+	},
+	{
+		name: "practice.planner",
+		path: "/practice-planner",
+		component: PracticePlanner,
 		meta: { requiresAuth: true },
 	},
 	{
