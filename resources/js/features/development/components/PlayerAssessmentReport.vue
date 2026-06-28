@@ -75,7 +75,7 @@ watch(() => props.playerId, loadReports)
         </button>
       </div>
 
-      <AssessmentReportCard :report="selected" :team-name="teamName" />
+      <AssessmentReportCard :report="selected" :team-name="teamName" :history="history" />
     </template>
   </div>
 </template>

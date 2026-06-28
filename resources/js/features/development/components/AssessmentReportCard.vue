@@ -125,8 +125,7 @@ const selectedHittingData = computed(() => parseData(props.report?.hitting_data)
 const selectedPitchingData = computed(() => parseData(props.report?.pitching_data))
 const selectedThrowingData = computed(() => parseData(props.report?.throwing_workload_data))
 
-const summaryScores = computed(() => {
-  const r = props.report
+const summaryFor = (r) => {
   const throwing = r?.arm_health_score != null || r?.throwing_workload_score != null
     ? Math.round(((num(r?.arm_health_score) ?? 0) + (100 - (num(r?.throwing_workload_score) ?? 0))) / (r?.arm_health_score != null && r?.throwing_workload_score != null ? 2 : 1))
     : null
@@ -138,7 +137,50 @@ const summaryScores = computed(() => {
     { label: 'Arm Health', value: r?.arm_health_score },
     { label: 'Strength', value: r?.strength_overall_score },
   ]
+}
+const summaryScores = computed(() => summaryFor(props.report))
+
+// ── Reassessment growth ──────────────────────────────────────────────────────
+// history is newest-first. The selected report's "previous" is the next-older
+// entry; the "first" is the oldest. Deltas are only shown once a player has a
+// prior assessment (i.e. this is a 2nd/3rd/… assessment).
+const currentIndex = computed(() => {
+  const list = props.history || []
+  const i = list.findIndex(r => String(r?.id) === String(props.report?.id))
+  return i < 0 ? 0 : i
 })
+const prevReport = computed(() => (props.history || [])[currentIndex.value + 1] || null)
+const firstReport = computed(() => {
+  const list = props.history || []
+  return list.length ? list[list.length - 1] : null
+})
+const hasPrior = computed(() => !!prevReport.value)
+const assessmentNumber = computed(() => {
+  const total = (props.history || []).length
+  return total ? total - currentIndex.value : 1
+})
+const metricList = (r) => {
+  if (!r) return []
+  return [{ label: 'Overall', value: num(r.overall_score) }, ...summaryFor(r).map(x => ({ label: x.label, value: num(x.value) }))]
+}
+const progressRows = computed(() => {
+  const cur = metricList(props.report)
+  const prev = metricList(prevReport.value)
+  const first = metricList(firstReport.value)
+  const find = (arr, label) => { const m = arr.find(x => x.label === label); return m ? m.value : null }
+  return cur.map(c => {
+    const f = find(first, c.label)
+    const p = find(prev, c.label)
+    return {
+      label: c.label,
+      now: c.value,
+      vsFirst: c.value != null && f != null ? c.value - f : null,
+      vsPrev: c.value != null && p != null ? c.value - p : null,
+    }
+  })
+})
+const deltaColor = (d) => (d == null ? '#64748B' : d > 0 ? '#65D84E' : d < 0 ? '#EF4444' : 'rgba(255,255,255,.5)')
+const deltaText = (d) => (d == null ? '—' : d > 0 ? `+${d}` : `${d}`)
 
 const playerType = computed(() => {
   const r = props.report
@@ -244,6 +286,29 @@ const printReport = () => window.print()
           <small>{{ sectionStatus(item.value) }}</small>
         </div>
       </div>
+    </section>
+
+    <!-- Reassessment growth: only on a 2nd/3rd/… assessment. -->
+    <section v-if="hasPrior" class="panel">
+      <div class="progress-head">
+        <div class="section-title">Development Progress</div>
+        <span class="reassess-tag">Reassessment · Assessment #{{ assessmentNumber }} of {{ history.length }}</span>
+      </div>
+      <div class="progress-table">
+        <div class="progress-row progress-row--head">
+          <span>Metric</span>
+          <b>Now</b>
+          <b>Since First</b>
+          <b>Since Last</b>
+        </div>
+        <div v-for="row in progressRows" :key="row.label" class="progress-row">
+          <span>{{ row.label }}</span>
+          <b :style="{ color: scoreColor(row.now) }">{{ row.now ?? '—' }}</b>
+          <b :style="{ color: deltaColor(row.vsFirst) }">{{ deltaText(row.vsFirst) }}</b>
+          <b :style="{ color: deltaColor(row.vsPrev) }">{{ deltaText(row.vsPrev) }}</b>
+        </div>
+      </div>
+      <p class="note">Since First compares to the original baseline ({{ formatDate(firstReport?.assessment_date) }}). Since Last compares to the previous assessment ({{ formatDate(prevReport?.assessment_date) }}).</p>
     </section>
 
     <section class="three-grid">
@@ -568,6 +633,53 @@ const printReport = () => window.print()
   color: rgba(255,255,255,.55);
   text-transform: uppercase;
   font-size: 10px;
+}
+.progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.reassess-tag {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #38BDF8;
+  border: 1px solid rgba(8, 155, 255, .4);
+  background: rgba(8, 155, 255, .12);
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+.progress-table {
+  margin-top: 12px;
+}
+.progress-row {
+  display: grid;
+  grid-template-columns: 1.4fr .7fr .9fr .9fr;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  padding: 8px 0;
+}
+.progress-row span {
+  color: rgba(255,255,255,.7);
+  font-size: 12px;
+  font-weight: 700;
+}
+.progress-row b {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 900;
+}
+.progress-row--head span,
+.progress-row--head b {
+  color: rgba(255,255,255,.45);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 800;
 }
 .three-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
