@@ -17,6 +17,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
+import { ageFromDOB, resolveBornValue } from '@/utils/dob.js'
 
 const route  = useRoute()
 const router = useRouter()
@@ -246,17 +247,7 @@ function mapThrowType(t) {
 }
 
 function calcAge(dobStr) {
-  if (!dobStr) return null
-  try {
-    const dob = new Date(dobStr)
-    const now = new Date()
-    let age = now.getFullYear() - dob.getFullYear()
-    const m = now.getMonth() - dob.getMonth()
-    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--
-    return age > 0 && age < 100 ? age : null
-  } catch {
-    return null
-  }
+  return ageFromDOB(dobStr)
 }
 
 function getAgeGroup(age) {
@@ -887,14 +878,7 @@ onMounted(async () => {
         player_name: ball.profile
           ? `${ball.profile.first_name || ''} ${ball.profile.last_name || ''}`.trim()
           : ball.player_name || ball.last_name || null,
-        pitcher_age: calcAge(
-          ball.profile?.born_date ||
-          ball.profile?.date_of_birth ||
-          ball.profile?.birthdate ||
-          ball.born_date ||
-          ball.dob ||
-          null,
-        ),
+        pitcher_age: ageFromDOB(resolveBornValue(ball)),
       }
     })
 

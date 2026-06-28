@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { parseDOB, resolveBornValue } from '@/utils/dob.js'
 import Layout from '@/layout/Layout.vue'
 import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
 import { useUserStore } from '@/store/user'
@@ -423,8 +424,8 @@ const formatGradYearShort = (yearLike) => {
 const deriveGradYearFromBirthdate = (...birthCandidates) => {
   const raw = birthCandidates.find((v) => v != null && String(v).trim() !== '')
   if (!raw) return null
-  const dob = new Date(raw)
-  if (Number.isNaN(dob.getTime())) return null
+  const dob = parseDOB(raw)
+  if (!dob) return null
   const gradYear = dob.getFullYear() + 18
   return formatGradYearShort(gradYear)
 }
@@ -579,19 +580,9 @@ const coachProfile = computed(() => {
   const first = pick(p?.first_name, userData?.name?.first, userData?.first_name) || ''
   const last = pick(p?.last_name, userData?.name?.last, userData?.last_name) || ''
   const derivedGradYear = deriveGradYearFromBirthdate(
-    p?.born_date,
-    p?.birth_date,
-    p?.date_of_birth,
-    p?.birthdate,
-    p?.dob,
-    userData?.born_date,
-    userData?.birth_date,
-    userData?.date_of_birth,
-    userData?.birthdate,
-    userData?.dob,
-    player?.born_date,
-    player?.birth_date,
-    player?.date_of_birth,
+    resolveBornValue(p),
+    resolveBornValue(userData),
+    resolveBornValue(player),
   )
 
   return {

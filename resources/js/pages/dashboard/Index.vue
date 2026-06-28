@@ -20,6 +20,7 @@ import { computeStrengthAssessmentScore } from '@/features/development/lib/stren
 import { computeFmtrxAssessment, throwsPerDayOptions, pitchCountOptions, intensityOptions } from '@/features/development/lib/fmtrxAssessmentScore.js'
 import AssessmentModal from '@/features/development/components/AssessmentModal.vue'
 import PlayerAssessmentReport from '@/features/development/components/PlayerAssessmentReport.vue'
+import { resolveBornValue, toISODOB, formatDOB } from '@/utils/dob.js'
 import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
 import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
 
@@ -1229,7 +1230,7 @@ const makeCardFromLive = (livePlayer, current) => {
   if (!livePlayer && !current) return null
   const heightFt = Number.isFinite(Number(livePlayer?.height_ft)) ? Number(livePlayer.height_ft) : null
   const heightIn = Number.isFinite(Number(livePlayer?.height_in)) ? Number(livePlayer.height_in) : null
-  const bornDate = livePlayer?.born_date ?? livePlayer?.dob ?? null
+  const bornDate = toISODOB(resolveBornValue(livePlayer)) || null
 
   return {
     id: livePlayer?.id ?? null,
@@ -2814,7 +2815,7 @@ watch(
                       <span v-if="selectedDevCard?.physical?.hit_side"> • {{ selectedDevCard.physical.hit_side }}</span>
                       <span v-if="selectedDevCard?.physical?.throw_side"> / {{ selectedDevCard.physical.throw_side }}</span>
                       <span v-if="selectedDevCard?.profile?.level"> • {{ selectedDevCard.profile.level }}</span>
-                      <span v-if="selectedDevCard?.physical?.born_date"> • DOB {{ formatDate(selectedDevCard.physical.born_date) }}</span>
+                      <span v-if="selectedDevCard?.physical?.born_date"> • DOB {{ formatDOB(selectedDevCard.physical.born_date) }}</span>
                     </p>
                     <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                       <div class="rounded-lg bg-white/5 px-2.5 py-2">

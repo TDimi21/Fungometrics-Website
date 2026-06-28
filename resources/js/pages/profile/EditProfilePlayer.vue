@@ -1,5 +1,6 @@
 <script setup>
 import Layout from "@/layout/Layout.vue";
+import { resolveBornValue, toISODOB } from "@/utils/dob.js";
 import {
   LabelField,
   InputBase,
@@ -41,12 +42,8 @@ const getUserDataSnapshot = () => {
   }
 };
 
-const resolveBornDate = (user = {}) => (
-  user?.born?.date
-  ?? user?.born_date
-  ?? user?.player?.born_date
-  ?? ""
-);
+// Canonical YYYY-MM-DD for the date field, regardless of incoming shape/format.
+const resolveBornDate = (user = {}) => toISODOB(resolveBornValue(user));
 
 const resolvePositions = (user = {}) => {
   const raw = Array.isArray(user?.positions) ? user.positions : [];

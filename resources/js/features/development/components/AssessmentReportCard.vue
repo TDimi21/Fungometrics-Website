@@ -7,6 +7,7 @@
  */
 import { computed } from 'vue'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import { formatDOB } from '@/utils/dob.js'
 
 const props = defineProps({
   report: { type: Object, default: null },
@@ -245,7 +246,7 @@ const printReport = () => window.print()
           <h2>{{ playerName(report) }}</h2>
           <p>#{{ display(report.profile?.number_in_shirt || report.profile?.jersey, '—') }} · {{ display(report.profile?.primary_position || report.profile?.position, 'Player') }}</p>
           <div class="bio-grid">
-            <div><span>DOB</span><b>{{ display(report.profile?.born_date || report.profile?.dob) }}</b></div>
+            <div><span>DOB</span><b>{{ formatDOB(report) }}</b></div>
             <div><span>Height</span><b>{{ display(report.profile?.height || report.height) }}</b></div>
             <div><span>Weight</span><b>{{ display(report.body_weight_lbs) }}</b></div>
             <div><span>Team</span><b>{{ display(teamName) }}</b></div>

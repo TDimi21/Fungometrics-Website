@@ -30,6 +30,41 @@ class Player extends Model
         'throw_side'
     ];
 
+    /**
+     * Always expose born_date in a single canonical format (YYYY-MM-DD) so every
+     * client can parse it the same way, regardless of how it was stored.
+     */
+    public function getBornDateAttribute($value)
+    {
+        if (! $value) {
+            return $value;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return $value;
+        }
+    }
+
+    /**
+     * Normalize any incoming DOB (ISO, slashes, etc.) to YYYY-MM-DD on save.
+     */
+    public function setBornDateAttribute($value): void
+    {
+        if (! $value) {
+            $this->attributes['born_date'] = $value;
+
+            return;
+        }
+
+        try {
+            $this->attributes['born_date'] = \Carbon\Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            $this->attributes['born_date'] = $value;
+        }
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
