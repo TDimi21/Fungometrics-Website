@@ -49,8 +49,14 @@ const blankForm = () => ({
   // hitting
   max_exit_velo: '', avg_exit_velo: '', contact_percentage: '', hard_hit_percentage: '',
   line_drive_percentage: '', chase_percentage: '', whiff_percentage: '', spray_tendency: '',
+  // hitting mechanics (1-5)
+  hit_setup: '', hit_load: '', hit_lower_half: '', hit_rotation: '',
+  hit_barrel_path: '', hit_contact: '', hit_attack_angle: '', hit_balance: '',
   // pitching
-  fastball_velocity: '', strike_percentage: '', command_percentage: '',
+  fastball_velocity: '', strike_percentage: '', command_percentage: '', pitch_types: [],
+  // pitching mechanics (1-5)
+  pit_posture: '', pit_tempo: '', pit_lower_half: '', pit_front_leg: '',
+  pit_hip_rotation: '', pit_core_stability: '',
   // report
   notes: '',
 })
@@ -72,6 +78,32 @@ const weeklyRows = [
   { key: 'games_per_week', label: 'Games' },
 ]
 const weightedBallOptions = ['Never', 'Occasionally', 'In-season only', 'Off-season only', 'Year-round']
+
+// 1-3-5 mechanics grids (qualitative; mirror the app)
+const hittingMechanics = [
+  { key: 'hit_setup',       label: 'Setup',       opts: [{ v: 1, l: 'Poor' }, { v: 3, l: 'Average' }, { v: 5, l: 'Athletic' }] },
+  { key: 'hit_load',        label: 'Load',        opts: [{ v: 1, l: 'Passive' }, { v: 3, l: 'Inconsistent' }, { v: 5, l: 'Explosive' }] },
+  { key: 'hit_lower_half',  label: 'Lower Half',  opts: [{ v: 1, l: 'All Arms' }, { v: 3, l: 'Some Drive' }, { v: 5, l: 'Uses the Ground' }] },
+  { key: 'hit_rotation',    label: 'Rotation',    opts: [{ v: 1, l: 'Opens Early' }, { v: 3, l: 'Average' }, { v: 5, l: 'Elite Separation' }] },
+  { key: 'hit_barrel_path', label: 'Barrel Path', opts: [{ v: 1, l: 'Long' }, { v: 3, l: 'Average' }, { v: 5, l: 'Short & Efficient' }] },
+  { key: 'hit_contact',     label: 'Contact',     opts: [{ v: 1, l: 'Weak' }, { v: 3, l: 'Average' }, { v: 5, l: 'Consistent Hard Contact' }] },
+  { key: 'hit_attack_angle', label: 'Attack Angle', opts: [{ v: 1, l: 'Low' }, { v: 3, l: 'High' }, { v: 5, l: 'Line Drive' }] },
+  { key: 'hit_balance',     label: 'Balance',     opts: [{ v: 1, l: 'Falls Off' }, { v: 3, l: 'Average' }, { v: 5, l: 'Controlled Finish' }] },
+]
+const pitchingMechanics = [
+  { key: 'pit_posture',       label: 'Posture',       opts: [{ v: 1, l: 'Poor' }, { v: 3, l: 'Average' }, { v: 5, l: 'Athletic' }] },
+  { key: 'pit_tempo',         label: 'Tempo',         opts: [{ v: 1, l: 'Rushed' }, { v: 3, l: 'Average' }, { v: 5, l: 'Smooth' }] },
+  { key: 'pit_lower_half',    label: 'Lower Half',    opts: [{ v: 1, l: 'Weak' }, { v: 3, l: 'Average' }, { v: 5, l: 'Powerful' }] },
+  { key: 'pit_front_leg',     label: 'Front Leg',     opts: [{ v: 1, l: 'Collapses' }, { v: 3, l: 'Some Block' }, { v: 5, l: 'Firm Block' }] },
+  { key: 'pit_hip_rotation',  label: 'Hip Rotation',  opts: [{ v: 1, l: 'Early/Open' }, { v: 3, l: 'Average' }, { v: 5, l: 'Excellent Separation' }] },
+  { key: 'pit_core_stability', label: 'Core Stability', opts: [{ v: 1, l: 'Energy Leaks' }, { v: 3, l: 'Average' }, { v: 5, l: 'Stable' }] },
+]
+const pitchTypeOptions = ['FB', '2S', 'CT', 'SL', 'CB', 'CH', 'SP', 'SK', 'KN']
+const togglePitchType = (pt) => {
+  const i = form.pitch_types.indexOf(pt)
+  if (i >= 0) form.pitch_types.splice(i, 1)
+  else form.pitch_types.push(pt)
+}
 
 const fmtrxTiles = computed(() => {
   const f = fmtrx.value
@@ -273,7 +305,7 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
                     <h3 class="flex items-center gap-2 text-white font-black"><span class="inline-block h-4 w-1 rounded bg-[#ff7a18]"></span>Hitting Assessment</h3>
                     <span class="text-sm font-black" :style="{ color: scoreColor(fmtrx.hitting) }">{{ dash(fmtrx.hitting) }} / 100</span>
                   </div>
-                  <div class="space-y-2">
+                  <div class="space-y-2 mb-4">
                     <label v-for="row in [
                       { k:'max_exit_velo', t:'Max Exit Velocity', u:'mph' },
                       { k:'avg_exit_velo', t:'Average Exit Velocity', u:'mph' },
@@ -289,6 +321,23 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
                     <div class="text-[11px] uppercase tracking-widest text-white/45 mt-2 mb-1">Spray Tendency</div>
                     <input v-model="form.spray_tendency" type="text" placeholder="Pull, middle, oppo, balanced" class="am-input w-full" />
                   </div>
+
+                  <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Hitting Mechanics</div>
+                    <div class="space-y-3">
+                      <div v-for="m in hittingMechanics" :key="m.key">
+                        <div class="text-sm font-bold text-white mb-1">{{ m.label }}</div>
+                        <div class="grid grid-cols-3 gap-2">
+                          <button v-for="opt in m.opts" :key="opt.v" type="button"
+                            class="am-mech" :class="String(form[m.key]) === String(opt.v) ? 'am-mech-on' : ''"
+                            @click="form[m.key] = opt.v">
+                            <div class="text-base font-black">{{ opt.v }}</div>
+                            <div class="text-[10px] text-white/50 leading-tight">{{ opt.l }}</div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- PITCHING -->
@@ -297,10 +346,32 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
                     <h3 class="flex items-center gap-2 text-white font-black"><span class="inline-block h-4 w-1 rounded bg-blue-400"></span>Pitching Assessment</h3>
                     <span class="text-sm font-black" :style="{ color: scoreColor(fmtrx.pitching) }">{{ dash(fmtrx.pitching) }} / 100</span>
                   </div>
-                  <div class="space-y-2">
+                  <div class="space-y-2 mb-4">
                     <label class="flex items-center justify-between gap-3"><span class="text-sm text-white/80">Fastball Velocity</span><span class="flex items-center gap-2"><input v-model="form.fastball_velocity" type="number" step="0.1" class="am-num" /><span class="text-xs text-white/40 w-6">mph</span></span></label>
                     <label class="flex items-center justify-between gap-3"><span class="text-sm text-white/80">Strike Percentage</span><span class="flex items-center gap-2"><input v-model="form.strike_percentage" type="number" class="am-num" /><span class="text-xs text-white/40 w-6">%</span></span></label>
                     <label class="flex items-center justify-between gap-3"><span class="text-sm text-white/80">Command Percentage</span><span class="flex items-center gap-2"><input v-model="form.command_percentage" type="number" class="am-num" /><span class="text-xs text-white/40 w-6">%</span></span></label>
+                  </div>
+
+                  <div class="text-[11px] uppercase tracking-widest text-white/45 mb-1.5">Pitch Types</div>
+                  <div class="flex flex-wrap gap-2 mb-4">
+                    <button v-for="pt in pitchTypeOptions" :key="pt" type="button" class="am-pill" :class="form.pitch_types.includes(pt) ? 'am-pill-on' : ''" @click="togglePitchType(pt)">{{ pt }}</button>
+                  </div>
+
+                  <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Mechanics</div>
+                    <div class="space-y-3">
+                      <div v-for="m in pitchingMechanics" :key="m.key">
+                        <div class="text-sm font-bold text-white mb-1">{{ m.label }}</div>
+                        <div class="grid grid-cols-3 gap-2">
+                          <button v-for="opt in m.opts" :key="opt.v" type="button"
+                            class="am-mech" :class="String(form[m.key]) === String(opt.v) ? 'am-mech-on' : ''"
+                            @click="form[m.key] = opt.v">
+                            <div class="text-base font-black">{{ opt.v }}</div>
+                            <div class="text-[10px] text-white/50 leading-tight">{{ opt.l }}</div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -389,6 +460,15 @@ const onSave = () => emit('save', { form: { ...form }, scores: { ...fmtrx.value 
   color: rgba(255,255,255,0.6);
 }
 .am-numpill-on { border-color: rgba(192,0,0,0.6); background: rgba(192,0,0,0.18); color: #fff; }
+.am-mech {
+  border-radius: 0.6rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.03);
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+  color: rgba(255,255,255,0.85);
+}
+.am-mech-on { border-color: rgba(192,0,0,0.7); background: rgba(192,0,0,0.18); color: #fff; }
 .sheet-enter-active, .sheet-leave-active { transition: opacity 0.2s ease; }
 .sheet-enter-from, .sheet-leave-to { opacity: 0; }
 </style>
