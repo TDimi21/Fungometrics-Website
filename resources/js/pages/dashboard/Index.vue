@@ -1866,8 +1866,11 @@ const fetchStrengthPlayers = async () => {
   strengthPlayersLoading.value = true
   try {
     // Roster must reflect ONLY the currently selected team, not every player the
-    // coach is associated with. The team-scoped endpoint returns that team's
-    // players; fall back to the full roster only when no team is selected.
+    // coach is associated with. Resolve the active team FIRST so an early call
+    // (before the team is set) can't fall through to the full coach roster.
+    if (!activeTeamId.value) {
+      try { await ensureActiveTeam() } catch (_) { /* noop */ }
+    }
     const teamId = activeTeamId.value
     const res = await axiosGet(teamId ? `coach/teams/${teamId}` : 'coach/roster/players')
     const payload = res?.data?.data
