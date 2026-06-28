@@ -218,17 +218,24 @@ const mobilityRows = computed(() => {
 })
 
 const printReport = () => {
-  // Tag the body so the print stylesheet shows ONLY the report (not the
-  // surrounding dashboard) and remove the tag once printing is done.
+  // Clone the report to a body-level portal so it prints in normal flow (proper
+  // pagination, no clipping) with the rest of the dashboard hidden.
+  const el = document.getElementById('assessment-print')
+  if (!el) { window.print(); return }
+  const portal = document.createElement('div')
+  portal.id = 'assessment-print-portal'
+  portal.appendChild(el.cloneNode(true))
+  document.body.appendChild(portal)
   document.body.classList.add('assessment-printing')
   const cleanup = () => {
+    portal.remove()
     document.body.classList.remove('assessment-printing')
     window.removeEventListener('afterprint', cleanup)
   }
   window.addEventListener('afterprint', cleanup)
   window.print()
   // Fallback cleanup in case afterprint doesn't fire.
-  setTimeout(cleanup, 1000)
+  setTimeout(cleanup, 1500)
 }
 </script>
 
@@ -802,40 +809,62 @@ const printReport = () => {
 <!-- Global (unscoped) print rules: print ONLY the report, in colour, on one page. -->
 <style>
 @media print {
+  @page { size: A4 portrait; margin: 7mm; }
+
   body.assessment-printing { background: #fff !important; }
+  /* Hide the live dashboard, show only the cloned report portal. */
+  body.assessment-printing > *:not(#assessment-print-portal) { display: none !important; }
 
-  /* Hide everything, then reveal only the report card. */
-  body.assessment-printing * { visibility: hidden !important; }
-  body.assessment-printing #assessment-print,
-  body.assessment-printing #assessment-print * { visibility: visible !important; }
-
-  body.assessment-printing #assessment-print {
-    position: absolute !important;
-    left: 0;
-    top: 0;
-    margin: 0 !important;
-    /* Render wide, then scale down so the whole report fills the page width
-       and still fits on a single A4 page. */
-    width: 160% !important;
-    transform: scale(0.625);
-    transform-origin: top left;
-  }
-
-  /* Keep the dark theme + score colours in the exported PDF. */
-  body.assessment-printing #assessment-print,
-  body.assessment-printing #assessment-print * {
+  #assessment-print-portal { display: block !important; }
+  #assessment-print-portal,
+  #assessment-print-portal * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+  #assessment-print-portal .no-print { display: none !important; }
 
-  /* Hide the export button itself while printing. */
-  body.assessment-printing #assessment-print .no-print { display: none !important; }
+  /* Force the wide multi-column layout (the responsive breakpoints otherwise
+     collapse everything to one column at print width, making it 2+ pages). */
+  #assessment-print-portal .hero-grid { grid-template-columns: 1.4fr 0.8fr 0.9fr !important; }
+  #assessment-print-portal .three-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  #assessment-print-portal .summary-grid { grid-template-columns: repeat(6, 1fr) !important; }
+  #assessment-print-portal .player-card { grid-template-columns: 110px 1fr !important; }
+  #assessment-print-portal .bio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  #assessment-print-portal .report-top { grid-template-columns: 1fr auto !important; }
 
-  /* Tighten a few spots so it comfortably fits one page. */
-  body.assessment-printing #assessment-print .photo-wrap { height: 150px !important; }
-  body.assessment-printing #assessment-print .report-footer { margin-top: 8px !important; padding-top: 10px !important; }
-  body.assessment-printing #assessment-print section { margin-top: 8px !important; }
+  /* Compact spacing/typography so the whole report fits one A4 page. */
+  #assessment-print-portal .report { padding: 10px !important; border-radius: 0 !important; }
+  #assessment-print-portal section { margin-top: 7px !important; }
+  #assessment-print-portal .panel { padding: 9px !important; }
+  #assessment-print-portal .hero-grid { margin-bottom: 7px !important; }
+  #assessment-print-portal .report-top { padding-bottom: 8px !important; margin-bottom: 8px !important; }
+  #assessment-print-portal .brand span { font-size: 22px !important; }
+  #assessment-print-portal .photo-wrap { height: 96px !important; }
+  #assessment-print-portal .player-main h2 { font-size: 19px !important; }
+  #assessment-print-portal .player-main p { margin: 3px 0 7px !important; }
+  #assessment-print-portal .bio-grid { gap: 5px !important; }
+  #assessment-print-portal .score-card h3,
+  #assessment-print-portal .type-card h3 { margin-bottom: 6px !important; }
+  #assessment-print-portal .score-ring { width: 92px !important; height: 92px !important; margin-bottom: 6px !important; }
+  #assessment-print-portal .score-ring > div { width: 64px !important; height: 64px !important; }
+  #assessment-print-portal .score-ring strong { font-size: 26px !important; }
+  #assessment-print-portal .type-card h2 { font-size: 15px !important; }
+  #assessment-print-portal .workload-line { margin-top: 8px !important; padding-top: 7px !important; }
+  #assessment-print-portal .summary-tile strong { font-size: 18px !important; }
+  #assessment-print-portal .metric-list,
+  #assessment-print-portal .grade-table,
+  #assessment-print-portal .mechanic-table,
+  #assessment-print-portal .progress-table { margin-top: 6px !important; }
+  #assessment-print-portal .metric-list div,
+  #assessment-print-portal .grade-table div,
+  #assessment-print-portal .mechanic-table div,
+  #assessment-print-portal .progress-row { padding: 2px 0 !important; }
+  #assessment-print-portal .focus-card,
+  #assessment-print-portal .plan-step { padding: 6px !important; margin-top: 6px !important; }
+  #assessment-print-portal .report-footer { margin-top: 8px !important; padding-top: 8px !important; }
 
-  @page { size: A4 portrait; margin: 8mm; }
+  /* Don't split a section across the page. */
+  #assessment-print-portal section,
+  #assessment-print-portal .panel { break-inside: avoid; }
 }
 </style>
