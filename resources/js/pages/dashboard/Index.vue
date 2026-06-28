@@ -3565,6 +3565,7 @@ watch(
     <AssessmentModal
       :visible="assessmentModalOpen"
       :player-name="selectedStrengthPlayerName"
+      :player-id="strengthSelectedPlayerId"
       @close="assessmentModalOpen = false"
       @save="onAssessmentSaved"
     />
