@@ -5,9 +5,10 @@
  * assessment record. Extracted from the /assessment-reports page so the same
  * rich report can be reused inline (e.g. under the dashboard Assessment tab).
  */
-import { computed } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 import { formatDOB } from '@/utils/dob.js'
+import { buildPlayerInsights } from '@/features/development/lib/assessmentInsights.js'
 
 const props = defineProps({
   report: { type: Object, default: null },
@@ -183,28 +184,61 @@ const progressRows = computed(() => {
 const deltaColor = (d) => (d == null ? '#64748B' : d > 0 ? '#65D84E' : d < 0 ? '#EF4444' : 'rgba(255,255,255,.5)')
 const deltaText = (d) => (d == null ? '—' : d > 0 ? `+${d}` : `${d}`)
 
-const playerType = computed(() => {
-  const r = props.report
-  if (!r) return { title: 'Player Profile', body: 'Complete an assessment to generate a development profile.' }
-  const mobility = num(r.mobility_overall_score)
-  const strength = num(r.strength_overall_score)
-  const hitting = num(r.hitting_score)
-  const pitching = num(r.pitching_score)
-  const arm = num(r.arm_health_score)
-  const workload = num(r.throwing_workload_score)
+// ── AI development insights (deterministic engine) ───────────────────────────
+const generated = computed(() => buildPlayerInsights(props.report || {}))
 
-  if (mobility !== null && mobility < 60) return { title: 'Mobility Limited', body: 'Mobility is limiting positions, sequencing, and power transfer.' }
-  if (strength !== null && strength < 60) return { title: 'Strength Limited', body: 'Adding usable strength should unlock better force production.' }
-  if (hitting !== null && hitting >= 78 && strength !== null && strength < 72) return { title: 'Power Leaker', body: 'The bat has tools, but strength or lower-half transfer is holding back impact.' }
-  if (pitching !== null && pitching >= 78 && arm !== null && arm >= 75) return { title: 'Command Pitcher', body: 'Pitching profile is ahead and can keep growing with targeted workload control.' }
-  if (workload !== null && workload >= 70) return { title: 'Arm Dominant', body: 'Throwing load is elevated. Manage volume while improving movement quality.' }
-  if (hitting !== null && hitting >= 80) return { title: 'Power Hitter', body: 'Hitting profile shows impact potential and should be supported with efficient movement.' }
-  if (pitching !== null && pitching >= 80 && hitting !== null && hitting >= 70) return { title: 'Two-Way Athlete', body: 'Both hitting and pitching traits are reportable strengths.' }
-  return { title: 'Athletic Mover', body: 'This player has a balanced profile with clear next-step development targets.' }
+const cloneEditable = (g) => ({
+  summary: g.summary,
+  typeTitle: g.type.type,
+  typeBody: g.type.body,
+  strengths: [...g.strengths],
+  limiters: [...g.limiters],
+  focus: JSON.parse(JSON.stringify(g.focus || {})),
+  plan: {
+    goal: g.plan.goal,
+    priorities: [...g.plan.priorities],
+    measure: g.plan.measure,
+    retestDate: g.plan.retestDate,
+  },
+  armAdvisory: g.armAdvisory,
 })
 
-const topStrengths = computed(() => summaryScores.value.filter(s => num(s.value) !== null).sort((a, b) => num(b.value) - num(a.value)).slice(0, 3))
-const focusAreas = computed(() => summaryScores.value.filter(s => num(s.value) !== null).sort((a, b) => num(a.value) - num(b.value)).slice(0, 3))
+const editing = ref(false)
+const edited = ref(cloneEditable(generated.value))
+const insightKey = () => `fmtrx_insights_${props.report?.id || 'unknown'}`
+
+const loadInsights = () => {
+  const base = cloneEditable(generated.value)
+  try {
+    const raw = localStorage.getItem(insightKey())
+    if (raw) Object.assign(base, JSON.parse(raw))
+  } catch (_) { /* ignore corrupt override */ }
+  edited.value = base
+  editing.value = false
+}
+watch(() => props.report?.id, loadInsights, { immediate: true })
+
+const insights = computed(() => edited.value)
+const isEdited = computed(() => {
+  try { return !!localStorage.getItem(insightKey()) } catch (_) { return false }
+})
+
+const saveInsights = () => {
+  try { localStorage.setItem(insightKey(), JSON.stringify(edited.value)) } catch (_) { /* noop */ }
+  editing.value = false
+}
+const resetInsights = () => {
+  try { localStorage.removeItem(insightKey()) } catch (_) { /* noop */ }
+  edited.value = cloneEditable(generated.value)
+  editing.value = false
+}
+// Edit list fields (strengths/limiters/priorities) as newline-separated text.
+const linesGet = (arr) => (Array.isArray(arr) ? arr.join('\n') : '')
+const linesSet = (obj, key, val) => { obj[key] = String(val).split('\n').map((s) => s.trim()).filter(Boolean) }
+
+const focusTiers = computed(() => ['primary', 'secondary', 'tertiary']
+  .map((tier) => ({ tier, ...(insights.value.focus?.[tier] || {}) }))
+  .filter((f) => f.title))
 
 const mobilityRows = computed(() => {
   const r = props.report ?? {}
@@ -218,24 +252,29 @@ const mobilityRows = computed(() => {
 })
 
 const printReport = () => {
-  // Clone the report to a body-level portal so it prints in normal flow (proper
-  // pagination, no clipping) with the rest of the dashboard hidden.
-  const el = document.getElementById('assessment-print')
-  if (!el) { window.print(); return }
-  const portal = document.createElement('div')
-  portal.id = 'assessment-print-portal'
-  portal.appendChild(el.cloneNode(true))
-  document.body.appendChild(portal)
-  document.body.classList.add('assessment-printing')
-  const cleanup = () => {
-    portal.remove()
-    document.body.classList.remove('assessment-printing')
-    window.removeEventListener('afterprint', cleanup)
-  }
-  window.addEventListener('afterprint', cleanup)
-  window.print()
-  // Fallback cleanup in case afterprint doesn't fire.
-  setTimeout(cleanup, 1500)
+  // Always export the finished text, not the edit form. Wait a tick so Vue
+  // re-renders the text (instead of the textareas) before we clone.
+  editing.value = false
+  nextTick(() => {
+    // Clone the report to a body-level portal so it prints in normal flow
+    // (proper pagination, no clipping) with the rest of the dashboard hidden.
+    const el = document.getElementById('assessment-print')
+    if (!el) { window.print(); return }
+    const portal = document.createElement('div')
+    portal.id = 'assessment-print-portal'
+    portal.appendChild(el.cloneNode(true))
+    document.body.appendChild(portal)
+    document.body.classList.add('assessment-printing')
+    const cleanup = () => {
+      portal.remove()
+      document.body.classList.remove('assessment-printing')
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
+    window.print()
+    // Fallback cleanup in case afterprint doesn't fire.
+    setTimeout(cleanup, 1500)
+  })
 }
 </script>
 
@@ -288,8 +327,8 @@ const printReport = () => {
 
       <article class="type-card panel">
         <h3>Player Type</h3>
-        <h2>{{ playerType.title }}</h2>
-        <p>{{ playerType.body }}</p>
+        <h2>{{ insights.typeTitle }}</h2>
+        <p>{{ insights.typeBody }}</p>
         <div class="workload-line">
           <span>Throwing Workload</span>
           <b :style="{ color: scoreColor(100 - (report.throwing_workload_score ?? 0)) }">{{ report.throwing_workload_level ?? '—' }}</b>
@@ -329,6 +368,32 @@ const printReport = () => {
         </div>
       </div>
       <p class="note">Since First compares to the original baseline ({{ formatDate(firstReport?.assessment_date) }}). Since Last compares to the previous assessment ({{ formatDate(prevReport?.assessment_date) }}).</p>
+    </section>
+
+    <!-- ── AI Development Insights ─────────────────────────────────────────── -->
+    <section class="panel ai-insights">
+      <div class="ai-head">
+        <div class="section-title">AI Development Insights</div>
+        <div class="ai-actions no-print">
+          <button v-if="!editing" type="button" class="ai-btn" @click="editing = true">Edit</button>
+          <template v-else>
+            <button type="button" class="ai-btn ai-btn--save" @click="saveInsights">Save</button>
+            <button type="button" class="ai-btn" @click="loadInsights">Cancel</button>
+          </template>
+          <button v-if="isEdited && !editing" type="button" class="ai-btn" @click="resetInsights">Reset to AI</button>
+        </div>
+      </div>
+
+      <div v-if="insights.armAdvisory || editing" class="ai-advisory">
+        <textarea v-if="editing" class="ai-input" rows="2" v-model="insights.armAdvisory" placeholder="Arm-care advisory (leave blank if none)"></textarea>
+        <span v-else>⚠ {{ insights.armAdvisory }}</span>
+      </div>
+
+      <div class="ai-block">
+        <div class="ai-label">Player Summary</div>
+        <textarea v-if="editing" class="ai-input" rows="3" v-model="insights.summary"></textarea>
+        <p v-else class="ai-text">{{ insights.summary }}</p>
+      </div>
     </section>
 
     <section class="three-grid">
@@ -421,26 +486,62 @@ const printReport = () => {
     <section class="three-grid">
       <article class="panel">
         <div class="section-title">Strengths</div>
-        <ul class="bullet-list positive">
-          <li v-for="item in topStrengths" :key="item.label">{{ item.label }}: {{ sectionStatus(item.value) }}</li>
+        <textarea v-if="editing" class="ai-input" rows="5"
+          :value="linesGet(insights.strengths)"
+          @input="linesSet(insights, 'strengths', $event.target.value)"></textarea>
+        <ul v-else class="bullet-list positive">
+          <li v-for="(item, i) in insights.strengths" :key="i">{{ item }}</li>
+          <li v-if="!insights.strengths.length" class="ai-muted">Not enough data tested.</li>
+        </ul>
+      </article>
+
+      <article class="panel">
+        <div class="section-title">Areas Holding Player Back</div>
+        <textarea v-if="editing" class="ai-input" rows="5"
+          :value="linesGet(insights.limiters)"
+          @input="linesSet(insights, 'limiters', $event.target.value)"></textarea>
+        <ul v-else class="bullet-list negative">
+          <li v-for="(item, i) in insights.limiters" :key="i">{{ item }}</li>
+          <li v-if="!insights.limiters.length" class="ai-muted">No clear limiters from tested data.</li>
         </ul>
       </article>
 
       <article class="panel">
         <div class="section-title">Recommended Focus Areas</div>
-        <div class="focus-card" v-for="(item, index) in focusAreas" :key="item.label">
-          <b>{{ index + 1 }}. {{ item.label }}</b>
-          <span>{{ sectionStatus(item.value) }}</span>
+        <div class="focus-card" v-for="(f, i) in focusTiers" :key="f.tier">
+          <b>{{ i + 1 }}. {{ f.title }} <span class="ai-pill">{{ f.drillCategory }}</span></b>
+          <textarea v-if="editing" class="ai-input" rows="2" v-model="insights.focus[f.tier].reason"></textarea>
+          <span v-else>{{ f.reason }}</span>
         </div>
+        <div v-if="!focusTiers.length" class="ai-muted">Not enough data tested to recommend focus areas.</div>
       </article>
+    </section>
 
-      <article class="panel">
-        <div class="section-title">30-Day Development Plan</div>
-        <div class="plan-step" v-for="item in focusAreas" :key="`plan-${item.label}`">
-          <b>{{ item.label }}</b>
-          <span>Train 2-3x/week and reassess next cycle.</span>
+    <section class="panel">
+      <div class="section-title">30-Day Development Plan</div>
+      <div class="plan-grid">
+        <div class="ai-block">
+          <div class="ai-label">Main Goal</div>
+          <textarea v-if="editing" class="ai-input" rows="2" v-model="insights.plan.goal"></textarea>
+          <p v-else class="ai-text">{{ insights.plan.goal }}</p>
         </div>
-      </article>
+        <div class="ai-block">
+          <div class="ai-label">Priorities</div>
+          <textarea v-if="editing" class="ai-input" rows="3"
+            :value="linesGet(insights.plan.priorities)"
+            @input="linesSet(insights.plan, 'priorities', $event.target.value)"></textarea>
+          <ol v-else class="ai-ol"><li v-for="(p, i) in insights.plan.priorities" :key="i">{{ p }}</li></ol>
+        </div>
+        <div class="ai-block">
+          <div class="ai-label">How We Measure Progress</div>
+          <textarea v-if="editing" class="ai-input" rows="2" v-model="insights.plan.measure"></textarea>
+          <p v-else class="ai-text">{{ insights.plan.measure }}</p>
+        </div>
+        <div class="ai-block">
+          <div class="ai-label">Retest Date</div>
+          <p class="ai-text">{{ insights.plan.retestDate || '—' }}</p>
+        </div>
+      </div>
     </section>
 
     <footer class="report-footer">
@@ -743,6 +844,87 @@ const printReport = () => {
   color: #65D84E;
   margin-right: 7px;
 }
+.bullet-list.negative li::before {
+  content: "!";
+  color: #F97316;
+  font-weight: 900;
+}
+
+/* ── AI insight styling ── */
+.ai-insights { border-color: rgba(8, 155, 255, 0.28); }
+.ai-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ai-actions { display: flex; gap: 6px; }
+.ai-btn {
+  border: 1px solid rgba(8,155,255,.45);
+  color: #38BDF8;
+  background: transparent;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.ai-btn--save { background: rgba(8,155,255,.18); }
+.ai-advisory {
+  margin-top: 10px;
+  border: 1px solid rgba(249,115,22,.45);
+  background: rgba(249,115,22,.12);
+  color: #FDBA74;
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ai-block { margin-top: 12px; }
+.ai-label {
+  color: rgba(255,255,255,.45);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 4px;
+}
+.ai-text { color: rgba(255,255,255,.78); font-size: 12px; line-height: 1.55; }
+.ai-muted { color: rgba(255,255,255,.4); font-size: 12px; font-style: italic; }
+.ai-input {
+  width: 100%;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 7px 9px;
+  resize: vertical;
+  font-family: inherit;
+}
+.ai-input:focus { outline: none; border-color: rgba(8,155,255,.6); }
+.ai-pill {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #38BDF8;
+  border: 1px solid rgba(8,155,255,.4);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.ai-ol { margin: 4px 0 0; padding-left: 16px; }
+.ai-ol li { color: rgba(255,255,255,.78); font-size: 12px; margin-bottom: 4px; }
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
 .focus-card,
 .plan-step {
   border: 1px solid rgba(255,255,255,.10);
@@ -828,6 +1010,10 @@ const printReport = () => {
   #assessment-print-portal .hero-grid { grid-template-columns: 1.4fr 0.8fr 0.9fr !important; }
   #assessment-print-portal .three-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   #assessment-print-portal .summary-grid { grid-template-columns: repeat(6, 1fr) !important; }
+  #assessment-print-portal .plan-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 8px !important; }
+  #assessment-print-portal .ai-actions { display: none !important; }
+  #assessment-print-portal .ai-block { margin-top: 7px !important; }
+  #assessment-print-portal .ai-text, #assessment-print-portal .ai-ol li { font-size: 11px !important; line-height: 1.4 !important; }
   #assessment-print-portal .player-card { grid-template-columns: 110px 1fr !important; }
   #assessment-print-portal .bio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   #assessment-print-portal .report-top { grid-template-columns: 1fr auto !important; }

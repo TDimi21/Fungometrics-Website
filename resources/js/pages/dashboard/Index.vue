@@ -20,6 +20,7 @@ import { computeStrengthAssessmentScore } from '@/features/development/lib/stren
 import { computeFmtrxAssessment, throwsPerDayOptions, pitchCountOptions, intensityOptions } from '@/features/development/lib/fmtrxAssessmentScore.js'
 import AssessmentModal from '@/features/development/components/AssessmentModal.vue'
 import PlayerAssessmentReport from '@/features/development/components/PlayerAssessmentReport.vue'
+import { buildTeamInsight } from '@/features/development/lib/assessmentInsights.js'
 import { resolveBornValue, toISODOB, formatDOB } from '@/utils/dob.js'
 import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
 import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
@@ -1797,6 +1798,37 @@ const computedFmtrx = computed(() => computeFmtrxAssessment({
 
 const assessmentModalOpen = ref(false)
 const assessmentReportKey = ref(0) // bump to force the reports panel to reload
+
+// ── Coach Dashboard AI practice recommendation ───────────────────────────────
+const teamInsight = ref(null)
+const teamInsightEdited = ref('')
+const teamInsightEditing = ref(false)
+const teamInsightKey = () => `fmtrx_team_insight_${activeTeamId.value || 'x'}`
+const teamInsightText = computed(() => teamInsightEdited.value || teamInsight.value?.sentence || '')
+const fetchTeamInsight = async () => {
+  const teamId = activeTeamId.value
+  if (!teamId) { teamInsight.value = null; return }
+  try {
+    const res = await axiosGet(`assessments/team/${teamId}?all=1`)
+    const rows = res?.data?.data
+    teamInsight.value = buildTeamInsight(Array.isArray(rows) ? rows : [])
+  } catch { teamInsight.value = null }
+  try { teamInsightEdited.value = localStorage.getItem(teamInsightKey()) || '' } catch (_) { teamInsightEdited.value = '' }
+  teamInsightEditing.value = false
+}
+const saveTeamInsight = () => {
+  try { localStorage.setItem(teamInsightKey(), teamInsightEdited.value) } catch (_) { /* noop */ }
+  teamInsightEditing.value = false
+}
+const resetTeamInsight = () => {
+  try { localStorage.removeItem(teamInsightKey()) } catch (_) { /* noop */ }
+  teamInsightEdited.value = ''
+  teamInsightEditing.value = false
+}
+const startEditTeamInsight = () => {
+  teamInsightEdited.value = teamInsightText.value
+  teamInsightEditing.value = true
+}
 const selectedStrengthPlayerName = computed(() => {
   const list = Array.isArray(strengthPlayers.value) ? strengthPlayers.value : []
   const p = list.find(x => String(x.id) === String(strengthSelectedPlayerId.value))
@@ -2129,6 +2161,7 @@ watch(
     setTimeout(() => {
       fetchPerformanceOverview()
       fetchDevBoard()
+      fetchTeamInsight().catch(e => console.warn('fetchTeamInsight error:', e?.message ?? e))
       ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards preload error:', e?.message ?? e))
     }, 800)
   },
@@ -2169,6 +2202,30 @@ watch(
 
         <!-- OVERVIEW TAB -->
         <div v-if="dashTab === 'overview'">
+
+          <!-- AI Practice Recommendation -->
+          <div v-if="teamInsightText" class="rounded-2xl border border-[#089BFF]/30 bg-gradient-to-r from-[#0a1830]/90 to-[#0a1020]/90 p-4 mb-5 shadow-xl">
+            <div class="flex items-start gap-3">
+              <div class="shrink-0 w-9 h-9 rounded-xl bg-[#089BFF]/15 border border-[#089BFF]/40 flex items-center justify-center text-lg">🧠</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <p class="text-[10px] font-black uppercase tracking-widest text-[#38BDF8]">AI Practice Recommendation</p>
+                  <div class="flex gap-1.5">
+                    <button v-if="!teamInsightEditing" class="text-[10px] font-black uppercase text-[#38BDF8]/80 hover:text-[#38BDF8]" @click="startEditTeamInsight">Edit</button>
+                    <template v-else>
+                      <button class="text-[10px] font-black uppercase text-green-300" @click="saveTeamInsight">Save</button>
+                      <button class="text-[10px] font-black uppercase text-white/50" @click="fetchTeamInsight">Cancel</button>
+                    </template>
+                    <button v-if="teamInsightEdited && !teamInsightEditing" class="text-[10px] font-black uppercase text-white/50 hover:text-white/80" @click="resetTeamInsight">Reset</button>
+                  </div>
+                </div>
+                <textarea v-if="teamInsightEditing" v-model="teamInsightEdited" rows="2"
+                  class="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-[#38BDF8]/60"
+                  :placeholder="teamInsight?.sentence || ''"></textarea>
+                <p v-else class="mt-1 text-sm font-bold text-white leading-snug">{{ teamInsightText }}</p>
+              </div>
+            </div>
+          </div>
 
           <div class="grid grid-cols-1 xl:grid-cols-[1fr_1fr_260px] gap-5 mb-5">
 
