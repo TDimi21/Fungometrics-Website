@@ -25,7 +25,8 @@ class SearchCoaches extends Controller
             $search = trim((string) ($request->search ?? ''));
 
             $query = User::with('profile')
-                ->where('type', '=', UserTypes::COACH->value);
+                ->where('type', '=', UserTypes::COACH->value)
+                ->where('is_dummy', '=', false);
 
             // Only apply filter when a search term is actually provided.
             // An empty search means "return all coaches".

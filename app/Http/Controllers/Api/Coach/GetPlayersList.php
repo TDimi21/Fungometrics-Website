@@ -10,6 +10,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\PlayerTeamResource;
 use App\Models\CoachTeam;
 use App\Models\PlayerTeam;
+use App\Models\Team;
+use App\Models\User;
 use Auth;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -27,7 +29,11 @@ class GetPlayersList extends Controller
     {
         try {
             $teamsIds = CoachTeam::where('coach_id', Auth::id())->pluck('team_id')->all();
+            // Exclude dummy/scout teams so their offline-only players never appear.
+            $teamsIds = Team::whereIn('id', $teamsIds)->where('is_dummy', false)->pluck('id')->all();
             $playersTeamsIds = PlayerTeam::whereIn('team_id', $teamsIds)->pluck('user_id')->all();
+            // Defensive: drop any dummy players even if linked to a real team.
+            $playersTeamsIds = User::whereIn('id', $playersTeamsIds)->where('is_dummy', false)->pluck('id')->all();
             if (0=== count($playersTeamsIds)) {
                 throw new NotFound();
             }

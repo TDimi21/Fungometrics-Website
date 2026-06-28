@@ -76,10 +76,17 @@ class SearchPlayers extends Controller
             )
             ->join('profiles as p', 'u.id', '=', 'p.user_id')
             ->join('players as p2', 'u.id', '=', 'p2.user_id')
-            // LEFT JOIN so players with no team still appear (INNER JOIN hid them)
+            // LEFT JOIN so players with no team still appear (INNER JOIN hid them).
+            // Dummy/scout teams are filtered in the JOIN so they never surface as a
+            // team while real players still show.
             ->leftJoin('player_teams as pt', 'u.id', '=', 'pt.user_id')
-            ->leftJoin('teams as t', 'pt.team_id', '=', 't.id')
-            ->where('u.type', '=', 'player');
+            ->leftJoin('teams as t', function ($join) {
+                $join->on('pt.team_id', '=', 't.id')
+                     ->where('t.is_dummy', '=', false);
+            })
+            ->where('u.type', '=', 'player')
+            // Exclude dummy/scout players — they exist only as offline opponents.
+            ->where('u.is_dummy', '=', false);
 
         if ($hasFilter) {
             // When a search term is provided, filter by phone AND/OR name.
