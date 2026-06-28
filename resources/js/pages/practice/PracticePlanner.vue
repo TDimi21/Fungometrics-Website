@@ -10,7 +10,7 @@ import {
   buildShareText, loadSavedPractices, persistPractice, deletePractice,
 } from '@/features/practice/practicePlanner.js'
 
-const { axiosGet } = useAxiosAuth()
+const { axiosGet, axiosPost, axiosDelete } = useAxiosAuth()
 const teamStore = useTeamStore()
 const { team } = storeToRefs(teamStore)
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
@@ -37,9 +37,40 @@ const plannedMinutes = computed(() => Number(totalDuration.value) || 0)
 const remaining = computed(() => plannedMinutes.value - scheduledMinutes.value)
 const isOver = computed(() => remaining.value < 0)
 
-// ── Saved plans ──────────────────────────────────────────────────────────────
+// ── Saved plans (server-synced, team-shared; local cache as offline fallback) ─
 const savedPlans = ref([])
-const refreshSaved = () => { savedPlans.value = loadSavedPractices() }
+const syncing = ref(false)
+const offline = ref(false)
+
+const normalizePlan = (p) => ({
+  id: p.id,
+  title: p.title || '',
+  date: p.date || '',
+  focus: p.focus || 'Mixed',
+  notes: p.notes || '',
+  totalDuration: p.totalDuration ?? p.total_duration ?? '90',
+  scheduledMinutes: p.scheduledMinutes ?? p.scheduled_minutes ?? 0,
+  drillCount: p.drillCount ?? p.drill_count ?? 0,
+  slots: Array.isArray(p.slots) ? p.slots : [],
+  savedAt: p.savedAt || p.updated_at || '',
+})
+
+const refreshSaved = async () => {
+  syncing.value = true
+  try {
+    const res = await axiosGet('coach/practice-plans')
+    const rows = res?.data?.data
+    if (!Array.isArray(rows)) throw new Error('bad response')
+    savedPlans.value = rows.map(normalizePlan)
+    offline.value = false
+    try { localStorage.setItem('fmtrx_saved_practices', JSON.stringify(savedPlans.value)) } catch (_) { /* noop */ }
+  } catch {
+    savedPlans.value = loadSavedPractices().map(normalizePlan) // offline fallback
+    offline.value = true
+  } finally {
+    syncing.value = false
+  }
+}
 
 // ── Custom drill library ─────────────────────────────────────────────────────
 const customLibrary = ref([])
@@ -199,14 +230,33 @@ const currentPlan = () => ({
   drillCount: drillCount.value,
   savedAt: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }),
 })
-const savePlan = () => {
+const savePlan = async () => {
   if (!title.value.trim()) { flash('error', 'Give your practice a name first.'); return }
   if (!drillCount.value) { flash('error', 'Add at least one drill to save.'); return }
   const rec = currentPlan()
   editingId.value = rec.id
-  persistPractice(rec)
-  refreshSaved()
-  flash('success', 'Practice plan saved.')
+  persistPractice(rec) // local cache immediately
+  try {
+    const res = await axiosPost('coach/practice-plans', {
+      id: rec.id,
+      team_id: activeTeamId.value || null,
+      title: rec.title,
+      date: rec.date,
+      focus: rec.focus,
+      notes: rec.notes,
+      total_duration: Number(rec.totalDuration) || null,
+      scheduled_minutes: rec.scheduledMinutes,
+      drill_count: rec.drillCount,
+      slots: rec.slots,
+    })
+    const saved = res?.data?.data
+    if (saved?.id) editingId.value = saved.id
+    await refreshSaved()
+    flash('success', 'Practice plan saved & synced to your team.')
+  } catch {
+    await refreshSaved()
+    flash('error', 'Saved locally — could not sync to the team (offline or no permission).')
+  }
 }
 const loadPlan = (p) => {
   editingId.value = p.id
@@ -222,7 +272,12 @@ const duplicatePlan = (p) => {
   editingId.value = null
   title.value = `${p.title || 'Practice'} (Copy)`
 }
-const removePlan = (id) => { deletePractice(id); refreshSaved(); if (editingId.value === id) newPlan() }
+const removePlan = async (id) => {
+  deletePractice(id) // local
+  try { await axiosDelete('coach/practice-plans/', id) } catch (_) { /* keep local removal */ }
+  await refreshSaved()
+  if (editingId.value === id) newPlan()
+}
 
 // ── Export ───────────────────────────────────────────────────────────────────
 const copyPlan = async () => {
@@ -307,7 +362,11 @@ const groupColor = (g) => ({
             </div>
 
             <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
-              <h2 class="pp-section">💾 Saved Plans</h2>
+              <h2 class="pp-section flex items-center gap-2">💾 Saved Plans
+                <span v-if="syncing" class="text-[10px] text-white/40 font-bold normal-case">syncing…</span>
+                <span v-else-if="offline" class="text-[10px] text-amber-300/80 font-bold normal-case">offline (local only)</span>
+                <span v-else class="text-[10px] text-green-300/70 font-bold normal-case">team-synced</span>
+              </h2>
               <p v-if="!savedPlans.length" class="text-white/35 text-sm">No saved plans yet.</p>
               <div v-for="p in savedPlans" :key="p.id" class="rounded-xl border border-white/10 bg-white/5 p-3 mb-2"
                 :class="editingId === p.id ? 'border-[#C00000]/50' : ''">

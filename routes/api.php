@@ -22,6 +22,9 @@ use App\Http\Controllers\Api\Coach\GetCoachesList;
 use App\Http\Controllers\Api\Coach\GetLastSessions;
 use App\Http\Controllers\Api\Coach\GetPerformanceOverview;
 use App\Http\Controllers\Api\Coach\GetPlayersList;
+use App\Http\Controllers\Api\Coach\GetPracticePlans;
+use App\Http\Controllers\Api\Coach\SavePracticePlan;
+use App\Http\Controllers\Api\Coach\DeletePracticePlan;
 use App\Http\Controllers\Api\Coach\GetTeamById;
 use App\Http\Controllers\Api\Coach\GetTeamCode;
 use App\Http\Controllers\Api\Coach\GetPlayerDevelopmentBoard;
@@ -191,6 +194,11 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/pitcher/smtake/{player}', GetPlayerSmTakeZones::class);
         Route::post('/lineup/{training}', AddPlayerToTraining::class);
         Route::middleware('plan:sms_results')->post('/send/results/{practice}', SendSmsResults::class);
+
+        // Practice Planner — team-shared, synced between app and web
+        Route::get('/practice-plans', GetPracticePlans::class);
+        Route::post('/practice-plans', SavePracticePlan::class);
+        Route::delete('/practice-plans/{id}', DeletePracticePlan::class);
     });
 });
 
