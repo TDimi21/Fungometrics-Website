@@ -18,6 +18,7 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useRoute, useRouter } from 'vue-router'
 import { computeStrengthAssessmentScore } from '@/features/development/lib/strengthAssessmentScore.js'
 import { computeFmtrxAssessment, throwsPerDayOptions, pitchCountOptions, intensityOptions } from '@/features/development/lib/fmtrxAssessmentScore.js'
+import AssessmentModal from '@/features/development/components/AssessmentModal.vue'
 import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
 import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
 
@@ -1792,6 +1793,17 @@ const computedFmtrx = computed(() => computeFmtrxAssessment({
   mobility_score: latestStrengthMobilityScore.value,
 }))
 
+const assessmentModalOpen = ref(false)
+const selectedStrengthPlayerName = computed(() => {
+  const list = Array.isArray(strengthPlayers.value) ? strengthPlayers.value : []
+  const p = list.find(x => String(x.id) === String(strengthSelectedPlayerId.value))
+  return p?.name || ''
+})
+const onAssessmentSaved = () => {
+  assessmentModalOpen.value = false
+  strengthMessage.value = { type: 'success', text: 'Assessment captured. (Backend save wiring is the next step.)' }
+}
+
 const fmtrxSectionRows = computed(() => {
   const f = computedFmtrx.value
   return [
@@ -2889,9 +2901,16 @@ watch(
             <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 class="text-base font-black uppercase tracking-widest text-white">Assessment</h2>
-                <p class="text-xs text-white/45 mt-1">Enter the same roster fitness metrics (weights, times, recovery, mobility). FMTRX auto-grades and updates player metrics cards.</p>
+                <p class="text-xs text-white/45 mt-1">Full FMTRX baseline — athletic, strength, mobility, hitting, pitching &amp; arm health, matching the app.</p>
               </div>
-              <div class="text-xs text-white/50">Step 1: type · Step 2: player · Step 3: roster metrics · Step 4: save</div>
+              <button
+                type="button"
+                class="px-4 py-2.5 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black uppercase tracking-wide text-white disabled:opacity-50"
+                :disabled="!strengthSelectedPlayerId"
+                @click="assessmentModalOpen = true"
+              >
+                {{ strengthSelectedPlayerId ? 'Open Assessment' : 'Select a player below' }}
+              </button>
             </div>
           </div>
 
@@ -3542,6 +3561,13 @@ watch(
         </div>
       </Transition>
     </Teleport>
+
+    <AssessmentModal
+      :visible="assessmentModalOpen"
+      :player-name="selectedStrengthPlayerName"
+      @close="assessmentModalOpen = false"
+      @save="onAssessmentSaved"
+    />
   </Layout>
 </template>
 
