@@ -1799,9 +1799,14 @@ const selectedStrengthPlayerName = computed(() => {
   const p = list.find(x => String(x.id) === String(strengthSelectedPlayerId.value))
   return p?.name || ''
 })
-const onAssessmentSaved = () => {
+const onAssessmentSaved = (payload) => {
   assessmentModalOpen.value = false
-  strengthMessage.value = { type: 'success', text: 'Assessment captured. (Backend save wiring is the next step.)' }
+  const name = selectedStrengthPlayerName.value || 'Player'
+  strengthMessage.value = { type: 'success', text: `Assessment baseline saved for ${name}.` }
+  // Refresh any cached strength/dev data so the new baseline shows up.
+  fetchStrengthHistory().catch(() => {})
+  fetchDevBoard().catch(() => {})
+  void payload
 }
 
 const fmtrxSectionRows = computed(() => {
@@ -3576,10 +3581,11 @@ watch(
       :visible="assessmentModalOpen"
       :player-name="selectedStrengthPlayerName"
       :player-id="strengthSelectedPlayerId"
+      :team-id="activeTeamId"
       :players="strengthPlayers"
       @close="assessmentModalOpen = false"
       @player-change="strengthSelectedPlayerId = String($event)"
-      @save="onAssessmentSaved"
+      @saved="onAssessmentSaved"
     />
   </Layout>
 </template>

@@ -3,14 +3,21 @@ import { ref, reactive, computed, watch, nextTick } from 'vue'
 import {
   computeFmtrxAssessment, throwsPerDayOptions, pitchCountOptions, intensityOptions, scoreColor,
 } from '@/features/development/lib/fmtrxAssessmentScore.js'
+import { useAxiosAuth } from '@/composables/axios-auth.js'
+
+const { axiosPost } = useAxiosAuth()
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
   playerName: { type: String, default: '' },
   playerId: { type: [String, Number], default: '' },
+  teamId: { type: [String, Number], default: '' },
   players: { type: Array, default: () => [] }, // [{ id, name }] roster for switching
 })
-const emit = defineEmits(['close', 'save', 'player-change'])
+const emit = defineEmits(['close', 'saved', 'player-change'])
+
+const saving = ref(false)
+const saveError = ref('')
 
 // Active player inside the modal — lets the coach switch players without closing.
 const activePlayerId = ref('')
@@ -216,7 +223,82 @@ const fmtrxTiles = computed(() => {
   ]
 })
 
-const onSave = () => { clearDraft(); emit('save', { form: { ...form }, scores: { ...fmtrx.value } }) }
+// Map the modal form to the /assessments payload the backend expects.
+const buildPayload = () => {
+  const s = fmtrx.value
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null }
+  const int = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n > 0 ? n : null }
+  const p = {
+    user_id: String(activePlayerId.value),
+    assessment_date: form.fitness_date || null,
+    type: 'full',
+    notes: form.notes || null,
+  }
+  if (props.teamId) p.team_id = String(props.teamId)
+  const add = (k, v) => { if (v !== null && v !== undefined) p[k] = v }
+  // raw strength (backend keys)
+  add('squat_lbs', int(form.back_squat_lbs))
+  add('deadlift_lbs', int(form.dead_lift_lbs))
+  add('bench_lbs', int(form.bench_press_lbs))
+  add('broad_jump_in', int(form.broad_jump_inches))
+  add('vertical_jump_in', int(form.vertical_jump_inches))
+  add('sprint_10yd_sec', num(form.sprint_10yd_sec))
+  add('body_weight_lbs', num(form.body_weight_lbs))
+  // mobility (0-5 fits the 0-10 validation)
+  add('shoulder_mobility', int(form.shoulder_mobility))
+  add('hip_mobility', int(form.hip_mobility))
+  add('ankle_mobility', int(form.ankle_mobility))
+  add('rotational_mobility', int(form.t_spine_rotation))
+  // computed section scores
+  add('arm_health_score', int(s.armHealth))
+  add('hitting_score', int(s.hitting))
+  add('pitching_score', int(s.pitching))
+  add('throwing_workload_score', int(s.workload))
+  if (s.workloadLabel) p.throwing_workload_level = s.workloadLabel
+  // rich JSON detail
+  p.throwing_workload_data = {
+    primary_throwing_role: form.primary_throwing_role || null,
+    throwing_days_per_week: form.throwing_days_per_week, bullpens_per_week: form.bullpens_per_week,
+    long_toss_sessions_per_week: form.long_toss_sessions_per_week,
+    weighted_ball_sessions_per_week: form.weighted_ball_sessions_per_week, games_per_week: form.games_per_week,
+    throws_per_day_range: form.throws_per_day_range || null, weekly_pitch_count_range: form.weekly_pitch_count_range || null,
+    weighted_ball_usage: form.weighted_ball_usage || null, throwing_intensity: form.throwing_intensity || null,
+    arm_fatigue: form.arm_fatigue, arm_soreness: form.arm_soreness,
+    arm_pain: form.arm_pain || null, arm_pain_notes: form.arm_pain_notes || null,
+    workload_score: s.workload, workload_level: s.workloadLabel,
+  }
+  p.hitting_data = {
+    max_exit_velo: form.max_exit_velo, avg_exit_velo: form.avg_exit_velo,
+    mechanics: Object.fromEntries(hittingMechanics.map(m => [m.key.replace(/^hit_/, ''), form[m.key]])),
+    notes: form.hitting_notes || null,
+  }
+  p.pitching_data = {
+    fastball_velocity: form.fastball_velocity, strike_percentage: form.strike_percentage,
+    command_percentage: form.command_percentage, pitch_types: form.pitch_types, pitch_grades: form.pitch_grades,
+    mechanics: Object.fromEntries(pitchingMechanics.map(m => [m.key.replace(/^pit_/, ''), form[m.key]])),
+    spin_metrics: form.spin_metrics || null, notes: form.pitching_notes || null,
+  }
+  return p
+}
+
+const onSave = async () => {
+  if (!activePlayerId.value) { saveError.value = 'Select a player first.'; return }
+  saving.value = true
+  saveError.value = ''
+  try {
+    const res = await axiosPost('assessments', buildPayload())
+    const ok = res?.data?.status === 'success' || res?.status === 200 || res?.status === 201
+    if (!ok) throw new Error(res?.data?.message || 'Save failed')
+    clearDraft()
+    emit('saved', { playerId: activePlayerId.value })
+  } catch (e) {
+    const errs = e?.response?.data?.data?.errors
+    const first = errs && typeof errs === 'object' ? Object.values(errs)[0]?.[0] : null
+    saveError.value = first || e?.response?.data?.message || e?.message || 'Could not save the assessment.'
+  } finally {
+    saving.value = false
+  }
+}
 </script>
 
 <template>
@@ -531,6 +613,7 @@ const onSave = () => { clearDraft(); emit('save', { form: { ...form }, scores: {
             <!-- Footer nav -->
             <div class="sticky bottom-0 px-5 py-4 border-t border-white/10 bg-[#0a1020]/95 backdrop-blur sm:rounded-b-2xl">
               <div v-if="draftMsg" class="mb-2 text-xs font-bold text-green-300">{{ draftMsg }}</div>
+              <div v-if="saveError" class="mb-2 text-xs font-bold text-red-300">{{ saveError }}</div>
               <div class="flex items-center gap-3">
                 <button type="button" class="px-4 py-2.5 rounded-lg bg-white/5 border border-white/20 text-sm font-bold text-white/80" @click="saveDraft">
                   Save Data
@@ -543,8 +626,8 @@ const onSave = () => { clearDraft(); emit('save', { form: { ...form }, scores: {
                 <button v-if="stepIndex < STEPS.length - 1" type="button" class="px-5 py-2.5 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black text-white" @click="next">
                   Next: {{ STEPS[stepIndex + 1].label }}
                 </button>
-                <button v-else type="button" class="px-5 py-2.5 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black text-white" @click="onSave">
-                  Save Baseline
+                <button v-else type="button" :disabled="saving" class="px-5 py-2.5 rounded-lg bg-[#C00000] hover:bg-red-700 disabled:opacity-60 text-sm font-black text-white" @click="onSave">
+                  {{ saving ? 'Saving…' : 'Save Baseline' }}
                 </button>
               </div>
             </div>
