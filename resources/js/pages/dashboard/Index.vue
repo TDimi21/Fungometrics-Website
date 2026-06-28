@@ -2002,14 +2002,13 @@ const ensureQuickStatsLoaded = async () => {
   if (quickStatsLoaded.value) return
 
   if (user.userData.type !== 'player') {
-    await fetchMobilityPlayers()
     await fetchStrengthPlayers()
   }
 
   quickStatsLoaded.value = true
 }
 
-const allowedDashboardTabs = ['overview', 'development', 'quickstats', 'strength']
+const allowedDashboardTabs = ['overview', 'development', 'strength']
 
 const setDashTab = (tab) => {
   const nextTab = allowedDashboardTabs.includes(tab) ? tab : 'overview'
@@ -2036,7 +2035,7 @@ watch(
 watch(
   () => dashTab.value,
   async (tab) => {
-    if (tab === 'quickstats' || tab === 'strength') {
+    if (tab === 'strength') {
       await ensureQuickStatsLoaded().catch(e => console.warn('ensureQuickStatsLoaded error:', e?.message ?? e))
     }
 
@@ -2726,197 +2725,24 @@ watch(
 
         </div><!-- end development tab -->
 
-        <!-- QUICK STATS TAB (sidebar access) -->
-        <div v-if="dashTab === 'quickstats'" class="mobility-assessment flex flex-col gap-5">
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
-            <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 class="text-base font-black uppercase tracking-widest text-white">Mobility Assessment</h2>
-                <p class="text-xs text-white/45 mt-1">Record a baseline or reassessment mobility test and save the score into player development.</p>
-              </div>
-              <div class="text-xs text-white/50">Step 1: assessment type · Step 2: player · Step 3: test inputs · Step 4: save score</div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5">
-            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
-              <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-4">Assessment Form</h3>
-
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                <div class="md:col-span-2">
-                  <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Assessment Type</label>
-                  <div class="flex gap-2">
-                    <button
-                      type="button"
-                      class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
-                      :class="mobilityAssessmentType === 'first_time' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
-                      @click="mobilityAssessmentType = 'first_time'"
-                    >First-time Assessment</button>
-                    <button
-                      type="button"
-                      class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
-                      :class="mobilityAssessmentType === 'reassessment' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
-                      @click="mobilityAssessmentType = 'reassessment'"
-                    >Reassessment</button>
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Assessment Date</label>
-                  <input v-model="mobilityForm.fitness_date" type="date" class="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-red-400/60" />
-                </div>
-              </div>
-
-              <div class="mb-4">
-                <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Player</label>
-                <select
-                  v-model="mobilitySelectedPlayerId"
-                  class="mob-select w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-red-400/60"
-                  :disabled="mobilityPlayersLoading"
-                >
-                  <option value="">Select player</option>
-                  <option v-for="p in mobilityPlayers" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
-                </select>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="mob-test-title" @click="toggleMobilityHelp('shoulder')">
-                    <span>Shoulder (20 pts)</span>
-                    <span class="mob-test-help-cta">{{ mobilityHelpOpen === 'shoulder' ? 'Hide how to assess' : 'Click for how to assess' }}</span>
-                  </button>
-                  <div v-if="mobilityHelpOpen === 'shoulder'" class="mob-test-help">
-                    Apley Scratch: measure gap between hands in inches (0 = hands touch). Throwing Arm ER: athlete supine, shoulder abducted 90°, measure external rotation in degrees.
-                  </div>
-                  <div class="grid grid-cols-2 gap-2">
-                    <input v-model="mobilityForm.apley_gap_inches" type="number" step="0.1" placeholder="Apley gap (in) · 0 = touches" class="mob-input col-span-2" />
-                    <input v-model="mobilityForm.shoulder_er_throwing_deg" type="number" step="0.1" placeholder="Throwing arm ER (deg)" class="mob-input col-span-2" />
-                  </div>
-                </div>
-
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="mob-test-title" @click="toggleMobilityHelp('thoracic')">
-                    <span>Thoracic Rotation (15 pts)</span>
-                    <span class="mob-test-help-cta">{{ mobilityHelpOpen === 'thoracic' ? 'Hide how to assess' : 'Click for how to assess' }}</span>
-                  </button>
-                  <div v-if="mobilityHelpOpen === 'thoracic'" class="mob-test-help">
-                    Athlete in half-kneeling or quadruped. Stabilize hips and record active thoracic rotation left and right in degrees. Use the lower side as the limiter.
-                  </div>
-                  <div class="grid grid-cols-2 gap-2">
-                    <input v-model="mobilityForm.thoracic_rotation_left_deg" type="number" step="0.1" placeholder="Left rotation (deg)" class="mob-input" />
-                    <input v-model="mobilityForm.thoracic_rotation_right_deg" type="number" step="0.1" placeholder="Right rotation (deg)" class="mob-input" />
-                  </div>
-                </div>
-
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="mob-test-title" @click="toggleMobilityHelp('hip')">
-                    <span>Hip Mobility (25 pts)</span>
-                    <span class="mob-test-help-cta">{{ mobilityHelpOpen === 'hip' ? 'Hide how to assess' : 'Click for how to assess' }}</span>
-                  </button>
-                  <div v-if="mobilityHelpOpen === 'hip'" class="mob-test-help">
-                    90/90 Test: classify full, mild restriction, significant restriction, or unable. Internal Rotation: measure hip IR in degrees. Hip Flexion: classify above chest, chest level, below chest, or restricted.
-                  </div>
-                  <div class="grid grid-cols-2 gap-2">
-                    <select v-model="mobilityForm.hip_9090_rating" class="mob-input mob-select col-span-2">
-                      <option value="">90/90 test result</option>
-                      <option value="full">Full 90/90 both sides</option>
-                      <option value="mild">Mild restriction</option>
-                      <option value="significant">Significant restriction</option>
-                      <option value="unable">Unable</option>
-                    </select>
-                    <input v-model="mobilityForm.hip_internal_rotation_deg" type="number" step="0.1" placeholder="Hip internal rotation (deg)" class="mob-input col-span-2" />
-                    <select v-model="mobilityForm.hip_flexion_rating" class="mob-input mob-select col-span-2">
-                      <option value="">Hip flexion result</option>
-                      <option value="above">Above chest</option>
-                      <option value="chest">Chest level</option>
-                      <option value="below">Below chest</option>
-                      <option value="restricted">Significant restriction</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="mob-test-title" @click="toggleMobilityHelp('ankle_core_balance')">
-                    <span>Ankle + Core + Balance (40 pts)</span>
-                    <span class="mob-test-help-cta">{{ mobilityHelpOpen === 'ankle_core_balance' ? 'Hide how to assess' : 'Click for how to assess' }}</span>
-                  </button>
-                  <div v-if="mobilityHelpOpen === 'ankle_core_balance'" class="mob-test-help">
-                    Ankle Knee-to-Wall: heel flat, record max distance in inches. Dead Bug: timed hold in seconds with neutral trunk. Single-Leg Balance: timed hold each side in seconds and score by weaker side.
-                  </div>
-                  <div class="grid grid-cols-2 gap-2">
-                    <input v-model="mobilityForm.ankle_knee_to_wall_inches" type="number" step="0.1" placeholder="Knee-to-wall distance (in)" class="mob-input col-span-2" />
-                    <input v-model="mobilityForm.dead_bug_hold_sec" type="number" step="0.1" placeholder="Dead bug hold (sec)" class="mob-input col-span-2" />
-                    <input v-model="mobilityForm.single_leg_balance_left_sec" type="number" step="0.1" placeholder="Single-leg balance left (sec)" class="mob-input" />
-                    <input v-model="mobilityForm.single_leg_balance_right_sec" type="number" step="0.1" placeholder="Single-leg balance right (sec)" class="mob-input" />
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  class="px-4 py-2 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black uppercase tracking-wide disabled:opacity-60"
-                  :disabled="mobilitySaving || !mobilitySelectedPlayerId || !mobilityFormComplete"
-                  @click="submitMobilityAssessment"
-                >
-                  {{ mobilitySaving ? 'Saving...' : 'Save Mobility Assessment' }}
-                </button>
-                <span v-if="mobilityMessage.text" class="text-sm" :class="mobilityMessage.type === 'success' ? 'text-green-300' : 'text-red-300'">{{ mobilityMessage.text }}</span>
-              </div>
-            </div>
-
-            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
-              <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Score + Baseline</h3>
-
-              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
-                <p class="text-[11px] uppercase tracking-widest text-white/45">Computed Baseball Mobility Score (BMS)</p>
-                <p class="mt-1 text-4xl font-black" :style="{ color: scoreColor(computedMobility.score) }">{{ computedMobility.score }}</p>
-                <p class="mt-1 text-sm font-bold text-white/80">Grade: {{ computedMobility.grade }}</p>
-                <p class="text-xs text-white/45 mt-1">0–100 FMTRX BMS. Saved value enters player development baseline/trend.</p>
-                <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-white/70">
-                  <div>Shoulder: <strong>{{ computedMobility.parts.shoulder }}</strong>/20</div>
-                  <div>Thoracic: <strong>{{ computedMobility.parts.thoracic }}</strong>/15</div>
-                  <div>Hip: <strong>{{ computedMobility.parts.hip }}</strong>/25</div>
-                  <div>Ankle: <strong>{{ computedMobility.parts.ankle }}</strong>/15</div>
-                  <div>Core: <strong>{{ computedMobility.parts.core }}</strong>/10</div>
-                  <div>Balance: <strong>{{ computedMobility.parts.balance }}</strong>/15</div>
-                </div>
-              </div>
-
-              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
-                <p class="text-[11px] uppercase tracking-widest text-white/45">Latest Baseline</p>
-                <div v-if="mobilityHistoryLoading" class="text-sm text-white/40">Loading baseline...</div>
-                <div v-else-if="latestMobilityRecord">
-                  <p class="text-lg font-black text-white">{{ latestMobilityScore }}</p>
-                  <p class="text-xs text-white/50">{{ formatDate(latestMobilityRecord.fitness_date || latestMobilityRecord.created_at) }}</p>
-                  <p v-if="mobilityDelta != null" class="text-xs mt-1" :class="mobilityDelta >= 0 ? 'text-green-300' : 'text-red-300'">
-                    {{ mobilityDelta >= 0 ? '+' : '' }}{{ mobilityDelta }} vs latest
-                  </p>
-                </div>
-                <p v-else class="text-sm text-white/35">No prior mobility baseline found for this player.</p>
-              </div>
-
-              <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                <p class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Guide</p>
-                <ul class="text-xs text-white/65 space-y-1 list-disc pl-4">
-                  <li>Use First-time Assessment when no baseline exists.</li>
-                  <li>Use Reassessment for follow-up checks to compare progress.</li>
-                  <li>BMS uses 6 categories: Shoulder, Thoracic, Hip, Ankle, Core, Balance.</li>
-                  <li>Record values consistently (same protocol) for valid trend comparison.</li>
-                  <li>Saved score feeds player development tracking automatically.</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-        </div><!-- end quickstats tab -->
-
         <!-- STRENGTH ASSESSMENT TAB -->
         <div v-if="dashTab === 'strength'" class="strength-assessment flex flex-col gap-5">
           <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
-            <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
+            <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div class="flex-1 min-w-0">
                 <h2 class="text-base font-black uppercase tracking-widest text-white">Assessment</h2>
                 <p class="text-xs text-white/45 mt-1">Full FMTRX baseline — athletic, strength, mobility, hitting, pitching &amp; arm health, matching the app.</p>
+                <div class="mt-4 max-w-sm">
+                  <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Player</label>
+                  <select
+                    v-model="strengthSelectedPlayerId"
+                    class="str-select w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-red-400/60"
+                    :disabled="strengthPlayersLoading"
+                  >
+                    <option value="">Select player</option>
+                    <option v-for="p in strengthPlayers" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
+                  </select>
+                </div>
               </div>
               <button
                 type="button"
@@ -2924,268 +2750,22 @@ watch(
                 :disabled="!strengthSelectedPlayerId"
                 @click="assessmentModalOpen = true"
               >
-                {{ strengthSelectedPlayerId ? 'Open Assessment' : 'Select a player below' }}
+                {{ strengthSelectedPlayerId ? 'Open Assessment' : 'Select a player first' }}
               </button>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5">
-            <!-- Left: form -->
-            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
-              <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-4">Assessment Form</h3>
-
-              <!-- Type + Date -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                <div class="md:col-span-2">
-                  <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Assessment Type</label>
-                  <div class="flex gap-2">
-                    <button type="button"
-                      class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
-                      :class="strengthAssessmentType === 'first_time' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
-                      @click="strengthAssessmentType = 'first_time'"
-                    >First-time Assessment</button>
-                    <button type="button"
-                      class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
-                      :class="strengthAssessmentType === 'reassessment' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
-                      @click="strengthAssessmentType = 'reassessment'"
-                    >Reassessment</button>
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Assessment Date</label>
-                  <input v-model="strengthForm.fitness_date" type="date" class="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-red-400/60" />
-                </div>
-              </div>
-
-              <!-- Player select -->
-              <div class="mb-4">
-                <label class="block text-[11px] uppercase tracking-widest text-white/45 mb-1">Player</label>
-                <select
-                  v-model="strengthSelectedPlayerId"
-                  class="str-select w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-red-400/60"
-                  :disabled="strengthPlayersLoading"
-                >
-                  <option value="">Select player</option>
-                  <option v-for="p in strengthPlayers" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
-                </select>
-              </div>
-
-              <!-- Test inputs grid -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                <!-- Lower Body -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('lower_body')">
-                    <span>Strength</span>
-                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'lower_body' ? 'Hide guide' : 'How to score' }}</span>
-                  </button>
-                  <div v-if="strengthHelpOpen === 'lower_body'" class="str-test-help">
-                    Main strength tests including bodyweight lifts.
-                  </div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.body_weight_lbs" type="number" min="0" step="0.1" placeholder="Weight (lbs)" class="str-input" />
-                    <input v-model="strengthForm.front_squat_lbs" type="number" min="0" step="1" placeholder="Front Squat (lbs)" class="str-input" />
-                    <input v-model="strengthForm.back_squat_lbs" type="number" min="0" step="1" placeholder="Back Squat (lbs)" class="str-input" />
-                    <input v-model="strengthForm.bench_press_lbs" type="number" min="0" step="1" placeholder="Bench Press (lbs)" class="str-input" />
-                    <input v-model="strengthForm.dead_lift_lbs" type="number" min="0" step="1" placeholder="Deadlift (lbs)" class="str-input" />
-                    <input v-model="strengthForm.push_ups" type="number" min="0" step="1" placeholder="Push Ups (reps)" class="str-input" />
-                    <input v-model="strengthForm.pull_ups" type="number" min="0" step="1" placeholder="Pull-Ups (reps)" class="str-input" />
-                  </div>
-                </div>
-
-                <!-- Power -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('power')">
-                    <span>Power</span>
-                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'power' ? 'Hide guide' : 'How to score' }}</span>
-                  </button>
-                  <div v-if="strengthHelpOpen === 'power'" class="str-test-help">
-                    Explosive outputs in the weight room and jump/throw testing.
-                  </div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.power_clean_lbs" type="number" min="0" step="1" placeholder="Power Clean (lbs)" class="str-input" />
-                    <input v-model="strengthForm.hand_strength_lbs" type="number" min="0" step="0.1" placeholder="Hand Strength (lbs)" class="str-input" />
-                    <input v-model="strengthForm.vertical_jump_inches" type="number" min="0" step="0.1" placeholder="Vertical Jump (inches)" class="str-input" />
-                    <input v-model="strengthForm.broad_jump_inches" type="number" min="0" step="0.1" placeholder="Broad Jump (inches)" class="str-input" />
-                    <input v-model="strengthForm.med_ball_rotational_throw_ft" type="number" min="0" step="0.1" placeholder="Med Ball Rotational Throw (ft)" class="str-input" />
-                  </div>
-                </div>
-
-                <!-- Speed -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('speed')">
-                    <span>Speed</span>
-                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'speed' ? 'Hide guide' : 'How to score' }}</span>
-                  </button>
-                  <div v-if="strengthHelpOpen === 'speed'" class="str-test-help">
-                    Sprint metrics in seconds. Lower values grade higher.
-                  </div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.sprint_10yd_sec" type="number" min="0" step="0.01" placeholder="10 Yard (sec)" class="str-input" />
-                    <input v-model="strengthForm.yd_40_dash_sec" type="number" min="0" step="0.01" placeholder="40 Time (sec)" class="str-input" />
-                    <input v-model="strengthForm.yd_60_dash_sec" type="number" min="0" step="0.01" placeholder="60 Time (sec)" class="str-input" />
-                    <input v-model="strengthForm.sleep_hours" type="number" min="0" max="24" step="0.1" placeholder="Sleep Hours" class="str-input" />
-                    <input v-model="strengthForm.sleep_quality_1_to_5" type="number" min="1" max="5" step="1" placeholder="Sleep Quality (1-5)" class="str-input" />
-                    <input v-model="strengthForm.recovery_score" type="number" min="0" max="100" step="1" placeholder="Recovery Score (0-100)" class="str-input" />
-                  </div>
-                </div>
-
-                <!-- Baseball Metrics -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <button type="button" class="str-test-title" @click="toggleStrengthHelp('rotational')">
-                    <span>Baseball Metrics</span>
-                    <span class="str-test-help-cta">{{ strengthHelpOpen === 'rotational' ? 'Hide guide' : 'How to score' }}</span>
-                  </button>
-                  <div v-if="strengthHelpOpen === 'rotational'" class="str-test-help">
-                    Baseball-specific outputs synced to roster metrics.
-                  </div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.exit_velocity_mph" type="number" min="0" step="0.1" placeholder="Exit Velo (mph)" class="str-input" />
-                    <input v-model="strengthForm.bat_speed_mph" type="number" min="0" step="0.1" placeholder="Bat Speed (mph)" class="str-input" />
-                    <input v-model="strengthForm.throwing_velo_mph" type="number" min="0" step="0.1" placeholder="Throwing Velo (mph)" class="str-input" />
-                    <input v-model="strengthForm.pitch_velo_mph" type="number" min="0" step="0.1" placeholder="Pitch Velo (mph)" class="str-input" />
-                  </div>
-                </div>
-
-                <!-- Mobility -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div class="str-test-title"><span>Mobility (0–5 each)</span></div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.shoulder_mobility" type="number" min="0" max="5" step="1" placeholder="Shoulder" class="str-input" />
-                    <input v-model="strengthForm.hip_mobility" type="number" min="0" max="5" step="1" placeholder="Hip" class="str-input" />
-                    <input v-model="strengthForm.ankle_mobility" type="number" min="0" max="5" step="1" placeholder="Ankle" class="str-input" />
-                    <input v-model="strengthForm.hamstring_mobility" type="number" min="0" max="5" step="1" placeholder="Hamstring" class="str-input" />
-                    <input v-model="strengthForm.t_spine_rotation" type="number" min="0" max="5" step="1" placeholder="T-Spine Rotation" class="str-input" />
-                    <input v-model="strengthForm.overhead_squat" type="number" min="0" max="5" step="1" placeholder="Overhead Squat" class="str-input" />
-                    <input v-model="strengthForm.single_leg_balance" type="number" min="0" max="5" step="1" placeholder="Single-Leg Balance" class="str-input" />
-                  </div>
-                </div>
-
-                <!-- Throwing Workload -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div class="str-test-title"><span>Throwing Workload</span></div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.throwing_days_per_week" type="number" min="0" max="7" step="1" placeholder="Throwing Days / Week" class="str-input" />
-                    <select v-model="strengthForm.throws_per_day_range" class="str-input">
-                      <option value="">Throws Per Day</option>
-                      <option v-for="o in throwsPerDayOptions" :key="o" :value="o">{{ o }}</option>
-                    </select>
-                    <select v-model="strengthForm.weekly_pitch_count_range" class="str-input">
-                      <option value="">Weekly Pitch Count</option>
-                      <option v-for="o in pitchCountOptions" :key="o" :value="o">{{ o }}</option>
-                    </select>
-                    <input v-model="strengthForm.bullpens_per_week" type="number" min="0" step="1" placeholder="Bullpens / Week" class="str-input" />
-                    <input v-model="strengthForm.long_toss_sessions_per_week" type="number" min="0" step="1" placeholder="Long Toss / Week" class="str-input" />
-                    <input v-model="strengthForm.weighted_ball_sessions_per_week" type="number" min="0" step="1" placeholder="Weighted Ball / Week" class="str-input" />
-                    <select v-model="strengthForm.throwing_intensity" class="str-input">
-                      <option value="">Throwing Intensity</option>
-                      <option v-for="o in intensityOptions" :key="o" :value="o">{{ o }}</option>
-                    </select>
-                  </div>
-                </div>
-
-                <!-- Arm Health -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div class="str-test-title"><span>Arm Health</span></div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <select v-model="strengthForm.arm_pain" class="str-input">
-                      <option value="">Arm Pain?</option>
-                      <option value="No">No</option>
-                      <option value="Yes">Yes</option>
-                    </select>
-                    <input v-model="strengthForm.arm_soreness" type="number" min="0" max="10" step="1" placeholder="Arm Soreness (0-10)" class="str-input" />
-                    <input v-model="strengthForm.arm_care_completion" type="number" min="0" max="100" step="1" placeholder="Arm Care Completion (0-100)" class="str-input" />
-                  </div>
-                </div>
-
-                <!-- Hitting -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div class="str-test-title"><span>Hitting</span></div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.max_exit_velo" type="number" min="0" step="0.1" placeholder="Max Exit Velo (mph)" class="str-input" />
-                    <input v-model="strengthForm.avg_exit_velo" type="number" min="0" step="0.1" placeholder="Avg Exit Velo (mph)" class="str-input" />
-                    <input v-model="strengthForm.contact_percentage" type="number" min="0" max="100" step="1" placeholder="Contact %" class="str-input" />
-                    <input v-model="strengthForm.hard_hit_percentage" type="number" min="0" max="100" step="1" placeholder="Hard-Hit %" class="str-input" />
-                    <input v-model="strengthForm.whiff_percentage" type="number" min="0" max="100" step="1" placeholder="Whiff %" class="str-input" />
-                  </div>
-                </div>
-
-                <!-- Pitching -->
-                <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div class="str-test-title"><span>Pitching</span></div>
-                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <input v-model="strengthForm.fastball_velocity" type="number" min="0" step="0.1" placeholder="Fastball Velo (mph)" class="str-input" />
-                    <input v-model="strengthForm.strike_percentage" type="number" min="0" max="100" step="1" placeholder="Strike %" class="str-input" />
-                    <input v-model="strengthForm.command_percentage" type="number" min="0" max="100" step="1" placeholder="Command %" class="str-input" />
-                  </div>
-                </div>
-
-              </div><!-- end test grid -->
-
-              <div class="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  class="px-4 py-2 rounded-lg bg-[#C00000] hover:bg-red-700 text-sm font-black uppercase tracking-wide disabled:opacity-60"
-                  :disabled="strengthSaving || !strengthSelectedPlayerId"
-                  @click="submitStrengthAssessment"
-                >
-                  {{ strengthSaving ? 'Saving...' : 'Save Assessment' }}
-                </button>
-                <span v-if="strengthMessage.text" class="text-sm" :class="strengthMessage.type === 'success' ? 'text-green-300' : 'text-red-300'">{{ strengthMessage.text }}</span>
-              </div>
-            </div><!-- end left form -->
-
-            <!-- Right: live score + baseline -->
-            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
-              <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Score + Baseline</h3>
-
-              <!-- FMTRX Baseline (full assessment, mirrors the app) -->
-              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
-                <p class="text-[11px] uppercase tracking-widest text-white/45">FMTRX Baseline Score</p>
-                <p class="mt-1 text-4xl font-black" :style="{ color: scoreColor(computedFmtrx.overall) }">{{ computedFmtrx.overall || '—' }}</p>
-                <p class="mt-1 text-xs text-white/45">Composite of athletic, strength, mobility, hitting, pitching &amp; arm health.</p>
-
-                <div class="mt-3 grid grid-cols-2 gap-2">
-                  <div v-for="row in fmtrxSectionRows" :key="row.label" class="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-xs">
-                    <span class="text-white/60">{{ row.label }}</span>
-                    <span class="font-black" :style="{ color: scoreColor(row.value) }">{{ row.value == null ? '—' : row.value }}</span>
-                  </div>
-                </div>
-
-                <div class="mt-2 flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs" :style="{ background: (computedFmtrx.workloadColor || '#334155') + '22' }">
-                  <span class="text-white/60">Throwing Workload</span>
-                  <span class="font-black" :style="{ color: computedFmtrx.workloadColor }">{{ computedFmtrx.workload || 0 }} · {{ computedFmtrx.workloadLabel }}</span>
-                </div>
-              </div>
-
-              <!-- Baseline -->
-              <div class="rounded-xl border border-white/10 bg-white/5 p-3 mb-3">
-                <p class="text-[11px] uppercase tracking-widest text-white/45">Latest Baseline</p>
-                <div v-if="strengthHistoryLoading" class="text-sm text-white/40">Loading baseline...</div>
-                <div v-else-if="latestStrengthRecord">
-                  <p class="text-lg font-black text-white">{{ latestStrengthScore }}</p>
-                  <p class="text-xs text-white/50">{{ formatDate(latestStrengthRecord.fitness_date || latestStrengthRecord.created_at) }}</p>
-                  <p v-if="strengthDelta != null" class="text-xs mt-1" :class="strengthDelta >= 0 ? 'text-green-300' : 'text-red-300'">
-                    {{ strengthDelta >= 0 ? '+' : '' }}{{ strengthDelta }} vs latest
-                  </p>
-                </div>
-                <p v-else class="text-sm text-white/35">No prior strength baseline for this player.</p>
-              </div>
-
-              <!-- Guide -->
-              <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-                <p class="text-[11px] uppercase tracking-widest text-white/45 mb-2">Guide</p>
-                <ul class="text-xs text-white/65 space-y-1 list-disc pl-4">
-                  <li>Use raw roster metrics only (lbs/times/scores), not percentiles.</li>
-                  <li>Duplicate percentile inputs were removed to avoid conflicting data.</li>
-                  <li>For sprint fields (40/60), lower time grades higher.</li>
-                  <li>Hand Strength is measured in lbs and now included in scoring.</li>
-                  <li>Saving this form updates the player fitness metrics shown in roster cards.</li>
-                  <li>Score feeds player development Strength component (20% of FMTRX score).</li>
-                  <li>Use Reassessment when re-testing after a training block.</li>
-                </ul>
-              </div>
-            </div><!-- end right panel -->
+          <!-- Latest baseline (read-only). Create / update it via Open Assessment. -->
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
+            <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Latest Baseline</h3>
+            <div v-if="!strengthSelectedPlayerId" class="text-sm text-white/35">Select a player above to see their latest baseline.</div>
+            <div v-else-if="strengthHistoryLoading" class="text-sm text-white/40">Loading baseline…</div>
+            <div v-else-if="latestStrengthRecord">
+              <p class="text-4xl font-black text-white">{{ latestStrengthScore }}</p>
+              <p class="text-xs text-white/50">{{ formatDate(latestStrengthRecord.fitness_date || latestStrengthRecord.created_at) }}</p>
+            </div>
+            <p v-else class="text-sm text-white/35">No prior baseline for this player. Tap <span class="text-white/70 font-bold">Open Assessment</span> to create one.</p>
+            <span v-if="strengthMessage.text" class="mt-3 inline-block text-sm" :class="strengthMessage.type === 'success' ? 'text-green-300' : 'text-red-300'">{{ strengthMessage.text }}</span>
           </div>
         </div><!-- end strength tab -->
 
