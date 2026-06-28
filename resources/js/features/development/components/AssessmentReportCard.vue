@@ -217,7 +217,19 @@ const mobilityRows = computed(() => {
   ]
 })
 
-const printReport = () => window.print()
+const printReport = () => {
+  // Tag the body so the print stylesheet shows ONLY the report (not the
+  // surrounding dashboard) and remove the tag once printing is done.
+  document.body.classList.add('assessment-printing')
+  const cleanup = () => {
+    document.body.classList.remove('assessment-printing')
+    window.removeEventListener('afterprint', cleanup)
+  }
+  window.addEventListener('afterprint', cleanup)
+  window.print()
+  // Fallback cleanup in case afterprint doesn't fire.
+  setTimeout(cleanup, 1000)
+}
 </script>
 
 <template>
@@ -227,12 +239,12 @@ const printReport = () => window.print()
         <span>FMTRX</span>
         <strong>Player Assessment Report</strong>
       </div>
-      <div v-if="showActions" class="report-actions no-print">
+      <div v-if="showActions" class="report-actions">
         <div>
           <small>Assessment Date</small>
           <b>{{ formatDate(report.assessment_date) }}</b>
         </div>
-        <button @click="printReport">PDF Export</button>
+        <button class="no-print" @click="printReport">PDF Export</button>
       </div>
     </header>
 
@@ -784,5 +796,46 @@ const printReport = () => window.print()
     margin-top: 12px;
     grid-template-columns: 1fr;
   }
+}
+</style>
+
+<!-- Global (unscoped) print rules: print ONLY the report, in colour, on one page. -->
+<style>
+@media print {
+  body.assessment-printing { background: #fff !important; }
+
+  /* Hide everything, then reveal only the report card. */
+  body.assessment-printing * { visibility: hidden !important; }
+  body.assessment-printing #assessment-print,
+  body.assessment-printing #assessment-print * { visibility: visible !important; }
+
+  body.assessment-printing #assessment-print {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    margin: 0 !important;
+    /* Render wide, then scale down so the whole report fills the page width
+       and still fits on a single A4 page. */
+    width: 160% !important;
+    transform: scale(0.625);
+    transform-origin: top left;
+  }
+
+  /* Keep the dark theme + score colours in the exported PDF. */
+  body.assessment-printing #assessment-print,
+  body.assessment-printing #assessment-print * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide the export button itself while printing. */
+  body.assessment-printing #assessment-print .no-print { display: none !important; }
+
+  /* Tighten a few spots so it comfortably fits one page. */
+  body.assessment-printing #assessment-print .photo-wrap { height: 150px !important; }
+  body.assessment-printing #assessment-print .report-footer { margin-top: 8px !important; padding-top: 10px !important; }
+  body.assessment-printing #assessment-print section { margin-top: 8px !important; }
+
+  @page { size: A4 portrait; margin: 8mm; }
 }
 </style>
