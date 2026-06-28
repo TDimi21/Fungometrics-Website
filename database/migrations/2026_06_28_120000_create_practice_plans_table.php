@@ -22,7 +22,9 @@ return new class extends Migration
             $table->integer('total_duration')->nullable();
             $table->integer('scheduled_minutes')->nullable();
             $table->integer('drill_count')->nullable();
-            $table->json('slots')->nullable();
+            // longText (not json) — the prod MariaDB build rejects native json DDL;
+            // the model's 'slots' => 'array' cast stores/reads JSON in text just fine.
+            $table->longText('slots')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
