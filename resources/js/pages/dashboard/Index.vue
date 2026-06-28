@@ -1794,6 +1794,7 @@ const computedFmtrx = computed(() => computeFmtrxAssessment({
 }))
 
 const assessmentModalOpen = ref(false)
+const assessmentReportKey = ref(0) // bump to force the reports panel to reload
 const selectedStrengthPlayerName = computed(() => {
   const list = Array.isArray(strengthPlayers.value) ? strengthPlayers.value : []
   const p = list.find(x => String(x.id) === String(strengthSelectedPlayerId.value))
@@ -1803,9 +1804,10 @@ const onAssessmentSaved = (payload) => {
   assessmentModalOpen.value = false
   const name = selectedStrengthPlayerName.value || 'Player'
   strengthMessage.value = { type: 'success', text: `Assessment baseline saved for ${name}.` }
-  // Refresh any cached strength/dev data so the new baseline shows up.
+  // Refresh any cached strength/dev data + the reports panel so the new baseline shows up.
   fetchStrengthHistory().catch(() => {})
   fetchDevBoard().catch(() => {})
+  assessmentReportKey.value++
   void payload
 }
 
@@ -2755,18 +2757,17 @@ watch(
             </div>
           </div>
 
-          <!-- Latest baseline (read-only). Create / update it via Open Assessment. -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5">
-            <h3 class="text-xs font-black uppercase tracking-widest text-white/60 mb-3">Latest Baseline</h3>
-            <div v-if="!strengthSelectedPlayerId" class="text-sm text-white/35">Select a player above to see their latest baseline.</div>
-            <div v-else-if="strengthHistoryLoading" class="text-sm text-white/40">Loading baseline…</div>
-            <div v-else-if="latestStrengthRecord">
-              <p class="text-4xl font-black text-white">{{ latestStrengthScore }}</p>
-              <p class="text-xs text-white/50">{{ formatDate(latestStrengthRecord.fitness_date || latestStrengthRecord.created_at) }}</p>
-            </div>
-            <p v-else class="text-sm text-white/35">No prior baseline for this player. Tap <span class="text-white/70 font-bold">Open Assessment</span> to create one.</p>
-            <span v-if="strengthMessage.text" class="mt-3 inline-block text-sm" :class="strengthMessage.type === 'success' ? 'text-green-300' : 'text-red-300'">{{ strengthMessage.text }}</span>
+          <!-- Assessment reports — last baseline + full history, matching Reports. -->
+          <div v-if="strengthMessage.text" class="text-sm" :class="strengthMessage.type === 'success' ? 'text-green-300' : 'text-red-300'">{{ strengthMessage.text }}</div>
+          <div v-if="!strengthSelectedPlayerId" class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-5 text-sm text-white/35">
+            Select a player above to see their assessment reports.
           </div>
+          <CoachAssessmentPanel
+            v-else
+            :key="`${strengthSelectedPlayerId}-${assessmentReportKey}`"
+            :player-id="String(strengthSelectedPlayerId)"
+            :player-name="selectedStrengthPlayerName"
+          />
         </div><!-- end strength tab -->
 
       </div>
