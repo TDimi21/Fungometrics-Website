@@ -551,6 +551,19 @@ const groupColor = (g) => ({
   background: rgba(255,255,255,.05); color: #fff; font-size: 13px; padding: 8px 10px; outline: none;
 }
 .pp-input:focus { border-color: rgba(248,113,113,.5); }
+/* Override the global repeating select arrow with a single custom chevron. */
+select.pp-input,
+.pp-mini-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+}
+select.pp-input { padding-right: 32px; }
+.pp-mini-select { padding-right: 22px; background-position: right 5px center; background-size: 11px; }
 .pp-num { width: 56px; text-align: center; border-radius: 6px; border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.05); color: #fff; font-size: 12px; padding: 3px 5px; outline: none; }
 .pp-btn { border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.05); color: rgba(255,255,255,.85); border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; cursor: pointer; }
 .pp-btn--primary { background: #C00000; border-color: #C00000; color: #fff; }
