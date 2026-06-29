@@ -42,7 +42,7 @@ class GetLiveABPracticeResults extends Controller
 
             $data = collect()->merge(LiveABPracticeResult::where('practice_id', $request->practice)
                 ->orderBy('sort', 'desc')
-                ->with('pitching.profile', 'batting.profile')
+                ->with('pitching.profile.player', 'batting.profile.player')
                 ->get());
 
             if (0 === $data->count()) {
