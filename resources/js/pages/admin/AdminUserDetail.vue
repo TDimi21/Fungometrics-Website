@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { PLAN_LABELS, groupFeatures } from '@/utils/plans.js'
+import { getAuthToken } from '@/utils/authToken.js'
 
 const router = useRouter()
 const route  = useRoute()
@@ -108,12 +109,7 @@ async function savePlan(plan) {
   saveMsg.value = ''
   try {
     const apiBase = import.meta.env.VITE_API_ENDPOINT || ''
-    let token = ''
-    try {
-      token = JSON.parse(localStorage.getItem('auth') || '{}')?.token
-            || JSON.parse(sessionStorage.getItem('auth') || '{}')?.token
-            || ''
-    } catch (_) {}
+    const token = getAuthToken()
 
     const res  = await fetch(`${apiBase}admin/users/${user.value.id}/plan`, {
       method:  'PATCH',

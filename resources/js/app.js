@@ -38,35 +38,12 @@ const sanitizePersistedStores = () => {
     }
   }
 
-  const authRaw = localStorage.getItem('auth')
-  if (authRaw) {
-    const parsedAuth = safeParse(authRaw)
-    if (!parsedAuth || typeof parsedAuth !== 'object') {
-      localStorage.removeItem('auth')
-    }
-  }
+  try {
+    localStorage.removeItem('auth')
+  } catch (_) {}
 }
 
 sanitizePersistedStores()
-
-const syncLegacyAuthToken = () => {
-  try {
-    const local = localStorage.getItem('auth')
-    if (local) return
-
-    const authStoreRaw = sessionStorage.getItem('auth')
-    if (!authStoreRaw) return
-
-    const authStore = JSON.parse(authStoreRaw)
-    if (authStore?.token) {
-      localStorage.setItem('auth', JSON.stringify({ token: authStore.token }))
-    }
-  } catch (_) {
-    // ignore storage parsing issues
-  }
-}
-
-syncLegacyAuthToken()
 
 const app = createApp();
 applyUiTheme(getUiTheme())

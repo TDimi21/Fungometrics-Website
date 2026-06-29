@@ -15,17 +15,12 @@ import Loader from "@/components/Loader.vue";
 import { useRouter } from "vue-router";
 import { states } from "../../utils";
 import { toast } from "../../utils/AlertPlugin";
+import { getAuthToken } from "@/utils/authToken.js";
 
 const userStore = useUserStore();
 const isLoading = reactive({ status: true });
 const router = useRouter();
-const authToken = (() => {
-  try {
-    return JSON.parse(localStorage.getItem("auth") || "{}")?.token ?? "";
-  } catch {
-    return "";
-  }
-})();
+const authToken = getAuthToken();
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 
 const getUserDataSnapshot = () => {

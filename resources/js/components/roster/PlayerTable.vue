@@ -7,6 +7,7 @@ import {toast} from "../../utils/AlertPlugin";
 import axios from "axios";
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/store/players.js'
+import { getAuthToken } from '@/utils/authToken.js'
 
 const props = defineProps({
   tableData: {
@@ -33,7 +34,7 @@ const tableHeadings = ref([
 ])
 const isOpenDelteModal = ref(false)
 const router = useRouter()
-const token = JSON.parse(localStorage.getItem('auth')).token
+const token = getAuthToken()
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const playerStore = usePlayerStore()
 const { players, setPlayers } = storeToRefs(playerStore)

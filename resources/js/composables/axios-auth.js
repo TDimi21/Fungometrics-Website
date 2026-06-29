@@ -1,26 +1,11 @@
 import axios from "axios"
+import { getAuthToken } from '@/utils/authToken.js'
 
 export const useAxiosAuth = () => {
   const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
 
   const resolveToken = () => {
-    try {
-      const legacy = localStorage.getItem('auth')
-      if (legacy) {
-        const parsed = JSON.parse(legacy)
-        if (parsed?.token) return parsed.token
-      }
-    } catch (_) {}
-
-    try {
-      const authStore = sessionStorage.getItem('auth')
-      if (authStore) {
-        const parsed = JSON.parse(authStore)
-        if (parsed?.token) return parsed.token
-      }
-    } catch (_) {}
-
-    return null
+    return getAuthToken() || null
   }
 
   const authHeaders = () => {

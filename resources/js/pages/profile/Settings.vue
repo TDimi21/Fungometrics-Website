@@ -75,7 +75,6 @@ const applyAuthSession = async ({ payload, apiUrl }) => {
 
   setToken(token)
   isLogged.status = true
-  localStorage.setItem('auth', JSON.stringify({ token }))
   await userStore.setData(user)
 
   if ((user?.type || '').toLowerCase() === 'player') {

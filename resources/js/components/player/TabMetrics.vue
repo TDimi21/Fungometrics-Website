@@ -7,6 +7,7 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { InputBase, LabelField, SelectField, BigButtonField} from '@/components/form'
 import {toast} from "../../utils/AlertPlugin";
 import Loader from "@/components/Loader.vue";
+import { getAuthToken } from '@/utils/authToken.js'
 
 const { axiosGet } = useAxiosAuth()
 const {userData} = useUserStore();
@@ -16,7 +17,7 @@ const dataMetric = ref({});
 const tableHeadings = ref([
   "DATE", "BODY WEIGHT", "BENCH PRESS", "FRONT SQUAT", "BACK SQUAT", "POWER CLEAN", "DEAD LIFT", "40 YD DASH", "60 YD DASH"
 ])
-const token = JSON.parse(localStorage.getItem('auth')).token
+const token = getAuthToken()
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const isLoad = reactive({status: true})
 let dataFitness = reactive({

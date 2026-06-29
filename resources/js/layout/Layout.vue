@@ -33,6 +33,7 @@ import TickerBar from "./TickerBar.vue";
 import PlayerTickerBar from "./PlayerTickerBar.vue";
 import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.png";
 import stadiumBackground from "@/assets/img/training/baseball field.jpeg";
+import { getAuthToken } from "@/utils/authToken.js";
 
 const { axiosGet } = useAxiosAuth();
 const userStore = useUserStore();
@@ -74,14 +75,7 @@ const sessionCount = ref(0);
 const teamJoinCode = ref('');
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const isLoading = reactive({ status: true });
-const token = (() => {
-  try {
-    const auth = JSON.parse(localStorage.getItem("auth") || "{}");
-    return auth?.token ?? "";
-  } catch (_) {
-    return "";
-  }
-})();
+const token = getAuthToken();
 const temporalTeams = ref([]);
 let playersOfTeam = ref([]);
 function closeModal() {

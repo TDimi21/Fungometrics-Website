@@ -9,6 +9,7 @@ import { usePlayerStore } from '@/store/players.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import { getAuthToken } from '@/utils/authToken.js'
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -20,7 +21,7 @@ const props = defineProps({
 const emit = defineEmits(['remove-item'])
 
 const router = useRouter()
-const token = JSON.parse(localStorage.getItem('auth')).token
+const token = getAuthToken()
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
 const isOpenDeleteModal = ref(false)
 const playerStore = usePlayerStore()

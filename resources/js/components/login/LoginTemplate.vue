@@ -94,7 +94,6 @@ const applyAuthSession = async ({ payload, apiUrl }) => {
 
   setToken(token)
   isLogged.status = true
-  localStorage.setItem('auth', JSON.stringify({ token }))
   await userStore.setData(user)
 
   if ((user?.type || '').toLowerCase() === 'player') {
@@ -134,7 +133,6 @@ const submitForm = async () => {
         text: response.data.message,
       })
       setToken(response.data.data.token);
-      localStorage.setItem('auth', JSON.stringify({ token: response.data.data.token }))
       await userStore.setData(response.data.data);
       if(response.data.data.type == 'player'){
         await router.push('/player-dashboard')

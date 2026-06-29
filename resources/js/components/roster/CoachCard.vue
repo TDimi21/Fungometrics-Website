@@ -4,10 +4,11 @@ import { toast } from "@/utils/AlertPlugin"
 import axios from "axios";
 import {useTeamStore} from "@/store/team";
 import {useRouter} from "vue-router"
+import { getAuthToken } from '@/utils/authToken.js'
 
 const {team} = useTeamStore();
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
-const token = JSON.parse(localStorage.getItem('auth')).token
+const token = getAuthToken()
 const router = useRouter()
 
 const props = defineProps({

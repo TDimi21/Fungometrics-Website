@@ -13,6 +13,7 @@ import {toast} from "@/utils/AlertPlugin"
 import { useTrainingStore } from "@/store/training";
 import { useLiveABStore } from '@/store/liveAB.js'
 import { storeToRefs } from 'pinia'
+import { getAuthToken } from '@/utils/authToken.js'
 
 
 const { axiosDelete, axiosGet } = useAxiosAuth()
@@ -22,14 +23,7 @@ const { getFormatterDate } = useChart()
 const router = useRouter()
 const activeTraining = useTrainingStore();
 const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
-const token = (() => {
-  try {
-    const auth = JSON.parse(localStorage.getItem('auth') || '{}')
-    return auth?.token ?? ''
-  } catch (_) {
-    return ''
-  }
-})()
+const token = getAuthToken()
 const { livePitches } = storeToRefs(activeTraining)
 
 const primaryTabHeading = ['Batting','Bullpen','Cage', 'Live AB','Velocity','Toss','Balls']

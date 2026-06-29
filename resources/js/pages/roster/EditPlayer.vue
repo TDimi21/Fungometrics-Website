@@ -15,13 +15,14 @@ import {useRouter, useRoute} from "vue-router"
 import { playerTypes }  from '../../utils'
 import {toast} from "../../utils/AlertPlugin";
 import axios from 'axios'
+import { getAuthToken } from '@/utils/authToken.js'
 
 const {team} = useTeamStore();
 const {players} = usePlayerStore();
 const route = useRoute()
 const router = useRouter()
 let isLoading = reactive({status:true});
-const token = JSON.parse(localStorage.getItem('auth')).token
+const token = getAuthToken()
 const id = route.params.id
 let player = ref({
   id: '',

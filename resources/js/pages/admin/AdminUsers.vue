@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { PLAN_LABELS } from '@/utils/plans.js'
+import { getAuthToken } from '@/utils/authToken.js'
 
 const router = useRouter()
 const route  = useRoute()
@@ -34,11 +35,7 @@ async function bulkSetPro(role) {
   bulk.value = { running: true, done: 0, total: list.length, errors: 0, msg: '' }
 
   const apiBase = import.meta.env.VITE_API_ENDPOINT || ''
-  let token = ''
-  try {
-    token = JSON.parse(localStorage.getItem('auth') || '{}')?.token
-           || JSON.parse(sessionStorage.getItem('auth') || '{}')?.token || ''
-  } catch (_) {}
+  const token = getAuthToken()
 
   for (const user of list) {
     try {

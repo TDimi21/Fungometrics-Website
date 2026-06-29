@@ -8,6 +8,7 @@ import {toast} from "../../utils/AlertPlugin";
 import Loader from "@/components/Loader.vue";
 import {useRouter} from "vue-router"
 import { useUserStore } from "@/store/user"
+import { getAuthToken } from '@/utils/authToken.js'
 
   const props = defineProps({
     isOpen: {
@@ -44,14 +45,7 @@ import { useUserStore } from "@/store/user"
     const isPlayer = String(userData?.type || '').toLowerCase() === 'player'
     router.push(isPlayer ? '/profile-player' : `/roster/player/${props.item.id}`)
   }
-  const token = (() => {
-    try {
-      const auth = JSON.parse(localStorage.getItem('auth') || '{}')
-      return auth?.token ?? ''
-    } catch (_) {
-      return ''
-    }
-  })()
+  const token = getAuthToken()
   const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
   const limitDate = `${fecha.getFullYear()}-${fecha.getMonth() + 1}-${fecha.getDate()}`
 

@@ -13,6 +13,7 @@ import Loader from "@/components/Loader.vue";
 import axios from "axios";
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
+import { getAuthToken } from '@/utils/authToken.js'
 
 const { axiosGet, axiosDelete } = useAxiosAuth()
 const {userData} = useUserStore();
@@ -25,7 +26,7 @@ const route = useRoute()
 const pages = ref([])
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const isLoading = reactive({status: true})
-const token = JSON.parse(localStorage.getItem('auth')).token
+const token = getAuthToken()
 
 const searchCoach = ref('')
 const coachesDataDefault = ref([])
@@ -816,4 +817,3 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
 }
 .btn-ghost:hover { background: rgba(255,255,255,0.1); color: #fff; }
 </style>
-
