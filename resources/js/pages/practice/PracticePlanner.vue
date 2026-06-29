@@ -23,10 +23,31 @@ const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 // ── Practice info ────────────────────────────────────────────────────────────
 const title = ref('')
 const date = ref(new Date().toISOString().slice(0, 10))
+const startTime = ref('')
 const focus = ref('Mixed')
 const totalDuration = ref('90')
 const notes = ref('')
 const editingId = ref(null)
+
+// Clock-time helpers for the printout (relative offsets → real times if a start time is set).
+const startMinutes = computed(() => {
+  if (!startTime.value) return null
+  const [h, m] = startTime.value.split(':').map(Number)
+  return Number.isFinite(h) ? h * 60 + (m || 0) : null
+})
+const fmtClock = (mins) => {
+  const h = Math.floor(mins / 60) % 24
+  const m = mins % 60
+  const ap = h >= 12 ? 'pm' : 'am'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m).padStart(2, '0')}${ap}`
+}
+const formatSheetDate = (d) => {
+  if (!d) return ''
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(d))
+  const dt = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(d)
+  return Number.isNaN(dt.getTime()) ? String(d) : dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 // ── Timeline ─────────────────────────────────────────────────────────────────
 // slot = { id, blocks: [] }; blocks within a slot run in parallel.
@@ -39,6 +60,17 @@ const plannedMinutes = computed(() => Number(totalDuration.value) || 0)
 const remaining = computed(() => plannedMinutes.value - scheduledMinutes.value)
 const isOver = computed(() => remaining.value < 0)
 
+// Timeline rows for the printout, with a clock-time label per slot when a start time is set.
+const printSlots = computed(() => {
+  let cursor = 0
+  return timeline.value.map((slot) => {
+    const startOffset = cursor
+    cursor += slot.duration
+    const label = startMinutes.value != null ? fmtClock(startMinutes.value + startOffset) : slot.startLabel
+    return { ...slot, label }
+  })
+})
+
 // ── Saved plans (server-synced, team-shared; local cache as offline fallback) ─
 const savedPlans = ref([])
 const syncing = ref(false)
@@ -50,6 +82,7 @@ const normalizePlan = (p) => ({
   date: p.date || '',
   focus: p.focus || 'Mixed',
   notes: p.notes || '',
+  startTime: p.startTime ?? p.start_time ?? '',
   totalDuration: p.totalDuration ?? p.total_duration ?? '90',
   scheduledMinutes: p.scheduledMinutes ?? p.scheduled_minutes ?? 0,
   drillCount: p.drillCount ?? p.drill_count ?? 0,
@@ -272,6 +305,7 @@ const newPlan = () => {
   editingId.value = null
   title.value = ''
   date.value = new Date().toISOString().slice(0, 10)
+  startTime.value = ''
   focus.value = 'Mixed'
   totalDuration.value = '90'
   notes.value = ''
@@ -281,6 +315,7 @@ const currentPlan = () => ({
   id: editingId.value || uid(),
   title: title.value.trim(),
   date: date.value,
+  startTime: startTime.value,
   focus: focus.value,
   notes: notes.value.trim(),
   totalDuration: totalDuration.value,
@@ -301,6 +336,7 @@ const savePlan = async () => {
       team_id: activeTeamId.value || null,
       title: rec.title,
       date: rec.date,
+      start_time: rec.startTime || null,
       focus: rec.focus,
       notes: rec.notes,
       total_duration: Number(rec.totalDuration) || null,
@@ -321,6 +357,7 @@ const loadPlan = (p) => {
   editingId.value = p.id
   title.value = p.title || ''
   date.value = p.date || new Date().toISOString().slice(0, 10)
+  startTime.value = p.startTime || p.start_time || ''
   focus.value = p.focus || 'Mixed'
   totalDuration.value = String(p.totalDuration || p.scheduledMinutes || 90)
   notes.value = p.notes || ''
@@ -344,23 +381,23 @@ const copyPlan = async () => {
   catch { flash('error', 'Could not copy. Try Print instead.') }
 }
 const printPlan = () => {
-  const el = document.getElementById('practice-print')
+  const el = document.getElementById('practice-sheet')
   if (!el) { window.print(); return }
+  // Usable A4 portrait height in px @96dpi (297mm − ~16mm margins). Scale the
+  // sheet down to fit so the export is ALWAYS one page, never more.
+  const USABLE_H = 1040
+  const height = el.offsetHeight || 1
+  const scale = Math.min(1, USABLE_H / height)
+
   const portal = document.createElement('div')
   portal.id = 'practice-print-portal'
-  const head = document.createElement('div')
-  head.className = 'pp-print-head'
-  head.innerHTML =
-    `<h1>${(title.value || 'Practice Plan')}</h1>` +
-    `<p>${date.value} &middot; Focus: ${focus.value} &middot; Planned ${totalDuration.value} min &middot; Scheduled ${minutesToTimestamp(scheduledMinutes.value)} &middot; ${drillCount.value} drills</p>`
-  portal.appendChild(head)
-  portal.appendChild(el.cloneNode(true))
-  if (notes.value.trim()) {
-    const n = document.createElement('p')
-    n.className = 'pp-print-notes'
-    n.textContent = `Notes: ${notes.value.trim()}`
-    portal.appendChild(n)
-  }
+  const clone = el.cloneNode(true)
+  clone.style.position = 'static'
+  clone.style.left = '0'
+  clone.style.top = '0'
+  clone.style.transform = `scale(${scale})`
+  clone.style.transformOrigin = 'top left'
+  portal.appendChild(clone)
   document.body.appendChild(portal)
   document.body.classList.add('practice-printing')
   const cleanup = () => { portal.remove(); document.body.classList.remove('practice-printing'); window.removeEventListener('afterprint', cleanup) }
@@ -402,13 +439,17 @@ const groupColor = (g) => ({
               <h2 class="pp-section">📋 Practice Info</h2>
               <label class="pp-label">Title</label>
               <input v-model="title" type="text" placeholder="e.g. Tuesday Hitting Session" class="pp-input" />
-              <div class="grid grid-cols-2 gap-2 mt-3">
+              <div class="grid grid-cols-3 gap-2 mt-3">
                 <div>
                   <label class="pp-label">Date</label>
                   <input v-model="date" type="date" class="pp-input" />
                 </div>
                 <div>
-                  <label class="pp-label">Planned (min)</label>
+                  <label class="pp-label">Start</label>
+                  <input v-model="startTime" type="time" class="pp-input" />
+                </div>
+                <div>
+                  <label class="pp-label">Planned</label>
                   <input v-model="totalDuration" type="number" min="0" class="pp-input" />
                 </div>
               </div>
@@ -529,6 +570,43 @@ const groupColor = (g) => ({
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- One-page printable sheet (off-screen; cloned + scaled to fit on Print). -->
+    <div id="practice-sheet" class="pp-sheet">
+      <div class="ps-top">
+        <div>
+          <div class="ps-brand">{{ (title || 'Baseball Practice Plan').toUpperCase() }}</div>
+          <div class="ps-sub">{{ formatSheetDate(date) }}<template v-if="startTime"> · {{ fmtClock(startMinutes) }} start</template> · Focus: {{ focus }} · {{ minutesToTimestamp(scheduledMinutes) }} ({{ drillCount }} drills)</div>
+        </div>
+        <div class="ps-logo">FMTRX</div>
+      </div>
+
+      <table class="ps-table">
+        <tbody>
+          <tr v-for="slot in printSlots" :key="slot.id">
+            <td class="ps-time">{{ slot.label }}</td>
+            <td class="ps-cell">
+              <div v-for="b in slot.blocks" :key="b.id" class="ps-block">
+                <div class="ps-line">
+                  <span class="ps-name">{{ b.name }}</span>
+                  <span class="ps-min">{{ b.minutes }}m</span>
+                </div>
+                <div class="ps-meta">
+                  <span class="ps-group">{{ b.group }}</span>
+                  <span v-if="b.location" class="ps-loc">📍 {{ b.location }}</span>
+                  <span v-if="(b.equipment || []).length" class="ps-eq">🧰 {{ b.equipment.join(', ') }}</span>
+                </div>
+                <div v-if="b.drillNotes" class="ps-note">{{ b.drillNotes }}</div>
+                <div v-if="(b.players || []).length" class="ps-players">{{ b.players.map(p => p.name).join(', ') }}</div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div v-if="notes" class="ps-footnote">Notes: {{ notes }}</div>
+      <div class="ps-foot">TRAIN · TRACK · TRANSFORM — fmtrx.com</div>
     </div>
 
     <!-- Add Drill modal -->
@@ -728,20 +806,53 @@ select.pp-input { padding-right: 32px; }
 .pp-modal { position: fixed; inset: 0; z-index: 60; background: rgba(2,8,20,.82); display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px; overflow-y: auto; }
 .pp-modal-card { width: 100%; max-width: 460px; border-radius: 16px; border: 1px solid rgba(255,255,255,.15); background: #0a1020; padding: 18px; }
 .pp-modal-card--lg { max-width: 640px; }
+
+/* ── One-page printable sheet (light, station-map style) ── */
+.pp-sheet {
+  position: absolute; left: -10000px; top: 0;
+  width: 760px; box-sizing: border-box;
+  background: #fff; color: #0a1f3c;
+  font-family: Arial, Helvetica, sans-serif; padding: 16px;
+}
+.ps-top {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #0a1f3c; color: #fff; padding: 12px 16px; border-radius: 4px;
+}
+.ps-brand { font-size: 22px; font-weight: 900; letter-spacing: 1px; }
+.ps-sub { font-size: 11px; color: #cbd5e1; margin-top: 2px; }
+.ps-logo { font-size: 18px; font-weight: 900; font-style: italic; color: #fff; }
+.ps-table { width: 100%; border-collapse: collapse; margin-top: 12px; table-layout: fixed; }
+.ps-time {
+  width: 86px; vertical-align: top; text-align: center;
+  background: #0a1f3c; color: #fff; font-weight: 800; font-size: 14px;
+  padding: 10px 6px; border: 2px solid #fff;
+}
+.ps-cell { border: 1px solid #cbd5e1; padding: 6px 12px; vertical-align: top; }
+.ps-block { padding: 5px 0; border-bottom: 1px dashed #e2e8f0; }
+.ps-block:last-child { border-bottom: none; }
+.ps-line { display: flex; align-items: baseline; justify-content: space-between; }
+.ps-name { font-weight: 800; font-size: 14px; color: #0a1f3c; }
+.ps-min { font-size: 11px; color: #64748b; font-weight: 700; }
+.ps-meta { font-size: 11px; color: #475569; margin-top: 1px; }
+.ps-group { font-weight: 800; color: #C00000; text-transform: uppercase; margin-right: 10px; }
+.ps-loc { margin-right: 10px; color: #166534; font-weight: 700; }
+.ps-eq { color: #475569; }
+.ps-note { font-size: 11px; color: #64748b; font-style: italic; margin-top: 1px; }
+.ps-players { font-size: 11px; color: #1d4ed8; margin-top: 1px; }
+.ps-footnote { font-size: 11px; color: #475569; margin-top: 10px; }
+.ps-foot { text-align: center; font-size: 10px; font-weight: 800; letter-spacing: 2px; color: #94a3b8; margin-top: 12px; }
 </style>
 
 <style>
 @media print {
-  @page { size: A4 portrait; margin: 10mm; }
+  @page { size: A4 portrait; margin: 8mm; }
   body.practice-printing { background: #fff !important; }
-  /* Show only the cloned plan portal. */
+  /* Show only the cloned, scaled one-page sheet. */
   body.practice-printing > *:not(#practice-print-portal) { display: none !important; }
-  #practice-print-portal { display: block !important; color: #fff; }
+  #practice-print-portal { display: block !important; }
   #practice-print-portal,
   #practice-print-portal * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  #practice-print-portal .no-print { display: none !important; }
-  #practice-print-portal .pp-print-head h1 { font-size: 20px; font-weight: 900; color: #0a1020; }
-  #practice-print-portal .pp-print-head p { font-size: 12px; color: #475569; margin-bottom: 12px; }
-  #practice-print-portal .pp-print-notes { margin-top: 12px; font-size: 12px; color: #334155; }
+  /* The cloned sheet was off-screen; bring it back on-page (printPlan also sets these inline). */
+  #practice-print-portal .pp-sheet { position: static !important; left: 0 !important; top: 0 !important; }
 }
 </style>

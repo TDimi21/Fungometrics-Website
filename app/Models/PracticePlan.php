@@ -22,6 +22,7 @@ class PracticePlan extends Model
         'created_by',
         'title',
         'date',
+        'start_time',
         'focus',
         'notes',
         'total_duration',
