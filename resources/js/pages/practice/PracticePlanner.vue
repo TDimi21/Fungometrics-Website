@@ -509,6 +509,10 @@ const groupColor = (g) => ({
                 <span class="text-[11px] text-white/40 shrink-0">{{ d.category }} · {{ d.suggestedMinutes }}m</span>
               </div>
               <p v-if="d.objective" class="text-[11px] text-white/50 mt-0.5">{{ d.objective }}</p>
+              <div v-if="d.skill || d.difficulty" class="flex items-center gap-2 mt-1">
+                <span v-if="d.skill" class="text-[9px] font-black uppercase tracking-wide text-[#38BDF8] border border-[#38BDF8]/40 rounded-full px-2 py-0.5">{{ d.skill }}</span>
+                <span v-if="d.difficulty" class="text-[10px] text-amber-300">{{ '★'.repeat(d.difficulty) }}</span>
+              </div>
             </button>
             <p v-if="!filteredLibrary.length" class="text-white/35 text-sm text-center py-6">No drills match.</p>
           </div>
