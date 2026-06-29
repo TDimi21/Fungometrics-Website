@@ -9,6 +9,7 @@ import {
   buildTimeline, scheduledMinutesOf, allBlocksOf, minutesToTimestamp,
   buildShareText, loadSavedPractices, persistPractice, deletePractice,
 } from '@/features/practice/practicePlanner.js'
+import { EQUIPMENT_LIBRARY, EQUIPMENT_ALL, drillRunnable } from '@/features/practice/equipmentLibrary.js'
 
 const { axiosGet, axiosPost, axiosDelete } = useAxiosAuth()
 const teamStore = useTeamStore()
@@ -80,7 +81,7 @@ const loadCustom = () => {
 const saveCustom = () => { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(customLibrary.value)) } catch { /* noop */ } }
 const fullLibrary = computed(() => [...customLibrary.value, ...DEFAULT_DRILL_LIBRARY])
 
-onMounted(() => { refreshSaved(); loadCustom() })
+onMounted(() => { refreshSaved(); loadCustom(); loadEquipment() })
 
 // ── Add drill (manual) modal ─────────────────────────────────────────────────
 const showAddDrill = ref(false)
@@ -127,13 +128,36 @@ const addCustomDrill = () => {
 const showLibrary = ref(false)
 const libraryFilter = ref('All')
 const librarySearch = ref('')
+const onlyRunnable = ref(false)
 const openLibrary = (slotId = null) => { parallelTargetSlotId.value = slotId; libraryFilter.value = 'All'; librarySearch.value = ''; showLibrary.value = true }
 const filteredLibrary = computed(() => {
   const q = librarySearch.value.trim().toLowerCase()
+  const avail = new Set(availableEquipment.value)
   return fullLibrary.value.filter((d) =>
     (libraryFilter.value === 'All' || d.category === libraryFilter.value) &&
-    (!q || d.name.toLowerCase().includes(q) || (d.objective || '').toLowerCase().includes(q)))
+    (!q || d.name.toLowerCase().includes(q) || (d.objective || '').toLowerCase().includes(q)) &&
+    (!onlyRunnable.value || drillRunnable(d, avail)))
 })
+
+// ── Available equipment (what the program has) ───────────────────────────────
+const EQUIP_KEY = 'fmtrx_available_equipment'
+const availableEquipment = ref([...EQUIPMENT_ALL])
+const showEquipment = ref(false)
+const loadEquipment = () => {
+  try {
+    const raw = localStorage.getItem(EQUIP_KEY)
+    availableEquipment.value = raw ? JSON.parse(raw) : [...EQUIPMENT_ALL]
+  } catch { availableEquipment.value = [...EQUIPMENT_ALL] }
+}
+const saveEquipment = () => { try { localStorage.setItem(EQUIP_KEY, JSON.stringify(availableEquipment.value)) } catch (_) { /* noop */ } }
+const hasEquipment = (item) => availableEquipment.value.includes(item)
+const toggleEquipment = (item) => {
+  const i = availableEquipment.value.indexOf(item)
+  if (i >= 0) availableEquipment.value.splice(i, 1)
+  else availableEquipment.value.push(item)
+  saveEquipment()
+}
+const setAllEquipment = (on) => { availableEquipment.value = on ? [...EQUIPMENT_ALL] : []; saveEquipment() }
 const addFromLibrary = (drill) => {
   pushBlock({
     id: uid(),
@@ -391,6 +415,7 @@ const groupColor = (g) => ({
               <div class="flex gap-2">
                 <button class="pp-btn pp-btn--primary" @click="openAddDrill()">+ Add Drill</button>
                 <button class="pp-btn" @click="openLibrary()">📚 Drill Library</button>
+                <button class="pp-btn" @click="showEquipment = true">🧰 Equipment</button>
               </div>
               <div class="flex items-center gap-4 text-sm">
                 <span class="text-white/60">⏱ <b class="text-white">{{ minutesToTimestamp(scheduledMinutes) }}</b> scheduled</span>
@@ -502,16 +527,22 @@ const groupColor = (g) => ({
           <div class="flex flex-wrap gap-1.5 my-3">
             <button v-for="c in ['All', ...DRILL_CATEGORIES]" :key="c" class="pp-chip" :class="libraryFilter === c ? 'pp-chip--on' : ''" @click="libraryFilter = c">{{ c }}</button>
           </div>
-          <div class="overflow-y-auto pr-1" style="max-height: 52vh;">
+          <label class="flex items-center gap-2 mb-3 text-xs text-white/70 cursor-pointer select-none">
+            <input type="checkbox" v-model="onlyRunnable" class="accent-[#C00000]" />
+            Only show drills I can run with my equipment
+            <button type="button" class="ml-auto text-[10px] font-black uppercase text-[#38BDF8]" @click.prevent="showEquipment = true">Edit equipment</button>
+          </label>
+          <div class="overflow-y-auto pr-1" style="max-height: 48vh;">
             <button v-for="d in filteredLibrary" :key="d.id" class="w-full text-left rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 p-3 mb-2" @click="addFromLibrary(d)">
               <div class="flex items-center justify-between gap-2">
                 <span class="font-bold text-white text-sm">{{ d.name }}<span v-if="d.isCustom" class="ml-1 text-[9px] text-[#38BDF8]">CUSTOM</span></span>
                 <span class="text-[11px] text-white/40 shrink-0">{{ d.category }} · {{ d.suggestedMinutes }}m</span>
               </div>
               <p v-if="d.objective" class="text-[11px] text-white/50 mt-0.5">{{ d.objective }}</p>
-              <div v-if="d.skill || d.difficulty" class="flex items-center gap-2 mt-1">
+              <div v-if="d.skill || d.difficulty || (d.equipmentTags && d.equipmentTags.length)" class="flex items-center flex-wrap gap-2 mt-1">
                 <span v-if="d.skill" class="text-[9px] font-black uppercase tracking-wide text-[#38BDF8] border border-[#38BDF8]/40 rounded-full px-2 py-0.5">{{ d.skill }}</span>
                 <span v-if="d.difficulty" class="text-[10px] text-amber-300">{{ '★'.repeat(d.difficulty) }}</span>
+                <span v-for="t in (d.equipmentTags || [])" :key="t" class="text-[9px] text-white/55 bg-white/5 border border-white/15 rounded px-1.5 py-0.5">🧰 {{ t }}</span>
               </div>
             </button>
             <p v-if="!filteredLibrary.length" class="text-white/35 text-sm text-center py-6">No drills match.</p>
@@ -541,6 +572,36 @@ const groupColor = (g) => ({
             </button>
           </div>
           <div class="flex justify-end mt-3"><button class="pp-btn pp-btn--primary" @click="showPlayers = false">Done</button></div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Available Equipment modal -->
+    <Teleport to="body">
+      <div v-if="showEquipment" class="pp-modal" @click.self="showEquipment = false">
+        <div class="pp-modal-card pp-modal-card--lg">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="pp-section">🧰 Available Equipment</h3>
+            <button class="pp-mini" @click="showEquipment = false">✕</button>
+          </div>
+          <p class="text-[11px] text-white/45 mb-2">Check the gear your program has. The drill library can then show only drills you can run.</p>
+          <div class="flex gap-2 mb-3">
+            <button class="pp-btn" @click="setAllEquipment(true)">Select all</button>
+            <button class="pp-btn" @click="setAllEquipment(false)">Clear all</button>
+          </div>
+          <div class="overflow-y-auto pr-1" style="max-height: 52vh;">
+            <div v-for="(items, cat) in EQUIPMENT_LIBRARY" :key="cat" class="mb-3">
+              <div class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">{{ cat }}</div>
+              <div class="flex flex-wrap gap-1.5">
+                <button v-for="item in items" :key="item" type="button"
+                  class="pp-chip" :class="hasEquipment(item) ? 'pp-chip--on' : ''"
+                  @click="toggleEquipment(item)">
+                  {{ hasEquipment(item) ? '✓ ' : '' }}{{ item }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="flex justify-end mt-3"><button class="pp-btn pp-btn--primary" @click="showEquipment = false">Done</button></div>
         </div>
       </div>
     </Teleport>
