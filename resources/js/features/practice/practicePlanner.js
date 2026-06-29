@@ -50,6 +50,8 @@ export function buildShareText(plan) {
     (slot.blocks || []).forEach((b) => {
       const lead = (slot.blocks || []).length > 1 ? '  ⟺ ' : '  • ';
       lines.push(`${lead}${b.name}  [${b.group}]  ${b.focus}`);
+      if (b.location) lines.push(`       Location: ${b.location}`);
+      if ((b.equipment || []).length) lines.push(`       Equipment: ${b.equipment.join(', ')}`);
       if (b.drillNotes) lines.push(`       Notes: ${b.drillNotes}`);
       if ((b.players || []).length) lines.push(`       Players: ${b.players.map(playerName).filter(Boolean).join(', ')}`);
     });

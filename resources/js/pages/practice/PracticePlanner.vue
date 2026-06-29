@@ -10,6 +10,7 @@ import {
   buildShareText, loadSavedPractices, persistPractice, deletePractice,
 } from '@/features/practice/practicePlanner.js'
 import { EQUIPMENT_LIBRARY, EQUIPMENT_ALL, drillRunnable } from '@/features/practice/equipmentLibrary.js'
+import { LOCATION_GROUPS } from '@/features/practice/practiceLocations.js'
 
 const { axiosGet, axiosPost, axiosDelete } = useAxiosAuth()
 const teamStore = useTeamStore()
@@ -112,6 +113,8 @@ const addCustomDrill = () => {
     focus: drillForm.value.focus,
     drillNotes: drillForm.value.notes.trim(),
     players: [],
+    equipment: [],
+    location: '',
   }
   // remember for reuse
   customLibrary.value = [
@@ -167,6 +170,8 @@ const addFromLibrary = (drill) => {
     focus: drill.category,
     drillNotes: drill.objective || '',
     players: [],
+    equipment: drill.equipmentTags ? [...drill.equipmentTags] : [],
+    location: '',
   }, parallelTargetSlotId.value)
   showLibrary.value = false
   parallelTargetSlotId.value = null
@@ -193,6 +198,36 @@ const setBlockMinutes = (blockId, val) => {
 const setBlockField = (blockId, field, val) => {
   slots.value = slots.value.map((s) => ({ ...s, blocks: s.blocks.map((b) => (b.id === blockId ? { ...b, [field]: val } : b)) }))
 }
+
+// ── Per-block equipment + location pickers ───────────────────────────────────
+const showBlockEquip = ref(false)
+const showBlockLoc = ref(false)
+const blockTargetId = ref(null)
+const locSearch = ref('')
+const targetBlock = computed(() => allBlocksOf(slots.value).find((b) => b.id === blockTargetId.value))
+const openBlockEquip = (id) => { blockTargetId.value = id; showBlockEquip.value = true }
+const openBlockLoc = (id) => { blockTargetId.value = id; locSearch.value = ''; showBlockLoc.value = true }
+const blockHasEquip = (item) => (targetBlock.value?.equipment || []).includes(item)
+const toggleBlockEquip = (item) => {
+  const b = targetBlock.value
+  if (!b) return
+  const cur = b.equipment || []
+  setBlockField(b.id, 'equipment', cur.includes(item) ? cur.filter((e) => e !== item) : [...cur, item])
+}
+const setBlockLocation = (loc) => {
+  if (blockTargetId.value) setBlockField(blockTargetId.value, 'location', loc)
+  showBlockLoc.value = false
+}
+const filteredLocations = computed(() => {
+  const q = locSearch.value.trim().toLowerCase()
+  if (!q) return LOCATION_GROUPS
+  const out = {}
+  for (const [cat, items] of Object.entries(LOCATION_GROUPS)) {
+    const m = items.filter((l) => l.toLowerCase().includes(q))
+    if (m.length) out[cat] = m
+  }
+  return out
+})
 
 // ── Player picker ────────────────────────────────────────────────────────────
 const showPlayers = ref(false)
@@ -476,9 +511,15 @@ const groupColor = (g) => ({
                       <select :value="b.group" @change="setBlockField(b.id, 'group', $event.target.value)" class="pp-mini-select">
                         <option v-for="g in GROUP_OPTIONS" :key="g" :value="g">{{ g }}</option>
                       </select>
+                      <button class="pp-mini-btn" @click="openBlockLoc(b.id)">📍 {{ b.location || 'Location' }}</button>
+                      <button class="pp-mini-btn" @click="openBlockEquip(b.id)">🧰 {{ (b.equipment || []).length ? `${b.equipment.length} equip` : 'Equipment' }}</button>
                       <button class="pp-mini-btn" @click="openPlayers(b.id)">👥 {{ (b.players || []).length || 'Players' }}</button>
                     </div>
 
+                    <p v-if="b.location" class="text-[11px] text-[#65D84E] mt-2 font-bold">📍 {{ b.location }}</p>
+                    <div v-if="(b.equipment || []).length" class="flex flex-wrap gap-1 mt-1">
+                      <span v-for="t in b.equipment" :key="t" class="text-[9px] text-white/60 bg-white/5 border border-white/15 rounded px-1.5 py-0.5">🧰 {{ t }}</span>
+                    </div>
                     <p v-if="b.drillNotes" class="text-[11px] text-white/55 mt-2 italic">{{ b.drillNotes }}</p>
                     <p v-if="(b.players || []).length" class="text-[11px] text-[#38BDF8] mt-1">{{ b.players.map(p => p.name).join(', ') }}</p>
                   </div>
@@ -602,6 +643,50 @@ const groupColor = (g) => ({
             </div>
           </div>
           <div class="flex justify-end mt-3"><button class="pp-btn pp-btn--primary" @click="showEquipment = false">Done</button></div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Per-block equipment modal -->
+    <Teleport to="body">
+      <div v-if="showBlockEquip" class="pp-modal" @click.self="showBlockEquip = false">
+        <div class="pp-modal-card pp-modal-card--lg">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="pp-section">🧰 Equipment — {{ targetBlock?.name || 'drill' }}</h3>
+            <button class="pp-mini" @click="showBlockEquip = false">✕</button>
+          </div>
+          <p class="text-[11px] text-white/45 mb-2">Pick the equipment this drill/station will use.</p>
+          <div class="overflow-y-auto pr-1" style="max-height: 52vh;">
+            <div v-for="(items, cat) in EQUIPMENT_LIBRARY" :key="cat" class="mb-3">
+              <div class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">{{ cat }}</div>
+              <div class="flex flex-wrap gap-1.5">
+                <button v-for="item in items" :key="item" type="button" class="pp-chip" :class="blockHasEquip(item) ? 'pp-chip--on' : ''" @click="toggleBlockEquip(item)">{{ blockHasEquip(item) ? '✓ ' : '' }}{{ item }}</button>
+              </div>
+            </div>
+          </div>
+          <div class="flex justify-end mt-3"><button class="pp-btn pp-btn--primary" @click="showBlockEquip = false">Done</button></div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Per-block location modal -->
+    <Teleport to="body">
+      <div v-if="showBlockLoc" class="pp-modal" @click.self="showBlockLoc = false">
+        <div class="pp-modal-card pp-modal-card--lg">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="pp-section">📍 Location — {{ targetBlock?.name || 'drill' }}</h3>
+            <button class="pp-mini" @click="showBlockLoc = false">✕</button>
+          </div>
+          <input v-model="locSearch" class="pp-input mt-1" placeholder="Search locations…" />
+          <div class="mt-2"><button class="pp-chip" @click="setBlockLocation('')">Clear location</button></div>
+          <div class="overflow-y-auto pr-1 mt-2" style="max-height: 50vh;">
+            <div v-for="(items, cat) in filteredLocations" :key="cat" class="mb-3">
+              <div class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">{{ cat }}</div>
+              <div class="flex flex-wrap gap-1.5">
+                <button v-for="loc in items" :key="loc" type="button" class="pp-chip" :class="targetBlock?.location === loc ? 'pp-chip--on' : ''" @click="setBlockLocation(loc)">{{ loc }}</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Teleport>
