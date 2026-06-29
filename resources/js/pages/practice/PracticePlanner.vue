@@ -810,7 +810,7 @@ select.pp-input { padding-right: 32px; }
 /* ── One-page printable sheet (light, station-map style) ── */
 .pp-sheet {
   position: absolute; left: -10000px; top: 0;
-  width: 760px; box-sizing: border-box;
+  width: 720px; box-sizing: border-box;
   background: #fff; color: #0a1f3c;
   font-family: Arial, Helvetica, sans-serif; padding: 16px;
 }
