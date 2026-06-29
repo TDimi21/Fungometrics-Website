@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\Coach\GetLastSessions;
 use App\Http\Controllers\Api\Coach\GetPerformanceOverview;
 use App\Http\Controllers\Api\Coach\GetPlayersList;
 use App\Http\Controllers\Api\Coach\GetPracticePlans;
+use App\Http\Controllers\Api\Coach\GetStatsBundle;
 use App\Http\Controllers\Api\Coach\SavePracticePlan;
 use App\Http\Controllers\Api\Coach\DeletePracticePlan;
 use App\Http\Controllers\Api\Coach\AssessmentDraftController;
@@ -49,6 +50,7 @@ use App\Http\Controllers\Api\DashBoard\GetTopTenResults;
 use App\Http\Controllers\Api\Player\GetBattingPractices;
 use App\Http\Controllers\Api\Player\GetBullpenPractices;
 use App\Http\Controllers\Api\Player\GetCagePractices;
+use App\Http\Controllers\Api\Player\GetCreatedPractices;
 use App\Http\Controllers\Api\Player\GetFitness;
 use App\Http\Controllers\Api\Player\GetTrainingPractices;
 use App\Http\Controllers\Api\Player\JoinTeamByCode;
@@ -161,6 +163,8 @@ Route::prefix('player')->group(function (): void {
         Route::get('sessions/bullpen', GetBullpenPractices::class);
         Route::get('sessions/cage', GetCagePractices::class);
         Route::get('sessions/training', GetTrainingPractices::class);
+        Route::get('sessions/created', GetCreatedPractices::class);
+        Route::get('statistics/{player}', ScoresStatisticPlayers::class);
         Route::middleware('plan:view_advanced_stats')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
     });
 });
@@ -187,6 +191,9 @@ Route::prefix('coach')->group(function (): void {
         Route::middleware('plan:view_advanced_stats')->get('/teams/{id}/player-development-board', GetPlayerDevelopmentBoard::class);
         Route::middleware('plan:view_advanced_stats')->get('/development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::get('/sessions/lasts/{team}', GetLastSessions::class);
+        // One call returning recent sessions' detail bundled by type (kills the
+        // Stats screen's per-session N+1 fetch).
+        Route::get('/stats/bundle/{team}', GetStatsBundle::class);
         Route::middleware('plan:performance_overview')->get('/performance-overview/{team}', GetPerformanceOverview::class);
         Route::post('/trainingab', AddNewLiveABSession::class);
         Route::middleware('plan:liveab_sessions')->get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);
