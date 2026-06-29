@@ -47,8 +47,7 @@ export const migrateLegacyAuthToken = () => {
 export const getAuthToken = () => {
   try {
     migrateLegacyAuthToken()
-    const authStore = sessionStorage.getItem('auth')
-    const token = findToken(authStore)
+    const token = findToken(sessionStorage.getItem('auth')) || findToken(sessionStorage.getItem('user'))
     return token || ''
   } catch (_) {
     return ''
