@@ -173,6 +173,32 @@ const mobilityRows = computed(() => {
   ]
 })
 
+const printMetricRows = computed(() => {
+  const r = selected.value ?? {}
+  return [
+    ['10 yd', display(r.sprint_10yd_sec, '')],
+    ['60 yd', display(r.yd_60_dash, '')],
+    ['Exit Velo', display(selectedHittingData.value.max_exit_velocity, '')],
+    ['FB Velo', display(selectedPitchingData.value.fastball_velocity, '')],
+    ['Broad', display(r.broad_jump_in, '')],
+    ['Vertical', display(r.vertical_jump_in, '')],
+    ['Bench', display(r.bench_lbs, '')],
+    ['Deadlift', display(r.deadlift_lbs, '')],
+  ].filter(([, value]) => value !== '')
+})
+
+const printHittingRows = computed(() => hittingRows
+  .map(([key, label]) => [label, selectedHittingData.value.mechanics?.[key]])
+  .filter(([, value]) => value !== null && value !== undefined && value !== ''))
+
+const printPitchingRows = computed(() => pitchingRows
+  .map(([key, label]) => [label, selectedPitchingData.value.mechanics?.[key]])
+  .filter(([, value]) => value !== null && value !== undefined && value !== ''))
+
+const printPitchGrades = computed(() => pitchOrder
+  .map((pitch) => [pitch, selectedPitchingData.value.pitch_grades?.[pitch]])
+  .filter(([, value]) => value !== null && value !== undefined && value !== ''))
+
 const loadReports = async () => {
   if (!activeTeamId.value) {
     rows.value = []
@@ -413,6 +439,128 @@ watch(activeTeamId, loadReports)
             <span>Transform.</span>
           </footer>
         </main>
+
+        <section v-if="selected" class="print-sheet" id="assessment-print-sheet">
+          <header class="print-header">
+            <div>
+              <strong>FMTRX</strong>
+              <span>Player Assessment Report</span>
+            </div>
+            <div>
+              <small>Assessment Date</small>
+              <b>{{ formatDate(selected.assessment_date) }}</b>
+            </div>
+          </header>
+
+          <section class="print-hero">
+            <div class="print-player">
+              <img :src="playerPhoto(selected)" :alt="playerName(selected)" />
+              <div>
+                <h1>{{ playerName(selected) }}</h1>
+                <p>#{{ display(selected.profile?.number_in_shirt || selected.profile?.jersey, '—') }} · {{ display(selected.profile?.primary_position || selected.profile?.position, 'Player') }}</p>
+                <dl>
+                  <div><dt>DOB</dt><dd>{{ display(selected.profile?.born_date || selected.profile?.dob) }}</dd></div>
+                  <div><dt>Height</dt><dd>{{ display(selected.profile?.height || selected.height) }}</dd></div>
+                  <div><dt>Weight</dt><dd>{{ display(selected.body_weight_lbs) }}</dd></div>
+                  <div><dt>Team</dt><dd>{{ display(team?.name || team?.team_name) }}</dd></div>
+                </dl>
+              </div>
+            </div>
+            <div class="print-score">
+              <span>Overall</span>
+              <strong :style="{ color: scoreColor(selected.overall_score) }">{{ selected.overall_score ?? '—' }}</strong>
+              <small>{{ scoreLabel(selected.overall_score) }}</small>
+            </div>
+            <div class="print-type">
+              <span>Player Type</span>
+              <strong>{{ playerType.title }}</strong>
+              <p>{{ playerType.body }}</p>
+            </div>
+          </section>
+
+          <section class="print-score-grid">
+            <div v-for="item in summaryScores" :key="`print-${item.label}`">
+              <span>{{ item.label }}</span>
+              <strong :style="{ color: scoreColor(item.value) }">{{ item.value ?? '—' }}</strong>
+              <small>{{ sectionStatus(item.value) }}</small>
+            </div>
+          </section>
+
+          <section class="print-main-grid">
+            <article>
+              <h2>Assessment Snapshot</h2>
+              <div class="print-table compact">
+                <div v-for="[label, value] in printMetricRows" :key="label">
+                  <span>{{ label }}</span>
+                  <b>{{ value }}</b>
+                </div>
+              </div>
+              <h2>Throwing / Arm Health</h2>
+              <div class="print-table compact">
+                <div><span>Role</span><b>{{ display(selectedThrowingData.primary_throwing_role) }}</b></div>
+                <div><span>Workload</span><b>{{ display(selected.throwing_workload_level) }}</b></div>
+                <div><span>Days/Wk</span><b>{{ display(selectedThrowingData.throwing_days_per_week) }}</b></div>
+                <div><span>Throws</span><b>{{ display(selectedThrowingData.throws_per_day_range) }}</b></div>
+                <div><span>Arm Pain</span><b>{{ display(selectedThrowingData.arm_pain) }}</b></div>
+              </div>
+            </article>
+
+            <article>
+              <h2>Hitting</h2>
+              <div class="print-table">
+                <div v-for="[label, value] in printHittingRows.slice(0, 9)" :key="label">
+                  <span>{{ label }}</span>
+                  <b>{{ value }}</b>
+                  <small>{{ mechanicLabel(value) }}</small>
+                </div>
+              </div>
+            </article>
+
+            <article>
+              <h2>Pitching</h2>
+              <div class="print-table">
+                <div v-for="[label, value] in printPitchingRows.slice(0, 8)" :key="label">
+                  <span>{{ label }}</span>
+                  <b>{{ value }}</b>
+                  <small>{{ mechanicLabel(value) }}</small>
+                </div>
+              </div>
+              <h2>Pitch Grades</h2>
+              <div class="print-table compact">
+                <div v-for="[label, value] in printPitchGrades.slice(0, 6)" :key="label">
+                  <span>{{ label }}</span>
+                  <b>{{ value }}</b>
+                </div>
+              </div>
+            </article>
+
+            <article>
+              <h2>Mobility</h2>
+              <div class="print-table">
+                <div v-for="[label, value] in mobilityRows" :key="label">
+                  <span>{{ label }}</span>
+                  <b>{{ value ?? '—' }}</b>
+                  <small>{{ value >= 5 ? 'Good' : value >= 3 ? 'Fair' : value ? 'Needs Work' : '—' }}</small>
+                </div>
+              </div>
+              <h2>Focus</h2>
+              <ol class="print-focus">
+                <li v-for="item in focusAreas.slice(0, 3)" :key="`print-focus-${item.label}`">{{ item.label }} · {{ sectionStatus(item.value) }}</li>
+              </ol>
+            </article>
+          </section>
+
+          <section class="print-notes">
+            <div>
+              <h2>Strengths</h2>
+              <p>{{ topStrengths.map(item => `${item.label}: ${sectionStatus(item.value)}`).join(' · ') || '—' }}</p>
+            </div>
+            <div>
+              <h2>30-Day Plan</h2>
+              <p>{{ focusAreas.slice(0, 3).map(item => `${item.label} 2-3x/week`).join(' · ') || 'Reassess next cycle.' }}</p>
+            </div>
+          </section>
+        </section>
       </div>
     </div>
   </Layout>
@@ -757,6 +905,9 @@ watch(activeTeamId, loadReports)
   letter-spacing: .14em;
   font-weight: 900;
 }
+.print-sheet {
+  display: none;
+}
 @media (max-width: 1100px) {
   .assessment-shell,
   .hero-grid,
@@ -796,28 +947,260 @@ watch(activeTeamId, loadReports)
   }
 }
 @media print {
-  :global(body) {
-    background: #050B14 !important;
+  @page {
+    size: letter landscape;
+    margin: 0.22in;
   }
-  .no-print {
+  :global(html),
+  :global(body),
+  :global(#app) {
+    width: 100%;
+    height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: hidden !important;
+  }
+  .no-print,
+  .report-list,
+  .report {
     display: none !important;
   }
   .assessment-page {
-    padding: 0;
-    overflow: visible;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: hidden !important;
   }
-  .assessment-shell,
-  .hero-grid,
-  .three-grid {
+  .assessment-shell {
+    display: block !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+  .print-sheet {
+    display: block !important;
+    width: 10.55in;
+    height: 7.55in;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 0.12in;
+    color: #0F172A;
+    background: #fff;
+    font-family: Inter, Arial, sans-serif;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .print-header,
+  .print-hero,
+  .print-score-grid,
+  .print-main-grid,
+  .print-notes,
+  .print-player,
+  .print-player dl,
+  .print-table div {
+    display: grid;
+  }
+  .print-header {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    background: #061427;
+    color: #fff;
+    padding: 0.09in 0.14in;
+    border-radius: 8px;
+    margin-bottom: 0.08in;
+  }
+  .print-header strong {
+    font-size: 25px;
+    font-weight: 1000;
+    font-style: italic;
+    margin-right: 0.18in;
+  }
+  .print-header span {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+  }
+  .print-header small,
+  .print-hero span,
+  .print-table span,
+  .print-score-grid span {
     display: block;
+    color: #64748B;
+    text-transform: uppercase;
+    font-size: 7.5px;
+    letter-spacing: 0.06em;
+    font-weight: 800;
   }
-  .report {
-    border: 0;
-    border-radius: 0;
+  .print-header small {
+    color: #93A4B8;
   }
-  .panel {
-    break-inside: avoid;
-    margin-bottom: 10px;
+  .print-hero {
+    grid-template-columns: 2.1fr 0.55fr 1.1fr;
+    gap: 0.08in;
+    margin-bottom: 0.08in;
+  }
+  .print-player,
+  .print-score,
+  .print-type,
+  .print-score-grid div,
+  .print-main-grid article,
+  .print-notes > div {
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    background: #F8FAFC;
+  }
+  .print-player {
+    grid-template-columns: 1.05in 1fr;
+    gap: 0.1in;
+    padding: 0.08in;
+  }
+  .print-player img {
+    width: 1.05in;
+    height: 1.18in;
+    border-radius: 6px;
+    object-fit: cover;
+    background: #E2E8F0;
+  }
+  .print-player h1 {
+    margin: 0;
+    font-size: 23px;
+    line-height: 1;
+    color: #07111D;
+    text-transform: uppercase;
+    font-weight: 1000;
+  }
+  .print-player p {
+    margin: 0.03in 0 0.06in;
+    color: #0284C7;
+    font-size: 11px;
+    font-weight: 900;
+  }
+  .print-player dl {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.05in;
+    margin: 0;
+  }
+  .print-player dt {
+    color: #64748B;
+    font-size: 7px;
+    text-transform: uppercase;
+    font-weight: 900;
+  }
+  .print-player dd {
+    margin: 0;
+    color: #0F172A;
+    font-size: 9px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .print-score,
+  .print-type {
+    padding: 0.09in;
+  }
+  .print-score {
+    text-align: center;
+  }
+  .print-score strong {
+    display: block;
+    font-size: 44px;
+    line-height: 0.95;
+    font-weight: 1000;
+  }
+  .print-score small,
+  .print-type p,
+  .print-focus,
+  .print-notes p {
+    color: #475569;
+    font-size: 9px;
+    line-height: 1.35;
+    margin: 0;
+  }
+  .print-type strong {
+    display: block;
+    color: #15803D;
+    font-size: 18px;
+    line-height: 1;
+    margin: 0.04in 0;
+    text-transform: uppercase;
+  }
+  .print-score-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.06in;
+    margin-bottom: 0.08in;
+  }
+  .print-score-grid div {
+    padding: 0.06in;
+    min-height: 0.48in;
+  }
+  .print-score-grid strong {
+    display: block;
+    font-size: 20px;
+    line-height: 1;
+    font-weight: 1000;
+  }
+  .print-score-grid small {
+    color: #475569;
+    font-size: 7px;
+    text-transform: uppercase;
+    font-weight: 900;
+  }
+  .print-main-grid {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 0.07in;
+    margin-bottom: 0.08in;
+  }
+  .print-main-grid article {
+    padding: 0.08in;
+    min-height: 3.75in;
+  }
+  .print-main-grid h2,
+  .print-notes h2 {
+    margin: 0 0 0.04in;
+    color: #0284C7;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 1000;
+  }
+  .print-main-grid h2:not(:first-child) {
+    margin-top: 0.1in;
+  }
+  .print-table div {
+    grid-template-columns: 1fr auto auto;
+    gap: 0.05in;
+    align-items: center;
+    border-bottom: 1px solid #E2E8F0;
+    padding: 0.034in 0;
+  }
+  .print-table.compact div {
+    grid-template-columns: 1fr auto;
+  }
+  .print-table b {
+    color: #0F172A;
+    font-size: 10px;
+    font-weight: 1000;
+  }
+  .print-table small {
+    color: #15803D;
+    font-size: 7px;
+    text-transform: uppercase;
+    text-align: right;
+    font-weight: 900;
+  }
+  .print-focus {
+    padding-left: 0.14in;
+  }
+  .print-focus li {
+    margin-bottom: 0.035in;
+  }
+  .print-notes {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.07in;
+  }
+  .print-notes > div {
+    padding: 0.08in;
+    min-height: 0.56in;
   }
 }
 </style>
