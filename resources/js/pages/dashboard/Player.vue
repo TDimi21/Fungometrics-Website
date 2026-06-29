@@ -8,11 +8,13 @@ import { useUserStore } from '@/store/user'
 import { useAxiosAuth } from '@/composables/axios-auth'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 
-const { userData } = useUserStore()
+const userStore = useUserStore()
+const { userData } = userStore
 const { axiosGet } = useAxiosAuth()
 const router = useRouter()
 
 const loading = ref(false)
+const connectionMessage = ref('')
 const activeTopTab = ref('stats')
 const activeStatTab = ref('bp')
 const isOpenPlayerMetricsModal = ref(false)
@@ -80,6 +82,17 @@ const SESSION_TYPE_COLOR = {
 const asArray = (val) => {
   if (Array.isArray(val)) return val
   if (val && typeof val === 'object') return Object.values(val)
+  return []
+}
+
+const rowsFromApi = (res) => {
+  const payload = res?.data?.data
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.data)) return payload.data
+  if (payload && typeof payload === 'object') {
+    const nested = payload?.data
+    if (Array.isArray(nested)) return nested
+  }
   return []
 }
 
@@ -540,7 +553,7 @@ const openPlayerMetricsModal = async () => {
 
   try {
     const [scoreRes, fitnessRes] = await Promise.all([
-      axiosGet(`coach/statistics/${pid}`).catch(() => null),
+      axiosGet(`player/statistics/${pid}`).catch(() => null),
       axiosGet(`player/fitness/${pid}`).catch(() => null),
     ])
 
@@ -1199,21 +1212,41 @@ const barColor = (row) => {
 
 const loadData = async () => {
   loading.value = true
+  connectionMessage.value = ''
+
+  const safeGet = async (url) => {
+    try {
+      return await axiosGet(url)
+    } catch (error) {
+      if ([401, 403].includes(Number(error?.response?.status))) {
+        connectionMessage.value = `Player API connection failed on ${url} (${error?.response?.status}). Log out, then log back in on this localhost site.`
+      }
+      return null
+    }
+  }
+
   try {
+    const meRes = await safeGet('player/me')
+    const freshUser = meRes?.data?.data
+    if (freshUser && typeof freshUser === 'object') {
+      Object.assign(userData, freshUser)
+      await userStore.setData(userData)
+    }
+
     const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, fitnessRes] = await Promise.all([
-      axiosGet('player/sessions/batting').catch(() => null),
-      axiosGet('player/sessions/bullpen').catch(() => null),
-      axiosGet('player/sessions/cage').catch(() => null),
-      axiosGet('player/sessions/training').catch(() => null),
-      axiosGet('player/sessions/created').catch(() => null),
-      developmentPlayerId.value ? axiosGet(`player/fitness/${developmentPlayerId.value}`).catch(() => null) : Promise.resolve(null),
+      safeGet('player/sessions/batting'),
+      safeGet('player/sessions/bullpen'),
+      safeGet('player/sessions/cage'),
+      safeGet('player/sessions/training'),
+      safeGet('player/sessions/created'),
+      developmentPlayerId.value ? safeGet(`player/fitness/${developmentPlayerId.value}`) : Promise.resolve(null),
     ])
 
-    battingSessions.value = battingRes?.data?.data?.data || []
-    bullpenSessions.value = bullpenRes?.data?.data?.data || []
-    cageSessions.value = cageRes?.data?.data?.data || []
-    trainingSessions.value = trainingRes?.data?.data?.data || []
-    createdSessions.value = createdRes?.data?.data?.data || []
+    battingSessions.value = rowsFromApi(battingRes)
+    bullpenSessions.value = rowsFromApi(bullpenRes)
+    cageSessions.value = rowsFromApi(cageRes)
+    trainingSessions.value = rowsFromApi(trainingRes)
+    createdSessions.value = rowsFromApi(createdRes)
 
     const cageStatResults = await Promise.all(
       cageSessions.value
@@ -1241,6 +1274,12 @@ onMounted(loadData)
   <Layout>
     <div class="min-h-full bg-[#060b14] text-white px-4 py-5 lg:px-6">
       <div class="mx-auto max-w-6xl space-y-4">
+        <div
+          v-if="connectionMessage"
+          class="rounded-lg border border-[#ff2d55]/50 bg-[#ff2d55]/15 px-4 py-3 text-sm text-white"
+        >
+          {{ connectionMessage }}
+        </div>
         <section class="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4">
           <div class="space-y-4">
             <div class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0b1230]/75 p-4">

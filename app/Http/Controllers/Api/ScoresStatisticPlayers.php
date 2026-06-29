@@ -29,6 +29,18 @@ class ScoresStatisticPlayers extends Controller
     {
         try {
             $player = $request->player;
+            if (
+                (string) optional($request->user())->type === 'player'
+                && (string) optional($request->user())->id !== (string) $player
+            ) {
+                return response()->json([
+                    'code' => '044-AUTH',
+                    'message' => 'unauthorized user',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_UNAUTHORIZED);
+            }
+
             $batting = BattingPracticeResult::where('batter_id', $player);
             $cage = CagePracticeResult::where('user_id', $player);
             $bullpen = BullpenPracticeResult::where('pitcher_id', $player);

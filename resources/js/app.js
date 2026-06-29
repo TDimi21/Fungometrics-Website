@@ -13,6 +13,7 @@ import { plugin, defaultConfig } from '@formkit/vue'
 import { generateClasses } from '@formkit/themes'
 import {themeFormkit} from "./utils/theme";
 import { getUiTheme, applyUiTheme } from "./composables/useUiTheme";
+import { migrateLegacyAuthToken } from "./utils/authToken.js";
 import 'vue3-carousel/dist/carousel.css'
 import JsonExcel from "vue-json-excel3";
 import VueApexCharts from 'vue3-apexcharts'
@@ -26,6 +27,8 @@ const safeParse = (value) => {
 }
 
 const sanitizePersistedStores = () => {
+  migrateLegacyAuthToken()
+
   const keys = ['auth', 'user', 'teams', 'players', 'training', 'liveAB']
 
   for (const key of keys) {

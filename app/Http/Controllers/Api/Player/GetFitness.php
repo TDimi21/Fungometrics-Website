@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Player;
 
-use App\Exceptions\NotFound;
 use App\Http\Controllers\Controller;
 use App\Models\PlayerFitness;
 use Exception;
@@ -23,9 +22,6 @@ class GetFitness extends Controller
     {
         try {
             $data = PlayerFitness::where('user_id', $request->id)->orderByDesc('fitness_date')->limit(10)->get();
-            if (0 === $data->count()) {
-                throw new NotFound();
-            }
             $response = [
                 'code' => '040',
                 'message' => 'fitness data for player '.$request->id,

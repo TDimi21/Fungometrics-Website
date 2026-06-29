@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Player;
 
-use App\Exceptions\NotFound;
 use App\Http\Controllers\Controller;
 use App\Models\ExitVelocityPractice;
 use App\Models\LongTossPractice;
 use App\Models\Practice;
+use App\Models\PracticeLineUp;
 use App\Models\WeightBallPractice;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -38,6 +38,10 @@ class GetTrainingPractices extends Controller
                 ->unique()
                 ->all();
             $practicesId = array_merge($practicesIdLong, $practicesIdExit, $practicesIdWeight);
+            $lineupPracticeIds = PracticeLineUp::where('user_id', '=', auth()->id())
+                ->pluck('practice_id')
+                ->unique()
+                ->all();
 
             $data = Practice::with([
                 'team', 'longToss' => function ($query): void {
@@ -48,12 +52,13 @@ class GetTrainingPractices extends Controller
                     $query->where('user_id', '=', auth()->id());
                 }
             ])
-                ->where('user_id', '=', auth()->id())
-                ->orWhereIn('id', $practicesId)
+                ->where('type', '=', PracticeTypes::TRAINING->value)
+                ->where(function ($query) use ($practicesId, $lineupPracticeIds): void {
+                    $query->where('user_id', '=', auth()->id())
+                        ->orWhereIn('id', $practicesId)
+                        ->orWhereIn('id', $lineupPracticeIds);
+                })
                 ->paginate();
-            if (0 === $data->count()) {
-                throw new NotFound();
-            }
             $response = [
                 'code' => '058',
                 'message' => '',

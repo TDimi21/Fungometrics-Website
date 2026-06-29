@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Player;
 
-use App\Exceptions\NotFound;
 use App\Http\Controllers\Controller;
 use App\Models\CagePracticeResult;
+use App\Models\Concerns\PracticeTypes;
 use App\Models\Practice;
+use App\Models\PracticeLineUp;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,13 +28,18 @@ class GetCagePractices extends Controller
                 ->pluck('practice_id')
                 ->unique()
                 ->all();
+            $lineupPracticeIds = PracticeLineUp::where('user_id', '=', auth()->id())
+                ->pluck('practice_id')
+                ->unique()
+                ->all();
             $data = Practice::with('cage', 'cageMeta', 'team')
-                ->where('user_id', '=', auth()->id())
-                ->orWhereIn('id', $practicesId)
+                ->where('type', '=', PracticeTypes::CAGE->value)
+                ->where(function ($query) use ($practicesId, $lineupPracticeIds): void {
+                    $query->where('user_id', '=', auth()->id())
+                        ->orWhereIn('id', $practicesId)
+                        ->orWhereIn('id', $lineupPracticeIds);
+                })
                 ->paginate();
-            if(0 === $data->count()) {
-                throw new NotFound();
-            }
             $response = [
                 'code' => '051',
                 'message' => '',
