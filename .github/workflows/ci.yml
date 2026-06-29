@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    name: Frontend (build + unit tests)
+    runs-on: ubuntu-latest
+    env:
+      # Required by EnvironmentPlugin in vite.config; value is irrelevant for a build check.
+      API_ENDPOINT: https://app.fmtrx.com/api/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Build (catches compile errors)
+        run: npm run build
+      - name: Unit tests (Vitest)
+        run: npm test
+
+  backend:
+    name: Backend (migrations on MariaDB)
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        # Pin this to your production MariaDB version to catch engine-specific
+        # DDL issues (e.g. the json column that failed on prod) before deploy.
+        image: mariadb:10.6
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: fmtrx_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: fmtrx_test
+      DB_USERNAME: root
+      DB_PASSWORD: root
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, dom, pdo, pdo_mysql, bcmath, fileinfo
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Prepare app
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Run migrations against MariaDB
+        run: php artisan migrate --force

@@ -167,7 +167,10 @@ export function buildFocusAreas(scores) {
 }
 
 const addDays = (dateStr, days) => {
-  const base = dateStr ? new Date(dateStr) : new Date();
+  // Parse YYYY-MM-DD as a LOCAL date so the result isn't a day early in negative
+  // timezones (new Date('YYYY-MM-DD') would parse as UTC midnight).
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(dateStr || ''));
+  const base = m ? new Date(+m[1], +m[2] - 1, +m[3]) : (dateStr ? new Date(dateStr) : new Date());
   if (Number.isNaN(base.getTime())) return '';
   const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + days);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
