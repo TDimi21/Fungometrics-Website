@@ -25,6 +25,9 @@ use App\Http\Controllers\Api\Coach\GetPlayersList;
 use App\Http\Controllers\Api\Coach\GetPracticePlans;
 use App\Http\Controllers\Api\Coach\SavePracticePlan;
 use App\Http\Controllers\Api\Coach\DeletePracticePlan;
+use App\Http\Controllers\Api\Coach\AssessmentDraftController;
+use App\Http\Controllers\Api\Coach\AssessmentInsightController;
+use App\Http\Controllers\Api\Coach\TeamInsightController;
 use App\Http\Controllers\Api\Coach\GetTeamById;
 use App\Http\Controllers\Api\Coach\GetTeamCode;
 use App\Http\Controllers\Api\Coach\GetPlayerDevelopmentBoard;
@@ -199,6 +202,14 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/practice-plans', GetPracticePlans::class);
         Route::post('/practice-plans', SavePracticePlan::class);
         Route::delete('/practice-plans/{id}', DeletePracticePlan::class);
+
+        // Synced (team-shared) replacements for localStorage-only data
+        Route::post('/assessments/{id}/insights', [AssessmentInsightController::class, 'update']);
+        Route::get('/assessment-drafts/{player}', [AssessmentDraftController::class, 'show']);
+        Route::post('/assessment-drafts', [AssessmentDraftController::class, 'store']);
+        Route::delete('/assessment-drafts/{player}', [AssessmentDraftController::class, 'destroy']);
+        Route::get('/teams/{id}/practice-insight', [TeamInsightController::class, 'show']);
+        Route::post('/teams/{id}/practice-insight', [TeamInsightController::class, 'update']);
     });
 });
 

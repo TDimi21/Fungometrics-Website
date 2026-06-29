@@ -1813,16 +1813,29 @@ const fetchTeamInsight = async () => {
     const rows = res?.data?.data
     teamInsight.value = buildTeamInsight(Array.isArray(rows) ? rows : [])
   } catch { teamInsight.value = null }
-  try { teamInsightEdited.value = localStorage.getItem(teamInsightKey()) || '' } catch (_) { teamInsightEdited.value = '' }
+  // Coach override is team-shared (server), with local cache as offline fallback.
+  let override = ''
+  try {
+    const r = await axiosGet(`coach/teams/${teamId}/practice-insight`)
+    override = r?.data?.data?.practice_insight || ''
+    try { localStorage.setItem(teamInsightKey(), override) } catch (_) { /* noop */ }
+  } catch {
+    try { override = localStorage.getItem(teamInsightKey()) || '' } catch (_) { override = '' }
+  }
+  teamInsightEdited.value = override
   teamInsightEditing.value = false
 }
-const saveTeamInsight = () => {
+const saveTeamInsight = async () => {
+  const teamId = activeTeamId.value
   try { localStorage.setItem(teamInsightKey(), teamInsightEdited.value) } catch (_) { /* noop */ }
+  try { await axiosPost(`coach/teams/${teamId}/practice-insight`, { practice_insight: teamInsightEdited.value }) } catch (_) { /* offline — local cache kept */ }
   teamInsightEditing.value = false
 }
-const resetTeamInsight = () => {
+const resetTeamInsight = async () => {
+  const teamId = activeTeamId.value
   try { localStorage.removeItem(teamInsightKey()) } catch (_) { /* noop */ }
   teamInsightEdited.value = ''
+  try { await axiosPost(`coach/teams/${teamId}/practice-insight`, { practice_insight: null }) } catch (_) { /* offline */ }
   teamInsightEditing.value = false
 }
 const startEditTeamInsight = () => {

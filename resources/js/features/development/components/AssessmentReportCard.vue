@@ -9,6 +9,9 @@ import { computed, ref, watch, nextTick } from 'vue'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 import { formatDOB } from '@/utils/dob.js'
 import { buildPlayerInsights } from '@/features/development/lib/assessmentInsights.js'
+import { useAxiosAuth } from '@/composables/axios-auth.js'
+
+const { axiosPost } = useAxiosAuth()
 
 const props = defineProps({
   report: { type: Object, default: null },
@@ -209,10 +212,16 @@ const insightKey = () => `fmtrx_insights_${props.report?.id || 'unknown'}`
 
 const loadInsights = () => {
   const base = cloneEditable(generated.value)
-  try {
-    const raw = localStorage.getItem(insightKey())
-    if (raw) Object.assign(base, JSON.parse(raw))
-  } catch (_) { /* ignore corrupt override */ }
+  // Server override (team-shared) wins; fall back to the local cache offline.
+  const server = props.report?.coach_insights
+  if (server && typeof server === 'object') {
+    Object.assign(base, server)
+  } else {
+    try {
+      const raw = localStorage.getItem(insightKey())
+      if (raw) Object.assign(base, JSON.parse(raw))
+    } catch (_) { /* ignore corrupt override */ }
+  }
   edited.value = base
   editing.value = false
 }
@@ -220,17 +229,26 @@ watch(() => props.report?.id, loadInsights, { immediate: true })
 
 const insights = computed(() => edited.value)
 const isEdited = computed(() => {
+  if (props.report?.coach_insights && typeof props.report.coach_insights === 'object') return true
   try { return !!localStorage.getItem(insightKey()) } catch (_) { return false }
 })
 
-const saveInsights = () => {
-  try { localStorage.setItem(insightKey(), JSON.stringify(edited.value)) } catch (_) { /* noop */ }
+const saveInsights = async () => {
   editing.value = false
+  try { localStorage.setItem(insightKey(), JSON.stringify(edited.value)) } catch (_) { /* noop */ }
+  try {
+    await axiosPost(`coach/assessments/${props.report?.id}/insights`, { coach_insights: edited.value })
+    if (props.report) props.report.coach_insights = JSON.parse(JSON.stringify(edited.value))
+  } catch (_) { /* offline — local cache kept, will sync on next save */ }
 }
-const resetInsights = () => {
+const resetInsights = async () => {
+  editing.value = false
   try { localStorage.removeItem(insightKey()) } catch (_) { /* noop */ }
   edited.value = cloneEditable(generated.value)
-  editing.value = false
+  try {
+    await axiosPost(`coach/assessments/${props.report?.id}/insights`, { coach_insights: null })
+    if (props.report) props.report.coach_insights = null
+  } catch (_) { /* offline */ }
 }
 // Edit list fields (strengths/limiters/priorities) as newline-separated text.
 const linesGet = (arr) => (Array.isArray(arr) ? arr.join('\n') : '')

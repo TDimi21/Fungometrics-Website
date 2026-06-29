@@ -32,6 +32,7 @@ class Team extends Model
         'join_code',
         'is_dummy',
         'owner_team_id',
+        'practice_insight',
     ];
 
     public static function generateJoinCode(): string

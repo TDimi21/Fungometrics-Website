@@ -75,6 +75,7 @@ class PlayerAssessment extends Model
         'hitting_data',
         'pitching_score',
         'pitching_data',
+        'coach_insights',
         'notes',
     ];
 
@@ -135,6 +136,23 @@ class PlayerAssessment extends Model
     }
 
     public function getPitchingDataAttribute($value)
+    {
+        if (is_array($value) || $value === null) {
+            return $value;
+        }
+        $decoded = json_decode((string) $value, true);
+
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
+    }
+
+    public function setCoachInsightsAttribute($value): void
+    {
+        $this->attributes['coach_insights'] = is_array($value)
+            ? json_encode($value)
+            : $value;
+    }
+
+    public function getCoachInsightsAttribute($value)
     {
         if (is_array($value) || $value === null) {
             return $value;

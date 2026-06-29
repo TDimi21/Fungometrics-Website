@@ -5,7 +5,7 @@ import {
 } from '@/features/development/lib/fmtrxAssessmentScore.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 
-const { axiosPost } = useAxiosAuth()
+const { axiosPost, axiosGet, axiosDelete } = useAxiosAuth()
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -92,31 +92,56 @@ const flashDraftMsg = (text) => {
   if (draftMsgTimer) clearTimeout(draftMsgTimer)
   draftMsgTimer = setTimeout(() => { draftMsg.value = '' }, 2500)
 }
-const loadDraft = (id = activePlayerId.value) => {
+const applyDraftData = (saved) => {
   Object.assign(form, blankForm())
-  try {
-    const raw = localStorage.getItem(draftKey(id))
-    if (raw) {
-      const saved = JSON.parse(raw)
-      Object.assign(form, saved)
-      if (!Array.isArray(form.pitch_types)) form.pitch_types = []
-      if (!form.pitch_grades || typeof form.pitch_grades !== 'object') form.pitch_grades = {}
-    }
-  } catch (_) { /* ignore corrupt draft */ }
+  if (saved && typeof saved === 'object') {
+    Object.assign(form, saved)
+    if (!Array.isArray(form.pitch_types)) form.pitch_types = []
+    if (!form.pitch_grades || typeof form.pitch_grades !== 'object') form.pitch_grades = {}
+  }
   // Reset dirty after the deep watcher has flushed the programmatic changes.
   applyingDraft = true
   nextTick(() => { applyingDraft = false; dirty.value = false })
 }
-const saveDraft = () => {
+const loadDraft = async (id = activePlayerId.value) => {
+  // Server draft (team-shared) first, then the local cache when offline.
+  let saved = null
   try {
-    localStorage.setItem(draftKey(), JSON.stringify(form))
-    dirty.value = false
-    flashDraftMsg('Draft saved — you can switch players and come back.')
-  } catch (_) {
-    flashDraftMsg('Could not save draft (storage unavailable).')
+    const res = await axiosGet(`coach/assessment-drafts/${id}`)
+    const draft = res?.data?.data
+    if (draft && draft.data) {
+      saved = draft.data
+      try { localStorage.setItem(draftKey(id), JSON.stringify(saved)) } catch (_) { /* noop */ }
+    }
+  } catch (_) { /* offline — fall back to local */ }
+  if (!saved) {
+    try {
+      const raw = localStorage.getItem(draftKey(id))
+      if (raw) saved = JSON.parse(raw)
+    } catch (_) { /* ignore corrupt draft */ }
   }
+  applyDraftData(saved)
 }
-const clearDraft = () => { try { localStorage.removeItem(draftKey()) } catch (_) { /* noop */ } }
+const saveDraft = async () => {
+  const snapshot = JSON.parse(JSON.stringify(form))
+  try { localStorage.setItem(draftKey(), JSON.stringify(snapshot)) } catch (_) { /* noop */ }
+  dirty.value = false
+  let synced = false
+  try {
+    await axiosPost('coach/assessment-drafts', {
+      user_id: String(activePlayerId.value),
+      team_id: props.teamId ? String(props.teamId) : null,
+      data: snapshot,
+    })
+    synced = true
+  } catch (_) { /* offline */ }
+  flashDraftMsg(synced ? 'Draft saved & synced — switch players and come back.' : 'Draft saved locally (offline).')
+}
+const clearDraft = async () => {
+  const id = activePlayerId.value
+  try { localStorage.removeItem(draftKey(id)) } catch (_) { /* noop */ }
+  try { await axiosDelete('coach/assessment-drafts/', id) } catch (_) { /* offline */ }
+}
 
 const hasSavedDraft = computed(() => {
   try { return !!localStorage.getItem(draftKey()) } catch (_) { return false }
