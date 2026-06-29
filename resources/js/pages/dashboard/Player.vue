@@ -648,6 +648,10 @@ const openSessionReports = () => {
   router.push({ name: 'sessions.all', query: { scope: 'player' } })
 }
 
+const openAssessmentReports = () => {
+  router.push({ name: 'assessment.reports', query: { scope: 'player' } })
+}
+
 const sessionCounts = computed(() => {
   const weighted = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === 'WB')
   const ev = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === 'EV')
@@ -1331,6 +1335,14 @@ onMounted(loadData)
                   class="flex w-full items-center justify-center rounded-xl border border-[#8C234A]/80 bg-[#8C234A] px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
                 >
                   Session Reports ›
+                </button>
+
+                <button
+                  type="button"
+                  @click="openAssessmentReports"
+                  class="flex w-full items-center justify-center rounded-xl border border-sky-400/60 bg-sky-500/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
+                >
+                  Assessment Reports ›
                 </button>
               </div>
 

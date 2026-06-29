@@ -3,18 +3,29 @@ import { computed, onMounted, ref, watch } from 'vue'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
+import { useUserStore } from '@/store/user'
 import { storeToRefs } from 'pinia'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const { axiosGet } = useAxiosAuth()
 const teamStore = useTeamStore()
+const userStore = useUserStore()
 const { team } = storeToRefs(teamStore)
+const { userData } = storeToRefs(userStore)
 
 const loading = ref(false)
 const rows = ref([])
 const selected = ref(null)
 
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
+const isPlayerUser = computed(() => String(userData.value?.type || '').toLowerCase() === 'player')
+const activePlayerId = computed(() => (
+  userData.value?.player?.id ||
+  userData.value?.user?.player?.id ||
+  userData.value?.user?.id ||
+  userData.value?.id ||
+  null
+))
 
 const parseData = (value) => {
   if (!value) return {}
@@ -200,7 +211,13 @@ const printPitchGrades = computed(() => pitchOrder
   .filter(([, value]) => value !== null && value !== undefined && value !== ''))
 
 const loadReports = async () => {
-  if (!activeTeamId.value) {
+  if (isPlayerUser.value && !activePlayerId.value) {
+    rows.value = []
+    selected.value = null
+    return
+  }
+
+  if (!isPlayerUser.value && !activeTeamId.value) {
     rows.value = []
     selected.value = null
     return
@@ -208,7 +225,10 @@ const loadReports = async () => {
 
   loading.value = true
   try {
-    const { data } = await axiosGet(`assessments/team/${activeTeamId.value}?all=1`)
+    const endpoint = isPlayerUser.value
+      ? `assessments/player/${activePlayerId.value}`
+      : `assessments/team/${activeTeamId.value}?all=1`
+    const { data } = await axiosGet(endpoint)
     rows.value = data?.data ?? []
     selected.value = rows.value[0] ?? null
   } catch {
@@ -223,6 +243,7 @@ const printReport = () => window.print()
 
 onMounted(loadReports)
 watch(activeTeamId, loadReports)
+watch(activePlayerId, loadReports)
 </script>
 
 <template>
