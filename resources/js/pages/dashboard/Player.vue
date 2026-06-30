@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { parseDOB, resolveBornValue } from '@/utils/dob.js'
 import Layout from '@/layout/Layout.vue'
 import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
+import ArmCarePanel from '@/components/training/ArmCarePanel.vue'
 import { useUserStore } from '@/store/user'
 import { useAxiosAuth } from '@/composables/axios-auth'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
@@ -17,6 +18,15 @@ const loading = ref(false)
 const connectionMessage = ref('')
 const activeTopTab = ref('stats')
 const activeStatTab = ref('bp')
+const lastStatTab = ref('bp')
+const toggleArmCare = () => {
+  if (activeStatTab.value === 'armCare') {
+    activeStatTab.value = lastStatTab.value
+  } else {
+    lastStatTab.value = activeStatTab.value
+    activeStatTab.value = 'armCare'
+  }
+}
 const isOpenPlayerMetricsModal = ref(false)
 const isOpeningPlayerMetricsModal = ref(false)
 const playerMetricsRows = ref([])
@@ -1449,8 +1459,31 @@ onMounted(loadData)
 
           <div class="rounded-2xl border border-white/10 bg-[#0b1230]/75 p-4">
             <div class="sticky top-0 z-30 -mx-4 mb-4 border-b border-white/10 bg-[#0b1230]/95 px-4 pb-3 pt-1 backdrop-blur">
-              <h2 class="text-lg font-black tracking-wide mb-3">Stats</h2>
-              <div class="flex flex-wrap gap-2">
+              <div class="mb-4 flex justify-center">
+                <div class="relative flex w-full max-w-sm rounded-2xl border border-white/15 bg-[#0b1230] p-1.5 shadow-lg">
+                  <span
+                    class="absolute inset-y-1.5 left-1.5 w-[calc(50%-0.375rem)] rounded-xl bg-[#ff2d55] shadow-md transition-transform duration-300 ease-out"
+                    :class="activeStatTab === 'armCare' ? 'translate-x-full' : 'translate-x-0'"
+                  ></span>
+                  <button
+                    type="button"
+                    class="relative z-10 flex-1 rounded-xl py-3.5 text-base font-black uppercase tracking-wide transition-colors duration-200"
+                    :class="activeStatTab !== 'armCare' ? 'text-white' : 'text-white/55'"
+                    @click="activeStatTab === 'armCare' && toggleArmCare()"
+                  >
+                    Stats
+                  </button>
+                  <button
+                    type="button"
+                    class="relative z-10 flex-1 rounded-xl py-3.5 text-base font-black uppercase tracking-wide transition-colors duration-200"
+                    :class="activeStatTab === 'armCare' ? 'text-white' : 'text-white/55'"
+                    @click="activeStatTab !== 'armCare' && toggleArmCare()"
+                  >
+                    Arm Care
+                  </button>
+                </div>
+              </div>
+              <div v-if="activeStatTab !== 'armCare'" class="flex flex-wrap justify-center gap-2">
                 <button
                   v-for="tab in statTabs"
                   :key="tab.key"
@@ -1466,6 +1499,9 @@ onMounted(loadData)
           <div v-if="loading" class="py-10 text-center text-white/50">Loading player stats…</div>
 
           <div v-else class="space-y-3">
+            <ArmCarePanel v-if="activeStatTab === 'armCare'" />
+
+            <template v-else>
             <div
               v-if="activeStatTab === 'bp'"
               class="rounded-xl border border-white/10 bg-white/5 px-4 py-3"
@@ -1791,6 +1827,7 @@ onMounted(loadData)
                 <span class="text-[#22c55e]">Great</span>
               </div>
             </div>
+            </template>
           </div>
           </div>
         </section>
