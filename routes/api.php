@@ -110,6 +110,8 @@ use App\Http\Controllers\Api\Training\Result\SaveExitVelocityResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveLiveABResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveLongTossResultPractice;
 use App\Http\Controllers\Api\Training\Result\SaveWeightBallResultPractice;
+use App\Http\Controllers\Api\Training\Result\SaveArmCareResultPractice;
+use App\Http\Controllers\Api\Training\Result\GetArmCareResults;
 use App\Http\Controllers\Api\Training\Result\SaveScriptedBpPlan;
 use App\Http\Controllers\Api\Training\Result\SaveScriptedBpSwing;
 use App\Http\Controllers\Api\Sessions\Results\GetScriptedBpResults;
@@ -258,6 +260,10 @@ Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
     Route::middleware('plan:weighted_ball_sessions')->get('/weightball/{uuid}', GetWeightBallResultPractice::class);
     Route::middleware('plan:weighted_ball_sessions')->post('/weightball', SaveWeightBallResultPractice::class);
     Route::middleware('plan:weighted_ball_sessions')->put('/weightball/{uuid}', EditWeightBallResultPractice::class);
+
+    // ── Arm Care / Throwing Prep ───────────────────────────────────────────────
+    Route::get('/armcare', GetArmCareResults::class);
+    Route::post('/armcare', SaveArmCareResultPractice::class);
 
     // ── Scripted BP ──────────────────────────────────────────────────────────
     Route::post('/scripted-bp/plan', SaveScriptedBpPlan::class);
