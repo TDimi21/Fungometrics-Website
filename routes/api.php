@@ -262,8 +262,9 @@ Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
     Route::middleware('plan:weighted_ball_sessions')->put('/weightball/{uuid}', EditWeightBallResultPractice::class);
 
     // ── Arm Care / Throwing Prep ───────────────────────────────────────────────
-    Route::get('/armcare', GetArmCareResults::class);
-    Route::post('/armcare', SaveArmCareResultPractice::class);
+    // Locked on free; available on Player Basic+ (and Coach Pro).
+    Route::middleware('plan:arm_care')->get('/armcare', GetArmCareResults::class);
+    Route::middleware('plan:arm_care')->post('/armcare', SaveArmCareResultPractice::class);
 
     // ── Scripted BP ──────────────────────────────────────────────────────────
     Route::post('/scripted-bp/plan', SaveScriptedBpPlan::class);

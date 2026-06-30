@@ -62,6 +62,8 @@ class RequiresPlan
             'ai_analytics',
             // Session reports (all 7)
             'view_session_report',
+            // Arm care
+            'arm_care',
             // Live AB premium
             'liveab_analytics',
             'box_score',
@@ -85,6 +87,7 @@ class RequiresPlan
             'view_own_profile',
             'view_own_sessions',
             'personal_stats',
+            'arm_care',
             'notifications',
             'recent_sessions',
         ],
@@ -94,6 +97,7 @@ class RequiresPlan
             'view_own_profile',
             'view_own_sessions',
             'personal_stats',
+            'arm_care',
             'notifications',
             'recent_sessions',
             // Advanced session types

@@ -21,12 +21,41 @@ class RemoveCoachFromTeam extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         try {
-            $remove = CoachTeam::findOrFail($request->id)->forceDelete();
+            $target = CoachTeam::findOrFail($request->id);
+            $actor = $request->user();
+
+            // Only a head coach of THIS team may remove coaches.
+            // Scoping to $target->team_id also closes the cross-team IDOR.
+            if (! CoachUtils::isHeadCoach($actor->id, $target->team_id)) {
+                return response()->json([
+                    'code' => '056-ROLE',
+                    'message' => 'Only the head coach can remove coaches from this team.',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_FORBIDDEN);
+            }
+
+            // Never strand a team without a head coach.
+            if ($target->is_main) {
+                $headCount = CoachTeam::where('team_id', $target->team_id)
+                    ->where('is_main', true)
+                    ->count();
+                if ($headCount <= 1) {
+                    return response()->json([
+                        'code' => '056-LASTHEAD',
+                        'message' => 'You cannot remove the only head coach. Assign another head coach first.',
+                        'status' => 'error',
+                        'data' => [],
+                    ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+                }
+            }
+
+            $target->forceDelete();
             $response = [
                 'code' => '056',
                 'message' => 'coach remove from team',
                 'status' => 'success',
-                'data' => $remove,
+                'data' => true,
             ];
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {

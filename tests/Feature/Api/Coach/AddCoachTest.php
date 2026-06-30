@@ -48,6 +48,12 @@ class AddCoachTest extends TestCase
     {
         $user = User::factory()->create(['type' => UserTypes::COACH->value]);
         $team_coach = Team::factory()->create();
+        // Actor must be the head coach of the team to manage coach seats.
+        CoachTeam::factory()->create([
+            'coach_id' => $user->id,
+            'team_id' => $team_coach->id,
+            'is_main' => true,
+        ]);
         $coach = User::factory()->create(['type' => UserTypes::COACH->value]);
         Profile::factory()->create([
             'user_id' => $coach->id,
@@ -66,6 +72,54 @@ class AddCoachTest extends TestCase
         $response = $this->json('POST', 'api/coach/add/coaches', $data);
         $response->assertOk();
         Event::assertDispatched(UserChanged::class);
+    }
+
+    public function test_add_coach_forbidden_when_not_head_coach(): void
+    {
+        // Actor is an assistant (is_main = false) on the team.
+        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create([
+            'coach_id' => $user->id,
+            'team_id' => $team->id,
+            'is_main' => false,
+        ]);
+        Sanctum::actingAs($user, [UserTypes::COACH->value]);
+
+        $response = $this->json('POST', 'api/coach/add/coaches', [
+            'phone' => fake()->phoneNumber,
+            'team' => $team->id,
+            'name' => ['first' => fake()->firstName, 'last' => fake()->lastName],
+        ]);
+        $response->assertForbidden();
+    }
+
+    public function test_add_coach_blocked_at_seat_limit(): void
+    {
+        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $team = Team::factory()->create();
+        // Head coach (1 seat) on a non-pro plan.
+        CoachTeam::factory()->create([
+            'coach_id' => $user->id,
+            'team_id' => $team->id,
+            'is_main' => true,
+        ]);
+        // Fill the remaining seats up to the limit.
+        for ($i = 1; $i < \App\Http\Controllers\Api\Coach\CoachUtils::COACH_SEAT_LIMIT; $i++) {
+            CoachTeam::factory()->create([
+                'team_id' => $team->id,
+                'is_main' => false,
+            ]);
+        }
+        Sanctum::actingAs($user, [UserTypes::COACH->value]);
+
+        $response = $this->json('POST', 'api/coach/add/coaches', [
+            'phone' => fake()->phoneNumber,
+            'team' => $team->id,
+            'name' => ['first' => fake()->firstName, 'last' => fake()->lastName],
+        ]);
+        $response->assertForbidden();
+        $this->assertSame('005-LIMIT', $response->json('code'));
     }
 
     public function test_add_exist_coach_validations(): void

@@ -18,6 +18,59 @@ use Illuminate\Database\Eloquent\Model;
 
 class CoachUtils
 {
+    /** Coaches included per team before an upgrade is required. */
+    public const COACH_SEAT_LIMIT = 5;
+
+    /** True if the user has any (active) coach link to the team. */
+    public static function isCoachOnTeam(string $userId, string $teamId): bool
+    {
+        return CoachTeam::where('coach_id', $userId)
+            ->where('team_id', $teamId)
+            ->exists();
+    }
+
+    /** True if the user is a head (main) coach of the team. */
+    public static function isHeadCoach(string $userId, string $teamId): bool
+    {
+        return CoachTeam::where('coach_id', $userId)
+            ->where('team_id', $teamId)
+            ->where('is_main', true)
+            ->exists();
+    }
+
+    /**
+     * Subscription plan that governs the team's capacity: the head coach's plan.
+     * Falls back to 'free' when no head coach is resolvable.
+     */
+    public static function teamHeadCoachPlan(string $teamId): string
+    {
+        $main = CoachTeam::where('team_id', $teamId)
+            ->where('is_main', true)
+            ->first();
+
+        if ($main) {
+            $headPlan = User::find($main->coach_id)?->subscription_plan;
+            if ($headPlan) {
+                return $headPlan;
+            }
+        }
+
+        return 'free';
+    }
+
+    /**
+     * True if adding another coach would exceed the team's seat allowance.
+     * Coach Pro lifts the cap entirely.
+     */
+    public static function coachSeatLimitReached(string $teamId): bool
+    {
+        if (self::teamHeadCoachPlan($teamId) === 'coach_pro') {
+            return false;
+        }
+
+        return CoachTeam::where('team_id', $teamId)->count() >= self::COACH_SEAT_LIMIT;
+    }
+
     /**
      * @param  array  $data
      * @param  string  $type

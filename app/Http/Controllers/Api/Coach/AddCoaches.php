@@ -29,29 +29,31 @@ class AddCoaches extends Controller
         try {
             DB::beginTransaction();
             $data = $request->validated();
-            $user = (new ListServiceData(new User()))->byParamFirst('phone', $data['phone']);
+            $teamId = $data['team'];
+            $actor = $request->user();
 
-            if ( ! isset($user)) {
-                $savePlayer = CoachUtils::saveNewUser($data, UserTypes::COACH->value);
-                event(new UserCreated($savePlayer['user']));
+            // ── Role gate: only the head coach manages coach seats ──
+            if (! CoachUtils::isHeadCoach($actor->id, $teamId)) {
+                DB::rollBack();
+                return response()->json([
+                    'code' => '005-ROLE',
+                    'message' => 'Only the head coach can add coaches to this team.',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_FORBIDDEN);
             }
 
-            if (isset($user)) {
-                // Ensure existing user is promoted to coach type
-                if ($user->type !== UserTypes::COACH->value) {
-                    $user->update(['type' => UserTypes::COACH->value]);
-                }
+            $user = (new ListServiceData(new User()))->byParamFirst('phone', $data['phone']);
 
-                // Avoid duplicate CoachTeam record — also restore if soft-deleted
+            // Coach already actively on this team → no-op success, no seat consumed.
+            $existing = null;
+            if (isset($user)) {
                 $existing = CoachTeam::withTrashed()
                     ->where('coach_id', $user->id)
-                    ->where('team_id', $data['team'])
+                    ->where('team_id', $teamId)
                     ->first();
 
-                if ($existing) {
-                    if ($existing->trashed()) {
-                        $existing->restore();
-                    }
+                if ($existing && ! $existing->trashed()) {
                     DB::commit();
                     return response()->json([
                         'code' => '005',
@@ -60,12 +62,38 @@ class AddCoaches extends Controller
                         'data' => [],
                     ], HttpCodes::HTTP_OK);
                 }
+            }
 
-                (new CreateServiceData(new CoachTeam()))->handle([
-                    'team_id' => $data['team'],
-                    'coach_id' => $user->id,
-                    'is_main' => false,
-                ]);
+            // ── Seat limit: 5 coaches per team unless the head coach is on Coach Pro ──
+            if (CoachUtils::coachSeatLimitReached($teamId)) {
+                DB::rollBack();
+                return response()->json([
+                    'code' => '005-LIMIT',
+                    'message' => 'This team has reached its ' . CoachUtils::COACH_SEAT_LIMIT
+                        . '-coach limit. Upgrade to Coach Pro to add more coaches.',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_FORBIDDEN);
+            }
+
+            if (! isset($user)) {
+                $saved = CoachUtils::saveNewUser($data, UserTypes::COACH->value);
+                event(new UserCreated($saved['user']));
+            } else {
+                // Ensure existing user is promoted to coach type
+                if ($user->type !== UserTypes::COACH->value) {
+                    $user->update(['type' => UserTypes::COACH->value]);
+                }
+
+                if ($existing && $existing->trashed()) {
+                    $existing->restore();
+                } else {
+                    (new CreateServiceData(new CoachTeam()))->handle([
+                        'team_id' => $teamId,
+                        'coach_id' => $user->id,
+                        'is_main' => false,
+                    ]);
+                }
             }
 
             $response = [

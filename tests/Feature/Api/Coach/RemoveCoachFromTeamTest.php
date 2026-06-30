@@ -20,6 +20,12 @@ class RemoveCoachFromTeamTest extends TestCase
 
         $coach = User::factory()->create(['type'=>UserTypes::COACH->value]);
         $team = Team::factory()->create();
+        // Actor must be the head coach of this team to remove coaches.
+        CoachTeam::factory()->create([
+            'team_id' => $team->id,
+            'coach_id' => $user->id,
+            'is_main' => true,
+        ]);
         $teamCoach = CoachTeam::factory()->create([
             'team_id' => $team->id,
             'coach_id' => $coach->id,
@@ -28,6 +34,44 @@ class RemoveCoachFromTeamTest extends TestCase
         $response = $this->json('DELETE', 'api/coach/remove/coach/'.$teamCoach->id);
         $response->assertOk();
 
+    }
+
+    public function test_remove_coach_forbidden_when_not_head(): void
+    {
+        // Actor is only an assistant on the team → cannot remove coaches.
+        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        Sanctum::actingAs($user, [UserTypes::COACH->value]);
+
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create([
+            'team_id' => $team->id,
+            'coach_id' => $user->id,
+            'is_main' => false,
+        ]);
+        $coach = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $teamCoach = CoachTeam::factory()->create([
+            'team_id' => $team->id,
+            'coach_id' => $coach->id,
+            'is_main' => false,
+        ]);
+        $response = $this->json('DELETE', 'api/coach/remove/coach/'.$teamCoach->id);
+        $response->assertForbidden();
+    }
+
+    public function test_cannot_remove_only_head_coach(): void
+    {
+        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        Sanctum::actingAs($user, [UserTypes::COACH->value]);
+
+        $team = Team::factory()->create();
+        // The actor is the sole head coach and is the removal target.
+        $teamCoach = CoachTeam::factory()->create([
+            'team_id' => $team->id,
+            'coach_id' => $user->id,
+            'is_main' => true,
+        ]);
+        $response = $this->json('DELETE', 'api/coach/remove/coach/'.$teamCoach->id);
+        $response->assertStatus(\Symfony\Component\HttpFoundation\Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     public function test_remove_coach_from_team_fail(): void

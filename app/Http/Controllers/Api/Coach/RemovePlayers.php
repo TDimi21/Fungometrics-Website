@@ -22,6 +22,17 @@ class RemovePlayers extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         try {
+            // Only a head coach of THIS team may remove players.
+            // Scoping to $request->team also closes the cross-team IDOR.
+            if (! CoachUtils::isHeadCoach($request->user()->id, $request->team)) {
+                return response()->json([
+                    'code' => '034-ROLE',
+                    'message' => 'Only the head coach can remove players from this team.',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_FORBIDDEN);
+            }
+
             $playerTeam = PlayerTeam::where([
                 'team_id' => $request->team,
                 'user_id' => $request->player
