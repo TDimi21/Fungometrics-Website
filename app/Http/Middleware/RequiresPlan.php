@@ -22,6 +22,7 @@ class RequiresPlan
             'view_session_history',
             'roster_view',
             'invite_players',           // max 10 (enforced in AddPlayers controller)
+            'add_coaches',              // up to 5 coaches/team (seat cap in AddCoaches controller)
             'notifications',
             'recent_sessions',
         ],
@@ -33,6 +34,7 @@ class RequiresPlan
             'view_session_history',
             'roster_view',
             'invite_players',
+            'add_coaches',
             'notifications',
             'recent_sessions',
         ],
