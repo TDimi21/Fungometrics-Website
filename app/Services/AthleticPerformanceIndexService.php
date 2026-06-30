@@ -14,8 +14,55 @@ use Illuminate\Support\Arr;
 
 class AthleticPerformanceIndexService
 {
+    /**
+     * Metric fields that should be coalesced from history (latest non-zero wins).
+     */
+    private const COALESCE_FIELDS = [
+        'body_weight', 'front_squat', 'back_squat', 'bench_press', 'dead_lift',
+        'power_clean', 'hand_strength', 'push_ups', 'pull_ups', 'vertical_jump',
+        'broad_jump', 'med_ball_rotational_throw', 'sprint_10yd', 'yd_40_dash',
+        'yd_60_dash', 'exit_velo', 'bat_speed', 'throwing_velo', 'pitch_velo',
+        'sleep_hours', 'sleep_quality_1_to_5', 'recovery_score', 'mobility_score',
+    ];
+
+    /**
+     * Each save writes only the entered fields (others null/0), so a single row
+     * is an incomplete picture. Build a virtual assessment that carries the
+     * latest known (positive) value per metric across the player's history, so
+     * the score reflects everything on record — not just the last entry.
+     */
+    private function coalesceFitness(PlayerFitness $assessment): PlayerFitness
+    {
+        $history = PlayerFitness::query()
+            ->where('user_id', (string) $assessment->user_id)
+            ->orderByDesc('fitness_date')
+            ->orderByDesc('created_at')
+            ->limit(30)
+            ->get();
+
+        $merged = $assessment->replicate();
+        $merged->id = $assessment->id; // keep linkage for assessment_id
+
+        foreach (self::COALESCE_FIELDS as $field) {
+            if ($this->toFloat($merged->{$field}) > 0) {
+                continue;
+            }
+            foreach ($history as $row) {
+                if ($this->toFloat($row->{$field}) > 0) {
+                    $merged->{$field} = $row->{$field};
+                    break;
+                }
+            }
+        }
+
+        return $merged;
+    }
+
     public function calculate(PlayerFitness $assessment): array
     {
+        // Score from the latest KNOWN value per metric, not just this row.
+        $assessment = $this->coalesceFitness($assessment);
+
         $role = $this->resolveRole((string) $assessment->user_id);
         $ageYears = $this->resolveAgeYears((string) $assessment->user_id, $assessment->fitness_date?->toDateString());
         $ageGroup = $this->resolveAgeGroup($ageYears);
@@ -246,6 +293,16 @@ class AthleticPerformanceIndexService
                 'calculated_at',
             ])
         );
+
+        // Mirror the canonical scores back onto the fitness row so every client
+        // (app + web) reads ONE server-computed value instead of running its own
+        // divergent formula. saveQuietly avoids re-triggering observers.
+        $strength = $payload['strength_score'] ?? null;
+        $overall = $payload['overall_api_score'] ?? null;
+        $assessment->forceFill([
+            'strength_score' => $strength !== null ? (int) round((float) $strength) : null,
+            'overall_api_score' => $overall !== null ? round((float) $overall, 2) : null,
+        ])->saveQuietly();
 
         return $score;
     }

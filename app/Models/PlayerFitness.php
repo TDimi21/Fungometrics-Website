@@ -46,6 +46,7 @@ class PlayerFitness extends Model
         'recovery_score',
         'mobility_score',
         'strength_score',
+        'overall_api_score',
         'pull_ups',
         'push_ups',
     ];
@@ -73,6 +74,7 @@ class PlayerFitness extends Model
         'recovery_score' => 'integer',
         'mobility_score' => 'integer',
         'strength_score' => 'integer',
+        'overall_api_score' => 'float',
         'pull_ups' => 'integer',
         'push_ups' => 'integer',
     ];

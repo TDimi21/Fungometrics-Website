@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AthleticPerformanceScore;
 use App\Models\PlayerFitness;
 use App\Services\AthleticPerformanceIndexService;
+use App\Support\PlayerMetricsAccess;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,8 +22,8 @@ class GetAthleticPerformance extends Controller
         try {
             $playerId = (string) $request->route('player');
 
-            $authUser = $request->user();
-            if ($authUser && $authUser->tokenCan('player') && (string) $authUser->id !== $playerId) {
+            // Player may read their own; a coach only players on their teams.
+            if (! PlayerMetricsAccess::canAccess($request->user(), $playerId)) {
                 return response()->json([
                     'code' => '073-AUTH',
                     'message' => 'You can only access your own athletic performance',

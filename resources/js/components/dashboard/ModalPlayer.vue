@@ -194,12 +194,23 @@ import { getAuthToken } from '@/utils/authToken.js'
       pitch_velo: pickLatest('pitch_velo'),
       yd_40_dash: pickLatest('yd_40_dash'),
       yd_60_dash: pickLatest('yd_60_dash'),
+      strength_score: pickLatest('strength_score'),
     }
   })
 
   const strengthScoreBadge = computed(() => {
     const fit = latestFitnessMetrics.value
     if (!fit) return null
+
+    // Single source of truth: the server-computed strength score stored on the
+    // fitness row. Fall back to the legacy client formula only for older rows
+    // that don't have it yet.
+    const serverScore = toNum(fit.strength_score)
+    if (serverScore !== null && serverScore > 0) {
+      const rounded = parseFloat(clamp(serverScore, 0, 100).toFixed(1))
+      const tier = rounded >= 90 ? 'ELITE' : rounded >= 80 ? 'HIGH' : rounded >= 70 ? 'SOLID' : rounded >= 60 ? 'DEV' : 'NEEDS'
+      return { score: rounded, tier }
+    }
 
     const bw = toNum(fit.body_weight)
     if (!bw || bw <= 0) return null
@@ -240,30 +251,37 @@ import { getAuthToken } from '@/utils/authToken.js'
       dataForm.append('fitness_date', dataFitness.fitness_date)
     }
     dataForm.append('user_id', props.item.id)
-      // dataForm.append('fitness_date', fecha.toLocaleDateString())
-    dataForm.append('bench_press', parseInt(dataFitness.bench_press == "" || dataFitness.bench_press == undefined ? 0 : dataFitness.bench_press))
-    dataForm.append('front_squat', parseInt(dataFitness.front_squat == "" || dataFitness.front_squat == undefined ? 0 : dataFitness.front_squat))
-    dataForm.append('back_squat', parseInt(dataFitness.back_squat == "" || dataFitness.back_squat == undefined ? 0 : dataFitness.back_squat))
-    dataForm.append('power_clean', parseInt(dataFitness.power_clean == "" || dataFitness.power_clean == undefined ? 0 : dataFitness.power_clean))
-    dataForm.append('hand_strength', parseFloat(dataFitness.hand_strength == "" || dataFitness.hand_strength == undefined ? 0.0 : dataFitness.hand_strength))
-    dataForm.append('dead_lift', parseInt(dataFitness.dead_lift == "" || dataFitness.dead_lift == undefined ? 0 : dataFitness.dead_lift))
-    dataForm.append('push_ups', parseInt(dataFitness.push_ups == "" || dataFitness.push_ups == undefined ? 0 : dataFitness.push_ups))
-    dataForm.append('pull_ups', parseInt(dataFitness.pull_ups == "" || dataFitness.pull_ups == undefined ? 0 : dataFitness.pull_ups))
-    dataForm.append('vertical_jump', parseFloat(dataFitness.vertical_jump == "" || dataFitness.vertical_jump == undefined ? 0.0 : dataFitness.vertical_jump))
-    dataForm.append('broad_jump', parseFloat(dataFitness.broad_jump == "" || dataFitness.broad_jump == undefined ? 0.0 : dataFitness.broad_jump))
-    dataForm.append('med_ball_rotational_throw', parseFloat(dataFitness.med_ball_rotational_throw == "" || dataFitness.med_ball_rotational_throw == undefined ? 0.0 : dataFitness.med_ball_rotational_throw))
-    dataForm.append('sprint_10yd', parseFloat(dataFitness.sprint_10yd == "" || dataFitness.sprint_10yd == undefined ? 0.0 : dataFitness.sprint_10yd))
-    dataForm.append('exit_velo', parseFloat(dataFitness.exit_velo == "" || dataFitness.exit_velo == undefined ? 0.0 : dataFitness.exit_velo))
-    dataForm.append('bat_speed', parseFloat(dataFitness.bat_speed == "" || dataFitness.bat_speed == undefined ? 0.0 : dataFitness.bat_speed))
-    dataForm.append('throwing_velo', parseFloat(dataFitness.throwing_velo == "" || dataFitness.throwing_velo == undefined ? 0.0 : dataFitness.throwing_velo))
-    dataForm.append('pitch_velo', parseFloat(dataFitness.pitch_velo == "" || dataFitness.pitch_velo == undefined ? 0.0 : dataFitness.pitch_velo))
-    dataForm.append('yd_40_dash', parseFloat(dataFitness.yd_40_dash == "" || dataFitness.yd_40_dash == undefined ? 0.0 : dataFitness.yd_40_dash))
-    dataForm.append('yd_60_dash', parseFloat(dataFitness.yd_60_dash == "" || dataFitness.yd_60_dash == undefined ? 0.0 : dataFitness.yd_60_dash))
-    dataForm.append('body_weight', parseFloat(dataFitness.body_weight == "" || dataFitness.body_weight == undefined ? 0.0 : dataFitness.body_weight))
-    dataForm.append('sleep_hours', parseFloat(dataFitness.sleep_hours == "" || dataFitness.sleep_hours == undefined ? 0.0 : dataFitness.sleep_hours))
-    dataForm.append('sleep_quality_1_to_5', parseInt(dataFitness.sleep_quality_1_to_5 == "" || dataFitness.sleep_quality_1_to_5 == undefined ? 0 : dataFitness.sleep_quality_1_to_5))
-    dataForm.append('recovery_score', parseInt(dataFitness.recovery_score == "" || dataFitness.recovery_score == undefined ? 0 : dataFitness.recovery_score))
-    dataForm.append('mobility_score', parseInt(dataFitness.mobility_score == "" || dataFitness.mobility_score == undefined ? 0 : dataFitness.mobility_score))
+    // Only send fields the coach actually entered. Omitting blanks means a
+    // partial update never overwrites other metrics with 0 — and never trips
+    // the sleep_quality min:1 rule (blank used to send 0 and 422 the whole save).
+    const appendNum = (key, val, float = false) => {
+      if (val === "" || val === undefined || val === null) return
+      const n = float ? parseFloat(val) : parseInt(val)
+      if (!Number.isNaN(n)) dataForm.append(key, n)
+    }
+    appendNum('bench_press', dataFitness.bench_press)
+    appendNum('front_squat', dataFitness.front_squat)
+    appendNum('back_squat', dataFitness.back_squat)
+    appendNum('power_clean', dataFitness.power_clean)
+    appendNum('hand_strength', dataFitness.hand_strength, true)
+    appendNum('dead_lift', dataFitness.dead_lift)
+    appendNum('push_ups', dataFitness.push_ups)
+    appendNum('pull_ups', dataFitness.pull_ups)
+    appendNum('vertical_jump', dataFitness.vertical_jump, true)
+    appendNum('broad_jump', dataFitness.broad_jump, true)
+    appendNum('med_ball_rotational_throw', dataFitness.med_ball_rotational_throw, true)
+    appendNum('sprint_10yd', dataFitness.sprint_10yd, true)
+    appendNum('exit_velo', dataFitness.exit_velo, true)
+    appendNum('bat_speed', dataFitness.bat_speed, true)
+    appendNum('throwing_velo', dataFitness.throwing_velo, true)
+    appendNum('pitch_velo', dataFitness.pitch_velo, true)
+    appendNum('yd_40_dash', dataFitness.yd_40_dash, true)
+    appendNum('yd_60_dash', dataFitness.yd_60_dash, true)
+    appendNum('body_weight', dataFitness.body_weight, true)
+    appendNum('sleep_hours', dataFitness.sleep_hours, true)
+    appendNum('sleep_quality_1_to_5', dataFitness.sleep_quality_1_to_5)
+    appendNum('recovery_score', dataFitness.recovery_score)
+    appendNum('mobility_score', dataFitness.mobility_score)
     const config = {
       headers: { Authorization: `Bearer ${token}` }
     };

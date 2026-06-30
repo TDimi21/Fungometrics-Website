@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Player;
 
 use App\Http\Controllers\Controller;
 use App\Models\PlayerFitness;
+use App\Support\PlayerMetricsAccess;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,16 @@ class GetFitness extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         try {
+            // Player may read their own; a coach only players on their teams.
+            if (! PlayerMetricsAccess::canAccess($request->user(), (string) $request->id)) {
+                return response()->json([
+                    'code' => '040-AUTH',
+                    'message' => 'You are not allowed to view this player\'s metrics.',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_FORBIDDEN);
+            }
+
             $data = PlayerFitness::where('user_id', $request->id)->orderByDesc('fitness_date')->limit(10)->get();
             $response = [
                 'code' => '040',

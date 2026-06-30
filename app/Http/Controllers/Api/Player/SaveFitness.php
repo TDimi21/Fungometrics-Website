@@ -10,6 +10,7 @@ use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
 use App\Services\AthleticPerformanceIndexService;
 use App\Services\CreateServiceData;
+use App\Support\PlayerMetricsAccess;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,16 @@ class SaveFitness extends Controller
     public function __invoke(FitnessRequest $request): JsonResponse
     {
         try {
+            // Only the player themselves or a coach on the player's team may
+            // write these metrics — never another player.
+            if (! PlayerMetricsAccess::canAccess($request->user(), (string) $request->input('user_id'))) {
+                return response()->json([
+                    'code' => '039-AUTH',
+                    'message' => 'You are not allowed to update this player\'s metrics.',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_FORBIDDEN);
+            }
 
             $saveData = (new CreateServiceData(new PlayerFitness()))->handle($request->validated());
 

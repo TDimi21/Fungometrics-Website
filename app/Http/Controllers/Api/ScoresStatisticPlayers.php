@@ -81,15 +81,23 @@ class ScoresStatisticPlayers extends Controller
                 "body_weight" => $playerFitness->orderByDesc('fitness_date')->value('body_weight') ?? null,
             ];
 
+            // Blank fields are saved as 0 (new row per save), so averages must
+            // ignore zeros/nulls — otherwise a partial entry drags the average
+            // down. Mirrors the web's pickLatest, which also skips non-positive.
+            $avgPositive = static fn (string $field): float => $playerFitness->pluck($field)
+                ->filter(static fn ($v) => is_numeric($v) && (float) $v > 0)
+                ->map(static fn ($v) => (float) $v)
+                ->avg() ?? 0;
+
             $avg = [
                 "avg_exit_velocity" => number_format($avgExitVelocity ?? 0, 2),
-                "bench_press"=> number_format($playerFitness->pluck('bench_press')->avg()??0, 2),
-                "front_squat"=> number_format($playerFitness->pluck('front_squat')->avg()??0, 2),
-                "back_squat"=> number_format($playerFitness->pluck('back_squat')->avg()??0, 2),
-                "power_clean"=> number_format($playerFitness->pluck('power_clean')->avg()??0, 2),
-                "dead_lift"=>number_format($playerFitness->pluck('dead_lift')->avg()??0, 2),
-                "yd_40_dash"=> number_format($playerFitness->pluck('yd_40_dash')->avg()??0, 2),
-                "yd_60_dash"=> number_format($playerFitness->pluck('yd_60_dash')->avg()??0, 2),
+                "bench_press"=> number_format($avgPositive('bench_press'), 2),
+                "front_squat"=> number_format($avgPositive('front_squat'), 2),
+                "back_squat"=> number_format($avgPositive('back_squat'), 2),
+                "power_clean"=> number_format($avgPositive('power_clean'), 2),
+                "dead_lift"=> number_format($avgPositive('dead_lift'), 2),
+                "yd_40_dash"=> number_format($avgPositive('yd_40_dash'), 2),
+                "yd_60_dash"=> number_format($avgPositive('yd_60_dash'), 2),
             ];
             $response = [
                 'code' => '044',

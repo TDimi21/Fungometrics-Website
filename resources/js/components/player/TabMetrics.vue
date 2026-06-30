@@ -56,14 +56,21 @@ const submitAddFitness = async () => {
       } else {
         dataForm.append('fitness_date', dataFitness.fitness_date)
       }
-      dataForm.append('bench_press', parseInt(dataFitness.bench_press == "" || dataFitness.bench_press == undefined ? 0 : dataFitness.bench_press))
-      dataForm.append('front_squat', parseInt(dataFitness.front_squat == "" || dataFitness.front_squat == undefined ? 0 : dataFitness.front_squat))
-      dataForm.append('back_squat', parseInt(dataFitness.back_squat == "" || dataFitness.back_squat == undefined ? 0 : dataFitness.back_squat))
-      dataForm.append('power_clean', parseInt(dataFitness.power_clean == "" || dataFitness.power_clean == undefined ? 0 : dataFitness.power_clean))
-      dataForm.append('dead_lift', parseInt(dataFitness.dead_lift == "" || dataFitness.dead_lift == undefined ? 0 : dataFitness.dead_lift))
-      dataForm.append('yd_40_dash', parseFloat(dataFitness.yd_40_dash == "" || dataFitness.yd_40_dash == undefined ? 0.0 : dataFitness.yd_40_dash))
-      dataForm.append('yd_60_dash', parseFloat(dataFitness.yd_60_dash == "" || dataFitness.yd_60_dash == undefined ? 0.0 : dataFitness.yd_60_dash))
-      dataForm.append('body_weight', parseFloat(dataFitness.body_weight == "" || dataFitness.body_weight == undefined ? 0.0 : dataFitness.body_weight))
+      // Only send fields actually entered — omit blanks so a partial save never
+      // overwrites other metrics with 0.
+      const appendNum = (key, val, float = false) => {
+        if (val === "" || val === undefined || val === null) return
+        const n = float ? parseFloat(val) : parseInt(val)
+        if (!Number.isNaN(n)) dataForm.append(key, n)
+      }
+      appendNum('bench_press', dataFitness.bench_press)
+      appendNum('front_squat', dataFitness.front_squat)
+      appendNum('back_squat', dataFitness.back_squat)
+      appendNum('power_clean', dataFitness.power_clean)
+      appendNum('dead_lift', dataFitness.dead_lift)
+      appendNum('yd_40_dash', dataFitness.yd_40_dash, true)
+      appendNum('yd_60_dash', dataFitness.yd_60_dash, true)
+      appendNum('body_weight', dataFitness.body_weight, true)
 
       const config = {
         headers: { Authorization: `Bearer ${token}` }
