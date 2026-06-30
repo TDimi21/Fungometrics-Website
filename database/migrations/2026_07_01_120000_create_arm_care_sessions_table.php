@@ -34,7 +34,9 @@ return new class () extends Migration {
             $table->unsignedSmallInteger('completed_total')->default(0);
             $table->unsignedSmallInteger('skipped')->default(0);
             $table->unsignedInteger('duration_seconds')->default(0);
-            $table->json('breakdown')->nullable();
+            // longText (not json) for broad MariaDB compatibility; the model's
+            // `breakdown => array` cast handles JSON encode/decode transparently.
+            $table->longText('breakdown')->nullable();
             // Client-generated id for idempotent retries from the offline-first app.
             $table->string('client_id')->nullable();
             $table->timestamp('performed_at')->nullable();
