@@ -122,6 +122,12 @@ const routes = [
 		meta: { requiresAuth: true },
 	},
 	{
+		name: "arm.care",
+		path: "/arm-care",
+		component: () => import("@/pages/training/ArmCare.vue"),
+		meta: { requiresAuth: true },
+	},
+	{
 		name: 'development.index',
 		path: '/development',
 		component: PlayerDevelopmentDashboard,

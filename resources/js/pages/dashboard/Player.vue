@@ -652,6 +652,10 @@ const openAssessmentReports = () => {
   router.push({ name: 'assessment.reports', query: { scope: 'player' } })
 }
 
+const openArmCare = () => {
+  router.push({ name: 'arm.care' })
+}
+
 const sessionCounts = computed(() => {
   const weighted = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === 'WB')
   const ev = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === 'EV')
@@ -1343,6 +1347,14 @@ onMounted(loadData)
                   class="flex w-full items-center justify-center rounded-xl border border-sky-400/60 bg-sky-500/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
                 >
                   Assessment Reports ›
+                </button>
+
+                <button
+                  type="button"
+                  @click="openArmCare"
+                  class="flex w-full items-center justify-center rounded-xl border border-amber-400/60 bg-amber-500/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
+                >
+                  Arm Care ›
                 </button>
               </div>
 
