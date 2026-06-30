@@ -52,6 +52,7 @@ use App\Http\Controllers\Api\Player\GetBullpenPractices;
 use App\Http\Controllers\Api\Player\GetCagePractices;
 use App\Http\Controllers\Api\Player\GetCreatedPractices;
 use App\Http\Controllers\Api\Player\GetFitness;
+use App\Http\Controllers\Api\Player\GetLiveABPractices;
 use App\Http\Controllers\Api\Player\GetTrainingPractices;
 use App\Http\Controllers\Api\Player\JoinTeamByCode;
 use App\Http\Controllers\Api\Player\GetPlayerFilteredStatistics;
@@ -165,6 +166,7 @@ Route::prefix('player')->group(function (): void {
         Route::get('sessions/bullpen', GetBullpenPractices::class);
         Route::get('sessions/cage', GetCagePractices::class);
         Route::get('sessions/training', GetTrainingPractices::class);
+        Route::get('sessions/liveab', GetLiveABPractices::class);
         Route::get('sessions/created', GetCreatedPractices::class);
         Route::get('statistics/{player}', ScoresStatisticPlayers::class);
         Route::middleware('plan:view_advanced_stats')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
@@ -293,7 +295,9 @@ Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): vo
     Route::middleware('plan:weighted_ball_sessions')->get('/{practice}/weightball', GetWeightBallPracticeResult::class);
     Route::middleware('plan:exit_velocity_sessions')->get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
     Route::get('/{practice}/cage', GetCagePracticeResults::class);
-    Route::middleware(['ability:coach', 'plan:liveab_sessions'])->get('/{practice}/liveab', GetLiveABPracticeResults::class);
+    // Players see their own Live AB ball-by-ball too (was coach-only). Still
+    // tier-gated by plan:liveab_sessions (Player Pro / Coach Pro).
+    Route::middleware('plan:liveab_sessions')->get('/{practice}/liveab', GetLiveABPracticeResults::class);
 });
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
