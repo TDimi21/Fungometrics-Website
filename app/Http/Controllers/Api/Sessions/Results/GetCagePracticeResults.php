@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Sessions\Results;
 use App\Exceptions\NotFound;
 use App\Http\Controllers\Controller;
 use App\Models\CagePracticeResult;
+use App\Models\Concerns\UserTypes;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,8 +27,15 @@ class GetCagePracticeResults extends Controller
                 ->where('practice_id', $request->practice)
                 ->orderByDesc('sort')
                 ->get();
-            if($request->player) {
-                $data = $data->filter(fn ($item) => (string) $item->user_id === (string) auth()->user()->id)->values();
+            if ($request->player) {
+                // Filter to the requested player. A player may only ever see
+                // their own swings (ignore the param, preventing an IDOR); a
+                // coach may target any player in the session.
+                $authUser = $request->user();
+                $targetPlayerId = ($authUser && (string) $authUser->type === UserTypes::PLAYER->value)
+                    ? (string) $authUser->id
+                    : (string) $request->player;
+                $data = $data->filter(fn ($item) => (string) $item->user_id === $targetPlayerId)->values();
             }
             if (0 === $data->count()) {
                 throw new NotFound();
