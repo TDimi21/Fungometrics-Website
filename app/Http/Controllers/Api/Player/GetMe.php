@@ -58,6 +58,8 @@ class GetMe extends Controller
                 ],
                 'ft' => $player?->height_in_ft ?? 0,
                 'inch' => $player?->height_in_inch ?? 0,
+                'grad_year' => $player?->grad_year,
+                'graduation_year' => $player?->grad_year,
                 'hit_side' => $player?->hit_side ?? '',
                 'throw_side' => $player?->throw_side ?? '',
                 'shirt_number' => $player?->number_in_shirt ?? '',

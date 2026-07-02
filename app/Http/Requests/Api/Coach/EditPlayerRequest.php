@@ -36,6 +36,7 @@ class EditPlayerRequest extends FormRequest
             'profile.name.last' => ['required'],
             'picture' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:10240'],
             'player.born' => ['required', 'date'],
+            'player.grad_year' => ['nullable', 'integer', 'min:1900', 'max:2200'],
             'player.ft' => ['required', 'integer'],
             'player.sides.pitch' => ['nullable', 'string', 'in:L,R'],
             'player.sides.hit' => ['nullable', 'string', 'in:L,R,S'],

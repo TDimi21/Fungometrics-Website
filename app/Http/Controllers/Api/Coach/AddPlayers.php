@@ -8,6 +8,7 @@ use App\Events\UserCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
 use App\Models\CoachTeam;
+use App\Models\Player;
 use App\Models\PlayerTeam;
 use App\Models\User;
 use App\Services\ListServiceData;
@@ -67,6 +68,13 @@ class AddPlayers extends Controller
             }
 
             $userId = $player?->id ?? $savePlayer['user']->id;
+            $playerInput = $data['player'] ?? [];
+            if (isset($playerInput['grad_year']) && $playerInput['grad_year']) {
+                Player::query()->updateOrCreate(
+                    ['user_id' => (string) $userId],
+                    ['grad_year' => (int) $playerInput['grad_year']]
+                );
+            }
             $response = [
                 'code' => '016',
                 'message' => $message,

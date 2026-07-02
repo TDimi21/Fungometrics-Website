@@ -23,6 +23,7 @@ class AssessmentRequest extends FormRequest
             'team_id'          => ['nullable', 'string'],
             'assessed_by'      => ['nullable', 'string'],
             'assessment_date'  => ['nullable', 'date'],
+            'grad_year'        => ['nullable', 'integer', 'min:1900', 'max:2200'],
             'type'             => ['nullable', 'in:strength,mobility,full'],
             'notes'            => ['nullable', 'string', 'max:2000'],
 

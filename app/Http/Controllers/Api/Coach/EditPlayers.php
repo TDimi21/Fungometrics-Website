@@ -63,6 +63,7 @@ class EditPlayers extends Controller
                 // were accessed directly, so a missing key threw "Undefined array key"
                 // and the whole save failed with "player not updated" (picture included).
                 'born_date' => $playerInput['born'] ?? null,
+                'grad_year' => $playerInput['grad_year'] ?? null,
                 'number_in_shirt' => $playerInput['shirt'] ?? null,
                 'hit_side' => $playerInput['sides']['hit'] ?? "",
                 'throw_side' => $playerInput['sides']['pitch'] ?? "",

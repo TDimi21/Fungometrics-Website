@@ -30,6 +30,7 @@ class PlayerUtils
             'height_in_inch' => $request->get('player')['inch'] ?? 0,
             'weight' => $request->get('player')['weight'] ?? 0,
             'born_date' => $request->get('player')['born'],
+            'grad_year' => $request->get('player')['grad_year'] ?? null,
             'user_id' => $response_user->id,
         ];
 

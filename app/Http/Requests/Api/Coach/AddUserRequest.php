@@ -33,6 +33,7 @@ class AddUserRequest extends FormRequest
             'team' => ['required'],
             'name.first' => ['required'],
             'name.last' => ['required'],
+            'player.grad_year' => ['nullable', 'integer', 'min:1900', 'max:2200'],
         ];
     }
 

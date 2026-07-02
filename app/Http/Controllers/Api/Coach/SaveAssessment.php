@@ -174,6 +174,15 @@ class SaveAssessment extends Controller
             }
 
             $player = Player::query()->where('user_id', (string) $request->user_id)->first();
+            if (isset($data['grad_year']) && $data['grad_year']) {
+                Player::query()->updateOrCreate(
+                    ['user_id' => (string) $request->user_id],
+                    ['grad_year' => (int) $data['grad_year']]
+                );
+                if ($player) {
+                    $player->grad_year = (int) $data['grad_year'];
+                }
+            }
             $assessmentDate = isset($data['assessment_date']) ? (string) $data['assessment_date'] : null;
             $ageYears = $this->computeAgeYears(optional($player)->born_date, $assessmentDate);
 

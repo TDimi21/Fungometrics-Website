@@ -26,6 +26,7 @@ class Player extends Model
         'user_id',
         'number_in_shirt',
         'born_date',
+        'grad_year',
         'hit_side',
         'throw_side'
     ];

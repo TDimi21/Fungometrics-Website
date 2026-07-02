@@ -52,6 +52,8 @@ class PlayerTeamResource extends JsonResource
                 'date' => $this->player?->born_date,
                 'age' => Carbon::parse($this->player?->born_date)->age,
             ],
+            'grad_year' => $this->player?->grad_year,
+            'graduation_year' => $this->player?->grad_year,
             'shirt_number' => $this->player?->number_in_shirt,
             'throw_side' => $this->player?->throw_side,
             'hit_side' => $this->player?->hit_side,

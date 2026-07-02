@@ -101,6 +101,8 @@ class GetTeamPlayerCards extends Controller
                         'height_ft'      => $player->height_in_ft,
                         'height_in'      => $player->height_in_inch,
                         'born_date'      => $player->born_date,
+                        'grad_year'      => $player->grad_year,
+                        'graduation_year'=> $player->grad_year,
                         'hit_side'       => $player->hit_side,
                         'throw_side'     => $player->throw_side,
                         'jersey_number'  => $player->number_in_shirt,

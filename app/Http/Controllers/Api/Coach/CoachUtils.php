@@ -9,6 +9,7 @@ use App\Exceptions\NotFound;
 use App\Exceptions\UpdateException;
 use App\Models\CoachTeam;
 use App\Models\Concerns\UserTypes;
+use App\Models\Player;
 use App\Models\PlayerTeam;
 use App\Models\Profile;
 use App\Models\User;
@@ -106,6 +107,16 @@ class CoachUtils
                 'team_id' => $data['team'],
                 'actual' => true,
             ]);
+            if (isset($data['player']) && is_array($data['player'])) {
+                $playerData = array_filter([
+                    'user_id' => $response_user->id,
+                    'grad_year' => $data['player']['grad_year'] ?? null,
+                ], fn ($value) => $value !== null && $value !== '');
+
+                if (count($playerData) > 1) {
+                    (new CreateServiceData(new Player()))->handle($playerData);
+                }
+            }
         }
         $response->put('user', $response_user);
         $response->put('profile', $response_profile);
