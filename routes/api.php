@@ -26,6 +26,9 @@ use App\Http\Controllers\Api\Coach\GetPracticePlans;
 use App\Http\Controllers\Api\Coach\GetStatsBundle;
 use App\Http\Controllers\Api\Coach\SavePracticePlan;
 use App\Http\Controllers\Api\Coach\DeletePracticePlan;
+use App\Http\Controllers\Api\Coach\GetFieldPresets;
+use App\Http\Controllers\Api\Coach\SaveFieldPreset;
+use App\Http\Controllers\Api\Coach\DeleteFieldPreset;
 use App\Http\Controllers\Api\Coach\AssessmentDraftController;
 use App\Http\Controllers\Api\Coach\AssessmentInsightController;
 use App\Http\Controllers\Api\Coach\TeamInsightController;
@@ -213,6 +216,11 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/practice-plans', GetPracticePlans::class);
         Route::post('/practice-plans', SavePracticePlan::class);
         Route::delete('/practice-plans/{id}', DeletePracticePlan::class);
+
+        // Saved field presets (Game Mode field builder) — user-scoped, synced replacement for localStorage
+        Route::get('/field-presets', GetFieldPresets::class);
+        Route::post('/field-presets', SaveFieldPreset::class);
+        Route::delete('/field-presets/{id}', DeleteFieldPreset::class);
 
         // Synced (team-shared) replacements for localStorage-only data
         Route::post('/assessments/{id}/insights', [AssessmentInsightController::class, 'update']);
