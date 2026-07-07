@@ -1117,6 +1117,214 @@ const firstNumeric = (...vals) => {
   return null
 }
 
+const fmtDevReport = (value, suffix = '') => {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '—'
+  return `${Number.isInteger(n) ? n : n.toFixed(1)}${suffix}`
+}
+
+const reportValue = (...vals) => firstNumeric(...vals)
+
+const buildDevReport = ({ title, subtitle, suffix, max, rows, lineSeries, tiles }) => {
+  const cleanRows = (rows || []).filter((row) => Number.isFinite(Number(row.value)) && Number(row.value) > 0)
+  if (!cleanRows.length && !(tiles || []).some((tile) => tile.value && tile.value !== '—')) return null
+  return {
+    title,
+    subtitle,
+    suffix,
+    max: Math.max(Number(max || 0), ...cleanRows.map((row) => Number(row.value)), 1),
+    rows: cleanRows,
+    lineSeries: lineSeries || [{ key: 'value', label: 'Value', color: '#ff2d55' }],
+    tiles: tiles || [],
+  }
+}
+
+const selectedEVHomeReport = computed(() => {
+  const stats = selectedDevStats.value ?? {}
+  const avgStats = stats.avg ?? {}
+  const topStats = stats.top ?? {}
+  const live = selectedDevLive.value?.current ?? {}
+  const avgEV = reportValue(avgStats.avg_exit_velocity, avgStats.average_exit_velocity, live.avg_exit_velocity)
+  const topEV = reportValue(topStats.max_exit_velocity, stats.max?.exit_velo, live.max_exit_velocity, live.exit_velo)
+  const ld = reportValue(avgStats.ld_avg_ev, avgStats.line_drive_avg_ev, avgStats.avg_ld_exit_velocity, live.ld_avg_ev)
+  const gb = reportValue(avgStats.gb_avg_ev, avgStats.ground_ball_avg_ev, avgStats.avg_gb_exit_velocity, live.gb_avg_ev)
+  const fb = reportValue(avgStats.fb_avg_ev, avgStats.fly_ball_avg_ev, avgStats.avg_fb_exit_velocity, live.fb_avg_ev)
+  const hasTrajectory = [ld, gb, fb].some((v) => v != null)
+  const rows = hasTrajectory
+    ? [
+      { label: 'LD avg', shortLabel: 'LD', value: ld, color: '#37D67A' },
+      { label: 'GB avg', shortLabel: 'GB', value: gb, color: '#34A7FF' },
+      { label: 'FB avg', shortLabel: 'FB', value: fb, color: '#F7D774' },
+    ]
+    : [
+      { label: 'Avg EV', shortLabel: 'Avg', value: avgEV, color: '#37D67A' },
+      { label: 'Top EV', shortLabel: 'Top', value: topEV, color: '#34A7FF' },
+    ]
+  return buildDevReport({
+    title: hasTrajectory ? 'Exit Velocity by Trajectory' : 'Exit Velocity Report',
+    subtitle: 'All player stats',
+    suffix: ' mph',
+    max: Math.max(Number(topEV || 0), 100),
+    rows,
+    lineSeries: [{ key: 'value', label: hasTrajectory ? 'Avg EV' : 'EV', color: '#ff2d55' }],
+    tiles: [
+      { label: 'Avg EV', value: fmtDevReport(avgEV, ' mph'), sub: 'All swings' },
+      { label: 'Top EV', value: fmtDevReport(topEV, ' mph'), sub: 'Best recorded' },
+      { label: 'EV Score', value: fmtDevReport(selectedDevPlayer.value?.scores?.ev), sub: scoreGrade(selectedDevPlayer.value?.scores?.ev) || '' },
+      { label: 'Line Drive EV', value: fmtDevReport(ld, ' mph'), sub: hasTrajectory ? 'Trajectory split' : '' },
+    ],
+  })
+})
+
+const selectedLongTossHomeReport = computed(() => {
+  const stats = selectedDevStats.value ?? {}
+  const avgStats = stats.avg ?? {}
+  const topStats = stats.top ?? {}
+  const live = selectedDevLive.value?.current ?? {}
+  const topDist = reportValue(topStats.max_long_toss, live.max_long_toss)
+  const avgDist = reportValue(avgStats.avg_long_toss, avgStats.average_long_toss, live.avg_long_toss)
+  const hop0 = reportValue(avgStats.long_toss_hop0_avg, avgStats.hop0_avg, avgStats.zero_hop_avg, live.long_toss_hop0_avg)
+  const hop1 = reportValue(avgStats.long_toss_hop1_avg, avgStats.hop1_avg, avgStats.one_hop_avg, live.long_toss_hop1_avg)
+  const hop2 = reportValue(avgStats.long_toss_hop2_avg, avgStats.hop2_avg, avgStats.two_hop_avg, live.long_toss_hop2_avg)
+  const hop3 = reportValue(avgStats.long_toss_hop3_avg, avgStats.hop3_avg, avgStats.three_hop_avg, live.long_toss_hop3_avg)
+  const hasHops = [hop0, hop1, hop2, hop3].some((v) => v != null)
+  const rows = hasHops
+    ? [
+      { label: '0 hops avg', shortLabel: '0', value: hop0, color: '#37D67A' },
+      { label: '1 hop avg', shortLabel: '1', value: hop1, color: '#34A7FF' },
+      { label: '2 hops avg', shortLabel: '2', value: hop2, color: '#F7D774' },
+      { label: '3 hops avg', shortLabel: '3', value: hop3, color: '#ff2d55' },
+    ]
+    : [
+      { label: 'Avg Distance', shortLabel: 'Avg', value: avgDist, color: '#37D67A' },
+      { label: 'Top Distance', shortLabel: 'Top', value: topDist, color: '#34A7FF' },
+    ]
+  return buildDevReport({
+    title: hasHops ? 'Long Toss Distance by Hops' : 'Long Toss Report',
+    subtitle: 'All player stats',
+    suffix: ' ft',
+    max: Math.max(Number(topDist || 0), 300),
+    rows,
+    lineSeries: [{ key: 'value', label: hasHops ? 'Avg Distance' : 'Distance', color: '#37D67A' }],
+    tiles: [
+      { label: 'Top Distance', value: fmtDevReport(topDist, ' ft'), sub: 'Best throw' },
+      { label: 'Avg Distance', value: fmtDevReport(avgDist, ' ft'), sub: 'All throws' },
+      { label: 'LTS', value: fmtDevReport(selectedDevPlayer.value?.scores?.lt), sub: scoreGrade(selectedDevPlayer.value?.scores?.lt) || '' },
+      { label: '0 Hop Avg', value: fmtDevReport(hop0, ' ft'), sub: hasHops ? 'Carry split' : '' },
+    ],
+  })
+})
+
+const selectedWeightedHomeReport = computed(() => {
+  const stats = selectedDevStats.value ?? {}
+  const avgStats = stats.avg ?? {}
+  const topStats = stats.top ?? {}
+  const live = selectedDevLive.value?.current ?? {}
+  const topVelo = reportValue(topStats.max_weight_ball, live.max_weight_ball)
+  const avgVelo = reportValue(avgStats.avg_weight_ball, avgStats.average_weight_ball, live.avg_weight_ball)
+  const weights = [3, 4, 5, 6, 7]
+  const byWeight = weights.map((weight) => ({
+    weight,
+    avg: reportValue(
+      avgStats[`weighted_${weight}oz_avg`],
+      avgStats[`weight_${weight}_avg`],
+      avgStats[`avg_${weight}oz_weighted_ball`],
+      live[`weighted_${weight}oz_avg`]
+    ),
+    top: reportValue(
+      topStats[`weighted_${weight}oz_top`],
+      topStats[`weight_${weight}_top`],
+      live[`weighted_${weight}oz_top`]
+    ),
+  }))
+  const hasWeights = byWeight.some((row) => row.avg != null)
+  const five = byWeight.find((row) => row.weight === 5)
+  const base = five?.avg || avgVelo
+  const multipliers = { 3: 1.04, 4: 1.02, 5: 1, 6: 0.97, 7: 0.94 }
+  const rows = hasWeights
+    ? byWeight.map((row) => ({
+      label: `${row.weight} oz avg`,
+      shortLabel: `${row.weight} oz`,
+      value: row.avg,
+      topValue: row.top,
+      expected: base && multipliers[row.weight] ? base * multipliers[row.weight] : null,
+      color: row.weight < 5 ? '#34A7FF' : row.weight === 5 ? '#37D67A' : '#F7D774',
+    }))
+    : [
+      { label: 'Avg Velo', shortLabel: 'Avg', value: avgVelo, color: '#37D67A' },
+      { label: 'Top Velo', shortLabel: 'Top', value: topVelo, color: '#34A7FF' },
+    ]
+  return buildDevReport({
+    title: hasWeights ? 'Weighted Ball Velocity Curve' : 'Weighted Ball Report',
+    subtitle: 'All player stats',
+    suffix: ' mph',
+    max: Math.max(Number(topVelo || 0), Number(base || 0) * 1.06, 100),
+    rows,
+    lineSeries: hasWeights
+      ? [
+        { key: 'value', label: 'Avg', color: '#37D67A' },
+        { key: 'topValue', label: 'Top', color: '#34A7FF' },
+        { key: 'expected', label: 'Expected', color: '#FFFFFF', dashed: true },
+      ]
+      : [{ key: 'value', label: 'Velo', color: '#37D67A' }],
+    tiles: [
+      { label: 'Top Velo', value: fmtDevReport(topVelo, ' mph'), sub: 'Best recorded' },
+      { label: 'Avg Velo', value: fmtDevReport(avgVelo, ' mph'), sub: 'All throws' },
+      { label: 'WBS', value: fmtDevReport(selectedDevPlayer.value?.scores?.wb), sub: scoreGrade(selectedDevPlayer.value?.scores?.wb) || '' },
+      { label: '5 oz Avg', value: fmtDevReport(five?.avg, ' mph'), sub: hasWeights ? 'Regulation ball' : '' },
+    ],
+  })
+})
+
+const selectedTrainingHomeReports = computed(() => [
+  selectedEVHomeReport.value,
+  selectedLongTossHomeReport.value,
+  selectedWeightedHomeReport.value,
+].filter(Boolean))
+
+const homeReportRows = (report) => (report?.rows || []).filter((row) => Number.isFinite(Number(row.value)) && Number(row.value) > 0)
+const homeLineRows = (report) => {
+  const series = homeLineSeries(report)
+  return (report?.rows || []).filter((row) => series.some((item) => Number.isFinite(Number(row[item.key])) && Number(row[item.key]) > 0))
+}
+const homeLineSeries = (report) => {
+  const rows = report?.rows || []
+  return (report?.lineSeries || []).filter((item) => rows.some((row) => Number.isFinite(Number(row[item.key])) && Number(row[item.key]) > 0))
+}
+const homeLineValues = (report) => {
+  const rows = report?.rows || []
+  return homeLineSeries(report)
+    .flatMap((item) => rows.map((row) => Number(row[item.key])))
+    .filter((value) => Number.isFinite(value) && value > 0)
+}
+const homeLineRange = (report) => {
+  const values = homeLineValues(report)
+  const max = Math.max(Number(report?.max || 0), ...values, 1)
+  const rawMin = values.length ? Math.min(...values) : 0
+  const min = Math.max(0, rawMin - Math.max(5, (max - rawMin) * 0.2))
+  return { min, max, span: Math.max(1, max - min) }
+}
+const homeLineX = (report, index) => {
+  const rows = homeLineRows(report)
+  const left = 32
+  const right = 14
+  const width = 320
+  if (rows.length <= 1) return left
+  return left + (index / (rows.length - 1)) * (width - left - right)
+}
+const homeLineY = (report, value) => {
+  const top = 14
+  const bottom = 28
+  const height = 150
+  const range = homeLineRange(report)
+  return top + (1 - ((Number(value) - range.min) / range.span)) * (height - top - bottom)
+}
+const homeLinePath = (report, series) => homeLineRows(report)
+  .map((row, index) => ({ x: homeLineX(report, index), y: homeLineY(report, row[series.key]), value: Number(row[series.key]) }))
+  .filter((point) => Number.isFinite(point.value) && point.value > 0)
+  .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+  .join(' ')
+
 const strengthChartValues = computed(() => {
   const maxStats = selectedDevStats.value?.max ?? {}
   const liveCurrent = selectedDevLive.value?.current ?? {}
@@ -3008,6 +3216,130 @@ watch(
                     </div>
                     <div class="text-xs text-white/45 mt-2">
                       Last update: {{ selectedDevPlayer?.fitness?.date ? formatDate(selectedDevPlayer.fitness.date) : (selectedDevCard?.fitness?.date ? formatDate(selectedDevCard.fitness.date) : '—') }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Training player reports: match Player Metrics dashboard cards -->
+                <div v-if="selectedTrainingHomeReports.length" class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                  <div
+                    v-for="report in selectedTrainingHomeReports"
+                    :key="report.title"
+                    class="rounded-xl border border-white/10 bg-white/5 p-4"
+                  >
+                    <div class="mb-3">
+                      <p class="text-xs font-black tracking-widest uppercase text-white/70">{{ report.title }}</p>
+                      <p class="mt-1 text-[11px] font-bold text-white/40">{{ report.subtitle }}</p>
+                    </div>
+
+                    <div
+                      v-if="homeLineRows(report).length > 1"
+                      class="mb-4 rounded-lg bg-black/15 pt-1"
+                    >
+                      <svg class="h-[150px] w-full" viewBox="0 0 320 150" preserveAspectRatio="none">
+                        <line
+                          v-for="ratio in [0, 0.5, 1]"
+                          :key="`home-grid-${report.title}-${ratio}`"
+                          x1="32"
+                          x2="306"
+                          :y1="14 + ratio * 108"
+                          :y2="14 + ratio * 108"
+                          stroke="rgba(255,255,255,0.12)"
+                          stroke-width="1"
+                        />
+                        <path
+                          v-for="series in homeLineSeries(report)"
+                          :key="`${report.title}-${series.key}`"
+                          :d="homeLinePath(report, series)"
+                          fill="none"
+                          :stroke="series.color || '#ff2d55'"
+                          :stroke-width="series.dashed ? 2 : 3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          :stroke-dasharray="series.dashed ? '6 5' : null"
+                          vector-effect="non-scaling-stroke"
+                        />
+                        <template
+                          v-for="series in homeLineSeries(report)"
+                          :key="`${report.title}-points-${series.key}`"
+                        >
+                          <circle
+                            v-for="(row, index) in homeLineRows(report)"
+                            v-show="Number.isFinite(Number(row[series.key])) && Number(row[series.key]) > 0"
+                            :key="`${report.title}-${series.key}-${row.label}`"
+                            :cx="homeLineX(report, index)"
+                            :cy="homeLineY(report, row[series.key])"
+                            r="3.5"
+                            :fill="series.color || '#ff2d55'"
+                            stroke="#101634"
+                            stroke-width="1.5"
+                            vector-effect="non-scaling-stroke"
+                          />
+                        </template>
+                        <text
+                          v-for="(row, index) in homeLineRows(report)"
+                          :key="`${report.title}-label-${row.label}`"
+                          :x="homeLineX(report, index)"
+                          y="142"
+                          fill="rgba(255,255,255,0.58)"
+                          font-size="9"
+                          font-weight="700"
+                          text-anchor="middle"
+                        >
+                          {{ row.shortLabel || row.label.replace(' avg', '') }}
+                        </text>
+                      </svg>
+                      <div class="flex flex-wrap gap-x-3 gap-y-1 px-2 pb-2">
+                        <div
+                          v-for="series in homeLineSeries(report)"
+                          :key="`${report.title}-legend-${series.key}`"
+                          class="flex items-center gap-1.5"
+                        >
+                          <span
+                            class="h-2.5 w-2.5 rounded-full"
+                            :style="{ backgroundColor: series.color || '#ff2d55' }"
+                          ></span>
+                          <span class="text-[10px] font-black uppercase text-white/55">{{ series.label }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="space-y-3">
+                      <div
+                        v-for="row in homeReportRows(report)"
+                        :key="`${report.title}-bar-${row.label}`"
+                      >
+                        <div class="mb-1 flex items-center justify-between gap-3">
+                          <p class="text-[11px] font-black uppercase text-white/65">{{ row.label }}</p>
+                          <p class="text-xs font-black text-white">{{ fmtDevReport(row.value, report.suffix) }}</p>
+                        </div>
+                        <div class="relative h-2.5 overflow-hidden rounded-full bg-white/10">
+                          <div
+                            class="h-full rounded-full"
+                            :style="{
+                              width: `${Math.max(5, Math.min(100, (Number(row.value) / Math.max(1, Number(report.max))) * 100))}%`,
+                              backgroundColor: row.color || '#ff2d55',
+                            }"
+                          ></div>
+                          <div
+                            v-if="Number.isFinite(Number(row.expected))"
+                            class="absolute top-[-2px] h-4 w-0.5 bg-white/85"
+                            :style="{ left: `${Math.max(0, Math.min(100, (Number(row.expected) / Math.max(1, Number(report.max))) * 100))}%` }"
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-2 gap-2">
+                      <div
+                        v-for="tile in report.tiles"
+                        :key="`${report.title}-tile-${tile.label}`"
+                        class="rounded-lg border border-white/10 bg-[#0b1230]/80 p-3"
+                      >
+                        <p class="text-[10px] font-black uppercase tracking-wide text-white/45">{{ tile.label }}</p>
+                        <p class="mt-1 text-lg font-black text-white">{{ tile.value }}</p>
+                        <p v-if="tile.sub" class="mt-0.5 text-[10px] font-bold text-white/35">{{ tile.sub }}</p>
+                      </div>
                     </div>
                   </div>
                 </div>

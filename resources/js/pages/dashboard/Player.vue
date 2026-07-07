@@ -38,6 +38,7 @@ const cageSessions = ref([])
 const createdSessions = ref([])
 const cageStatRows = ref([])
 const trainingSessions = ref([])
+const trainingStats = ref(null)
 const playerFitnessLatest = ref(null)
 const sleepCheckinOpen = ref(false)
 const sleepCheckinSaving = ref(false)
@@ -119,10 +120,10 @@ const SESSION_REPORT_TYPE = {
 // Maps a training session's mode to its stats route segment so per-session
 // ball-by-ball data can be pulled (statistics/{id}/{segment}).
 const trainingModeEndpoint = (session) => {
-  const mode = String(session?.modes || session?.mode || '').toUpperCase()
+  const mode = normalizeMode(session)
   if (mode === 'WB') return 'weightball'
   if (mode === 'EV') return 'exitvelocity'
-  if (mode === 'LT' || mode.includes('LONG')) return 'longtoss'
+  if (mode === 'LT') return 'longtoss'
   return null
 }
 
@@ -185,7 +186,14 @@ const toObjectRows = (val) => {
       'velocity',
       'exit_velocity',
       'distance_travel',
+      'distance',
+      'throw_distance',
       'type_of_hit',
+      'weighted_velocity',
+      'weighted_ball',
+      'ball_weight',
+      'miles_per_hour',
+      'player_hop',
     ].some((k) => keys.includes(k))
 
     if (looksLikeMetricRow) return [val]
@@ -202,6 +210,40 @@ const parseNum = (row, keys) => {
     if (Number.isFinite(n) && n > 0) return n
   }
   return null
+}
+
+const tableRows = (table) => {
+  if (!table) return []
+  if (Array.isArray(table)) return table.filter((row) => row && typeof row === 'object')
+  if (table.players && typeof table.players === 'object') return Object.values(table.players).filter((row) => row && typeof row === 'object')
+  if (table.team_totals && typeof table.team_totals === 'object') return [table.team_totals]
+  if (table.data && typeof table.data === 'object') return tableRows(table.data)
+  if (typeof table === 'object') {
+    const values = Object.values(table).filter((row) => row && typeof row === 'object')
+    return values.some((row) => row.player || row.throws || row.swings) ? values : []
+  }
+  return []
+}
+
+const firstTableRow = (...tables) => {
+  for (const table of tables) {
+    const row = tableRows(table).find((item) => item && typeof item === 'object')
+    if (row) return row
+    if (table?.team && typeof table.team === 'object') return table.team
+    if (table?.team_totals && typeof table.team_totals === 'object') return table.team_totals
+  }
+  return null
+}
+
+const numericTableKeys = (...rows) => {
+  const keys = new Set()
+  rows.filter(Boolean).forEach((row) => {
+    Object.keys(row).forEach((key) => {
+      if (['player', 'throws', 'swings', 'total'].includes(String(key).toLowerCase())) return
+      if (Number.isFinite(Number(key))) keys.add(String(key))
+    })
+  })
+  return [...keys].sort((a, b) => Number(a) - Number(b))
 }
 
 const parseHop = (row) => {
@@ -234,13 +276,25 @@ const parseHop = (row) => {
 const tryLen = (arr) => (Array.isArray(arr) ? arr.length : undefined)
 
 const normalizeMode = (modeLike) => {
-  const mode = String(modeLike || '').trim().toUpperCase()
+  const rawValue = modeLike && typeof modeLike === 'object'
+    ? (
+      modeLike?.modes ||
+      modeLike?.mode ||
+      modeLike?.mode_type ||
+      modeLike?.type_mode ||
+      modeLike?.training_mode ||
+      modeLike?.practice_mode ||
+      ''
+    )
+    : modeLike
+  const mode = String(rawValue || '').trim().toUpperCase().replace(/[_-]/g, ' ')
   if (!mode) return null
-  if (mode === 'EV') return 'EV'
-  if (mode === 'WB') return 'WB'
-  if (mode === 'LT' || mode.includes('LONG')) return 'LT'
-  if (mode === 'HP') return 'HP'
-  return mode
+  const compact = mode.replace(/\s+/g, '')
+  if (['EV', 'EXITVELOCITY', 'EXITVELO'].includes(compact)) return 'EV'
+  if (['WB', 'WEIGHTBALL', 'WEIGHTEDBALL', 'WEIGHTEDBALLS'].includes(compact)) return 'WB'
+  if (['LT', 'LONGTOSS'].includes(compact) || mode.includes('LONG TOSS')) return 'LT'
+  if (compact === 'HP' || compact === 'HITORPITCH') return 'HP'
+  return compact
 }
 
 const isCompletedSession = (session) => (
@@ -407,6 +461,8 @@ const getSessionRows = (session) => {
   rows.push(...asArray(session?.long_toss))
   rows.push(...asArray(session?.exit_velocity))
   rows.push(...flatten(session?.ball_x_ball || []))
+  rows.push(...flatten(session?.ball_by_ball || []))
+  rows.push(...flatten(session?.ball_by_ball_results || []))
   return rows
 }
 
@@ -758,9 +814,9 @@ const openArmCare = () => {
 }
 
 const sessionCounts = computed(() => {
-  const weighted = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === 'WB')
-  const ev = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === 'EV')
-  const lt = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase().includes('LT'))
+  const weighted = trainingSessions.value.filter((s) => normalizeMode(s) === 'WB')
+  const ev = trainingSessions.value.filter((s) => normalizeMode(s) === 'EV')
+  const lt = trainingSessions.value.filter((s) => normalizeMode(s) === 'LT')
   return {
     batting: battingSessions.value.length,
     bullpen: bullpenSessions.value.length,
@@ -1141,7 +1197,7 @@ const cageBreakdown = computed(() => {
 })
 
 const weightedBreakdown = computed(() => {
-  const weighted = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === 'WB')
+  const weighted = trainingSessions.value.filter((s) => normalizeMode(s) === 'WB')
   const rows = weighted.flatMap((s) => getSessionRows(s))
   const groups = {}
   rows.forEach((r) => {
@@ -1158,6 +1214,27 @@ const weightedBreakdown = computed(() => {
     maxVelo: fmt(maxOf(groups[w]), 1),
   })).sort((a, b) => a.weight - b.weight)
   const all = Object.values(groups).flat()
+  if (!byWeight.length) {
+    const stats = trainingStats.value?.weight_ball || {}
+    const avgRow = firstTableRow(stats['average-velocity'], stats.average_velocity)
+    const maxRow = firstTableRow(stats['max-velocity'], stats.max_velocity)
+    const totalRow = firstTableRow(stats.totals)
+    const weights = numericTableKeys(avgRow, maxRow, totalRow)
+    const statByWeight = weights.map((weight) => ({
+      weight: Number(weight),
+      count: Number(totalRow?.[weight] || 0),
+      avgVelo: fmt(parseNum(avgRow || {}, [weight]) ?? null, 1),
+      maxVelo: fmt(parseNum(maxRow || {}, [weight]) ?? null, 1),
+    })).filter((row) => row.avgVelo !== null || row.maxVelo !== null)
+    const avgVals = statByWeight.map((row) => Number(row.avgVelo)).filter(Number.isFinite)
+    const maxVals = statByWeight.map((row) => Number(row.maxVelo)).filter(Number.isFinite)
+    return {
+      throws: Number(avgRow?.throws || maxRow?.throws || totalRow?.throws || 0),
+      maxVelo: fmt(maxOf(maxVals), 1),
+      avgVelo: fmt(avgOf(avgVals) ?? null, 1),
+      byWeight: statByWeight,
+    }
+  }
   return {
     throws: rows.length,
     maxVelo: fmt(maxOf(all), 1),
@@ -1167,7 +1244,7 @@ const weightedBreakdown = computed(() => {
 })
 
 const exitVelBreakdown = computed(() => {
-  const evSessions = trainingSessions.value.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === 'EV')
+  const evSessions = trainingSessions.value.filter((s) => normalizeMode(s) === 'EV')
   const rows = evSessions.flatMap((s) => getSessionRows(s))
   const ev = rows.map((r) => parseNum(r, ['velocity', 'exit_velocity', 'launch_angle_velocity', 'miles_per_hour'])).filter((v) => v !== null)
   const hard = ev.filter((v) => v >= 90).length
@@ -1182,7 +1259,7 @@ const exitVelBreakdown = computed(() => {
   const ld = trajectories.filter((t) => t === 'LD').length
   const fb = trajectories.filter((t) => t === 'FB').length
   const avgTrajEV = (key) => fmt(avgOf(classified.filter((row) => row.trajectory === key).map((row) => row.velocity).filter((v) => v !== null)) ?? null, 1)
-  return {
+  const rawBreakdown = {
     swings: rows.length,
     maxEV: fmt(maxOf(ev), 1),
     avgEV: fmt(avgOf(ev) ?? null, 1),
@@ -1198,13 +1275,38 @@ const exitVelBreakdown = computed(() => {
     fbCount: fb,
     trajTotal: trajectories.length,
   }
+  if (rows.length || ev.length) return rawBreakdown
+
+  const stats = trainingStats.value?.exit_velocity || {}
+  const avgRow = firstTableRow(stats['average-velocity'], stats.average_velocity)
+  const topRow = firstTableRow(stats['top-velocity'], stats.top_velocity, stats['max-velocity'], stats.max_velocity)
+  const totalRow = firstTableRow(stats.totals)
+  const percentRow = firstTableRow(stats.percents)
+  const gbAvg = parseNum(avgRow || {}, ['GB', 'gb'])
+  const ldAvg = parseNum(avgRow || {}, ['LD', 'ld'])
+  const fbAvg = parseNum(avgRow || {}, ['FLY', 'Fly', 'FB', 'fb'])
+  const evVals = [gbAvg, ldAvg, fbAvg].filter((v) => v !== null)
+  const topVals = ['GB', 'LD', 'FLY', 'FB'].map((key) => parseNum(topRow || {}, [key])).filter((v) => v !== null)
+  return {
+    swings: Number(avgRow?.swings || topRow?.swings || totalRow?.swings || 0),
+    maxEV: fmt(maxOf(topVals), 1),
+    avgEV: fmt(avgOf(evVals) ?? null, 1),
+    hardPct: null,
+    gbPct: parseNum(percentRow || {}, ['GB', 'gb']),
+    ldPct: parseNum(percentRow || {}, ['LD', 'ld']),
+    fbPct: parseNum(percentRow || {}, ['FLY', 'Fly', 'FB', 'fb']),
+    gbAvgEV: fmt(gbAvg, 1),
+    ldAvgEV: fmt(ldAvg, 1),
+    fbAvgEV: fmt(fbAvg, 1),
+    gbCount: parseNum(totalRow || {}, ['GB', 'gb']) || 0,
+    ldCount: parseNum(totalRow || {}, ['LD', 'ld']) || 0,
+    fbCount: parseNum(totalRow || {}, ['FLY', 'Fly', 'FB', 'fb']) || 0,
+    trajTotal: Number(avgRow?.swings || topRow?.swings || totalRow?.swings || 0),
+  }
 })
 
 const longTossBreakdown = computed(() => {
-  const ltSessions = trainingSessions.value.filter((s) => {
-    const mode = String(s?.modes || s?.mode || '').toUpperCase()
-    return mode === 'LT' || mode.includes('LONG')
-  })
+  const ltSessions = trainingSessions.value.filter((s) => normalizeMode(s) === 'LT')
   const rows = ltSessions.flatMap((s) => getSessionRows(s))
   const dists = rows.map((r) => parseNum(r, ['distance', 'dist', 'throw_distance', 'feet'])).filter((v) => v !== null)
   const hops = rows.map((r) => parseHop(r))
@@ -1223,7 +1325,7 @@ const longTossBreakdown = computed(() => {
   const hop3Count = hopCount(3)
   const hopTotal = hop0Count + hop1Count + hop2Count + hop3Count
 
-  return {
+  const rawBreakdown = {
     throws: rows.length,
     maxDist: fmt(maxOf(dists), 1),
     avgDist: fmt(avgOf(dists) ?? null, 1),
@@ -1240,6 +1342,79 @@ const longTossBreakdown = computed(() => {
     hop1Pct: pct(hop1Count, hopTotal),
     hop2Pct: pct(hop2Count, hopTotal),
     hop3Pct: pct(hop3Count, hopTotal),
+  }
+  if (rows.length || dists.length) return rawBreakdown
+
+  const stats = trainingStats.value?.long_toss || {}
+  const avgHopRow = firstTableRow(stats['average-hops'], stats.average_hops)
+  const maxHopRow = firstTableRow(stats['max-hops'], stats.max_hops)
+  const totalHopRow = firstTableRow(stats['total-hops'], stats.total_hops)
+  const avgDistRow = firstTableRow(stats['average-distance'], stats.average_distance)
+  const totalDistRow = firstTableRow(stats['totals-distances'], stats.totals_distances)
+  const hopLabels = ['No Hops', '1 Hop', '2 Hop', '3 Hop']
+  const hopAvgValue = (label) => parseNum(avgHopRow || {}, [label])
+  const hopMaxValue = (label) => parseNum(maxHopRow || {}, [label])
+  const hopCountValue = (label) => Number(totalHopRow?.[label] || 0)
+  const hopTotalFromCounts = hopLabels.reduce((sum, label) => sum + hopCountValue(label), 0)
+  const hopRows = hopLabels.map((label) => ({
+    avg: hopAvgValue(label),
+    max: hopMaxValue(label),
+    count: hopCountValue(label),
+  }))
+  const weightedAvgDist = (() => {
+    const counted = hopRows.filter((row) => row.avg !== null && row.count > 0)
+    if (counted.length) {
+      const countTotal = counted.reduce((sum, row) => sum + row.count, 0)
+      return countTotal ? counted.reduce((sum, row) => sum + row.avg * row.count, 0) / countTotal : null
+    }
+    return avgOf(hopRows.map((row) => row.avg).filter((v) => v !== null)) ?? null
+  })()
+  const maxDistVals = hopRows.map((row) => row.max).filter((v) => v !== null)
+  const statThrows = Number(avgHopRow?.throws || maxHopRow?.throws || totalHopRow?.throws || avgDistRow?.throws || totalDistRow?.throws || hopTotalFromCounts || 0)
+  const statTotal = statThrows || hopTotalFromCounts
+  const pctFromStats = (label) => pct(hopCountValue(label), statTotal)
+  if (avgHopRow || maxHopRow || totalHopRow) {
+    return {
+      throws: statThrows,
+      maxDist: fmt(maxOf(maxDistVals), 1),
+      avgDist: fmt(weightedAvgDist, 1),
+      hop0: fmt(hopAvgValue('No Hops'), 1),
+      hop1: fmt(hopAvgValue('1 Hop'), 1),
+      hop2: fmt(hopAvgValue('2 Hop'), 1),
+      hop3: fmt(hopAvgValue('3 Hop'), 1),
+      hop0Count: hopCountValue('No Hops'),
+      hop1Count: hopCountValue('1 Hop'),
+      hop2Count: hopCountValue('2 Hop'),
+      hop3Count: hopCountValue('3 Hop'),
+      hopTotal: statTotal,
+      hop0Pct: pctFromStats('No Hops'),
+      hop1Pct: pctFromStats('1 Hop'),
+      hop2Pct: pctFromStats('2 Hop'),
+      hop3Pct: pctFromStats('3 Hop'),
+    }
+  }
+
+  const distKeys = numericTableKeys(avgDistRow, totalDistRow)
+  const distVals = distKeys.map((key) => parseNum(avgDistRow || {}, [key])).filter((v) => v !== null)
+  const bucketCounts = distKeys.map((key) => parseNum(totalDistRow || {}, [key])).filter((v) => v !== null)
+  const bucketThrowTotal = Number(avgDistRow?.throws || totalDistRow?.throws || 0)
+  return {
+    throws: bucketThrowTotal,
+    maxDist: fmt(maxOf(bucketCounts), 1),
+    avgDist: fmt(avgOf(distVals) ?? null, 1),
+    hop0: null,
+    hop1: null,
+    hop2: null,
+    hop3: null,
+    hop0Count: 0,
+    hop1Count: 0,
+    hop2Count: 0,
+    hop3Count: 0,
+    hopTotal: 0,
+    hop0Pct: 0,
+    hop1Pct: 0,
+    hop2Pct: 0,
+    hop3Pct: 0,
   }
 })
 
@@ -1487,9 +1662,9 @@ const loadData = async () => {
   loading.value = true
   connectionMessage.value = ''
 
-  const safeGet = async (url) => {
+  const safeGet = async (url, params = undefined) => {
     try {
-      return await axiosGet(url)
+      return await axiosGet(url, params)
     } catch (error) {
       if ([401, 403].includes(Number(error?.response?.status))) {
         connectionMessage.value = `Player API connection failed on ${url} (${error?.response?.status}). Log out, then log back in on this localhost site.`
@@ -1506,13 +1681,23 @@ const loadData = async () => {
       await userStore.setData(userData)
     }
 
-    const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, fitnessRes] = await Promise.all([
+    const allTrainingOptions = {
+      WB: [45, 46, 47],
+      EV: [35, 36, 37, 38],
+      LT: [39, 40, 41, 42, 43, 44],
+    }
+    const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, fitnessRes, trainingStatsRes] = await Promise.all([
       safeGet('player/sessions/batting'),
       safeGet('player/sessions/bullpen'),
       safeGet('player/sessions/cage'),
       safeGet('player/sessions/training'),
       safeGet('player/sessions/created'),
       developmentPlayerId.value ? safeGet(`player/fitness/${developmentPlayerId.value}`) : Promise.resolve(null),
+      developmentPlayerId.value ? safeGet(`result/statistics/player/${developmentPlayerId.value}`, {
+        dates: ['2000-01-01', todayDateKey()],
+        players: [String(developmentPlayerId.value)],
+        options: allTrainingOptions,
+      }) : Promise.resolve(null),
     ])
 
     battingSessions.value = rowsFromApi(battingRes)
@@ -1520,6 +1705,7 @@ const loadData = async () => {
     cageSessions.value = rowsFromApi(cageRes)
     trainingSessions.value = rowsFromApi(trainingRes)
     createdSessions.value = rowsFromApi(createdRes)
+    trainingStats.value = trainingStatsRes?.data?.data || null
 
     const cageStatResults = await Promise.all(
       cageSessions.value

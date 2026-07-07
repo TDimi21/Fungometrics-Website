@@ -371,6 +371,9 @@ class GetPlayerDevelopmentBoard extends Controller
                             'sleep_quality_1_to_5' => $fitness?->sleep_quality_1_to_5,
                             'recovery_score' => $fitness?->recovery_score,
                             'mobility_score' => $fitness?->mobility_score,
+                            // Canonical athletic-index scores (single source of truth).
+                            'strength_score' => $fitness?->strength_score,
+                            'overall_api_score' => $fitness?->overall_api_score,
                             'date'        => $fitness?->fitness_date,
                         ],
                         'fitness_rank' => [

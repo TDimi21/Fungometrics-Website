@@ -11,59 +11,64 @@ use Throwable;
 
 class BackfillAthleticScores extends Command
 {
-    protected $signature = 'fmtrx:backfill-athletic-scores {--dry-run : List players that would be recomputed without saving}';
-    protected $description = 'Recompute each player\'s athletic performance score from their latest assessment so overall_api_score / strength_score are populated on the fitness row.';
+    protected $signature = 'fmtrx:backfill-athletic-scores {--dry-run : List assessments that would be recomputed without saving} {--latest-only : Only recompute each player\'s newest assessment}';
+    protected $description = 'Recompute athletic performance scores so overall_api_score / strength_score are populated on EVERY fitness row (canonical single source of truth for app + web). Use --latest-only for the old latest-per-player behaviour.';
 
     public function handle(AthleticPerformanceIndexService $service): int
     {
         $dryRun = (bool) $this->option('dry-run');
+        $latestOnly = (bool) $this->option('latest-only');
 
-        // One latest assessment per user (newest by fitness_date, then created_at).
-        $userIds = PlayerFitness::query()
-            ->select('user_id')
-            ->distinct()
-            ->pluck('user_id');
+        // Every assessment is scored so historical rows (the app time-series and
+        // web trend) also carry the canonical strength_score — not just the latest.
+        $query = PlayerFitness::query()
+            ->orderBy('user_id')
+            ->orderByDesc('fitness_date')
+            ->orderByDesc('created_at');
 
-        if ($userIds->isEmpty()) {
+        if ($query->count() === 0) {
             $this->info('No player fitness records found.');
 
             return self::SUCCESS;
         }
 
-        $this->info(($dryRun ? '[dry-run] ' : '') . "Backfilling athletic scores for {$userIds->count()} player(s)...");
-
         $ok = 0;
         $skipped = 0;
         $failed = 0;
+        $seenUsers = [];
 
-        foreach ($userIds as $userId) {
-            $latest = PlayerFitness::query()
-                ->where('user_id', $userId)
-                ->orderByDesc('fitness_date')
-                ->orderByDesc('created_at')
-                ->first();
+        $this->info(($dryRun ? '[dry-run] ' : '') . 'Backfilling athletic scores' . ($latestOnly ? ' (latest per player)' : ' (all assessments)') . '...');
 
-            if (! $latest) {
-                $skipped++;
-                continue;
+        $query->chunkById(200, function ($assessments) use ($service, $dryRun, $latestOnly, &$ok, &$skipped, &$failed, &$seenUsers): void {
+            foreach ($assessments as $assessment) {
+                $userId = (string) $assessment->user_id;
+
+                if ($latestOnly) {
+                    // Rows arrive newest-first per user; skip all but the first.
+                    if (isset($seenUsers[$userId])) {
+                        $skipped++;
+                        continue;
+                    }
+                    $seenUsers[$userId] = true;
+                }
+
+                if ($dryRun) {
+                    $this->line("  would recompute user {$userId} (assessment {$assessment->id})");
+                    $ok++;
+                    continue;
+                }
+
+                try {
+                    // Mirrors the canonical overall_api_score + strength_score
+                    // back onto this assessment's fitness row.
+                    $service->calculateAndSave($assessment);
+                    $ok++;
+                } catch (Throwable $e) {
+                    $failed++;
+                    $this->warn("  failed assessment {$assessment->id} (user {$userId}): {$e->getMessage()}");
+                }
             }
-
-            if ($dryRun) {
-                $this->line("  would recompute user {$userId} (assessment {$latest->id})");
-                $ok++;
-                continue;
-            }
-
-            try {
-                // calculateAndSave coalesces history and mirrors the canonical
-                // overall_api_score + strength_score back onto $latest.
-                $service->calculateAndSave($latest);
-                $ok++;
-            } catch (Throwable $e) {
-                $failed++;
-                $this->warn("  failed user {$userId}: {$e->getMessage()}");
-            }
-        }
+        });
 
         $this->info("Done. recomputed={$ok} skipped={$skipped} failed={$failed}");
 

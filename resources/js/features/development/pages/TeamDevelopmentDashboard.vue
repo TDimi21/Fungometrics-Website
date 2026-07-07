@@ -132,7 +132,10 @@ const playerRows = computed(() => {
     const fit = p?.fitness || {}
     const ranks = p?.fitness_rank || {}
 
-    const strengthScore = average([
+    // Single source of truth: the canonical athletic-index strength_score
+    // (mirrored onto the fitness row), matching the player views. Fall back to
+    // the rank-based blend only when a player has no scored assessment yet.
+    const strengthScore = n(fit.strength_score) ?? average([
       rankPercent(ranks.bench_press),
       rankPercent(ranks.front_squat),
       rankPercent(ranks.back_squat),

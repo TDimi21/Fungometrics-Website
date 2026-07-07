@@ -174,8 +174,15 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ? (new CageStatisticsService())->fcs($cageCurrent)['fcs'] ?? null
                     : null;
 
-                $strengthScore = $this->computeStrengthScore($fitnessLatest);
-                $strengthPrev = $this->computeStrengthScore($fitnessPrev);
+                // Single source of truth: use the canonical strength_score from
+                // the athletic index; fall back to the local formula only when a
+                // player has no scored assessment yet.
+                $strengthScore = $athleticLatest?->strength_score !== null
+                    ? (float) $athleticLatest->strength_score
+                    : $this->computeStrengthScore($fitnessLatest);
+                $strengthPrev = $athleticPrev?->strength_score !== null
+                    ? (float) $athleticPrev->strength_score
+                    : $this->computeStrengthScore($fitnessPrev);
 
                 $performanceScore = $this->averageAvailable([
                     $bpScore,

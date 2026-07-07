@@ -125,8 +125,12 @@ class GetTeamPlayerCards extends Controller
                         'mobility_score' => $fitness->mobility_score,
                     ] : null,
 
-                    // Canonical strength metric for dashboards/leaderboards
-                    'fmtrxx_strength_score' => $this->computeFmtrxxStrengthScore($fitness),
+                    // Canonical strength metric for dashboards/leaderboards:
+                    // prefer the athletic-index strength_score (single source of
+                    // truth); fall back to the local formula only when unscored.
+                    'fmtrxx_strength_score' => $athletic?->strength_score !== null
+                        ? (int) round((float) $athletic->strength_score)
+                        : $this->computeFmtrxxStrengthScore($fitness),
                     'athletic_performance' => $athletic ? [
                         'overall_api_score' => $athletic->overall_api_score,
                         'grade_label' => $athletic->grade_label,
