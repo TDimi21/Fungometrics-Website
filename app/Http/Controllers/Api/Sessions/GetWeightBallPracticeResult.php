@@ -29,6 +29,9 @@ class GetWeightBallPracticeResult extends Controller
             }
 
             $count = $result->count();
+            // Per-weight velocity aggregates computed server-side so the app and
+            // web render identical numbers (single source of truth).
+            $velocity = Helper::weightBallVelocityByWeight($result);
             $response = [
                 'code' => '027',
                 'message' => 'result practices',
@@ -36,7 +39,10 @@ class GetWeightBallPracticeResult extends Controller
                 'data' => [
                     'count'=>$count,
                     'ball_x_ball'=>$result->sortBy('sort')->sortByDesc('set')->values(),
-                    'sets'=>$sets
+                    'sets'=>$sets,
+                    'velocity_by_weight'=>$velocity['velocity_by_weight'],
+                    'velocity_by_weight_by_player'=>$velocity['velocity_by_weight_by_player'],
+                    'team_max_velo'=>$velocity['team_max_velo'],
                 ],
             ];
 

@@ -54,6 +54,10 @@ const selectedBullpenPlayerIds = ref([])
 const selectedLongTossPlayerIds = ref([])
 const selectedWeightBallPlayerIds = ref([])
 const selectedLiveAbPlayerIds = ref([])
+// Server-computed per-weight aggregates (single source of truth). Only set for a
+// single, unfiltered session; multi-session views re-aggregate the merged rows
+// with the identical rule below.
+const wbServerVelocityByWeight = ref(null)
 
 const toggleCagePlayer = (playerId) => {
   const id = String(playerId)
@@ -1185,6 +1189,20 @@ const wbAllPitchesRows = computed(() => {
 
 const wbVeloByWeightRows = computed(() => {
   if (selectedSession.value !== 'WB') return []
+
+  // Single source of truth: render the backend per-weight block for a single,
+  // unfiltered session. Player-filtered or multi-session views re-aggregate the
+  // visible rows below with the identical rule.
+  const noPlayerFilter = (selectedWeightBallPlayerIds.value || []).length === 0
+  if (noPlayerFilter && Array.isArray(wbServerVelocityByWeight.value) && wbServerVelocityByWeight.value.length) {
+    return wbServerVelocityByWeight.value.map((r) => ({
+      weight: String(r.weight),
+      topVelo: r.top_velo,
+      avgVelo: r.avg_velo,
+      throws: r.throws,
+    }))
+  }
+
   const buckets = {}
   visibleFlatRows.value.forEach((row) => {
     const weight = getWeightNumber(row)
@@ -1553,6 +1571,7 @@ const loadAllPitchesAndVeloData = async () => {
 
   const mergedRows = []
   const mergedByPlayer = {}
+  let serverVbw = null
 
   await Promise.all(
     ids.map(async (id) => {
@@ -1571,6 +1590,11 @@ const loadAllPitchesAndVeloData = async () => {
           []
         mergedRows.push(...toRowsArray(rows))
 
+        // Capture the backend per-weight block only for a single session.
+        if (ids.length === 1 && Array.isArray(data?.velocity_by_weight)) {
+          serverVbw = data.velocity_by_weight
+        }
+
         const byPlayer = mergeByPlayer(data?.by_player || {})
         Object.keys(byPlayer).forEach((playerId) => {
           if (!mergedByPlayer[playerId]) mergedByPlayer[playerId] = []
@@ -1584,6 +1608,7 @@ const loadAllPitchesAndVeloData = async () => {
 
   flatRows.value = normalizeFlatRows(mergedRows).filter(rowMatchesSelectedPlayers)
   byPlayerRows.value = mergedByPlayer
+  wbServerVelocityByWeight.value = serverVbw
 }
 
 const boot = async () => {
