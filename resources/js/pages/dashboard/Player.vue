@@ -116,6 +116,16 @@ const SESSION_REPORT_TYPE = {
   WB: 'weight_ball',
 }
 
+// Maps a training session's mode to its stats route segment so per-session
+// ball-by-ball data can be pulled (statistics/{id}/{segment}).
+const trainingModeEndpoint = (session) => {
+  const mode = String(session?.modes || session?.mode || '').toUpperCase()
+  if (mode === 'WB') return 'weightball'
+  if (mode === 'EV') return 'exitvelocity'
+  if (mode === 'LT' || mode.includes('LONG')) return 'longtoss'
+  return null
+}
+
 const SESSION_TYPE_COLOR = {
   batting:       { bg: 'bg-sky-500/20', border: 'border-sky-500/40', text: 'text-sky-300', label: 'BATTING' },
   bullpen:       { bg: 'bg-violet-500/20', border: 'border-violet-500/40', text: 'text-violet-300', label: 'BULLPEN' },
@@ -1239,6 +1249,48 @@ const fmtReport = (value, suffix = '') => {
   return `${Number.isInteger(n) ? n : n.toFixed(1)}${suffix}`
 }
 
+const lineChartRows = (report) => {
+  const series = report?.lineSeries || []
+  return (report?.rows || []).filter((row) => series.some((item) => Number.isFinite(Number(row[item.key])) && Number(row[item.key]) > 0))
+}
+const lineChartSeries = (report) => {
+  const rows = lineChartRows(report)
+  return (report?.lineSeries || []).filter((item) => rows.some((row) => Number.isFinite(Number(row[item.key])) && Number(row[item.key]) > 0))
+}
+const lineChartValues = (report) => {
+  const rows = lineChartRows(report)
+  return lineChartSeries(report)
+    .flatMap((item) => rows.map((row) => Number(row[item.key])))
+    .filter((value) => Number.isFinite(value) && value > 0)
+}
+const lineChartRange = (report) => {
+  const values = lineChartValues(report)
+  const max = Math.max(Number(report?.max || 0), ...values, 1)
+  const rawMin = values.length ? Math.min(...values) : 0
+  const min = Math.max(0, rawMin - Math.max(5, (max - rawMin) * 0.2))
+  return { min, max, span: Math.max(1, max - min) }
+}
+const lineChartX = (report, index) => {
+  const rows = lineChartRows(report)
+  const left = 32
+  const right = 14
+  const width = 320
+  if (rows.length <= 1) return left
+  return left + (index / (rows.length - 1)) * (width - left - right)
+}
+const lineChartY = (report, value) => {
+  const top = 14
+  const bottom = 28
+  const height = 150
+  const range = lineChartRange(report)
+  return top + (1 - ((Number(value) - range.min) / range.span)) * (height - top - bottom)
+}
+const lineChartPath = (report, series) => lineChartRows(report)
+  .map((row, index) => ({ x: lineChartX(report, index), y: lineChartY(report, row[series.key]), value: Number(row[series.key]) }))
+  .filter((point) => Number.isFinite(point.value) && point.value > 0)
+  .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+  .join(' ')
+
 const weightedPlayerReport = computed(() => {
   const w = weightedBreakdown.value
   if (!w.byWeight.length) return null
@@ -1250,7 +1302,9 @@ const weightedPlayerReport = computed(() => {
     const expected = base && multipliers[row.weight] ? base * multipliers[row.weight] : null
     return {
       label: `${row.weight} oz avg`,
+      shortLabel: `${row.weight} oz`,
       value: row.avgVelo,
+      topValue: row.maxVelo,
       expected,
       color: Number(row.weight) < 5 ? '#34A7FF' : Number(row.weight) === 5 ? '#37D67A' : '#F7D774',
     }
@@ -1264,6 +1318,11 @@ const weightedPlayerReport = computed(() => {
     max,
     suffix: ' mph',
     rows,
+    lineSeries: [
+      { key: 'value', label: 'Avg', color: '#37D67A' },
+      { key: 'topValue', label: 'Top', color: '#34A7FF' },
+      { key: 'expected', label: 'Expected', color: '#FFFFFF', dashed: true },
+    ],
     tiles: [
       { label: 'Top Velo', value: fmtReport(w.maxVelo, ' mph'), sub: 'Best recorded' },
       { label: 'Best Weight', value: best?.label?.replace(' avg', '') || '—', sub: best ? fmtReport(best.value, ' mph avg') : '' },
@@ -1277,9 +1336,9 @@ const exitVelocityPlayerReport = computed(() => {
   const e = exitVelBreakdown.value
   if (!e.swings) return null
   const rows = [
-    { label: 'LD avg', value: e.ldAvgEV, color: '#37D67A' },
-    { label: 'GB avg', value: e.gbAvgEV, color: '#34A7FF' },
-    { label: 'FB avg', value: e.fbAvgEV, color: '#F7D774' },
+    { label: 'LD avg', shortLabel: 'LD', value: e.ldAvgEV, color: '#37D67A' },
+    { label: 'GB avg', shortLabel: 'GB', value: e.gbAvgEV, color: '#34A7FF' },
+    { label: 'FB avg', shortLabel: 'FB', value: e.fbAvgEV, color: '#F7D774' },
   ]
   return {
     title: 'Exit Velocity by Trajectory',
@@ -1287,6 +1346,9 @@ const exitVelocityPlayerReport = computed(() => {
     max: Math.max(Number(e.maxEV || 0), 100),
     suffix: ' mph',
     rows,
+    lineSeries: [
+      { key: 'value', label: 'Avg EV', color: '#ff2d55' },
+    ],
     tiles: [
       { label: 'Avg EV', value: fmtReport(e.avgEV, ' mph'), sub: 'All EV swings' },
       { label: 'Top EV', value: fmtReport(e.maxEV, ' mph'), sub: 'Best recorded' },
@@ -1300,10 +1362,10 @@ const longTossPlayerReport = computed(() => {
   const l = longTossBreakdown.value
   if (!l.throws) return null
   const rows = [
-    { label: '0 hops avg', value: l.hop0, color: '#37D67A' },
-    { label: '1 hop avg', value: l.hop1, color: '#34A7FF' },
-    { label: '2 hops avg', value: l.hop2, color: '#F7D774' },
-    { label: '3 hops avg', value: l.hop3, color: '#ff2d55' },
+    { label: '0 hops avg', shortLabel: '0', value: l.hop0, color: '#37D67A' },
+    { label: '1 hop avg', shortLabel: '1', value: l.hop1, color: '#34A7FF' },
+    { label: '2 hops avg', shortLabel: '2', value: l.hop2, color: '#F7D774' },
+    { label: '3 hops avg', shortLabel: '3', value: l.hop3, color: '#ff2d55' },
   ]
   const cleanPct = l.throws ? ((l.hop0Count + l.hop1Count) / l.throws) * 100 : null
   return {
@@ -1312,6 +1374,9 @@ const longTossPlayerReport = computed(() => {
     max: Math.max(Number(l.maxDist || 0), 300),
     suffix: ' ft',
     rows,
+    lineSeries: [
+      { key: 'value', label: 'Avg Distance', color: '#37D67A' },
+    ],
     tiles: [
       { label: 'Top Distance', value: fmtReport(l.maxDist, ' ft'), sub: 'Best throw' },
       { label: 'Avg Distance', value: fmtReport(l.avgDist, ' ft'), sub: 'All throws' },
@@ -1467,6 +1532,27 @@ const loadData = async () => {
       .filter((r) => r && typeof r === 'object')
 
     cageStatRows.value = rowsFromStats
+
+    // Training-mode sessions (Weighted / Exit Velocity / Long Toss). The list
+    // endpoint eager-loads the ball relations, but only when they belong to the
+    // authenticated user — otherwise they arrive empty. When a session has no
+    // embedded rows, pull them explicitly via the correct per-mode stats route
+    // (same pattern as cage above). Guarded so we never double-count sessions
+    // that already carried embedded rows.
+    const hasEmbeddedRows = (s) =>
+      [s?.weight_ball, s?.exit_velocity, s?.long_toss, s?.ball_x_ball, s?.results]
+        .some((a) => Array.isArray(a) && a.length > 0)
+    await Promise.all(
+      trainingSessions.value
+        .filter((s) => s?.id && trainingModeEndpoint(s) && !hasEmbeddedRows(s))
+        .map(async (s) => {
+          const res = await axiosGet(`statistics/${s.id}/${trainingModeEndpoint(s)}`).catch(() => null)
+          const rows = res?.data?.data?.ball_x_ball ?? res?.data?.ball_x_ball ?? []
+          s.ball_x_ball = Array.isArray(rows) ? rows : []
+        })
+    )
+    // Re-assign to trigger the Weighted / EV / Long Toss breakdown computeds.
+    trainingSessions.value = [...trainingSessions.value]
 
     const fit = fitnessRes?.data?.data
     const fitnessRows = Array.isArray(fit) ? fit : (fit ? [fit] : [])
@@ -1892,6 +1978,77 @@ onMounted(loadData)
               <div class="mb-3">
                 <p class="text-xs font-black tracking-widest uppercase text-white/70">{{ activeTrainingReport.title }}</p>
                 <p class="mt-1 text-[11px] font-bold text-white/40">{{ activeTrainingReport.subtitle }}</p>
+              </div>
+              <div
+                v-if="lineChartRows(activeTrainingReport).length > 1"
+                class="mb-4 rounded-lg bg-black/15 pt-1"
+              >
+                <svg class="h-[150px] w-full" viewBox="0 0 320 150" preserveAspectRatio="none">
+                  <line
+                    v-for="ratio in [0, 0.5, 1]"
+                    :key="`grid-${ratio}`"
+                    x1="32"
+                    x2="306"
+                    :y1="14 + ratio * 108"
+                    :y2="14 + ratio * 108"
+                    stroke="rgba(255,255,255,0.12)"
+                    stroke-width="1"
+                  />
+                  <path
+                    v-for="series in lineChartSeries(activeTrainingReport)"
+                    :key="series.key"
+                    :d="lineChartPath(activeTrainingReport, series)"
+                    fill="none"
+                    :stroke="series.color || '#ff2d55'"
+                    :stroke-width="series.dashed ? 2 : 3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    :stroke-dasharray="series.dashed ? '6 5' : null"
+                    vector-effect="non-scaling-stroke"
+                  />
+                  <template
+                    v-for="series in lineChartSeries(activeTrainingReport)"
+                    :key="`points-${series.key}`"
+                  >
+                    <circle
+                      v-for="(row, index) in lineChartRows(activeTrainingReport)"
+                      v-show="Number.isFinite(Number(row[series.key])) && Number(row[series.key]) > 0"
+                      :key="`${series.key}-${row.label}`"
+                      :cx="lineChartX(activeTrainingReport, index)"
+                      :cy="lineChartY(activeTrainingReport, row[series.key])"
+                      r="3.5"
+                      :fill="series.color || '#ff2d55'"
+                      stroke="#101634"
+                      stroke-width="1.5"
+                      vector-effect="non-scaling-stroke"
+                    />
+                  </template>
+                  <text
+                    v-for="(row, index) in lineChartRows(activeTrainingReport)"
+                    :key="`label-${row.label}`"
+                    :x="lineChartX(activeTrainingReport, index)"
+                    y="142"
+                    fill="rgba(255,255,255,0.58)"
+                    font-size="9"
+                    font-weight="700"
+                    text-anchor="middle"
+                  >
+                    {{ row.shortLabel || row.label.replace(' avg', '') }}
+                  </text>
+                </svg>
+                <div class="flex flex-wrap gap-x-3 gap-y-1 px-2 pb-2">
+                  <div
+                    v-for="series in lineChartSeries(activeTrainingReport)"
+                    :key="`legend-${series.key}`"
+                    class="flex items-center gap-1.5"
+                  >
+                    <span
+                      class="h-2.5 w-2.5 rounded-full"
+                      :style="{ backgroundColor: series.color || '#ff2d55' }"
+                    ></span>
+                    <span class="text-[10px] font-black uppercase text-white/55">{{ series.label }}</span>
+                  </div>
+                </div>
               </div>
               <div class="space-y-3">
                 <div
