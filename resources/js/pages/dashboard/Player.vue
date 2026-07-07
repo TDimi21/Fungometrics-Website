@@ -11,7 +11,7 @@ import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const userStore = useUserStore()
 const { userData } = userStore
-const { axiosGet } = useAxiosAuth()
+const { axiosGet, axiosPost } = useAxiosAuth()
 const router = useRouter()
 
 const loading = ref(false)
@@ -39,6 +39,13 @@ const createdSessions = ref([])
 const cageStatRows = ref([])
 const trainingSessions = ref([])
 const playerFitnessLatest = ref(null)
+const sleepCheckinOpen = ref(false)
+const sleepCheckinSaving = ref(false)
+const sleepCheckinCheckedDate = ref('')
+const sleepCheckinForm = ref({
+  sleep_hours: '',
+  sleep_quality_1_to_5: '',
+})
 
 const statTabs = [
   { key: 'bp', label: 'BP Stats' },
@@ -53,6 +60,36 @@ const POOR = '#ef4444'
 const AVG = '#facc15'
 const GREAT = '#22c55e'
 const ONE_HOUR_MS = 3600000
+const todayDateKey = () => {
+  const d = new Date()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${month}-${day}`
+}
+const fitnessDateKey = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`
+  }
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${month}-${day}`
+}
+const hasSleepLoggedToday = (rows = []) => {
+  const today = todayDateKey()
+  return (Array.isArray(rows) ? rows : [rows])
+    .filter(Boolean)
+    .some((row) => {
+      const isToday = fitnessDateKey(row?.fitness_date || row?.created_at || row?.date) === today
+      if (!isToday) return false
+      const hours = Number(row?.sleep_hours)
+      const quality = Number(row?.sleep_quality_1_to_5)
+      return Number.isFinite(hours) && hours > 0 && Number.isFinite(quality) && quality >= 1 && quality <= 5
+    })
+}
 
 const WEIGHTED_VELO_SCALES = {
   3: { min: 60, max: 110, thresholds: [75, 88] },
@@ -502,6 +539,50 @@ const developmentPlayerId = computed(() => {
     null
   )
 })
+
+const maybeOpenSleepCheckin = (fitnessRows = []) => {
+  const today = todayDateKey()
+  if (sleepCheckinCheckedDate.value === today) return
+  sleepCheckinCheckedDate.value = today
+  if (hasSleepLoggedToday(fitnessRows)) {
+    sleepCheckinOpen.value = false
+    return
+  }
+  sleepCheckinForm.value = { sleep_hours: '', sleep_quality_1_to_5: '' }
+  sleepCheckinOpen.value = true
+}
+
+const saveSleepCheckin = async () => {
+  const playerId = developmentPlayerId.value || userData?.id
+  const hours = Number(sleepCheckinForm.value.sleep_hours)
+  const quality = Number(sleepCheckinForm.value.sleep_quality_1_to_5)
+  if (!playerId) return
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
+    connectionMessage.value = 'Enter sleep hours between 0 and 24.'
+    return
+  }
+  if (!Number.isInteger(quality) || quality < 1 || quality > 5) {
+    connectionMessage.value = 'Sleep quality must be a whole number from 1 to 5.'
+    return
+  }
+  sleepCheckinSaving.value = true
+  connectionMessage.value = ''
+  try {
+    const res = await axiosPost('player/fitness', {
+      user_id: playerId,
+      fitness_date: todayDateKey(),
+      sleep_hours: hours,
+      sleep_quality_1_to_5: quality,
+    })
+    const saved = res?.data?.data || null
+    if (saved) playerFitnessLatest.value = saved
+    sleepCheckinOpen.value = false
+  } catch (error) {
+    connectionMessage.value = error?.response?.data?.message || 'Could not save sleep check-in.'
+  } finally {
+    sleepCheckinSaving.value = false
+  }
+}
 
 const openDevelopmentProfile = async () => {
   await router.push({
@@ -1080,10 +1161,17 @@ const exitVelBreakdown = computed(() => {
   const rows = evSessions.flatMap((s) => getSessionRows(s))
   const ev = rows.map((r) => parseNum(r, ['velocity', 'exit_velocity', 'launch_angle_velocity', 'miles_per_hour'])).filter((v) => v !== null)
   const hard = ev.filter((v) => v >= 90).length
-  const trajectories = rows.map(classifyTrajectory).filter(Boolean)
+  const classified = rows
+    .map((row) => ({
+      trajectory: classifyTrajectory(row),
+      velocity: parseNum(row, ['velocity', 'exit_velocity', 'launch_angle_velocity', 'miles_per_hour']),
+    }))
+    .filter((row) => row.trajectory)
+  const trajectories = classified.map((row) => row.trajectory)
   const gb = trajectories.filter((t) => t === 'GB').length
   const ld = trajectories.filter((t) => t === 'LD').length
   const fb = trajectories.filter((t) => t === 'FB').length
+  const avgTrajEV = (key) => fmt(avgOf(classified.filter((row) => row.trajectory === key).map((row) => row.velocity).filter((v) => v !== null)) ?? null, 1)
   return {
     swings: rows.length,
     maxEV: fmt(maxOf(ev), 1),
@@ -1092,6 +1180,13 @@ const exitVelBreakdown = computed(() => {
     gbPct: pct(gb, trajectories.length),
     ldPct: pct(ld, trajectories.length),
     fbPct: pct(fb, trajectories.length),
+    gbAvgEV: avgTrajEV('GB'),
+    ldAvgEV: avgTrajEV('LD'),
+    fbAvgEV: avgTrajEV('FB'),
+    gbCount: gb,
+    ldCount: ld,
+    fbCount: fb,
+    trajTotal: trajectories.length,
   }
 })
 
@@ -1136,6 +1231,101 @@ const longTossBreakdown = computed(() => {
     hop2Pct: pct(hop2Count, hopTotal),
     hop3Pct: pct(hop3Count, hopTotal),
   }
+})
+
+const fmtReport = (value, suffix = '') => {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '—'
+  return `${Number.isInteger(n) ? n : n.toFixed(1)}${suffix}`
+}
+
+const weightedPlayerReport = computed(() => {
+  const w = weightedBreakdown.value
+  if (!w.byWeight.length) return null
+  const five = w.byWeight.find((row) => Number(row.weight) === 5)
+  const base = Number(five?.avgVelo || w.byWeight[0]?.avgVelo || 0)
+  const multipliers = { 3: 1.04, 4: 1.02, 5: 1, 6: 0.97, 7: 0.94, 9: 0.90 }
+  const max = Math.max(...w.byWeight.map((row) => Number(row.maxVelo || row.avgVelo || 0)), base * 1.06 || 1)
+  const rows = w.byWeight.map((row) => {
+    const expected = base && multipliers[row.weight] ? base * multipliers[row.weight] : null
+    return {
+      label: `${row.weight} oz avg`,
+      value: row.avgVelo,
+      expected,
+      color: Number(row.weight) < 5 ? '#34A7FF' : Number(row.weight) === 5 ? '#37D67A' : '#F7D774',
+    }
+  })
+  const best = rows
+    .map((row) => ({ ...row, delta: row.expected ? Number(row.value) - row.expected : 0 }))
+    .sort((a, b) => b.delta - a.delta)[0]
+  return {
+    title: 'Weighted Ball Velocity Curve',
+    subtitle: 'All weighted ball throws',
+    max,
+    suffix: ' mph',
+    rows,
+    tiles: [
+      { label: 'Top Velo', value: fmtReport(w.maxVelo, ' mph'), sub: 'Best recorded' },
+      { label: 'Best Weight', value: best?.label?.replace(' avg', '') || '—', sub: best ? fmtReport(best.value, ' mph avg') : '' },
+      { label: '5 oz Avg', value: fmtReport(five?.avgVelo, ' mph'), sub: 'Regulation ball' },
+      { label: 'Weights', value: String(w.byWeight.length), sub: 'Tracked groups' },
+    ],
+  }
+})
+
+const exitVelocityPlayerReport = computed(() => {
+  const e = exitVelBreakdown.value
+  if (!e.swings) return null
+  const rows = [
+    { label: 'LD avg', value: e.ldAvgEV, color: '#37D67A' },
+    { label: 'GB avg', value: e.gbAvgEV, color: '#34A7FF' },
+    { label: 'FB avg', value: e.fbAvgEV, color: '#F7D774' },
+  ]
+  return {
+    title: 'Exit Velocity by Trajectory',
+    subtitle: `${e.trajTotal || 0} classified swings`,
+    max: Math.max(Number(e.maxEV || 0), 100),
+    suffix: ' mph',
+    rows,
+    tiles: [
+      { label: 'Avg EV', value: fmtReport(e.avgEV, ' mph'), sub: 'All EV swings' },
+      { label: 'Top EV', value: fmtReport(e.maxEV, ' mph'), sub: 'Best recorded' },
+      { label: 'Hard Hit %', value: fmtReport(e.hardPct, '%'), sub: '90+ mph' },
+      { label: 'Line Drives', value: fmtReport(e.ldPct, '%'), sub: `${e.ldCount || 0} swings` },
+    ],
+  }
+})
+
+const longTossPlayerReport = computed(() => {
+  const l = longTossBreakdown.value
+  if (!l.throws) return null
+  const rows = [
+    { label: '0 hops avg', value: l.hop0, color: '#37D67A' },
+    { label: '1 hop avg', value: l.hop1, color: '#34A7FF' },
+    { label: '2 hops avg', value: l.hop2, color: '#F7D774' },
+    { label: '3 hops avg', value: l.hop3, color: '#ff2d55' },
+  ]
+  const cleanPct = l.throws ? ((l.hop0Count + l.hop1Count) / l.throws) * 100 : null
+  return {
+    title: 'Long Toss Distance by Hops',
+    subtitle: `${l.throws} throws`,
+    max: Math.max(Number(l.maxDist || 0), 300),
+    suffix: ' ft',
+    rows,
+    tiles: [
+      { label: 'Top Distance', value: fmtReport(l.maxDist, ' ft'), sub: 'Best throw' },
+      { label: 'Avg Distance', value: fmtReport(l.avgDist, ' ft'), sub: 'All throws' },
+      { label: 'Clean Carry', value: fmtReport(cleanPct, '%'), sub: '0-1 hops' },
+      { label: 'Full Carry', value: fmtReport(l.hop0Pct, '%'), sub: '0 hops' },
+    ],
+  }
+})
+
+const activeTrainingReport = computed(() => {
+  if (activeStatTab.value === 'weighted') return weightedPlayerReport.value
+  if (activeStatTab.value === 'exitVel') return exitVelocityPlayerReport.value
+  if (activeStatTab.value === 'longToss') return longTossPlayerReport.value
+  return null
 })
 
 const metricRows = computed(() => {
@@ -1279,7 +1469,9 @@ const loadData = async () => {
     cageStatRows.value = rowsFromStats
 
     const fit = fitnessRes?.data?.data
-    playerFitnessLatest.value = Array.isArray(fit) ? (fit[0] || null) : (fit || null)
+    const fitnessRows = Array.isArray(fit) ? fit : (fit ? [fit] : [])
+    playerFitnessLatest.value = fitnessRows[0] || null
+    maybeOpenSleepCheckin(fitnessRows)
   } finally {
     loading.value = false
   }
@@ -1290,6 +1482,60 @@ onMounted(loadData)
 
 <template>
   <Layout>
+    <div
+      v-if="sleepCheckinOpen"
+      class="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4"
+    >
+      <div class="w-full max-w-md rounded-2xl border border-white/10 bg-[#101634] p-5 text-white shadow-2xl">
+        <h2 class="text-2xl font-black">Daily Recovery Check-In</h2>
+        <p class="mt-2 text-sm font-semibold leading-6 text-white/65">
+          Log today's sleep so your player metrics stay current.
+        </p>
+
+        <label class="mt-5 block text-xs font-black uppercase tracking-widest text-white/60">
+          Hours slept
+        </label>
+        <input
+          v-model="sleepCheckinForm.sleep_hours"
+          type="number"
+          min="0"
+          max="24"
+          step="0.1"
+          class="mt-2 h-12 w-full rounded-xl border border-white/15 bg-white/10 px-3 text-lg font-black text-white outline-none focus:border-[#ff2d55]"
+          placeholder="8"
+        />
+
+        <label class="mt-4 block text-xs font-black uppercase tracking-widest text-white/60">
+          Sleep quality (1-5)
+        </label>
+        <input
+          v-model="sleepCheckinForm.sleep_quality_1_to_5"
+          type="number"
+          min="1"
+          max="5"
+          step="1"
+          class="mt-2 h-12 w-full rounded-xl border border-white/15 bg-white/10 px-3 text-lg font-black text-white outline-none focus:border-[#ff2d55]"
+          placeholder="4"
+        />
+
+        <div class="mt-5 flex justify-end gap-3">
+          <button
+            class="h-11 rounded-xl border border-white/15 bg-white/10 px-5 text-sm font-black text-white/70"
+            :disabled="sleepCheckinSaving"
+            @click="sleepCheckinOpen = false"
+          >
+            Later
+          </button>
+          <button
+            class="h-11 rounded-xl bg-[#ff2d55] px-6 text-sm font-black text-white disabled:opacity-60"
+            :disabled="sleepCheckinSaving"
+            @click="saveSleepCheckin"
+          >
+            {{ sleepCheckinSaving ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
+      </div>
+    </div>
     <div class="min-h-full bg-[#060b14] text-white px-4 py-5 lg:px-6">
       <div class="mx-auto max-w-6xl space-y-4">
         <div
@@ -1637,6 +1883,52 @@ onMounted(loadData)
               <p class="text-xs font-black tracking-widest uppercase text-white/60">
                 Cage Metrics ({{ cageBreakdown.swings }} swings)
               </p>
+            </div>
+
+            <div
+              v-if="activeTrainingReport"
+              class="rounded-xl border border-white/10 bg-white/5 p-4"
+            >
+              <div class="mb-3">
+                <p class="text-xs font-black tracking-widest uppercase text-white/70">{{ activeTrainingReport.title }}</p>
+                <p class="mt-1 text-[11px] font-bold text-white/40">{{ activeTrainingReport.subtitle }}</p>
+              </div>
+              <div class="space-y-3">
+                <div
+                  v-for="row in activeTrainingReport.rows.filter(r => Number.isFinite(Number(r.value)) && Number(r.value) > 0)"
+                  :key="row.label"
+                >
+                  <div class="mb-1 flex items-center justify-between gap-3">
+                    <p class="text-[11px] font-black uppercase text-white/65">{{ row.label }}</p>
+                    <p class="text-xs font-black text-white">{{ fmtReport(row.value, activeTrainingReport.suffix) }}</p>
+                  </div>
+                  <div class="relative h-2.5 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      class="h-full rounded-full"
+                      :style="{
+                        width: `${Math.max(5, Math.min(100, (Number(row.value) / Math.max(1, Number(activeTrainingReport.max))) * 100))}%`,
+                        backgroundColor: row.color || '#ff2d55',
+                      }"
+                    ></div>
+                    <div
+                      v-if="Number.isFinite(Number(row.expected))"
+                      class="absolute top-[-2px] h-4 w-0.5 bg-white/85"
+                      :style="{ left: `${Math.max(0, Math.min(100, (Number(row.expected) / Math.max(1, Number(activeTrainingReport.max))) * 100))}%` }"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-4 grid grid-cols-2 gap-2">
+                <div
+                  v-for="tile in activeTrainingReport.tiles"
+                  :key="tile.label"
+                  class="rounded-lg border border-white/10 bg-[#0b1230]/80 p-3"
+                >
+                  <p class="text-[10px] font-black uppercase tracking-wide text-white/45">{{ tile.label }}</p>
+                  <p class="mt-1 text-lg font-black text-white">{{ tile.value }}</p>
+                  <p v-if="tile.sub" class="mt-0.5 text-[10px] font-bold text-white/35">{{ tile.sub }}</p>
+                </div>
+              </div>
             </div>
 
             <div
