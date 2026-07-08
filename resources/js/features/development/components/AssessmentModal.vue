@@ -580,9 +580,9 @@ const onSave = async () => {
                     <div class="space-y-2">
                       <div v-for="pt in form.pitch_types" :key="pt">
                         <div class="text-sm font-bold text-white mb-1">{{ pt }}</div>
-                        <div class="flex gap-1 overflow-x-auto pb-1">
+                        <div class="flex flex-wrap gap-1 pb-1">
                           <button v-for="g in mlbPitchGrades" :key="g.grade" type="button"
-                            class="am-grade shrink-0" :class="form.pitch_grades[pt] === g.grade ? 'am-mech-on' : ''"
+                            class="am-grade" :class="Number(form.pitch_grades[pt]) === g.grade ? 'am-mech-on' : ''"
                             @click="setPitchGrade(pt, g.grade)">
                             <div class="text-sm font-black">{{ g.grade }}</div>
                             <div class="text-[9px] text-white/50 leading-tight">{{ g.label }}</div>
