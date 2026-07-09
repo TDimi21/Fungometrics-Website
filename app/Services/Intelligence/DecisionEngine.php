@@ -75,8 +75,11 @@ class DecisionEngine
         $teamSnapshot = $this->teamIntelligence->build($teamId, $days);
         $players = is_array($teamSnapshot['players'] ?? null) ? $teamSnapshot['players'] : [];
 
+        $dataCollectionPriority = $this->dataCollectionPriority($teamSnapshot, $players);
         $candidates = $this->rankCandidates($this->buildCandidates($teamSnapshot, $players));
-        $primary = $candidates[0] ?? $this->fallbackDataCollectionCandidate($teamSnapshot, $players);
+        $primary = $this->selectPrimaryCandidate($candidates, $teamSnapshot, $players, $dataCollectionPriority);
+        $practicePlan = $this->practicePlanFor($primary['focus_key'] ?? 'data_collection');
+        $practicePlan = $this->appendDataCollectionBlock($practicePlan, $primary, $dataCollectionPriority);
 
         return [
             'generated_at' => now()->toIso8601String(),
@@ -89,13 +92,16 @@ class DecisionEngine
             'expected_gain' => $primary['expected_gain'] ?? null,
             'confidence' => $this->candidateConfidence($primary),
             'evidence' => $this->flattenEvidence($primary),
-            'recommended_practice_plan' => $this->practicePlanFor($primary['focus_key'] ?? 'data_collection'),
+            'data_collection_priority' => $dataCollectionPriority,
+            'recommended_practice_plan' => $practicePlan,
         ];
     }
 
     private function buildCandidates(array $teamSnapshot, array $players): array
     {
         $candidates = [];
+
+        $this->addTeamBenchmarkCandidates($candidates, $teamSnapshot);
 
         foreach ($players as $playerSnapshot) {
             $this->addLimiterCandidates($candidates, $playerSnapshot);
@@ -123,6 +129,137 @@ class DecisionEngine
         }
 
         return $candidates;
+    }
+
+    private function addTeamBenchmarkCandidates(array &$candidates, array $teamSnapshot): void
+    {
+        $profile = $teamSnapshot['benchmark_profile'] ?? null;
+        if (! is_array($profile) || empty($profile)) {
+            return;
+        }
+
+        foreach (($profile['weakest_categories'] ?? []) as $category) {
+            if (! is_array($category) || ! $this->isLowTeamBenchmark($category)) {
+                continue;
+            }
+
+            $focusKey = $this->focusForBenchmarkCategory((string) ($category['category'] ?? ''));
+            if (! $focusKey) {
+                continue;
+            }
+
+            $this->addCandidate(
+                $candidates,
+                $focusKey,
+                null,
+                'Team '.$category['category'].' benchmark score is '.($category['score_0_100'] ?? 'unknown').'.',
+                'team_benchmark:category:'.(string) ($category['category'] ?? 'unknown'),
+                $this->teamBenchmarkPriority($category),
+                (string) ($category['confidence'] ?? 'low'),
+                null,
+                ['team_benchmark_category' => $category]
+            );
+        }
+
+        foreach (($profile['weakest_metrics'] ?? []) as $metric) {
+            if (! is_array($metric) || ! $this->isLowTeamBenchmark($metric)) {
+                continue;
+            }
+
+            $focusKey = $this->focusForBenchmarkMetric((string) ($metric['metric_key'] ?? ''), (string) ($metric['category'] ?? ''));
+            if (! $focusKey) {
+                continue;
+            }
+
+            $this->addCandidate(
+                $candidates,
+                $focusKey,
+                null,
+                ($metric['display_name'] ?? $metric['metric_key'] ?? 'Benchmark metric').' team benchmark score is '.($metric['score_0_100'] ?? 'unknown').'.',
+                'team_benchmark:metric:'.(string) ($metric['metric_key'] ?? 'unknown'),
+                $this->teamBenchmarkPriority($metric),
+                (string) ($metric['confidence'] ?? 'low'),
+                null,
+                ['team_benchmark_metric' => $metric]
+            );
+        }
+
+        $weakestAvailableCategory = collect($profile['weakest_categories'] ?? [])
+            ->first(fn ($category) => is_array($category) && $this->numberOrNull($category['score_0_100'] ?? null) !== null);
+
+        if (is_array($weakestAvailableCategory) && ((int) ($profile['metric_count'] ?? 0)) > 0) {
+            $focusKey = $this->focusForBenchmarkCategory((string) ($weakestAvailableCategory['category'] ?? ''));
+            if ($focusKey) {
+                $this->addCandidate(
+                    $candidates,
+                    $focusKey,
+                    null,
+                    'Weakest available team benchmark category is '.$weakestAvailableCategory['category'].' at '.($weakestAvailableCategory['score_0_100'] ?? 'unknown').'.',
+                    'team_benchmark:opportunity:'.(string) ($weakestAvailableCategory['category'] ?? 'unknown'),
+                    $this->teamBenchmarkPriority($weakestAvailableCategory),
+                    (string) ($weakestAvailableCategory['confidence'] ?? 'low'),
+                    null,
+                    ['team_benchmark_opportunity' => $weakestAvailableCategory]
+                );
+            }
+        }
+
+        foreach (($profile['team_gaps'] ?? []) as $gap) {
+            if (! is_array($gap)) {
+                continue;
+            }
+
+            $focusKey = $this->focusForTeamGap($gap);
+            if (! $focusKey) {
+                continue;
+            }
+
+            $this->addCandidate(
+                $candidates,
+                $focusKey,
+                null,
+                (string) ($gap['why'] ?? $gap['title'] ?? 'Team benchmark gap detected.'),
+                'team_benchmark:gap:'.(string) ($gap['id'] ?? 'unknown'),
+                ((int) ($gap['affected_count'] ?? 0)) >= 3 ? 'high' : 'medium',
+                (string) ($profile['benchmark_confidence'] ?? 'low'),
+                null,
+                ['team_benchmark_gap' => $gap]
+            );
+        }
+
+        $missingMetrics = is_array($profile['missing_metrics'] ?? null) ? $profile['missing_metrics'] : [];
+        $playerCount = (int) ($profile['player_count'] ?? 0);
+        $highMissingCount = collect($missingMetrics)
+            ->filter(fn (array $metric) => $playerCount > 0 && ((int) ($metric['missing_count'] ?? 0) / $playerCount) >= 0.5)
+            ->count();
+
+        $hasPerformanceData = ((int) ($profile['metric_count'] ?? 0) > 0)
+            && collect($profile['category_scores'] ?? [])
+                ->contains(fn (array $category) => in_array($category['category'] ?? '', ['pitching', 'hitting', 'athletic'], true) && ((int) ($category['metric_count'] ?? 0)) > 0);
+
+        if ((! $hasPerformanceData && $highMissingCount >= 3) || (int) ($profile['metric_count'] ?? 0) === 0) {
+            $this->addCandidate(
+                $candidates,
+                'data_collection',
+                null,
+                $highMissingCount >= 3
+                    ? $highMissingCount.' benchmark metrics are missing for at least half the roster.'
+                    : 'No team benchmark metrics were available.',
+                'team_benchmark:missing_metrics',
+                $highMissingCount >= 6 || (int) ($profile['metric_count'] ?? 0) === 0 ? 'high' : 'medium',
+                'medium',
+                null,
+                [
+                    'missing_metric_count' => count($missingMetrics),
+                    'high_missing_metric_count' => $highMissingCount,
+                    'benchmark_profile_summary' => [
+                        'player_count' => $profile['player_count'] ?? 0,
+                        'metric_count' => $profile['metric_count'] ?? 0,
+                        'benchmark_confidence' => $profile['benchmark_confidence'] ?? 'low',
+                    ],
+                ]
+            );
+        }
     }
 
     private function addLimiterCandidates(array &$candidates, array $playerSnapshot): void
@@ -344,6 +481,67 @@ class DecisionEngine
         return $ranked;
     }
 
+    private function selectPrimaryCandidate(array $candidates, array $teamSnapshot, array $players, array $dataCollectionPriority): array
+    {
+        $dataCandidate = collect($candidates)->first(fn (array $candidate) => ($candidate['focus_key'] ?? null) === 'data_collection');
+        $performanceCandidate = collect($candidates)->first(fn (array $candidate) => ($candidate['focus_key'] ?? null) !== 'data_collection');
+        $usableMetricCount = (int) ($teamSnapshot['benchmark_profile']['metric_count'] ?? 0);
+        $hasPerformanceSignals = $this->hasUsablePerformanceData($teamSnapshot, $players);
+
+        if (
+            $dataCandidate
+            && ($dataCollectionPriority['level'] ?? 'none') === 'critical'
+            && ! $hasPerformanceSignals
+            && $usableMetricCount === 0
+        ) {
+            return $dataCandidate;
+        }
+
+        if ($performanceCandidate && $hasPerformanceSignals) {
+            return $performanceCandidate;
+        }
+
+        if ($performanceCandidate && ($dataCollectionPriority['level'] ?? 'none') !== 'critical') {
+            return $performanceCandidate;
+        }
+
+        return $candidates[0] ?? $this->fallbackDataCollectionCandidate($teamSnapshot, $players);
+    }
+
+    private function hasUsablePerformanceData(array $teamSnapshot, array $players): bool
+    {
+        foreach (($teamSnapshot['benchmark_profile']['category_scores'] ?? []) as $category) {
+            if (
+                is_array($category)
+                && in_array($category['category'] ?? '', ['pitching', 'hitting', 'athletic'], true)
+                && ((int) ($category['metric_count'] ?? 0)) > 0
+            ) {
+                return true;
+            }
+        }
+
+        foreach ($players as $player) {
+            $scores = $player['scores'] ?? [];
+            foreach (['batting', 'bullpen', 'cage', 'exit_velocity'] as $key) {
+                if ($this->numberOrNull($scores[$key] ?? null) !== null) {
+                    return true;
+                }
+            }
+
+            foreach (($player['benchmark_profile']['metrics'] ?? []) as $metric) {
+                if (
+                    is_array($metric)
+                    && in_array($metric['category'] ?? '', ['pitching', 'hitting', 'athletic'], true)
+                    && $this->numberOrNull($metric['score_0_100'] ?? null) !== null
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function focusSummary(array $candidate): array
     {
         return [
@@ -421,6 +619,182 @@ class DecisionEngine
         ];
 
         return $candidate;
+    }
+
+    private function dataCollectionPriority(array $teamSnapshot, array $players): array
+    {
+        $profile = is_array($teamSnapshot['benchmark_profile'] ?? null) ? $teamSnapshot['benchmark_profile'] : [];
+        $playerCount = max(0, (int) ($profile['player_count'] ?? count($players)));
+        $metricCount = (int) ($profile['metric_count'] ?? 0);
+        $missingCritical = [];
+        $missingSupporting = [];
+        $missingOptional = [];
+
+        foreach (($profile['missing_metrics'] ?? []) as $metric) {
+            if (! is_array($metric)) {
+                continue;
+            }
+
+            $classified = $this->classifiedMissingMetric($metric, $playerCount);
+
+            match ($classified['classification']) {
+                'critical_missing_data' => $missingCritical[] = $classified,
+                'supporting_missing_data' => $missingSupporting[] = $classified,
+                default => $missingOptional[] = $classified,
+            };
+        }
+
+        foreach ($players as $player) {
+            $playerContext = $player['summary']['player'] ?? [];
+            $missingContext = [];
+
+            foreach ([
+                'born_date' => 'Date of birth is missing.',
+                'positions' => 'Position or role is missing.',
+            ] as $field => $reason) {
+                $value = $playerContext[$field] ?? null;
+                if ($value === null || $value === '' || (is_array($value) && empty($value))) {
+                    $missingContext[] = $reason;
+                }
+            }
+
+            if (! empty($missingContext)) {
+                $missingCritical[] = [
+                    'classification' => 'critical_missing_data',
+                    'metric_key' => 'player_context',
+                    'display_name' => 'Player Context',
+                    'category' => 'profile',
+                    'missing_count' => 1,
+                    'player_count' => 1,
+                    'players' => [[
+                        'player_id' => $player['player_id'] ?? null,
+                        'name' => $this->playerName($player),
+                    ]],
+                    'reason' => implode(' ', $missingContext),
+                ];
+            }
+
+            if (count($player['benchmark_profile']['metrics'] ?? []) === 0) {
+                $missingCritical[] = [
+                    'classification' => 'critical_missing_data',
+                    'metric_key' => 'player_benchmark_metrics',
+                    'display_name' => 'Player Benchmark Metrics',
+                    'category' => 'benchmark',
+                    'missing_count' => 1,
+                    'player_count' => 1,
+                    'players' => [[
+                        'player_id' => $player['player_id'] ?? null,
+                        'name' => $this->playerName($player),
+                    ]],
+                    'reason' => 'No usable benchmark metrics are available for this player.',
+                ];
+            }
+        }
+
+        $hasPerformanceData = $this->hasUsablePerformanceData($teamSnapshot, $players);
+        $level = $this->dataCollectionLevel($missingCritical, $missingSupporting, $metricCount, $hasPerformanceData);
+
+        return [
+            'level' => $level,
+            'missing_critical' => array_values(array_slice($missingCritical, 0, 12)),
+            'missing_supporting' => array_values(array_slice($missingSupporting, 0, 12)),
+            'missing_optional' => array_values(array_slice($missingOptional, 0, 12)),
+            'recommended_collection_plan' => $this->recommendedCollectionPlan($missingCritical, $missingSupporting, $missingOptional, $level),
+        ];
+    }
+
+    private function classifiedMissingMetric(array $metric, int $teamPlayerCount): array
+    {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey((string) ($metric['metric_key'] ?? 'unknown'));
+        $missingCount = (int) ($metric['missing_count'] ?? 0);
+        $playerCount = max(1, (int) ($metric['player_count'] ?? $teamPlayerCount));
+        $missingRate = $playerCount > 0 ? $missingCount / $playerCount : 0.0;
+
+        $critical = ['average_fastball_velocity', 'max_fastball_velocity', 'strike_percentage', 'average_exit_velocity', 'max_exit_velocity'];
+        $supporting = [
+            'long_toss_max_distance',
+            'weighted_ball_5oz_velocity',
+            'bench_press',
+            'squat',
+            'deadlift',
+            'pull_ups',
+            'pushups',
+            'mobility_score',
+            'shoulder_mobility_score',
+            'hip_mobility_score',
+            't_spine_mobility_score',
+            'forty_yard_dash',
+            'sixty_yard_dash',
+            'broad_jump',
+            'vertical_jump',
+        ];
+
+        $classification = match (true) {
+            in_array($metricKey, $critical, true) && $missingRate >= 0.8 => 'critical_missing_data',
+            in_array($metricKey, $supporting, true) => 'supporting_missing_data',
+            default => 'optional_missing_data',
+        };
+
+        return $metric + [
+            'metric_key' => $metricKey,
+            'classification' => $classification,
+            'missing_rate' => round($missingRate, 2),
+        ];
+    }
+
+    private function dataCollectionLevel(array $critical, array $supporting, int $metricCount, bool $hasPerformanceData): string
+    {
+        if ($metricCount === 0 && ! $hasPerformanceData) {
+            return 'critical';
+        }
+
+        if (! empty($critical) && ! $hasPerformanceData) {
+            return 'critical';
+        }
+
+        if (! empty($critical)) {
+            return 'high';
+        }
+
+        if (count($supporting) >= 6) {
+            return 'high';
+        }
+
+        if (count($supporting) >= 3) {
+            return 'medium';
+        }
+
+        if (count($supporting) > 0) {
+            return 'low';
+        }
+
+        return 'none';
+    }
+
+    private function recommendedCollectionPlan(array $critical, array $supporting, array $optional, string $level): array
+    {
+        if ($level === 'none') {
+            return [];
+        }
+
+        $metrics = collect([...$critical, ...$supporting, ...$optional])
+            ->unique('metric_key')
+            ->take(8)
+            ->map(fn (array $metric) => [
+                'metric_key' => $metric['metric_key'] ?? 'unknown',
+                'display_name' => $metric['display_name'] ?? $metric['metric_key'] ?? 'Metric',
+                'classification' => $metric['classification'] ?? 'optional_missing_data',
+                'missing_count' => $metric['missing_count'] ?? 0,
+            ])
+            ->values()
+            ->all();
+
+        return [[
+            'title' => 'Close Benchmark Data Gaps',
+            'priority' => $level,
+            'metrics' => $metrics,
+            'action' => 'Collect the missing benchmark metrics during warm-up, testing blocks, or session scoring.',
+        ]];
     }
 
     private function practicePlanFor(string $focusKey): array
@@ -509,6 +883,32 @@ class DecisionEngine
         };
     }
 
+    private function appendDataCollectionBlock(array $practicePlan, array $primary, array $dataCollectionPriority): array
+    {
+        $level = (string) ($dataCollectionPriority['level'] ?? 'none');
+        if (in_array($level, ['none', 'low'], true) || ($primary['focus_key'] ?? null) === 'data_collection') {
+            return $practicePlan;
+        }
+
+        $metrics = collect($dataCollectionPriority['recommended_collection_plan'][0]['metrics'] ?? [])
+            ->pluck('display_name')
+            ->filter()
+            ->take(4)
+            ->implode(', ');
+
+        $metrics = $metrics !== '' ? $metrics : 'priority benchmark baselines';
+        $practicePlan['blocks'][] = [
+            'name' => 'Baseline Collection',
+            'duration_minutes' => 10,
+            'description' => 'Record '.$metrics.' for players missing those metrics.',
+            'why' => 'Improves benchmark confidence without replacing today\'s baseball focus.',
+        ];
+        $practicePlan['duration_minutes'] = (int) ($practicePlan['duration_minutes'] ?? 0) + 10;
+        $practicePlan['data_collection_appended'] = true;
+
+        return $practicePlan;
+    }
+
     private function focusForLimiter(string $id, string $title): ?string
     {
         $haystack = strtolower($id . ' ' . $title);
@@ -522,6 +922,72 @@ class DecisionEngine
             str_contains($haystack, 'overload-strength') || str_contains($haystack, 'strength') || str_contains($haystack, 'spectrum') => 'strength_lower_body',
             default => null,
         };
+    }
+
+    private function focusForBenchmarkCategory(string $category): ?string
+    {
+        return match (strtolower($category)) {
+            'pitching' => 'fastball_command',
+            'hitting' => 'barrel_control',
+            'strength', 'athletic' => 'strength_lower_body',
+            'mobility' => 'mobility_arm_care',
+            default => null,
+        };
+    }
+
+    private function focusForBenchmarkMetric(string $metricKey, string $category): ?string
+    {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
+
+        return match ($metricKey) {
+            'strike_percentage' => 'fastball_command',
+            'average_fastball_velocity', 'max_fastball_velocity', 'long_toss_max_distance', 'weighted_ball_5oz_velocity' => 'long_toss_transfer',
+            'average_exit_velocity', 'max_exit_velocity', 'hard_hit_percentage' => 'exit_velocity_power',
+            'line_drive_percentage', 'hitter_swing_miss_percentage' => 'barrel_control',
+            'bench_press', 'squat', 'deadlift', 'pull_ups', 'pushups', 'forty_yard_dash', 'sixty_yard_dash', 'broad_jump', 'vertical_jump' => 'strength_lower_body',
+            'mobility_score', 'shoulder_mobility_score', 'hip_mobility_score', 't_spine_mobility_score' => 'mobility_arm_care',
+            default => $this->focusForBenchmarkCategory($category),
+        };
+    }
+
+    private function focusForTeamGap(array $gap): ?string
+    {
+        $id = strtolower((string) ($gap['id'] ?? ''));
+        $title = strtolower((string) ($gap['title'] ?? ''));
+        $category = strtolower((string) ($gap['category'] ?? ''));
+        $haystack = $id.' '.$title.' '.$category;
+
+        return match (true) {
+            str_contains($haystack, 'missing') => 'data_collection',
+            str_contains($haystack, 'strike') || str_contains($haystack, 'command') => 'fastball_command',
+            str_contains($haystack, 'exit') || str_contains($haystack, 'hard_hit') || str_contains($haystack, 'power') => 'exit_velocity_power',
+            str_contains($haystack, 'line_drive') || str_contains($haystack, 'swing_miss') || str_contains($haystack, 'barrel') => 'barrel_control',
+            str_contains($haystack, 'strength') || str_contains($haystack, 'squat') || str_contains($haystack, 'deadlift') || str_contains($haystack, 'athletic') => 'strength_lower_body',
+            str_contains($haystack, 'mobility') || str_contains($haystack, 'shoulder') || str_contains($haystack, 'hip') || str_contains($haystack, 'spine') => 'mobility_arm_care',
+            str_contains($haystack, 'long_toss') || str_contains($haystack, 'weighted') || str_contains($haystack, 'fastball') => 'long_toss_transfer',
+            default => $this->focusForBenchmarkCategory($category),
+        };
+    }
+
+    private function isLowTeamBenchmark(array $benchmark): bool
+    {
+        $label = strtolower((string) ($benchmark['label'] ?? ''));
+        $score = $this->numberOrNull($benchmark['score_0_100'] ?? null);
+
+        return in_array($label, ['critical', 'below_average', 'below average'], true)
+            || ($score !== null && $score < 50);
+    }
+
+    private function teamBenchmarkPriority(array $benchmark): string
+    {
+        $label = strtolower((string) ($benchmark['label'] ?? ''));
+        $score = $this->numberOrNull($benchmark['score_0_100'] ?? null);
+
+        if ($label === 'critical' || ($score !== null && $score < 25)) {
+            return 'high';
+        }
+
+        return 'medium';
     }
 
     private function focusForRecommendation(string $id, string $title, string $category): ?string

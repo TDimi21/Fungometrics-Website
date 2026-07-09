@@ -44,7 +44,8 @@ class IntelligenceSnapshotFormatter
         array $assembled,
         array $playerSnapshots,
         array $signals,
-        array $recommendations
+        array $recommendations,
+        ?array $benchmarkProfile = null,
     ): array {
         return [
             'generated_at' => now()->toIso8601String(),
@@ -63,6 +64,7 @@ class IntelligenceSnapshotFormatter
             'trend_blocks' => [],
             'profile_labels' => [],
             'players' => $playerSnapshots,
+            'benchmark_profile' => $benchmarkProfile ?? [],
         ];
     }
 

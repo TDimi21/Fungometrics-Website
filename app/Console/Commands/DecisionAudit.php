@@ -22,6 +22,7 @@ class DecisionAudit extends Command
         $primary = $brief['primary_focus'] ?? [];
         $concern = $brief['biggest_concern'] ?? [];
         $plan = $brief['recommended_practice_plan'] ?? [];
+        $dataPriority = $brief['data_collection_priority'] ?? [];
 
         $this->info('FMTRX DECISION BRIEF');
         $this->line('Team ID: '.$teamId);
@@ -41,6 +42,29 @@ class DecisionAudit extends Command
         $this->section('EXPECTED GAIN');
         $this->kv('Expected gain', $brief['expected_gain'] ?? 'No projected gain yet.');
         $this->kv('Confidence', $brief['confidence'] ?? 'low');
+
+        $this->section('DATA COLLECTION PRIORITY');
+        $this->kv('Level', $dataPriority['level'] ?? 'none');
+
+        $this->line('Critical missing data:');
+        $this->printMissingRows($dataPriority['missing_critical'] ?? []);
+
+        $this->line('Supporting missing data:');
+        $this->printMissingRows($dataPriority['missing_supporting'] ?? []);
+
+        $this->line('Collection plan:');
+        $planRows = $dataPriority['recommended_collection_plan'] ?? [];
+        if (empty($planRows)) {
+            $this->line('- none');
+        } else {
+            foreach ($planRows as $row) {
+                $metrics = collect($row['metrics'] ?? [])
+                    ->pluck('display_name')
+                    ->filter()
+                    ->implode(', ');
+                $this->line('- '.($row['title'] ?? 'Collection Plan').' | '.($row['priority'] ?? 'low').' | '.$metrics);
+            }
+        }
 
         $this->section('PLAYERS NEEDING ATTENTION');
         $players = $brief['players_needing_attention'] ?? [];
@@ -75,6 +99,19 @@ class DecisionAudit extends Command
     private function kv(string $label, mixed $value): void
     {
         $this->line($label.': '.$this->wrapValue($value));
+    }
+
+    private function printMissingRows(array $rows): void
+    {
+        if (empty($rows)) {
+            $this->line('- none');
+
+            return;
+        }
+
+        foreach (array_slice($rows, 0, 8) as $row) {
+            $this->line('- '.($row['display_name'] ?? $row['metric_key'] ?? 'Metric').' | missing '.($row['missing_count'] ?? 0).' of '.($row['player_count'] ?? 0).' | '.($row['reason'] ?? $row['classification'] ?? 'missing'));
+        }
     }
 
     private function wrapValue(mixed $value): string

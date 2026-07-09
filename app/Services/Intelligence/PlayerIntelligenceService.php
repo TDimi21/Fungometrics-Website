@@ -94,6 +94,17 @@ class PlayerIntelligenceService
 
             $result = $this->compositeBenchmarkEngine->benchmarkMetric($metricKey, (float) $raw, $dob, $context);
 
+            if (! is_numeric($result['score_0_100'] ?? null)) {
+                $missingMetrics[] = [
+                    'metric_key' => $metricKey,
+                    'display_name' => $definition['display_name'] ?? $metricKey,
+                    'category' => $definition['category'] ?? 'unknown',
+                    'reason' => $result['evidence']['reason'] ?? 'Metric value is missing from the player intelligence payload.',
+                ];
+
+                continue;
+            }
+
             $metrics[] = [
                 'metric_key' => $metricKey,
                 'display_name' => $definition['display_name'] ?? $metricKey,

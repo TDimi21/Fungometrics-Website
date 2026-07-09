@@ -117,7 +117,10 @@ const loadTeamCommandCenter = async () => {
     perf.value = perfRes?.data?.data ?? {}
     teamIntelligence.value = intelligenceRes?.data?.data || intelligenceRes?.data || null
 
-    if (!board.value.length) {
+    const hasIntelligenceData = Array.isArray(teamIntelligence.value?.players) && teamIntelligence.value.players.length
+    const benchmarkMetricCount = n(teamIntelligence.value?.benchmark_profile?.metric_count) || 0
+
+    if (!board.value.length && !hasIntelligenceData && benchmarkMetricCount === 0) {
       loadError.value = 'No development records found. Log bullpen, batting, long toss, and fitness sessions to unlock this dashboard.'
     }
   } catch {
@@ -179,11 +182,14 @@ const projection90 = (snapshot, key) => n(snapshot?.projections?.[key]?.projecte
 
 const categoryLabel = (key) => ({
   athletic_performance: 'Athletic Performance',
+  athletic: 'Athletic',
   strength: 'Strength',
   recovery: 'Recovery',
   mobility: 'Mobility',
   batting: 'Hitting',
+  hitting: 'Hitting',
   bullpen: 'Pitching',
+  pitching: 'Pitching',
   cage: 'Cage',
   exit_velocity: 'Exit Velocity',
 }[key] || String(key || '').replaceAll('_', ' '))
@@ -191,6 +197,154 @@ const categoryLabel = (key) => ({
 const teamRecommendations = computed(() =>
   Array.isArray(teamIntelligence.value?.recommendations) ? teamIntelligence.value.recommendations : []
 )
+
+const asArray = (value) => (Array.isArray(value) ? value : [])
+
+const humanizeKey = (value, fallback = 'Needs Data') => {
+  const text = String(value ?? '').trim()
+  if (!text) return fallback
+  return text
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+const benchmarkProfile = computed(() => {
+  const profile = teamIntelligence.value?.benchmark_profile
+  return profile && typeof profile === 'object' ? profile : null
+})
+
+const hasBenchmarkProfile = computed(() => {
+  const profile = benchmarkProfile.value
+  if (!profile) return false
+  return Boolean(
+    n(profile.metric_count) ||
+    asArray(profile.category_scores).length ||
+    asArray(profile.missing_metrics).length
+  )
+})
+
+const decisionBrief = computed(() => {
+  const brief = teamIntelligence.value?.decision_brief
+  return brief && typeof brief === 'object' ? brief : {}
+})
+
+const sourceShare = (value) => {
+  const parsed = n(value)
+  if (parsed === null) return null
+  return parsed <= 1 ? parsed * 100 : parsed
+}
+
+const benchmarkSnapshot = computed(() => {
+  const profile = benchmarkProfile.value || {}
+  const sourceMix = profile.source_mix || {}
+
+  return {
+    confidence: profile.benchmark_confidence || 'low',
+    researchShare: sourceShare(sourceMix.research_share),
+    populationShare: sourceShare(sourceMix.population_share),
+    metricCount: n(profile.metric_count),
+    playerCount: n(profile.player_count),
+  }
+})
+
+const benchmarkCategoryKeys = ['pitching', 'hitting', 'strength', 'athletic', 'mobility']
+
+const benchmarkCategoryRows = computed(() => {
+  const rows = new Map()
+  for (const row of asArray(benchmarkProfile.value?.category_scores)) {
+    if (row?.category) rows.set(row.category, row)
+  }
+
+  return benchmarkCategoryKeys.map((key) => {
+    const row = rows.get(key) || {}
+    const score = n(row.score_0_100)
+    return {
+      category: key,
+      display: categoryLabel(key),
+      score,
+      label: row.label || (score === null ? 'Needs Data' : toCardBand(score).label),
+      confidence: row.confidence || 'low',
+      playerCount: n(row.player_count),
+      metricCount: n(row.metric_count),
+      hasData: score !== null || n(row.metric_count) !== null,
+    }
+  })
+})
+
+const weakestBenchmarkCategories = computed(() =>
+  asArray(benchmarkProfile.value?.weakest_categories).slice(0, 5)
+)
+
+const weakestBenchmarkMetrics = computed(() =>
+  asArray(benchmarkProfile.value?.weakest_metrics).slice(0, 5)
+)
+
+const benchmarkPlayersNeedingAttention = computed(() =>
+  asArray(benchmarkProfile.value?.players_needing_attention).slice(0, 5)
+)
+
+const benchmarkMissingMetrics = computed(() =>
+  asArray(benchmarkProfile.value?.missing_metrics).slice(0, 8)
+)
+
+const dataCollectionPriority = computed(() => {
+  const priority = decisionBrief.value?.data_collection_priority
+  return priority && typeof priority === 'object' ? priority : null
+})
+
+const criticalMissingRows = computed(() => asArray(dataCollectionPriority.value?.missing_critical).slice(0, 5))
+const supportingMissingRows = computed(() => asArray(dataCollectionPriority.value?.missing_supporting).slice(0, 5))
+const optionalMissingRows = computed(() => asArray(dataCollectionPriority.value?.missing_optional).slice(0, 3))
+const collectionPlanRows = computed(() => asArray(dataCollectionPriority.value?.recommended_collection_plan).slice(0, 3))
+
+const primaryFocusCard = computed(() => {
+  const focus = decisionBrief.value?.primary_focus || {}
+  const topRec = teamRecommendations.value[0] || {}
+
+  return {
+    title: focus.title || topRec.title || 'Needs More Intelligence Data',
+    why: focus.why || topRec.why || 'FMTRX needs more scored sessions to produce a confident team focus.',
+    action: focus.action || topRec.action || 'Collect bullpen, BP, exit velocity, long toss, and fitness baselines.',
+    expectedGain: decisionBrief.value?.expected_gain || topRec.expected_gain || null,
+    confidence: decisionBrief.value?.confidence || focus.confidence || topRec.confidence || 'low',
+    affectedCount: asArray(decisionBrief.value?.players_needing_attention).length,
+  }
+})
+
+const practicePlanHasDataBlock = computed(() =>
+  decisionBrief.value?.recommended_practice_plan?.data_collection_appended === true
+)
+
+const missingRowTitle = (row) => row?.display_name || row?.metric_key || row?.title || row?.category || 'Missing data'
+
+const missingRowCount = (row) => {
+  const missing = n(row?.missing_count)
+  const total = n(row?.player_count)
+  if (missing !== null && total !== null) return `missing ${fmt1(missing)} of ${fmt1(total)}`
+  if (missing !== null) return `missing ${fmt1(missing)}`
+  return row?.reason || 'Needs data'
+}
+
+const metricPercentile = (metric) => {
+  const percentile = n(metric?.percentile_estimate ?? metric?.percentile)
+  return percentile === null ? '—' : `${percentile.toFixed(1)}th`
+}
+
+const metricGap = (metric, key) => {
+  const gap = n(metric?.[key])
+  return gap === null ? '—' : fmtValue(gap, metric?.unit || '')
+}
+
+const playerWeakCategory = (player) => {
+  const category = player?.weakest_category
+  if (typeof category === 'string') return categoryLabel(category)
+  return categoryLabel(category?.category)
+}
+
+const playerWeakMetric = (player) => {
+  const metric = asArray(player?.weakest_metrics)[0]
+  return metric?.display_name || metric?.metric_key || 'Needs Data'
+}
 
 const teamDataGaps = computed(() =>
   Array.isArray(teamIntelligence.value?.data_gaps) ? teamIntelligence.value.data_gaps : []
@@ -770,7 +924,7 @@ const priorityTop10Rows = computed(() => {
         {{ loadError }}
       </div>
 
-      <template v-if="!loading && playersWithPercentile.length">
+      <template v-if="!loading && (playersWithPercentile.length || hasBenchmarkProfile)">
         <!-- A + G: TDI + Needs Attention -->
         <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
           <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4 xl:col-span-2">
@@ -824,6 +978,196 @@ const priorityTop10Rows = computed(() => {
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Benchmark Intelligence -->
+        <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-widest text-red-300">Benchmark Intelligence</p>
+              <h3 class="mt-1 text-xl font-semibold text-white">Team Benchmark Profile</h3>
+            </div>
+            <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-wider text-slate-300">
+              Confidence {{ humanizeKey(benchmarkSnapshot.confidence) }}
+            </span>
+          </div>
+
+          <div v-if="!hasBenchmarkProfile" class="mt-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+            Benchmark profile not available yet.
+          </div>
+
+          <template v-else>
+            <div class="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-3">
+              <div class="rounded-lg border border-cyan-300/15 bg-cyan-500/10 p-3">
+                <p class="text-[10px] uppercase tracking-widest text-cyan-200/70">Today's Primary Focus</p>
+                <p class="mt-1 text-2xl font-black text-white">{{ primaryFocusCard.title }}</p>
+                <p class="mt-2 text-xs text-slate-300"><span class="font-black text-white">Why:</span> {{ primaryFocusCard.why }}</p>
+                <p class="mt-1 text-xs text-red-200"><span class="font-black text-white">Next:</span> {{ primaryFocusCard.action }}</p>
+                <p class="mt-2 text-[10px] uppercase tracking-wider text-white/40">
+                  Confidence {{ humanizeKey(primaryFocusCard.confidence) }}
+                  <span v-if="primaryFocusCard.expectedGain"> · Gain {{ primaryFocusCard.expectedGain }}</span>
+                </p>
+              </div>
+
+              <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                <p class="text-[10px] uppercase tracking-widest text-white/40">Team Benchmark Snapshot</p>
+                <div class="mt-3 grid grid-cols-2 gap-2">
+                  <div class="rounded-md bg-slate-950/40 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Players</p>
+                    <p class="text-xl font-black text-white">{{ fmt1(benchmarkSnapshot.playerCount) }}</p>
+                  </div>
+                  <div class="rounded-md bg-slate-950/40 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Metrics</p>
+                    <p class="text-xl font-black text-white">{{ fmt1(benchmarkSnapshot.metricCount) }}</p>
+                  </div>
+                  <div class="rounded-md bg-slate-950/40 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Research</p>
+                    <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSnapshot.researchShare, '%') }}</p>
+                  </div>
+                  <div class="rounded-md bg-slate-950/40 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Population</p>
+                    <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSnapshot.populationShare, '%') }}</p>
+                  </div>
+                </div>
+                <p v-if="benchmarkSnapshot.populationShare === 0" class="mt-3 text-xs text-slate-300">
+                  Research benchmarks active. FMTRX population learning will improve as more data is collected.
+                </p>
+              </div>
+
+              <div class="rounded-lg border border-amber-300/20 bg-amber-500/10 p-3">
+                <p class="text-[10px] uppercase tracking-widest text-amber-200/70">Data Collection Priority</p>
+                <p class="mt-1 text-2xl font-black text-white">{{ humanizeKey(dataCollectionPriority?.level || 'none') }}</p>
+                <p class="mt-2 text-xs text-slate-300">
+                  Critical {{ fmt1(criticalMissingRows.length) }} · Supporting {{ fmt1(supportingMissingRows.length) }} · Optional {{ fmt1(optionalMissingRows.length) }}
+                </p>
+                <p v-if="practicePlanHasDataBlock" class="mt-2 rounded-md border border-red-300/20 bg-red-500/10 p-2 text-xs font-semibold text-red-200">
+                  Baseline collection added to today's plan.
+                </p>
+                <p v-else class="mt-2 text-xs text-slate-300">No baseline collection block is currently attached to today's plan.</p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-3">
+              <div class="rounded-lg border border-white/10 bg-white/5 p-3 xl:col-span-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <h4 class="text-sm font-semibold text-white">Category Scores</h4>
+                  <span class="text-[10px] uppercase tracking-widest text-white/35">Pitching · Hitting · Strength · Athletic · Mobility</span>
+                </div>
+                <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-5">
+                  <div
+                    v-for="row in benchmarkCategoryRows"
+                    :key="row.category"
+                    class="rounded-md border border-white/10 bg-slate-950/35 p-2"
+                  >
+                    <p class="text-[10px] uppercase tracking-wider text-white/40">{{ row.display }}</p>
+                    <p class="mt-1 text-2xl font-black" :class="row.hasData ? toCardBand(row.score).tone : 'text-slate-400'">{{ fmt1(row.score) }}</p>
+                    <p class="text-xs text-slate-300">{{ humanizeKey(row.label) }} · {{ humanizeKey(row.confidence) }}</p>
+                    <p class="mt-1 text-[10px] text-white/45">Players {{ fmt1(row.playerCount) }} · Metrics {{ fmt1(row.metricCount) }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                <h4 class="text-sm font-semibold text-white">Weakest Categories</h4>
+                <div class="mt-2 space-y-2">
+                  <div v-for="category in weakestBenchmarkCategories" :key="category.category" class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <div class="flex items-center justify-between gap-2">
+                      <p class="text-sm font-semibold text-white">{{ categoryLabel(category.category) }}</p>
+                      <span class="text-sm font-black" :class="toCardBand(category.score_0_100).tone">{{ fmt1(category.score_0_100) }}</span>
+                    </div>
+                    <p class="text-xs text-slate-300">{{ humanizeKey(category.label) }} · {{ humanizeKey(category.confidence) }}</p>
+                  </div>
+                  <p v-if="!weakestBenchmarkCategories.length" class="text-sm text-slate-300">More player data is needed.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-3">
+              <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                <h4 class="text-sm font-semibold text-white">Weakest Metrics</h4>
+                <div class="mt-2 space-y-2">
+                  <div v-for="metric in weakestBenchmarkMetrics" :key="metric.metric_key" class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <div class="flex items-center justify-between gap-2">
+                      <p class="text-sm font-semibold text-white">{{ metric.display_name || humanizeKey(metric.metric_key) }}</p>
+                      <span class="text-sm font-black" :class="toCardBand(metric.score_0_100).tone">{{ fmt1(metric.score_0_100) }}</span>
+                    </div>
+                    <p class="text-xs text-slate-300">{{ categoryLabel(metric.category) }} · {{ metricPercentile(metric) }} · {{ humanizeKey(metric.label) }}</p>
+                    <p class="mt-1 text-[10px] text-white/45">Good gap {{ metricGap(metric, 'gap_to_good') }} · Elite gap {{ metricGap(metric, 'gap_to_elite') }}</p>
+                  </div>
+                  <p v-if="!weakestBenchmarkMetrics.length" class="text-sm text-slate-300">No weakest metrics available yet.</p>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                <h4 class="text-sm font-semibold text-white">Players Needing Attention</h4>
+                <div class="mt-2 space-y-2">
+                  <button
+                    v-for="player in benchmarkPlayersNeedingAttention"
+                    :key="player.player_id || player.name"
+                    type="button"
+                    class="w-full rounded-md border border-white/10 bg-slate-950/35 p-2 text-left transition hover:border-white/25 hover:bg-white/10"
+                    @click="openPlayer({ id: player.player_id, name: player.name })"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <p class="text-sm font-semibold text-white">{{ player.name || 'Player' }}</p>
+                      <span class="text-sm font-black" :class="toCardBand(player.average_score).tone">{{ fmt1(player.average_score) }}</span>
+                    </div>
+                    <p class="text-xs text-slate-300">{{ playerWeakCategory(player) }} · {{ playerWeakMetric(player) }}</p>
+                    <p class="mt-1 text-[10px] text-white/45">Metrics {{ fmt1(player.metric_count) }} · {{ humanizeKey(player.label) }}</p>
+                  </button>
+                  <p v-if="!benchmarkPlayersNeedingAttention.length" class="text-sm text-slate-300">No players are flagged by benchmarks yet.</p>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                <h4 class="text-sm font-semibold text-white">Missing Data Priority</h4>
+                <div class="mt-2 space-y-3 text-xs">
+                  <div>
+                    <p class="font-black uppercase tracking-wider text-red-200">Critical</p>
+                    <div class="mt-1 space-y-1">
+                      <p v-for="row in criticalMissingRows" :key="`critical-${missingRowTitle(row)}`" class="rounded border border-red-300/15 bg-red-500/10 px-2 py-1 text-red-100">
+                        {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
+                      </p>
+                      <p v-if="!criticalMissingRows.length" class="text-slate-300">No critical missing data.</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p class="font-black uppercase tracking-wider text-amber-200">Supporting</p>
+                    <div class="mt-1 space-y-1">
+                      <p v-for="row in supportingMissingRows" :key="`supporting-${missingRowTitle(row)}`" class="rounded border border-amber-300/15 bg-amber-500/10 px-2 py-1 text-amber-100">
+                        {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
+                      </p>
+                      <p v-if="!supportingMissingRows.length" class="text-slate-300">No supporting missing data.</p>
+                    </div>
+                  </div>
+
+                  <div v-if="optionalMissingRows.length">
+                    <p class="font-black uppercase tracking-wider text-slate-300">Optional</p>
+                    <div class="mt-1 space-y-1">
+                      <p v-for="row in optionalMissingRows" :key="`optional-${missingRowTitle(row)}`" class="rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-200">
+                        {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div v-if="collectionPlanRows.length">
+                    <p class="font-black uppercase tracking-wider text-cyan-200">Collection Plan</p>
+                    <p v-for="plan in collectionPlanRows" :key="plan.title" class="mt-1 rounded border border-cyan-300/15 bg-cyan-500/10 px-2 py-1 text-cyan-100">
+                      {{ plan.title }} · {{ asArray(plan.metrics).slice(0, 4).join(', ') }}
+                    </p>
+                  </div>
+
+                  <div v-if="!dataCollectionPriority && benchmarkMissingMetrics.length">
+                    <p class="font-black uppercase tracking-wider text-amber-200">Benchmark Gaps</p>
+                    <p v-for="row in benchmarkMissingMetrics.slice(0, 5)" :key="row.metric_key" class="mt-1 rounded border border-amber-300/15 bg-amber-500/10 px-2 py-1 text-amber-100">
+                      {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
 
         <!-- B: Priority Metric Cards -->

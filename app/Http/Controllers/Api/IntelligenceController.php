@@ -9,6 +9,7 @@ use App\Models\CoachTeam;
 use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\TeamIntelligenceService;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,7 @@ class IntelligenceController extends Controller
     public function __construct(
         private readonly TeamIntelligenceService $teamIntelligence,
         private readonly PlayerIntelligenceService $playerIntelligence,
+        private readonly DecisionEngine $decisionEngine,
     ) {
     }
 
@@ -33,9 +35,11 @@ class IntelligenceController extends Controller
             return $this->forbidden('You do not have access to this team');
         }
 
-        return response()->json(
-            $this->teamIntelligence->build($teamId, $this->days($request))
-        );
+        $days = $this->days($request);
+        $snapshot = $this->teamIntelligence->build($teamId, $days);
+        $snapshot['decision_brief'] = $this->decisionEngine->buildTeamDecisionBrief($teamId, $days);
+
+        return response()->json($snapshot);
     }
 
     public function player(Request $request, string $teamId, string $playerId): JsonResponse

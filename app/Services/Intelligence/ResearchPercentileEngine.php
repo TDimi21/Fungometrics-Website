@@ -57,7 +57,7 @@ class ResearchPercentileEngine
             'evidence_notes' => $metric['evidence_notes'],
         ];
 
-        if ($raw === null) {
+        if ($raw === null || ($raw <= 0 && ! $this->allowsZero($metricKey))) {
             $base['label'] = 'Needs Data';
             $base['benchmark_label'] = 'Needs Data';
             $base['evidence']['reason'] = 'Metric value is missing.';
@@ -190,5 +190,17 @@ class ResearchPercentileEngine
         }
 
         return in_array($confidence, ['low', 'medium', 'high'], true) ? $confidence : 'low';
+    }
+
+    private function allowsZero(string $metricKey): bool
+    {
+        return in_array($metricKey, [
+            'strike_percentage',
+            'hard_hit_percentage',
+            'line_drive_percentage',
+            'hitter_swing_miss_percentage',
+            'pull_ups',
+            'pushups',
+        ], true);
     }
 }

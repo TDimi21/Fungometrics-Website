@@ -12,6 +12,7 @@ class TeamIntelligenceService
         private readonly IntelligenceSignalEngine $signalEngine,
         private readonly IntelligenceRecommendationEngine $recommendationEngine,
         private readonly IntelligenceSnapshotFormatter $formatter,
+        private readonly TeamBenchmarkProfileService $teamBenchmarkProfileService,
     ) {
     }
 
@@ -31,7 +32,8 @@ class TeamIntelligenceService
 
         $signals = $this->signalEngine->buildTeamSignals($assembled, $playerSnapshots);
         $recommendations = $this->recommendationEngine->buildTeamRecommendations($assembled, $signals, $playerSnapshots);
+        $benchmarkProfile = $this->teamBenchmarkProfileService->build($teamId, $days);
 
-        return $this->formatter->formatTeamSnapshot($teamId, $assembled, $playerSnapshots, $signals, $recommendations);
+        return $this->formatter->formatTeamSnapshot($teamId, $assembled, $playerSnapshots, $signals, $recommendations, $benchmarkProfile);
     }
 }
