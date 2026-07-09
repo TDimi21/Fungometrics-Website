@@ -74,14 +74,28 @@ const playerTabRoute = computed(() => {
 })
 
 const sourceData = ref(null)
+const intelligence = ref(null)
 const loading = ref(false)
 const loadError = ref('')
 const selectedScoreKey = ref(null)
 const selectedPlayerName = computed(() => String(route.query?.playerName || route.query?.name || '').trim())
 
+const loadIntelligence = async (teamId, playerId) => {
+  intelligence.value = null
+  if (!teamId || !playerId || isPlayerUser.value) return
+
+  try {
+    const { data } = await axiosGet(`coach/teams/${teamId}/players/${playerId}/intelligence`, { days: 60 })
+    intelligence.value = data?.data || data || null
+  } catch (error) {
+    intelligence.value = null
+  }
+}
+
 const loadLiveData = async () => {
   loadError.value = ''
   sourceData.value = null
+  intelligence.value = null
 
   const playerId = resolvedPlayerId.value
   const teamId = resolvedTeamId.value
@@ -111,6 +125,7 @@ const loadLiveData = async () => {
         history: Array.isArray(payload.history) ? payload.history : [],
         coachNotes: payload?.coach_notes || 'Live data mode: recommendations are generated from available session + fitness data.',
       }
+      await loadIntelligence(teamId, playerId)
       return
     }
 
@@ -236,11 +251,43 @@ const percentileRows = computed(() => {
     else if (benchmarkKey === null) label = 'N/A'
     else if (percentile !== null) label = getPercentileLabel(percentile)
 
+    const numericValue = hasUsableValue ? n(value) : null
+    const goalDeltaMap = {
+      max_exit_velocity: 3,
+      avg_exit_velocity: 3,
+      max_fb_velocity: 2,
+      avg_fb_velocity: 2,
+      bp_score: 5,
+      bullpen_score: 5,
+      recovery_score: 5,
+      vertical_jump: 2,
+      broad_jump: 3,
+      exit_velo: 3,
+      bat_speed: 2,
+      sleep_hours: 8,
+    }
+    const goalRaw = numericValue === null
+      ? null
+      : (key === 'sleep_hours'
+        ? Math.max(numericValue, goalDeltaMap[key])
+        : Math.min(opts.scale100 ? 100 : Number.POSITIVE_INFINITY, numericValue + (goalDeltaMap[key] || 0)))
+    const gapRaw = numericValue !== null && goalRaw !== null ? round1(goalRaw - numericValue) : null
+    const trendKeyMap = {
+      max_fb_velocity: 'bullpen_avg_velocity',
+      avg_fb_velocity: 'bullpen_avg_velocity',
+      avg_exit_velocity: 'exit_velocity_avg',
+      max_exit_velocity: 'exit_velocity_avg',
+    }
+    const trend = trendForMetric(trendKeyMap[key] || key)
+
     return {
       metric,
       value: hasUsableValue ? `${value}${suffix}` : '—',
       percentile,
       label,
+      goal: goalRaw !== null ? `${round1(goalRaw)}${suffix}` : 'Benchmark',
+      gap: gapRaw !== null ? `${gapRaw}${suffix}` : 'Needs Data',
+      trend: trendSymbol(trend),
     }
   }
 
@@ -277,12 +324,198 @@ const recommendations = computed(() => buildRecommendations({
 
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : null)
 const round1 = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v) * 10) / 10 : null)
+const cleanText = (v) => {
+  const text = String(v ?? '').trim()
+  return text || null
+}
 const avg = (arr = []) => {
   const vals = arr.filter((v) => v !== null)
   if (!vals.length) return null
   return vals.reduce((a, b) => a + b, 0) / vals.length
 }
 const toText = (v, suffix = '') => (v === null || v === undefined ? '—' : `${v}${suffix}`)
+
+const titleize = (v) => {
+  const text = cleanText(v)
+  if (!text) return null
+  return text
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (m) => m.toUpperCase())
+}
+
+const scoreStatus = (score) => {
+  const value = n(score)
+  if (value === null) return 'Needs Data'
+  if (value >= 85) return 'Elite'
+  if (value >= 70) return 'Solid'
+  if (value >= 55) return 'Developing'
+  return 'Needs Attention'
+}
+
+const scoreTone = (score) => {
+  const value = n(score)
+  if (value === null) return 'info'
+  if (value >= 85) return 'good'
+  if (value >= 70) return 'caution'
+  return 'risk'
+}
+
+const intelligenceSnapshot = computed(() => intelligence.value || {})
+const intelligenceDataGaps = computed(() => {
+  const gaps = intelligenceSnapshot.value?.data_gaps
+  return Array.isArray(gaps) ? gaps : []
+})
+
+const normalizeRecommendation = (item, idx = 0) => ({
+  id: cleanText(item?.id) || `recommendation-${idx}`,
+  category: titleize(item?.category) || 'Development',
+  priority: cleanText(item?.priority) || (idx === 0 ? 'high' : 'medium'),
+  title: cleanText(item?.title) || 'Collect More Data',
+  why: cleanText(item?.why) || cleanText(item?.recommendation) || 'More paired session data will improve the development plan.',
+  action: cleanText(item?.action) || cleanText(item?.recommendation) || 'Score the next relevant session and review the updated dashboard.',
+  expected_gain: cleanText(item?.expected_gain) || null,
+  confidence: cleanText(item?.confidence) || 'low',
+  evidence: Array.isArray(item?.evidence) ? item.evidence : [],
+})
+
+const actionRecommendations = computed(() => {
+  const recs = Array.isArray(intelligenceSnapshot.value?.recommendations)
+    ? intelligenceSnapshot.value.recommendations
+    : []
+  const source = recs.length ? recs : recommendations.value
+  return source.slice(0, 3).map(normalizeRecommendation)
+})
+
+const primaryLimiter = computed(() => {
+  const limiters = Array.isArray(intelligenceSnapshot.value?.limiters)
+    ? intelligenceSnapshot.value.limiters
+    : []
+  const first = limiters[0]
+  if (!first) return null
+  return {
+    label: titleize(first?.limiter || first?.title || first?.category || first?.name) || 'Development Limiter',
+    confidence: cleanText(first?.confidence) || 'medium',
+    evidence: Array.isArray(first?.evidence) ? first.evidence : [],
+  }
+})
+
+const projectionMetric = (key) => intelligenceSnapshot.value?.projections?.[key] || null
+const projectionValue = (key, horizon = 'projected_90_day') => n(projectionMetric(key)?.[horizon])
+const projectionRows = computed(() => ([
+  {
+    label: 'Avg FB',
+    current: n(effectiveCurrent.value.avg_fb_velocity) ?? n(projectionMetric('bullpen_avg_velocity')?.current),
+    day30: projectionValue('bullpen_avg_velocity', 'projected_30_day'),
+    day60: projectionValue('bullpen_avg_velocity', 'projected_60_day'),
+    day90: projectionValue('bullpen_avg_velocity', 'projected_90_day'),
+    suffix: ' mph',
+  },
+  {
+    label: 'Avg EV',
+    current: n(current.value.avg_exit_velocity) ?? n(projectionMetric('exit_velocity_avg')?.current),
+    day30: projectionValue('exit_velocity_avg', 'projected_30_day'),
+    day60: projectionValue('exit_velocity_avg', 'projected_60_day'),
+    day90: projectionValue('exit_velocity_avg', 'projected_90_day'),
+    suffix: ' mph',
+  },
+  {
+    label: 'Strike %',
+    current: n(current.value.strike_percentage) ?? n(projectionMetric('strike_percentage')?.current),
+    day30: projectionValue('strike_percentage', 'projected_30_day'),
+    day60: projectionValue('strike_percentage', 'projected_60_day'),
+    day90: projectionValue('strike_percentage', 'projected_90_day'),
+    suffix: '%',
+  },
+  {
+    label: 'Long Toss',
+    current: n(current.value.long_toss_max_distance) ?? n(current.value.max_long_toss_distance) ?? n(projectionMetric('long_toss_avg_distance')?.current),
+    day30: projectionValue('long_toss_avg_distance', 'projected_30_day'),
+    day60: projectionValue('long_toss_avg_distance', 'projected_60_day'),
+    day90: projectionValue('long_toss_avg_distance', 'projected_90_day'),
+    suffix: ' ft',
+  },
+  {
+    label: 'PDI',
+    current: n(model.value.developmentIndex),
+    day30: null,
+    day60: null,
+    day90: null,
+    suffix: '',
+  },
+]))
+
+const trendForMetric = (key) => {
+  const trend = intelligenceSnapshot.value?.trend_blocks?.[key] || model.value.trend?.changes?.[key] || null
+  const direction = cleanText(trend?.direction) || (n(trend?.delta) > 0 ? 'improving' : n(trend?.delta) < 0 ? 'declining' : null)
+  return direction || 'no_data'
+}
+
+const trendSymbol = (direction) => {
+  if (['improving', 'up'].includes(direction)) return '↑'
+  if (['declining', 'down'].includes(direction)) return '↓'
+  if (['stable', 'flat'].includes(direction)) return '→'
+  return '—'
+}
+
+const dnaSummary = computed(() => {
+  const dna = intelligenceSnapshot.value?.dna || {}
+  const labels = Array.isArray(dna?.player_type_labels) && dna.player_type_labels.length
+    ? dna.player_type_labels
+    : (Array.isArray(intelligenceSnapshot.value?.profile_labels) ? intelligenceSnapshot.value.profile_labels : [])
+  const primaryType = titleize(labels[0]) || null
+  const primaryStrength = titleize(dna?.primary_strength) || titleize(model.value.strengthScore >= model.value.performanceScore ? 'strength' : 'performance')
+  const limiter = primaryLimiter.value?.label || null
+  const projectedCeiling = projectionValue('bullpen_avg_velocity', 'projected_90_day')
+    ? `${round1(projectionValue('bullpen_avg_velocity', 'projected_90_day'))} MPH`
+    : null
+  const trend = titleize(model.value.trend?.status) || titleize(trendForMetric('bullpen_avg_velocity'))
+
+  return {
+    hasData: Boolean(primaryType || labels.length || primaryLimiter.value || intelligence.value),
+    playerType: primaryType,
+    developmentStage: scoreStatus(model.value.developmentIndex),
+    primaryStrength,
+    primaryLimiter: limiter,
+    projectedCeiling,
+    trendStatus: trend,
+  }
+})
+
+const snapshotRows = computed(() => ([
+  ['Avg FB Velocity', toText(effectiveCurrent.value.avg_fb_velocity, ' mph')],
+  ['Top FB Velocity', toText(effectiveCurrent.value.max_fb_velocity, ' mph')],
+  ['Avg Exit Velocity', toText(current.value.avg_exit_velocity, ' mph')],
+  ['Strike %', toText(current.value.strike_percentage, '%')],
+  ['Long Toss Max', toText(current.value.long_toss_max_distance ?? current.value.max_long_toss_distance, ' ft')],
+  ['Mobility', toText(model.value.mobilityScore)],
+  ['Strength', toText(model.value.strengthScore)],
+]))
+
+const dataGapInstruction = computed(() => {
+  const firstGap = intelligenceDataGaps.value[0]
+  if (!firstGap) return null
+  return cleanText(firstGap?.recommendation) || cleanText(firstGap?.message) || `Needs Data: ${titleize(firstGap?.source || firstGap)}`
+})
+
+const correlationSummary = computed(() => {
+  const limiter = primaryLimiter.value
+  const topContributors = [
+    trendForMetric('long_toss_avg_distance') === 'improving' ? 'Long Toss Carry' : null,
+    model.value.strengthScore >= 75 ? 'Strength Base' : null,
+    model.value.mobilityScore >= 75 ? 'Mobility Quality' : null,
+    n(current.value.strike_percentage) >= 65 ? 'Command Stability' : null,
+    n(current.value.avg_exit_velocity) ? 'Exit Velocity Production' : null,
+  ].filter(Boolean).slice(0, 3)
+
+  return {
+    topContributors,
+    limiter: limiter?.label || 'Needs More Paired Data',
+    confidence: limiter?.confidence || (topContributors.length >= 2 ? 'medium' : 'low'),
+    evidence: limiter?.evidence?.length ? limiter.evidence : insights.value.slice(0, 2),
+    fallback: !limiter && !topContributors.length,
+  }
+})
 
 const scoreDetailByKey = computed(() => {
   const curr = current.value || {}
@@ -404,13 +637,61 @@ const selectedScoreDetail = computed(() => {
 })
 
 const scoreCards = computed(() => ([
-  { key: 'developmentIndex', title: 'Player Development Index', score: model.value.developmentIndex, subtitle: model.value.status },
-  { key: 'performance', title: 'Performance', score: model.value.performanceScore, subtitle: '40% weight' },
-  { key: 'strength', title: 'Strength', score: model.value.strengthScore, subtitle: '20% weight' },
-  { key: 'mobility', title: 'Mobility', score: model.value.mobilityScore, subtitle: '15% weight' },
-  { key: 'recovery', title: 'Recovery', score: model.value.recoveryScore, subtitle: '15% weight' },
-  { key: 'trend', title: 'Trend', score: model.value.trendScore, subtitle: '10% weight' },
-]))
+  {
+    key: 'developmentIndex',
+    title: 'Player Development Index',
+    score: model.value.developmentIndex,
+    subtitle: model.value.status,
+    insight: primaryLimiter.value ? `${primaryLimiter.value.label} is the current limiter.` : 'Overall development blend from performance, strength, mobility, recovery, and trend.',
+    driver: dnaSummary.value.primaryStrength ? `Driver: ${dnaSummary.value.primaryStrength}` : 'Driver: Needs Data',
+    next: actionRecommendations.value[0]?.action || dataGapInstruction.value || 'Score the next session to sharpen the plan.',
+  },
+  {
+    key: 'performance',
+    title: 'Performance',
+    score: model.value.performanceScore,
+    subtitle: '40% weight',
+    insight: n(effectiveCurrent.value.avg_fb_velocity) || n(current.value.avg_exit_velocity) ? 'Baseball outputs are driving the current performance read.' : 'Needs recent baseball session data.',
+    driver: `FB ${toText(effectiveCurrent.value.avg_fb_velocity, ' mph')} · EV ${toText(current.value.avg_exit_velocity, ' mph')}`,
+    next: actionRecommendations.value.find((r) => /command|mound|hitter|barrel|velocity/i.test(`${r.title} ${r.category}`))?.action || 'Add a bullpen, BP, cage, or exit velocity session.',
+  },
+  {
+    key: 'strength',
+    title: 'Strength',
+    score: model.value.strengthScore,
+    subtitle: '20% weight',
+    insight: scoreStatus(model.value.strengthScore) === 'Needs Data' ? 'Strength profile needs assessment inputs.' : 'Strength helps explain power and throwing force production.',
+    driver: `Status: ${scoreStatus(model.value.strengthScore)}`,
+    next: 'Maintain strength work while checking transfer to baseball outputs.',
+  },
+  {
+    key: 'mobility',
+    title: 'Mobility',
+    score: model.value.mobilityScore,
+    subtitle: '15% weight',
+    insight: primaryLimiter.value?.label?.toLowerCase().includes('mobility') ? 'Mobility is showing up as a development limiter.' : 'Mobility supports cleaner transfer into velocity and contact.',
+    driver: `Status: ${scoreStatus(model.value.mobilityScore)}`,
+    next: actionRecommendations.value.find((r) => /mobility/i.test(`${r.title} ${r.category}`))?.action || 'Log a mobility screen and pair it with throwing results.',
+  },
+  {
+    key: 'recovery',
+    title: 'Recovery',
+    score: model.value.recoveryScore,
+    subtitle: '15% weight',
+    insight: scoreStatus(model.value.recoveryScore) === 'Needs Attention' ? 'Recovery may be limiting high-intent work.' : 'Recovery status informs how hard the next session should be.',
+    driver: `Sleep ${toText(current.value.sleep_hours, ' hrs')}`,
+    next: actionRecommendations.value.find((r) => /recovery|workload/i.test(`${r.title} ${r.category}`))?.action || 'Keep logging sleep, soreness, and readiness daily.',
+  },
+  {
+    key: 'trend',
+    title: 'Trend',
+    score: model.value.trendScore,
+    subtitle: '10% weight',
+    insight: `Velocity ${trendSymbol(trendForMetric('bullpen_avg_velocity'))} · Strike ${trendSymbol(trendForMetric('strike_percentage'))} · EV ${trendSymbol(trendForMetric('exit_velocity_avg'))}`,
+    driver: `Status: ${titleize(model.value.trend?.status) || 'Needs Data'}`,
+    next: 'Repeat comparable sessions so changes are tied to the same workload.',
+  },
+]).map((card) => ({ ...card, status: scoreStatus(card.score), tone: scoreTone(card.score) })))
 </script>
 
 <template>
@@ -523,6 +804,40 @@ const scoreCards = computed(() => ([
                     Trend <span :class="model.trend?.status === 'improving' ? 'text-green-300' : model.trend?.status === 'declining' ? 'text-red-300' : 'text-white'">{{ model.trend?.status || '—' }}</span>
                   </span>
                 </div>
+
+                <!-- Player DNA -->
+                <div class="mt-4 w-full rounded-xl border border-cyan-300/15 bg-cyan-950/15 p-3 text-left">
+                  <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-cyan-200/70">Player DNA</p>
+                  <div v-if="dnaSummary.hasData" class="space-y-1.5 text-xs">
+                    <div class="flex justify-between gap-3">
+                      <span class="text-white/45">Player Type</span>
+                      <span class="text-right font-black text-white">{{ dnaSummary.playerType || 'Needs Data' }}</span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                      <span class="text-white/45">Development Stage</span>
+                      <span class="text-right font-black text-white">{{ dnaSummary.developmentStage }}</span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                      <span class="text-white/45">Primary Strength</span>
+                      <span class="text-right font-black text-emerald-300">{{ dnaSummary.primaryStrength || '—' }}</span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                      <span class="text-white/45">Primary Limiter</span>
+                      <span class="text-right font-black text-amber-300">{{ dnaSummary.primaryLimiter || 'Needs Data' }}</span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                      <span class="text-white/45">Projected Ceiling</span>
+                      <span class="text-right font-black text-cyan-200">{{ dnaSummary.projectedCeiling || '—' }}</span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                      <span class="text-white/45">Trend</span>
+                      <span class="text-right font-black text-white">{{ dnaSummary.trendStatus || '—' }}</span>
+                    </div>
+                  </div>
+                  <p v-else class="text-xs leading-relaxed text-white/55">
+                    Collect more session data to unlock Player DNA.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -531,57 +846,33 @@ const scoreCards = computed(() => ([
               <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">Where Are We?</p>
               <p class="mb-3 text-[11px] text-white/40">Current baseline from latest data points.</p>
               <div class="space-y-2 text-xs">
-                <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Avg Exit Velocity</span>
-                  <span class="font-black text-white">{{ current.avg_exit_velocity ?? '—' }} mph</span>
-                </div>
-                <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Max FB Velocity</span>
-                  <span class="font-black text-white">{{ effectiveCurrent.max_fb_velocity ?? '—' }} mph</span>
-                </div>
-                <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Avg FB Velocity</span>
-                  <span class="font-black text-white">{{ effectiveCurrent.avg_fb_velocity ?? '—' }} mph</span>
-                </div>
-                <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Batting Score</span>
-                  <span class="font-black text-white">{{ current.bp_score ?? '—' }}</span>
-                </div>
-                <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Bullpen Score</span>
-                  <span class="font-black text-white">{{ current.bullpen_score ?? '—' }}</span>
-                </div>
-                <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Strength</span>
-                  <span class="font-black text-white">{{ model.strengthScore ?? '—' }}</span>
-                </div>
-                <div class="flex justify-between border-b border-white/5 pb-1.5">
-                  <span class="text-white/55">Mobility</span>
-                  <span class="font-black text-white">{{ model.mobilityScore ?? '—' }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-white/55">Recovery</span>
-                  <span class="font-black text-white">{{ model.recoveryScore ?? '—' }}</span>
+                <div v-for="([label, value]) in snapshotRows" :key="label" class="flex justify-between border-b border-white/5 pb-1.5 last:border-0 last:pb-0">
+                  <span class="text-white/55">{{ label }}</span>
+                  <span class="font-black text-white">{{ value }}</span>
                 </div>
               </div>
+              <p v-if="dataGapInstruction" class="mt-3 rounded-lg border border-amber-300/15 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+                {{ dataGapInstruction }}
+              </p>
             </div>
 
             <!-- WHERE ARE WE GOING? -->
             <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
               <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">Where Are We Going?</p>
-              <p class="mb-1 text-[11px] text-white/40">30-day trend · positive = improving</p>
+              <p class="mb-1 text-[11px] text-white/40">30 / 60 / 90-day outlook from trend data when available.</p>
               <p class="mb-3 text-xs font-black" :class="model.trend?.status === 'improving' ? 'text-green-300' : model.trend?.status === 'declining' ? 'text-red-300' : 'text-yellow-300'">
                 {{ model.trend?.status || '—' }}
               </p>
               <div class="space-y-2 text-xs">
-                <div v-for="([label, key]) in [['EV','avg_exit_velocity'],['Max FB Velo','max_fb_velocity'],['Avg FB Velo','avg_fb_velocity'],['Hard Contact','hard_contact_percentage'],['Command','command_score'],['Strength','rotational_power_score'],['Sleep','sleep_hours']]" :key="key"
-                  class="flex justify-between border-b border-white/5 pb-1.5 last:border-0 last:pb-0">
-                  <span class="text-white/55">{{ label }}</span>
-                  <span class="font-black"
-                    :class="(model.trend?.changes?.[key]?.delta ?? 0) > 0 ? 'text-green-300' : (model.trend?.changes?.[key]?.delta ?? 0) < 0 ? 'text-red-300' : 'text-white/40'">
-                    {{ model.trend?.changes?.[key]?.delta != null ? ((model.trend.changes[key].delta > 0 ? '+' : '') + model.trend.changes[key].delta.toFixed(1)) : '—' }}
-                  </span>
+                <div v-for="row in projectionRows" :key="row.label" class="grid grid-cols-[1fr_repeat(3,minmax(42px,auto))] items-center gap-2 border-b border-white/5 pb-1.5 last:border-0 last:pb-0">
+                  <span class="text-white/55">{{ row.label }}</span>
+                  <span class="text-right font-black text-cyan-200">{{ row.day30 !== null ? `${row.day30}${row.suffix}` : '—' }}</span>
+                  <span class="text-right font-black text-blue-200">{{ row.day60 !== null ? `${row.day60}${row.suffix}` : '—' }}</span>
+                  <span class="text-right font-black text-emerald-200">{{ row.day90 !== null ? `${row.day90}${row.suffix}` : '—' }}</span>
                 </div>
+              </div>
+              <div class="mt-2 grid grid-cols-[1fr_repeat(3,minmax(42px,auto))] gap-2 text-[10px] font-black uppercase tracking-widest text-white/30">
+                <span></span><span class="text-right">30</span><span class="text-right">60</span><span class="text-right">90</span>
               </div>
             </div>
 
@@ -589,17 +880,18 @@ const scoreCards = computed(() => ([
             <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-4">
               <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">How Do We Get There?</p>
               <p class="mb-3 text-[11px] text-white/40">Top action items from weakest areas.</p>
-              <div v-if="recommendations.length" class="space-y-3">
-                <div v-for="(r, idx) in recommendations.slice(0, 3)" :key="idx" class="rounded-xl border border-white/8 bg-white/5 p-3">
+              <div v-if="actionRecommendations.length" class="space-y-3">
+                <div v-for="(r, idx) in actionRecommendations" :key="r.id" class="rounded-xl border border-white/8 bg-white/5 p-3">
                   <p class="mb-1 text-[10px] font-black uppercase tracking-widest"
                     :class="r.priority === 'high' ? 'text-red-400' : r.priority === 'medium' ? 'text-yellow-400' : 'text-slate-400'">
                     Priority {{ idx + 1 }} · {{ r.priority }}
                   </p>
                   <p class="text-xs font-bold text-white">{{ r.title }}</p>
-                  <p class="mt-1 text-[11px] text-white/55 leading-relaxed">{{ r.recommendation }}</p>
+                  <p class="mt-1 text-[11px] text-white/55 leading-relaxed">{{ r.action }}</p>
+                  <p v-if="r.expected_gain" class="mt-1 text-[10px] font-black text-emerald-300">{{ r.expected_gain }}</p>
                 </div>
               </div>
-              <p v-else class="text-xs text-slate-500">No recommendations yet.</p>
+              <p v-else class="text-xs text-slate-500">Score a bullpen, long toss, exit velocity, or assessment session to unlock action plans.</p>
             </div>
 
           </div><!-- /col 1 -->
@@ -615,29 +907,32 @@ const scoreCards = computed(() => ([
                   :key="idx"
                   type="button"
                   class="w-full rounded-xl border p-4 text-left transition hover:brightness-110"
-                  :class="card.score >= 85 ? 'border-emerald-400/30 bg-emerald-950/40' : card.score >= 70 ? 'border-yellow-400/30 bg-yellow-950/40' : 'border-red-400/30 bg-red-950/40'"
+                  :class="card.tone === 'good' ? 'border-emerald-400/30 bg-emerald-950/40' : card.tone === 'caution' ? 'border-yellow-400/30 bg-yellow-950/40' : card.tone === 'risk' ? 'border-red-400/30 bg-red-950/40' : 'border-cyan-400/30 bg-cyan-950/30'"
                   @click="selectedScoreKey = card.key"
                 >
                   <p class="text-[10px] font-black uppercase tracking-widest"
-                    :class="card.score >= 85 ? 'text-emerald-400/70' : card.score >= 70 ? 'text-yellow-400/70' : 'text-red-400/70'">
+                    :class="card.tone === 'good' ? 'text-emerald-400/70' : card.tone === 'caution' ? 'text-yellow-400/70' : card.tone === 'risk' ? 'text-red-400/70' : 'text-cyan-300/70'">
                     {{ card.title }}
                   </p>
                   <p class="mt-1.5 text-4xl font-black leading-none"
-                    :class="card.score >= 85 ? 'text-emerald-300' : card.score >= 70 ? 'text-yellow-300' : 'text-red-300'">
-                    {{ card.score ?? 0 }}
+                    :class="card.tone === 'good' ? 'text-emerald-300' : card.tone === 'caution' ? 'text-yellow-300' : card.tone === 'risk' ? 'text-red-300' : 'text-cyan-200'">
+                    {{ card.score ?? '—' }}
                   </p>
-                  <p class="mt-1 text-[10px] text-white/35">{{ card.subtitle }}</p>
+                  <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-white/45">{{ card.status }} · {{ card.subtitle }}</p>
+                  <p class="mt-2 text-[11px] leading-relaxed text-white/65">{{ card.insight }}</p>
+                  <p class="mt-2 text-[10px] font-black uppercase tracking-widest text-white/35">{{ card.driver }}</p>
+                  <p class="mt-1 text-[11px] leading-relaxed text-white/55">Next: {{ card.next }}</p>
                   <p class="mt-0.5 text-[10px] text-white/25">click for details</p>
                 </button>
               </div>
             </div>
-            <CoachActionPlanCard :recommendations="recommendations" :coach-notes="sourceData.coachNotes || ''" />
+            <CoachActionPlanCard :recommendations="actionRecommendations" :coach-notes="sourceData.coachNotes || ''" />
           </div><!-- /col 2 -->
 
           <!-- ── COLUMN 3 : Percentile Rankings + detail cards ── -->
           <div class="flex flex-col gap-4">
             <PercentileRankingsTable :rows="percentileRows" :age-label="player.age || ageGroup" />
-            <CorrelationInsightsCard :insights="insights" />
+            <CorrelationInsightsCard :insights="insights" :summary="correlationSummary" />
             <!-- Detail cards -->
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
               <RecoverySleepCard :recovery="model.recovery" :current="current" />

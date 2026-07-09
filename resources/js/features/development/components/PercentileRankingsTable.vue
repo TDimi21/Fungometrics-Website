@@ -18,6 +18,9 @@ defineProps({
             <th class="py-2 pr-4">Value</th>
             <th class="py-2 pr-4">Percentile</th>
             <th class="py-2">Label</th>
+            <th class="py-2 pr-4">Goal</th>
+            <th class="py-2 pr-4">Gap</th>
+            <th class="py-2">Trend</th>
           </tr>
         </thead>
         <tbody>
@@ -27,6 +30,12 @@ defineProps({
             <td class="py-2 pr-4">{{ r.value }}</td>
             <td class="py-2 pr-4">{{ r.percentile !== null && r.percentile !== undefined ? `${r.percentile}th` : '—' }}</td>
             <td class="py-2">{{ r.label }}</td>
+            <td class="py-2 pr-4">{{ r.goal || 'Benchmark' }}</td>
+            <td class="py-2 pr-4">{{ r.gap || 'Needs Data' }}</td>
+            <td class="py-2 font-black"
+              :class="r.trend === '↑' ? 'text-emerald-300' : r.trend === '↓' ? 'text-red-300' : r.trend === '→' ? 'text-yellow-300' : 'text-slate-500'">
+              {{ r.trend || '—' }}
+            </td>
           </tr>
         </tbody>
       </table>

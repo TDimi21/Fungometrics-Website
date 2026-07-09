@@ -11,7 +11,11 @@ class IntelligenceSnapshotFormatter
         string $playerId,
         array $assembled,
         array $signals,
-        array $recommendations
+        array $recommendations,
+        ?array $trendBlocks = null,
+        ?array $dna = null,
+        ?array $projections = null,
+        ?array $limiters = null,
     ): array {
         return [
             'generated_at' => now()->toIso8601String(),
@@ -23,8 +27,11 @@ class IntelligenceSnapshotFormatter
             'scores' => $this->scores($assembled),
             'signals' => $signals,
             'recommendations' => $recommendations,
-            'trend_blocks' => $assembled['trend_blocks'] ?? [],
-            'profile_labels' => $this->profileLabels($assembled),
+            'trend_blocks' => $trendBlocks ?? $assembled['trend_blocks'] ?? [],
+            'profile_labels' => $this->profileLabels($assembled, $dna),
+            'dna' => $dna,
+            'projections' => $projections ?? [],
+            'limiters' => $limiters ?? [],
         ];
     }
 
@@ -95,7 +102,7 @@ class IntelligenceSnapshotFormatter
         return $scores;
     }
 
-    private function profileLabels(array $assembled): array
+    private function profileLabels(array $assembled, ?array $dna = null): array
     {
         $labels = [];
 
@@ -112,6 +119,10 @@ class IntelligenceSnapshotFormatter
         $weighted = $assembled['weighted_ball_summary']['velocity_by_weight'] ?? [];
         if (count($weighted) >= 3) {
             $labels[] = 'Weighted Ball Profile Available';
+        }
+
+        foreach ($dna['player_type_labels'] ?? [] as $label) {
+            $labels[] = $label;
         }
 
         return array_values(array_unique($labels));

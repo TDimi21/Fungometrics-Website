@@ -11,15 +11,33 @@ class PlayerIntelligenceService
         private readonly IntelligenceSignalEngine $signalEngine,
         private readonly IntelligenceRecommendationEngine $recommendationEngine,
         private readonly IntelligenceSnapshotFormatter $formatter,
+        private readonly TrendEngine $trendEngine,
+        private readonly ProjectionEngine $projectionEngine,
+        private readonly LimiterEngine $limiterEngine,
+        private readonly PlayerDNAEngine $dnaEngine,
     ) {
     }
 
     public function build(string $teamId, string $playerId, int $days = 60): array
     {
         $assembled = $this->assembler->assembleForPlayer($teamId, $playerId, $days);
+        $trendBlocks = $this->trendEngine->analyze($assembled['trend_blocks'] ?? [], $assembled);
+        $projections = $this->projectionEngine->project($trendBlocks);
+        $limiters = $this->limiterEngine->detect($assembled, $trendBlocks);
+        $dna = $this->dnaEngine->build($assembled, $trendBlocks, $limiters);
         $signals = $this->signalEngine->buildSignals($assembled);
-        $recommendations = $this->recommendationEngine->buildRecommendations($assembled, $signals);
+        $recommendations = $this->recommendationEngine->buildRecommendations($assembled, $signals, $trendBlocks, $limiters, $dna);
 
-        return $this->formatter->formatPlayerSnapshot($teamId, $playerId, $assembled, $signals, $recommendations);
+        return $this->formatter->formatPlayerSnapshot(
+            $teamId,
+            $playerId,
+            $assembled,
+            $signals,
+            $recommendations,
+            $trendBlocks,
+            $dna,
+            $projections,
+            $limiters,
+        );
     }
 }
