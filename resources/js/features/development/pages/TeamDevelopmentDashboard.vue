@@ -144,6 +144,21 @@ const firstNumber = (...values) => {
   return null
 }
 
+const fmt1 = (value, fallback = '—') => {
+  const parsed = n(value)
+  return parsed === null ? fallback : parsed.toFixed(1)
+}
+
+const fmtValue = (value, unit = '', fallback = '—') => {
+  const display = fmt1(value, fallback)
+  return display === fallback ? fallback : `${display}${unit ? ` ${unit}` : ''}`
+}
+
+const fmtRank = (value, fallback = '—') => {
+  const parsed = n(value)
+  return parsed === null ? fallback : `${parsed.toFixed(1)}th`
+}
+
 const teamPlayersIntelligence = computed(() =>
   Array.isArray(teamIntelligence.value?.players) ? teamIntelligence.value.players : []
 )
@@ -575,7 +590,7 @@ const teamAlerts = computed(() => {
       alerts.push({
         severity: need.severity > 35 ? 'high' : need.severity > 15 ? 'medium' : 'low',
         title: `${need.label} needs attention`,
-        body: `${need.label} is ${need.status.toLowerCase()} (${need.value ?? '—'}${need.unit ? ` ${need.unit}` : ''}).`,
+        body: `${need.label} is ${need.status.toLowerCase()} (${fmtValue(need.value, need.unit)}).`,
         next: need.insight || 'Build the next training block around this metric.',
       })
     }
@@ -616,7 +631,7 @@ const roadmap = computed(() => {
     return {
       priority: idx + 1,
       title: need.label,
-      reason: `${need.label} is ${need.status.toLowerCase()} (${need.value ?? '—'}${need.unit ? ` ${need.unit}` : ''}).`,
+      reason: `${need.label} is ${need.status.toLowerCase()} (${fmtValue(need.value, need.unit)}).`,
       action: map[need.key] || 'Target this metric with focused team session design this week.',
       confidence: 'fallback',
     }
@@ -625,7 +640,7 @@ const roadmap = computed(() => {
 
 const teamIndexAnswer = computed(() => cardAnswer(
   teamDevelopmentIndex.value !== null
-    ? `The team development index is ${teamDevelopmentIndex.value}.`
+    ? `The team development index is ${fmt1(teamDevelopmentIndex.value)}.`
     : 'The team index needs more scored player data.',
   topTeamScore.value
     ? `${categoryLabel(topTeamScore.value.key)} is currently the strongest team signal.`
@@ -650,7 +665,7 @@ const pitchingPulseAnswer = computed(() => {
   const strike = metricCardData.value.find((m) => m.key === 'strike_percentage')
   const velo = metricCardData.value.find((m) => m.key === 'average_fastball_velocity')
   return cardAnswer(
-    `Pitching pulse: FB ${velo?.value ?? '—'}${velo?.unit ? ` ${velo.unit}` : ''}, Strike ${strike?.value ?? '—'}${strike?.unit || ''}.`,
+    `Pitching pulse: FB ${fmtValue(velo?.value, velo?.unit)}, Strike ${fmtValue(strike?.value, strike?.unit)}.`,
     'Pitching pulse shows whether arm speed and command are developing together.',
     strike?.value !== null && strike.value < (strike.goal || 65)
       ? 'Run fastball command and edge-location bullpens.'
@@ -662,7 +677,7 @@ const hittingPulseAnswer = computed(() => {
   const ev = metricCardData.value.find((m) => m.key === 'average_exit_velocity')
   const ld = metricCardData.value.find((m) => m.key === 'line_drive_percentage')
   return cardAnswer(
-    `Hitting pulse: Avg EV ${ev?.value ?? '—'}${ev?.unit ? ` ${ev.unit}` : ''}, LD ${ld?.value ?? '—'}${ld?.unit || ''}.`,
+    `Hitting pulse: Avg EV ${fmtValue(ev?.value, ev?.unit)}, LD ${fmtValue(ld?.value, ld?.unit)}.`,
     'Hitting pulse shows whether power is pairing with playable contact quality.',
     ev?.value === null && ld?.value === null
       ? 'Score BP, cage, or exit velocity sessions to build the hitting pulse.'
@@ -681,8 +696,8 @@ const openPlayer = (player) => {
 const trendChip = (delta) => {
   const d = n(delta)
   if (d === null || d === 0) return { text: '→ Stable', cls: 'text-slate-300' }
-  if (d > 0) return { text: `↑ +${round1(d)}`, cls: 'text-emerald-300' }
-  return { text: `↓ ${round1(d)}`, cls: 'text-red-300' }
+  if (d > 0) return { text: `↑ +${fmt1(d)}`, cls: 'text-emerald-300' }
+  return { text: `↓ ${fmt1(d)}`, cls: 'text-red-300' }
 }
 
 const normalizePlayerName = (name) => String(name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
@@ -761,10 +776,10 @@ const priorityTop10Rows = computed(() => {
           <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4 xl:col-span-2">
             <p class="text-xs uppercase tracking-widest text-white/40">Team Development Index</p>
             <div class="mt-2 flex flex-wrap items-end gap-4">
-              <p class="text-5xl font-black" :class="toCardBand(teamDevelopmentIndex).tone">{{ teamDevelopmentIndex ?? '—' }}</p>
+              <p class="text-5xl font-black" :class="toCardBand(teamDevelopmentIndex).tone">{{ fmt1(teamDevelopmentIndex) }}</p>
               <div class="space-y-1 text-sm text-slate-300">
                 <p>Grade: <span class="font-semibold text-white">{{ toCardBand(teamDevelopmentIndex).label }}</span></p>
-                <p>Team Percentile: <span class="font-semibold text-white">{{ teamPercentile ? `${teamPercentile}th` : '—' }}</span></p>
+                <p>Team Percentile: <span class="font-semibold text-white">{{ fmtRank(teamPercentile) }}</span></p>
                 <p>Trend: <span :class="trendChip(tdiChange).cls" class="font-semibold">{{ trendChip(tdiChange).text }}</span></p>
               </div>
             </div>
@@ -788,7 +803,7 @@ const priorityTop10Rows = computed(() => {
             <div class="mt-4 grid grid-cols-2 gap-2 md:grid-cols-3">
               <div v-for="(v, k) in teamComponentScores" :key="k" class="rounded-lg border border-white/10 bg-white/5 p-2">
                 <p class="text-[10px] uppercase tracking-wider text-white/40">{{ String(k).replace('_', ' ') }}</p>
-                <p class="text-lg font-black text-white">{{ v ?? '—' }}</p>
+                <p class="text-lg font-black text-white">{{ fmt1(v) }}</p>
               </div>
             </div>
           </div>
@@ -804,7 +819,7 @@ const priorityTop10Rows = computed(() => {
               <div v-for="m in needsAttention" :key="m.key" class="flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-2 py-1.5">
                 <span class="text-slate-200">{{ m.label }}</span>
                 <span class="font-semibold" :class="m.severity > 30 ? 'text-red-300' : m.severity > 10 ? 'text-yellow-300' : 'text-emerald-300'">
-                  {{ m.value ?? '—' }}{{ m.unit ? ` ${m.unit}` : '' }}
+                  {{ fmtValue(m.value, m.unit) }}
                 </span>
               </div>
             </div>
@@ -823,9 +838,9 @@ const priorityTop10Rows = computed(() => {
               @click="openPriorityTop10(m)"
             >
               <p class="text-[10px] uppercase tracking-wider text-white/40">{{ m.label }}</p>
-              <p class="mt-1 text-2xl font-black" :class="m.tone">{{ m.value ?? '—' }}<span class="text-sm font-semibold">{{ m.unit ? ` ${m.unit}` : '' }}</span></p>
+              <p class="mt-1 text-2xl font-black" :class="m.tone">{{ fmt1(m.value) }}<span class="text-sm font-semibold">{{ m.unit ? ` ${m.unit}` : '' }}</span></p>
               <p class="mt-1 text-xs" :class="trendChip(m.delta).cls">{{ trendChip(m.delta).text }}</p>
-              <p class="mt-1 text-xs text-slate-300">{{ m.status }}<span v-if="m.goal !== null"> · Goal {{ m.goal }}{{ m.unit ? ` ${m.unit}` : '' }}</span></p>
+              <p class="mt-1 text-xs text-slate-300">{{ m.status }}<span v-if="m.goal !== null"> · Goal {{ fmtValue(m.goal, m.unit) }}</span></p>
               <p class="mt-1 text-[11px] text-white/50">{{ m.insight }}</p>
               <p class="mt-2 text-[10px] uppercase tracking-wider text-red-200/80">Tap to view Top 10 players</p>
             </button>
@@ -845,7 +860,7 @@ const priorityTop10Rows = computed(() => {
               <div v-for="r in pitchingBoardRows" :key="r.key" class="rounded-md border border-white/10 bg-white/5 p-2">
                 <div class="flex items-center justify-between">
                   <p class="text-sm text-white">{{ r.label }}</p>
-                  <p class="font-semibold" :class="r.tone">{{ r.value ?? '—' }}{{ r.unit ? ` ${r.unit}` : '' }}</p>
+                  <p class="font-semibold" :class="r.tone">{{ fmtValue(r.value, r.unit) }}</p>
                 </div>
                 <p class="text-xs text-slate-400">{{ trendChip(r.delta).text }} · {{ r.improving }} improving / {{ r.declining }} declining</p>
               </div>
@@ -863,7 +878,7 @@ const priorityTop10Rows = computed(() => {
               <div v-for="r in hittingBoardRows" :key="r.key" class="rounded-md border border-white/10 bg-white/5 p-2">
                 <div class="flex items-center justify-between">
                   <p class="text-sm text-white">{{ r.label }}</p>
-                  <p class="font-semibold" :class="r.tone">{{ r.value ?? '—' }}{{ r.unit ? ` ${r.unit}` : '' }}</p>
+                  <p class="font-semibold" :class="r.tone">{{ fmtValue(r.value, r.unit) }}</p>
                 </div>
                 <p class="text-xs text-slate-400">{{ trendChip(r.delta).text }} · {{ r.status }}</p>
               </div>
@@ -904,15 +919,15 @@ const priorityTop10Rows = computed(() => {
                 <p class="font-semibold text-white">{{ p.name }}</p>
                 <span class="rounded border px-2 py-0.5 text-xs" :class="p.confidence === 'High' ? 'border-emerald-400/40 text-emerald-300' : p.confidence === 'Medium' ? 'border-yellow-400/40 text-yellow-300' : 'border-red-400/40 text-red-300'">{{ p.confidence }}</span>
               </div>
-              <p class="mt-1 text-xs text-slate-300">Current {{ metricMeta[selectedMetric]?.label }}: <span class="font-semibold text-white">{{ p.current ?? '—' }}</span></p>
+              <p class="mt-1 text-xs text-slate-300">Current {{ metricMeta[selectedMetric]?.label }}: <span class="font-semibold text-white">{{ fmt1(p.current) }}</span></p>
               <svg class="mt-2 h-14 w-full" viewBox="0 0 100 40" preserveAspectRatio="none">
                 <line x1="0" y1="20" x2="100" y2="20" stroke="rgba(148,163,184,0.25)" stroke-dasharray="2 2" />
                 <polyline :points="sparklinePoints([p.previous, p.current, p.projected30, p.projected60, p.projected90])" fill="none" stroke="#f43f5e" stroke-width="2" />
               </svg>
               <div class="mt-1 grid grid-cols-3 gap-2 text-xs">
-                <p class="text-slate-300">30d: <span class="font-semibold text-white">{{ p.projected30 ?? '—' }}</span></p>
-                <p class="text-slate-300">60d: <span class="font-semibold text-white">{{ p.projected60 ?? '—' }}</span></p>
-                <p class="text-slate-300">90d: <span class="font-semibold text-white">{{ p.projected90 ?? '—' }}</span></p>
+                <p class="text-slate-300">30d: <span class="font-semibold text-white">{{ fmt1(p.projected30) }}</span></p>
+                <p class="text-slate-300">60d: <span class="font-semibold text-white">{{ fmt1(p.projected60) }}</span></p>
+                <p class="text-slate-300">90d: <span class="font-semibold text-white">{{ fmt1(p.projected90) }}</span></p>
               </div>
             </div>
           </div>
@@ -942,14 +957,14 @@ const priorityTop10Rows = computed(() => {
                   <td class="py-2 pr-4">
                     <button class="text-left text-white hover:text-red-300" @click="openPlayer(p)">{{ p.name }}</button>
                   </td>
-                  <td class="py-2 pr-4">{{ p.pdi ?? '—' }}</td>
-                  <td class="py-2 pr-4">{{ p.percentile ? `${p.percentile}th` : '—' }}</td>
+                  <td class="py-2 pr-4">{{ fmt1(p.pdi) }}</td>
+                  <td class="py-2 pr-4">{{ fmtRank(p.percentile) }}</td>
                   <td class="py-2 pr-4">{{ p.trend }}</td>
                   <td class="py-2 pr-4">{{ p.bestStrength }}</td>
                   <td class="py-2 pr-4">{{ p.biggestNeed }}</td>
                   <td class="py-2 pr-4">{{ p.playerType }}</td>
-                  <td class="py-2 pr-4">{{ p.riskScore }} ({{ p.riskLevel }})</td>
-                  <td class="py-2 pr-4">{{ p.projection.projected90 ?? '—' }}</td>
+                  <td class="py-2 pr-4">{{ fmt1(p.riskScore) }} ({{ p.riskLevel }})</td>
+                  <td class="py-2 pr-4">{{ fmt1(p.projection.projected90) }}</td>
                   <td class="py-2">{{ p.limiterCount ? `${p.limiterCount} limiter(s)` : (p.riskScore > 60 ? 'Needs Attention' : p.riskScore > 40 ? 'Watch' : 'Stable') }}</td>
                 </tr>
               </tbody>
@@ -963,11 +978,11 @@ const priorityTop10Rows = computed(() => {
             <h3 class="text-lg font-semibold text-white">Development Leaderboards</h3>
             <p class="mt-2 text-xs uppercase tracking-wider text-white/40">Most Improved</p>
             <ol class="mt-1 list-decimal space-y-1 pl-5 text-sm text-slate-300">
-              <li v-for="p in leaderboardMostImproved" :key="`imp-${p.id}`">{{ p.name }} · {{ p.pdiChange ?? '—' }}</li>
+              <li v-for="p in leaderboardMostImproved" :key="`imp-${p.id}`">{{ p.name }} · {{ fmt1(p.pdiChange) }}</li>
             </ol>
             <p class="mt-3 text-xs uppercase tracking-wider text-white/40">Needs Attention</p>
             <ol class="mt-1 list-decimal space-y-1 pl-5 text-sm text-slate-300">
-              <li v-for="p in leaderboardNeedsAttention" :key="`risk-${p.id}`">{{ p.name }} · Risk {{ p.riskScore }}</li>
+              <li v-for="p in leaderboardNeedsAttention" :key="`risk-${p.id}`">{{ p.name }} · Risk {{ fmt1(p.riskScore) }}</li>
             </ol>
           </div>
 
@@ -1029,7 +1044,7 @@ const priorityTop10Rows = computed(() => {
                       <span class="text-sm font-semibold text-white">{{ row.name }}</span>
                     </div>
                     <div class="text-sm font-black text-emerald-300">
-                      {{ row.value }}{{ priorityTop10Modal.unit ? ` ${priorityTop10Modal.unit}` : '' }}
+                      {{ fmtValue(row.value, priorityTop10Modal.unit) }}
                     </div>
                   </div>
                 </div>

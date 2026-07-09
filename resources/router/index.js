@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../js/store/auth";
 import { useUserStore } from "../js/store/user";
+import { getAuthToken } from "../js/utils/authToken.js";
 
 //Guest components
 const Welcome = () => import("@/pages/Welcome.vue");
@@ -391,10 +392,21 @@ const router = createRouter({
 const WEB_START_PRACTICE_ENABLED = false;
 const START_PRACTICE_BLOCKED_PATHS = ['/create', '/track'];
 
+const syncAuthFromToken = () => {
+	const auth = useAuthStore();
+	const token = getAuthToken();
+	if (token) {
+		auth.setToken(token);
+		auth.isLogged.status = true;
+		return true;
+	}
+	return !!auth.isLogged.status;
+};
+
 router.beforeEach((to, from, next) => {
-	const { isLogged } = useAuthStore();
+	const isAuthenticated = syncAuthFromToken();
 	if (to.matched.some((record) => record.meta.requiresAuth)) {
-		if (isLogged.status) {
+		if (isAuthenticated) {
 			if (!WEB_START_PRACTICE_ENABLED && START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))) {
 				next('/dashboard');
 				return;
@@ -409,11 +421,11 @@ router.beforeEach((to, from, next) => {
 });
 
 router.beforeEach((to, from, next) => {
-	const { isLogged } = useAuthStore();
+	const isAuthenticated = syncAuthFromToken();
 	const { userData } = useUserStore();
 
 	if (to.matched.some((record) => record.meta.guest)) {
-		if (isLogged.status) {
+		if (isAuthenticated) {
 			const adminEmail = String(userData?.email || '').toLowerCase();
 			if (adminEmail === 'admin@fungometrics.com') {
 				next('/admin');

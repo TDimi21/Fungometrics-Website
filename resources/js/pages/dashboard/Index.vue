@@ -75,7 +75,7 @@ const DASHBOARD_CACHE_TTL_MS = 2 * 60 * 1000
 
 const getDashboardCacheKey = () => {
   if (!activeTeamId.value) return null
-  return `dashboard-cache:v2:${activeTeamId.value}`
+  return `dashboard-cache:v3:${activeTeamId.value}`
 }
 
 const getTeamSessionCount = async (teamLike) => {
@@ -110,27 +110,38 @@ const ensureActiveTeam = async () => {
       ? teamsList.some((t) => getTeamIdCandidates(t).some((id) => activeIds.includes(id)))
       : false
 
+    if (typeof teamStore.setTeams === 'function') {
+      teamStore.setTeams(teamsList)
+    }
+
     if (!currentExists) {
       teamStore.setTeam(teamsList[0])
-      if (typeof teamStore.setTeams === 'function') {
-        teamStore.setTeams(teamsList)
-      }
       return
     }
 
+    const freshCurrentTeam = teamsList.find((t) =>
+      getTeamIdCandidates(t).some((id) => activeIds.includes(id))
+    )
+
+    if (freshCurrentTeam) {
+      teamStore.setTeam(freshCurrentTeam)
+    }
+
     // If current team has no recent sessions, auto-pick the first team that does.
-    const currentCount = await getTeamSessionCount(team.value)
+    const currentCount = await getTeamSessionCount(freshCurrentTeam ?? team.value)
     if (currentCount > 0) return
 
     for (const candidate of teamsList) {
       const candidateCount = await getTeamSessionCount(candidate)
       if (candidateCount > 0) {
         teamStore.setTeam(candidate)
-        if (typeof teamStore.setTeams === 'function') {
-          teamStore.setTeams(teamsList)
-        }
         return
       }
+    }
+
+    const teamWithRoster = teamsList.find((candidate) => Number(candidate?.num_players ?? 0) > 0)
+    if (teamWithRoster) {
+      teamStore.setTeam(teamWithRoster)
     }
   } catch (e) {
     console.warn('ensureActiveTeam', e)
