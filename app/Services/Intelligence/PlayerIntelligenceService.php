@@ -22,7 +22,7 @@ class PlayerIntelligenceService
     {
         $assembled = $this->assembler->assembleForPlayer($teamId, $playerId, $days);
         $trendBlocks = $this->trendEngine->analyze($assembled['trend_blocks'] ?? [], $assembled);
-        $projections = $this->projectionEngine->project($trendBlocks);
+        $projections = $this->projectionEngine->project($trendBlocks, $assembled);
         $limiters = $this->limiterEngine->detect($assembled, $trendBlocks);
         $dna = $this->dnaEngine->build($assembled, $trendBlocks, $limiters);
         $signals = $this->signalEngine->buildSignals($assembled);

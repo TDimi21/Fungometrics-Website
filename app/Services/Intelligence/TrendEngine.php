@@ -14,6 +14,13 @@ class TrendEngine
         'weighted_ball_avg_velocity' => 0.5,
         'long_toss_avg_distance' => 10.0,
         'batting_avg_ev' => 0.5,
+        'bullpen_max_velocity' => 0.5,
+        'exit_velocity_max' => 0.5,
+        'long_toss_max_distance' => 10.0,
+        'weighted_ball_5oz_max_velocity' => 0.5,
+        'strength_score' => 3.0,
+        'mobility_score' => 3.0,
+        'recovery_score' => 3.0,
     ];
 
     public function analyze(array $trendBlocks, array $assembled = []): array
@@ -59,6 +66,45 @@ class TrendEngine
                 'value' => $assembled['long_toss_summary']['avg_distance'] ?? null,
                 'count' => $assembled['long_toss_summary']['result_count'] ?? null,
             ],
+            'bullpen_max_velocity' => [
+                'value' => $assembled['bullpen_summary']['max_pitch_velocity'] ?? null,
+                'count' => $assembled['bullpen_summary']['result_count'] ?? null,
+            ],
+            'exit_velocity_max' => [
+                'value' => $this->maxNumber([
+                    $assembled['exit_velocity_summary']['max_exit_velocity'] ?? null,
+                    $assembled['batting_summary']['max_exit_velocity'] ?? null,
+                    $assembled['cage_summary']['max_exit_velocity'] ?? null,
+                ]),
+                'count' => max(
+                    (int) ($assembled['exit_velocity_summary']['result_count'] ?? 0),
+                    (int) ($assembled['batting_summary']['result_count'] ?? 0),
+                    (int) ($assembled['cage_summary']['result_count'] ?? 0),
+                ),
+            ],
+            'long_toss_max_distance' => [
+                'value' => $assembled['long_toss_summary']['max_distance'] ?? null,
+                'count' => $assembled['long_toss_summary']['result_count'] ?? null,
+            ],
+            'weighted_ball_5oz_max_velocity' => [
+                'value' => $assembled['weighted_ball_summary']['five_oz_max_velocity'] ?? null,
+                'count' => $assembled['weighted_ball_summary']['total_throws'] ?? null,
+            ],
+            'strength_score' => [
+                'value' => $assembled['physical_development']['strength_score'] ?? $assembled['assessment_summary']['strength_overall_score'] ?? null,
+                'count' => ($assembled['physical_development']['strength_score'] ?? $assembled['assessment_summary']['strength_overall_score'] ?? null) !== null ? 1 : 0,
+                'previous' => $assembled['physical_development']['trend']['strength_score']['previous'] ?? null,
+            ],
+            'mobility_score' => [
+                'value' => $assembled['physical_development']['mobility_score'] ?? $assembled['assessment_summary']['mobility_overall_score'] ?? null,
+                'count' => ($assembled['physical_development']['mobility_score'] ?? $assembled['assessment_summary']['mobility_overall_score'] ?? null) !== null ? 1 : 0,
+                'previous' => $assembled['physical_development']['trend']['mobility_score']['previous'] ?? null,
+            ],
+            'recovery_score' => [
+                'value' => $assembled['physical_development']['recovery_score'] ?? null,
+                'count' => ($assembled['physical_development']['recovery_score'] ?? null) !== null ? 1 : 0,
+                'previous' => $assembled['physical_development']['trend']['recovery_score']['previous'] ?? null,
+            ],
         ];
 
         foreach ($fallbacks as $metric => $fallback) {
@@ -70,6 +116,7 @@ class TrendEngine
                 $trendBlocks[$metric] ?? [],
                 [
                     'current' => $this->numberOrNull($fallback['value']),
+                    'previous' => $this->numberOrNull($fallback['previous'] ?? ($trendBlocks[$metric]['previous'] ?? null)),
                     'current_count' => is_numeric($fallback['count']) ? (int) $fallback['count'] : 0,
                 ]
             );
@@ -194,5 +241,15 @@ class TrendEngine
     private function numberOrNull(mixed $value): ?float
     {
         return is_numeric($value) ? (float) $value : null;
+    }
+
+    private function maxNumber(array $values): ?float
+    {
+        $numbers = array_values(array_filter(
+            array_map(fn (mixed $value) => $this->numberOrNull($value), $values),
+            fn (?float $value) => $value !== null
+        ));
+
+        return count($numbers) ? max($numbers) : null;
     }
 }

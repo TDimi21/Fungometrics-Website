@@ -319,6 +319,9 @@ class IntelligenceDataAssembler
 
     private function assessmentSummary(?PlayerAssessment $assessment): array
     {
+        $pitchingData = is_array($assessment?->pitching_data) ? $assessment->pitching_data : [];
+        $hittingData = is_array($assessment?->hitting_data) ? $assessment->hitting_data : [];
+
         return [
             'id' => $assessment?->id,
             'assessment_date' => $assessment?->assessment_date?->toDateString(),
@@ -330,6 +333,25 @@ class IntelligenceDataAssembler
             'throwing_workload_score' => $this->numberOrNull($assessment?->throwing_workload_score),
             'throwing_workload_level' => $assessment?->throwing_workload_level,
             'arm_health_score' => $this->numberOrNull($assessment?->arm_health_score),
+            'baseline_pitch_velocity' => $this->firstNestedNumber($pitchingData, [
+                'pitch_velo',
+                'pitch_velocity',
+                'fastball_velocity',
+                'fb_velocity',
+                'max_fb_velocity',
+                'avg_fb_velocity',
+                'velocity',
+                'miles_per_hour',
+            ]),
+            'baseline_exit_velocity' => $this->firstNestedNumber($hittingData, [
+                'exit_velocity',
+                'max_exit_velocity',
+                'avg_exit_velocity',
+                'ev',
+                'velocity',
+            ]),
+            'pitching_data' => $pitchingData,
+            'hitting_data' => $hittingData,
             'overall_team_percentile' => $this->numberOrNull($assessment?->overall_team_percentile),
             'overall_age_percentile' => $this->numberOrNull($assessment?->overall_age_percentile),
         ];
@@ -346,6 +368,7 @@ class IntelligenceDataAssembler
             'mobility_score' => $this->numberOrNull($latest?->mobility_score),
             'strength_score' => $this->numberOrNull($athleticLatest?->strength_score ?? $latest?->strength_score),
             'overall_api_score' => $this->numberOrNull($athleticLatest?->overall_api_score ?? $latest?->overall_api_score),
+            'pitch_velocity' => $this->numberOrNull($latest?->pitch_velo),
             'grade_label' => $athleticLatest?->grade_label,
             'projection_label' => $athleticLatest?->projection_label,
             'team_percentile' => $this->numberOrNull($athleticLatest?->team_percentile),
@@ -433,10 +456,26 @@ class IntelligenceDataAssembler
             ->values()
             ->all();
 
+        $byWeightMap = collect($byWeight)->keyBy(fn (array $row) => (string) (float) $row['weight']);
+        $weight3 = $byWeightMap->get('3');
+        $weight5 = $byWeightMap->get('5');
+        $weight7 = $byWeightMap->get('7');
+        $max3 = $this->numberOrNull($weight3['max_velocity'] ?? null);
+        $max5 = $this->numberOrNull($weight5['max_velocity'] ?? null);
+        $max7 = $this->numberOrNull($weight7['max_velocity'] ?? null);
+        $avg5 = $this->numberOrNull($weight5['avg_velocity'] ?? null);
+
         return [
             'result_count' => $rows->count(),
             'velocity_by_weight' => $byWeight,
             'max_velocity' => count($byWeight) ? max(array_column($byWeight, 'max_velocity')) : null,
+            'five_oz_avg_velocity' => $avg5,
+            'five_oz_max_velocity' => $max5,
+            'velocity_ratio_5_to_3' => $max5 !== null && $max3 !== null && $max3 > 0 ? round($max5 / $max3, 3) : null,
+            'speed_reserve_3_to_5' => $max3 !== null && $max5 !== null ? round($max3 - $max5, 1) : null,
+            'strength_reserve_5_to_7' => $max5 !== null && $max7 !== null ? round($max5 - $max7, 1) : null,
+            'force_drop_off_per_oz' => $max3 !== null && $max7 !== null ? round(($max3 - $max7) / 4, 1) : null,
+            'profile_label' => $this->weightedBallProfileLabel($max3, $max5, $max7),
             'total_throws' => $rows->count() ?: null,
         ];
     }
@@ -595,5 +634,64 @@ class IntelligenceDataAssembler
         $number = $this->numberOrNull($value);
 
         return $number !== null && $number > 0 ? $number : null;
+    }
+
+    private function firstNestedNumber(array $data, array $keys): ?float
+    {
+        foreach ($keys as $key) {
+            $value = $this->findNestedValue($data, $key);
+            $number = $this->positiveNumber($value);
+            if ($number !== null) {
+                return $number;
+            }
+        }
+
+        return null;
+    }
+
+    private function findNestedValue(array $data, string $targetKey): mixed
+    {
+        foreach ($data as $key => $value) {
+            if (strtolower((string) $key) === strtolower($targetKey)) {
+                return $value;
+            }
+
+            if (is_array($value)) {
+                $nested = $this->findNestedValue($value, $targetKey);
+                if ($nested !== null && $nested !== '') {
+                    return $nested;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function weightedBallProfileLabel(?float $max3, ?float $max5, ?float $max7): ?string
+    {
+        if ($max3 === null || $max5 === null || $max7 === null) {
+            return null;
+        }
+
+        $speedReserve = $max3 - $max5;
+        $strengthReserve = $max5 - $max7;
+
+        if ($speedReserve >= 7 && $strengthReserve >= 7) {
+            return 'Irregular Spectrum';
+        }
+
+        if ($speedReserve >= 7) {
+            return 'Speed Dominant';
+        }
+
+        if ($strengthReserve <= 4) {
+            return 'Strength Dominant';
+        }
+
+        if (abs($speedReserve - $strengthReserve) <= 2) {
+            return 'Balanced Power Profile';
+        }
+
+        return 'Developing Spectrum';
     }
 }

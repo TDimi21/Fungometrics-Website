@@ -11,6 +11,8 @@ class LimiterEngine
         $limiters = [];
 
         $this->longTossTransfer($limiters, $assembled, $trends);
+        $this->weightedBallTransfer($limiters, $assembled, $trends);
+        $this->weightedBallSpectrum($limiters, $assembled);
         $this->command($limiters, $assembled, $trends);
         $this->barrelControl($limiters, $assembled);
         $this->mobilityRestriction($limiters, $assembled);
@@ -42,17 +44,119 @@ class LimiterEngine
         }
     }
 
+    private function weightedBallTransfer(array &$limiters, array $assembled, array $trends): void
+    {
+        $fiveOzMax = $this->numberOrNull($assembled['weighted_ball_summary']['five_oz_max_velocity'] ?? null);
+        $bullpenMax = $this->numberOrNull($assembled['bullpen_summary']['max_pitch_velocity'] ?? null);
+        $baselinePitchVelo = $this->numberOrNull($assembled['assessment_summary']['baseline_pitch_velocity'] ?? null)
+            ?? $this->numberOrNull($assembled['physical_development']['pitch_velocity'] ?? null);
+        $bullpenTrend = $trends['bullpen_avg_velocity'] ?? [];
+        $weightedTrend = $trends['weighted_ball_5oz_max_velocity'] ?? $trends['weighted_ball_avg_velocity'] ?? [];
+
+        if ($fiveOzMax !== null && $bullpenMax !== null && $fiveOzMax - $bullpenMax >= 3) {
+            $limiters[] = $this->limiter(
+                'weighted-ball-to-mound-transfer',
+                'throwing',
+                'high',
+                'Weighted Ball to Mound Transfer',
+                'The player is showing more 5 oz velocity in weighted-ball work than mound velocity.',
+                [
+                    'weighted_ball_5oz_max_velocity' => $fiveOzMax,
+                    'bullpen_max_pitch_velocity' => $bullpenMax,
+                    'gap_mph' => round($fiveOzMax - $bullpenMax, 1),
+                    'bullpen_velocity_trend' => $bullpenTrend,
+                    'weighted_ball_trend' => $weightedTrend,
+                ],
+                'medium'
+            );
+        }
+
+        if ($fiveOzMax !== null && $baselinePitchVelo !== null && $fiveOzMax <= $baselinePitchVelo) {
+            $limiters[] = $this->limiter(
+                'five-oz-transfer-flat',
+                'throwing',
+                'medium',
+                '5 oz Velocity Transfer',
+                'Current 5 oz weighted-ball velocity is not above the assessment pitch-velocity baseline.',
+                [
+                    'assessment_baseline_pitch_velocity' => $baselinePitchVelo,
+                    'weighted_ball_5oz_max_velocity' => $fiveOzMax,
+                    'transfer_delta_mph' => round($fiveOzMax - $baselinePitchVelo, 1),
+                ],
+                'medium'
+            );
+        }
+    }
+
+    private function weightedBallSpectrum(array &$limiters, array $assembled): void
+    {
+        $speedReserve = $this->numberOrNull($assembled['weighted_ball_summary']['speed_reserve_3_to_5'] ?? null);
+        $strengthReserve = $this->numberOrNull($assembled['weighted_ball_summary']['strength_reserve_5_to_7'] ?? null);
+        $velocityRatio = $this->numberOrNull($assembled['weighted_ball_summary']['velocity_ratio_5_to_3'] ?? null);
+        $forceDropOff = $this->numberOrNull($assembled['weighted_ball_summary']['force_drop_off_per_oz'] ?? null);
+        $profile = $assembled['weighted_ball_summary']['profile_label'] ?? null;
+
+        if ($speedReserve !== null && $speedReserve >= 7 && ($strengthReserve === null || $strengthReserve >= 6)) {
+            $limiters[] = $this->limiter(
+                'underload-speed-transfer',
+                'throwing',
+                'medium',
+                'Underload Speed Transfer',
+                'The lighter ball is much faster than the 5 oz ball, suggesting arm speed is not fully transferring to the game ball.',
+                [
+                    'speed_reserve_3_to_5' => $speedReserve,
+                    'strength_reserve_5_to_7' => $strengthReserve,
+                    'velocity_ratio_5_to_3' => $velocityRatio,
+                    'weighted_ball_profile' => $profile,
+                ],
+                'medium'
+            );
+        }
+
+        if ($strengthReserve !== null && $strengthReserve >= 7) {
+            $limiters[] = $this->limiter(
+                'overload-strength',
+                'throwing',
+                'medium',
+                'Overload Strength',
+                'Velocity drops sharply from 5 oz to 7 oz, which points to overload strength or sequencing limitations.',
+                [
+                    'strength_reserve_5_to_7' => $strengthReserve,
+                    'force_drop_off_per_oz' => $forceDropOff,
+                    'weighted_ball_profile' => $profile,
+                ],
+                'medium'
+            );
+        }
+
+        if ($velocityRatio !== null && $velocityRatio < 0.92) {
+            $limiters[] = $this->limiter(
+                'velocity-spectrum-efficiency',
+                'throwing',
+                'medium',
+                'Velocity Spectrum Efficiency',
+                'The 5 oz to 3 oz velocity ratio is below target, showing a large drop from underload speed to game-ball velocity.',
+                [
+                    'velocity_ratio_5_to_3' => $velocityRatio,
+                    'speed_reserve_3_to_5' => $speedReserve,
+                    'weighted_ball_profile' => $profile,
+                ],
+                'medium'
+            );
+        }
+    }
+
     private function command(array &$limiters, array $assembled, array $trends): void
     {
         $strikeRate = $this->numberOrNull($assembled['bullpen_summary']['strike_rate'] ?? null);
         $maxVelo = $this->numberOrNull($assembled['bullpen_summary']['max_pitch_velocity'] ?? null);
         $veloTrend = $trends['bullpen_avg_velocity'] ?? [];
 
-        if ($strikeRate !== null && $strikeRate < 60 && ($maxVelo !== null || in_array($veloTrend['direction'] ?? null, ['stable', 'improving'], true))) {
+        if ($strikeRate !== null && $strikeRate < 65 && ($maxVelo !== null || in_array($veloTrend['direction'] ?? null, ['stable', 'improving'], true))) {
             $limiters[] = $this->limiter(
                 'command',
                 'pitching',
-                'high',
+                $strikeRate < 55 ? 'high' : 'medium',
                 'Command',
                 'Strike percentage is below target while velocity is present, stable, or improving.',
                 [
@@ -60,7 +164,7 @@ class LimiterEngine
                     'max_pitch_velocity' => $maxVelo,
                     'bullpen_velocity_trend' => $veloTrend,
                 ],
-                $strikeRate < 50 ? 'high' : 'medium'
+                $strikeRate < 55 ? 'high' : 'medium'
             );
         }
     }
@@ -74,10 +178,11 @@ class LimiterEngine
         ], fn ($value) => $value !== null) ?: [null]);
 
         $battingScore = $this->numberOrNull($assembled['batting_summary']['score'] ?? null);
+        $cageScore = $this->numberOrNull($assembled['cage_summary']['score'] ?? null);
         $contactScore = $this->numberOrNull($assembled['batting_summary']['score_breakdown']['contactScore'] ?? null);
         $launchScore = $this->numberOrNull($assembled['batting_summary']['score_breakdown']['launchScore'] ?? null);
 
-        if ($maxEv !== null && $maxEv >= 85 && (($battingScore !== null && $battingScore < 70) || ($contactScore !== null && $contactScore < 65) || ($launchScore !== null && $launchScore < 65))) {
+        if ($maxEv !== null && $maxEv >= 85 && (($battingScore !== null && $battingScore < 70) || ($cageScore !== null && $cageScore < 70) || ($contactScore !== null && $contactScore < 65) || ($launchScore !== null && $launchScore < 65))) {
             $limiters[] = $this->limiter(
                 'barrel-control',
                 'hitting',
@@ -87,6 +192,7 @@ class LimiterEngine
                 [
                     'max_exit_velocity' => $maxEv,
                     'batting_score' => $battingScore,
+                    'cage_score' => $cageScore,
                     'contact_score' => $contactScore,
                     'launch_score' => $launchScore,
                 ],
@@ -144,7 +250,16 @@ class LimiterEngine
 
     private function limiter(string $id, string $category, string $priority, string $title, string $why, array $evidence, string $confidence): array
     {
-        return compact('id', 'category', 'priority', 'title', 'why', 'evidence', 'confidence');
+        return [
+            'id' => $id,
+            'category' => $category,
+            'priority' => $priority,
+            'limiter' => $title,
+            'title' => $title,
+            'why' => $why,
+            'evidence' => $evidence,
+            'confidence' => $confidence,
+        ];
     }
 
     private function uniqueById(array $limiters): array
