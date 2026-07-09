@@ -629,8 +629,9 @@ class DecisionEngine
         $missingCritical = [];
         $missingSupporting = [];
         $missingOptional = [];
+        $profileMissingMetrics = is_array($profile['missing_metrics'] ?? null) ? $profile['missing_metrics'] : [];
 
-        foreach (($profile['missing_metrics'] ?? []) as $metric) {
+        foreach ($profileMissingMetrics as $metric) {
             if (! is_array($metric)) {
                 continue;
             }
@@ -644,53 +645,69 @@ class DecisionEngine
             };
         }
 
-        foreach ($players as $player) {
-            $playerContext = $player['summary']['player'] ?? [];
-            $missingContext = [];
+        $hasProfileContextGap = collect($profileMissingMetrics)
+            ->contains(fn (array $metric) => BenchmarkDefinitions::normalizeMetricKey((string) ($metric['metric_key'] ?? '')) === 'player_context');
+        $hasBenchmarkMetricsGap = collect($profileMissingMetrics)
+            ->contains(fn (array $metric) => BenchmarkDefinitions::normalizeMetricKey((string) ($metric['metric_key'] ?? '')) === 'player_benchmark_metrics');
 
-            foreach ([
-                'born_date' => 'Date of birth is missing.',
-                'positions' => 'Position or role is missing.',
-            ] as $field => $reason) {
-                $value = $playerContext[$field] ?? null;
-                if ($value === null || $value === '' || (is_array($value) && empty($value))) {
-                    $missingContext[] = $reason;
+        if (! $hasProfileContextGap || ! $hasBenchmarkMetricsGap) {
+            foreach ($players as $player) {
+                $playerContext = $player['summary']['player'] ?? [];
+
+                if (! $hasProfileContextGap) {
+                    $missingFields = [];
+
+                    foreach ([
+                        'born_date' => 'dob',
+                        'positions' => 'position',
+                    ] as $field => $missingField) {
+                        $value = $playerContext[$field] ?? null;
+                        if ($value === null || $value === '' || (is_array($value) && empty($value))) {
+                            $missingFields[] = $missingField;
+                        }
+                    }
+
+                    if (! empty($missingFields)) {
+                        $this->appendMissingRow($missingCritical, [
+                            'classification' => 'critical_missing_data',
+                            'metric_key' => 'player_context',
+                            'display_name' => 'Player Context',
+                            'category' => 'profile',
+                            'missing_count' => 1,
+                            'player_count' => max(1, $playerCount),
+                            'players_missing' => [[
+                                'player_id' => $player['player_id'] ?? null,
+                                'player_name' => $this->playerName($player),
+                                'name' => $this->playerName($player),
+                                'missing_fields' => $missingFields,
+                            ]],
+                            'reason' => 'Date of birth or position/role is missing from the roster profile.',
+                        ]);
+                    }
                 }
-            }
 
-            if (! empty($missingContext)) {
-                $missingCritical[] = [
-                    'classification' => 'critical_missing_data',
-                    'metric_key' => 'player_context',
-                    'display_name' => 'Player Context',
-                    'category' => 'profile',
-                    'missing_count' => 1,
-                    'player_count' => 1,
-                    'players' => [[
-                        'player_id' => $player['player_id'] ?? null,
-                        'name' => $this->playerName($player),
-                    ]],
-                    'reason' => implode(' ', $missingContext),
-                ];
-            }
-
-            if (count($player['benchmark_profile']['metrics'] ?? []) === 0) {
-                $missingCritical[] = [
-                    'classification' => 'critical_missing_data',
-                    'metric_key' => 'player_benchmark_metrics',
-                    'display_name' => 'Player Benchmark Metrics',
-                    'category' => 'benchmark',
-                    'missing_count' => 1,
-                    'player_count' => 1,
-                    'players' => [[
-                        'player_id' => $player['player_id'] ?? null,
-                        'name' => $this->playerName($player),
-                    ]],
-                    'reason' => 'No usable benchmark metrics are available for this player.',
-                ];
+                if (! $hasBenchmarkMetricsGap && count($player['benchmark_profile']['metrics'] ?? []) === 0) {
+                    $this->appendMissingRow($missingCritical, [
+                        'classification' => 'critical_missing_data',
+                        'metric_key' => 'player_benchmark_metrics',
+                        'display_name' => 'Player Benchmark Metrics',
+                        'category' => 'benchmark',
+                        'missing_count' => 1,
+                        'player_count' => max(1, $playerCount),
+                        'players_missing' => [[
+                            'player_id' => $player['player_id'] ?? null,
+                            'player_name' => $this->playerName($player),
+                            'name' => $this->playerName($player),
+                        ]],
+                        'reason' => 'No usable benchmark metrics are available for this player.',
+                    ]);
+                }
             }
         }
 
+        $missingCritical = $this->dedupeMissingRows($missingCritical, $playerCount);
+        $missingSupporting = $this->dedupeMissingRows($missingSupporting, $playerCount);
+        $missingOptional = $this->dedupeMissingRows($missingOptional, $playerCount);
         $hasPerformanceData = $this->hasUsablePerformanceData($teamSnapshot, $players);
         $level = $this->dataCollectionLevel($missingCritical, $missingSupporting, $metricCount, $hasPerformanceData);
 
@@ -709,6 +726,7 @@ class DecisionEngine
         $missingCount = (int) ($metric['missing_count'] ?? 0);
         $playerCount = max(1, (int) ($metric['player_count'] ?? $teamPlayerCount));
         $missingRate = $playerCount > 0 ? $missingCount / $playerCount : 0.0;
+        $providedClassification = (string) ($metric['classification'] ?? '');
 
         $critical = ['average_fastball_velocity', 'max_fastball_velocity', 'strike_percentage', 'average_exit_velocity', 'max_exit_velocity'];
         $supporting = [
@@ -730,16 +748,112 @@ class DecisionEngine
         ];
 
         $classification = match (true) {
+            in_array($providedClassification, ['critical_missing_data', 'supporting_missing_data', 'optional_missing_data'], true) => $providedClassification,
+            in_array($metricKey, ['player_context', 'player_benchmark_metrics'], true) => 'critical_missing_data',
             in_array($metricKey, $critical, true) && $missingRate >= 0.8 => 'critical_missing_data',
             in_array($metricKey, $supporting, true) => 'supporting_missing_data',
             default => 'optional_missing_data',
         };
 
-        return $metric + [
+        return array_merge($metric, [
             'metric_key' => $metricKey,
             'classification' => $classification,
             'missing_rate' => round($missingRate, 2),
+            'players_missing' => $this->playersMissingFromMetric($metric),
+        ]);
+    }
+
+    private function appendMissingRow(array &$rows, array $row): void
+    {
+        $rows[] = $row;
+    }
+
+    private function dedupeMissingRows(array $rows, int $teamPlayerCount): array
+    {
+        $grouped = [];
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $metricKey = BenchmarkDefinitions::normalizeMetricKey((string) ($row['metric_key'] ?? 'unknown'));
+            $grouped[$metricKey] ??= [
+                'classification' => $row['classification'] ?? 'optional_missing_data',
+                'metric_key' => $metricKey,
+                'display_name' => $row['display_name'] ?? $metricKey,
+                'category' => $row['category'] ?? 'unknown',
+                'missing_count' => 0,
+                'player_count' => max(1, (int) ($row['player_count'] ?? $teamPlayerCount)),
+                'players_missing' => [],
+                'players' => [],
+                'reason' => $row['reason'] ?? $row['classification'] ?? 'missing',
+                'missing_rate' => $row['missing_rate'] ?? null,
+            ];
+
+            $grouped[$metricKey]['classification'] = $this->strongerMissingClassification(
+                (string) $grouped[$metricKey]['classification'],
+                (string) ($row['classification'] ?? 'optional_missing_data'),
+            );
+            $grouped[$metricKey]['player_count'] = max((int) $grouped[$metricKey]['player_count'], (int) ($row['player_count'] ?? 0));
+
+            foreach ($this->playersMissingFromMetric($row) as $player) {
+                $playerKey = (string) ($player['player_id'] ?? $player['player_name'] ?? $player['name'] ?? 'unknown');
+                $existing = $grouped[$metricKey]['players_missing'][$playerKey] ?? [];
+                $existingFields = is_array($existing) ? ($existing['missing_fields'] ?? []) : [];
+                $fields = array_values(array_unique(array_filter([...$existingFields, ...($player['missing_fields'] ?? [])])));
+
+                $grouped[$metricKey]['players_missing'][$playerKey] = [
+                    'player_id' => $player['player_id'] ?? null,
+                    'player_name' => $player['player_name'] ?? $player['name'] ?? 'Unknown Player',
+                    'name' => $player['name'] ?? $player['player_name'] ?? 'Unknown Player',
+                    'missing_fields' => $fields,
+                ];
+            }
+        }
+
+        return collect($grouped)
+            ->map(function (array $row) {
+                $playersMissing = array_values($row['players_missing']);
+                $row['missing_count'] = count($playersMissing);
+                $row['players_missing'] = $playersMissing;
+                $row['players'] = collect($playersMissing)
+                    ->map(fn (array $player) => [
+                        'player_id' => $player['player_id'] ?? null,
+                        'name' => $player['player_name'] ?? $player['name'] ?? 'Unknown Player',
+                    ])
+                    ->values()
+                    ->all();
+                $row['missing_rate'] = round($row['missing_count'] / max(1, (int) ($row['player_count'] ?? 1)), 2);
+
+                return $row;
+            })
+            ->filter(fn (array $row) => ((int) ($row['missing_count'] ?? 0)) > 0)
+            ->sortByDesc('missing_count')
+            ->values()
+            ->all();
+    }
+
+    private function playersMissingFromMetric(array $metric): array
+    {
+        $players = $metric['players_missing'] ?? $metric['players'] ?? [];
+
+        return collect(is_array($players) ? $players : [])
+            ->map(fn ($player) => is_array($player) ? $player : [])
+            ->filter(fn (array $player) => ! empty($player))
+            ->values()
+            ->all();
+    }
+
+    private function strongerMissingClassification(string $current, string $incoming): string
+    {
+        $rank = [
+            'optional_missing_data' => 1,
+            'supporting_missing_data' => 2,
+            'critical_missing_data' => 3,
         ];
+
+        return ($rank[$incoming] ?? 1) > ($rank[$current] ?? 1) ? $incoming : $current;
     }
 
     private function dataCollectionLevel(array $critical, array $supporting, int $metricCount, bool $hasPerformanceData): string
@@ -777,7 +891,11 @@ class DecisionEngine
             return [];
         }
 
+        $hasRosterCleanup = collect($critical)
+            ->contains(fn (array $metric) => BenchmarkDefinitions::normalizeMetricKey((string) ($metric['metric_key'] ?? '')) === 'player_context');
+
         $metrics = collect([...$critical, ...$supporting, ...$optional])
+            ->sortBy(fn (array $metric) => $this->collectionMetricPriority($metric))
             ->unique('metric_key')
             ->take(8)
             ->map(fn (array $metric) => [
@@ -790,11 +908,28 @@ class DecisionEngine
             ->all();
 
         return [[
-            'title' => 'Close Benchmark Data Gaps',
+            'title' => $hasRosterCleanup ? 'Roster Cleanup + Benchmark Baselines' : 'Close Benchmark Data Gaps',
             'priority' => $level,
             'metrics' => $metrics,
-            'action' => 'Collect the missing benchmark metrics during warm-up, testing blocks, or session scoring.',
+            'action' => $hasRosterCleanup
+                ? 'Confirm missing DOB and position/role first, then collect the highest-priority benchmark baselines.'
+                : 'Collect the missing benchmark metrics during warm-up, testing blocks, or session scoring.',
         ]];
+    }
+
+    private function collectionMetricPriority(array $metric): int
+    {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey((string) ($metric['metric_key'] ?? ''));
+
+        return match ($metricKey) {
+            'player_context' => 0,
+            'player_benchmark_metrics' => 1,
+            default => match ((string) ($metric['classification'] ?? 'optional_missing_data')) {
+                'critical_missing_data' => 2,
+                'supporting_missing_data' => 3,
+                default => 4,
+            },
+        };
     }
 
     private function practicePlanFor(string $focusKey): array

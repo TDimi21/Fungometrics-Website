@@ -110,7 +110,7 @@ class DecisionAudit extends Command
         }
 
         foreach (array_slice($rows, 0, 8) as $row) {
-            $this->line('- '.($row['display_name'] ?? $row['metric_key'] ?? 'Metric').' | missing '.($row['missing_count'] ?? 0).' of '.($row['player_count'] ?? 0).' | '.($row['reason'] ?? $row['classification'] ?? 'missing'));
+            $this->line('- '.($row['display_name'] ?? $row['metric_key'] ?? 'Metric').' | missing '.($row['missing_count'] ?? 0).' of '.($row['player_count'] ?? 0).' | '.($row['reason'] ?? $row['classification'] ?? 'missing').' | players: '.$this->missingPlayers($row));
         }
     }
 
@@ -125,5 +125,21 @@ class DecisionAudit extends Command
         }
 
         return (string) $value;
+    }
+
+    private function missingPlayers(array $row): string
+    {
+        $players = collect($row['players_missing'] ?? $row['players'] ?? [])
+            ->map(function (array $player) {
+                $name = $player['player_name'] ?? $player['name'] ?? $player['player_id'] ?? 'Unknown Player';
+                $fields = $player['missing_fields'] ?? [];
+
+                return empty($fields) ? $name : $name.' ['.implode(', ', $fields).']';
+            })
+            ->filter()
+            ->take(6)
+            ->implode(', ');
+
+        return $players !== '' ? $players : '-';
     }
 }

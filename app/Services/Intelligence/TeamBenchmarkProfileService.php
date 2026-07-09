@@ -8,6 +8,44 @@ use App\Models\PlayerTeam;
 
 class TeamBenchmarkProfileService
 {
+    private const PITCHING_BASELINE_METRICS = [
+        'average_fastball_velocity',
+        'max_fastball_velocity',
+        'strike_percentage',
+    ];
+
+    private const PITCHING_SUPPORT_METRICS = [
+        'long_toss_max_distance',
+        'weighted_ball_5oz_velocity',
+    ];
+
+    private const HITTING_BASELINE_METRICS = [
+        'average_exit_velocity',
+        'max_exit_velocity',
+    ];
+
+    private const HITTING_SUPPORT_METRICS = [
+        'hard_hit_percentage',
+        'line_drive_percentage',
+        'hitter_swing_miss_percentage',
+    ];
+
+    private const PHYSICAL_SUPPORT_METRICS = [
+        'bench_press',
+        'squat',
+        'deadlift',
+        'pull_ups',
+        'pushups',
+        'forty_yard_dash',
+        'sixty_yard_dash',
+        'broad_jump',
+        'vertical_jump',
+        'mobility_score',
+        'shoulder_mobility_score',
+        'hip_mobility_score',
+        't_spine_mobility_score',
+    ];
+
     public function __construct(
         private readonly PlayerIntelligenceService $playerIntelligenceService,
         private readonly BenchmarkLibrary $benchmarkLibrary,
@@ -27,6 +65,7 @@ class TeamBenchmarkProfileService
         $playerProfiles = [];
         $allMetrics = [];
         $missingCounts = [];
+        $metricEligibility = [];
         $lowConfidence = [];
 
         foreach ($playerIds as $playerId) {
@@ -35,26 +74,47 @@ class TeamBenchmarkProfileService
             $playerMetrics = is_array($profile['metrics'] ?? null) ? $profile['metrics'] : [];
             $missingMetrics = is_array($profile['missing_metrics'] ?? null) ? $profile['missing_metrics'] : [];
             $playerName = $this->playerName($snapshot);
+            $roleContext = $this->playerRoleContext($snapshot, $playerMetrics);
 
-            foreach ($missingMetrics as $missingMetric) {
-                $metricKey = (string) ($missingMetric['metric_key'] ?? 'unknown');
-                $missingCounts[$metricKey] ??= [
-                    'metric_key' => $metricKey,
-                    'display_name' => $missingMetric['display_name'] ?? $metricKey,
-                    'category' => $missingMetric['category'] ?? 'unknown',
-                    'missing_count' => 0,
-                    'player_count' => $playerIds->count(),
-                    'players' => [],
-                    'reason' => $missingMetric['reason'] ?? 'Metric value is missing.',
-                ];
-                $missingCounts[$metricKey]['missing_count']++;
-                $missingCounts[$metricKey]['players'][] = [
-                    'player_id' => $playerId,
-                    'name' => $playerName,
+            foreach ($this->applicableMetricKeys($roleContext) as $eligibleMetricKey) {
+                $metricEligibility[$eligibleMetricKey][(string) $playerId] = [
+                    'player_id' => (string) $playerId,
+                    'player_name' => $playerName,
                 ];
             }
 
+            $this->trackPlayerContextGap($missingCounts, $roleContext, $playerIds->count());
+
+            foreach ($missingMetrics as $missingMetric) {
+                $classification = $this->classificationForMissingMetric($missingMetric, $roleContext);
+
+                if ($classification === null) {
+                    continue;
+                }
+
+                $this->trackMissingMetric(
+                    $missingCounts,
+                    $missingMetric,
+                    $roleContext,
+                    $classification,
+                    $playerIds->count(),
+                );
+            }
+
             if (empty($playerMetrics)) {
+                $this->trackMissingMetric(
+                    $missingCounts,
+                    [
+                        'metric_key' => 'player_benchmark_metrics',
+                        'display_name' => 'Player Benchmark Metrics',
+                        'category' => 'benchmark',
+                        'reason' => 'No usable benchmark metrics are available for this player.',
+                    ],
+                    $roleContext,
+                    'critical_missing_data',
+                    $playerIds->count(),
+                );
+
                 $playerProfiles[] = [
                     'player_id' => $playerId,
                     'name' => $playerName,
@@ -92,6 +152,8 @@ class TeamBenchmarkProfileService
                 'benchmark_profile' => $profile,
             ];
         }
+
+        $this->applyEligibilityCounts($missingCounts, $metricEligibility, $playerIds->count());
 
         $categoryScores = $this->categoryScores($allMetrics);
         $metricScores = $this->metricScores($allMetrics);
@@ -267,12 +329,13 @@ class TeamBenchmarkProfileService
 
         foreach ($missingCounts as $missing) {
             $missingCount = (int) ($missing['missing_count'] ?? 0);
-            if ($playerCount > 0 && ($missingCount / $playerCount) >= 0.5) {
+            $eligiblePlayerCount = max(1, (int) ($missing['player_count'] ?? $playerCount));
+            if ($eligiblePlayerCount > 0 && ($missingCount / $eligiblePlayerCount) >= 0.5) {
                 $gaps[] = [
                     'id' => 'missing_'.$missing['metric_key'],
                     'category' => $missing['category'] ?? 'data',
                     'title' => ($missing['display_name'] ?? $missing['metric_key']).' missing often',
-                    'why' => $missingCount.' of '.$playerCount.' players are missing this benchmark metric.',
+                    'why' => $missingCount.' of '.$eligiblePlayerCount.' eligible players are missing this benchmark metric.',
                     'affected_count' => $missingCount,
                     'evidence' => $missing,
                 ];
@@ -287,12 +350,273 @@ class TeamBenchmarkProfileService
         return collect($missingCounts)
             ->sortByDesc('missing_count')
             ->map(function (array $missing) {
-                $missing['players'] = array_values(array_slice($missing['players'] ?? [], 0, 8));
+                $playersMissing = array_values($missing['players_missing'] ?? []);
+                $missing['missing_count'] = count($playersMissing);
+                $missing['players_missing'] = array_values(array_slice($playersMissing, 0, 12));
+                $missing['players'] = collect($missing['players_missing'])
+                    ->map(fn (array $player) => [
+                        'player_id' => $player['player_id'] ?? null,
+                        'name' => $player['player_name'] ?? $player['name'] ?? 'Unknown Player',
+                    ])
+                    ->values()
+                    ->all();
 
                 return $missing;
             })
+            ->filter(fn (array $missing) => ((int) ($missing['missing_count'] ?? 0)) > 0)
             ->values()
             ->all();
+    }
+
+    private function trackPlayerContextGap(array &$missingCounts, array $roleContext, int $teamPlayerCount): void
+    {
+        $missingFields = [];
+
+        if (! $roleContext['has_dob']) {
+            $missingFields[] = 'dob';
+        }
+
+        if (! $roleContext['has_position']) {
+            $missingFields[] = 'position';
+        }
+
+        if (empty($missingFields)) {
+            return;
+        }
+
+        $this->trackMissingMetric(
+            $missingCounts,
+            [
+                'metric_key' => 'player_context',
+                'display_name' => 'Player Context',
+                'category' => 'profile',
+                'reason' => 'Date of birth or position/role is missing from the roster profile.',
+            ],
+            $roleContext,
+            'critical_missing_data',
+            $teamPlayerCount,
+            $missingFields,
+        );
+    }
+
+    private function trackMissingMetric(
+        array &$missingCounts,
+        array $missingMetric,
+        array $roleContext,
+        string $classification,
+        int $teamPlayerCount,
+        array $missingFields = [],
+    ): void {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey((string) ($missingMetric['metric_key'] ?? 'unknown'));
+        $definition = $this->benchmarkLibrary->metric($metricKey);
+        $displayName = $missingMetric['display_name'] ?? $definition['display_name'] ?? str_replace('_', ' ', $metricKey);
+        $category = $missingMetric['category'] ?? $definition['category'] ?? 'unknown';
+
+        $missingCounts[$metricKey] ??= [
+            'metric_key' => $metricKey,
+            'display_name' => $displayName,
+            'category' => $category,
+            'classification' => $classification,
+            'classification_counts' => [],
+            'missing_count' => 0,
+            'player_count' => $teamPlayerCount,
+            'players_missing' => [],
+            'players' => [],
+            'reason' => $missingMetric['reason'] ?? 'Metric value is missing.',
+        ];
+
+        $missingCounts[$metricKey]['classification'] = $this->strongerClassification(
+            (string) ($missingCounts[$metricKey]['classification'] ?? 'optional_missing_data'),
+            $classification,
+        );
+        $missingCounts[$metricKey]['classification_counts'][$classification] = ((int) ($missingCounts[$metricKey]['classification_counts'][$classification] ?? 0)) + 1;
+
+        $playerKey = (string) ($roleContext['player_id'] ?? $roleContext['player_name'] ?? 'unknown');
+        $existing = $missingCounts[$metricKey]['players_missing'][$playerKey] ?? null;
+        $existingFields = is_array($existing) ? ($existing['missing_fields'] ?? []) : [];
+        $mergedFields = array_values(array_unique(array_filter([...$existingFields, ...$missingFields])));
+
+        $missingCounts[$metricKey]['players_missing'][$playerKey] = [
+            'player_id' => $roleContext['player_id'] ?? null,
+            'player_name' => $roleContext['player_name'] ?? 'Unknown Player',
+            'name' => $roleContext['player_name'] ?? 'Unknown Player',
+            'missing_fields' => $mergedFields,
+            'role' => $roleContext['role'],
+        ];
+        $missingCounts[$metricKey]['missing_count'] = count($missingCounts[$metricKey]['players_missing']);
+    }
+
+    private function applyEligibilityCounts(array &$missingCounts, array $metricEligibility, int $teamPlayerCount): void
+    {
+        foreach ($missingCounts as $metricKey => $missing) {
+            if (in_array($metricKey, ['player_context', 'player_benchmark_metrics'], true)) {
+                $missingCounts[$metricKey]['player_count'] = $teamPlayerCount;
+
+                continue;
+            }
+
+            $eligible = $metricEligibility[$metricKey] ?? [];
+            $missingCounts[$metricKey]['player_count'] = max(count($eligible), (int) ($missing['missing_count'] ?? 0));
+        }
+    }
+
+    private function classificationForMissingMetric(array $missingMetric, array $roleContext): ?string
+    {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey((string) ($missingMetric['metric_key'] ?? 'unknown'));
+
+        if (in_array($metricKey, self::PITCHING_BASELINE_METRICS, true)) {
+            return $roleContext['is_pitcher'] ? 'critical_missing_data' : null;
+        }
+
+        if (in_array($metricKey, self::PITCHING_SUPPORT_METRICS, true)) {
+            if (! $roleContext['is_pitcher']) {
+                return null;
+            }
+
+            return $roleContext['is_pitcher_only'] ? 'critical_missing_data' : 'supporting_missing_data';
+        }
+
+        if (in_array($metricKey, self::HITTING_BASELINE_METRICS, true)) {
+            return $roleContext['is_hitter'] ? 'critical_missing_data' : null;
+        }
+
+        if (in_array($metricKey, self::HITTING_SUPPORT_METRICS, true)) {
+            return $roleContext['is_hitter'] ? 'supporting_missing_data' : null;
+        }
+
+        if (in_array($metricKey, self::PHYSICAL_SUPPORT_METRICS, true)) {
+            return 'supporting_missing_data';
+        }
+
+        return 'optional_missing_data';
+    }
+
+    private function applicableMetricKeys(array $roleContext): array
+    {
+        $keys = self::PHYSICAL_SUPPORT_METRICS;
+
+        if ($roleContext['is_pitcher']) {
+            $keys = [...$keys, ...self::PITCHING_BASELINE_METRICS, ...self::PITCHING_SUPPORT_METRICS];
+        }
+
+        if ($roleContext['is_hitter']) {
+            $keys = [...$keys, ...self::HITTING_BASELINE_METRICS, ...self::HITTING_SUPPORT_METRICS];
+        }
+
+        return array_values(array_unique($keys));
+    }
+
+    private function playerRoleContext(array $snapshot, array $playerMetrics): array
+    {
+        $player = $snapshot['summary']['player'] ?? [];
+        $positions = $this->extractPositions($player);
+        $tokens = $this->positionTokens($positions);
+        $hasPosition = ! empty($tokens);
+        $pitchingMetrics = collect($playerMetrics)
+            ->pluck('metric_key')
+            ->map(fn ($metricKey) => BenchmarkDefinitions::normalizeMetricKey((string) $metricKey))
+            ->intersect([...self::PITCHING_BASELINE_METRICS, ...self::PITCHING_SUPPORT_METRICS])
+            ->isNotEmpty();
+        $hittingMetrics = collect($playerMetrics)
+            ->pluck('metric_key')
+            ->map(fn ($metricKey) => BenchmarkDefinitions::normalizeMetricKey((string) $metricKey))
+            ->intersect([...self::HITTING_BASELINE_METRICS, ...self::HITTING_SUPPORT_METRICS])
+            ->isNotEmpty();
+
+        $isPitcher = $this->tokensShowPitcher($tokens);
+        $isHitter = $this->tokensShowHitter($tokens, $isPitcher);
+
+        if (! $hasPosition) {
+            $isPitcher = $pitchingMetrics;
+            $isHitter = $hittingMetrics;
+        }
+
+        $role = match (true) {
+            $isPitcher && $isHitter => 'two_way',
+            $isPitcher => 'pitcher',
+            $isHitter => 'hitter',
+            default => 'unknown',
+        };
+
+        return [
+            'player_id' => (string) ($snapshot['player_id'] ?? $player['id'] ?? ''),
+            'player_name' => $this->playerName($snapshot),
+            'positions' => $positions,
+            'role' => $role,
+            'is_pitcher' => $isPitcher,
+            'is_hitter' => $isHitter,
+            'is_pitcher_only' => $isPitcher && ! $isHitter,
+            'has_position' => $hasPosition,
+            'has_dob' => $this->hasValue($player['born_date'] ?? $player['dob'] ?? $player['date_of_birth'] ?? null),
+            'has_performance_metrics' => $pitchingMetrics || $hittingMetrics,
+        ];
+    }
+
+    private function extractPositions(array $player): array
+    {
+        $values = [];
+
+        foreach (['positions', 'position', 'primary_position', 'role'] as $key) {
+            $value = $player[$key] ?? null;
+            if (is_array($value)) {
+                foreach ($value as $entry) {
+                    if (is_array($entry)) {
+                        $entry = $entry['name'] ?? $entry['position'] ?? $entry['code'] ?? null;
+                    }
+
+                    if ($this->hasValue($entry)) {
+                        $values[] = (string) $entry;
+                    }
+                }
+            } elseif ($this->hasValue($value)) {
+                $values[] = (string) $value;
+            }
+        }
+
+        return array_values(array_unique($values));
+    }
+
+    private function positionTokens(array $positions): array
+    {
+        $tokens = [];
+
+        foreach ($positions as $position) {
+            foreach (preg_split('/[\s,\/|;]+/', strtolower((string) $position)) ?: [] as $token) {
+                $token = trim($token);
+                if ($token !== '') {
+                    $tokens[] = $token;
+                }
+            }
+        }
+
+        return array_values(array_unique($tokens));
+    }
+
+    private function tokensShowPitcher(array $tokens): bool
+    {
+        return ! empty(array_intersect($tokens, ['p', 'pitcher', 'rhp', 'lhp']));
+    }
+
+    private function tokensShowHitter(array $tokens, bool $isPitcher): bool
+    {
+        $positionTokens = ['c', '1b', '2b', '3b', 'ss', 'lf', 'cf', 'rf', 'of', 'inf', 'ut', 'utility', 'dh', 'catcher', 'outfield', 'infield', 'hitter'];
+
+        if (! empty(array_intersect($tokens, $positionTokens))) {
+            return true;
+        }
+
+        return ! empty($tokens) && ! $isPitcher;
+    }
+
+    private function strongerClassification(string $current, string $incoming): string
+    {
+        $rank = [
+            'optional_missing_data' => 1,
+            'supporting_missing_data' => 2,
+            'critical_missing_data' => 3,
+        ];
+
+        return ($rank[$incoming] ?? 1) > ($rank[$current] ?? 1) ? $incoming : $current;
     }
 
     private function rankCategories(array $categories, string $direction): array
@@ -432,5 +756,14 @@ class TeamBenchmarkProfileService
     private function numberOrNull(mixed $value): ?float
     {
         return is_numeric($value) ? (float) $value : null;
+    }
+
+    private function hasValue(mixed $value): bool
+    {
+        if (is_array($value)) {
+            return ! empty($value);
+        }
+
+        return $value !== null && trim((string) $value) !== '';
     }
 }

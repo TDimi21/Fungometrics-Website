@@ -67,11 +67,13 @@ class TeamBenchmarkAudit extends Command
 
         $this->section('MISSING METRICS');
         $this->printRows(array_slice($profile['missing_metrics'] ?? [], 0, 12), fn (array $row) => sprintf(
-            '%s | %s | missing %s of %s',
+            '%s | %s | %s | missing %s of %s | players: %s',
             $row['display_name'] ?? $row['metric_key'] ?? 'unknown',
             $row['category'] ?? 'unknown',
+            $this->humanLabel($row['classification'] ?? 'missing'),
             $row['missing_count'] ?? 0,
             $row['player_count'] ?? 0,
+            $this->missingPlayers($row),
         ));
 
         $this->section('TEAM GAPS');
@@ -126,5 +128,28 @@ class TeamBenchmarkAudit extends Command
         }
 
         return (string) $value;
+    }
+
+    private function missingPlayers(array $row): string
+    {
+        $players = collect($row['players_missing'] ?? $row['players'] ?? [])
+            ->map(function (array $player) {
+                $name = $player['player_name'] ?? $player['name'] ?? $player['player_id'] ?? 'Unknown Player';
+                $fields = $player['missing_fields'] ?? [];
+
+                return empty($fields) ? $name : $name.' ['.implode(', ', $fields).']';
+            })
+            ->filter()
+            ->take(6)
+            ->implode(', ');
+
+        return $players !== '' ? $players : '-';
+    }
+
+    private function humanLabel(mixed $value): string
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? '-' : ucwords(str_replace('_', ' ', $value));
     }
 }
