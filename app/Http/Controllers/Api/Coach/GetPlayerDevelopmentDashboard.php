@@ -77,7 +77,7 @@ class GetPlayerDevelopmentDashboard extends Controller
             }
 
             $cacheTeamKey = $teamScopeId ?: 'all';
-            $cacheKey = "dev_dashboard_v2_{$cacheTeamKey}_{$playerId}_{$days}";
+            $cacheKey = "dev_dashboard_v3_{$cacheTeamKey}_{$playerId}_{$days}";
 
             // Check player exists before entering the cache closure so a missing
             // player never gets cached as an empty array.
@@ -175,6 +175,33 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ->orderByDesc('created_at')
                     ->first();
 
+                $assessmentBaseQuery = PlayerAssessment::query()
+                    ->where('user_id', $playerId);
+                if ($teamScopeId) {
+                    $assessmentBaseQuery->where(function ($query) use ($teamScopeId) {
+                        $query->where('team_id', $teamScopeId)->orWhereNull('team_id');
+                    });
+                }
+
+                $assessmentLatest = (clone $assessmentBaseQuery)
+                    ->orderByDesc('assessment_date')
+                    ->orderByDesc('created_at')
+                    ->first();
+
+                $assessmentInitial = (clone $assessmentBaseQuery)
+                    ->orderBy('assessment_date')
+                    ->orderBy('created_at')
+                    ->first();
+
+                $assessmentPrevQuery = clone $assessmentBaseQuery;
+                if ($assessmentLatest?->id) {
+                    $assessmentPrevQuery->where('id', '!=', $assessmentLatest->id);
+                }
+                $assessmentPrev = $assessmentPrevQuery
+                    ->orderByDesc('assessment_date')
+                    ->orderByDesc('created_at')
+                    ->first();
+
                 $athleticLatest = AthleticPerformanceScore::where('player_id', $playerId)
                     ->orderByDesc('calculated_at')
                     ->orderByDesc('created_at')
@@ -217,6 +244,12 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $strengthPrev = $athleticPrev?->strength_score !== null
                     ? (float) $athleticPrev->strength_score
                     : $this->computeStrengthScore($fitnessPrev);
+                $mobilityScore = $this->mobilityScore($fitnessLatest, $assessmentLatest);
+                $mobilityPrev = $this->mobilityScore($fitnessPrev, $assessmentPrev);
+                $mobilityInitial = $this->mobilityScore($fitnessInitial, $assessmentInitial);
+                $mobilitySource = $fitnessLatest?->mobility_score !== null
+                    ? 'fitness'
+                    : ($mobilityScore !== null ? 'assessment' : null);
 
                 $performanceScore = $this->averageAvailable([
                     $bpScore,
@@ -241,8 +274,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         $athleticPrev?->overall_api_score !== null ? (float) $athleticPrev->overall_api_score : null
                     ),
                     'mobility_score' => $this->deltaBlock(
-                        $fitnessLatest?->mobility_score !== null ? (float) $fitnessLatest->mobility_score : null,
-                        $fitnessPrev?->mobility_score !== null ? (float) $fitnessPrev->mobility_score : null
+                        $mobilityScore,
+                        $mobilityPrev
                     ),
                     'recovery_score' => $this->deltaBlock(
                         $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null,
@@ -255,7 +288,6 @@ class GetPlayerDevelopmentDashboard extends Controller
                 ];
 
                 $trendScore = $this->computeTrendScore($trend);
-                $mobilityScore = $fitnessLatest?->mobility_score !== null ? (float) $fitnessLatest->mobility_score : null;
                 $recoveryScore = $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null;
                 $verticalJump = ($fitnessLatest?->vertical_jump !== null && (float) $fitnessLatest->vertical_jump > 0)
                     ? (float) $fitnessLatest->vertical_jump
@@ -351,7 +383,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'athletic_team_percentile' => $athleticLatest?->team_percentile,
                         'athletic_team_rank' => $athleticLatest?->team_rank,
                         'athletic_team_count' => $athleticLatest?->team_count,
-                        'mobility_score' => $fitnessLatest?->mobility_score,
+                        'mobility_score' => $mobilityScore,
+                        'mobility_score_source' => $mobilitySource,
                         'recovery_score' => $fitnessLatest?->recovery_score,
                         'bench_press' => $benchPress,
                         'back_squat' => $backSquat,
@@ -391,7 +424,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                             'bp_score' => $bpScore ? round((float) $bpScore - 2, 1) : null,
                             'bullpen_score' => $bullpenScore ? round((float) $bullpenScore - 2, 1) : null,
                             'rotational_power_score' => $strengthPrev,
-                            'mobility_score' => $fitnessPrev?->mobility_score,
+                            'mobility_score' => $mobilityPrev,
                             'recovery_score' => $fitnessPrev?->recovery_score,
                             'sleep_hours' => $fitnessPrev?->sleep_hours,
                         ],
@@ -405,7 +438,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                             'bp_score' => $bpScore,
                             'bullpen_score' => $bullpenScore,
                             'rotational_power_score' => $strengthScore,
-                            'mobility_score' => $fitnessLatest?->mobility_score,
+                            'mobility_score' => $mobilityScore,
                             'recovery_score' => $fitnessLatest?->recovery_score,
                             'sleep_hours' => $fitnessLatest?->sleep_hours,
                         ],
@@ -487,7 +520,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'power_score' => $athleticInitial?->power_score,
                         'speed_score' => $athleticInitial?->speed_score,
                         'baseball_score' => $athleticInitial?->baseball_score,
-                        'mobility_score' => $fitnessInitial?->mobility_score,
+                        'mobility_score' => $mobilityInitial,
                         'recovery_score' => $fitnessInitial?->recovery_score,
                     ],
                     'growth' => [
@@ -498,8 +531,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                             ),
                             'strength_score' => $this->deltaBlock($strengthScore, $strengthPrev),
                             'mobility_score' => $this->deltaBlock(
-                                $fitnessLatest?->mobility_score !== null ? (float) $fitnessLatest->mobility_score : null,
-                                $fitnessPrev?->mobility_score !== null ? (float) $fitnessPrev->mobility_score : null
+                                $mobilityScore,
+                                $mobilityPrev
                             ),
                             'recovery_score' => $this->deltaBlock(
                                 $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null,
@@ -516,8 +549,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                                 $this->computeStrengthScore($fitnessInitial)
                             ),
                             'mobility_score' => $this->deltaBlock(
-                                $fitnessLatest?->mobility_score !== null ? (float) $fitnessLatest->mobility_score : null,
-                                $fitnessInitial?->mobility_score !== null ? (float) $fitnessInitial->mobility_score : null
+                                $mobilityScore,
+                                $mobilityInitial
                             ),
                             'recovery_score' => $this->deltaBlock(
                                 $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null,
@@ -526,7 +559,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                         ],
                     ],
                     'data_gaps' => [
-                        'mobility' => $fitnessLatest?->mobility_score === null,
+                        'mobility' => $mobilityScore === null,
                         'recovery' => $fitnessLatest?->recovery_score === null,
                         'sleep' => $fitnessLatest?->sleep_hours === null,
                     ],
@@ -894,6 +927,43 @@ class GetPlayerDevelopmentDashboard extends Controller
         $inch = is_numeric($in) ? (int) $in : 0;
 
         return "{$feet}'{$inch}\"";
+    }
+
+    private function mobilityScore(?PlayerFitness $fitness, ?PlayerAssessment $assessment): ?float
+    {
+        if ($fitness?->mobility_score !== null && is_numeric($fitness->mobility_score)) {
+            return (float) $fitness->mobility_score;
+        }
+
+        return $this->assessmentMobilityScore($assessment);
+    }
+
+    private function assessmentMobilityScore(?PlayerAssessment $assessment): ?float
+    {
+        if (! $assessment) {
+            return null;
+        }
+
+        if ($assessment->mobility_overall_score !== null && is_numeric($assessment->mobility_overall_score) && (float) $assessment->mobility_overall_score > 0) {
+            return (float) $assessment->mobility_overall_score;
+        }
+
+        $values = collect([
+            $assessment->hip_mobility,
+            $assessment->shoulder_mobility,
+            $assessment->ankle_mobility,
+            $assessment->hip_flexor_mobility,
+            $assessment->rotational_mobility,
+        ])
+            ->filter(fn ($value) => is_numeric($value) && (float) $value > 0)
+            ->map(fn ($value) => (float) $value)
+            ->values();
+
+        if ($values->isEmpty()) {
+            return null;
+        }
+
+        return round((float) $values->avg() * 10, 1);
     }
 
     private function latestPositiveFitnessMetric(string $playerId, string $metric): ?float

@@ -10,6 +10,7 @@ use App\Models\BullpenPracticeResult;
 use App\Models\CagePracticeResult;
 use App\Models\ExitVelocityPractice;
 use App\Models\LongTossPractice;
+use App\Models\PlayerAssessment;
 use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
 use App\Models\Practice;
@@ -44,7 +45,7 @@ class GetPlayerDevelopmentBoard extends Controller
         try {
             $teamId = (string) $request->route('id');
 
-            $board = Cache::remember("player_dev_board_{$teamId}", 300, function () use ($teamId) {
+            $board = Cache::remember("player_dev_board_v2_{$teamId}", 300, function () use ($teamId) {
 
                 $playerIds = PlayerTeam::where('team_id', $teamId)
                     ->whereNotNull('user_id')
@@ -63,6 +64,16 @@ class GetPlayerDevelopmentBoard extends Controller
                 // ── Latest fitness snapshot per player + team standings ──────
                 $latestFitness = PlayerFitness::whereIn('user_id', $playerIds)
                     ->orderByDesc('fitness_date')
+                    ->orderByDesc('created_at')
+                    ->get()
+                    ->unique('user_id')
+                    ->keyBy('user_id');
+
+                $latestAssessments = PlayerAssessment::whereIn('user_id', $playerIds)
+                    ->where(function ($query) use ($teamId) {
+                        $query->where('team_id', $teamId)->orWhereNull('team_id');
+                    })
+                    ->orderByDesc('assessment_date')
                     ->orderByDesc('created_at')
                     ->get()
                     ->unique('user_id')
@@ -212,6 +223,11 @@ class GetPlayerDevelopmentBoard extends Controller
 
                     $profile = $user->profile;
                     $fitness = $latestFitness->get($playerId);
+                    $assessment = $latestAssessments->get($playerId);
+                    $mobilityScore = $this->mobilityScore($fitness, $assessment);
+                    $mobilitySource = $fitness?->mobility_score !== null
+                        ? 'fitness'
+                        : ($mobilityScore !== null ? 'assessment' : null);
                     $name = $profile
                         ? trim("{$profile->first_name} {$profile->last_name}")
                         : "Player #{$playerId}";
@@ -370,7 +386,8 @@ class GetPlayerDevelopmentBoard extends Controller
                             'sleep_hours' => $fitness?->sleep_hours,
                             'sleep_quality_1_to_5' => $fitness?->sleep_quality_1_to_5,
                             'recovery_score' => $fitness?->recovery_score,
-                            'mobility_score' => $fitness?->mobility_score,
+                            'mobility_score' => $mobilityScore,
+                            'mobility_score_source' => $mobilitySource,
                             // Canonical athletic-index scores (single source of truth).
                             'strength_score' => $fitness?->strength_score,
                             'overall_api_score' => $fitness?->overall_api_score,
@@ -417,5 +434,42 @@ class GetPlayerDevelopmentBoard extends Controller
                 'data'    => [],
             ], HttpCodes::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private function mobilityScore(?PlayerFitness $fitness, ?PlayerAssessment $assessment): ?float
+    {
+        if ($fitness?->mobility_score !== null && is_numeric($fitness->mobility_score)) {
+            return (float) $fitness->mobility_score;
+        }
+
+        return $this->assessmentMobilityScore($assessment);
+    }
+
+    private function assessmentMobilityScore(?PlayerAssessment $assessment): ?float
+    {
+        if (! $assessment) {
+            return null;
+        }
+
+        if ($assessment->mobility_overall_score !== null && is_numeric($assessment->mobility_overall_score) && (float) $assessment->mobility_overall_score > 0) {
+            return (float) $assessment->mobility_overall_score;
+        }
+
+        $values = collect([
+            $assessment->hip_mobility,
+            $assessment->shoulder_mobility,
+            $assessment->ankle_mobility,
+            $assessment->hip_flexor_mobility,
+            $assessment->rotational_mobility,
+        ])
+            ->filter(fn ($value) => is_numeric($value) && (float) $value > 0)
+            ->map(fn ($value) => (float) $value)
+            ->values();
+
+        if ($values->isEmpty()) {
+            return null;
+        }
+
+        return round((float) $values->avg() * 10, 1);
     }
 }
