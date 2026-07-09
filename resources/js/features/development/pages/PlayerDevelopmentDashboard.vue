@@ -87,6 +87,18 @@ const loadIntelligence = async (teamId, playerId) => {
   try {
     const { data } = await axiosGet(`coach/teams/${teamId}/players/${playerId}/intelligence`, { days: 365 })
     intelligence.value = data?.data || data || null
+    if (import.meta.env.DEV) {
+      console.log('FMTRX intelligence payload', intelligence.value)
+      console.log('FMTRX intelligence check', {
+        primary_strength: intelligence.value?.dna?.primary_strength ?? null,
+        player_type_labels: intelligence.value?.dna?.player_type_labels ?? null,
+        bullpen_avg_velocity_current: intelligence.value?.projections?.bullpen_avg_velocity?.current ?? null,
+        bullpen_max_velocity_current: intelligence.value?.projections?.bullpen_max_velocity?.current ?? null,
+        strike_percentage_current: intelligence.value?.projections?.strike_percentage?.current ?? null,
+        limiters: intelligence.value?.limiters ?? null,
+        recommendations: intelligence.value?.recommendations ?? null,
+      })
+    }
   } catch (error) {
     intelligence.value = null
   }
