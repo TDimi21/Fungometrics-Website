@@ -14,24 +14,40 @@ class CompositeBenchmarkEngine
     public function benchmarkMetric(string $metricKey, mixed $value, ?string $dob, array $context = [], array $populationValues = []): array
     {
         $research = $this->researchPercentileEngine->percentileForMetric($metricKey, $value, $dob, $context);
-        $population = $this->populationPercentileEngine->percentileForMetric($metricKey, $value, $populationValues, $context + [
+        $populationContext = $context + [
             'age_group' => $research['age_group'] ?? BenchmarkDefinitions::AGE_UNKNOWN,
-        ]);
+        ];
+        $population = ! empty($populationValues)
+            ? $this->populationPercentileEngine->percentileForMetric($metricKey, $value, $populationValues, $populationContext)
+            : $this->populationPercentileEngine->percentileFromRepository(
+                $metricKey,
+                $value,
+                $populationContext,
+                (int) ($context['population_days'] ?? $context['days'] ?? 365),
+            );
 
         $researchPercentile = is_numeric($research['percentile_estimate'] ?? null)
             ? (float) $research['percentile_estimate']
             : null;
-        $populationPercentile = is_numeric($population['percentile'] ?? null)
+        $populationUsable = ($population['usable'] ?? false) === true
+            && ($population['bucket_count'] ?? 0) >= PopulationPercentileEngine::MIN_LOW_CONFIDENCE
+            && is_numeric($population['percentile'] ?? null);
+        $populationPercentile = $populationUsable
             ? (float) $population['percentile']
             : null;
 
         if ($populationPercentile === null) {
-            return $research + [
+            return array_merge($research, [
                 'composite_percentile' => $researchPercentile,
                 'research_percentile' => $research,
                 'population_percentile' => $population,
+                'source_mix' => $this->sourceMix(1.0, 0.0, $population),
                 'source' => $research['source'] ?? 'research_benchmark',
-            ];
+                'evidence' => array_merge(
+                    $research['evidence'] ?? [],
+                    ['population' => $population['evidence'] ?? ['FMTRX population benchmark is not usable yet.']],
+                ),
+            ]);
         }
 
         $populationWeight = $this->populationWeight((string) ($population['confidence'] ?? 'insufficient'));
@@ -59,12 +75,9 @@ class CompositeBenchmarkEngine
             'composite_percentile' => $score,
             'research_percentile' => $research,
             'population_percentile' => $population,
+            'source_mix' => $this->sourceMix($researchWeight, $populationWeight, $population),
             'evidence' => [
-                'blend' => [
-                    'research_weight' => round($researchWeight, 2),
-                    'population_weight' => round($populationWeight, 2),
-                    'population_bucket_count' => $population['bucket_count'] ?? 0,
-                ],
+                'blend' => $this->sourceMix($researchWeight, $populationWeight, $population),
                 'research' => $research,
                 'population' => $population,
             ],
@@ -74,11 +87,21 @@ class CompositeBenchmarkEngine
     private function populationWeight(string $confidence): float
     {
         return match ($confidence) {
-            'high' => 0.75,
-            'medium' => 0.55,
+            'high' => 0.70,
+            'medium' => 0.50,
             'low' => 0.30,
             default => 0.0,
         };
+    }
+
+    private function sourceMix(float $researchWeight, float $populationWeight, array $population): array
+    {
+        return [
+            'research_weight' => round($researchWeight, 2),
+            'population_weight' => round($populationWeight, 2),
+            'population_bucket_count' => (int) ($population['bucket_count'] ?? 0),
+            'population_confidence' => $population['confidence'] ?? 'insufficient',
+        ];
     }
 
     private function confidence(string $research, string $population): string
