@@ -173,6 +173,7 @@ Route::prefix('player')->group(function (): void {
         Route::get('sessions/liveab', GetLiveABPractices::class);
         Route::get('sessions/created', GetCreatedPractices::class);
         Route::get('statistics/{player}', ScoresStatisticPlayers::class);
+        Route::middleware('plan:view_advanced_stats')->get('development/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::middleware('plan:view_advanced_stats')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
     });
 });

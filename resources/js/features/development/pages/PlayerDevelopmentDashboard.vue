@@ -104,7 +104,7 @@ const loadLiveData = async () => {
     loadError.value = 'No player selected. Navigate here from the Team Development board.'
     return
   }
-  if (!teamId) {
+  if (!teamId && !isPlayerUser.value) {
     loadError.value = 'No team selected. Please select a team from the header, then return here.'
     return
   }
@@ -112,7 +112,7 @@ const loadLiveData = async () => {
   loading.value = true
   try {
     const endpoint = isPlayerUser.value
-      ? `player/development/teams/${teamId}/players/${playerId}`
+      ? `player/development/players/${playerId}`
       : `coach/development/teams/${teamId}/players/${playerId}`
 
     const { data } = await axiosGet(endpoint, { days: 365 })

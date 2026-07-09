@@ -19,7 +19,7 @@ class GetPlayerDevelopmentDashboardRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'team' => (string) $this->route('team'),
+            'team' => $this->route('team') ? (string) $this->route('team') : null,
             'player' => (string) $this->route('player'),
         ]);
     }
@@ -30,7 +30,7 @@ class GetPlayerDevelopmentDashboardRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'team' => ['required', 'string', 'exists:teams,id'],
+            'team' => ['nullable', 'string', 'exists:teams,id'],
             'player' => ['required', 'string', 'exists:users,id'],
             'days' => ['nullable', 'integer', 'min:30', 'max:365'],
         ];

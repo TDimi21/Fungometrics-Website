@@ -32,12 +32,13 @@ class GetPlayerDevelopmentDashboard extends Controller
     {
         try {
             $validated = $request->validated();
-            $teamId = (string) $validated['team'];
+            $teamId = isset($validated['team']) ? (string) $validated['team'] : null;
             $playerId = (string) $validated['player'];
             $days = (int) ($validated['days'] ?? 60);
 
             $authUser = $request->user();
-            if ($authUser && $authUser->tokenCan('player')) {
+            $isPlayerRequest = $authUser && $authUser->tokenCan('player');
+            if ($isPlayerRequest) {
                 if ((string) $authUser->id !== $playerId) {
                     return response()->json([
                         'code'    => '066-AUTH',
@@ -47,11 +48,15 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ], HttpCodes::HTTP_FORBIDDEN);
                 }
 
-                $isOnTeam = PlayerTeam::where('team_id', $teamId)
-                    ->where('user_id', (string) $authUser->id)
-                    ->exists();
+                if ($teamId) {
+                    $isOnTeam = PlayerTeam::where('team_id', $teamId)
+                        ->where('user_id', (string) $authUser->id)
+                        ->exists();
+                } else {
+                    $isOnTeam = true;
+                }
 
-                if (!$isOnTeam) {
+                if (! $isOnTeam) {
                     return response()->json([
                         'code'    => '066-TEAM',
                         'message' => 'Player is not linked to this team',
@@ -61,7 +66,18 @@ class GetPlayerDevelopmentDashboard extends Controller
                 }
             }
 
-            $cacheKey = "dev_dashboard_v2_{$teamId}_{$playerId}_{$days}";
+            $teamScopeId = $isPlayerRequest ? null : $teamId;
+            if (! $teamScopeId && ! $isPlayerRequest) {
+                return response()->json([
+                    'code'    => '066-TEAM',
+                    'message' => 'Team is required for coach development dashboard',
+                    'status'  => 'error',
+                    'data'    => [],
+                ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $cacheTeamKey = $teamScopeId ?: 'all';
+            $cacheKey = "dev_dashboard_v2_{$cacheTeamKey}_{$playerId}_{$days}";
 
             // Check player exists before entering the cache closure so a missing
             // player never gets cached as an empty array.
@@ -75,45 +91,55 @@ class GetPlayerDevelopmentDashboard extends Controller
                 ], HttpCodes::HTTP_NOT_FOUND);
             }
 
-            $data = Cache::remember($cacheKey, 120, function () use ($teamId, $playerId, $days, $player) {
+            $data = Cache::remember($cacheKey, 120, function () use ($teamScopeId, $playerId, $days, $player) {
 
                 $now = now();
                 $last30 = $now->copy()->subDays(30);
                 $prev30Start = $now->copy()->subDays(60);
                 $since = $now->copy()->subDays($days);
 
-                $battingCurrent = BattingPracticeResult::where('team_id', $teamId)
-                    ->where('batter_id', $playerId)
+                $battingCurrentQuery = BattingPracticeResult::where('batter_id', $playerId)
                     ->where('is_in_match', false)
-                    ->where('created_at', '>=', $since)
-                    ->get();
+                    ->where('created_at', '>=', $since);
+                if ($teamScopeId) {
+                    $battingCurrentQuery->where('team_id', $teamScopeId);
+                }
+                $battingCurrent = $battingCurrentQuery->get();
 
-                $bullpenCurrent = BullpenPracticeResult::where('team_id', $teamId)
-                    ->where('pitcher_id', $playerId)
+                $bullpenCurrentQuery = BullpenPracticeResult::where('pitcher_id', $playerId)
                     ->where('is_in_match', false)
-                    ->where('created_at', '>=', $since)
-                    ->get();
+                    ->where('created_at', '>=', $since);
+                if ($teamScopeId) {
+                    $bullpenCurrentQuery->where('team_id', $teamScopeId);
+                }
+                $bullpenCurrent = $bullpenCurrentQuery->get();
 
                 // Include scripted/match bullpen pitches for velocity calculations
-                $bullpenScriptedCurrent = BullpenPracticeResult::where('team_id', $teamId)
-                    ->where('pitcher_id', $playerId)
+                $bullpenScriptedCurrentQuery = BullpenPracticeResult::where('pitcher_id', $playerId)
                     ->where('is_in_match', true)
-                    ->where('created_at', '>=', $since)
-                    ->get();
+                    ->where('created_at', '>=', $since);
+                if ($teamScopeId) {
+                    $bullpenScriptedCurrentQuery->where('team_id', $teamScopeId);
+                }
+                $bullpenScriptedCurrent = $bullpenScriptedCurrentQuery->get();
 
                 $bullpenAllCurrent = $bullpenCurrent->concat($bullpenScriptedCurrent);
 
-                $cageCurrent = CagePracticeResult::where('team_id', $teamId)
-                    ->where('user_id', $playerId)
-                    ->where('created_at', '>=', $since)
-                    ->get();
+                $cageCurrentQuery = CagePracticeResult::where('user_id', $playerId)
+                    ->where('created_at', '>=', $since);
+                if ($teamScopeId) {
+                    $cageCurrentQuery->where('team_id', $teamScopeId);
+                }
+                $cageCurrent = $cageCurrentQuery->get();
 
-                $evCurrent = ExitVelocityPractice::where('user_id', $playerId)
-                    ->where('created_at', '>=', $since)
-                    ->where(function ($query) use ($teamId) {
-                        $query->where('team_id', $teamId)->orWhereNull('team_id');
-                    })
-                    ->get();
+                $evCurrentQuery = ExitVelocityPractice::where('user_id', $playerId)
+                    ->where('created_at', '>=', $since);
+                if ($teamScopeId) {
+                    $evCurrentQuery->where(function ($query) use ($teamScopeId) {
+                        $query->where('team_id', $teamScopeId)->orWhereNull('team_id');
+                    });
+                }
+                $evCurrent = $evCurrentQuery->get();
 
                 $battingLast30 = $battingCurrent->where('created_at', '>=', $last30);
                 $battingPrev30 = $battingCurrent->where('created_at', '<', $last30)->where('created_at', '>=', $prev30Start);
@@ -498,7 +524,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ],
                     'source' => [
                         'mode' => 'live_sessions',
-                        'team_id' => $teamId,
+                        'team_id' => $teamScopeId,
                         'player_id' => $playerId,
                         'days' => $days,
                     ],
