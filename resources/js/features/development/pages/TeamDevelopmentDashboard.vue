@@ -200,9 +200,17 @@ const teamRecommendations = computed(() =>
 
 const asArray = (value) => (Array.isArray(value) ? value : [])
 
+const readableLabelOverrides = {
+  below_average: 'Below Average',
+  score_0_100: 'Score',
+  data_collection_priority: 'Data Collection Priority',
+}
+
 const humanizeKey = (value, fallback = 'Needs Data') => {
   const text = String(value ?? '').trim()
   if (!text) return fallback
+  if (readableLabelOverrides[text]) return readableLabelOverrides[text]
+
   return text
     .replaceAll('_', ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -248,6 +256,10 @@ const benchmarkSnapshot = computed(() => {
 })
 
 const benchmarkCategoryKeys = ['pitching', 'hitting', 'strength', 'athletic', 'mobility']
+
+const hasBenchmarkCategoryScores = computed(() =>
+  asArray(benchmarkProfile.value?.category_scores).length > 0
+)
 
 const benchmarkCategoryRows = computed(() => {
   const rows = new Map()
@@ -297,6 +309,13 @@ const supportingMissingRows = computed(() => asArray(dataCollectionPriority.valu
 const optionalMissingRows = computed(() => asArray(dataCollectionPriority.value?.missing_optional).slice(0, 3))
 const collectionPlanRows = computed(() => asArray(dataCollectionPriority.value?.recommended_collection_plan).slice(0, 3))
 
+const hasMissingDataPriorityRows = computed(() =>
+  criticalMissingRows.value.length > 0
+  || supportingMissingRows.value.length > 0
+  || optionalMissingRows.value.length > 0
+  || benchmarkMissingMetrics.value.length > 0
+)
+
 const primaryFocusCard = computed(() => {
   const focus = decisionBrief.value?.primary_focus || {}
   const topRec = teamRecommendations.value[0] || {}
@@ -315,7 +334,7 @@ const practicePlanHasDataBlock = computed(() =>
   decisionBrief.value?.recommended_practice_plan?.data_collection_appended === true
 )
 
-const missingRowTitle = (row) => row?.display_name || row?.metric_key || row?.title || row?.category || 'Missing data'
+const missingRowTitle = (row) => row?.display_name || humanizeKey(row?.metric_key || row?.title || row?.category, 'Missing data')
 
 const missingRowCount = (row) => {
   const missing = n(row?.missing_count)
@@ -330,6 +349,9 @@ const metricPercentile = (metric) => {
   return percentile === null ? '—' : `${percentile.toFixed(1)}th`
 }
 
+const fmtScore = (value, fallback = '—') => fmt1(value, fallback)
+const scoreTone = (value) => (n(value) === null ? 'text-slate-400' : toCardBand(value).tone)
+
 const metricGap = (metric, key) => {
   const gap = n(metric?.[key])
   return gap === null ? '—' : fmtValue(gap, metric?.unit || '')
@@ -343,7 +365,7 @@ const playerWeakCategory = (player) => {
 
 const playerWeakMetric = (player) => {
   const metric = asArray(player?.weakest_metrics)[0]
-  return metric?.display_name || metric?.metric_key || 'Needs Data'
+  return metric?.display_name || humanizeKey(metric?.metric_key)
 }
 
 const teamDataGaps = computed(() =>
@@ -1030,7 +1052,7 @@ const priorityTop10Rows = computed(() => {
                   </div>
                 </div>
                 <p v-if="benchmarkSnapshot.populationShare === 0" class="mt-3 text-xs text-slate-300">
-                  Research benchmarks active. FMTRX population learning will improve as more data is collected.
+                  Research benchmarks active. FMTRX population learning improves as more data is collected.
                 </p>
               </div>
 
@@ -1053,6 +1075,9 @@ const priorityTop10Rows = computed(() => {
                   <h4 class="text-sm font-semibold text-white">Category Scores</h4>
                   <span class="text-[10px] uppercase tracking-widest text-white/35">Pitching · Hitting · Strength · Athletic · Mobility</span>
                 </div>
+                <p v-if="!hasBenchmarkCategoryScores" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-2 text-sm text-slate-300">
+                  More player data is needed before category scores are available.
+                </p>
                 <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-5">
                   <div
                     v-for="row in benchmarkCategoryRows"
@@ -1060,7 +1085,7 @@ const priorityTop10Rows = computed(() => {
                     class="rounded-md border border-white/10 bg-slate-950/35 p-2"
                   >
                     <p class="text-[10px] uppercase tracking-wider text-white/40">{{ row.display }}</p>
-                    <p class="mt-1 text-2xl font-black" :class="row.hasData ? toCardBand(row.score).tone : 'text-slate-400'">{{ fmt1(row.score) }}</p>
+                    <p class="mt-1 text-2xl font-black" :class="row.hasData ? scoreTone(row.score) : 'text-slate-400'">{{ fmtScore(row.score) }}</p>
                     <p class="text-xs text-slate-300">{{ humanizeKey(row.label) }} · {{ humanizeKey(row.confidence) }}</p>
                     <p class="mt-1 text-[10px] text-white/45">Players {{ fmt1(row.playerCount) }} · Metrics {{ fmt1(row.metricCount) }}</p>
                   </div>
@@ -1073,7 +1098,7 @@ const priorityTop10Rows = computed(() => {
                   <div v-for="category in weakestBenchmarkCategories" :key="category.category" class="rounded-md border border-white/10 bg-slate-950/35 p-2">
                     <div class="flex items-center justify-between gap-2">
                       <p class="text-sm font-semibold text-white">{{ categoryLabel(category.category) }}</p>
-                      <span class="text-sm font-black" :class="toCardBand(category.score_0_100).tone">{{ fmt1(category.score_0_100) }}</span>
+                      <span class="text-sm font-black" :class="scoreTone(category.score_0_100)">{{ fmtScore(category.score_0_100) }}</span>
                     </div>
                     <p class="text-xs text-slate-300">{{ humanizeKey(category.label) }} · {{ humanizeKey(category.confidence) }}</p>
                   </div>
@@ -1089,7 +1114,7 @@ const priorityTop10Rows = computed(() => {
                   <div v-for="metric in weakestBenchmarkMetrics" :key="metric.metric_key" class="rounded-md border border-white/10 bg-slate-950/35 p-2">
                     <div class="flex items-center justify-between gap-2">
                       <p class="text-sm font-semibold text-white">{{ metric.display_name || humanizeKey(metric.metric_key) }}</p>
-                      <span class="text-sm font-black" :class="toCardBand(metric.score_0_100).tone">{{ fmt1(metric.score_0_100) }}</span>
+                      <span class="text-sm font-black" :class="scoreTone(metric.score_0_100)">{{ fmtScore(metric.score_0_100) }}</span>
                     </div>
                     <p class="text-xs text-slate-300">{{ categoryLabel(metric.category) }} · {{ metricPercentile(metric) }} · {{ humanizeKey(metric.label) }}</p>
                     <p class="mt-1 text-[10px] text-white/45">Good gap {{ metricGap(metric, 'gap_to_good') }} · Elite gap {{ metricGap(metric, 'gap_to_elite') }}</p>
@@ -1110,7 +1135,7 @@ const priorityTop10Rows = computed(() => {
                   >
                     <div class="flex items-center justify-between gap-2">
                       <p class="text-sm font-semibold text-white">{{ player.name || 'Player' }}</p>
-                      <span class="text-sm font-black" :class="toCardBand(player.average_score).tone">{{ fmt1(player.average_score) }}</span>
+                      <span class="text-sm font-black" :class="scoreTone(player.average_score)">{{ fmtScore(player.average_score) }}</span>
                     </div>
                     <p class="text-xs text-slate-300">{{ playerWeakCategory(player) }} · {{ playerWeakMetric(player) }}</p>
                     <p class="mt-1 text-[10px] text-white/45">Metrics {{ fmt1(player.metric_count) }} · {{ humanizeKey(player.label) }}</p>
@@ -1164,6 +1189,10 @@ const priorityTop10Rows = computed(() => {
                       {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
                     </p>
                   </div>
+
+                  <p v-if="!hasMissingDataPriorityRows" class="rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-slate-300">
+                    No missing benchmark data is currently flagged.
+                  </p>
                 </div>
               </div>
             </div>

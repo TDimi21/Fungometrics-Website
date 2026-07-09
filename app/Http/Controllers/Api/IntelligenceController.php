@@ -14,6 +14,7 @@ use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\TeamIntelligenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
 class IntelligenceController extends Controller
@@ -37,7 +38,16 @@ class IntelligenceController extends Controller
 
         $days = $this->days($request);
         $snapshot = $this->teamIntelligence->build($teamId, $days);
-        $snapshot['decision_brief'] = $this->decisionEngine->buildTeamDecisionBrief($teamId, $days);
+        try {
+            $snapshot['decision_brief'] = $this->decisionEngine->buildTeamDecisionBrief($teamId, $days);
+        } catch (\Throwable $exception) {
+            Log::warning('IntelligenceController decision brief unavailable: '.$exception->getMessage(), [
+                'team_id' => $teamId,
+                'days' => $days,
+            ]);
+
+            $snapshot['decision_brief'] = null;
+        }
 
         return response()->json($snapshot);
     }
