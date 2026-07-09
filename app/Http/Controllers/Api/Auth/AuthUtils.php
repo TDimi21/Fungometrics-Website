@@ -26,13 +26,26 @@ final class AuthUtils
      *
      * @throws InvalidCredentialsException
      */
-    public static function authCredentials(LoginRequest $request): bool
+    public static function authCredentials(LoginRequest $request): User
     {
-        if ( ! Auth::attempt($request->only('email', 'password'))) {
-            throw new InvalidCredentialsException('Not Credentials Found');
+        if (Auth::attempt($request->only('email', 'password'))) {
+            return User::where('email', $request->email)->firstOrFail();
         }
 
-        return true;
+        // Fallback: resolve by phone. Claim / phone logins send a *synthetic*
+        // email that may not match what was stored (the format has changed over
+        // time), so the app used to retry several email formats — burning login
+        // attempts and risking a "too many attempts" lockout. Matching on the
+        // phone the request already carries lets a single request succeed.
+        $phone = $request->input('phone');
+        if ($phone) {
+            $user = User::where('phone', $phone)->first();
+            if ($user && Auth::attempt(['email' => $user->email, 'password' => $request->get('password')])) {
+                return $user;
+            }
+        }
+
+        throw new InvalidCredentialsException('Not Credentials Found');
     }
 
     /**

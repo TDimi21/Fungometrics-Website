@@ -36,8 +36,9 @@ class LoginController extends Controller
           $response_data = collect();
           $response = null;
           try {
-              AuthUtils::authCredentials($request);
-              $user = User::where('email', $request->email)->firstOrFail();
+              // Resolves the user by email, or by phone as a fallback (single
+              // request instead of the app retrying multiple email formats).
+              $user = AuthUtils::authCredentials($request);
               $data = AuthUtils::createTokenFromUser($user);
               $response_data->put('token', $data['token']);
               if ($user->type === UserTypes::PLAYER->value) {
