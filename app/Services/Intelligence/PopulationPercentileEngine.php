@@ -10,6 +10,10 @@ class PopulationPercentileEngine
     public const MIN_MEDIUM_CONFIDENCE = 100;
     public const MIN_HIGH_CONFIDENCE = 300;
 
+    public function __construct(
+        private readonly BenchmarkLibrary $benchmarkLibrary,
+    ) {}
+
     public function canUsePopulationBucket(int $count): bool
     {
         return $count >= self::MIN_LOW_CONFIDENCE;
@@ -17,16 +21,7 @@ class PopulationPercentileEngine
 
     public function buildBucketKey(array $context): string
     {
-        $parts = [
-            'age:' . ($context['age_group'] ?? BenchmarkDefinitions::AGE_UNKNOWN),
-            'level:' . ($context['level'] ?? 'unknown'),
-            'position:' . $this->normalizeList($context['position'] ?? $context['positions'] ?? 'unknown'),
-            'throw:' . ($context['throw_side'] ?? 'unknown'),
-            'hit:' . ($context['hit_side'] ?? 'unknown'),
-            'body:' . $this->bodyWeightBand($context['body_weight'] ?? null),
-        ];
-
-        return implode('|', array_map(fn ($part) => strtolower((string) $part), $parts));
+        return $this->benchmarkLibrary->bucketKey($context);
     }
 
     public function percentileForMetric(string $metricKey, mixed $value, array $populationValues, array $context = []): array
@@ -86,38 +81,9 @@ class PopulationPercentileEngine
 
     private function higherIsBetter(string $metricKey): bool
     {
-        $definition = BenchmarkDefinitions::metricDefinition($metricKey);
+        $definition = $this->benchmarkLibrary->metric($metricKey)
+            ?? BenchmarkDefinitions::metricDefinition($metricKey);
 
         return (bool) ($definition['higher_is_better'] ?? true);
-    }
-
-    private function normalizeList(mixed $value): string
-    {
-        if (is_array($value)) {
-            $value = array_values(array_filter(array_map(fn ($item) => trim((string) $item), $value)));
-
-            return count($value) ? implode(',', $value) : 'unknown';
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : 'unknown';
-    }
-
-    private function bodyWeightBand(mixed $value): string
-    {
-        if (! is_numeric($value) || (float) $value <= 0) {
-            return 'unknown';
-        }
-
-        $weight = (float) $value;
-
-        return match (true) {
-            $weight < 120 => 'under_120',
-            $weight < 150 => '120_149',
-            $weight < 180 => '150_179',
-            $weight < 210 => '180_209',
-            default => '210_plus',
-        };
     }
 }

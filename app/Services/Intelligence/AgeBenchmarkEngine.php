@@ -8,6 +8,11 @@ use Carbon\Carbon;
 
 class AgeBenchmarkEngine
 {
+    public function __construct(
+        private readonly ResearchPercentileEngine $researchPercentileEngine,
+        private readonly BenchmarkLibrary $benchmarkLibrary,
+    ) {}
+
     public function ageGroupFromDate(?string $dob): string
     {
         if (! $dob) {
@@ -25,11 +30,11 @@ class AgeBenchmarkEngine
     {
         $ageGroup = $this->ageGroupFromContext($dob, $context);
 
-        return $this->evaluateMetric(
+        return $this->researchPercentileEngine->percentileForMetric(
             BenchmarkDefinitions::normalizeMetricKey($metricKey),
             $value,
-            $ageGroup,
-            $context + ['dob' => $dob]
+            $dob,
+            $context + ['age_group' => $ageGroup]
         );
     }
 
@@ -53,6 +58,7 @@ class AgeBenchmarkEngine
             'age' => $age,
             'player_id' => $player['id'] ?? null,
             'body_weight' => $assembled['physical_development']['body_weight'] ?? $assembled['assessment_summary']['body_weight'] ?? null,
+            'height_inches' => $this->heightInches($player['height_ft'] ?? null, $player['height_in'] ?? null),
             'position' => $player['positions'] ?? [],
             'level' => $player['level'] ?? null,
             'hit_side' => $player['hit_side'] ?? null,
@@ -63,7 +69,9 @@ class AgeBenchmarkEngine
         $grouped = [];
 
         foreach ($flatResults as $metricKey => $result) {
-            $category = BenchmarkDefinitions::categoryForMetric($metricKey) ?? 'unknown';
+            $category = $this->benchmarkLibrary->metric($metricKey)['category']
+                ?? BenchmarkDefinitions::categoryForMetric($metricKey)
+                ?? 'unknown';
             $grouped[$category][$metricKey] = $result;
         }
 
@@ -73,7 +81,8 @@ class AgeBenchmarkEngine
             'age_group' => $ageGroup,
             'age' => $age,
             'confidence' => $ageGroup === BenchmarkDefinitions::AGE_UNKNOWN ? 'low' : 'medium',
-            'source' => 'manual_age_benchmark',
+            'source' => 'benchmark_library',
+            'bucket_key' => $this->benchmarkLibrary->bucketKey($context + ['age_group' => $ageGroup]),
             'metrics' => $grouped,
             'flat_metrics' => $flatResults,
             'data_gaps' => $this->dataGaps($ageGroup, $flatMetrics),
@@ -355,5 +364,17 @@ class AgeBenchmarkEngine
     private function numberOrNull(mixed $value): ?float
     {
         return is_numeric($value) ? (float) $value : null;
+    }
+
+    private function heightInches(mixed $feet, mixed $inches): ?float
+    {
+        $feet = $this->numberOrNull($feet);
+        $inches = $this->numberOrNull($inches);
+
+        if ($feet === null && $inches === null) {
+            return null;
+        }
+
+        return (($feet ?? 0.0) * 12) + ($inches ?? 0.0);
     }
 }
