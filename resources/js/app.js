@@ -41,9 +41,6 @@ const sanitizePersistedStores = () => {
     }
   }
 
-  try {
-    localStorage.removeItem('auth')
-  } catch (_) {}
 }
 
 sanitizePersistedStores()

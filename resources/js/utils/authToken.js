@@ -31,13 +31,23 @@ const findToken = (value, depth = 0) => {
 export const migrateLegacyAuthToken = () => {
   try {
     const currentAuth = sessionStorage.getItem('auth')
-    if (findToken(currentAuth)) return
+    const persistedAuth = localStorage.getItem('auth')
+    if (findToken(persistedAuth)) return
+
+    const sessionToken = findToken(currentAuth)
+    if (sessionToken) {
+      localStorage.setItem('auth', JSON.stringify({
+        isLogged: { status: true },
+        token: sessionToken,
+      }))
+      return
+    }
 
     const legacyAuth = localStorage.getItem('auth')
     const token = findToken(legacyAuth)
     if (!token) return
 
-    sessionStorage.setItem('auth', JSON.stringify({
+    localStorage.setItem('auth', JSON.stringify({
       isLogged: { status: true },
       token,
     }))
@@ -47,13 +57,9 @@ export const migrateLegacyAuthToken = () => {
 export const getAuthToken = () => {
   try {
     migrateLegacyAuthToken()
-    const token = findToken(sessionStorage.getItem('auth')) || findToken(sessionStorage.getItem('user'))
+    const token = findToken(localStorage.getItem('auth')) || findToken(sessionStorage.getItem('auth')) || findToken(sessionStorage.getItem('user'))
     return token || ''
   } catch (_) {
     return ''
-  } finally {
-    try {
-      localStorage.removeItem('auth')
-    } catch (_) {}
   }
 }
