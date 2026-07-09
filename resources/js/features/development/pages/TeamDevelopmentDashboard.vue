@@ -152,6 +152,11 @@ const fmt1 = (value, fallback = '—') => {
   return parsed === null ? fallback : parsed.toFixed(1)
 }
 
+const fmtCount = (value, fallback = '—') => {
+  const parsed = n(value)
+  return parsed === null ? fallback : String(Math.round(parsed))
+}
+
 const fmtValue = (value, unit = '', fallback = '—') => {
   const display = fmt1(value, fallback)
   return display === fallback ? fallback : `${display}${unit ? ` ${unit}` : ''}`
@@ -308,6 +313,8 @@ const criticalMissingRows = computed(() => asArray(dataCollectionPriority.value?
 const supportingMissingRows = computed(() => asArray(dataCollectionPriority.value?.missing_supporting).slice(0, 5))
 const optionalMissingRows = computed(() => asArray(dataCollectionPriority.value?.missing_optional).slice(0, 3))
 const collectionPlanRows = computed(() => asArray(dataCollectionPriority.value?.recommended_collection_plan).slice(0, 3))
+const allCriticalMissingRows = computed(() => asArray(dataCollectionPriority.value?.missing_critical))
+const allSupportingMissingRows = computed(() => asArray(dataCollectionPriority.value?.missing_supporting))
 
 const hasMissingDataPriorityRows = computed(() =>
   criticalMissingRows.value.length > 0
@@ -334,7 +341,25 @@ const practicePlanHasDataBlock = computed(() =>
   decisionBrief.value?.recommended_practice_plan?.data_collection_appended === true
 )
 
-const missingRowTitle = (row) => row?.display_name || humanizeKey(row?.metric_key || row?.title || row?.category, 'Missing data')
+const coachFriendlyMetricLabels = {
+  player_context: 'Roster Cleanup',
+  player_benchmark_metrics: 'Benchmark Baseline',
+  average_fastball_velocity: 'Fastball Velocity Baseline',
+  max_fastball_velocity: 'Max Fastball Baseline',
+  strike_percentage: 'Strike % Baseline',
+  average_exit_velocity: 'Exit Velocity Baseline',
+  max_exit_velocity: 'Max Exit Velocity Baseline',
+}
+
+const coachFriendlyMetricLabel = (metric) => {
+  const key = String(typeof metric === 'string' ? metric : metric?.metric_key || '').trim()
+  if (coachFriendlyMetricLabels[key]) return coachFriendlyMetricLabels[key]
+  return typeof metric === 'object' && metric?.display_name
+    ? metric.display_name
+    : humanizeKey(key || metric?.title || metric?.category, 'Missing data')
+}
+
+const missingRowTitle = (row) => coachFriendlyMetricLabel(row)
 
 const missingRowCount = (row) => {
   const missing = n(row?.missing_count)
@@ -356,6 +381,46 @@ const metricGap = (metric, key) => {
   const gap = n(metric?.[key])
   return gap === null ? '—' : fmtValue(gap, metric?.unit || '')
 }
+
+const rosterCleanupRow = computed(() =>
+  allCriticalMissingRows.value.find((row) => row?.metric_key === 'player_context')
+  || benchmarkMissingMetrics.value.find((row) => row?.metric_key === 'player_context')
+  || null
+)
+
+const rosterCleanupPlayers = computed(() =>
+  asArray(rosterCleanupRow.value?.players_missing || rosterCleanupRow.value?.players).slice(0, 6)
+)
+
+const collectionPlanTitle = computed(() =>
+  collectionPlanRows.value[0]?.title || 'Benchmark data quality is not available yet.'
+)
+
+const collectionPlanMetricNames = (plan) =>
+  asArray(plan?.metrics)
+    .map((metric) => coachFriendlyMetricLabel(metric))
+    .filter(Boolean)
+    .slice(0, 6)
+    .join(', ')
+
+const benchmarkDataQuality = computed(() => {
+  const profile = benchmarkProfile.value || {}
+  const evidence = profile.evidence || {}
+
+  return {
+    confidence: profile.benchmark_confidence || benchmarkSnapshot.value.confidence || 'low',
+    priority: dataCollectionPriority.value?.level || null,
+    playerCount: n(profile.player_count),
+    playersWithData: n(evidence.players_with_benchmark_metrics),
+    playersWithoutData: n(evidence.players_without_benchmark_metrics),
+    metricCount: n(profile.metric_count),
+    criticalCount: allCriticalMissingRows.value.length,
+    supportingCount: allSupportingMissingRows.value.length,
+    rosterCleanupCount: n(rosterCleanupRow.value?.missing_count),
+    nextAction: collectionPlanTitle.value,
+    hasDataBlock: practicePlanHasDataBlock.value,
+  }
+})
 
 const playerWeakCategory = (player) => {
   const category = player?.weakest_category
@@ -1069,6 +1134,135 @@ const priorityTop10Rows = computed(() => {
               </div>
             </div>
 
+            <div class="mt-4 rounded-lg border border-red-300/20 bg-red-500/10 p-3">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-[10px] uppercase tracking-widest text-red-200/80">Benchmark Data Quality</p>
+                  <h4 class="mt-1 text-lg font-semibold text-white">Roster + Baseline Readiness</h4>
+                </div>
+                <span
+                  class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
+                  :class="dataCollectionPriority ? 'border-red-300/30 bg-red-500/15 text-red-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                >
+                  Priority {{ humanizeKey(benchmarkDataQuality.priority || 'not_available', 'Not Available') }}
+                </span>
+              </div>
+
+              <p v-if="!dataCollectionPriority" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
+                Benchmark data quality is not available yet.
+              </p>
+
+              <template v-else>
+                <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Confidence</p>
+                    <p class="text-lg font-black text-white">{{ humanizeKey(benchmarkDataQuality.confidence) }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">With Data</p>
+                    <p class="text-lg font-black text-white">{{ fmtCount(benchmarkDataQuality.playersWithData) }} / {{ fmtCount(benchmarkDataQuality.playerCount) }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Need Baseline</p>
+                    <p class="text-lg font-black text-white">{{ fmtCount(benchmarkDataQuality.playersWithoutData) }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Metrics Loaded</p>
+                    <p class="text-lg font-black text-white">{{ fmtCount(benchmarkDataQuality.metricCount) }}</p>
+                  </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-200 lg:col-span-2">
+                    <p>
+                      <span class="font-black text-white">{{ fmtCount(benchmarkDataQuality.playersWithData) }} of {{ fmtCount(benchmarkDataQuality.playerCount) }}</span>
+                      players have benchmark data.
+                    </p>
+                    <p class="mt-1">
+                      <span class="font-black text-white">{{ fmtCount(benchmarkDataQuality.playersWithoutData) }}</span>
+                      players need benchmark baselines.
+                    </p>
+                    <p class="mt-1">
+                      <span class="font-black text-white">{{ fmtCount(benchmarkDataQuality.rosterCleanupCount) }}</span>
+                      players need roster cleanup.
+                    </p>
+                    <p class="mt-2 text-red-100">
+                      <span class="font-black text-white">Next action:</span> {{ benchmarkDataQuality.nextAction }}
+                    </p>
+                    <p v-if="practicePlanHasDataBlock" class="mt-2 rounded border border-red-300/20 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-100">
+                      Baseline collection added to today's plan.
+                    </p>
+                  </div>
+
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-white/40">Missing Data</p>
+                    <p class="mt-2 text-sm text-slate-200">
+                      Critical <span class="font-black text-white">{{ fmtCount(benchmarkDataQuality.criticalCount) }}</span>
+                      · Supporting <span class="font-black text-white">{{ fmtCount(benchmarkDataQuality.supportingCount) }}</span>
+                    </p>
+                    <p class="mt-2 text-xs text-slate-300">
+                      {{ benchmarkDataQuality.priority ? `Priority: ${humanizeKey(benchmarkDataQuality.priority)}` : 'Priority not available.' }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-red-200/80">Critical Missing Data</p>
+                    <div class="mt-2 space-y-1 text-xs">
+                      <p v-for="row in allCriticalMissingRows.slice(0, 6)" :key="`quality-critical-${row.metric_key}`" class="rounded border border-red-300/15 bg-red-500/10 px-2 py-1 text-red-100">
+                        {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
+                      </p>
+                      <p v-if="!allCriticalMissingRows.length" class="text-slate-300">No critical benchmark gaps are currently flagged.</p>
+                    </div>
+                  </div>
+
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-amber-200/80">Supporting Missing Data</p>
+                    <div class="mt-2 space-y-1 text-xs">
+                      <p v-for="row in allSupportingMissingRows.slice(0, 6)" :key="`quality-supporting-${row.metric_key}`" class="rounded border border-amber-300/15 bg-amber-500/10 px-2 py-1 text-amber-100">
+                        {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
+                      </p>
+                      <p v-if="!allSupportingMissingRows.length" class="text-slate-300">No supporting benchmark gaps are currently flagged.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-white/40">Roster Cleanup Needs</p>
+                    <div v-if="rosterCleanupPlayers.length" class="mt-2 flex flex-wrap gap-2">
+                      <span
+                        v-for="player in rosterCleanupPlayers"
+                        :key="player.player_id || player.player_name || player.name"
+                        class="rounded-full border border-red-300/20 bg-red-500/10 px-2 py-1 text-xs text-red-100"
+                      >
+                        {{ player.player_name || player.name || 'Player' }}
+                        <span v-if="asArray(player.missing_fields).length" class="text-red-100/70">
+                          · {{ asArray(player.missing_fields).join(', ') }}
+                        </span>
+                      </span>
+                    </div>
+                    <p v-else class="mt-2 text-xs text-slate-300">No roster cleanup names are currently attached.</p>
+                  </div>
+
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Next Collection Plan</p>
+                    <div v-if="collectionPlanRows.length" class="mt-2 space-y-2 text-xs text-cyan-100">
+                      <div v-for="plan in collectionPlanRows" :key="plan.title" class="rounded border border-cyan-300/15 bg-cyan-500/10 px-2 py-1">
+                        <p class="font-black text-white">{{ plan.title }}</p>
+                        <p v-if="collectionPlanMetricNames(plan)" class="mt-1">{{ collectionPlanMetricNames(plan) }}</p>
+                      </div>
+                    </div>
+                    <p v-else class="mt-2 text-xs text-slate-300">No collection plan is attached yet.</p>
+                    <p v-if="benchmarkSnapshot.populationShare === 0" class="mt-3 text-xs text-slate-300">
+                      Research benchmarks active. FMTRX population learning improves as more data is collected.
+                    </p>
+                  </div>
+                </div>
+              </template>
+            </div>
+
             <div class="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-3">
               <div class="rounded-lg border border-white/10 bg-white/5 p-3 xl:col-span-2">
                 <div class="flex flex-wrap items-center justify-between gap-2">
@@ -1179,7 +1373,7 @@ const priorityTop10Rows = computed(() => {
                   <div v-if="collectionPlanRows.length">
                     <p class="font-black uppercase tracking-wider text-cyan-200">Collection Plan</p>
                     <p v-for="plan in collectionPlanRows" :key="plan.title" class="mt-1 rounded border border-cyan-300/15 bg-cyan-500/10 px-2 py-1 text-cyan-100">
-                      {{ plan.title }} · {{ asArray(plan.metrics).slice(0, 4).join(', ') }}
+                      {{ plan.title }}<span v-if="collectionPlanMetricNames(plan)"> · {{ collectionPlanMetricNames(plan) }}</span>
                     </p>
                   </div>
 
