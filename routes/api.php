@@ -69,6 +69,7 @@ use App\Http\Controllers\Api\Coach\GetTeamAssessments;
 use App\Http\Controllers\Api\ScoresStatisticPlayers;
 use App\Http\Controllers\Api\GetPlayerPitchVelocityZones;
 use App\Http\Controllers\Api\GetPlayerSmTakeZones;
+use App\Http\Controllers\Api\IntelligenceController;
 use App\Http\Controllers\Api\SearchCoaches;
 use App\Http\Controllers\Api\SearchPlayers;
 use App\Http\Controllers\Api\Sessions\GetAllPracticesByModes;
@@ -196,6 +197,8 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams/{id}/code', GetTeamCode::class);  // retrieve join code for a team
         Route::middleware('plan:view_player_cards')->get('/teams/{id}/player-cards', GetTeamPlayerCards::class);
         Route::middleware('plan:view_advanced_stats')->get('/teams/{id}/player-development-board', GetPlayerDevelopmentBoard::class);
+        Route::middleware('plan:view_advanced_stats')->get('/teams/{team}/intelligence', [IntelligenceController::class, 'team']);
+        Route::middleware('plan:view_advanced_stats')->get('/teams/{team}/players/{player}/intelligence', [IntelligenceController::class, 'player']);
         Route::middleware('plan:view_advanced_stats')->get('/development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::get('/sessions/lasts/{team}', GetLastSessions::class);
         // One call returning recent sessions' detail bundled by type (kills the
