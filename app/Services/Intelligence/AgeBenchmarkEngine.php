@@ -4,71 +4,113 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
+use Carbon\Carbon;
+
 class AgeBenchmarkEngine
 {
-    public function benchmarkPlayer(array $assembled): array
+    public function ageGroupFromDate(?string $dob): string
     {
-        $age = $this->numberOrNull($assembled['player_context']['age'] ?? null);
-        $ageGroup = BenchmarkDefinitions::ageGroup($age !== null ? (int) $age : null);
-        $metrics = $this->extractMetrics($assembled);
+        if (! $dob) {
+            return BenchmarkDefinitions::AGE_UNKNOWN;
+        }
+
+        try {
+            return BenchmarkDefinitions::ageGroup(Carbon::parse($dob)->age);
+        } catch (\Throwable) {
+            return BenchmarkDefinitions::AGE_UNKNOWN;
+        }
+    }
+
+    public function benchmarkMetric(string $metricKey, mixed $value, ?string $dob, array $context = []): array
+    {
+        $ageGroup = $this->ageGroupFromContext($dob, $context);
+
+        return $this->evaluateMetric(
+            BenchmarkDefinitions::normalizeMetricKey($metricKey),
+            $value,
+            $ageGroup,
+            $context + ['dob' => $dob]
+        );
+    }
+
+    public function benchmarkMany(array $metrics, ?string $dob, array $context = []): array
+    {
         $results = [];
 
-        foreach ($metrics as $category => $categoryMetrics) {
-            foreach ($categoryMetrics as $metric => $value) {
-                $results[$category][$metric] = $this->benchmarkMetric($category, $metric, $value, $ageGroup, [
-                    'age' => $age,
-                    'player_id' => $assembled['player_context']['id'] ?? null,
-                    'body_weight' => $assembled['physical_development']['body_weight'] ?? $assembled['assessment_summary']['body_weight'] ?? null,
-                    'position' => $assembled['player_context']['positions'] ?? [],
-                    'level' => $assembled['player_context']['level'] ?? null,
-                    'hit_side' => $assembled['player_context']['hit_side'] ?? null,
-                    'throw_side' => $assembled['player_context']['throw_side'] ?? null,
-                ]);
-            }
+        foreach ($metrics as $metricKey => $value) {
+            $results[BenchmarkDefinitions::normalizeMetricKey((string) $metricKey)] = $this->benchmarkMetric((string) $metricKey, $value, $dob, $context);
         }
+
+        return $results;
+    }
+
+    public function benchmarkPlayer(array $assembled): array
+    {
+        $player = $assembled['player_context'] ?? [];
+        $dob = $player['born_date'] ? (string) $player['born_date'] : null;
+        $age = $this->numberOrNull($player['age'] ?? null);
+        $context = [
+            'age' => $age,
+            'player_id' => $player['id'] ?? null,
+            'body_weight' => $assembled['physical_development']['body_weight'] ?? $assembled['assessment_summary']['body_weight'] ?? null,
+            'position' => $player['positions'] ?? [],
+            'level' => $player['level'] ?? null,
+            'hit_side' => $player['hit_side'] ?? null,
+            'throw_side' => $player['throw_side'] ?? null,
+        ];
+        $flatMetrics = $this->extractMetrics($assembled);
+        $flatResults = $this->benchmarkMany($flatMetrics, $dob, $context);
+        $grouped = [];
+
+        foreach ($flatResults as $metricKey => $result) {
+            $category = BenchmarkDefinitions::categoryForMetric($metricKey) ?? 'unknown';
+            $grouped[$category][$metricKey] = $result;
+        }
+
+        $ageGroup = $this->ageGroupFromContext($dob, $context);
 
         return [
             'age_group' => $ageGroup,
             'age' => $age,
             'confidence' => $ageGroup === BenchmarkDefinitions::AGE_UNKNOWN ? 'low' : 'medium',
-            'source' => 'manual_age_benchmarks_v1',
-            'metrics' => $results,
-            'data_gaps' => $this->dataGaps($ageGroup, $metrics),
+            'source' => 'manual_age_benchmark',
+            'metrics' => $grouped,
+            'flat_metrics' => $flatResults,
+            'data_gaps' => $this->dataGaps($ageGroup, $flatMetrics),
         ];
     }
 
-    public function benchmarkMetric(string $category, string $metric, mixed $value, string $ageGroup, array $context = []): array
+    private function evaluateMetric(string $metricKey, mixed $value, string $ageGroup, array $context): array
     {
-        $definitions = BenchmarkDefinitions::definitions();
-        $definition = $definitions[$category][$metric] ?? null;
+        $definition = BenchmarkDefinitions::metricDefinition($metricKey);
         $raw = $this->numberOrNull($value);
 
         $base = [
+            'metric_key' => $metricKey,
             'age_group' => $ageGroup,
             'raw_value' => $raw,
-            'benchmark_label' => null,
-            'percentile_estimate' => null,
+            'unit' => $definition['unit'] ?? null,
+            'benchmark_label' => 'unknown',
             'score_0_100' => null,
+            'percentile_estimate' => null,
             'gap_to_good' => null,
             'gap_to_elite' => null,
             'confidence' => $ageGroup === BenchmarkDefinitions::AGE_UNKNOWN ? 'low' : 'medium',
+            'source' => 'manual_age_benchmark',
             'evidence' => [
-                'category' => $category,
-                'metric' => $metric,
+                'metric_key' => $metricKey,
+                'category' => $definition['category'] ?? null,
                 'context' => $context,
-                'source' => 'manual_age_benchmarks_v1',
             ],
         ];
 
-        if ($raw === null || ($raw <= 0 && ! $this->allowsZero($metric))) {
-            $base['benchmark_label'] = 'Needs Data';
+        if ($raw === null || ($raw <= 0 && ! $this->allowsZero($metricKey))) {
             $base['evidence']['reason'] = 'Metric value is missing.';
 
             return $base;
         }
 
         if (! $definition) {
-            $base['benchmark_label'] = 'Needs Benchmark';
             $base['evidence']['reason'] = 'No benchmark definition exists for this metric.';
 
             return $base;
@@ -76,24 +118,22 @@ class AgeBenchmarkEngine
 
         $thresholds = $definition['benchmarks'][$ageGroup] ?? null;
         if (! $thresholds || $ageGroup === BenchmarkDefinitions::AGE_UNKNOWN) {
-            $base['benchmark_label'] = 'Needs Age';
             $base['evidence']['reason'] = 'Date of birth is missing, so an age-appropriate benchmark cannot be selected.';
-            $base['evidence']['unit'] = $definition['unit'] ?? null;
-            $base['evidence']['direction'] = $definition['direction'] ?? null;
+            $base['evidence']['higher_is_better'] = $definition['higher_is_better'] ?? null;
 
             return $base;
         }
 
-        $direction = (string) ($definition['direction'] ?? 'higher');
-        $percentile = $this->percentileEstimate($raw, $thresholds, $direction);
-        $base['benchmark_label'] = $this->label($raw, $thresholds, $direction);
-        $base['percentile_estimate'] = $percentile;
+        $higherIsBetter = (bool) ($thresholds['higher_is_better'] ?? $definition['higher_is_better'] ?? true);
+        $percentile = $this->percentileEstimate($raw, $thresholds, $higherIsBetter);
+
+        $base['benchmark_label'] = $this->label($raw, $thresholds, $higherIsBetter);
         $base['score_0_100'] = $percentile;
-        $base['gap_to_good'] = $this->gap($raw, (float) $thresholds['good'], $direction);
-        $base['gap_to_elite'] = $this->gap($raw, (float) $thresholds['elite'], $direction);
+        $base['percentile_estimate'] = $percentile;
+        $base['gap_to_good'] = $this->gap($raw, (float) $thresholds['good'], $higherIsBetter);
+        $base['gap_to_elite'] = $this->gap($raw, (float) $thresholds['elite'], $higherIsBetter);
         $base['evidence']['thresholds'] = $thresholds;
-        $base['evidence']['unit'] = $definition['unit'] ?? null;
-        $base['evidence']['direction'] = $direction;
+        $base['evidence']['higher_is_better'] = $higherIsBetter;
 
         return $base;
     }
@@ -109,57 +149,55 @@ class AgeBenchmarkEngine
         $longToss = $assembled['long_toss_summary'] ?? [];
         $weighted = $assembled['weighted_ball_summary'] ?? [];
 
-        $avgEv = $this->firstNumber([
-            $exitVelocity['avg_exit_velocity'] ?? null,
-            $batting['avg_exit_velocity'] ?? null,
-            $cage['avg_exit_velocity'] ?? null,
-            $assessment['baseline_exit_velocity'] ?? null,
-            $physical['exit_velocity'] ?? null,
-        ]);
-
-        $maxEv = $this->maxNumber([
-            $exitVelocity['max_exit_velocity'] ?? null,
-            $batting['max_exit_velocity'] ?? null,
-            $cage['max_exit_velocity'] ?? null,
-            $assessment['baseline_exit_velocity'] ?? null,
-            $physical['exit_velocity'] ?? null,
-        ]);
-
         return [
-            'strength' => [
-                'bench_press' => $this->firstNumber([$physical['bench_press'] ?? null, $assessment['bench_press'] ?? null]),
-                'squat' => $this->firstNumber([$physical['squat'] ?? null, $assessment['squat'] ?? null]),
-                'deadlift' => $this->firstNumber([$physical['deadlift'] ?? null, $assessment['deadlift'] ?? null]),
-                'pull_ups' => $physical['pull_ups'] ?? null,
-                'pushups' => $physical['pushups'] ?? null,
-            ],
-            'athletic' => [
-                '40_yard_dash' => $physical['40_yard_dash'] ?? null,
-                '60_yard_dash' => $physical['60_yard_dash'] ?? null,
-                'broad_jump' => $this->firstNumber([$physical['broad_jump'] ?? null, $assessment['broad_jump'] ?? null]),
-                'vertical_jump' => $this->firstNumber([$physical['vertical_jump'] ?? null, $assessment['vertical_jump'] ?? null]),
-            ],
-            'pitching' => [
-                'average_fastball_velocity' => $this->firstNumber([$bullpen['avg_pitch_velocity'] ?? null, $assessment['baseline_pitch_velocity'] ?? null, $physical['pitch_velocity'] ?? null]),
-                'max_fastball_velocity' => $this->firstNumber([$bullpen['max_pitch_velocity'] ?? null, $assessment['baseline_pitch_velocity'] ?? null, $physical['pitch_velocity'] ?? null]),
-                'strike_percentage' => $bullpen['strike_rate'] ?? null,
-                'long_toss_max_distance' => $longToss['max_distance'] ?? null,
-                'weighted_ball_5oz_velocity' => $weighted['five_oz_max_velocity'] ?? null,
-            ],
-            'hitting' => [
-                'average_exit_velocity' => $avgEv,
-                'max_exit_velocity' => $maxEv,
-                'hard_hit_percentage' => $this->firstNestedNumber($batting['score_breakdown'] ?? [], ['hardHitPercentage', 'hard_hit_percentage', 'hardContactRate', 'hard_contact_rate']),
-                'line_drive_percentage' => $this->firstNestedNumber($batting['score_breakdown'] ?? [], ['lineDrivePercentage', 'line_drive_percentage', 'ldPercentage', 'ld_percentage']),
-                'hitter_swing_miss_percentage' => $this->firstNestedNumber($batting['score_breakdown'] ?? [], ['swingMissPercentage', 'swing_miss_percentage', 'missRate', 'miss_rate']),
-            ],
-            'mobility' => [
-                'mobility_score' => $this->firstNumber([$physical['mobility_score'] ?? null, $assessment['mobility_overall_score'] ?? null]),
-                'shoulder_mobility_score' => $assessment['shoulder_mobility_score'] ?? null,
-                'hip_mobility_score' => $assessment['hip_mobility_score'] ?? null,
-                't_spine_mobility_score' => $assessment['t_spine_mobility_score'] ?? null,
-            ],
+            'average_fastball_velocity' => $this->firstNumber([$bullpen['avg_pitch_velocity'] ?? null, $assessment['baseline_pitch_velocity'] ?? null, $physical['pitch_velocity'] ?? null]),
+            'max_fastball_velocity' => $this->firstNumber([$bullpen['max_pitch_velocity'] ?? null, $assessment['baseline_pitch_velocity'] ?? null, $physical['pitch_velocity'] ?? null]),
+            'strike_percentage' => $bullpen['strike_rate'] ?? null,
+            'long_toss_max_distance' => $longToss['max_distance'] ?? null,
+            'weighted_ball_5oz_velocity' => $weighted['five_oz_max_velocity'] ?? null,
+            'average_exit_velocity' => $this->firstNumber([
+                $exitVelocity['avg_exit_velocity'] ?? null,
+                $batting['avg_exit_velocity'] ?? null,
+                $cage['avg_exit_velocity'] ?? null,
+                $assessment['baseline_exit_velocity'] ?? null,
+                $physical['exit_velocity'] ?? null,
+            ]),
+            'max_exit_velocity' => $this->maxNumber([
+                $exitVelocity['max_exit_velocity'] ?? null,
+                $batting['max_exit_velocity'] ?? null,
+                $cage['max_exit_velocity'] ?? null,
+                $assessment['baseline_exit_velocity'] ?? null,
+                $physical['exit_velocity'] ?? null,
+            ]),
+            'hard_hit_percentage' => $this->firstNestedNumber($batting['score_breakdown'] ?? [], ['hardHitPercentage', 'hard_hit_percentage', 'hardContactRate', 'hard_contact_rate']),
+            'line_drive_percentage' => $this->firstNestedNumber($batting['score_breakdown'] ?? [], ['lineDrivePercentage', 'line_drive_percentage', 'ldPercentage', 'ld_percentage']),
+            'hitter_swing_miss_percentage' => $this->firstNestedNumber($batting['score_breakdown'] ?? [], ['swingMissPercentage', 'swing_miss_percentage', 'missRate', 'miss_rate']),
+            'bench_press' => $this->firstNumber([$physical['bench_press'] ?? null, $assessment['bench_press'] ?? null]),
+            'squat' => $this->firstNumber([$physical['squat'] ?? null, $assessment['squat'] ?? null]),
+            'deadlift' => $this->firstNumber([$physical['deadlift'] ?? null, $assessment['deadlift'] ?? null]),
+            'pull_ups' => $physical['pull_ups'] ?? null,
+            'pushups' => $physical['pushups'] ?? null,
+            'forty_yard_dash' => $physical['40_yard_dash'] ?? null,
+            'sixty_yard_dash' => $physical['60_yard_dash'] ?? null,
+            'broad_jump' => $this->firstNumber([$physical['broad_jump'] ?? null, $assessment['broad_jump'] ?? null]),
+            'vertical_jump' => $this->firstNumber([$physical['vertical_jump'] ?? null, $assessment['vertical_jump'] ?? null]),
+            'mobility_score' => $this->firstNumber([$physical['mobility_score'] ?? null, $assessment['mobility_overall_score'] ?? null]),
+            'shoulder_mobility_score' => $assessment['shoulder_mobility_score'] ?? null,
+            'hip_mobility_score' => $assessment['hip_mobility_score'] ?? null,
+            't_spine_mobility_score' => $assessment['t_spine_mobility_score'] ?? null,
         ];
+    }
+
+    private function ageGroupFromContext(?string $dob, array $context): string
+    {
+        $ageGroup = $this->ageGroupFromDate($dob);
+        if ($ageGroup !== BenchmarkDefinitions::AGE_UNKNOWN) {
+            return $ageGroup;
+        }
+
+        $age = $this->numberOrNull($context['age'] ?? null);
+
+        return BenchmarkDefinitions::ageGroup($age !== null ? (int) $age : null);
     }
 
     private function dataGaps(string $ageGroup, array $metrics): array
@@ -175,44 +213,42 @@ class AgeBenchmarkEngine
             ];
         }
 
-        foreach ($metrics as $category => $categoryMetrics) {
-            foreach ($categoryMetrics as $metric => $value) {
-                if ($this->numberOrNull($value) === null) {
-                    $gaps[] = [
-                        'source' => $category,
-                        'missing_field' => $metric,
-                        'impact' => 'Age-adjusted benchmark unavailable for '.$metric.'.',
-                        'recommended_collection_action' => 'Collect '.$metric.' for this player.',
-                    ];
-                }
+        foreach ($metrics as $metricKey => $value) {
+            if ($this->numberOrNull($value) === null) {
+                $gaps[] = [
+                    'source' => BenchmarkDefinitions::categoryForMetric((string) $metricKey) ?? 'benchmark',
+                    'missing_field' => BenchmarkDefinitions::normalizeMetricKey((string) $metricKey),
+                    'impact' => 'Age-adjusted benchmark unavailable for '.BenchmarkDefinitions::normalizeMetricKey((string) $metricKey).'.',
+                    'recommended_collection_action' => 'Collect '.BenchmarkDefinitions::normalizeMetricKey((string) $metricKey).' for this player.',
+                ];
             }
         }
 
         return $gaps;
     }
 
-    private function label(float $value, array $thresholds, string $direction): string
+    private function label(float $value, array $thresholds, bool $higherIsBetter): string
     {
-        if ($direction === 'lower') {
+        if (! $higherIsBetter) {
             return match (true) {
-                $value <= (float) $thresholds['elite'] => 'Elite',
-                $value <= (float) $thresholds['good'] => 'Good',
-                $value <= (float) $thresholds['average'] => 'Average',
-                $value <= (float) $thresholds['below_average'] => 'Below Average',
-                default => 'Critical',
+                $value <= (float) $thresholds['elite'] => 'elite',
+                $value <= (float) $thresholds['good'] => 'good',
+                $value <= (float) $thresholds['average'] => 'average',
+                $value <= (float) $thresholds['below_average'] => 'below_average',
+                default => 'critical',
             };
         }
 
         return match (true) {
-            $value >= (float) $thresholds['elite'] => 'Elite',
-            $value >= (float) $thresholds['good'] => 'Good',
-            $value >= (float) $thresholds['average'] => 'Average',
-            $value >= (float) $thresholds['below_average'] => 'Below Average',
-            default => 'Critical',
+            $value >= (float) $thresholds['elite'] => 'elite',
+            $value >= (float) $thresholds['good'] => 'good',
+            $value >= (float) $thresholds['average'] => 'average',
+            $value >= (float) $thresholds['below_average'] => 'below_average',
+            default => 'critical',
         };
     }
 
-    private function percentileEstimate(float $value, array $thresholds, string $direction): int
+    private function percentileEstimate(float $value, array $thresholds, bool $higherIsBetter): int
     {
         $anchors = [
             ['value' => (float) $thresholds['critical'], 'percentile' => 5],
@@ -222,7 +258,7 @@ class AgeBenchmarkEngine
             ['value' => (float) $thresholds['elite'], 'percentile' => 95],
         ];
 
-        if ($direction === 'lower') {
+        if (! $higherIsBetter) {
             foreach ($anchors as &$anchor) {
                 $anchor['value'] *= -1;
             }
@@ -256,9 +292,9 @@ class AgeBenchmarkEngine
         return 50;
     }
 
-    private function gap(float $value, float $target, string $direction): float
+    private function gap(float $value, float $target, bool $higherIsBetter): float
     {
-        $gap = $direction === 'lower' ? $value - $target : $target - $value;
+        $gap = $higherIsBetter ? $target - $value : $value - $target;
 
         return round(max(0.0, $gap), 1);
     }
@@ -278,7 +314,7 @@ class AgeBenchmarkEngine
     {
         foreach ($values as $value) {
             $number = $this->numberOrNull($value);
-            if ($number !== null) {
+            if ($number !== null && ($number > 0 || $number === 0.0)) {
                 return $number;
             }
         }

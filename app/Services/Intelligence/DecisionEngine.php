@@ -644,12 +644,12 @@ class DecisionEngine
 
     private function isBelowAverageBenchmark(mixed $benchmark): bool
     {
-        return is_array($benchmark) && in_array($benchmark['benchmark_label'] ?? null, ['Critical', 'Below Average'], true);
+        return is_array($benchmark) && in_array(strtolower((string) ($benchmark['benchmark_label'] ?? '')), ['critical', 'below_average', 'below average'], true);
     }
 
     private function benchmarkPriority(array $benchmark): string
     {
-        return ($benchmark['benchmark_label'] ?? null) === 'Critical' ? 'high' : 'medium';
+        return strtolower((string) ($benchmark['benchmark_label'] ?? '')) === 'critical' ? 'high' : 'medium';
     }
 
     private function benchmarkReason(string $metric, array $benchmark): string

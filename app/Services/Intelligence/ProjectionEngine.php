@@ -23,10 +23,10 @@ class ProjectionEngine
         'recovery_score' => 10.0,
     ];
 
-    public function project(array $trends, array $assembled = []): array
+    public function project(array $trends, array $assembled = [], array $ageBenchmarks = []): array
     {
         return collect($this->ensureMetricSet($trends, $assembled))
-            ->map(fn (array $trend, string $metric) => $this->projectMetric($metric, $trend))
+            ->map(fn (array $trend, string $metric) => $this->projectMetric($metric, $trend, $ageBenchmarks))
             ->all();
     }
 
@@ -74,11 +74,12 @@ class ProjectionEngine
         return $trends;
     }
 
-    private function projectMetric(string $metric, array $trend): array
+    private function projectMetric(string $metric, array $trend, array $ageBenchmarks = []): array
     {
         $current = $this->numberOrNull($trend['current'] ?? null);
         $delta = $this->numberOrNull($trend['delta'] ?? null);
         $confidence = $trend['confidence'] ?? 'low';
+        $benchmark = $this->benchmarkForProjection($metric, $ageBenchmarks);
 
         if ($current === null || ($trend['direction'] ?? null) === 'no_data') {
             return [
@@ -91,6 +92,7 @@ class ProjectionEngine
                 'evidence' => [
                     'reason' => 'Projection requires current and previous comparison data.',
                     'trend' => $trend,
+                    'age_benchmark' => $benchmark,
                 ],
             ];
         }
@@ -108,6 +110,7 @@ class ProjectionEngine
                     'current' => $current,
                     'trend_direction' => $trend['direction'] ?? null,
                     'sample_size' => $trend['sample_size'] ?? null,
+                    'age_benchmark' => $benchmark,
                 ],
             ];
         }
@@ -129,8 +132,34 @@ class ProjectionEngine
                 'trend_delta' => $delta,
                 'trend_direction' => $trend['direction'] ?? null,
                 'sample_size' => $trend['sample_size'] ?? null,
+                'age_benchmark' => $benchmark,
             ],
         ];
+    }
+
+    private function benchmarkForProjection(string $metric, array $ageBenchmarks): ?array
+    {
+        $map = [
+            'bullpen_avg_velocity' => ['pitching', 'average_fastball_velocity'],
+            'bullpen_max_velocity' => ['pitching', 'max_fastball_velocity'],
+            'strike_percentage' => ['pitching', 'strike_percentage'],
+            'long_toss_max_distance' => ['pitching', 'long_toss_max_distance'],
+            'weighted_ball_5oz_max_velocity' => ['pitching', 'weighted_ball_5oz_velocity'],
+            'exit_velocity_avg' => ['hitting', 'average_exit_velocity'],
+            'batting_avg_ev' => ['hitting', 'average_exit_velocity'],
+            'cage_avg_ev' => ['hitting', 'average_exit_velocity'],
+            'exit_velocity_max' => ['hitting', 'max_exit_velocity'],
+            'mobility_score' => ['mobility', 'mobility_score'],
+        ];
+
+        [$category, $metricKey] = $map[$metric] ?? [null, null];
+        if (! $category || ! $metricKey) {
+            return null;
+        }
+
+        $benchmark = $ageBenchmarks['metrics'][$category][$metricKey] ?? null;
+
+        return is_array($benchmark) ? $benchmark : null;
     }
 
     private function numberOrNull(mixed $value): ?float

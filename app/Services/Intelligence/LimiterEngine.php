@@ -329,16 +329,16 @@ class LimiterEngine
 
     private function isBelowAverageBenchmark(?array $benchmark): bool
     {
-        return in_array($benchmark['benchmark_label'] ?? null, ['Critical', 'Below Average'], true);
+        return in_array(strtolower((string) ($benchmark['benchmark_label'] ?? '')), ['critical', 'below_average', 'below average'], true);
     }
 
     private function isCriticalBenchmark(?array $benchmark): bool
     {
-        return ($benchmark['benchmark_label'] ?? null) === 'Critical';
+        return strtolower((string) ($benchmark['benchmark_label'] ?? '')) === 'critical';
     }
 
     private function isGoodOrEliteBenchmark(?array $benchmark): bool
     {
-        return in_array($benchmark['benchmark_label'] ?? null, ['Good', 'Elite'], true);
+        return in_array(strtolower((string) ($benchmark['benchmark_label'] ?? '')), ['good', 'elite'], true);
     }
 }

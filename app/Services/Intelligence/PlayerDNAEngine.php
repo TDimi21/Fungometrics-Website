@@ -279,7 +279,7 @@ class PlayerDNAEngine
                 continue;
             }
 
-            if (is_numeric($benchmark['score_0_100'] ?? null) && ! in_array($benchmark['benchmark_label'] ?? null, ['Needs Data', 'Needs Age', 'Needs Benchmark'], true)) {
+            if (is_numeric($benchmark['score_0_100'] ?? null) && ! in_array(strtolower((string) ($benchmark['benchmark_label'] ?? '')), ['unknown', 'needs data', 'needs age', 'needs benchmark'], true)) {
                 $values[] = (float) $benchmark['score_0_100'];
             }
         }
@@ -301,6 +301,6 @@ class PlayerDNAEngine
 
     private function isGoodOrEliteBenchmark(?array $benchmark): bool
     {
-        return in_array($benchmark['benchmark_label'] ?? null, ['Good', 'Elite'], true);
+        return in_array(strtolower((string) ($benchmark['benchmark_label'] ?? '')), ['good', 'elite'], true);
     }
 }

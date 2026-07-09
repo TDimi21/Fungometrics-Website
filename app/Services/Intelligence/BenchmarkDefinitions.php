@@ -34,6 +34,43 @@ class BenchmarkDefinitions
         };
     }
 
+    public static function metricDefinition(string $metricKey): ?array
+    {
+        $metricKey = self::normalizeMetricKey($metricKey);
+
+        foreach (self::definitions() as $category => $metrics) {
+            if (isset($metrics[$metricKey])) {
+                return $metrics[$metricKey] + [
+                    'category' => $category,
+                    'metric_key' => $metricKey,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    public static function categoryForMetric(string $metricKey): ?string
+    {
+        return self::metricDefinition($metricKey)['category'] ?? null;
+    }
+
+    public static function normalizeMetricKey(string $metricKey): string
+    {
+        return match ($metricKey) {
+            '40_yard_dash', 'forty_yard_sec', 'yd_40_dash' => 'forty_yard_dash',
+            '60_yard_dash', 'sixty_yard_sec', 'yd_60_dash' => 'sixty_yard_dash',
+            'push_ups' => 'pushups',
+            'dead_lift' => 'deadlift',
+            'back_squat', 'front_squat' => 'squat',
+            'avg_fastball_velocity', 'avg_pitch_velocity', 'bullpen_avg_velocity' => 'average_fastball_velocity',
+            'max_pitch_velocity', 'bullpen_max_velocity' => 'max_fastball_velocity',
+            'avg_exit_velocity', 'exit_velocity_avg', 'batting_avg_ev', 'cage_avg_ev' => 'average_exit_velocity',
+            'exit_velocity_max' => 'max_exit_velocity',
+            default => $metricKey,
+        };
+    }
+
     public static function definitions(): array
     {
         return [
@@ -75,14 +112,14 @@ class BenchmarkDefinitions
                 ]),
             ],
             'athletic' => [
-                '40_yard_dash' => self::metric('lower', 'sec', [
+                'forty_yard_dash' => self::metric('lower', 'sec', [
                     self::AGE_10U_12U => [6.50, 6.10, 5.80, 5.50, 5.20],
                     self::AGE_13U_14U => [6.05, 5.70, 5.35, 5.05, 4.85],
                     self::AGE_15U_16U => [5.70, 5.35, 5.05, 4.80, 4.60],
                     self::AGE_17U_18U => [5.45, 5.15, 4.90, 4.65, 4.45],
                     self::AGE_COLLEGE_19_PLUS => [5.30, 5.00, 4.75, 4.55, 4.35],
                 ]),
-                '60_yard_dash' => self::metric('lower', 'sec', [
+                'sixty_yard_dash' => self::metric('lower', 'sec', [
                     self::AGE_10U_12U => [9.40, 8.90, 8.50, 8.10, 7.70],
                     self::AGE_13U_14U => [8.80, 8.35, 7.95, 7.55, 7.20],
                     self::AGE_15U_16U => [8.35, 7.95, 7.55, 7.20, 6.90],
@@ -209,11 +246,14 @@ class BenchmarkDefinitions
                 'average' => $row[2],
                 'good' => $row[3],
                 'elite' => $row[4],
+                'higher_is_better' => $direction === 'higher',
+                'unit' => $unit,
             ];
         }
 
         return [
             'direction' => $direction,
+            'higher_is_better' => $direction === 'higher',
             'unit' => $unit,
             'benchmarks' => $benchmarks,
         ];
