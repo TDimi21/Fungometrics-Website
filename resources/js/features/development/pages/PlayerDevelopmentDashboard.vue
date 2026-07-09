@@ -85,7 +85,7 @@ const loadIntelligence = async (teamId, playerId) => {
   if (!teamId || !playerId || isPlayerUser.value) return
 
   try {
-    const { data } = await axiosGet(`coach/teams/${teamId}/players/${playerId}/intelligence`, { days: 60 })
+    const { data } = await axiosGet(`coach/teams/${teamId}/players/${playerId}/intelligence`, { days: 365 })
     intelligence.value = data?.data || data || null
   } catch (error) {
     intelligence.value = null
@@ -115,7 +115,7 @@ const loadLiveData = async () => {
       ? `player/development/teams/${teamId}/players/${playerId}`
       : `coach/development/teams/${teamId}/players/${playerId}`
 
-    const { data } = await axiosGet(endpoint, { days: 60 })
+    const { data } = await axiosGet(endpoint, { days: 365 })
     const payload = data?.data
 
     if (payload?.player && payload?.current) {

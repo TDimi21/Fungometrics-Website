@@ -606,6 +606,14 @@ const developmentPlayerId = computed(() => {
   )
 })
 
+const developmentTeamId = computed(() =>
+  userData?.team?.id_team ||
+  userData?.team?.id ||
+  userData?.user?.team?.id_team ||
+  userData?.user?.team?.id ||
+  null
+)
+
 const maybeOpenSleepCheckin = (fitnessRows = []) => {
   const today = todayDateKey()
   if (sleepCheckinCheckedDate.value === today) return
@@ -651,12 +659,14 @@ const saveSleepCheckin = async () => {
 }
 
 const openDevelopmentProfile = async () => {
+  const playerId = developmentPlayerId.value || userData?.id
+  if (!playerId) return
+
   await router.push({
-    name: 'dashboard',
+    name: 'development.player',
+    params: { playerId },
     query: {
-      tab: 'overview',
-      devOnly: '1',
-      devPlayerId: developmentPlayerId.value || undefined,
+      teamId: developmentTeamId.value || undefined,
       playerName: playerName.value,
     },
   })

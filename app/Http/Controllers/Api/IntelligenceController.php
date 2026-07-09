@@ -63,7 +63,7 @@ class IntelligenceController extends Controller
 
     private function days(Request $request): int
     {
-        $days = (int) $request->query('days', 60);
+        $days = (int) $request->query('days', 365);
 
         return max(7, min(365, $days));
     }

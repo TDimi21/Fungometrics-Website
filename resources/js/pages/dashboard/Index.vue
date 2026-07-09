@@ -1511,6 +1511,20 @@ const makeStatsFromLive = (current = {}) => {
   }
 }
 
+const openSharedPlayerDevelopmentProfile = async (player) => {
+  const playerId = player?.id
+  if (!playerId) return
+
+  await router.push({
+    name: 'development.player',
+    params: { playerId },
+    query: {
+      teamId: activeTeamId.value || undefined,
+      playerName: player?.name || undefined,
+    },
+  })
+}
+
 const openDevPlayerDetail = async (player) => {
   selectedDevPlayer.value = player
   selectedDevCard.value = null
@@ -1601,10 +1615,29 @@ const closeDevPlayerDetail = () => {
 const devPlayerQueryId = computed(() => String(route.query?.devPlayerId || '').trim())
 const devOnlyMode = computed(() => String(route.query?.devOnly || '') === '1')
 const autoOpenedDevPlayerId = ref('')
+const legacyDevOnlyRedirected = ref('')
+
+const redirectLegacyDevOnlyProfile = async () => {
+  const queryId = devPlayerQueryId.value
+  if (!devOnlyMode.value || !queryId) return false
+  if (legacyDevOnlyRedirected.value === queryId) return true
+
+  legacyDevOnlyRedirected.value = queryId
+  await router.replace({
+    name: 'development.player',
+    params: { playerId: queryId },
+    query: {
+      teamId: activeTeamId.value || route.query?.teamId || undefined,
+      playerName: String(route.query?.playerName || '').trim() || undefined,
+    },
+  })
+  return true
+}
 
 const tryOpenDevPlayerFromQuery = async () => {
   const queryId = devPlayerQueryId.value
   if (!queryId) return
+  if (await redirectLegacyDevOnlyProfile()) return
   if (autoOpenedDevPlayerId.value === queryId) return
 
   const fromBoard = (devBoard.value || []).find((p) => String(p?.id) === queryId)
@@ -2525,7 +2558,7 @@ watch(
                       <span class="text-white/30 text-xs font-bold w-7 text-center shrink-0">#{{ player.jersey ?? '—' }}</span>
                       <button
                         class="text-sm font-black text-sky-300 hover:text-sky-200 truncate text-left"
-                        @click.stop="openDevPlayerDetail(player)"
+                        @click.stop="openSharedPlayerDevelopmentProfile(player)"
                       >{{ player.name }}</button>
                     </div>
                     <!-- Status badge -->
@@ -2699,7 +2732,7 @@ watch(
                 v-for="p in devBoard" :key="p.id"
                 class="relative rounded-2xl overflow-hidden cursor-pointer group"
                 style="min-height: 120px;"
-                @click="openDevPlayerDetail(p)"
+                @click="openSharedPlayerDevelopmentProfile(p)"
               >
                 <!-- Background photo -->
                 <div class="absolute inset-0">
@@ -2991,7 +3024,7 @@ watch(
                 :key="player.id"
                 class="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 flex items-center gap-2"
               >
-                <button class="text-sm font-black text-sky-300 hover:text-sky-200 truncate" @click="router.push(`/development/player/${player.id}`)">
+                <button class="text-sm font-black text-sky-300 hover:text-sky-200 truncate" @click="openSharedPlayerDevelopmentProfile(player)">
                   {{ player.name }}
                 </button>
                 <span class="text-[11px] font-black px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">
