@@ -26,6 +26,7 @@ const loadError = ref('')
 const board = ref([])
 const dashboard = ref({})
 const perf = ref({})
+const teamIntelligence = ref(null)
 
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
@@ -94,6 +95,7 @@ const loadTeamCommandCenter = async () => {
   board.value = []
   dashboard.value = {}
   perf.value = {}
+  teamIntelligence.value = null
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -103,15 +105,17 @@ const loadTeamCommandCenter = async () => {
 
   loading.value = true
   try {
-    const [boardRes, dashRes, perfRes] = await Promise.all([
+    const [boardRes, dashRes, perfRes, intelligenceRes] = await Promise.all([
       axiosGet(`coach/teams/${teamId}/player-development-board`).catch(() => null),
       axiosGet(`dashboard/${teamId}`).catch(() => null),
       axiosGet(`coach/performance-overview/${teamId}`).catch(() => null),
+      axiosGet(`coach/teams/${teamId}/intelligence`, { days: 365 }).catch(() => null),
     ])
 
     board.value = Array.isArray(boardRes?.data?.data) ? boardRes.data.data : []
     dashboard.value = dashRes?.data?.data ?? {}
     perf.value = perfRes?.data?.data ?? {}
+    teamIntelligence.value = intelligenceRes?.data?.data || intelligenceRes?.data || null
 
     if (!board.value.length) {
       loadError.value = 'No development records found. Log bullpen, batting, long toss, and fitness sessions to unlock this dashboard.'
@@ -127,8 +131,131 @@ watch(() => resolveTeamId.value, () => { loadTeamCommandCenter() }, { immediate:
 
 const rankPercent = (rankObj) => rankToPercentile(rankObj?.rank, rankObj?.total)
 
+const safeText = (value, fallback = 'Needs Data') => {
+  const text = String(value ?? '').trim()
+  return text || fallback
+}
+
+const firstNumber = (...values) => {
+  for (const value of values) {
+    const parsed = n(value)
+    if (parsed !== null) return parsed
+  }
+  return null
+}
+
+const teamPlayersIntelligence = computed(() =>
+  Array.isArray(teamIntelligence.value?.players) ? teamIntelligence.value.players : []
+)
+
+const intelligenceByPlayerId = computed(() => {
+  const map = new Map()
+  for (const snapshot of teamPlayersIntelligence.value) {
+    const id = snapshot?.player_id || snapshot?.summary?.player?.id
+    if (id) map.set(String(id), snapshot)
+  }
+  return map
+})
+
+const playerSnapshotFor = (playerId) => intelligenceByPlayerId.value.get(String(playerId)) || null
+
+const projectionCurrent = (snapshot, key) => n(snapshot?.projections?.[key]?.current)
+const projection90 = (snapshot, key) => n(snapshot?.projections?.[key]?.projected_90_day)
+
+const categoryLabel = (key) => ({
+  athletic_performance: 'Athletic Performance',
+  strength: 'Strength',
+  recovery: 'Recovery',
+  mobility: 'Mobility',
+  batting: 'Hitting',
+  bullpen: 'Pitching',
+  cage: 'Cage',
+  exit_velocity: 'Exit Velocity',
+}[key] || String(key || '').replaceAll('_', ' '))
+
+const teamRecommendations = computed(() =>
+  Array.isArray(teamIntelligence.value?.recommendations) ? teamIntelligence.value.recommendations : []
+)
+
+const teamDataGaps = computed(() =>
+  Array.isArray(teamIntelligence.value?.data_gaps) ? teamIntelligence.value.data_gaps : []
+)
+
+const teamSignals = computed(() =>
+  Array.isArray(teamIntelligence.value?.signals) ? teamIntelligence.value.signals : []
+)
+
+const teamScoreValues = computed(() => Object.entries(teamIntelligence.value?.scores || {})
+  .map(([key, value]) => ({ key, value: n(value) }))
+  .filter((row) => row.value !== null)
+)
+
+const teamDevelopmentIndex = computed(() => {
+  const scoreAverage = round1(average(teamScoreValues.value.map((row) => row.value)))
+  return scoreAverage ?? tdi.value
+})
+
+const topTeamScore = computed(() => {
+  const sorted = [...teamScoreValues.value].sort((a, b) => b.value - a.value)
+  return sorted[0] || null
+})
+
+const lowTeamScore = computed(() => {
+  const sorted = [...teamScoreValues.value].sort((a, b) => a.value - b.value)
+  return sorted[0] || null
+})
+
+const playerTypeCounts = computed(() => {
+  const counts = new Map()
+  for (const snapshot of teamPlayersIntelligence.value) {
+    for (const label of snapshot?.dna?.player_type_labels || []) {
+      counts.set(label, (counts.get(label) || 0) + 1)
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, count]) => ({ label, count }))
+})
+
+const primaryStrengthCounts = computed(() => {
+  const counts = new Map()
+  for (const snapshot of teamPlayersIntelligence.value) {
+    const strength = snapshot?.dna?.primary_strength
+    if (strength) counts.set(strength, (counts.get(strength) || 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, count]) => ({ key, label: categoryLabel(key), count }))
+})
+
+const teamDna = computed(() => {
+  const primary = primaryStrengthCounts.value[0] || null
+  const type = playerTypeCounts.value[0] || null
+  const need = lowTeamScore.value
+
+  return {
+    label: type?.label || primary?.label || 'Needs More Player Data',
+    what: type
+      ? `${type.count} player(s) currently profile as ${type.label}.`
+      : `${teamPlayersIntelligence.value.length || 0} player intelligence snapshot(s) available.`,
+    why: primary
+      ? `The roster's strongest current signal is ${primary.label}, based on player DNA snapshots.`
+      : 'Team DNA improves as player assessments and scored sessions are added.',
+    next: need
+      ? `Build the next team block around ${categoryLabel(need.key)}.`
+      : 'Score bullpen, BP, exit velocity, and assessment sessions to sharpen team identity.',
+  }
+})
+
+const cardAnswer = (what, why, next) => ({ what, why, next })
+
 const playerRows = computed(() => {
   return (board.value || []).map((p) => {
+    const snapshot = playerSnapshotFor(p?.id)
+    const dna = snapshot?.dna || {}
+    const projections = snapshot?.projections || {}
+    const limiters = Array.isArray(snapshot?.limiters) ? snapshot.limiters : []
+    const recs = Array.isArray(snapshot?.recommendations) ? snapshot.recommendations : []
     const fit = p?.fitness || {}
     const ranks = p?.fitness_rank || {}
 
@@ -145,9 +272,9 @@ const playerRows = computed(() => {
 
     const mobilityScore = n(fit.mobility_score)
     const longTossScore = p?.coverage?.long_toss > 0 ? clamp(55 + p.coverage.long_toss * 7, 0, 95) : null
-    const bullpenScore = n(p?.scores?.bullpen)
+    const bullpenScore = firstNumber(p?.scores?.bullpen, snapshot?.scores?.bullpen)
     const liveAbScore = n(p?.scores?.batting)
-    const exitVelocityScore = n(p?.scores?.ev)
+    const exitVelocityScore = firstNumber(p?.scores?.ev, snapshot?.scores?.exit_velocity)
 
     const weights = [
       { key: 'mobility', value: mobilityScore, weight: 0.15 },
@@ -183,14 +310,18 @@ const playerRows = computed(() => {
     })
     const playerRiskLevel = riskLevel(riskScore)
 
-    const currentMetric = n(p?.scores?.overall)
+    const currentMetric = firstNumber(p?.scores?.overall, average(Object.values(snapshot?.scores || {})))
     const prevMetric = n(p?.prev_scores?.overall)
     const change = currentMetric !== null && prevMetric !== null ? currentMetric - prevMetric : 0
     const weightedTrend = change
     const projected30 = currentMetric !== null ? round1(currentMetric + weightedTrend * 1.5) : null
     const projected60 = currentMetric !== null ? round1(currentMetric + weightedTrend * 2.5) : null
     const projected90 = currentMetric !== null ? round1(currentMetric + weightedTrend * 3.5) : null
-    const confidence = p?.coverage?.total >= 6 ? 'High' : p?.coverage?.total >= 3 ? 'Medium' : 'Low'
+    const confidence = snapshot ? 'Medium' : (p?.coverage?.total >= 6 ? 'High' : p?.coverage?.total >= 3 ? 'Medium' : 'Low')
+
+    const primaryStrength = safeText(dna?.primary_strength_detail?.category || dna?.primary_strength || best[0], best[0])
+    const biggestNeed = safeText(dna?.biggest_need_detail?.category || dna?.biggest_need || limiters[0]?.title || need[0], need[0])
+    const topRecommendation = recs[0] || null
 
     return {
       id: p.id,
@@ -199,22 +330,25 @@ const playerRows = computed(() => {
       trend: normalizeTrend(p.trend),
       pdi,
       pdiChange,
-      bestStrength: best[0],
-      biggestNeed: need[0],
+      bestStrength: categoryLabel(primaryStrength),
+      biggestNeed: categoryLabel(biggestNeed),
+      playerType: (dna?.player_type_labels || [])[0] || 'Needs Data',
+      limiterCount: limiters.length,
+      recommendationTitle: topRecommendation?.title || null,
       riskScore,
       riskLevel: playerRiskLevel,
       projectionSummary: projected90 !== null ? `${projected90}` : '—',
       projection: { projected30, projected60, projected90, confidence },
       metrics: {
-        strike_percentage: null,
-        top_pitch_velocity: n(p?.top_ev_mph),
-        average_fastball_velocity: n(p?.scores?.bullpen),
+        strike_percentage: projectionCurrent(snapshot, 'strike_percentage'),
+        top_pitch_velocity: firstNumber(projectionCurrent(snapshot, 'bullpen_max_velocity'), p?.top_ev_mph),
+        average_fastball_velocity: firstNumber(projectionCurrent(snapshot, 'bullpen_avg_velocity'), p?.scores?.bullpen),
         pitcher_swing_miss_percentage: null,
         bullpen_score: bullpenScore,
         long_toss_max_distance: n(p?.coverage?.long_toss ? 180 + (p.coverage.long_toss * 8) : null),
         long_toss_carry_score: longTossScore,
-        average_exit_velocity: n(p?.scores?.ev),
-        top_exit_velocity: n(p?.top_ev_mph),
+        average_exit_velocity: firstNumber(projectionCurrent(snapshot, 'exit_velocity_avg'), p?.scores?.ev),
+        top_exit_velocity: firstNumber(projectionCurrent(snapshot, 'exit_velocity_max'), p?.top_ev_mph),
         hard_hit_percentage: n(p?.scores?.batting),
         line_drive_percentage: null,
         hitter_swing_miss_percentage: null,
@@ -225,6 +359,10 @@ const playerRows = computed(() => {
         average_exit_velocity: n(p?.prev_scores?.ev),
         top_exit_velocity: n(p?.prev_scores?.ev),
       },
+      intelligence: snapshot,
+      projections,
+      limiters,
+      recommendations: recs,
       alerts: [],
     }
   })
@@ -239,12 +377,12 @@ const playersWithPercentile = computed(() => {
 })
 
 const teamComponentScores = computed(() => ({
-  strength: round1(average(playersWithPercentile.value.map((p) => p.metrics?.bullpen_score))),
-  mobility: round1(average((board.value || []).map((p) => p?.fitness?.mobility_score))),
-  bullpen: round1(average((board.value || []).map((p) => p?.scores?.bullpen))),
+  strength: round1(firstNumber(teamIntelligence.value?.scores?.strength, average(playersWithPercentile.value.map((p) => p.metrics?.bullpen_score)))),
+  mobility: round1(firstNumber(teamIntelligence.value?.scores?.mobility, average((board.value || []).map((p) => p?.fitness?.mobility_score)))),
+  bullpen: round1(firstNumber(teamIntelligence.value?.scores?.bullpen, average((board.value || []).map((p) => p?.scores?.bullpen)))),
   long_toss: round1(n(perf.value?.long_toss?.lts?.lts)),
-  live_ab: round1(average((board.value || []).map((p) => p?.scores?.batting))),
-  exit_velocity: round1(average((board.value || []).map((p) => p?.scores?.ev))),
+  live_ab: round1(firstNumber(teamIntelligence.value?.scores?.batting, average((board.value || []).map((p) => p?.scores?.batting)))),
+  exit_velocity: round1(firstNumber(teamIntelligence.value?.scores?.exit_velocity, average((board.value || []).map((p) => p?.scores?.ev)))),
 }))
 
 const tdi = computed(() => computeTDI(playersWithPercentile.value.map((p) => p.pdi)))
@@ -263,16 +401,16 @@ const lineDrivePct = computed(() => n(dashboard.value?.type_hits_batting_percent
 const hardHitPct = computed(() => n(perf.value?.batting?.compScore))
 
 const priorityMetrics = computed(() => {
-  const bullpenNow = n(perf.value?.bullpen?.bps?.bps)
+  const bullpenNow = firstNumber(teamIntelligence.value?.scores?.bullpen, perf.value?.bullpen?.bps?.bps)
   const bullpenPrev = average((board.value || []).map((p) => p?.prev_scores?.bullpen))
-  const avgFbNow = n(dashboard.value?.pitch_velocity_average?.FB)
-  const strikeNow = n(dashboard.value?.pitch_throws?.strike_percent)
-  const avgEvNow = n(perf.value?.batting?.avgEV)
-  const topEvNow = n(perf.value?.batting?.topEV)
-  const evNow = average((board.value || []).map((p) => p?.scores?.ev))
+  const avgFbNow = average(playersWithPercentile.value.map((p) => p.metrics?.average_fastball_velocity)) ?? n(dashboard.value?.pitch_velocity_average?.FB)
+  const strikeNow = average(playersWithPercentile.value.map((p) => p.metrics?.strike_percentage)) ?? n(dashboard.value?.pitch_throws?.strike_percent)
+  const avgEvNow = average(playersWithPercentile.value.map((p) => p.metrics?.average_exit_velocity)) ?? n(perf.value?.batting?.avgEV)
+  const topEvNow = average(playersWithPercentile.value.map((p) => p.metrics?.top_exit_velocity)) ?? n(perf.value?.batting?.topEV)
+  const evNow = firstNumber(teamIntelligence.value?.scores?.exit_velocity, average((board.value || []).map((p) => p?.scores?.ev)))
   const evPrev = average((board.value || []).map((p) => p?.prev_scores?.ev))
   const ltScore = n(perf.value?.long_toss?.lts?.lts)
-  const topPitch = n(perf.value?.bullpen?.bps?.topVelo)
+  const topPitch = average(playersWithPercentile.value.map((p) => p.metrics?.top_pitch_velocity)) ?? n(perf.value?.bullpen?.bps?.topVelo)
 
   return [
     { key: 'strike_percentage', value: strikeNow, delta: null, insight: 'Prioritize fastball command if below 65%.' },
@@ -416,12 +554,29 @@ const sparklinePoints = (vals = []) => {
 
 const teamAlerts = computed(() => {
   const alerts = []
+  for (const signal of teamSignals.value.slice(0, 3)) {
+    alerts.push({
+      severity: signal?.severity === 'warning' ? 'high' : 'medium',
+      title: signal?.title || 'Team intelligence signal',
+      body: signal?.message || 'Review this team signal before planning the next block.',
+      next: 'Open affected player profiles and review evidence.',
+    })
+  }
+  for (const gap of teamDataGaps.value.slice(0, 4)) {
+    alerts.push({
+      severity: 'medium',
+      title: `Data gap: ${String(gap?.missing_field || 'missing data').replaceAll('_', ' ')}`,
+      body: gap?.impact || 'This missing data limits team intelligence quality.',
+      next: gap?.recommended_collection_action || 'Collect the missing data in the next player workflow.',
+    })
+  }
   for (const need of needsAttention.value.slice(0, 5)) {
     if (need.severity > 0) {
       alerts.push({
         severity: need.severity > 35 ? 'high' : need.severity > 15 ? 'medium' : 'low',
         title: `${need.label} needs attention`,
         body: `${need.label} is ${need.status.toLowerCase()} (${need.value ?? '—'}${need.unit ? ` ${need.unit}` : ''}).`,
+        next: need.insight || 'Build the next training block around this metric.',
       })
     }
   }
@@ -431,12 +586,23 @@ const teamAlerts = computed(() => {
       severity: 'high',
       title: `${risky.length} players above risk threshold`,
       body: 'Recommend recovery + mobility block and workload check.',
+      next: 'Review player workload, recovery, and recent trend evidence.',
     })
   }
-  return alerts
+  return alerts.slice(0, 8)
 })
 
 const roadmap = computed(() => {
+  if (teamRecommendations.value.length) {
+    return teamRecommendations.value.slice(0, 5).map((rec, idx) => ({
+      priority: idx + 1,
+      title: rec?.title || 'Team recommendation',
+      reason: rec?.why || 'The intelligence layer flagged this as a team priority.',
+      action: rec?.action || 'Review the affected players and plan the next training block.',
+      confidence: rec?.confidence || 'medium',
+    }))
+  }
+
   return needsAttention.value.slice(0, 4).map((need, idx) => {
     const map = {
       strike_percentage: 'Fastball command bullpen with strike challenge constraints.',
@@ -452,8 +618,56 @@ const roadmap = computed(() => {
       title: need.label,
       reason: `${need.label} is ${need.status.toLowerCase()} (${need.value ?? '—'}${need.unit ? ` ${need.unit}` : ''}).`,
       action: map[need.key] || 'Target this metric with focused team session design this week.',
+      confidence: 'fallback',
     }
   })
+})
+
+const teamIndexAnswer = computed(() => cardAnswer(
+  teamDevelopmentIndex.value !== null
+    ? `The team development index is ${teamDevelopmentIndex.value}.`
+    : 'The team index needs more scored player data.',
+  topTeamScore.value
+    ? `${categoryLabel(topTeamScore.value.key)} is currently the strongest team signal.`
+    : 'The index matters because it combines available player intelligence into one roster health view.',
+  lowTeamScore.value
+    ? `Prioritize ${categoryLabel(lowTeamScore.value.key)} in the next team block.`
+    : 'Score current player sessions to establish a reliable team baseline.'
+))
+
+const needsAttentionAnswer = computed(() => {
+  const topNeed = needsAttention.value[0]
+  return cardAnswer(
+    topNeed ? `${topNeed.label} is the top team need.` : 'No major team need has enough data yet.',
+    topNeed
+      ? `${topNeed.label} affects whether the roster can transfer training into game performance.`
+      : 'Needs attention becomes more useful once player snapshots have comparable session data.',
+    topNeed?.insight || roadmap.value[0]?.action || 'Review player data gaps and score the next relevant sessions.'
+  )
+})
+
+const pitchingPulseAnswer = computed(() => {
+  const strike = metricCardData.value.find((m) => m.key === 'strike_percentage')
+  const velo = metricCardData.value.find((m) => m.key === 'average_fastball_velocity')
+  return cardAnswer(
+    `Pitching pulse: FB ${velo?.value ?? '—'}${velo?.unit ? ` ${velo.unit}` : ''}, Strike ${strike?.value ?? '—'}${strike?.unit || ''}.`,
+    'Pitching pulse shows whether arm speed and command are developing together.',
+    strike?.value !== null && strike.value < (strike.goal || 65)
+      ? 'Run fastball command and edge-location bullpens.'
+      : 'Keep tracking bullpen quality, velocity, and strike percentage each week.'
+  )
+})
+
+const hittingPulseAnswer = computed(() => {
+  const ev = metricCardData.value.find((m) => m.key === 'average_exit_velocity')
+  const ld = metricCardData.value.find((m) => m.key === 'line_drive_percentage')
+  return cardAnswer(
+    `Hitting pulse: Avg EV ${ev?.value ?? '—'}${ev?.unit ? ` ${ev.unit}` : ''}, LD ${ld?.value ?? '—'}${ld?.unit || ''}.`,
+    'Hitting pulse shows whether power is pairing with playable contact quality.',
+    ev?.value === null && ld?.value === null
+      ? 'Score BP, cage, or exit velocity sessions to build the hitting pulse.'
+      : 'Use line-drive constraint rounds before max-intent damage rounds.'
+  )
 })
 
 const openPlayer = (player) => {
@@ -547,11 +761,27 @@ const priorityTop10Rows = computed(() => {
           <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4 xl:col-span-2">
             <p class="text-xs uppercase tracking-widest text-white/40">Team Development Index</p>
             <div class="mt-2 flex flex-wrap items-end gap-4">
-              <p class="text-5xl font-black" :class="toCardBand(tdi).tone">{{ tdi ?? '—' }}</p>
+              <p class="text-5xl font-black" :class="toCardBand(teamDevelopmentIndex).tone">{{ teamDevelopmentIndex ?? '—' }}</p>
               <div class="space-y-1 text-sm text-slate-300">
-                <p>Grade: <span class="font-semibold text-white">{{ toCardBand(tdi).label }}</span></p>
+                <p>Grade: <span class="font-semibold text-white">{{ toCardBand(teamDevelopmentIndex).label }}</span></p>
                 <p>Team Percentile: <span class="font-semibold text-white">{{ teamPercentile ? `${teamPercentile}th` : '—' }}</span></p>
                 <p>Trend: <span :class="trendChip(tdiChange).cls" class="font-semibold">{{ trendChip(tdiChange).text }}</span></p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div class="rounded-lg border border-cyan-300/15 bg-cyan-500/10 p-3">
+                <p class="text-[10px] uppercase tracking-widest text-cyan-200/70">Team DNA</p>
+                <p class="mt-1 text-lg font-black text-white">{{ teamDna.label }}</p>
+                <p class="mt-1 text-xs text-slate-300"><span class="font-black text-white">What:</span> {{ teamDna.what }}</p>
+                <p class="mt-1 text-xs text-slate-300"><span class="font-black text-white">Why:</span> {{ teamDna.why }}</p>
+                <p class="mt-1 text-xs text-red-200"><span class="font-black text-white">Next:</span> {{ teamDna.next }}</p>
+              </div>
+              <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                <p class="text-[10px] uppercase tracking-widest text-white/40">Index Read</p>
+                <p class="mt-1 text-xs text-slate-300"><span class="font-black text-white">What:</span> {{ teamIndexAnswer.what }}</p>
+                <p class="mt-1 text-xs text-slate-300"><span class="font-black text-white">Why:</span> {{ teamIndexAnswer.why }}</p>
+                <p class="mt-1 text-xs text-red-200"><span class="font-black text-white">Next:</span> {{ teamIndexAnswer.next }}</p>
               </div>
             </div>
 
@@ -565,6 +795,11 @@ const priorityTop10Rows = computed(() => {
 
           <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
             <h3 class="text-lg font-semibold text-white">Team Needs Attention</h3>
+            <div class="mt-2 rounded-lg border border-white/10 bg-white/5 p-2 text-xs">
+              <p class="text-slate-300"><span class="font-black text-white">What:</span> {{ needsAttentionAnswer.what }}</p>
+              <p class="mt-1 text-slate-300"><span class="font-black text-white">Why:</span> {{ needsAttentionAnswer.why }}</p>
+              <p class="mt-1 text-red-200"><span class="font-black text-white">Next:</span> {{ needsAttentionAnswer.next }}</p>
+            </div>
             <div class="mt-3 space-y-2 text-sm">
               <div v-for="m in needsAttention" :key="m.key" class="flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-2 py-1.5">
                 <span class="text-slate-200">{{ m.label }}</span>
@@ -601,6 +836,11 @@ const priorityTop10Rows = computed(() => {
         <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
             <h3 class="text-lg font-semibold text-white">Pitching Development Board</h3>
+            <div class="mt-2 rounded-lg border border-white/10 bg-white/5 p-2 text-xs">
+              <p class="text-slate-300"><span class="font-black text-white">What:</span> {{ pitchingPulseAnswer.what }}</p>
+              <p class="mt-1 text-slate-300"><span class="font-black text-white">Why:</span> {{ pitchingPulseAnswer.why }}</p>
+              <p class="mt-1 text-red-200"><span class="font-black text-white">Next:</span> {{ pitchingPulseAnswer.next }}</p>
+            </div>
             <div class="mt-3 space-y-2">
               <div v-for="r in pitchingBoardRows" :key="r.key" class="rounded-md border border-white/10 bg-white/5 p-2">
                 <div class="flex items-center justify-between">
@@ -614,6 +854,11 @@ const priorityTop10Rows = computed(() => {
 
           <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
             <h3 class="text-lg font-semibold text-white">Hitting Development Board</h3>
+            <div class="mt-2 rounded-lg border border-white/10 bg-white/5 p-2 text-xs">
+              <p class="text-slate-300"><span class="font-black text-white">What:</span> {{ hittingPulseAnswer.what }}</p>
+              <p class="mt-1 text-slate-300"><span class="font-black text-white">Why:</span> {{ hittingPulseAnswer.why }}</p>
+              <p class="mt-1 text-red-200"><span class="font-black text-white">Next:</span> {{ hittingPulseAnswer.next }}</p>
+            </div>
             <div class="mt-3 space-y-2">
               <div v-for="r in hittingBoardRows" :key="r.key" class="rounded-md border border-white/10 bg-white/5 p-2">
                 <div class="flex items-center justify-between">
@@ -686,6 +931,7 @@ const priorityTop10Rows = computed(() => {
                   <th class="py-2 pr-4">Trend</th>
                   <th class="py-2 pr-4">Best</th>
                   <th class="py-2 pr-4">Need</th>
+                  <th class="py-2 pr-4">DNA</th>
                   <th class="py-2 pr-4">Risk</th>
                   <th class="py-2 pr-4">Projection</th>
                   <th class="py-2">Alert</th>
@@ -701,9 +947,10 @@ const priorityTop10Rows = computed(() => {
                   <td class="py-2 pr-4">{{ p.trend }}</td>
                   <td class="py-2 pr-4">{{ p.bestStrength }}</td>
                   <td class="py-2 pr-4">{{ p.biggestNeed }}</td>
+                  <td class="py-2 pr-4">{{ p.playerType }}</td>
                   <td class="py-2 pr-4">{{ p.riskScore }} ({{ p.riskLevel }})</td>
                   <td class="py-2 pr-4">{{ p.projection.projected90 ?? '—' }}</td>
-                  <td class="py-2">{{ p.riskScore > 60 ? 'Needs Attention' : p.riskScore > 40 ? 'Watch' : 'Stable' }}</td>
+                  <td class="py-2">{{ p.limiterCount ? `${p.limiterCount} limiter(s)` : (p.riskScore > 60 ? 'Needs Attention' : p.riskScore > 40 ? 'Watch' : 'Stable') }}</td>
                 </tr>
               </tbody>
             </table>
@@ -725,23 +972,25 @@ const priorityTop10Rows = computed(() => {
           </div>
 
           <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
-            <h3 class="text-lg font-semibold text-white">Team Alerts</h3>
+            <h3 class="text-lg font-semibold text-white">Team Alerts / Data Gaps</h3>
             <div class="mt-2 space-y-2 text-sm">
               <div v-for="(a, idx) in teamAlerts" :key="idx" class="rounded-md border p-2"
                 :class="a.severity === 'high' ? 'border-red-500/40 bg-red-500/10 text-red-200' : a.severity === 'medium' ? 'border-yellow-500/40 bg-yellow-500/10 text-yellow-200' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'">
                 <p class="font-semibold">{{ a.title }}</p>
                 <p class="text-xs opacity-90">{{ a.body }}</p>
+                <p v-if="a.next" class="mt-1 text-xs font-semibold opacity-95">Next: {{ a.next }}</p>
               </div>
             </div>
           </div>
 
           <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
-            <h3 class="text-lg font-semibold text-white">Development Roadmap</h3>
+            <h3 class="text-lg font-semibold text-white">Team Recommendations</h3>
             <div class="mt-2 space-y-2">
               <div v-for="r in roadmap" :key="r.priority" class="rounded-md border border-white/10 bg-white/5 p-2">
                 <p class="text-sm font-semibold text-white">{{ r.priority }}. {{ r.title }}</p>
-                <p class="text-xs text-slate-300">{{ r.reason }}</p>
-                <p class="mt-1 text-xs text-red-200">{{ r.action }}</p>
+                <p class="text-xs text-slate-300"><span class="font-black text-white">Why:</span> {{ r.reason }}</p>
+                <p class="mt-1 text-xs text-red-200"><span class="font-black text-white">Next:</span> {{ r.action }}</p>
+                <p class="mt-1 text-[10px] uppercase tracking-widest text-white/35">Confidence: {{ r.confidence }}</p>
               </div>
             </div>
           </div>
