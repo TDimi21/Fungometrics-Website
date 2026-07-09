@@ -151,6 +151,14 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $bullpenAllLast30 = $bullpenAllCurrent->where('created_at', '>=', $last30);
                 $bullpenAllPrev30 = $bullpenAllCurrent->where('created_at', '<', $last30)->where('created_at', '>=', $prev30Start);
 
+                // Prefer a true last-30 snapshot, but do not hide valid older
+                // data when the requested dashboard window is wider.
+                $battingCurrentWindow = $battingLast30->isNotEmpty() ? $battingLast30 : $battingCurrent;
+                $bullpenCurrentWindow = $bullpenLast30->isNotEmpty() ? $bullpenLast30 : $bullpenCurrent;
+                $bullpenAllCurrentWindow = $bullpenAllLast30->isNotEmpty() ? $bullpenAllLast30 : $bullpenAllCurrent;
+                $cageCurrentWindow = $cageCurrent->where('created_at', '>=', $last30);
+                $cageCurrentWindow = $cageCurrentWindow->isNotEmpty() ? $cageCurrentWindow : $cageCurrent;
+
                 $fitnessLatest = PlayerFitness::where('user_id', $playerId)
                     ->orderByDesc('fitness_date')
                     ->orderByDesc('created_at')
@@ -183,9 +191,9 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ->orderByDesc('created_at')
                     ->first();
 
-                $battingAggCurrent = $this->aggregateBatting($battingLast30, $evCurrent);
+                $battingAggCurrent = $this->aggregateBatting($battingCurrentWindow, $evCurrent);
                 $battingAggPrev = $this->aggregateBatting($battingPrev30, collect());
-                $bullpenAggCurrent = $this->aggregateBullpen($bullpenLast30, $bullpenAllLast30);
+                $bullpenAggCurrent = $this->aggregateBullpen($bullpenCurrentWindow, $bullpenAllCurrentWindow);
                 $bullpenAggPrev = $this->aggregateBullpen($bullpenPrev30, $bullpenAllPrev30);
 
                 $bpScore = $battingCurrent->count() > 0
@@ -196,8 +204,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ? (new BullpenStatisticsService())->bps($bullpenCurrent)['bps'] ?? null
                     : null;
 
-                $cageScore = $cageCurrent->count() > 0
-                    ? (new CageStatisticsService())->fcs($cageCurrent)['fcs'] ?? null
+                $cageScore = $cageCurrentWindow->count() > 0
+                    ? (new CageStatisticsService())->fcs($cageCurrentWindow)['fcs'] ?? null
                     : null;
 
                 // Single source of truth: use the canonical strength_score from
