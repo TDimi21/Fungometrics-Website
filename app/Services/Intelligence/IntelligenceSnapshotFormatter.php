@@ -16,6 +16,7 @@ class IntelligenceSnapshotFormatter
         ?array $dna = null,
         ?array $projections = null,
         ?array $limiters = null,
+        ?array $ageBenchmarks = null,
     ): array {
         return [
             'generated_at' => now()->toIso8601String(),
@@ -32,6 +33,7 @@ class IntelligenceSnapshotFormatter
             'dna' => $dna,
             'projections' => $projections ?? [],
             'limiters' => $limiters ?? [],
+            'age_benchmarks' => $ageBenchmarks ?? [],
         ];
     }
 

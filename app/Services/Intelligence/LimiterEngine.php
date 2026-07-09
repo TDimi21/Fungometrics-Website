@@ -6,16 +6,17 @@ namespace App\Services\Intelligence;
 
 class LimiterEngine
 {
-    public function detect(array $assembled, array $trends): array
+    public function detect(array $assembled, array $trends, array $ageBenchmarks = []): array
     {
         $limiters = [];
 
         $this->longTossTransfer($limiters, $assembled, $trends);
         $this->weightedBallTransfer($limiters, $assembled, $trends);
         $this->weightedBallSpectrum($limiters, $assembled);
-        $this->command($limiters, $assembled, $trends);
-        $this->barrelControl($limiters, $assembled);
-        $this->mobilityRestriction($limiters, $assembled);
+        $this->command($limiters, $assembled, $trends, $ageBenchmarks);
+        $this->barrelControl($limiters, $assembled, $ageBenchmarks);
+        $this->mobilityRestriction($limiters, $assembled, $ageBenchmarks);
+        $this->ageAdjustedThrowing($limiters, $ageBenchmarks);
         $this->recoveryWorkloadRisk($limiters, $assembled, $trends);
 
         return $this->uniqueById($limiters);
@@ -146,30 +147,33 @@ class LimiterEngine
         }
     }
 
-    private function command(array &$limiters, array $assembled, array $trends): void
+    private function command(array &$limiters, array $assembled, array $trends, array $ageBenchmarks): void
     {
         $strikeRate = $this->numberOrNull($assembled['bullpen_summary']['strike_rate'] ?? null);
         $maxVelo = $this->numberOrNull($assembled['bullpen_summary']['max_pitch_velocity'] ?? null);
         $veloTrend = $trends['bullpen_avg_velocity'] ?? [];
+        $strikeBenchmark = $this->benchmark($ageBenchmarks, 'pitching', 'strike_percentage');
+        $belowAgeTarget = $this->isBelowAverageBenchmark($strikeBenchmark);
 
-        if ($strikeRate !== null && $strikeRate < 65 && ($maxVelo !== null || in_array($veloTrend['direction'] ?? null, ['stable', 'improving'], true))) {
+        if (($strikeRate !== null && $strikeRate < 65 || $belowAgeTarget) && ($maxVelo !== null || in_array($veloTrend['direction'] ?? null, ['stable', 'improving'], true))) {
             $limiters[] = $this->limiter(
                 'command',
                 'pitching',
-                $strikeRate < 55 ? 'high' : 'medium',
+                $strikeRate !== null && $strikeRate < 55 || $this->isCriticalBenchmark($strikeBenchmark) ? 'high' : 'medium',
                 'Command',
-                'Strike percentage is below target while velocity is present, stable, or improving.',
+                $belowAgeTarget ? 'Strike percentage is below the player age-group benchmark while velocity is present, stable, or improving.' : 'Strike percentage is below target while velocity is present, stable, or improving.',
                 [
                     'strike_percentage' => $strikeRate,
                     'max_pitch_velocity' => $maxVelo,
                     'bullpen_velocity_trend' => $veloTrend,
+                    'age_benchmark' => $strikeBenchmark,
                 ],
-                $strikeRate < 55 ? 'high' : 'medium'
+                $strikeRate !== null && $strikeRate < 55 || $this->isCriticalBenchmark($strikeBenchmark) ? 'high' : 'medium'
             );
         }
     }
 
-    private function barrelControl(array &$limiters, array $assembled): void
+    private function barrelControl(array &$limiters, array $assembled, array $ageBenchmarks): void
     {
         $maxEv = max(array_filter([
             $this->numberOrNull($assembled['batting_summary']['max_exit_velocity'] ?? null),
@@ -181,43 +185,82 @@ class LimiterEngine
         $cageScore = $this->numberOrNull($assembled['cage_summary']['score'] ?? null);
         $contactScore = $this->numberOrNull($assembled['batting_summary']['score_breakdown']['contactScore'] ?? null);
         $launchScore = $this->numberOrNull($assembled['batting_summary']['score_breakdown']['launchScore'] ?? null);
+        $maxEvBenchmark = $this->benchmark($ageBenchmarks, 'hitting', 'max_exit_velocity');
+        $hasAgeAdjustedPower = $this->isGoodOrEliteBenchmark($maxEvBenchmark);
 
-        if ($maxEv !== null && $maxEv >= 85 && (($battingScore !== null && $battingScore < 70) || ($cageScore !== null && $cageScore < 70) || ($contactScore !== null && $contactScore < 65) || ($launchScore !== null && $launchScore < 65))) {
+        if ($maxEv !== null && ($maxEv >= 85 || $hasAgeAdjustedPower) && (($battingScore !== null && $battingScore < 70) || ($cageScore !== null && $cageScore < 70) || ($contactScore !== null && $contactScore < 65) || ($launchScore !== null && $launchScore < 65))) {
             $limiters[] = $this->limiter(
                 'barrel-control',
                 'hitting',
                 'high',
                 'Barrel Control',
-                'Exit velocity is strong, but contact or launch quality is below target.',
+                $hasAgeAdjustedPower ? 'Exit velocity is strong for age, but contact or launch quality is below target.' : 'Exit velocity is strong, but contact or launch quality is below target.',
                 [
                     'max_exit_velocity' => $maxEv,
                     'batting_score' => $battingScore,
                     'cage_score' => $cageScore,
                     'contact_score' => $contactScore,
                     'launch_score' => $launchScore,
+                    'age_benchmark' => $maxEvBenchmark,
                 ],
                 'medium'
             );
         }
     }
 
-    private function mobilityRestriction(array &$limiters, array $assembled): void
+    private function mobilityRestriction(array &$limiters, array $assembled, array $ageBenchmarks): void
     {
         $strength = $this->numberOrNull($assembled['physical_development']['strength_score'] ?? null);
         $mobility = $this->numberOrNull($assembled['physical_development']['mobility_score'] ?? null);
+        $mobilityBenchmark = $this->benchmark($ageBenchmarks, 'mobility', 'mobility_score');
+        $strengthBenchmarks = $this->categoryBenchmarks($ageBenchmarks, 'strength');
+        $hasAgeAdjustedStrength = collect($strengthBenchmarks)->contains(fn ($benchmark) => $this->isGoodOrEliteBenchmark($benchmark));
+        $hasMobilityRestriction = $mobility !== null && $mobility < 65 || $this->isBelowAverageBenchmark($mobilityBenchmark);
 
-        if ($strength !== null && $strength >= 75 && $mobility !== null && $mobility < 65) {
+        if (($strength !== null && $strength >= 75 || $hasAgeAdjustedStrength) && $hasMobilityRestriction) {
             $limiters[] = $this->limiter(
                 'mobility-restriction',
                 'physical',
                 'medium',
                 'Mobility Restriction',
-                'Strength score is strong, but mobility score is limiting movement quality.',
+                $hasAgeAdjustedStrength ? 'Strength is strong for age, but mobility is limiting movement quality.' : 'Strength score is strong, but mobility score is limiting movement quality.',
                 [
                     'strength_score' => $strength,
                     'mobility_score' => $mobility,
+                    'strength_age_benchmarks' => $strengthBenchmarks,
+                    'mobility_age_benchmark' => $mobilityBenchmark,
                 ],
                 'medium'
+            );
+        }
+    }
+
+    private function ageAdjustedThrowing(array &$limiters, array $ageBenchmarks): void
+    {
+        $longToss = $this->benchmark($ageBenchmarks, 'pitching', 'long_toss_max_distance');
+        $weighted5 = $this->benchmark($ageBenchmarks, 'pitching', 'weighted_ball_5oz_velocity');
+
+        if ($this->isBelowAverageBenchmark($longToss)) {
+            $limiters[] = $this->limiter(
+                'age-adjusted-long-toss',
+                'throwing',
+                $this->isCriticalBenchmark($longToss) ? 'high' : 'medium',
+                'Long Toss Distance for Age',
+                'Long toss distance is below the player age-group benchmark.',
+                ['age_benchmark' => $longToss],
+                $longToss['confidence'] ?? 'low'
+            );
+        }
+
+        if ($this->isBelowAverageBenchmark($weighted5)) {
+            $limiters[] = $this->limiter(
+                'age-adjusted-5oz-velocity',
+                'throwing',
+                $this->isCriticalBenchmark($weighted5) ? 'high' : 'medium',
+                '5 oz Velocity for Age',
+                'Weighted-ball 5 oz velocity is below the player age-group benchmark.',
+                ['age_benchmark' => $weighted5],
+                $weighted5['confidence'] ?? 'low'
             );
         }
     }
@@ -270,5 +313,32 @@ class LimiterEngine
     private function numberOrNull(mixed $value): ?float
     {
         return is_numeric($value) ? (float) $value : null;
+    }
+
+    private function benchmark(array $ageBenchmarks, string $category, string $metric): ?array
+    {
+        $benchmark = $ageBenchmarks['metrics'][$category][$metric] ?? null;
+
+        return is_array($benchmark) ? $benchmark : null;
+    }
+
+    private function categoryBenchmarks(array $ageBenchmarks, string $category): array
+    {
+        return is_array($ageBenchmarks['metrics'][$category] ?? null) ? $ageBenchmarks['metrics'][$category] : [];
+    }
+
+    private function isBelowAverageBenchmark(?array $benchmark): bool
+    {
+        return in_array($benchmark['benchmark_label'] ?? null, ['Critical', 'Below Average'], true);
+    }
+
+    private function isCriticalBenchmark(?array $benchmark): bool
+    {
+        return ($benchmark['benchmark_label'] ?? null) === 'Critical';
+    }
+
+    private function isGoodOrEliteBenchmark(?array $benchmark): bool
+    {
+        return in_array($benchmark['benchmark_label'] ?? null, ['Good', 'Elite'], true);
     }
 }

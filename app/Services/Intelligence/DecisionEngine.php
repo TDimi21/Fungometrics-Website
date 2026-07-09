@@ -101,6 +101,7 @@ class DecisionEngine
             $this->addLimiterCandidates($candidates, $playerSnapshot);
             $this->addRecommendationCandidates($candidates, $playerSnapshot);
             $this->addTrendCandidates($candidates, $playerSnapshot);
+            $this->addBenchmarkCandidates($candidates, $playerSnapshot);
             $this->addDataGapCandidates($candidates, $playerSnapshot);
         }
 
@@ -219,6 +220,51 @@ class DecisionEngine
             null,
             ['data_gap_count' => count($gaps), 'data_gaps' => $gaps]
         );
+    }
+
+    private function addBenchmarkCandidates(array &$candidates, array $playerSnapshot): void
+    {
+        $benchmarks = $playerSnapshot['age_benchmarks']['metrics'] ?? [];
+        if (! is_array($benchmarks)) {
+            return;
+        }
+
+        foreach ($benchmarks['pitching'] ?? [] as $metric => $benchmark) {
+            if (! $this->isBelowAverageBenchmark($benchmark)) {
+                continue;
+            }
+
+            $focusKey = match ($metric) {
+                'strike_percentage' => 'fastball_command',
+                'long_toss_max_distance', 'weighted_ball_5oz_velocity', 'average_fastball_velocity', 'max_fastball_velocity' => 'long_toss_transfer',
+                default => null,
+            };
+
+            if ($focusKey) {
+                $this->addCandidate($candidates, $focusKey, $playerSnapshot, $this->benchmarkReason($metric, $benchmark), 'age_benchmark:pitching:'.$metric, $this->benchmarkPriority($benchmark), (string) ($benchmark['confidence'] ?? 'low'), null, $benchmark);
+            }
+        }
+
+        foreach ($benchmarks['hitting'] ?? [] as $metric => $benchmark) {
+            if (! $this->isBelowAverageBenchmark($benchmark)) {
+                continue;
+            }
+
+            $focusKey = in_array($metric, ['average_exit_velocity', 'max_exit_velocity'], true) ? 'exit_velocity_power' : 'barrel_control';
+            $this->addCandidate($candidates, $focusKey, $playerSnapshot, $this->benchmarkReason($metric, $benchmark), 'age_benchmark:hitting:'.$metric, $this->benchmarkPriority($benchmark), (string) ($benchmark['confidence'] ?? 'low'), null, $benchmark);
+        }
+
+        foreach ($benchmarks['strength'] ?? [] as $metric => $benchmark) {
+            if ($this->isBelowAverageBenchmark($benchmark)) {
+                $this->addCandidate($candidates, 'strength_lower_body', $playerSnapshot, $this->benchmarkReason($metric, $benchmark), 'age_benchmark:strength:'.$metric, $this->benchmarkPriority($benchmark), (string) ($benchmark['confidence'] ?? 'low'), null, $benchmark);
+            }
+        }
+
+        foreach ($benchmarks['mobility'] ?? [] as $metric => $benchmark) {
+            if ($this->isBelowAverageBenchmark($benchmark)) {
+                $this->addCandidate($candidates, 'mobility_arm_care', $playerSnapshot, $this->benchmarkReason($metric, $benchmark), 'age_benchmark:mobility:'.$metric, $this->benchmarkPriority($benchmark), (string) ($benchmark['confidence'] ?? 'low'), null, $benchmark);
+            }
+        }
     }
 
     private function addCandidate(
@@ -470,7 +516,7 @@ class DecisionEngine
         return match (true) {
             str_contains($haystack, 'command') => 'fastball_command',
             str_contains($haystack, 'mobility') || str_contains($haystack, 'arm care') => 'mobility_arm_care',
-            str_contains($haystack, 'long-toss') || str_contains($haystack, 'mound-transfer') || str_contains($haystack, 'weighted-ball-to-mound') || str_contains($haystack, 'five-oz') || str_contains($haystack, 'underload-speed') => 'long_toss_transfer',
+            str_contains($haystack, 'long-toss') || str_contains($haystack, 'long toss') || str_contains($haystack, 'mound-transfer') || str_contains($haystack, 'weighted-ball-to-mound') || str_contains($haystack, 'five-oz') || str_contains($haystack, '5 oz') || str_contains($haystack, 'underload-speed') => 'long_toss_transfer',
             str_contains($haystack, 'barrel') => 'barrel_control',
             str_contains($haystack, 'recovery') || str_contains($haystack, 'workload') => 'recovery_workload',
             str_contains($haystack, 'overload-strength') || str_contains($haystack, 'strength') || str_contains($haystack, 'spectrum') => 'strength_lower_body',
@@ -594,5 +640,24 @@ class DecisionEngine
     private function numberOrNull(mixed $value): ?float
     {
         return is_numeric($value) ? (float) $value : null;
+    }
+
+    private function isBelowAverageBenchmark(mixed $benchmark): bool
+    {
+        return is_array($benchmark) && in_array($benchmark['benchmark_label'] ?? null, ['Critical', 'Below Average'], true);
+    }
+
+    private function benchmarkPriority(array $benchmark): string
+    {
+        return ($benchmark['benchmark_label'] ?? null) === 'Critical' ? 'high' : 'medium';
+    }
+
+    private function benchmarkReason(string $metric, array $benchmark): string
+    {
+        $label = $benchmark['benchmark_label'] ?? 'Needs Data';
+        $ageGroup = $benchmark['age_group'] ?? 'UNKNOWN';
+        $raw = $benchmark['raw_value'] ?? null;
+
+        return str_replace('_', ' ', $metric).' is '.$label.' for age group '.$ageGroup.($raw !== null ? ' at '.$raw.'.' : '.');
     }
 }

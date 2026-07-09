@@ -15,6 +15,7 @@ class PlayerIntelligenceService
         private readonly ProjectionEngine $projectionEngine,
         private readonly LimiterEngine $limiterEngine,
         private readonly PlayerDNAEngine $dnaEngine,
+        private readonly AgeBenchmarkEngine $ageBenchmarkEngine,
     ) {
     }
 
@@ -23,8 +24,9 @@ class PlayerIntelligenceService
         $assembled = $this->assembler->assembleForPlayer($teamId, $playerId, $days);
         $trendBlocks = $this->trendEngine->analyze($assembled['trend_blocks'] ?? [], $assembled);
         $projections = $this->projectionEngine->project($trendBlocks, $assembled);
-        $limiters = $this->limiterEngine->detect($assembled, $trendBlocks);
-        $dna = $this->dnaEngine->build($assembled, $trendBlocks, $limiters);
+        $ageBenchmarks = $this->ageBenchmarkEngine->benchmarkPlayer($assembled);
+        $limiters = $this->limiterEngine->detect($assembled, $trendBlocks, $ageBenchmarks);
+        $dna = $this->dnaEngine->build($assembled, $trendBlocks, $limiters, $ageBenchmarks);
         $signals = $this->signalEngine->buildSignals($assembled);
         $recommendations = $this->recommendationEngine->buildRecommendations($assembled, $signals, $trendBlocks, $limiters, $dna);
 
@@ -38,6 +40,7 @@ class PlayerIntelligenceService
             $dna,
             $projections,
             $limiters,
+            $ageBenchmarks,
         );
     }
 }

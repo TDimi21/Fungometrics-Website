@@ -6,32 +6,42 @@ namespace App\Services\Intelligence;
 
 class PlayerDNAEngine
 {
-    public function build(array $assembled, array $trends, array $limiters): array
+    public function build(array $assembled, array $trends, array $limiters, array $ageBenchmarks = []): array
     {
+        $strengthBenchmarkScore = $this->categoryBenchmarkScore($ageBenchmarks, 'strength');
+        $mobilityBenchmarkScore = $this->categoryBenchmarkScore($ageBenchmarks, 'mobility');
+        $athleticBenchmarkScore = $this->categoryBenchmarkScore($ageBenchmarks, 'athletic');
+
         $categories = [
             'strength' => $this->category('strength', $this->firstNumber([
+                $strengthBenchmarkScore,
                 $assembled['physical_development']['strength_score'] ?? null,
                 $assembled['assessment_summary']['strength_overall_score'] ?? null,
             ]), [
                 'strength_score' => $assembled['physical_development']['strength_score'] ?? null,
                 'assessment_strength_score' => $assembled['assessment_summary']['strength_overall_score'] ?? null,
+                'age_benchmarks' => $this->categoryBenchmarks($ageBenchmarks, 'strength'),
             ]),
             'mobility' => $this->category('mobility', $this->firstNumber([
+                $mobilityBenchmarkScore,
                 $assembled['physical_development']['mobility_score'] ?? null,
                 $assembled['assessment_summary']['mobility_overall_score'] ?? null,
             ]), [
                 'mobility_score' => $assembled['physical_development']['mobility_score'] ?? null,
                 'assessment_mobility_score' => $assembled['assessment_summary']['mobility_overall_score'] ?? null,
+                'age_benchmarks' => $this->categoryBenchmarks($ageBenchmarks, 'mobility'),
             ]),
-            'arm_development' => $this->armDevelopment($assembled, $trends),
-            'pitching' => $this->pitching($assembled),
-            'hitting' => $this->hitting($assembled),
+            'arm_development' => $this->armDevelopment($assembled, $trends, $ageBenchmarks),
+            'pitching' => $this->pitching($assembled, $ageBenchmarks),
+            'hitting' => $this->hitting($assembled, $ageBenchmarks),
             'athleticism' => $this->category('athleticism', $this->firstNumber([
+                $athleticBenchmarkScore,
                 $assembled['physical_development']['overall_api_score'] ?? null,
                 $assembled['assessment_summary']['overall_score'] ?? null,
             ]), [
                 'overall_api_score' => $assembled['physical_development']['overall_api_score'] ?? null,
                 'assessment_overall_score' => $assembled['assessment_summary']['overall_score'] ?? null,
+                'age_benchmarks' => $this->categoryBenchmarks($ageBenchmarks, 'athletic'),
             ]),
             'recovery' => $this->category('recovery', $this->firstNumber([
                 $assembled['physical_development']['recovery_score'] ?? null,
@@ -64,13 +74,14 @@ class PlayerDNAEngine
                 'label' => $need['label'],
             ] : null,
             'development_stage' => $this->developmentStage($available->avg('score')),
-            'player_type_labels' => $this->playerTypes($categories, $assembled, $limiters),
+            'player_type_labels' => $this->playerTypes($categories, $assembled, $limiters, $ageBenchmarks),
         ];
     }
 
-    private function armDevelopment(array $assembled, array $trends): array
+    private function armDevelopment(array $assembled, array $trends, array $ageBenchmarks): array
     {
         $values = array_filter([
+            $this->categoryBenchmarkScore($ageBenchmarks, 'pitching', ['average_fastball_velocity', 'max_fastball_velocity', 'long_toss_max_distance', 'weighted_ball_5oz_velocity']),
             $assembled['bullpen_summary']['score'] ?? null,
             $assembled['assessment_summary']['pitching_score'] ?? null,
             $this->scoreByRange($assembled['bullpen_summary']['max_pitch_velocity'] ?? null, 65, 88),
@@ -86,12 +97,14 @@ class PlayerDNAEngine
             'long_toss_max_distance' => $assembled['long_toss_summary']['max_distance'] ?? null,
             'weighted_ball_profile' => $assembled['weighted_ball_summary']['profile_label'] ?? null,
             'bullpen_velocity_trend' => $trends['bullpen_avg_velocity'] ?? null,
+            'age_benchmarks' => $this->categoryBenchmarks($ageBenchmarks, 'pitching'),
         ]);
     }
 
-    private function pitching(array $assembled): array
+    private function pitching(array $assembled, array $ageBenchmarks): array
     {
         $values = array_filter([
+            $this->categoryBenchmarkScore($ageBenchmarks, 'pitching', ['average_fastball_velocity', 'max_fastball_velocity', 'strike_percentage']),
             $assembled['bullpen_summary']['score'] ?? null,
             $assembled['bullpen_summary']['strike_rate'] ?? null,
             $assembled['assessment_summary']['pitching_score'] ?? null,
@@ -103,12 +116,14 @@ class PlayerDNAEngine
             'strike_rate' => $assembled['bullpen_summary']['strike_rate'] ?? null,
             'assessment_pitching_score' => $assembled['assessment_summary']['pitching_score'] ?? null,
             'max_pitch_velocity' => $assembled['bullpen_summary']['max_pitch_velocity'] ?? null,
+            'age_benchmarks' => $this->categoryBenchmarks($ageBenchmarks, 'pitching'),
         ]);
     }
 
-    private function hitting(array $assembled): array
+    private function hitting(array $assembled, array $ageBenchmarks): array
     {
         $values = array_filter([
+            $this->categoryBenchmarkScore($ageBenchmarks, 'hitting'),
             $assembled['batting_summary']['score'] ?? null,
             $assembled['cage_summary']['score'] ?? null,
             $assembled['exit_velocity_summary']['score'] ?? null,
@@ -130,6 +145,7 @@ class PlayerDNAEngine
                 $this->numberOrNull($assembled['cage_summary']['max_exit_velocity'] ?? null),
                 $this->numberOrNull($assembled['exit_velocity_summary']['max_exit_velocity'] ?? null),
             ], fn ($value) => $value !== null) ?: [null]),
+            'age_benchmarks' => $this->categoryBenchmarks($ageBenchmarks, 'hitting'),
         ]);
     }
 
@@ -147,22 +163,25 @@ class PlayerDNAEngine
         ];
     }
 
-    private function playerTypes(array $categories, array $assembled, array $limiters): array
+    private function playerTypes(array $categories, array $assembled, array $limiters, array $ageBenchmarks): array
     {
         $labels = [];
         $maxPitchVelo = $this->numberOrNull($assembled['bullpen_summary']['max_pitch_velocity'] ?? null);
         $strikeRate = $this->numberOrNull($assembled['bullpen_summary']['strike_rate'] ?? null);
         $weightedProfile = $assembled['weighted_ball_summary']['profile_label'] ?? null;
+        $maxPitchBenchmark = $this->benchmark($ageBenchmarks, 'pitching', 'max_fastball_velocity');
+        $strikeBenchmark = $this->benchmark($ageBenchmarks, 'pitching', 'strike_percentage');
+        $maxEvBenchmark = $this->benchmark($ageBenchmarks, 'hitting', 'max_exit_velocity');
         $maxEv = max(array_filter([
             $this->numberOrNull($assembled['batting_summary']['max_exit_velocity'] ?? null),
             $this->numberOrNull($assembled['cage_summary']['max_exit_velocity'] ?? null),
             $this->numberOrNull($assembled['exit_velocity_summary']['max_exit_velocity'] ?? null),
         ], fn ($value) => $value !== null) ?: [null]);
 
-        if ($maxPitchVelo !== null && $maxPitchVelo >= 85 && ($strikeRate === null || $strikeRate >= 62)) {
+        if (($maxPitchVelo !== null && $maxPitchVelo >= 85 || $this->isGoodOrEliteBenchmark($maxPitchBenchmark)) && ($strikeRate === null || $strikeRate >= 62 || $this->isGoodOrEliteBenchmark($strikeBenchmark))) {
             $labels[] = 'Power Arm';
         }
-        if ($strikeRate !== null && $strikeRate >= 70) {
+        if ($strikeRate !== null && $strikeRate >= 70 || $this->isGoodOrEliteBenchmark($strikeBenchmark)) {
             $labels[] = 'Command Arm';
         }
         if ($maxPitchVelo !== null && $maxPitchVelo >= 85 && $strikeRate !== null && $strikeRate < 60) {
@@ -171,7 +190,7 @@ class PlayerDNAEngine
         if (($categories['arm_development']['score'] ?? null) !== null && $categories['arm_development']['score'] < 60) {
             $labels[] = 'Developing Arm';
         }
-        if ($maxEv !== null && $maxEv >= 88) {
+        if ($maxEv !== null && $maxEv >= 88 || $this->isGoodOrEliteBenchmark($maxEvBenchmark)) {
             $labels[] = 'Power Hitter';
         }
         if (($categories['hitting']['score'] ?? null) !== null && $categories['hitting']['score'] >= 75) {
@@ -248,5 +267,40 @@ class PlayerDNAEngine
             $score >= 55 => 'Developing',
             default => 'Needs Foundation',
         };
+    }
+
+    private function categoryBenchmarkScore(array $ageBenchmarks, string $category, ?array $metrics = null): ?float
+    {
+        $benchmarks = $this->categoryBenchmarks($ageBenchmarks, $category);
+        $values = [];
+
+        foreach ($benchmarks as $metric => $benchmark) {
+            if ($metrics !== null && ! in_array($metric, $metrics, true)) {
+                continue;
+            }
+
+            if (is_numeric($benchmark['score_0_100'] ?? null) && ! in_array($benchmark['benchmark_label'] ?? null, ['Needs Data', 'Needs Age', 'Needs Benchmark'], true)) {
+                $values[] = (float) $benchmark['score_0_100'];
+            }
+        }
+
+        return count($values) ? round(array_sum($values) / count($values), 1) : null;
+    }
+
+    private function categoryBenchmarks(array $ageBenchmarks, string $category): array
+    {
+        return is_array($ageBenchmarks['metrics'][$category] ?? null) ? $ageBenchmarks['metrics'][$category] : [];
+    }
+
+    private function benchmark(array $ageBenchmarks, string $category, string $metric): ?array
+    {
+        $benchmark = $ageBenchmarks['metrics'][$category][$metric] ?? null;
+
+        return is_array($benchmark) ? $benchmark : null;
+    }
+
+    private function isGoodOrEliteBenchmark(?array $benchmark): bool
+    {
+        return in_array($benchmark['benchmark_label'] ?? null, ['Good', 'Elite'], true);
     }
 }
