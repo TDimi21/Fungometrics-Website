@@ -17,6 +17,7 @@ class IntelligenceSnapshotFormatter
         ?array $projections = null,
         ?array $limiters = null,
         ?array $ageBenchmarks = null,
+        ?array $benchmarkProfile = null,
     ): array {
         return [
             'generated_at' => now()->toIso8601String(),
@@ -34,6 +35,7 @@ class IntelligenceSnapshotFormatter
             'projections' => $projections ?? [],
             'limiters' => $limiters ?? [],
             'age_benchmarks' => $ageBenchmarks ?? [],
+            'benchmark_profile' => $benchmarkProfile ?? [],
         ];
     }
 

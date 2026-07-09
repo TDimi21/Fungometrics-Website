@@ -73,8 +73,8 @@ class BenchmarkLibrary
             'position:' . strtolower($this->normalizeList($context['position'] ?? $context['positions'] ?? 'unknown')),
             'body:' . $this->bodyWeightBand($context['body_weight'] ?? null),
             'height:' . $this->heightBand($context['height_inches'] ?? $context['height'] ?? null),
-            'throws:' . strtolower((string) ($context['throws'] ?? $context['throw_side'] ?? 'unknown')),
-            'bats:' . strtolower((string) ($context['bats'] ?? $context['hit_side'] ?? 'unknown')),
+            'throws:' . $this->normalizeSide($context['throws'] ?? $context['throw_side'] ?? null),
+            'bats:' . $this->normalizeSide($context['bats'] ?? $context['hit_side'] ?? null),
         ]);
     }
 
@@ -347,5 +347,12 @@ class BenchmarkLibrary
             $height < 75 => '72_74',
             default => '75_plus',
         };
+    }
+
+    private function normalizeSide(mixed $value): string
+    {
+        $value = strtolower(trim((string) $value));
+
+        return $value !== '' ? $value : 'unknown';
     }
 }
