@@ -76,9 +76,65 @@ const playerTabRoute = computed(() => {
 const sourceData = ref(null)
 const intelligence = ref(null)
 const loading = ref(false)
+const playersLoading = ref(false)
 const loadError = ref('')
+const playerOptions = ref([])
 const selectedScoreKey = ref(null)
 const selectedPlayerName = computed(() => String(route.query?.playerName || route.query?.name || '').trim())
+
+const normalizePlayerOption = (player) => {
+  const id = player?.id || player?.user_id || player?.player_id || player?.user?.id || null
+  if (!id) return null
+
+  const profile = player?.profile || player?.user?.profile || {}
+  const name = String(
+    player?.name ||
+    player?.full_name ||
+    profile?.full_name ||
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
+    [player?.first_name, player?.last_name].filter(Boolean).join(' ') ||
+    `Player #${id}`
+  ).trim()
+
+  return {
+    id,
+    name,
+    jersey: player?.jersey || player?.number_in_shirt || player?.user?.player?.number_in_shirt || null,
+    picture: player?.picture || profile?.picture || player?.user?.profile?.picture || null,
+    status: player?.status || '—',
+    score: player?.scores?.overall ?? player?.pdi ?? null,
+    playerType: player?.playerType || player?.dna?.player_type_labels?.[0] || null,
+  }
+}
+
+const loadPlayerOptions = async (teamId) => {
+  playerOptions.value = []
+  if (!teamId || isPlayerUser.value) return
+
+  playersLoading.value = true
+  try {
+    const { data } = await axiosGet(`coach/teams/${teamId}/player-development-board`)
+    const rows = Array.isArray(data?.data) ? data.data : []
+    playerOptions.value = rows.map(normalizePlayerOption).filter(Boolean)
+  } catch {
+    try {
+      const { data } = await axiosGet(`coach/teams/${teamId}`)
+      const payload = data?.data
+      const rows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.players)
+          ? payload.players
+          : Array.isArray(payload?.team_players)
+            ? payload.team_players
+            : []
+      playerOptions.value = rows.map(normalizePlayerOption).filter(Boolean)
+    } catch {
+      playerOptions.value = []
+    }
+  } finally {
+    playersLoading.value = false
+  }
+}
 
 const loadIntelligence = async (teamId, playerId) => {
   intelligence.value = null
@@ -113,7 +169,19 @@ const loadLiveData = async () => {
   const teamId = resolvedTeamId.value
 
   if (!playerId) {
-    loadError.value = 'No player selected. Navigate here from the Team Development board.'
+    if (!isPlayerUser.value) {
+      if (!teamId) {
+        loadError.value = 'No team selected. Please select a team from the header, then return here.'
+        return
+      }
+      await loadPlayerOptions(teamId)
+      if (!playerOptions.value.length) {
+        loadError.value = 'No players found for this team yet.'
+      }
+      return
+    }
+
+    loadError.value = 'No player selected.'
     return
   }
   if (!teamId && !isPlayerUser.value) {
@@ -725,6 +793,58 @@ const scoreCards = computed(() => ([
       </div>
       <div v-if="loadError" class="mb-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-200">
         {{ loadError }}
+      </div>
+
+      <div
+        v-if="!loading && !sourceData && !isPlayerUser && !resolvedPlayerId"
+        class="mb-4 rounded-2xl border border-white/10 bg-slate-900/70 p-4"
+      >
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-white/40">Player Development</p>
+            <h2 class="mt-1 text-xl font-black text-white">Select a Player</h2>
+            <p class="mt-1 text-sm text-slate-300">Choose a player from this team to open their development profile.</p>
+          </div>
+          <RouterLink
+            to="/development/team"
+            class="rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+          >
+            View Team Board
+          </RouterLink>
+        </div>
+
+        <div v-if="playersLoading" class="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+          Loading players...
+        </div>
+
+        <div v-else-if="playerOptions.length" class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <RouterLink
+            v-for="p in playerOptions"
+            :key="p.id"
+            :to="{ path: `/development/player/${p.id}`, query: { teamId: resolvedTeamId, playerName: p.name } }"
+            class="group rounded-xl border border-white/10 bg-white/5 p-3 transition hover:border-red-400/50 hover:bg-red-500/10"
+          >
+            <div class="flex items-center gap-3">
+              <div class="h-12 w-12 overflow-hidden rounded-full border border-white/15 bg-slate-800">
+                <img :src="p.picture || updatedLogo" :alt="p.name" class="h-full w-full object-cover object-top" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-black text-white group-hover:text-red-200">{{ p.name }}</p>
+                <p class="mt-0.5 text-xs text-slate-400">
+                  <span v-if="p.jersey">#{{ p.jersey }} · </span>{{ p.playerType || p.status || 'Development Profile' }}
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="text-[10px] uppercase tracking-widest text-white/35">Score</p>
+                <p class="text-sm font-black text-white">{{ p.score ?? '—' }}</p>
+              </div>
+            </div>
+          </RouterLink>
+        </div>
+
+        <div v-else-if="!loadError" class="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+          No players found for this team yet.
+        </div>
       </div>
 
       <template v-if="sourceData">
