@@ -1,0 +1,368 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Intelligence;
+
+use App\Models\BenchmarkCollectionTask;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
+
+class BenchmarkRefreshService
+{
+    public function __construct(
+        private readonly PlayerIntelligenceService $playerIntelligenceService,
+        private readonly TeamIntelligenceService $teamIntelligenceService,
+        private readonly TeamBenchmarkProfileService $teamBenchmarkProfileService,
+        private readonly BenchmarkCollectionPlanner $benchmarkCollectionPlanner,
+        private readonly DecisionEngine $decisionEngine,
+    ) {
+    }
+
+    public function refreshAfterTaskCompletion(string $taskId, array $options = []): array
+    {
+        $days = $this->days($options['days'] ?? 365);
+
+        try {
+            $task = BenchmarkCollectionTask::query()->find($taskId);
+            if (! $task) {
+                return $this->skipped($taskId, null, null, [
+                    'Benchmark task was not found.',
+                ]);
+            }
+
+            $teamId = $this->nullableString($task->team_id);
+            $playerId = $this->nullableString($task->assigned_to_player_id);
+
+            if (! $teamId || ! $playerId) {
+                return $this->skipped($taskId, $teamId, $playerId, [
+                    'Benchmark task is missing a team_id or player_id, so player benchmark refresh was skipped.',
+                ]);
+            }
+
+            $allowPreview = (bool) ($options['allow_preview'] ?? false);
+            if ($task->status !== BenchmarkCollectionTask::STATUS_COMPLETED && ! $allowPreview) {
+                return $this->skipped($taskId, $teamId, $playerId, [
+                    'Benchmark task is not completed yet.',
+                ]);
+            }
+
+            $this->clearRelevantCaches($teamId, $playerId, $days);
+
+            $playerRefresh = $this->refreshPlayerBenchmarks($teamId, $playerId, $days);
+            $teamRefresh = $this->refreshTeamBenchmarks($teamId, $days);
+            $playerProfile = $playerRefresh['player_benchmark_profile'] ?? [];
+            $teamProfile = $teamRefresh['team_benchmark_profile'] ?? [];
+            $decisionBrief = $teamRefresh['decision_brief'] ?? [];
+            $collectionPlan = $teamRefresh['collection_plan'] ?? [];
+            $warnings = array_values(array_filter([
+                ...($playerRefresh['warnings'] ?? []),
+                ...($teamRefresh['warnings'] ?? []),
+            ]));
+
+            return [
+                'task_id' => $taskId,
+                'team_id' => $teamId,
+                'player_id' => $playerId,
+                'refreshed_at' => now()->toIso8601String(),
+                'refresh_status' => empty($warnings) ? 'completed' : 'partial',
+                'player_benchmark_profile' => $playerProfile,
+                'team_benchmark_profile' => $teamProfile,
+                'data_quality_report' => $this->dataQualityReport($teamProfile),
+                'decision_brief' => $decisionBrief,
+                'collection_plan' => $collectionPlan,
+                'changed_signals' => $this->changedSignals($task, $playerProfile, $teamProfile, $collectionPlan),
+                'warnings' => $warnings,
+                'evidence' => [
+                    'days' => $days,
+                    'task_type' => $task->task_type,
+                    'task_status' => $task->status,
+                    'player_metric_count' => count($playerProfile['metrics'] ?? []),
+                    'team_metric_count' => $teamProfile['metric_count'] ?? null,
+                    'team_benchmark_confidence' => $teamProfile['benchmark_confidence'] ?? null,
+                    'collection_plan_priority' => $collectionPlan['priority_level'] ?? null,
+                    'cache_cleared' => true,
+                    'persistence' => 'live_rebuild_payload_only',
+                ],
+            ];
+        } catch (Throwable $exception) {
+            return [
+                'task_id' => $taskId,
+                'team_id' => null,
+                'player_id' => null,
+                'refreshed_at' => now()->toIso8601String(),
+                'refresh_status' => 'failed',
+                'player_benchmark_profile' => [],
+                'team_benchmark_profile' => [],
+                'data_quality_report' => [],
+                'decision_brief' => [],
+                'collection_plan' => [],
+                'changed_signals' => [],
+                'warnings' => [$exception->getMessage()],
+                'evidence' => [
+                    'exception' => class_basename($exception),
+                    'persistence' => 'live_rebuild_payload_only',
+                ],
+            ];
+        }
+    }
+
+    public function refreshPlayerBenchmarks(string $teamId, string $playerId, int $days = 365): array
+    {
+        $days = $this->days($days);
+        $warnings = [];
+
+        $this->clearRelevantCaches($teamId, $playerId, $days);
+
+        try {
+            $snapshot = $this->playerIntelligenceService->build($teamId, $playerId, $days);
+        } catch (Throwable $exception) {
+            return [
+                'team_id' => $teamId,
+                'player_id' => $playerId,
+                'refreshed_at' => now()->toIso8601String(),
+                'refresh_status' => 'failed',
+                'player_benchmark_profile' => [],
+                'warnings' => [$exception->getMessage()],
+                'evidence' => [
+                    'days' => $days,
+                    'exception' => class_basename($exception),
+                ],
+            ];
+        }
+
+        return [
+            'team_id' => $teamId,
+            'player_id' => $playerId,
+            'refreshed_at' => now()->toIso8601String(),
+            'refresh_status' => 'completed',
+            'player_benchmark_profile' => $snapshot['benchmark_profile'] ?? [],
+            'player_snapshot' => $snapshot,
+            'warnings' => $warnings,
+            'evidence' => [
+                'days' => $days,
+                'metric_count' => count($snapshot['benchmark_profile']['metrics'] ?? []),
+                'benchmark_confidence' => $snapshot['benchmark_profile']['benchmark_confidence'] ?? null,
+                'persistence' => 'live_rebuild_payload_only',
+            ],
+        ];
+    }
+
+    public function refreshTeamBenchmarks(string $teamId, int $days = 365): array
+    {
+        $days = $this->days($days);
+        $warnings = [];
+
+        $this->clearRelevantCaches($teamId, null, $days);
+
+        try {
+            $teamSnapshot = $this->teamIntelligenceService->build($teamId, $days);
+            $teamProfile = is_array($teamSnapshot['benchmark_profile'] ?? null) ? $teamSnapshot['benchmark_profile'] : [];
+        } catch (Throwable $exception) {
+            $teamSnapshot = [];
+            $teamProfile = [];
+            $warnings[] = 'Team intelligence unavailable: '.$exception->getMessage();
+        }
+
+        try {
+            $decisionBrief = ! empty($teamSnapshot)
+                ? $this->decisionEngine->buildTeamDecisionBriefFromSnapshot($teamId, $teamSnapshot, $days)
+                : $this->decisionEngine->buildTeamDecisionBrief($teamId, $days);
+        } catch (Throwable $exception) {
+            $decisionBrief = [];
+            $warnings[] = 'Decision brief unavailable: '.$exception->getMessage();
+        }
+
+        try {
+            $collectionPlan = ! empty($teamProfile)
+                ? $this->benchmarkCollectionPlanner->buildTeamCollectionPlanFromData($teamId, $days, $teamProfile, $decisionBrief)
+                : $this->benchmarkCollectionPlanner->buildTeamCollectionPlan($teamId, $days);
+        } catch (Throwable $exception) {
+            $collectionPlan = [];
+            $warnings[] = 'Benchmark collection plan unavailable: '.$exception->getMessage();
+        }
+
+        return [
+            'team_id' => $teamId,
+            'refreshed_at' => now()->toIso8601String(),
+            'refresh_status' => empty($warnings) ? 'completed' : 'partial',
+            'team_benchmark_profile' => $teamProfile,
+            'data_quality_report' => $this->dataQualityReport($teamProfile),
+            'decision_brief' => $decisionBrief,
+            'collection_plan' => $collectionPlan,
+            'changed_signals' => $this->teamChangedSignals($teamProfile, $collectionPlan),
+            'warnings' => $warnings,
+            'evidence' => [
+                'days' => $days,
+                'metric_count' => $teamProfile['metric_count'] ?? null,
+                'benchmark_confidence' => $teamProfile['benchmark_confidence'] ?? null,
+                'collection_plan_priority' => $collectionPlan['priority_level'] ?? null,
+                'cache_cleared' => true,
+                'persistence' => 'live_rebuild_payload_only',
+            ],
+        ];
+    }
+
+    public function buildRefreshStatus(string $teamId, ?string $playerId = null, int $days = 365): array
+    {
+        return [
+            'team_id' => $teamId,
+            'player_id' => $playerId,
+            'last_refreshed_at' => null,
+            'status' => 'unknown',
+            'reason' => 'Benchmark intelligence is calculated live from current data.',
+            'evidence' => [
+                'days' => $this->days($days),
+                'persistence' => 'live_rebuild_payload_only',
+                'snapshot_persistence' => false,
+            ],
+        ];
+    }
+
+    private function clearRelevantCaches(string $teamId, ?string $playerId = null, int $days = 365): void
+    {
+        foreach ([
+            "player_cards_v3_{$teamId}",
+            "player_dev_board_{$teamId}",
+            "player_dev_board_v2_{$teamId}",
+            "performance_overview_{$teamId}",
+            "dashboard_graphics_{$teamId}",
+            "roster_team_{$teamId}",
+        ] as $key) {
+            Cache::forget($key);
+        }
+
+        if (! $playerId) {
+            return;
+        }
+
+        foreach (array_unique([7, 30, 60, 90, 180, 365, $this->days($days)]) as $window) {
+            Cache::forget("dev_dashboard_{$teamId}_{$playerId}_{$window}");
+            Cache::forget("dev_dashboard_v2_{$teamId}_{$playerId}_{$window}");
+        }
+    }
+
+    private function dataQualityReport(array $teamProfile): array
+    {
+        $evidence = is_array($teamProfile['evidence'] ?? null) ? $teamProfile['evidence'] : [];
+
+        return [
+            'benchmark_confidence' => $teamProfile['benchmark_confidence'] ?? 'low',
+            'player_count' => $teamProfile['player_count'] ?? 0,
+            'metric_count' => $teamProfile['metric_count'] ?? 0,
+            'players_with_benchmark_metrics' => $evidence['players_with_benchmark_metrics'] ?? null,
+            'players_without_benchmark_metrics' => $evidence['players_without_benchmark_metrics'] ?? null,
+            'missing_metric_count' => count($teamProfile['missing_metrics'] ?? []),
+            'team_gap_count' => count($teamProfile['team_gaps'] ?? []),
+        ];
+    }
+
+    private function changedSignals(BenchmarkCollectionTask $task, array $playerProfile, array $teamProfile, array $collectionPlan): array
+    {
+        $signals = [];
+        $baseline = $this->baselineLabel((string) $task->task_type);
+
+        if ($baseline) {
+            $signals[] = [
+                'type' => 'data_quality',
+                'message' => $baseline.' was marked collected for this player.',
+                'before' => null,
+                'after' => 'available',
+            ];
+        }
+
+        if (count($playerProfile['metrics'] ?? []) > 0) {
+            $signals[] = [
+                'type' => 'player_benchmark_profile',
+                'message' => 'Player benchmark profile was rebuilt from current data.',
+                'before' => null,
+                'after' => count($playerProfile['metrics'] ?? []).' metric(s)',
+            ];
+        }
+
+        return [
+            ...$signals,
+            ...$this->teamChangedSignals($teamProfile, $collectionPlan),
+        ];
+    }
+
+    private function teamChangedSignals(array $teamProfile, array $collectionPlan): array
+    {
+        $signals = [];
+
+        if (($teamProfile['metric_count'] ?? 0) > 0) {
+            $signals[] = [
+                'type' => 'team_benchmark_profile',
+                'message' => 'Team benchmark profile was rebuilt from current data.',
+                'before' => null,
+                'after' => ($teamProfile['metric_count'] ?? 0).' metric(s)',
+            ];
+        }
+
+        if (($teamProfile['benchmark_confidence'] ?? null) !== null) {
+            $signals[] = [
+                'type' => 'benchmark_confidence',
+                'message' => 'Team benchmark confidence is now '.($teamProfile['benchmark_confidence'] ?? 'unknown').'.',
+                'before' => null,
+                'after' => $teamProfile['benchmark_confidence'] ?? null,
+            ];
+        }
+
+        if (($collectionPlan['priority_level'] ?? null) !== null) {
+            $signals[] = [
+                'type' => 'collection_plan',
+                'message' => 'Benchmark collection plan was refreshed.',
+                'before' => null,
+                'after' => $collectionPlan['priority_level'] ?? null,
+            ];
+        }
+
+        return $signals;
+    }
+
+    private function baselineLabel(string $taskType): ?string
+    {
+        return [
+            'roster_cleanup' => 'Roster cleanup',
+            'exit_velocity_baseline' => 'Exit velocity baseline',
+            'bullpen_baseline' => 'Bullpen baseline',
+            'long_toss_weighted_ball' => 'Long toss / weighted ball baseline',
+            'strength_baseline' => 'Strength baseline',
+            'athletic_testing' => 'Athletic testing baseline',
+            'mobility_screen' => 'Mobility screen',
+        ][$taskType] ?? null;
+    }
+
+    private function skipped(string $taskId, ?string $teamId, ?string $playerId, array $warnings): array
+    {
+        return [
+            'task_id' => $taskId,
+            'team_id' => $teamId,
+            'player_id' => $playerId,
+            'refreshed_at' => now()->toIso8601String(),
+            'refresh_status' => 'skipped',
+            'player_benchmark_profile' => [],
+            'team_benchmark_profile' => [],
+            'data_quality_report' => [],
+            'decision_brief' => [],
+            'collection_plan' => [],
+            'changed_signals' => [],
+            'warnings' => $warnings,
+            'evidence' => [
+                'persistence' => 'live_rebuild_payload_only',
+            ],
+        ];
+    }
+
+    private function days(mixed $days): int
+    {
+        return max(7, min(365, (int) $days));
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        $text = trim((string) ($value ?? ''));
+
+        return $text === '' ? null : $text;
+    }
+}

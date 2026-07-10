@@ -114,6 +114,13 @@ class BenchmarkCollectionPlanner
         $days = max(7, min(365, $days));
         $benchmarkProfile = $this->teamBenchmarkProfileService->build($teamId, $days);
         $decisionBrief = $this->decisionBrief($teamId, $days);
+
+        return $this->buildTeamCollectionPlanFromData($teamId, $days, $benchmarkProfile, $decisionBrief);
+    }
+
+    public function buildTeamCollectionPlanFromData(string $teamId, int $days, array $benchmarkProfile, ?array $decisionBrief = null): array
+    {
+        $days = max(7, min(365, $days));
         $missingRows = $this->missingRows($benchmarkProfile, $decisionBrief);
         $collectionSessions = $this->collectionSessions($missingRows, $benchmarkProfile, $decisionBrief);
         $nextBestAction = $this->nextBestAction($collectionSessions, $decisionBrief);

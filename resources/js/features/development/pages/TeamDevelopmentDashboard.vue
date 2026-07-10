@@ -31,6 +31,9 @@ const savedBenchmarkTasks = ref([])
 const benchmarkTaskActionLoading = ref('')
 const benchmarkTaskActionError = ref('')
 const benchmarkTaskActionMessage = ref('')
+const benchmarkRefreshLoading = ref(false)
+const benchmarkRefreshError = ref('')
+const benchmarkRefreshMessage = ref('')
 
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
@@ -274,6 +277,22 @@ const decisionBrief = computed(() => {
   const brief = teamIntelligence.value?.decision_brief
   return brief && typeof brief === 'object' ? brief : {}
 })
+
+const benchmarkRefreshStatus = computed(() => {
+  const status = teamIntelligence.value?.benchmark_refresh_status
+  return status && typeof status === 'object'
+    ? status
+    : {
+        status: 'unknown',
+        last_refreshed_at: null,
+        reason: 'Benchmark intelligence is calculated live from current data.',
+        changed_signals: [],
+        warnings: [],
+      }
+})
+
+const benchmarkRefreshSignals = computed(() => asArray(benchmarkRefreshStatus.value?.changed_signals).slice(0, 3))
+const benchmarkRefreshWarnings = computed(() => asArray(benchmarkRefreshStatus.value?.warnings).slice(0, 3))
 
 const sourceShare = (value) => {
   const parsed = n(value)
@@ -1097,6 +1116,42 @@ const savedBenchmarkTaskTypeSummaryRows = computed(() => {
 
 const responsePayload = (response) => response?.data?.data || response?.data || {}
 
+const refreshBenchmarkIntelligence = async () => {
+  const teamId = resolveTeamId.value
+  if (!teamId || benchmarkRefreshLoading.value) return
+
+  benchmarkRefreshLoading.value = true
+  benchmarkRefreshError.value = ''
+  benchmarkRefreshMessage.value = ''
+  try {
+    const response = await axiosPost(`intelligence/teams/${teamId}/refresh-benchmarks`, { days: 365 })
+    const payload = responsePayload(response)
+    teamIntelligence.value = {
+      ...(teamIntelligence.value || {}),
+      benchmark_profile: payload.team_benchmark_profile || teamIntelligence.value?.benchmark_profile || null,
+      decision_brief: payload.decision_brief || teamIntelligence.value?.decision_brief || null,
+      benchmark_collection_plan: payload.collection_plan || teamIntelligence.value?.benchmark_collection_plan || null,
+      benchmark_refresh_status: {
+        status: payload.refresh_status || 'unknown',
+        last_refreshed_at: payload.refreshed_at || null,
+        reason: payload.refresh_status === 'completed'
+          ? 'Benchmark intelligence was refreshed from current data.'
+          : 'Benchmark intelligence is calculated live from current data.',
+        changed_signals: asArray(payload.changed_signals),
+        warnings: asArray(payload.warnings),
+        evidence: payload.evidence || {},
+      },
+    }
+    benchmarkRefreshMessage.value = payload.refresh_status === 'completed'
+      ? 'Benchmark intelligence refreshed.'
+      : 'Benchmark intelligence refreshed with warnings.'
+  } catch (error) {
+    benchmarkRefreshError.value = error?.response?.data?.message || 'Could not refresh benchmark intelligence.'
+  } finally {
+    benchmarkRefreshLoading.value = false
+  }
+}
+
 const refreshSavedBenchmarkTasks = async () => {
   const teamId = resolveTeamId.value
   if (!teamId) return
@@ -1846,6 +1901,47 @@ const priorityTop10Rows = computed(() => {
             <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-wider text-slate-300">
               Confidence {{ humanizeKey(benchmarkSnapshot.confidence) }}
             </span>
+          </div>
+
+          <div class="mt-3 rounded-lg border border-cyan-300/20 bg-cyan-500/10 p-3">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="text-[10px] uppercase tracking-widest text-cyan-200/75">Benchmark Refresh Status</p>
+                <p class="mt-1 text-sm text-slate-200">
+                  {{ benchmarkRefreshStatus.reason || 'Benchmark intelligence is calculated live from current data.' }}
+                </p>
+                <p v-if="benchmarkRefreshStatus.last_refreshed_at" class="mt-1 text-[10px] uppercase tracking-wider text-white/40">
+                  Last refreshed {{ benchmarkRefreshStatus.last_refreshed_at }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="rounded-lg border border-cyan-300/30 bg-cyan-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-cyan-100 disabled:opacity-50"
+                :disabled="benchmarkRefreshLoading"
+                @click="refreshBenchmarkIntelligence"
+              >
+                {{ benchmarkRefreshLoading ? 'Refreshing...' : 'Refresh Benchmark Intelligence' }}
+              </button>
+            </div>
+            <p v-if="benchmarkRefreshMessage" class="mt-2 rounded-md border border-emerald-300/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+              {{ benchmarkRefreshMessage }}
+            </p>
+            <p v-if="benchmarkRefreshError" class="mt-2 rounded-md border border-red-300/20 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+              {{ benchmarkRefreshError }}
+            </p>
+            <div v-if="benchmarkRefreshSignals.length" class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+              <div
+                v-for="signal in benchmarkRefreshSignals"
+                :key="`${signal.type}-${signal.message}`"
+                class="rounded-md border border-white/10 bg-slate-950/35 p-2"
+              >
+                <p class="text-[10px] uppercase tracking-wider text-white/35">{{ humanizeKey(signal.type, 'Signal') }}</p>
+                <p class="mt-1 text-xs text-slate-200">{{ signal.message }}</p>
+              </div>
+            </div>
+            <div v-if="benchmarkRefreshWarnings.length" class="mt-2 rounded-md border border-amber-300/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              <p v-for="warning in benchmarkRefreshWarnings" :key="warning">Warning: {{ warning }}</p>
+            </div>
           </div>
 
           <div v-if="!hasBenchmarkProfile" class="mt-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-300">

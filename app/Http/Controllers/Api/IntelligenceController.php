@@ -11,6 +11,7 @@ use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Intelligence\BenchmarkCollectionPlanner;
+use App\Services\Intelligence\BenchmarkRefreshService;
 use App\Services\Intelligence\BenchmarkTaskAssignmentService;
 use App\Services\Intelligence\BenchmarkTaskCompletionService;
 use App\Services\Intelligence\BenchmarkTaskPersistenceService;
@@ -32,6 +33,7 @@ class IntelligenceController extends Controller
         private readonly BenchmarkTaskAssignmentService $benchmarkTaskAssignmentService,
         private readonly BenchmarkTaskPersistenceService $benchmarkTaskPersistenceService,
         private readonly BenchmarkTaskCompletionService $benchmarkTaskCompletionService,
+        private readonly BenchmarkRefreshService $benchmarkRefreshService,
     ) {
     }
 
@@ -79,6 +81,8 @@ class IntelligenceController extends Controller
 
             $snapshot['benchmark_task_assignments'] = null;
         }
+
+        $snapshot['benchmark_refresh_status'] = $this->benchmarkRefreshService->buildRefreshStatus($teamId, null, $days);
 
         return response()->json($snapshot);
     }
@@ -186,7 +190,9 @@ class IntelligenceController extends Controller
             return $this->forbidden('You do not have access to this task');
         }
 
-        return response()->json($this->benchmarkTaskPersistenceService->markTaskComplete($taskId, $request->all()));
+        $result = $this->benchmarkTaskPersistenceService->markTaskComplete($taskId, $request->all());
+
+        return response()->json($this->withCompletionRefresh($result, $taskId, $this->days($request)));
     }
 
     public function dismissBenchmarkTask(Request $request, string $taskId): JsonResponse
@@ -291,11 +297,13 @@ class IntelligenceController extends Controller
             return $this->notFound('Benchmark task not found');
         }
 
-        return response()->json($this->benchmarkTaskPersistenceService->markTaskComplete($taskId, [
+        $result = $this->benchmarkTaskPersistenceService->markTaskComplete($taskId, [
             'completed_by_user_id' => (string) $request->user()?->id,
             'source' => 'player_dashboard',
             'payload' => $request->all(),
-        ]));
+        ]);
+
+        return response()->json($this->withCompletionRefresh($result, $taskId, $this->days($request)));
     }
 
     public function dismissPlayerBenchmarkTask(Request $request, string $taskId): JsonResponse
@@ -340,6 +348,15 @@ class IntelligenceController extends Controller
         return response()->json($result, ($result['ok'] ?? false) ? HttpCodes::HTTP_OK : HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
     }
 
+    public function refreshTeamBenchmarks(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        return response()->json($this->benchmarkRefreshService->refreshTeamBenchmarks($teamId, $this->days($request)));
+    }
+
     private function days(Request $request): int
     {
         $days = (int) ($request->query('days', $request->input('days', 365)));
@@ -375,6 +392,29 @@ class IntelligenceController extends Controller
             ->where('assigned_to_player_id', $playerId)
             ->where('status', '!=', BenchmarkCollectionTask::STATUS_DRAFT)
             ->first();
+    }
+
+    private function withCompletionRefresh(array $result, string $taskId, int $days): array
+    {
+        if (! ($result['ok'] ?? false)) {
+            return $result;
+        }
+
+        try {
+            $result['refresh'] = $this->benchmarkRefreshService->refreshAfterTaskCompletion($taskId, [
+                'days' => $days,
+            ]);
+        } catch (\Throwable $exception) {
+            $result['refresh'] = [
+                'task_id' => $taskId,
+                'refreshed_at' => now()->toIso8601String(),
+                'refresh_status' => 'failed',
+                'changed_signals' => [],
+                'warnings' => [$exception->getMessage()],
+            ];
+        }
+
+        return $result;
     }
 
     private function coachCanAccessTeam(Request $request, string $teamId): bool

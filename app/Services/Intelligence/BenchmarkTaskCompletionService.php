@@ -21,6 +21,7 @@ class BenchmarkTaskCompletionService
 {
     public function __construct(
         private readonly BenchmarkTaskPersistenceService $taskPersistence,
+        private readonly BenchmarkRefreshService $benchmarkRefreshService,
     ) {
     }
 
@@ -134,10 +135,17 @@ class BenchmarkTaskCompletionService
                 'saved_data' => $savedData,
             ]);
 
+            $refresh = null;
+            if ($completion['ok'] ?? false) {
+                $refresh = $this->refreshAfterCompletion($taskId);
+            }
+
             return $this->result((bool) ($completion['ok'] ?? false), [
                 'task_id' => $taskId,
                 'workflow' => $this->workflowForTask($task?->fresh(['assignedPlayer.profile', 'assignedPlayer.player', 'assignedPlayer.positions']) ?? $task),
                 'completion' => $completion,
+                'task' => $completion['task'] ?? null,
+                'refresh' => $refresh,
             ]);
         } catch (Throwable $exception) {
             return $this->result(false, [
@@ -146,6 +154,21 @@ class BenchmarkTaskCompletionService
                 'message' => $exception->getMessage(),
                 'workflow' => null,
             ]);
+        }
+    }
+
+    private function refreshAfterCompletion(string $taskId): array
+    {
+        try {
+            return $this->benchmarkRefreshService->refreshAfterTaskCompletion($taskId);
+        } catch (Throwable $exception) {
+            return [
+                'task_id' => $taskId,
+                'refreshed_at' => now()->toIso8601String(),
+                'refresh_status' => 'failed',
+                'changed_signals' => [],
+                'warnings' => [$exception->getMessage()],
+            ];
         }
     }
 

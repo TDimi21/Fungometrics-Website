@@ -1690,6 +1690,22 @@ const humanizeTaskValue = (value, fallback = '—') => {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+const benchmarkRefreshCompletionMessage = (refresh) => {
+  const status = refresh?.refresh_status
+  if (status === 'completed' || status === 'partial') {
+    const signal = asArray(refresh?.changed_signals)[0]?.message
+    return signal
+      ? `Benchmark intelligence refreshed. ${signal}`
+      : 'Benchmark intelligence refreshed.'
+  }
+
+  if (status === 'failed') {
+    return 'Task completed. Benchmark refresh will update next time the dashboard loads.'
+  }
+
+  return ''
+}
+
 const taskStatusClass = (status) => ({
   assigned: 'border-sky-300/30 bg-sky-500/15 text-sky-100',
   in_progress: 'border-amber-300/30 bg-amber-500/15 text-amber-100',
@@ -1832,12 +1848,15 @@ const completeBenchmarkTaskWorkflow = async (task) => {
       manual_confirm: workflow.completion_mode !== 'inline_form',
       note: benchmarkTaskCompletionNote.value || undefined,
     }
-    await axiosPost(`player/benchmark-tasks/${taskId}/complete-with-payload`, payload)
+    const response = await axiosPost(`player/benchmark-tasks/${taskId}/complete-with-payload`, payload)
+    const completionPayload = apiPayload(response)
+    const refreshMessage = benchmarkRefreshCompletionMessage(completionPayload.refresh)
     await loadBenchmarkTasks()
     closeBenchmarkTaskWorkflow()
-    benchmarkTaskMessage.value = workflow.completion_mode === 'inline_form'
+    const baseMessage = workflow.completion_mode === 'inline_form'
       ? 'Task data saved and marked complete.'
       : 'Task marked collected.'
+    benchmarkTaskMessage.value = refreshMessage ? `${baseMessage} ${refreshMessage}` : baseMessage
   } catch (error) {
     const missing = error?.response?.data?.missing_fields
     benchmarkTaskError.value = Array.isArray(missing) && missing.length
@@ -1856,13 +1875,17 @@ const updateBenchmarkTaskStatus = async (task, action) => {
   benchmarkTaskError.value = ''
   benchmarkTaskMessage.value = ''
   try {
-    await axiosPost(`player/benchmark-tasks/${taskId}/${action}`, {})
+    const response = await axiosPost(`player/benchmark-tasks/${taskId}/${action}`, {})
+    const refreshMessage = action === 'complete'
+      ? benchmarkRefreshCompletionMessage(apiPayload(response).refresh)
+      : ''
     await loadBenchmarkTasks()
-    benchmarkTaskMessage.value = action === 'start'
+    const baseMessage = action === 'start'
       ? 'Task started.'
       : action === 'complete'
         ? 'Task marked complete.'
         : 'Task dismissed.'
+    benchmarkTaskMessage.value = refreshMessage ? `${baseMessage} ${refreshMessage}` : baseMessage
   } catch (error) {
     benchmarkTaskError.value = error?.response?.data?.message || `Could not ${action} task.`
   } finally {

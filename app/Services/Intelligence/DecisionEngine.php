@@ -73,6 +73,13 @@ class DecisionEngine
     {
         $days = max(7, min(365, $days));
         $teamSnapshot = $this->teamIntelligence->build($teamId, $days);
+
+        return $this->buildTeamDecisionBriefFromSnapshot($teamId, $teamSnapshot, $days);
+    }
+
+    public function buildTeamDecisionBriefFromSnapshot(string $teamId, array $teamSnapshot, int $days = 365): array
+    {
+        $days = max(7, min(365, $days));
         $players = is_array($teamSnapshot['players'] ?? null) ? $teamSnapshot['players'] : [];
 
         $dataCollectionPriority = $this->dataCollectionPriority($teamSnapshot, $players);
