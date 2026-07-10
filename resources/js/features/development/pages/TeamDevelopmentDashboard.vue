@@ -227,6 +227,11 @@ const readableLabelOverrides = {
   below_average: 'Below Average',
   score_0_100: 'Score',
   data_collection_priority: 'Data Collection Priority',
+  research_benchmark: 'Research Benchmark',
+  fmtrx_population: 'FMTRX Population',
+  composite: 'Research + FMTRX Blend',
+  composite_benchmark: 'Research + FMTRX Blend',
+  insufficient: 'Not Enough Data',
 }
 
 const humanizeKey = (value, fallback = 'Needs Data') => {
@@ -277,6 +282,150 @@ const benchmarkSnapshot = computed(() => {
     playerCount: n(profile.player_count),
   }
 })
+
+const sourceLabelOverrides = {
+  research_benchmark: 'Research Benchmark',
+  fmtrx_population: 'FMTRX Population',
+  composite: 'Research + FMTRX Blend',
+  composite_benchmark: 'Research + FMTRX Blend',
+}
+
+const confidenceLabelOverrides = {
+  insufficient: 'Not Enough Data',
+  low: 'Low Confidence',
+  medium: 'Medium Confidence',
+  high: 'High Confidence',
+}
+
+const sourceLabel = (source) => sourceLabelOverrides[String(source ?? '').trim()] || humanizeKey(source, 'Research Benchmark')
+const confidenceLabel = (confidence) => confidenceLabelOverrides[String(confidence ?? '').trim()] || humanizeKey(confidence, 'Not Enough Data')
+
+const sourceMixPercent = (sourceMix, percentKey, shareKey) => {
+  const percent = n(sourceMix?.[percentKey])
+  if (percent !== null) return percent
+
+  return sourceShare(sourceMix?.[shareKey])
+}
+
+const sourceMixCount = (sourceMix, key, legacyKey) => {
+  const direct = n(sourceMix?.[key])
+  if (direct !== null) return direct
+
+  return n(sourceMix?.counts?.[legacyKey])
+}
+
+const sourceMixBucketCount = (sourceMix) =>
+  n(sourceMix?.average_population_bucket_count)
+  ?? n(sourceMix?.population_bucket_count)
+  ?? 0
+
+const benchmarkSourceMix = computed(() => {
+  const sourceMix = benchmarkProfile.value?.source_mix
+
+  if (!sourceMix || typeof sourceMix !== 'object') {
+    return {
+      available: false,
+      researchPercent: null,
+      populationPercent: null,
+      compositePercent: null,
+      averageBucketCount: 0,
+      researchCount: null,
+      populationCount: null,
+      compositeCount: null,
+      populationCompositeCount: null,
+      activeSourceText: 'Benchmark source mix is not available yet.',
+      guidance: 'Benchmark source mix is not available yet.',
+    }
+  }
+
+  const researchPercent = sourceMixPercent(sourceMix, 'percent_research', 'research_share')
+  const populationPercent = sourceMixPercent(sourceMix, 'percent_population', 'population_share')
+  const compositePercent = sourceMixPercent(sourceMix, 'percent_composite', 'composite_share')
+  const researchCount = sourceMixCount(sourceMix, 'research_count', 'research')
+  const populationCount = sourceMixCount(sourceMix, 'population_count', 'population')
+  const compositeCount = sourceMixCount(sourceMix, 'composite_count', 'composite')
+  const populationCompositeCount = (populationCount ?? 0) + (compositeCount ?? 0)
+  const averageBucketCount = sourceMixBucketCount(sourceMix)
+  const populationActive = populationCompositeCount > 0 || (populationPercent ?? 0) > 0 || (compositePercent ?? 0) > 0
+
+  return {
+    available: true,
+    researchPercent,
+    populationPercent,
+    compositePercent,
+    averageBucketCount,
+    researchCount,
+    populationCount,
+    compositeCount,
+    populationCompositeCount,
+    populationActive,
+    activeSourceText: populationActive
+      ? 'FMTRX population learning is active for some metrics.'
+      : 'Research benchmarks are still the primary source.',
+    guidance: averageBucketCount < 30
+      ? 'Population samples under 30 remain research-only.'
+      : 'Population benchmark confidence improves as more players are added.',
+  }
+})
+
+const sourceMixStatusText = (sourceMix = {}) => {
+  const populationWeight = n(sourceMix.population_weight) ?? 0
+  const bucketCount = n(sourceMix.population_bucket_count) ?? 0
+
+  if (populationWeight <= 0) {
+    return bucketCount < 30
+      ? 'Population sample below 30. Research benchmark remains active.'
+      : 'Research benchmark active. FMTRX sample is not included in this score.'
+  }
+
+  if (bucketCount >= 300) return 'High-confidence FMTRX population blend.'
+  if (bucketCount >= 100) return 'Medium-confidence FMTRX population blend.'
+  if (bucketCount >= 30) return 'Low-confidence FMTRX population blend.'
+
+  return 'FMTRX population learning is included in this score.'
+}
+
+const sourceMetricRows = computed(() => {
+  const metricMap = new Map()
+  const metricSources = [
+    ...asArray(benchmarkProfile.value?.metrics),
+    ...asArray(benchmarkProfile.value?.weakest_metrics),
+    ...asArray(benchmarkProfile.value?.strongest_metrics),
+  ]
+
+  for (const metric of metricSources) {
+    const key = metric?.metric_key || metric?.display_name
+    if (!key || metricMap.has(key)) continue
+    metricMap.set(key, metric)
+  }
+
+  return [...metricMap.values()].slice(0, 6)
+})
+
+const metricSourceMix = (metric) => metric?.source_mix && typeof metric.source_mix === 'object' ? metric.source_mix : {}
+const metricSource = (metric) => {
+  if (metric?.source) return sourceLabel(metric.source)
+
+  const sourceMix = metricSourceMix(metric)
+  const populationWeight = n(sourceMix.population_weight) ?? 0
+  const researchWeight = n(sourceMix.research_weight) ?? 0
+
+  if (populationWeight > 0 && researchWeight > 0) return sourceLabel('composite')
+  if (populationWeight > 0) return sourceLabel('fmtrx_population')
+
+  return sourceLabel('research_benchmark')
+}
+const metricResearchPercentile = (metric) => {
+  const value = n(metric?.research_percentile)
+  return value === null ? '—' : fmtRank(value)
+}
+const metricPopulationPercentile = (metric) => {
+  const value = n(metric?.population_percentile)
+  return value === null ? '—' : fmtRank(value)
+}
+const metricPopulationBucketCount = (metric) => fmtCount(metricSourceMix(metric).population_bucket_count ?? 0, '0')
+const metricPopulationConfidence = (metric) => confidenceLabel(metricSourceMix(metric).population_confidence || 'insufficient')
+const metricPopulationUsable = (metric) => metricSourceMix(metric).population_usable === true ? 'Yes' : 'No'
 
 const benchmarkCategoryKeys = ['pitching', 'hitting', 'strength', 'athletic', 'mobility']
 
@@ -1168,6 +1317,93 @@ const priorityTop10Rows = computed(() => {
               </div>
             </div>
 
+            <div class="mt-4 rounded-lg border border-cyan-300/20 bg-cyan-500/10 p-3">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Benchmark Source Mix</p>
+                  <h4 class="mt-1 text-lg font-semibold text-white">Research + FMTRX Population Learning</h4>
+                </div>
+                <span
+                  class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
+                  :class="benchmarkSourceMix.populationActive ? 'border-cyan-300/30 bg-cyan-500/15 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                >
+                  {{ benchmarkSourceMix.populationActive ? 'Composite Active' : 'Research Active' }}
+                </span>
+              </div>
+
+              <p v-if="!benchmarkSourceMix.available" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
+                Benchmark source mix is not available yet.
+              </p>
+
+              <template v-else>
+                <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Research</p>
+                    <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSourceMix.researchPercent, '%') }}</p>
+                    <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.researchCount, '0') }} research-only metrics</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">FMTRX Population</p>
+                    <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSourceMix.populationPercent, '%') }}</p>
+                    <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.populationCount, '0') }} population metrics</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Composite</p>
+                    <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSourceMix.compositePercent, '%') }}</p>
+                    <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.compositeCount, '0') }} blended metrics</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Bucket</p>
+                    <p class="text-xl font-black text-white">{{ fmtCount(benchmarkSourceMix.averageBucketCount, '0') }}</p>
+                    <p class="mt-1 text-[10px] text-slate-300">population sample size</p>
+                  </div>
+                </div>
+
+                <div class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-200">
+                  <p><span class="font-black text-white">What:</span> {{ benchmarkSourceMix.activeSourceText }}</p>
+                  <p class="mt-1"><span class="font-black text-white">Why:</span> Population benchmark confidence improves as more players are added.</p>
+                  <p class="mt-1 text-cyan-100"><span class="font-black text-white">Rule:</span> {{ benchmarkSourceMix.guidance }}</p>
+                </div>
+
+                <div class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Metric Source Status</p>
+                    <p class="text-[10px] uppercase tracking-widest text-white/35">Research percentile · Population percentile · Bucket</p>
+                  </div>
+                  <div class="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                    <div
+                      v-for="metric in sourceMetricRows"
+                      :key="`source-${metric.metric_key || metric.display_name}`"
+                      class="rounded-md border border-white/10 bg-white/5 p-2"
+                    >
+                      <div class="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p class="text-sm font-semibold text-white">{{ metric.display_name || humanizeKey(metric.metric_key) }}</p>
+                          <p class="mt-1 text-xs text-cyan-100">{{ metricSource(metric) }}</p>
+                        </div>
+                        <span
+                          class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider"
+                          :class="metricSourceMix(metric).population_usable ? 'border-cyan-300/30 bg-cyan-500/15 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                        >
+                          Usable {{ metricPopulationUsable(metric) }}
+                        </span>
+                      </div>
+                      <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300">
+                        <p>Research: <span class="font-semibold text-white">{{ metricResearchPercentile(metric) }}</span></p>
+                        <p>Population: <span class="font-semibold text-white">{{ metricPopulationPercentile(metric) }}</span></p>
+                        <p>Bucket: <span class="font-semibold text-white">{{ metricPopulationBucketCount(metric) }} players</span></p>
+                        <p>Confidence: <span class="font-semibold text-white">{{ metricPopulationConfidence(metric) }}</span></p>
+                      </div>
+                      <p class="mt-2 text-[10px] text-slate-400">{{ sourceMixStatusText(metricSourceMix(metric)) }}</p>
+                    </div>
+                  </div>
+                  <p v-if="!sourceMetricRows.length" class="mt-2 text-sm text-slate-300">
+                    No metric-level source mix is available yet.
+                  </p>
+                </div>
+              </template>
+            </div>
+
             <div class="mt-4 rounded-lg border border-red-300/20 bg-red-500/10 p-3">
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -1345,7 +1581,10 @@ const priorityTop10Rows = computed(() => {
                       <span class="text-sm font-black" :class="scoreTone(metric.score_0_100)">{{ fmtScore(metric.score_0_100) }}</span>
                     </div>
                     <p class="text-xs text-slate-300">{{ categoryLabel(metric.category) }} · {{ metricPercentile(metric) }} · {{ humanizeKey(metric.label) }}</p>
+                    <p class="mt-1 text-[10px] text-cyan-100">{{ metricSource(metric) }} · Bucket {{ metricPopulationBucketCount(metric) }} · {{ metricPopulationConfidence(metric) }}</p>
+                    <p class="mt-1 text-[10px] text-white/45">Research {{ metricResearchPercentile(metric) }} · Population {{ metricPopulationPercentile(metric) }} · Usable {{ metricPopulationUsable(metric) }}</p>
                     <p class="mt-1 text-[10px] text-white/45">Good gap {{ metricGap(metric, 'gap_to_good') }} · Elite gap {{ metricGap(metric, 'gap_to_elite') }}</p>
+                    <p class="mt-1 text-[10px] text-slate-400">{{ sourceMixStatusText(metricSourceMix(metric)) }}</p>
                   </div>
                   <p v-if="!weakestBenchmarkMetrics.length" class="text-sm text-slate-300">No weakest metrics available yet.</p>
                 </div>
