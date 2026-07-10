@@ -9,6 +9,7 @@ use App\Models\CoachTeam;
 use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Intelligence\BenchmarkCollectionPlanner;
 use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\TeamIntelligenceService;
@@ -23,6 +24,7 @@ class IntelligenceController extends Controller
         private readonly TeamIntelligenceService $teamIntelligence,
         private readonly PlayerIntelligenceService $playerIntelligence,
         private readonly DecisionEngine $decisionEngine,
+        private readonly BenchmarkCollectionPlanner $benchmarkCollectionPlanner,
     ) {
     }
 
@@ -47,6 +49,17 @@ class IntelligenceController extends Controller
             ]);
 
             $snapshot['decision_brief'] = null;
+        }
+
+        try {
+            $snapshot['benchmark_collection_plan'] = $this->benchmarkCollectionPlanner->buildTeamCollectionPlan($teamId, $days);
+        } catch (\Throwable $exception) {
+            Log::warning('IntelligenceController benchmark collection plan unavailable: '.$exception->getMessage(), [
+                'team_id' => $teamId,
+                'days' => $days,
+            ]);
+
+            $snapshot['benchmark_collection_plan'] = null;
         }
 
         return response()->json($snapshot);

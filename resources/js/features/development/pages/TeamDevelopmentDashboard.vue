@@ -916,6 +916,48 @@ const benchmarkDataQuality = computed(() => {
   }
 })
 
+const benchmarkCollectionPlan = computed(() => {
+  const plan = teamIntelligence.value?.benchmark_collection_plan
+  return plan && typeof plan === 'object' ? plan : null
+})
+
+const benchmarkCollectionNextAction = computed(() =>
+  benchmarkCollectionPlan.value?.next_best_action && typeof benchmarkCollectionPlan.value.next_best_action === 'object'
+    ? benchmarkCollectionPlan.value.next_best_action
+    : null
+)
+
+const benchmarkCollectionSessions = computed(() =>
+  asArray(benchmarkCollectionPlan.value?.collection_sessions)
+)
+
+const benchmarkCollectionPlayerTasks = computed(() =>
+  asArray(benchmarkCollectionPlan.value?.player_tasks).slice(0, 6)
+)
+
+const benchmarkCollectionMetricTasks = computed(() =>
+  asArray(benchmarkCollectionPlan.value?.metric_tasks).slice(0, 6)
+)
+
+const benchmarkCollectionTargets = computed(() => {
+  const targets = benchmarkCollectionPlan.value?.completion_targets
+  return targets && typeof targets === 'object' ? targets : {}
+})
+
+const collectionTaskMetricNames = (metrics) =>
+  asArray(metrics)
+    .map((metric) => typeof metric === 'string' ? coachFriendlyMetricLabel(metric) : coachFriendlyMetricLabel(metric))
+    .filter(Boolean)
+    .slice(0, 6)
+    .join(', ')
+
+const collectionPlayerNames = (players) =>
+  asArray(players)
+    .map((player) => player?.player_name || player?.name || player?.player_id)
+    .filter(Boolean)
+    .slice(0, 6)
+    .join(', ')
+
 const playerWeakCategory = (player) => {
   const category = player?.weakest_category
   if (typeof category === 'string') return categoryLabel(category)
@@ -1974,6 +2016,158 @@ const priorityTop10Rows = computed(() => {
                     <p v-else class="mt-2 text-xs text-slate-300">No collection plan is attached yet.</p>
                     <p v-if="benchmarkSnapshot.populationShare === 0" class="mt-3 text-xs text-slate-300">
                       Research benchmarks active. FMTRX population learning improves as more data is collected.
+                    </p>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-emerald-300/20 bg-emerald-500/10 p-3">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Benchmark Collection Plan</p>
+                  <h4 class="mt-1 text-lg font-semibold text-white">Coach Workflow</h4>
+                </div>
+                <span
+                  class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
+                  :class="benchmarkCollectionPlan ? 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                >
+                  Priority {{ humanizeKey(benchmarkCollectionPlan?.priority_level || 'not_available', 'Not Available') }}
+                </span>
+              </div>
+
+              <p v-if="!benchmarkCollectionPlan" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
+                Benchmark collection plan is not available yet.
+              </p>
+
+              <template v-else>
+                <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Priority</p>
+                    <p class="text-lg font-black text-white">{{ humanizeKey(benchmarkCollectionPlan.priority_level) }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Minutes</p>
+                    <p class="text-lg font-black text-white">{{ fmtCount(benchmarkCollectionPlan.estimated_total_minutes, '0') }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Sessions</p>
+                    <p class="text-lg font-black text-white">{{ fmtCount(benchmarkCollectionSessions.length, '0') }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Player Tasks</p>
+                    <p class="text-lg font-black text-white">{{ fmtCount(benchmarkCollectionPlan.player_tasks?.length, '0') }}</p>
+                  </div>
+                </div>
+
+                <div class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-200">
+                  <p>{{ benchmarkCollectionPlan.summary || 'FMTRX will turn missing benchmark data into collection tasks as data becomes available.' }}</p>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Next Best Action</p>
+                    <template v-if="benchmarkCollectionNextAction">
+                      <p class="mt-1 text-xl font-black text-white">{{ benchmarkCollectionNextAction.title }}</p>
+                      <p class="mt-1 text-xs text-slate-300">
+                        {{ humanizeKey(benchmarkCollectionNextAction.priority) }} · {{ fmtCount(benchmarkCollectionNextAction.duration_minutes, '0') }} min
+                      </p>
+                      <p class="mt-2 text-xs text-emerald-100"><span class="font-black text-white">Why:</span> {{ benchmarkCollectionNextAction.why }}</p>
+                      <p v-if="collectionPlayerNames(benchmarkCollectionNextAction.players)" class="mt-2 text-xs text-slate-300">
+                        <span class="font-black text-white">Players:</span> {{ collectionPlayerNames(benchmarkCollectionNextAction.players) }}
+                      </p>
+                      <p v-if="collectionTaskMetricNames(benchmarkCollectionNextAction.metrics)" class="mt-1 text-xs text-slate-300">
+                        <span class="font-black text-white">Metrics:</span> {{ collectionTaskMetricNames(benchmarkCollectionNextAction.metrics) }}
+                      </p>
+                    </template>
+                    <p v-else class="mt-2 text-xs text-slate-300">No next collection action is attached yet.</p>
+                  </div>
+
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Completion Targets</p>
+                    <div class="mt-2 space-y-2 text-xs text-slate-300">
+                      <p v-if="benchmarkCollectionTargets.next_session" class="rounded border border-emerald-300/15 bg-emerald-500/10 px-2 py-1">
+                        <span class="font-black text-white">Next session:</span> {{ benchmarkCollectionTargets.next_session.target }}
+                        <span class="text-emerald-100">({{ fmtCount(benchmarkCollectionTargets.next_session.minutes, '0') }} min)</span>
+                      </p>
+                      <p v-if="benchmarkCollectionTargets.this_week" class="rounded border border-emerald-300/15 bg-emerald-500/10 px-2 py-1">
+                        <span class="font-black text-white">This week:</span> {{ benchmarkCollectionTargets.this_week.target }}
+                        <span class="text-emerald-100">({{ fmtCount(benchmarkCollectionTargets.this_week.minutes, '0') }} min)</span>
+                      </p>
+                      <p v-if="benchmarkCollectionTargets.this_month" class="rounded border border-emerald-300/15 bg-emerald-500/10 px-2 py-1">
+                        <span class="font-black text-white">This month:</span> {{ benchmarkCollectionTargets.this_month.target }}
+                        <span class="text-emerald-100">({{ fmtCount(benchmarkCollectionTargets.this_month.minutes, '0') }} min)</span>
+                      </p>
+                      <p v-if="!Object.keys(benchmarkCollectionTargets).length" class="text-slate-300">No completion targets are attached yet.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Collection Sessions</p>
+                    <div class="mt-2 space-y-2">
+                      <div
+                        v-for="session in benchmarkCollectionSessions"
+                        :key="`${session.sequence || session.title}-${session.collection_type}`"
+                        class="rounded border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-300"
+                      >
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                          <p class="font-black text-white">{{ session.sequence }}. {{ session.title }}</p>
+                          <span class="rounded-full border border-emerald-300/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-emerald-100">
+                            {{ humanizeKey(session.schedule_window) }} · {{ fmtCount(session.duration_minutes, '0') }} min
+                          </span>
+                        </div>
+                        <p class="mt-1">{{ session.description }}</p>
+                        <p class="mt-1 text-emerald-100"><span class="font-black text-white">Why:</span> {{ session.why }}</p>
+                        <p v-if="collectionPlayerNames(session.players)" class="mt-1">
+                          <span class="font-black text-white">Players:</span> {{ collectionPlayerNames(session.players) }}
+                        </p>
+                        <p v-if="collectionTaskMetricNames(session.metric_keys || session.metrics)" class="mt-1">
+                          <span class="font-black text-white">Metrics:</span> {{ collectionTaskMetricNames(session.metric_keys || session.metrics) }}
+                        </p>
+                      </div>
+                      <p v-if="!benchmarkCollectionSessions.length" class="text-xs text-slate-300">No collection sessions are currently recommended.</p>
+                    </div>
+                  </div>
+
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Player Tasks</p>
+                    <div class="mt-2 space-y-2">
+                      <div
+                        v-for="task in benchmarkCollectionPlayerTasks"
+                        :key="task.player_id || task.player_name"
+                        class="rounded border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-300"
+                      >
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                          <p class="font-black text-white">{{ task.player_name || 'Player' }}</p>
+                          <span class="text-emerald-100">{{ humanizeKey(task.priority) }}</span>
+                        </div>
+                        <p v-if="asArray(task.missing_context).length" class="mt-1">
+                          <span class="font-black text-white">Roster:</span> {{ asArray(task.missing_context).join(', ') }}
+                        </p>
+                        <p v-if="collectionTaskMetricNames(task.missing_metrics)" class="mt-1">
+                          <span class="font-black text-white">Metrics:</span> {{ collectionTaskMetricNames(task.missing_metrics) }}
+                        </p>
+                        <p class="mt-1 text-emerald-100"><span class="font-black text-white">Next:</span> {{ task.next_action }}</p>
+                      </div>
+                      <p v-if="!benchmarkCollectionPlayerTasks.length" class="text-xs text-slate-300">No player collection tasks are currently attached.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="benchmarkCollectionMetricTasks.length" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3">
+                  <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Metric Tasks</p>
+                  <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <p
+                      v-for="task in benchmarkCollectionMetricTasks"
+                      :key="task.metric_key"
+                      class="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300"
+                    >
+                      <span class="font-black text-white">{{ coachFriendlyMetricLabel(task) }}</span>
+                      · {{ humanizeKey(task.priority) }}
+                      · missing {{ fmtCount(task.missing_count, '0') }} of {{ fmtCount(task.eligible_count, '0') }}
+                      · {{ task.recommended_session }}
                     </p>
                   </div>
                 </div>
