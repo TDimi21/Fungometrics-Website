@@ -29,6 +29,24 @@ class BenchmarkTaskAssignmentAudit extends Command
         $this->kv('Source', $result['source'] ?? '-');
         $this->kv('Persistence', $result['evidence']['persistence'] ?? 'dry_run_payload_only');
 
+        $this->section('UPSTREAM PLAN EVIDENCE');
+        $evidence = is_array($result['evidence'] ?? null) ? $result['evidence'] : [];
+        $planEvidence = is_array($evidence['collection_plan_evidence'] ?? null) ? $evidence['collection_plan_evidence'] : [];
+        $this->kv('Team found', ($evidence['team_found'] ?? false) ? 'YES' : 'NO');
+        $this->kv('Roster count', $evidence['roster_count'] ?? 0);
+        $this->kv('Collection plan priority', $evidence['collection_plan_priority'] ?? '-');
+        $this->kv('Collection plan summary', $evidence['collection_plan_summary'] ?? '-');
+        $this->kv('Collection plan next action', $evidence['collection_plan_next_action'] ?? '-');
+        $this->kv('Benchmark player count', $planEvidence['player_count'] ?? '-');
+        $this->kv('Benchmark metric count', $planEvidence['benchmark_metric_count'] ?? '-');
+        $this->kv('Players with benchmark metrics', $planEvidence['players_with_benchmark_metrics'] ?? '-');
+        $this->kv('Players without benchmark metrics', $planEvidence['players_without_benchmark_metrics'] ?? '-');
+        $this->kv('Missing metric count', $planEvidence['missing_metric_count'] ?? '-');
+
+        if (($result['task_count'] ?? 0) === 0) {
+            $this->warn('No draft tasks were created because the upstream benchmark collection plan returned no collection sessions or player tasks.');
+        }
+
         $this->section('TEAM TASKS');
         $this->printRows($result['team_tasks'] ?? [], fn (array $task): string => sprintf(
             '%s | %s | %s | %s min | %s | metrics: %s',

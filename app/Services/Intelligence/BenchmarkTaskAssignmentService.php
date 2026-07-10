@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
+use App\Models\PlayerTeam;
+use App\Models\Team;
+
 class BenchmarkTaskAssignmentService
 {
     private const TASK_DEFINITIONS = [
@@ -95,6 +98,12 @@ class BenchmarkTaskAssignmentService
     {
         $days = max(7, min(365, $days));
         $plan = $this->collectionPlanner->buildTeamCollectionPlan($teamId, $days);
+        $teamFound = Team::query()->whereKey($teamId)->exists();
+        $rosterCount = PlayerTeam::query()
+            ->where('team_id', $teamId)
+            ->whereNotNull('user_id')
+            ->distinct('user_id')
+            ->count('user_id');
         $teamTasks = $this->teamTasks($teamId, $plan);
         $playerTaskGroups = $this->playerTaskGroups($teamId, $plan);
         $assignableTasks = collect($playerTaskGroups)
@@ -119,7 +128,12 @@ class BenchmarkTaskAssignmentService
             'player_tasks' => $playerTaskGroups,
             'evidence' => [
                 'days' => $days,
+                'team_found' => $teamFound,
+                'roster_count' => $rosterCount,
+                'collection_plan_summary' => $plan['summary'] ?? null,
                 'collection_plan_priority' => $plan['priority_level'] ?? null,
+                'collection_plan_next_action' => $plan['next_best_action']['title'] ?? null,
+                'collection_plan_evidence' => $plan['evidence'] ?? [],
                 'collection_session_count' => count($plan['collection_sessions'] ?? []),
                 'collection_player_task_count' => count($plan['player_tasks'] ?? []),
                 'collection_metric_task_count' => count($plan['metric_tasks'] ?? []),
