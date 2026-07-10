@@ -24,11 +24,11 @@ return new class extends Migration
             $table->string('status')->default('draft')->index();
             $table->string('due_window')->nullable();
             $table->integer('estimated_minutes')->nullable();
-            $table->json('metrics')->nullable();
-            $table->json('missing_fields')->nullable();
-            $table->json('instructions')->nullable();
+            $table->longText('metrics')->nullable();
+            $table->longText('missing_fields')->nullable();
+            $table->longText('instructions')->nullable();
             $table->text('coach_notes')->nullable();
-            $table->json('payload')->nullable();
+            $table->longText('payload')->nullable();
             $table->timestamp('assigned_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamp('dismissed_at')->nullable();
