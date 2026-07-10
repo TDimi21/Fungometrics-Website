@@ -37,6 +37,7 @@ const priorityTop10Modal = ref({
   label: '',
   unit: '',
 })
+const selectedBenchmarkMetric = ref(null)
 
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : null)
 const clamp = (x, min = 0, max = 100) => Math.max(min, Math.min(max, x))
@@ -539,7 +540,45 @@ const metricAttemptedBuckets = (metric) => {
 
 const metricAttemptedBucketLabel = (attempt) => {
   const count = fmtCount(attempt?.count ?? 0, '0')
-  return `${bucketLabel(attempt?.level)}: ${count} players${attempt?.usable ? ', selected' : ''}`
+  const label = isUnknownExactBucketKey(attempt?.level, attempt?.bucket_key)
+    ? 'Broad FMTRX Population'
+    : bucketLabel(attempt?.level)
+  return `${label}: ${count} players${attempt?.usable ? ', selected' : ''}`
+}
+
+const isUnknownExactBucketKey = (level, key) => {
+  if (level !== 'exact_peer') return false
+  const text = String(key ?? '').toLowerCase()
+  return [
+    'age:unknown',
+    'level:unknown',
+    'position:unknown',
+    'body:unknown',
+    'height:unknown',
+    'throws:unknown',
+    'bats:unknown',
+  ].every((part) => text.includes(part))
+}
+
+const displayBucketLevel = (metric) => {
+  const level = bucketLevelValue(metric) || 'none'
+  const key = bucketKeyValue(metric)
+  if (isUnknownExactBucketKey(level, key)) return 'broad_unknown'
+  return level
+}
+
+const displayBucketLabel = (metric) => {
+  const level = displayBucketLevel(metric)
+  if (level === 'broad_unknown') return 'Broad FMTRX Population'
+  return bucketLabel(level)
+}
+
+const displayBucketExplanation = (metric) => {
+  const level = displayBucketLevel(metric)
+  if (level === 'broad_unknown') {
+    return 'Compared against guarded FMTRX values because player context is missing or incomplete.'
+  }
+  return bucketExplanation(level)
 }
 
 const metricBucketDetailScore = (metric) => {
@@ -557,12 +596,14 @@ const bucketQualityMetricRows = computed(() =>
     .filter((metric) => metric?.metric_key || metric?.display_name)
     .map((metric) => {
       const level = bucketLevelValue(metric) || 'none'
+      const displayLevel = displayBucketLevel(metric)
       const bucketCount = metricPopulationBucketCountValue(metric)
       return {
         ...metric,
         bucketLevel: level,
-        bucketLabel: bucketLabel(level),
-        bucketExplanation: bucketExplanation(level),
+        bucketDisplayLevel: displayLevel,
+        bucketLabel: displayBucketLabel(metric),
+        bucketExplanation: displayBucketExplanation(metric),
         bucketKey: bucketKeyValue(metric),
         bucketCount,
         bucketConfidence: metricPopulationConfidenceValue(metric),
@@ -582,7 +623,8 @@ const populationBucketQualitySummary = computed(() => {
   const bucketCounts = []
 
   for (const row of rows) {
-    const level = row.bucketUsable ? row.bucketLevel : 'none'
+    const displayLevel = row.bucketDisplayLevel === 'broad_unknown' ? 'global_clean' : row.bucketDisplayLevel
+    const level = row.bucketUsable ? displayLevel : 'none'
     counts[level] = (counts[level] || 0) + 1
     const confidence = String(row.bucketConfidence || 'insufficient')
     confidences[confidence] = (confidences[confidence] || 0) + 1
@@ -604,6 +646,113 @@ const populationBucketQualitySummary = computed(() => {
       .join(' · ') || 'Not Enough Data',
   }
 })
+
+const metricFinalPercentile = (metric) => {
+  const value = n(metric?.percentile_estimate ?? metric?.percentile ?? metric?.score_0_100)
+  return value === null ? '—' : fmtRank(value)
+}
+
+const metricSourceWeight = (metric, key) => {
+  const value = n(metricSourceMix(metric)?.[key])
+  if (value === null) return '—'
+  return value <= 1 ? `${(value * 100).toFixed(1)}%` : `${value.toFixed(1)}%`
+}
+
+const metricGapSentence = (metric, key, label) => {
+  const gap = n(metric?.[key])
+  if (gap === null) return `Gap target is not available for ${label.toLowerCase()} yet.`
+  if (gap <= 0) return `Already meets the ${label} benchmark.`
+  return `Needs +${fmtValue(gap, metric?.unit || '')} to reach ${label}.`
+}
+
+const readableEvidenceLines = (value, prefix = '') => {
+  if (value === null || value === undefined || value === '') return []
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return [`${prefix}${String(value)}`]
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => readableEvidenceLines(item, prefix))
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value).flatMap(([key, item]) => {
+      if (item === null || item === undefined || item === '') return []
+      const label = humanizeKey(key, key)
+      if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+        return [`${prefix}${label}: ${String(item)}`]
+      }
+      if (Array.isArray(item) && item.every((entry) => typeof entry !== 'object')) {
+        return [`${prefix}${label}: ${item.join(', ')}`]
+      }
+      return readableEvidenceLines(item, `${prefix}${label} - `)
+    })
+  }
+  return []
+}
+
+const selectedMetricDetail = computed(() => {
+  const metric = selectedBenchmarkMetric.value
+  if (!metric) return null
+
+  const sourceMix = metricSourceMix(metric)
+  const population = metricPopulationDetail(metric)
+  const level = displayBucketLevel(metric)
+  const source = metric?.source || (metricPopulationUsableValue(metric) ? 'fmtrx_population' : 'research_benchmark')
+  const evidence = readableEvidenceLines(metric?.evidence || population?.evidence || []).slice(0, 12)
+
+  return {
+    metric,
+    displayName: metric.display_name || humanizeKey(metric.metric_key, 'Benchmark Metric'),
+    category: categoryLabel(metric.category),
+    rawValue: fmtValue(metric.raw_value, metric.unit || ''),
+    label: humanizeKey(metric.label || metric.benchmark_label || 'unknown'),
+    score: fmtScore(metric.score_0_100 ?? metric.percentile_estimate ?? metric.percentile),
+    finalPercentile: metricFinalPercentile(metric),
+    confidence: confidenceLabel(metric.confidence || metricPopulationConfidenceValue(metric)),
+    source: sourceLabel(source),
+    sourceKey: source,
+    researchWeight: metricSourceWeight(metric, 'research_weight'),
+    populationWeight: metricSourceWeight(metric, 'population_weight'),
+    researchPercentile: metricResearchPercentile(metric),
+    populationPercentile: metricPopulationPercentile(metric),
+    populationBucketCount: metricPopulationBucketCount(metric),
+    populationConfidence: metricPopulationConfidence(metric),
+    populationUsable: metricPopulationUsable(metric),
+    bucketLevel: level,
+    bucketLabel: level === 'broad_unknown' ? 'Broad FMTRX Population' : bucketLabel(level),
+    bucketKey: bucketKeyValue(metric),
+    bucketCount: fmtCount(metricPopulationBucketCountValue(metric), '0'),
+    bucketExplanation: displayBucketExplanation(metric),
+    attemptedBuckets: metricAttemptedBuckets(metric),
+    goodGap: metricGapSentence(metric, 'gap_to_good', 'Good'),
+    eliteGap: metricGapSentence(metric, 'gap_to_elite', 'Elite'),
+    evidence,
+    hasSourceMix: Object.keys(sourceMix).length > 0 || Object.keys(population).length > 0,
+  }
+})
+
+const selectedMetricSourceExplanation = computed(() => {
+  const detail = selectedMetricDetail.value
+  if (!detail) return ''
+  if (detail.populationUsable === 'No') {
+    return 'FMTRX population sample is below the minimum threshold of 30, so the research benchmark remains active.'
+  }
+  if (detail.sourceKey === 'composite' || detail.sourceKey === 'composite_benchmark') {
+    return 'FMTRX is blending research benchmarks with population data because the population bucket has enough guarded values.'
+  }
+  if (detail.sourceKey === 'fmtrx_population') {
+    return 'FMTRX population data is carrying this benchmark because enough trusted sample data exists.'
+  }
+  return 'Research benchmark remains active for this metric.'
+})
+
+const openBenchmarkMetricDetail = (metric) => {
+  if (!metric) return
+  selectedBenchmarkMetric.value = metric
+}
+
+const closeBenchmarkMetricDetail = () => {
+  selectedBenchmarkMetric.value = null
+}
 
 const benchmarkCategoryKeys = ['pitching', 'hitting', 'strength', 'athletic', 'mobility']
 
@@ -1549,10 +1698,12 @@ const priorityTop10Rows = computed(() => {
                     <p class="text-[10px] uppercase tracking-widest text-white/35">Research percentile · Population percentile · Bucket</p>
                   </div>
                   <div class="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
-                    <div
+                    <button
                       v-for="metric in sourceMetricRows"
                       :key="`source-${metric.metric_key || metric.display_name}`"
-                      class="rounded-md border border-white/10 bg-white/5 p-2"
+                      type="button"
+                      class="w-full rounded-md border border-white/10 bg-white/5 p-2 text-left transition hover:border-cyan-300/40 hover:bg-cyan-500/10"
+                      @click="openBenchmarkMetricDetail(metric)"
                     >
                       <div class="flex flex-wrap items-start justify-between gap-2">
                         <div>
@@ -1573,7 +1724,7 @@ const priorityTop10Rows = computed(() => {
                         <p>Confidence: <span class="font-semibold text-white">{{ metricPopulationConfidence(metric) }}</span></p>
                       </div>
                       <p class="mt-2 text-[10px] text-slate-400">{{ sourceMixStatusText(metricSourceMix(metric)) }}</p>
-                    </div>
+                    </button>
                   </div>
                   <p v-if="!sourceMetricRows.length" class="mt-2 text-sm text-slate-300">
                     No metric-level source mix is available yet.
@@ -1638,10 +1789,12 @@ const priorityTop10Rows = computed(() => {
                 </div>
 
                 <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
-                  <div
+                  <button
                     v-for="metric in bucketQualityMetricRows"
                     :key="`bucket-quality-${metric.metric_key || metric.display_name}`"
-                    class="rounded-md border border-white/10 bg-slate-950/35 p-3"
+                    type="button"
+                    class="w-full rounded-md border border-white/10 bg-slate-950/35 p-3 text-left transition hover:border-indigo-300/40 hover:bg-indigo-500/10"
+                    @click="openBenchmarkMetricDetail(metric)"
                   >
                     <div class="flex flex-wrap items-start justify-between gap-2">
                       <div>
@@ -1669,7 +1822,7 @@ const priorityTop10Rows = computed(() => {
                     <p v-if="metric.bucketLevel === 'global_clean'" class="mt-2 rounded border border-amber-300/20 bg-amber-500/10 px-2 py-1 text-xs text-amber-100">
                       This is a broad comparison group. Peer-specific confidence improves as more players collect data.
                     </p>
-                    <p v-else-if="metric.bucketLevel === 'exact_peer' && metric.bucketUsable" class="mt-2 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-100">
+                    <p v-else-if="metric.bucketDisplayLevel === 'exact_peer' && metric.bucketUsable" class="mt-2 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-100">
                       Strong peer match.
                     </p>
                     <p v-else-if="!metric.bucketUsable" class="mt-2 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300">
@@ -1689,7 +1842,7 @@ const priorityTop10Rows = computed(() => {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 </div>
 
                 <p v-if="!bucketQualityMetricRows.length" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
@@ -1869,7 +2022,13 @@ const priorityTop10Rows = computed(() => {
               <div class="rounded-lg border border-white/10 bg-white/5 p-3">
                 <h4 class="text-sm font-semibold text-white">Weakest Metrics</h4>
                 <div class="mt-2 space-y-2">
-                  <div v-for="metric in weakestBenchmarkMetrics" :key="metric.metric_key" class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                  <button
+                    v-for="metric in weakestBenchmarkMetrics"
+                    :key="metric.metric_key"
+                    type="button"
+                    class="w-full rounded-md border border-white/10 bg-slate-950/35 p-2 text-left transition hover:border-red-300/40 hover:bg-red-500/10"
+                    @click="openBenchmarkMetricDetail(metric)"
+                  >
                     <div class="flex items-center justify-between gap-2">
                       <p class="text-sm font-semibold text-white">{{ metric.display_name || humanizeKey(metric.metric_key) }}</p>
                       <span class="text-sm font-black" :class="scoreTone(metric.score_0_100)">{{ fmtScore(metric.score_0_100) }}</span>
@@ -1879,7 +2038,7 @@ const priorityTop10Rows = computed(() => {
                     <p class="mt-1 text-[10px] text-white/45">Research {{ metricResearchPercentile(metric) }} · Population {{ metricPopulationPercentile(metric) }} · Usable {{ metricPopulationUsable(metric) }}</p>
                     <p class="mt-1 text-[10px] text-white/45">Good gap {{ metricGap(metric, 'gap_to_good') }} · Elite gap {{ metricGap(metric, 'gap_to_elite') }}</p>
                     <p class="mt-1 text-[10px] text-slate-400">{{ sourceMixStatusText(metricSourceMix(metric)) }}</p>
-                  </div>
+                  </button>
                   <p v-if="!weakestBenchmarkMetrics.length" class="text-sm text-slate-300">No weakest metrics available yet.</p>
                 </div>
               </div>
@@ -2180,6 +2339,122 @@ const priorityTop10Rows = computed(() => {
                     <div class="text-sm font-black text-emerald-300">
                       {{ fmtValue(row.value, priorityTop10Modal.unit) }}
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
+      <Teleport to="body">
+        <Transition name="fade">
+          <div
+            v-if="selectedMetricDetail"
+            class="fixed inset-0 z-50 flex items-start justify-center bg-black/75 p-3 sm:p-6"
+            @click.self="closeBenchmarkMetricDetail"
+          >
+            <div class="w-full max-w-4xl rounded-2xl border border-white/15 bg-[#0c1630] shadow-2xl max-h-[92vh] flex flex-col">
+              <div class="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+                <div>
+                  <p class="text-xs uppercase tracking-widest text-indigo-200/70">Benchmark Metric Detail</p>
+                  <h3 class="mt-1 text-xl font-black text-white">{{ selectedMetricDetail.displayName }}</h3>
+                  <p class="mt-1 text-sm text-slate-300">{{ selectedMetricDetail.category }} · {{ selectedMetricDetail.label }}</p>
+                </div>
+                <button
+                  type="button"
+                  class="rounded-md border border-white/20 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-white/10"
+                  @click="closeBenchmarkMetricDetail"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div class="overflow-y-auto p-4">
+                <div v-if="!selectedMetricDetail.hasSourceMix" class="mb-3 rounded-lg border border-amber-300/20 bg-amber-500/10 p-3 text-sm text-amber-100">
+                  Benchmark detail is not available yet.
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+                  <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-white/35">Raw Value</p>
+                    <p class="mt-1 text-2xl font-black text-white">{{ selectedMetricDetail.rawValue }}</p>
+                  </div>
+                  <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-white/35">Final Score</p>
+                    <p class="mt-1 text-2xl font-black" :class="scoreTone(selectedMetricDetail.metric.score_0_100)">{{ selectedMetricDetail.score }}</p>
+                    <p class="mt-1 text-xs text-slate-300">{{ selectedMetricDetail.finalPercentile }}</p>
+                  </div>
+                  <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-white/35">Source</p>
+                    <p class="mt-1 text-lg font-black text-white">{{ selectedMetricDetail.source }}</p>
+                    <p class="mt-1 text-xs text-slate-300">{{ selectedMetricDetail.confidence }}</p>
+                  </div>
+                  <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-white/35">Selected Bucket</p>
+                    <p class="mt-1 text-lg font-black text-white">{{ selectedMetricDetail.bucketLabel }}</p>
+                    <p class="mt-1 text-xs text-slate-300">{{ selectedMetricDetail.bucketCount }} players</p>
+                  </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <div class="rounded-lg border border-cyan-300/20 bg-cyan-500/10 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Benchmark Source</p>
+                    <div class="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-200">
+                      <p>Research Weight: <span class="font-black text-white">{{ selectedMetricDetail.researchWeight }}</span></p>
+                      <p>Population Weight: <span class="font-black text-white">{{ selectedMetricDetail.populationWeight }}</span></p>
+                      <p>Research Percentile: <span class="font-black text-white">{{ selectedMetricDetail.researchPercentile }}</span></p>
+                      <p>Population Percentile: <span class="font-black text-white">{{ selectedMetricDetail.populationPercentile }}</span></p>
+                      <p>Bucket Count: <span class="font-black text-white">{{ selectedMetricDetail.populationBucketCount }}</span></p>
+                      <p>Population Confidence: <span class="font-black text-white">{{ selectedMetricDetail.populationConfidence }}</span></p>
+                      <p>Population Usable: <span class="font-black text-white">{{ selectedMetricDetail.populationUsable }}</span></p>
+                    </div>
+                    <p class="mt-3 rounded border border-white/10 bg-slate-950/35 p-2 text-xs text-cyan-100">
+                      {{ selectedMetricSourceExplanation }}
+                    </p>
+                  </div>
+
+                  <div class="rounded-lg border border-indigo-300/20 bg-indigo-500/10 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-indigo-200/80">Population Bucket Quality</p>
+                    <p class="mt-2 text-sm text-slate-200">
+                      <span class="font-black text-white">Selected:</span> {{ selectedMetricDetail.bucketLabel }}
+                    </p>
+                    <p class="mt-1 text-xs text-slate-300 break-all">
+                      <span class="font-black text-white">Key:</span> {{ selectedMetricDetail.bucketKey || '—' }}
+                    </p>
+                    <p class="mt-2 rounded border border-white/10 bg-slate-950/35 p-2 text-xs text-indigo-100">
+                      {{ selectedMetricDetail.bucketExplanation }}
+                    </p>
+                    <div class="mt-3">
+                      <p class="text-[10px] uppercase tracking-widest text-white/40">Attempted Buckets</p>
+                      <div v-if="selectedMetricDetail.attemptedBuckets.length" class="mt-2 flex flex-wrap gap-1.5">
+                        <span
+                          v-for="attempt in selectedMetricDetail.attemptedBuckets.slice(0, 5)"
+                          :key="`drawer-${attempt.level}-${attempt.bucket_key}`"
+                          class="rounded-full border px-2 py-1 text-[10px]"
+                          :class="attempt.usable ? 'border-indigo-300/30 bg-indigo-500/15 text-indigo-100' : 'border-white/10 bg-slate-950/40 text-slate-300'"
+                        >
+                          {{ metricAttemptedBucketLabel(attempt) }}
+                        </span>
+                      </div>
+                      <p v-else class="mt-2 text-xs text-slate-300">No bucket ladder details are available yet.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-white/40">Gap Explanation</p>
+                    <p class="mt-2 text-sm text-slate-200">{{ selectedMetricDetail.goodGap }}</p>
+                    <p class="mt-1 text-sm text-slate-200">{{ selectedMetricDetail.eliteGap }}</p>
+                  </div>
+
+                  <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <p class="text-[10px] uppercase tracking-widest text-white/40">Evidence</p>
+                    <ul v-if="selectedMetricDetail.evidence.length" class="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-300">
+                      <li v-for="(line, idx) in selectedMetricDetail.evidence" :key="`evidence-${idx}-${line}`">{{ line }}</li>
+                    </ul>
+                    <p v-else class="mt-2 text-xs text-slate-300">No additional evidence is available yet.</p>
                   </div>
                 </div>
               </div>
