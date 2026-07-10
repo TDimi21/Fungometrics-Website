@@ -46,8 +46,10 @@ class PopulationMetricRepository
             $days = max(1, $days);
             $stats = $this->emptyAuditStats();
             $rows = $this->populationRowsForMetric($metricKey, $context, $days, $stats);
-            $rows = $this->filterRowsByContext($rows, $context);
             $rows = $this->guardRows($rows, $metricKey, $stats, 'aggregate');
+            $guardrailFilteredCount = $rows->count();
+            $guardrailFilteredSample = $this->sampleRowValues($rows);
+            $rows = $this->filterRowsByContextWithAudit($rows, $context, $stats);
             $values = $rows
                 ->map(fn (array $row) => $this->numberOrNull($row['value'] ?? null, $metricKey))
                 ->filter(fn (?float $value) => $value !== null)
@@ -57,25 +59,59 @@ class PopulationMetricRepository
             return [
                 'metric_key' => $metricKey,
                 'days' => $days,
+                'raw_count' => $stats['raw_values_found'],
                 'raw_values_found' => $stats['raw_values_found'],
                 'raw_values_included' => $stats['raw_values_included'],
+                'raw_sample_before_guardrails' => $stats['raw_samples'],
+                'raw_included_sample' => $stats['raw_included_samples'],
+                'included_count' => $guardrailFilteredCount,
+                'guardrail_filtered_count' => $guardrailFilteredCount,
+                'guardrail_filtered_sample' => $guardrailFilteredSample,
+                'bucket_filter_applied' => $stats['bucket_filter_applied'],
+                'bucket_key' => $this->bucketKeyForContext($context),
+                'bucket_context_before_count' => $stats['bucket_context_before_count'],
+                'bucket_context_after_count' => $stats['bucket_context_after_count'],
+                'bucket_filtered_count' => $stats['bucket_context_removed_count'],
+                'bucket_context_removed_count' => $stats['bucket_context_removed_count'],
+                'bucket_context_removed_samples' => $stats['bucket_context_removed_samples'],
                 'values_included' => count($values),
+                'final_values_count' => count($values),
                 'values_excluded' => count($stats['excluded']),
+                'excluded_count' => count($stats['excluded']),
+                'excluded_reasons' => $this->excludedReasonCounts($stats['excluded']),
                 'excluded_reason_counts' => $this->excludedReasonCounts($stats['excluded']),
                 'excluded_samples' => array_slice($stats['excluded'], 0, 10),
                 'values' => $values,
+                'final_values' => $values,
             ];
         } catch (\Throwable) {
             return [
                 'metric_key' => BenchmarkDefinitions::normalizeMetricKey($metricKey),
                 'days' => max(1, $days),
+                'raw_count' => 0,
                 'raw_values_found' => 0,
                 'raw_values_included' => 0,
+                'raw_sample_before_guardrails' => [],
+                'raw_included_sample' => [],
+                'included_count' => 0,
+                'guardrail_filtered_count' => 0,
+                'guardrail_filtered_sample' => [],
+                'bucket_filter_applied' => false,
+                'bucket_key' => $this->bucketKeyForContext($context),
+                'bucket_context_before_count' => 0,
+                'bucket_context_after_count' => 0,
+                'bucket_filtered_count' => 0,
+                'bucket_context_removed_count' => 0,
+                'bucket_context_removed_samples' => [],
                 'values_included' => 0,
+                'final_values_count' => 0,
                 'values_excluded' => 0,
+                'excluded_count' => 0,
+                'excluded_reasons' => [],
                 'excluded_reason_counts' => [],
                 'excluded_samples' => [],
                 'values' => [],
+                'final_values' => [],
             ];
         }
     }
@@ -220,6 +256,7 @@ class PopulationMetricRepository
         return collect($query->get())
             ->map(function ($row) use ($metricKey, &$stats, $table, $valueColumn) {
                 $stats['raw_values_found']++;
+                $this->recordRawSample($stats, $table, $valueColumn, $row->user_id ?? null, $row->value ?? null);
                 $validation = $this->guardrail->validate($metricKey, $row->value ?? null);
                 if (($validation['included'] ?? false) !== true) {
                     $this->recordExcluded($stats, $validation, $table, $valueColumn, $row->user_id ?? null, 'raw');
@@ -228,6 +265,7 @@ class PopulationMetricRepository
                 }
 
                 $stats['raw_values_included']++;
+                $this->recordRawIncludedSample($stats, $table, $valueColumn, $row->user_id ?? null, $validation['value']);
 
                 return [
                     'user_id' => (string) ($row->user_id ?? ''),
@@ -293,6 +331,41 @@ class PopulationMetricRepository
             'raw_values_found' => 0,
             'raw_values_included' => 0,
             'excluded' => [],
+            'raw_samples' => [],
+            'raw_included_samples' => [],
+            'bucket_filter_applied' => false,
+            'bucket_context_before_count' => 0,
+            'bucket_context_after_count' => 0,
+            'bucket_context_removed_count' => 0,
+            'bucket_context_removed_samples' => [],
+        ];
+    }
+
+    private function recordRawSample(array &$stats, string $table, string $valueColumn, mixed $userId, mixed $value): void
+    {
+        if (count($stats['raw_samples']) >= 10) {
+            return;
+        }
+
+        $stats['raw_samples'][] = [
+            'table' => $table,
+            'column' => $valueColumn,
+            'user_id' => $userId !== null ? (string) $userId : null,
+            'raw_value' => $value,
+        ];
+    }
+
+    private function recordRawIncludedSample(array &$stats, string $table, string $valueColumn, mixed $userId, mixed $value): void
+    {
+        if (count($stats['raw_included_samples']) >= 10) {
+            return;
+        }
+
+        $stats['raw_included_samples'][] = [
+            'table' => $table,
+            'column' => $valueColumn,
+            'user_id' => $userId !== null ? (string) $userId : null,
+            'value' => $value,
         ];
     }
 
@@ -323,6 +396,18 @@ class PopulationMetricRepository
         ksort($counts);
 
         return $counts;
+    }
+
+    private function sampleRowValues(Collection $rows, int $limit = 12): array
+    {
+        return $rows
+            ->take($limit)
+            ->map(fn (array $row) => [
+                'user_id' => $row['user_id'] ?? null,
+                'value' => $row['value'] ?? null,
+            ])
+            ->values()
+            ->all();
     }
 
     private function latestValue(Collection $rows): ?float
@@ -367,6 +452,59 @@ class PopulationMetricRepository
 
             return $userContext !== null && $this->matchesContext($userContext, $context);
         })->values();
+    }
+
+    private function filterRowsByContextWithAudit(Collection $rows, array $context, array &$stats): Collection
+    {
+        $stats['bucket_filter_applied'] = $this->hasBucketFilters($context);
+        $stats['bucket_context_before_count'] = $rows->count();
+
+        if (! $stats['bucket_filter_applied']) {
+            $stats['bucket_context_after_count'] = $rows->count();
+            $stats['bucket_context_removed_count'] = 0;
+
+            return $rows;
+        }
+
+        $userIds = $rows->pluck('user_id')->filter()->unique()->values()->all();
+        $userContexts = $this->userContexts($userIds);
+        $kept = collect();
+
+        foreach ($rows as $row) {
+            $userContext = $userContexts[(string) ($row['user_id'] ?? '')] ?? null;
+            $matches = $userContext !== null && $this->matchesContext($userContext, $context);
+
+            if ($matches) {
+                $kept->push($row);
+                continue;
+            }
+
+            if (count($stats['bucket_context_removed_samples']) < 10) {
+                $stats['bucket_context_removed_samples'][] = [
+                    'user_id' => $row['user_id'] ?? null,
+                    'value' => $row['value'] ?? null,
+                    'reason' => $userContext === null ? 'missing_player_context' : 'context_mismatch',
+                ];
+            }
+        }
+
+        $stats['bucket_context_after_count'] = $kept->count();
+        $stats['bucket_context_removed_count'] = max(0, $stats['bucket_context_before_count'] - $stats['bucket_context_after_count']);
+
+        return $kept->values();
+    }
+
+    private function bucketKeyForContext(array $context): string
+    {
+        return implode('|', [
+            'age:' . strtolower((string) ($context['age_group'] ?? BenchmarkDefinitions::AGE_UNKNOWN)),
+            'level:' . strtolower((string) ($context['level'] ?? 'unknown')),
+            'position:' . strtolower((string) ($context['position'] ?? $context['positions'] ?? 'unknown')),
+            'body:' . strtolower((string) ($context['bodyweight_band'] ?? 'unknown')),
+            'height:' . strtolower((string) ($context['height_band'] ?? 'unknown')),
+            'throws:' . strtolower((string) ($context['throws'] ?? $context['throw_side'] ?? 'unknown')),
+            'bats:' . strtolower((string) ($context['bats'] ?? $context['hit_side'] ?? 'unknown')),
+        ]);
     }
 
     private function matchesContext(array $userContext, array $context): bool

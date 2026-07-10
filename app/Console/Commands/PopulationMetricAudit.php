@@ -25,24 +25,47 @@ class PopulationMetricAudit extends Command
         $days = max(1, (int) $this->option('days'));
         $context = $this->auditContext();
         $audit = $repository->auditForMetric($metricKey, $context, $days);
-        $values = $audit['values'] ?? [];
+        $values = $audit['final_values'] ?? $audit['values'] ?? [];
         $count = count($values);
 
         $this->info('FMTRX POPULATION METRIC AUDIT');
         $this->line('Metric key: '.$metricKey);
         $this->line('Days: '.$days);
         $this->line('Context: '.$this->formatContext($context));
+
+        $this->newLine();
+        $this->info('RAW SAMPLE BEFORE GUARDRAILS');
         $this->line('Raw values found: '.($audit['raw_values_found'] ?? 0));
-        $this->line('Values included: '.($audit['raw_values_included'] ?? $count));
-        $this->line('Values excluded: '.($audit['values_excluded'] ?? 0));
-        $this->line('Population values used: '.($audit['values_included'] ?? $count));
-        $this->line('Aggregation: valid raw rows are grouped by player before percentile calculation.');
+        $this->line('Sample raw values: '.$this->sampleDebugRows($audit['raw_sample_before_guardrails'] ?? [], 'raw_value'));
+
+        $this->newLine();
+        $this->info('GUARDRAIL-FILTERED SAMPLE');
+        $this->line('Raw values included after guardrails: '.($audit['raw_values_included'] ?? 0));
+        $this->line('Values excluded by guardrails: '.($audit['values_excluded'] ?? 0));
         $this->line('Excluded reasons: '.$this->formatReasonCounts($audit['excluded_reason_counts'] ?? []));
-        $this->line('Min after filtering: '.$this->formatNumber($count > 0 ? min($values) : null));
-        $this->line('Max after filtering: '.$this->formatNumber($count > 0 ? max($values) : null));
-        $this->line('Average after filtering: '.$this->formatNumber($count > 0 ? array_sum($values) / $count : null));
-        $this->line('Sample included values: '.$this->sampleValues($values));
+        $this->line('Player-level values after guardrails: '.($audit['guardrail_filtered_count'] ?? 0));
+        $this->line('Sample player-level values: '.$this->sampleDebugRows($audit['guardrail_filtered_sample'] ?? [], 'value'));
+        $this->line('Note: valid raw rows are grouped by player before percentile calculation.');
         $this->line('Sample excluded values: '.$this->sampleExcludedValues($audit['excluded_samples'] ?? []));
+
+        $this->newLine();
+        $this->info('BUCKET / CONTEXT FILTERED SAMPLE');
+        $this->line('Bucket key: '.($audit['bucket_key'] ?? '-'));
+        $this->line('Context filters applied: '.(($audit['bucket_filter_applied'] ?? false) ? 'yes' : 'no'));
+        $this->line('Values before context filter: '.($audit['bucket_context_before_count'] ?? 0));
+        $this->line('Values removed by context filters: '.($audit['bucket_context_removed_count'] ?? 0));
+        $this->line('Values after context filter: '.($audit['bucket_context_after_count'] ?? 0));
+        if (($audit['bucket_context_removed_count'] ?? 0) > 0) {
+            $this->line('Sample removed values: '.$this->sampleDebugRows($audit['bucket_context_removed_samples'] ?? [], 'value'));
+        }
+
+        $this->newLine();
+        $this->info('FINAL PERCENTILE SAMPLE');
+        $this->line('Final values used for percentile: '.$count);
+        $this->line('Min: '.$this->formatNumber($count > 0 ? min($values) : null));
+        $this->line('Max: '.$this->formatNumber($count > 0 ? max($values) : null));
+        $this->line('Average: '.$this->formatNumber($count > 0 ? array_sum($values) / $count : null));
+        $this->line('Sample final values: '.$this->sampleValues($values));
 
         if ($this->hasComparisonValue()) {
             $this->newLine();
@@ -149,6 +172,32 @@ class PopulationMetricAudit extends Command
         }, array_slice($samples, 0, 6)));
     }
 
+    private function sampleDebugRows(array $rows, string $valueKey): string
+    {
+        if (empty($rows)) {
+            return '-';
+        }
+
+        return implode(' | ', array_map(function (array $row) use ($valueKey) {
+            $value = $row[$valueKey] ?? $row['value'] ?? $row['raw_value'] ?? null;
+            if (is_array($value) || is_object($value)) {
+                $value = json_encode($value, JSON_UNESCAPED_SLASHES) ?: '';
+            }
+
+            $source = isset($row['table'])
+                ? ($row['table'].'.'.($row['column'] ?? 'value'))
+                : ('user '.($row['user_id'] ?? '-'));
+            $reason = isset($row['reason']) ? ' ('.$row['reason'].')' : '';
+
+            return sprintf(
+                '%s=%s%s',
+                $source,
+                $this->formatNumberOrText($value),
+                $reason,
+            );
+        }, array_slice($rows, 0, 8)));
+    }
+
     private function formatEvidence(array $evidence): string
     {
         if (empty($evidence)) {
@@ -171,5 +220,18 @@ class PopulationMetricAudit extends Command
         $formatted = number_format($value, 2, '.', '');
 
         return rtrim(rtrim($formatted, '0'), '.');
+    }
+
+    private function formatNumberOrText(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '-';
+        }
+
+        if (is_numeric($value)) {
+            return $this->formatNumber($value);
+        }
+
+        return (string) $value;
     }
 }
