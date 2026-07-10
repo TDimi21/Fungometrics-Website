@@ -24,18 +24,25 @@ class PopulationMetricAudit extends Command
         $metricKey = BenchmarkDefinitions::normalizeMetricKey((string) $this->argument('metricKey'));
         $days = max(1, (int) $this->option('days'));
         $context = $this->auditContext();
-        $values = $repository->valuesForMetric($metricKey, $context, $days);
+        $audit = $repository->auditForMetric($metricKey, $context, $days);
+        $values = $audit['values'] ?? [];
         $count = count($values);
 
         $this->info('FMTRX POPULATION METRIC AUDIT');
         $this->line('Metric key: '.$metricKey);
         $this->line('Days: '.$days);
         $this->line('Context: '.$this->formatContext($context));
-        $this->line('Total values found: '.$count);
-        $this->line('Min: '.$this->formatNumber($count > 0 ? min($values) : null));
-        $this->line('Max: '.$this->formatNumber($count > 0 ? max($values) : null));
-        $this->line('Average: '.$this->formatNumber($count > 0 ? array_sum($values) / $count : null));
-        $this->line('Sample values: '.$this->sampleValues($values));
+        $this->line('Raw values found: '.($audit['raw_values_found'] ?? 0));
+        $this->line('Values included: '.($audit['raw_values_included'] ?? $count));
+        $this->line('Values excluded: '.($audit['values_excluded'] ?? 0));
+        $this->line('Population values used: '.($audit['values_included'] ?? $count));
+        $this->line('Aggregation: valid raw rows are grouped by player before percentile calculation.');
+        $this->line('Excluded reasons: '.$this->formatReasonCounts($audit['excluded_reason_counts'] ?? []));
+        $this->line('Min after filtering: '.$this->formatNumber($count > 0 ? min($values) : null));
+        $this->line('Max after filtering: '.$this->formatNumber($count > 0 ? max($values) : null));
+        $this->line('Average after filtering: '.$this->formatNumber($count > 0 ? array_sum($values) / $count : null));
+        $this->line('Sample included values: '.$this->sampleValues($values));
+        $this->line('Sample excluded values: '.$this->sampleExcludedValues($audit['excluded_samples'] ?? []));
 
         if ($this->hasComparisonValue()) {
             $this->newLine();
@@ -105,6 +112,41 @@ class PopulationMetricAudit extends Command
             fn ($value) => $this->formatNumber($value),
             array_slice($values, 0, 12),
         ));
+    }
+
+    private function formatReasonCounts(array $counts): string
+    {
+        if (empty($counts)) {
+            return '-';
+        }
+
+        return implode(', ', array_map(
+            fn ($reason, $count) => $reason.': '.$count,
+            array_keys($counts),
+            array_values($counts),
+        ));
+    }
+
+    private function sampleExcludedValues(array $samples): string
+    {
+        if (empty($samples)) {
+            return '-';
+        }
+
+        return implode(' | ', array_map(function (array $sample) {
+            $value = $sample['raw_value'] ?? null;
+            if (is_array($value) || is_object($value)) {
+                $value = json_encode($value, JSON_UNESCAPED_SLASHES) ?: '';
+            }
+
+            return sprintf(
+                '%s.%s=%s (%s)',
+                $sample['table'] ?? '-',
+                $sample['column'] ?? '-',
+                $value === null || $value === '' ? '-' : (string) $value,
+                $sample['reason'] ?? 'invalid_value',
+            );
+        }, array_slice($samples, 0, 6)));
     }
 
     private function formatEvidence(array $evidence): string

@@ -30,60 +30,53 @@ class PopulationMetricRepository
         'mobility_score',
     ];
 
+    public function __construct(
+        private readonly PopulationValueGuardrail $guardrail,
+    ) {}
+
     public function valuesForMetric(string $metricKey, array $context = [], int $days = 365): array
+    {
+        return $this->auditForMetric($metricKey, $context, $days)['values'] ?? [];
+    }
+
+    public function auditForMetric(string $metricKey, array $context = [], int $days = 365): array
     {
         try {
             $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
             $days = max(1, $days);
-            $rows = match ($metricKey) {
-                'average_exit_velocity' => $this->exitVelocityRows($context, $days, 'avg'),
-                'max_exit_velocity' => $this->exitVelocityRows($context, $days, 'max'),
-                'average_fastball_velocity' => $this->aggregateRows($this->sourceRows('bullpen_practice_results', 'pitcher_id', 'miles_per_hour', $context, $days), 'avg'),
-                'max_fastball_velocity' => $this->aggregateRows($this->sourceRows('bullpen_practice_results', 'pitcher_id', 'miles_per_hour', $context, $days), 'max'),
-                'strike_percentage' => $this->strikePercentageRows($context, $days),
-                'long_toss_max_distance' => $this->aggregateRows($this->sourceRows('long_toss_practices', 'user_id', 'distance', $context, $days), 'max'),
-                'weighted_ball_5oz_velocity' => $this->aggregateRows($this->sourceRows('weight_ball_practices', 'user_id', 'velocity', $context, $days, ['weight' => 5]), 'max'),
-                'bench_press' => $this->strengthRows($context, $days, [
-                    ['player_fitnesses', 'user_id', 'bench_press'],
-                    ['player_assessments', 'user_id', 'bench_lbs'],
-                ], 'max'),
-                'squat' => $this->strengthRows($context, $days, [
-                    ['player_fitnesses', 'user_id', 'back_squat'],
-                    ['player_fitnesses', 'user_id', 'front_squat'],
-                    ['player_assessments', 'user_id', 'squat_lbs'],
-                ], 'max'),
-                'deadlift' => $this->strengthRows($context, $days, [
-                    ['player_fitnesses', 'user_id', 'dead_lift'],
-                    ['player_assessments', 'user_id', 'deadlift_lbs'],
-                ], 'max'),
-                'forty_yard_dash' => $this->strengthRows($context, $days, [
-                    ['player_fitnesses', 'user_id', 'yd_40_dash'],
-                ], 'min'),
-                'sixty_yard_dash' => $this->strengthRows($context, $days, [
-                    ['player_fitnesses', 'user_id', 'yd_60_dash'],
-                ], 'min'),
-                'broad_jump' => $this->strengthRows($context, $days, [
-                    ['player_fitnesses', 'user_id', 'broad_jump'],
-                    ['player_assessments', 'user_id', 'broad_jump_in'],
-                ], 'max'),
-                'vertical_jump' => $this->strengthRows($context, $days, [
-                    ['player_fitnesses', 'user_id', 'vertical_jump'],
-                    ['player_assessments', 'user_id', 'vertical_jump_in'],
-                ], 'max'),
-                'mobility_score' => $this->strengthRows($context, $days, [
-                    ['player_fitnesses', 'user_id', 'mobility_score'],
-                    ['player_assessments', 'user_id', 'mobility_overall_score'],
-                ], 'latest'),
-                default => collect(),
-            };
-
-            return $this->filterRowsByContext($rows, $context)
+            $stats = $this->emptyAuditStats();
+            $rows = $this->populationRowsForMetric($metricKey, $context, $days, $stats);
+            $rows = $this->filterRowsByContext($rows, $context);
+            $rows = $this->guardRows($rows, $metricKey, $stats, 'aggregate');
+            $values = $rows
                 ->map(fn (array $row) => $this->numberOrNull($row['value'] ?? null, $metricKey))
-                ->filter(fn (?float $value) => $value !== null && $this->validPopulationValue($metricKey, $value))
+                ->filter(fn (?float $value) => $value !== null)
                 ->values()
                 ->all();
+
+            return [
+                'metric_key' => $metricKey,
+                'days' => $days,
+                'raw_values_found' => $stats['raw_values_found'],
+                'raw_values_included' => $stats['raw_values_included'],
+                'values_included' => count($values),
+                'values_excluded' => count($stats['excluded']),
+                'excluded_reason_counts' => $this->excludedReasonCounts($stats['excluded']),
+                'excluded_samples' => array_slice($stats['excluded'], 0, 10),
+                'values' => $values,
+            ];
         } catch (\Throwable) {
-            return [];
+            return [
+                'metric_key' => BenchmarkDefinitions::normalizeMetricKey($metricKey),
+                'days' => max(1, $days),
+                'raw_values_found' => 0,
+                'raw_values_included' => 0,
+                'values_included' => 0,
+                'values_excluded' => 0,
+                'excluded_reason_counts' => [],
+                'excluded_samples' => [],
+                'values' => [],
+            ];
         }
     }
 
@@ -111,30 +104,75 @@ class PopulationMetricRepository
         return self::SUPPORTED_METRICS;
     }
 
-    private function exitVelocityRows(array $context, int $days, string $aggregate): Collection
+    private function populationRowsForMetric(string $metricKey, array $context, int $days, array &$stats): Collection
+    {
+        return match ($metricKey) {
+            'average_exit_velocity' => $this->exitVelocityRows($context, $days, 'avg', $metricKey, $stats),
+            'max_exit_velocity' => $this->exitVelocityRows($context, $days, 'max', $metricKey, $stats),
+            'average_fastball_velocity' => $this->aggregateRows($this->sourceRows('bullpen_practice_results', 'pitcher_id', 'miles_per_hour', $context, $days, $metricKey, $stats), 'avg'),
+            'max_fastball_velocity' => $this->aggregateRows($this->sourceRows('bullpen_practice_results', 'pitcher_id', 'miles_per_hour', $context, $days, $metricKey, $stats), 'max'),
+            'strike_percentage' => $this->strikePercentageRows($context, $days, $stats),
+            'long_toss_max_distance' => $this->aggregateRows($this->sourceRows('long_toss_practices', 'user_id', 'distance', $context, $days, $metricKey, $stats), 'max'),
+            'weighted_ball_5oz_velocity' => $this->aggregateRows($this->sourceRows('weight_ball_practices', 'user_id', 'velocity', $context, $days, $metricKey, $stats, ['weight' => 5]), 'max'),
+            'bench_press' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'bench_press'],
+                ['player_assessments', 'user_id', 'bench_lbs'],
+            ], 'max', $metricKey, $stats),
+            'squat' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'back_squat'],
+                ['player_fitnesses', 'user_id', 'front_squat'],
+                ['player_assessments', 'user_id', 'squat_lbs'],
+            ], 'max', $metricKey, $stats),
+            'deadlift' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'dead_lift'],
+                ['player_assessments', 'user_id', 'deadlift_lbs'],
+            ], 'max', $metricKey, $stats),
+            'forty_yard_dash' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'yd_40_dash'],
+            ], 'min', $metricKey, $stats),
+            'sixty_yard_dash' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'yd_60_dash'],
+            ], 'min', $metricKey, $stats),
+            'broad_jump' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'broad_jump'],
+                ['player_assessments', 'user_id', 'broad_jump_in'],
+            ], 'max', $metricKey, $stats),
+            'vertical_jump' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'vertical_jump'],
+                ['player_assessments', 'user_id', 'vertical_jump_in'],
+            ], 'max', $metricKey, $stats),
+            'mobility_score' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'mobility_score'],
+                ['player_assessments', 'user_id', 'mobility_overall_score'],
+            ], 'latest', $metricKey, $stats),
+            default => collect(),
+        };
+    }
+
+    private function exitVelocityRows(array $context, int $days, string $aggregate, string $metricKey, array &$stats): Collection
     {
         $rows = collect()
-            ->merge($this->sourceRows('exit_velocity_practices', 'user_id', 'velocity', $context, $days))
-            ->merge($this->sourceRows('batting_practice_results', 'batter_id', 'velocity', $context, $days))
-            ->merge($this->sourceRows('cage_practice_results', 'user_id', 'launch_angle_velocity', $context, $days));
+            ->merge($this->sourceRows('exit_velocity_practices', 'user_id', 'velocity', $context, $days, $metricKey, $stats))
+            ->merge($this->sourceRows('batting_practice_results', 'batter_id', 'velocity', $context, $days, $metricKey, $stats))
+            ->merge($this->sourceRows('cage_practice_results', 'user_id', 'launch_angle_velocity', $context, $days, $metricKey, $stats));
 
         return $this->aggregateRows($rows, $aggregate);
     }
 
-    private function strengthRows(array $context, int $days, array $sources, string $aggregate): Collection
+    private function strengthRows(array $context, int $days, array $sources, string $aggregate, string $metricKey, array &$stats): Collection
     {
         $rows = collect();
 
         foreach ($sources as [$table, $userColumn, $valueColumn]) {
-            $rows = $rows->merge($this->sourceRows($table, $userColumn, $valueColumn, $context, $days));
+            $rows = $rows->merge($this->sourceRows($table, $userColumn, $valueColumn, $context, $days, $metricKey, $stats));
         }
 
         return $this->aggregateRows($rows, $aggregate);
     }
 
-    private function strikePercentageRows(array $context, int $days): Collection
+    private function strikePercentageRows(array $context, int $days, array &$stats): Collection
     {
-        $rows = $this->sourceRows('bullpen_practice_results', 'pitcher_id', 'is_strike', $context, $days, [], true);
+        $rows = $this->sourceRows('bullpen_practice_results', 'pitcher_id', 'is_strike', $context, $days, 'strike_percentage', $stats);
 
         return $rows
             ->groupBy('user_id')
@@ -151,7 +189,7 @@ class PopulationMetricRepository
             ->values();
     }
 
-    private function sourceRows(string $table, string $userColumn, string $valueColumn, array $context, int $days, array $where = [], bool $allowZero = false): Collection
+    private function sourceRows(string $table, string $userColumn, string $valueColumn, array $context, int $days, string $metricKey, array &$stats, array $where = []): Collection
     {
         if (! $this->hasColumns($table, [$userColumn, $valueColumn])) {
             return collect();
@@ -180,15 +218,20 @@ class PopulationMetricRepository
         $this->applyTeamScope($query, $table, $userColumn, $context);
 
         return collect($query->get())
-            ->map(function ($row) use ($allowZero) {
-                $value = $this->parseStoredValue($row->value ?? null);
-                if ($value === null || (! $allowZero && $value <= 0)) {
+            ->map(function ($row) use ($metricKey, &$stats, $table, $valueColumn) {
+                $stats['raw_values_found']++;
+                $validation = $this->guardrail->validate($metricKey, $row->value ?? null);
+                if (($validation['included'] ?? false) !== true) {
+                    $this->recordExcluded($stats, $validation, $table, $valueColumn, $row->user_id ?? null, 'raw');
+
                     return null;
                 }
 
+                $stats['raw_values_included']++;
+
                 return [
                     'user_id' => (string) ($row->user_id ?? ''),
-                    'value' => $value,
+                    'value' => $validation['value'],
                     'created_at' => $row->created_at ?? null,
                 ];
             })
@@ -223,6 +266,63 @@ class PopulationMetricRepository
                 ];
             })
             ->values();
+    }
+
+    private function guardRows(Collection $rows, string $metricKey, array &$stats, string $stage): Collection
+    {
+        return $rows
+            ->map(function (array $row) use ($metricKey, &$stats, $stage) {
+                $validation = $this->guardrail->validate($metricKey, $row['value'] ?? null);
+                if (($validation['included'] ?? false) !== true) {
+                    $this->recordExcluded($stats, $validation, 'population_aggregate', 'value', $row['user_id'] ?? null, $stage);
+
+                    return null;
+                }
+
+                $row['value'] = $validation['value'];
+
+                return $row;
+            })
+            ->filter()
+            ->values();
+    }
+
+    private function emptyAuditStats(): array
+    {
+        return [
+            'raw_values_found' => 0,
+            'raw_values_included' => 0,
+            'excluded' => [],
+        ];
+    }
+
+    private function recordExcluded(array &$stats, array $validation, string $table, string $valueColumn, mixed $userId, string $stage): void
+    {
+        $stats['excluded'][] = [
+            'metric_key' => $validation['metric_key'] ?? null,
+            'reason' => $validation['reason'] ?? 'invalid_value',
+            'raw_value' => $validation['raw_value'] ?? null,
+            'parsed_value' => $validation['value'] ?? null,
+            'valid_range' => $validation['range'] ?? null,
+            'table' => $table,
+            'column' => $valueColumn,
+            'user_id' => $userId !== null ? (string) $userId : null,
+            'stage' => $stage,
+        ];
+    }
+
+    private function excludedReasonCounts(array $excluded): array
+    {
+        $counts = [];
+
+        foreach ($excluded as $row) {
+            $reason = (string) ($row['reason'] ?? 'invalid_value');
+            $counts[$reason] = ($counts[$reason] ?? 0) + 1;
+        }
+
+        ksort($counts);
+
+        return $counts;
     }
 
     private function latestValue(Collection $rows): ?float

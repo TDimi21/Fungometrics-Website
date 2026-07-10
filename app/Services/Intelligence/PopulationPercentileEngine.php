@@ -13,6 +13,7 @@ class PopulationPercentileEngine
     public function __construct(
         private readonly BenchmarkLibrary $benchmarkLibrary,
         private readonly PopulationMetricRepository $populationMetricRepository,
+        private readonly PopulationValueGuardrail $guardrail,
     ) {}
 
     public function canUsePopulationBucket(int $count): bool
@@ -30,11 +31,16 @@ class PopulationPercentileEngine
         $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
         $bucketKey = $this->buildBucketKey($context);
         $clean = array_values(array_filter(
-            array_map(fn ($row) => is_numeric($row) ? (float) $row : null, $populationValues),
+            array_map(function ($row) use ($metricKey) {
+                $validation = $this->guardrail->validate($metricKey, $row);
+
+                return ($validation['included'] ?? false) === true ? (float) $validation['value'] : null;
+            }, $populationValues),
             fn ($row) => $row !== null
         ));
         $bucketCount = count($clean);
-        $raw = is_numeric($value) ? (float) $value : null;
+        $rawValidation = $this->guardrail->validate($metricKey, $value);
+        $raw = ($rawValidation['included'] ?? false) === true ? (float) $rawValidation['value'] : null;
 
         $usable = $raw !== null && $this->canUsePopulationBucket($bucketCount);
 
@@ -48,7 +54,7 @@ class PopulationPercentileEngine
             'confidence' => $this->confidence($bucketCount),
             'source' => 'fmtrx_population',
             'usable' => $usable,
-            'evidence' => $this->evidence($bucketCount, $raw),
+            'evidence' => $this->evidence($bucketCount, $raw, $rawValidation['reason'] ?? null),
         ];
     }
 
@@ -100,10 +106,13 @@ class PopulationPercentileEngine
         };
     }
 
-    private function evidence(int $count, ?float $raw): array
+    private function evidence(int $count, ?float $raw, ?string $rawReason = null): array
     {
         if ($raw === null) {
-            return ['No player value was provided for FMTRX population comparison.'];
+            return [$rawReason
+                ? 'Player value is not valid for FMTRX population comparison: '.$rawReason.'.'
+                : 'No player value was provided for FMTRX population comparison.'
+            ];
         }
 
         if (! $this->canUsePopulationBucket($count)) {
