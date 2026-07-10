@@ -40,6 +40,11 @@ const cageStatRows = ref([])
 const trainingSessions = ref([])
 const trainingStats = ref(null)
 const playerFitnessLatest = ref(null)
+const benchmarkTasks = ref([])
+const benchmarkTasksLoading = ref(false)
+const benchmarkTaskActionLoading = ref('')
+const benchmarkTaskMessage = ref('')
+const benchmarkTaskError = ref('')
 const sleepCheckinOpen = ref(false)
 const sleepCheckinSaving = ref(false)
 const sleepCheckinCheckedDate = ref('')
@@ -1668,6 +1673,90 @@ const barColor = (row) => {
   return GREAT
 }
 
+const apiPayload = (response) => response?.data?.data || response?.data || {}
+
+const humanizeTaskValue = (value, fallback = '—') => {
+  const raw = String(value || '').trim()
+  if (!raw) return fallback
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+const taskStatusClass = (status) => ({
+  assigned: 'border-sky-300/30 bg-sky-500/15 text-sky-100',
+  in_progress: 'border-amber-300/30 bg-amber-500/15 text-amber-100',
+  completed: 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100',
+  dismissed: 'border-white/10 bg-white/5 text-white/45',
+}[status] || 'border-white/10 bg-white/5 text-white/60')
+
+const taskPriorityClass = (priority) => ({
+  critical: 'text-[#ff2d55]',
+  high: 'text-amber-200',
+  medium: 'text-sky-200',
+  low: 'text-white/55',
+}[priority] || 'text-white/55')
+
+const formatTaskDate = (value) => {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10)
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+const activeBenchmarkTasks = computed(() =>
+  asArray(benchmarkTasks.value).filter((task) => ['assigned', 'in_progress'].includes(task?.status))
+)
+
+const completedBenchmarkTasks = computed(() =>
+  asArray(benchmarkTasks.value).filter((task) => task?.status === 'completed')
+)
+
+const benchmarkTaskCounts = computed(() =>
+  asArray(benchmarkTasks.value).reduce((counts, task) => {
+    const status = task?.status || 'unknown'
+    counts[status] = (counts[status] || 0) + 1
+    return counts
+  }, {})
+)
+
+const loadBenchmarkTasks = async () => {
+  benchmarkTasksLoading.value = true
+  benchmarkTaskError.value = ''
+  try {
+    const response = await axiosGet('player/benchmark-tasks')
+    const payload = apiPayload(response)
+    benchmarkTasks.value = Array.isArray(payload.tasks) ? payload.tasks : []
+  } catch (error) {
+    benchmarkTaskError.value = error?.response?.data?.message || 'Benchmark tasks are not available right now.'
+  } finally {
+    benchmarkTasksLoading.value = false
+  }
+}
+
+const updateBenchmarkTaskStatus = async (task, action) => {
+  const taskId = task?.task_id || task?.id
+  if (!taskId || benchmarkTaskActionLoading.value) return
+
+  benchmarkTaskActionLoading.value = `${action}:${taskId}`
+  benchmarkTaskError.value = ''
+  benchmarkTaskMessage.value = ''
+  try {
+    await axiosPost(`player/benchmark-tasks/${taskId}/${action}`, {})
+    await loadBenchmarkTasks()
+    benchmarkTaskMessage.value = action === 'start'
+      ? 'Task started.'
+      : action === 'complete'
+        ? 'Task marked complete.'
+        : 'Task dismissed.'
+  } catch (error) {
+    benchmarkTaskError.value = error?.response?.data?.message || `Could not ${action} task.`
+  } finally {
+    benchmarkTaskActionLoading.value = ''
+  }
+}
+
 const loadData = async () => {
   loading.value = true
   connectionMessage.value = ''
@@ -1696,7 +1785,7 @@ const loadData = async () => {
       EV: [35, 36, 37, 38],
       LT: [39, 40, 41, 42, 43, 44],
     }
-    const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, fitnessRes, trainingStatsRes] = await Promise.all([
+    const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, fitnessRes, trainingStatsRes, benchmarkTasksRes] = await Promise.all([
       safeGet('player/sessions/batting'),
       safeGet('player/sessions/bullpen'),
       safeGet('player/sessions/cage'),
@@ -1708,6 +1797,7 @@ const loadData = async () => {
         players: [String(developmentPlayerId.value)],
         options: allTrainingOptions,
       }) : Promise.resolve(null),
+      safeGet('player/benchmark-tasks'),
     ])
 
     battingSessions.value = rowsFromApi(battingRes)
@@ -1716,6 +1806,7 @@ const loadData = async () => {
     trainingSessions.value = rowsFromApi(trainingRes)
     createdSessions.value = rowsFromApi(createdRes)
     trainingStats.value = trainingStatsRes?.data?.data || null
+    benchmarkTasks.value = Array.isArray(apiPayload(benchmarkTasksRes).tasks) ? apiPayload(benchmarkTasksRes).tasks : []
 
     const cageStatResults = await Promise.all(
       cageSessions.value
@@ -1918,6 +2009,127 @@ onMounted(loadData)
                   <p class="mt-1 font-bold">{{ schoolTeamText }}</p>
                 </div>
               </div>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-white/10 bg-[#0b1230]/75 p-4">
+              <div class="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <h2 class="text-lg font-black tracking-wide">Benchmark Tasks</h2>
+                  <p class="mt-1 text-xs text-white/55">Assigned collection tasks from your coach.</p>
+                </div>
+                <span class="rounded-full border border-sky-300/30 bg-sky-500/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-sky-100">
+                  {{ activeBenchmarkTasks.length }} Active
+                </span>
+              </div>
+
+              <div class="mb-3 grid grid-cols-3 gap-2">
+                <div class="rounded-lg border border-white/10 bg-white/5 p-2">
+                  <p class="text-[10px] uppercase tracking-widest text-white/45">Assigned</p>
+                  <p class="mt-1 text-xl font-black">{{ benchmarkTaskCounts.assigned || 0 }}</p>
+                </div>
+                <div class="rounded-lg border border-white/10 bg-white/5 p-2">
+                  <p class="text-[10px] uppercase tracking-widest text-white/45">Started</p>
+                  <p class="mt-1 text-xl font-black">{{ benchmarkTaskCounts.in_progress || 0 }}</p>
+                </div>
+                <div class="rounded-lg border border-white/10 bg-white/5 p-2">
+                  <p class="text-[10px] uppercase tracking-widest text-white/45">Done</p>
+                  <p class="mt-1 text-xl font-black">{{ benchmarkTaskCounts.completed || 0 }}</p>
+                </div>
+              </div>
+
+              <p v-if="benchmarkTaskMessage" class="mb-3 rounded-lg border border-emerald-300/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                {{ benchmarkTaskMessage }}
+              </p>
+              <p v-if="benchmarkTaskError" class="mb-3 rounded-lg border border-[#ff2d55]/30 bg-[#ff2d55]/10 px-3 py-2 text-xs text-red-100">
+                {{ benchmarkTaskError }}
+              </p>
+
+              <div v-if="benchmarkTasksLoading" class="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-center text-sm text-white/45">
+                Loading benchmark tasks…
+              </div>
+
+              <div v-else-if="!activeBenchmarkTasks.length && !completedBenchmarkTasks.length" class="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-center text-sm text-white/45">
+                No benchmark tasks assigned yet.
+              </div>
+
+              <div v-else class="space-y-3">
+                <div
+                  v-for="task in activeBenchmarkTasks"
+                  :key="task.task_id"
+                  class="rounded-xl border border-white/10 bg-white/5 p-3"
+                >
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      <p class="text-sm font-black text-white">{{ task.title }}</p>
+                      <p class="mt-1 text-[11px] font-black uppercase tracking-wider" :class="taskPriorityClass(task.priority)">
+                        {{ humanizeTaskValue(task.priority, 'Priority') }} · {{ task.task_type_label || humanizeTaskValue(task.task_type, 'Benchmark Task') }}
+                      </p>
+                    </div>
+                    <span class="rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider" :class="taskStatusClass(task.status)">
+                      {{ humanizeTaskValue(task.status) }}
+                    </span>
+                  </div>
+
+                  <p v-if="task.description" class="mt-2 text-xs leading-5 text-white/65">{{ task.description }}</p>
+                  <p class="mt-2 text-[11px] uppercase tracking-wider text-white/45">
+                    {{ humanizeTaskValue(task.due_window, 'No due window') }} · {{ task.estimated_minutes || '—' }} min
+                  </p>
+
+                  <div v-if="asArray(task.instructions).length" class="mt-3 rounded-lg border border-white/10 bg-[#050b1f]/60 p-3">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-white/45">What To Do</p>
+                    <ul class="mt-2 space-y-1 text-xs leading-5 text-white/75">
+                      <li v-for="instruction in asArray(task.instructions)" :key="instruction">• {{ instruction }}</li>
+                    </ul>
+                    <p v-if="task.why" class="mt-2 text-xs leading-5 text-sky-100/85">{{ task.why }}</p>
+                  </div>
+
+                  <p v-if="task.coach_notes" class="mt-2 rounded-lg border border-amber-300/20 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                    {{ task.coach_notes }}
+                  </p>
+
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <button
+                      v-if="task.status === 'assigned'"
+                      type="button"
+                      class="rounded-lg border border-sky-300/30 bg-sky-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-sky-100 disabled:opacity-50"
+                      :disabled="!!benchmarkTaskActionLoading"
+                      @click="updateBenchmarkTaskStatus(task, 'start')"
+                    >
+                      {{ benchmarkTaskActionLoading === `start:${task.task_id}` ? 'Starting...' : 'Start Task' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-100 disabled:opacity-50"
+                      :disabled="!!benchmarkTaskActionLoading"
+                      @click="updateBenchmarkTaskStatus(task, 'complete')"
+                    >
+                      {{ benchmarkTaskActionLoading === `complete:${task.task_id}` ? 'Saving...' : 'Mark Complete' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 disabled:opacity-50"
+                      :disabled="!!benchmarkTaskActionLoading"
+                      @click="updateBenchmarkTaskStatus(task, 'dismiss')"
+                    >
+                      {{ benchmarkTaskActionLoading === `dismiss:${task.task_id}` ? 'Dismissing...' : 'Dismiss' }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="completedBenchmarkTasks.length" class="rounded-xl border border-emerald-300/20 bg-emerald-500/10 p-3">
+                  <p class="text-[10px] font-black uppercase tracking-widest text-emerald-100/75">Completed</p>
+                  <div class="mt-2 space-y-2">
+                    <div
+                      v-for="task in completedBenchmarkTasks.slice(0, 4)"
+                      :key="task.task_id"
+                      class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#050b1f]/40 px-3 py-2 text-xs"
+                    >
+                      <span class="font-bold text-white">{{ task.title }}</span>
+                      <span class="text-white/55">{{ formatTaskDate(task.completed_at) }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

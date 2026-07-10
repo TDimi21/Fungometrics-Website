@@ -11,6 +11,62 @@ use Throwable;
 
 class BenchmarkTaskPersistenceService
 {
+    private const PLAYER_VISIBLE_STATUSES = [
+        BenchmarkCollectionTask::STATUS_ASSIGNED,
+        BenchmarkCollectionTask::STATUS_IN_PROGRESS,
+        BenchmarkCollectionTask::STATUS_COMPLETED,
+    ];
+
+    private const TASK_LABELS = [
+        'roster_cleanup' => 'Roster Cleanup',
+        'exit_velocity_baseline' => 'Exit Velocity Baseline',
+        'bullpen_baseline' => 'Bullpen Baseline',
+        'long_toss_weighted_ball' => 'Long Toss / Weighted Ball',
+        'strength_baseline' => 'Strength Baseline',
+        'athletic_testing' => 'Athletic Testing',
+        'mobility_screen' => 'Mobility Screen',
+    ];
+
+    private const PLAYER_INSTRUCTIONS = [
+        'roster_cleanup' => [
+            'Add or confirm your date of birth.',
+            'Add or confirm your position.',
+            'Add height, weight, throws, and bats.',
+        ],
+        'exit_velocity_baseline' => [
+            'Complete an exit velocity testing round.',
+            'Record average EV and max EV.',
+            'Track line-drive/contact quality if available.',
+        ],
+        'bullpen_baseline' => [
+            'Throw a tracked bullpen.',
+            'Record average fastball velocity, max fastball velocity, and strike percentage.',
+        ],
+        'long_toss_weighted_ball' => [
+            'Record max long toss distance.',
+            'Record 5 oz weighted ball velocity if used by your program.',
+        ],
+        'strength_baseline' => [
+            'Record bench, squat, deadlift, pull-ups, and pushups where appropriate.',
+        ],
+        'athletic_testing' => [
+            'Record 40-yard dash, 60-yard dash, broad jump, and vertical jump where available.',
+        ],
+        'mobility_screen' => [
+            'Complete shoulder, hip, and T-spine mobility checks.',
+        ],
+    ];
+
+    private const PLAYER_WHY = [
+        'roster_cleanup' => 'This helps FMTRX compare you to the correct age and peer group.',
+        'exit_velocity_baseline' => 'This helps FMTRX measure your power and barrel profile.',
+        'bullpen_baseline' => 'This helps FMTRX understand command and velocity profile.',
+        'long_toss_weighted_ball' => 'This helps FMTRX understand throwing capacity and mound transfer.',
+        'strength_baseline' => 'This helps FMTRX connect physical strength to baseball output.',
+        'athletic_testing' => 'This helps FMTRX understand speed and explosiveness.',
+        'mobility_screen' => 'This helps FMTRX identify movement limitations that may affect performance.',
+    ];
+
     public function saveDraftTasks(string $teamId, array $tasks, ?string $createdByUserId = null): array
     {
         try {
@@ -163,6 +219,136 @@ class BenchmarkTaskPersistenceService
         }
     }
 
+    public function listPlayerTasks(string $playerId, array $filters = []): array
+    {
+        try {
+            $query = BenchmarkCollectionTask::query()
+                ->with(['assignedPlayer.profile'])
+                ->where('assigned_to_player_id', $playerId)
+                ->where('status', '!=', BenchmarkCollectionTask::STATUS_DRAFT)
+                ->orderByRaw("FIELD(status, 'assigned', 'in_progress', 'completed', 'dismissed')")
+                ->orderByDesc('priority')
+                ->orderBy('due_window')
+                ->orderByDesc('updated_at');
+
+            if (! empty($filters['team_id'])) {
+                $query->where('team_id', (string) $filters['team_id']);
+            }
+
+            $statuses = $this->arrayFilter($filters['status'] ?? $filters['statuses'] ?? null);
+            if (! empty($statuses)) {
+                $statuses = array_values(array_filter($statuses, fn (string $status) => $status !== BenchmarkCollectionTask::STATUS_DRAFT));
+                if (! empty($statuses)) {
+                    $query->whereIn('status', $statuses);
+                }
+            } elseif (empty($filters['include_dismissed'])) {
+                $query->whereIn('status', self::PLAYER_VISIBLE_STATUSES);
+            }
+
+            if (! empty($filters['task_type'])) {
+                $query->where('task_type', (string) $filters['task_type']);
+            }
+
+            $tasks = $query->get()
+                ->map(fn (BenchmarkCollectionTask $task) => $this->serializePlayerTask($task))
+                ->values()
+                ->all();
+
+            $active = collect($tasks)->whereIn('status', [
+                BenchmarkCollectionTask::STATUS_ASSIGNED,
+                BenchmarkCollectionTask::STATUS_IN_PROGRESS,
+            ])->values()->all();
+            $completed = collect($tasks)->where('status', BenchmarkCollectionTask::STATUS_COMPLETED)->values()->all();
+
+            return $this->result('player_list', [
+                'player_id' => $playerId,
+                'team_id' => $filters['team_id'] ?? null,
+                'task_count' => count($tasks),
+                'active_count' => count($active),
+                'completed_count' => count($completed),
+                'dismissed_count' => collect($tasks)->where('status', BenchmarkCollectionTask::STATUS_DISMISSED)->count(),
+                'counts_by_status' => collect($tasks)->countBy('status')->all(),
+                'active_tasks' => $active,
+                'completed_tasks' => $completed,
+                'tasks' => $tasks,
+            ]);
+        } catch (Throwable $exception) {
+            return $this->errorResult('player_list', null, $exception);
+        }
+    }
+
+    public function getPlayerTask(string $taskId, string $playerId): array
+    {
+        try {
+            $task = BenchmarkCollectionTask::query()
+                ->with(['assignedPlayer.profile'])
+                ->whereKey($taskId)
+                ->where('assigned_to_player_id', $playerId)
+                ->where('status', '!=', BenchmarkCollectionTask::STATUS_DRAFT)
+                ->first();
+
+            return $this->result('player_show', [
+                'player_id' => $playerId,
+                'task_id' => $taskId,
+                'task' => $this->serializePlayerTask($task),
+            ], (bool) $task);
+        } catch (Throwable $exception) {
+            return $this->errorResult('player_show', null, $exception);
+        }
+    }
+
+    public function startTask(string $taskId, array $payload = []): array
+    {
+        try {
+            $task = BenchmarkCollectionTask::query()->find($taskId);
+            if (! $task) {
+                return $this->result('start', [
+                    'task_id' => $taskId,
+                    'updated_count' => 0,
+                    'error' => 'task_not_found',
+                    'task' => null,
+                ], false);
+            }
+
+            if ($task->status === BenchmarkCollectionTask::STATUS_COMPLETED) {
+                return $this->invalidTransition('start', $task, 'cannot_start_completed_task');
+            }
+
+            if ($task->status === BenchmarkCollectionTask::STATUS_DISMISSED) {
+                return $this->invalidTransition('start', $task, 'cannot_start_dismissed_task');
+            }
+
+            if ($task->status === BenchmarkCollectionTask::STATUS_DRAFT) {
+                return $this->invalidTransition('start', $task, 'cannot_start_draft_task');
+            }
+
+            if ($task->status === BenchmarkCollectionTask::STATUS_IN_PROGRESS) {
+                return $this->result('start', [
+                    'task_id' => $taskId,
+                    'updated_count' => 0,
+                    'task' => $this->serializeTask($task),
+                ]);
+            }
+
+            $task->status = BenchmarkCollectionTask::STATUS_IN_PROGRESS;
+            $task->payload = array_replace_recursive($task->payload ?? [], [
+                'progress' => [
+                    'started_at' => now()->toIso8601String(),
+                    'payload' => $payload,
+                ],
+            ]);
+            $task->save();
+
+            return $this->result('start', [
+                'task_id' => $taskId,
+                'updated_count' => 1,
+                'task' => $this->serializeTask($task->fresh()),
+            ]);
+        } catch (Throwable $exception) {
+            return $this->errorResult('start', null, $exception);
+        }
+    }
+
     public function markTaskComplete(string $taskId, array $payload = []): array
     {
         try {
@@ -174,6 +360,14 @@ class BenchmarkTaskPersistenceService
                     'error' => 'task_not_found',
                     'task' => null,
                 ], false);
+            }
+
+            if ($task->status === BenchmarkCollectionTask::STATUS_DISMISSED) {
+                return $this->invalidTransition('complete', $task, 'cannot_complete_dismissed_task');
+            }
+
+            if ($task->status === BenchmarkCollectionTask::STATUS_DRAFT) {
+                return $this->invalidTransition('complete', $task, 'cannot_complete_draft_task');
             }
 
             $task->status = BenchmarkCollectionTask::STATUS_COMPLETED;
@@ -204,6 +398,10 @@ class BenchmarkTaskPersistenceService
                     'error' => 'task_not_found',
                     'task' => null,
                 ], false);
+            }
+
+            if ($task->status === BenchmarkCollectionTask::STATUS_COMPLETED) {
+                return $this->invalidTransition('dismiss', $task, 'cannot_dismiss_completed_task');
             }
 
             $task->status = BenchmarkCollectionTask::STATUS_DISMISSED;
@@ -261,6 +459,42 @@ class BenchmarkTaskPersistenceService
             'dismissed_at' => $task->dismissed_at?->toIso8601String(),
             'created_at' => $task->created_at?->toIso8601String(),
             'updated_at' => $task->updated_at?->toIso8601String(),
+        ];
+    }
+
+    public function serializePlayerTask(?BenchmarkCollectionTask $task): ?array
+    {
+        $serialized = $this->serializeTask($task);
+        if (! $serialized) {
+            return null;
+        }
+
+        $taskType = (string) ($serialized['task_type'] ?? '');
+        $instructions = $this->arrayValue($serialized['instructions'] ?? []);
+        if (empty($instructions)) {
+            $instructions = self::PLAYER_INSTRUCTIONS[$taskType] ?? [];
+        }
+
+        return [
+            'task_id' => $serialized['id'],
+            'team_id' => $serialized['team_id'],
+            'title' => $serialized['title'] ?: ($serialized['payload']['title'] ?? self::TASK_LABELS[$taskType] ?? 'Benchmark Task'),
+            'description' => $serialized['description'],
+            'priority' => $serialized['priority'],
+            'status' => $serialized['status'],
+            'task_type' => $taskType,
+            'task_type_label' => self::TASK_LABELS[$taskType] ?? $this->headline($taskType),
+            'due_window' => $serialized['due_window'],
+            'estimated_minutes' => $serialized['estimated_minutes'],
+            'metrics' => $serialized['metrics'],
+            'missing_fields' => $serialized['missing_fields'],
+            'instructions' => $instructions,
+            'why' => self::PLAYER_WHY[$taskType] ?? null,
+            'coach_notes' => $serialized['coach_notes'],
+            'assigned_at' => $serialized['assigned_at'],
+            'completed_at' => $serialized['completed_at'],
+            'dismissed_at' => $serialized['dismissed_at'],
+            'updated_at' => $serialized['updated_at'],
         ];
     }
 
@@ -346,6 +580,16 @@ class BenchmarkTaskPersistenceService
         ];
     }
 
+    private function invalidTransition(string $action, BenchmarkCollectionTask $task, string $reason): array
+    {
+        return $this->result($action, [
+            'task_id' => $task->id,
+            'updated_count' => 0,
+            'error' => $reason,
+            'task' => $this->serializeTask($task),
+        ], false);
+    }
+
     private function errorResult(string $action, ?string $teamId, Throwable $exception): array
     {
         return $this->result($action, [
@@ -386,5 +630,12 @@ class BenchmarkTaskPersistenceService
         $priority = strtolower(trim($priority));
 
         return in_array($priority, ['low', 'medium', 'high', 'critical'], true) ? $priority : 'medium';
+    }
+
+    private function headline(string $value): string
+    {
+        $value = trim(str_replace(['_', '-'], ' ', $value));
+
+        return $value !== '' ? ucwords($value) : 'Benchmark Task';
     }
 }

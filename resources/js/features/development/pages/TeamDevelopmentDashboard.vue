@@ -1017,6 +1017,84 @@ const benchmarkTaskStatusCounts = computed(() =>
   }, {})
 )
 
+const savedBenchmarkTaskStatusSummaryRows = computed(() => {
+  const counts = benchmarkTaskStatusCounts.value || {}
+  return ['draft', 'assigned', 'in_progress', 'completed', 'dismissed']
+    .map((status) => ({
+      status,
+      count: counts[status] || 0,
+    }))
+    .filter((row) => row.count > 0)
+})
+
+const savedBenchmarkTaskPlayerSummaryRows = computed(() => {
+  const rows = new Map()
+
+  asArray(savedBenchmarkTasks.value).forEach((task) => {
+    const playerId = task?.assigned_to_player_id || 'team'
+    const playerName = task?.assigned_to_player_name || 'Team Task'
+    const status = task?.status || 'unknown'
+
+    if (!rows.has(playerId)) {
+      rows.set(playerId, {
+        player_id: playerId,
+        player_name: playerName,
+        task_count: 0,
+        active_count: 0,
+        completed_count: 0,
+        dismissed_count: 0,
+        status_counts: {},
+        task_types: new Set(),
+      })
+    }
+
+    const row = rows.get(playerId)
+    row.task_count += 1
+    row.status_counts[status] = (row.status_counts[status] || 0) + 1
+    if (['assigned', 'in_progress'].includes(status)) row.active_count += 1
+    if (status === 'completed') row.completed_count += 1
+    if (status === 'dismissed') row.dismissed_count += 1
+    if (task?.task_type) row.task_types.add(task.task_type)
+  })
+
+  return Array.from(rows.values())
+    .map((row) => ({
+      ...row,
+      task_types: Array.from(row.task_types),
+    }))
+    .sort((a, b) => b.task_count - a.task_count || String(a.player_name).localeCompare(String(b.player_name)))
+    .slice(0, 6)
+})
+
+const savedBenchmarkTaskTypeSummaryRows = computed(() => {
+  const rows = new Map()
+
+  asArray(savedBenchmarkTasks.value).forEach((task) => {
+    const taskType = task?.task_type || 'unknown'
+    const status = task?.status || 'unknown'
+
+    if (!rows.has(taskType)) {
+      rows.set(taskType, {
+        task_type: taskType,
+        task_count: 0,
+        active_count: 0,
+        completed_count: 0,
+        dismissed_count: 0,
+      })
+    }
+
+    const row = rows.get(taskType)
+    row.task_count += 1
+    if (['assigned', 'in_progress'].includes(status)) row.active_count += 1
+    if (status === 'completed') row.completed_count += 1
+    if (status === 'dismissed') row.dismissed_count += 1
+  })
+
+  return Array.from(rows.values())
+    .sort((a, b) => b.task_count - a.task_count || taskTypeLabel(a.task_type).localeCompare(taskTypeLabel(b.task_type)))
+    .slice(0, 6)
+})
+
 const responsePayload = (response) => response?.data?.data || response?.data || {}
 
 const refreshSavedBenchmarkTasks = async () => {
@@ -2452,20 +2530,80 @@ const priorityTop10Rows = computed(() => {
                     </div>
                   </template>
 
-                  <div class="mt-3 rounded border border-white/10 bg-slate-950/35 p-3">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                      <p class="text-[10px] uppercase tracking-widest text-sky-200/80">Saved Task List</p>
-                      <p class="text-[10px] uppercase tracking-wider text-slate-300">
-                        Draft {{ fmtCount(benchmarkTaskStatusCounts.draft, '0') }}
-                        · Assigned {{ fmtCount(benchmarkTaskStatusCounts.assigned, '0') }}
-                        · Completed {{ fmtCount(benchmarkTaskStatusCounts.completed, '0') }}
-                      </p>
-                    </div>
-                    <div v-if="savedBenchmarkTaskRows.length" class="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
+                    <div class="mt-3 rounded border border-white/10 bg-slate-950/35 p-3">
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-[10px] uppercase tracking-widest text-sky-200/80">Saved Task List</p>
+                        <p class="text-[10px] uppercase tracking-wider text-slate-300">
+                          Draft {{ fmtCount(benchmarkTaskStatusCounts.draft, '0') }}
+                          · Assigned {{ fmtCount(benchmarkTaskStatusCounts.assigned, '0') }}
+                          · Completed {{ fmtCount(benchmarkTaskStatusCounts.completed, '0') }}
+                        </p>
+                      </div>
                       <div
-                        v-for="task in savedBenchmarkTaskRows"
-                        :key="task.id"
-                        class="rounded border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-300"
+                        v-if="savedBenchmarkTaskRows.length"
+                        class="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-3"
+                      >
+                        <div class="rounded border border-white/10 bg-white/5 p-2">
+                          <p class="text-[10px] uppercase tracking-widest text-white/45">By Status</p>
+                          <div class="mt-2 space-y-1">
+                            <p
+                              v-for="row in savedBenchmarkTaskStatusSummaryRows"
+                              :key="row.status"
+                              class="flex items-center justify-between gap-2 rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300"
+                            >
+                              <span>{{ humanizeKey(row.status) }}</span>
+                              <span class="font-black text-white">{{ fmtCount(row.count, '0') }}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div class="rounded border border-white/10 bg-white/5 p-2">
+                          <p class="text-[10px] uppercase tracking-widest text-white/45">By Player</p>
+                          <div class="mt-2 space-y-1">
+                            <p
+                              v-for="row in savedBenchmarkTaskPlayerSummaryRows"
+                              :key="row.player_id"
+                              class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300"
+                            >
+                              <span class="flex items-center justify-between gap-2">
+                                <span class="font-black text-white">{{ row.player_name }}</span>
+                                <span>{{ fmtCount(row.task_count, '0') }} tasks</span>
+                              </span>
+                              <span class="mt-0.5 block text-[10px] uppercase tracking-wider text-sky-100/80">
+                                Active {{ fmtCount(row.active_count, '0') }}
+                                · Done {{ fmtCount(row.completed_count, '0') }}
+                                · Types {{ fmtCount(row.task_types.length, '0') }}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div class="rounded border border-white/10 bg-white/5 p-2">
+                          <p class="text-[10px] uppercase tracking-widest text-white/45">By Task Type</p>
+                          <div class="mt-2 space-y-1">
+                            <p
+                              v-for="row in savedBenchmarkTaskTypeSummaryRows"
+                              :key="row.task_type"
+                              class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300"
+                            >
+                              <span class="flex items-center justify-between gap-2">
+                                <span class="font-black text-white">{{ taskTypeLabel(row.task_type) }}</span>
+                                <span>{{ fmtCount(row.task_count, '0') }}</span>
+                              </span>
+                              <span class="mt-0.5 block text-[10px] uppercase tracking-wider text-sky-100/80">
+                                Active {{ fmtCount(row.active_count, '0') }}
+                                · Done {{ fmtCount(row.completed_count, '0') }}
+                                · Dismissed {{ fmtCount(row.dismissed_count, '0') }}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="savedBenchmarkTaskRows.length" class="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
+                        <div
+                          v-for="task in savedBenchmarkTaskRows"
+                          :key="task.id"
+                          class="rounded border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-300"
                       >
                         <div class="flex flex-wrap items-start justify-between gap-2">
                           <div>

@@ -173,6 +173,11 @@ Route::prefix('player')->group(function (): void {
         Route::get('sessions/liveab', GetLiveABPractices::class);
         Route::get('sessions/created', GetCreatedPractices::class);
         Route::get('statistics/{player}', ScoresStatisticPlayers::class);
+        Route::get('benchmark-tasks', [IntelligenceController::class, 'listPlayerBenchmarkTasks']);
+        Route::get('benchmark-tasks/{taskId}', [IntelligenceController::class, 'showPlayerBenchmarkTask']);
+        Route::post('benchmark-tasks/{taskId}/start', [IntelligenceController::class, 'startPlayerBenchmarkTask']);
+        Route::post('benchmark-tasks/{taskId}/complete', [IntelligenceController::class, 'completePlayerBenchmarkTask']);
+        Route::post('benchmark-tasks/{taskId}/dismiss', [IntelligenceController::class, 'dismissPlayerBenchmarkTask']);
         Route::middleware('plan:view_advanced_stats')->get('development/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::middleware('plan:view_advanced_stats')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
     });

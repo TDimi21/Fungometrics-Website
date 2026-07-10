@@ -205,6 +205,77 @@ class IntelligenceController extends Controller
         return response()->json($this->benchmarkTaskPersistenceService->dismissTask($taskId, $validated['reason'] ?? null));
     }
 
+    public function listPlayerBenchmarkTasks(Request $request): JsonResponse
+    {
+        $playerId = $this->authenticatedPlayerId($request);
+        if (! $playerId) {
+            return $this->forbidden('Player account could not be resolved');
+        }
+
+        return response()->json($this->benchmarkTaskPersistenceService->listPlayerTasks($playerId, [
+            'team_id' => $request->query('team_id'),
+            'status' => $request->query('status'),
+            'task_type' => $request->query('task_type'),
+            'include_dismissed' => $request->boolean('include_dismissed'),
+        ]));
+    }
+
+    public function showPlayerBenchmarkTask(Request $request, string $taskId): JsonResponse
+    {
+        $playerId = $this->authenticatedPlayerId($request);
+        if (! $playerId) {
+            return $this->forbidden('Player account could not be resolved');
+        }
+
+        $result = $this->benchmarkTaskPersistenceService->getPlayerTask($taskId, $playerId);
+        if (! ($result['ok'] ?? false)) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        return response()->json($result);
+    }
+
+    public function startPlayerBenchmarkTask(Request $request, string $taskId): JsonResponse
+    {
+        $task = $this->playerVisibleTaskForRequest($request, $taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        return response()->json($this->benchmarkTaskPersistenceService->startTask($taskId, [
+            'started_by_user_id' => (string) $request->user()?->id,
+            'source' => 'player_dashboard',
+        ]));
+    }
+
+    public function completePlayerBenchmarkTask(Request $request, string $taskId): JsonResponse
+    {
+        $task = $this->playerVisibleTaskForRequest($request, $taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        return response()->json($this->benchmarkTaskPersistenceService->markTaskComplete($taskId, [
+            'completed_by_user_id' => (string) $request->user()?->id,
+            'source' => 'player_dashboard',
+            'payload' => $request->all(),
+        ]));
+    }
+
+    public function dismissPlayerBenchmarkTask(Request $request, string $taskId): JsonResponse
+    {
+        $task = $this->playerVisibleTaskForRequest($request, $taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        return response()->json($this->benchmarkTaskPersistenceService->dismissTask($taskId, $validated['reason'] ?? 'Dismissed by player'));
+    }
+
     private function days(Request $request): int
     {
         $days = (int) ($request->query('days', $request->input('days', 365)));
@@ -216,6 +287,30 @@ class IntelligenceController extends Controller
     {
         return Team::query()->whereKey($teamId)->exists()
             && $this->coachCanAccessTeam($request, $teamId);
+    }
+
+    private function authenticatedPlayerId(Request $request): ?string
+    {
+        $user = $request->user();
+        if (! $user || (string) $user->type !== 'player') {
+            return null;
+        }
+
+        return (string) $user->id;
+    }
+
+    private function playerVisibleTaskForRequest(Request $request, string $taskId): ?BenchmarkCollectionTask
+    {
+        $playerId = $this->authenticatedPlayerId($request);
+        if (! $playerId) {
+            return null;
+        }
+
+        return BenchmarkCollectionTask::query()
+            ->whereKey($taskId)
+            ->where('assigned_to_player_id', $playerId)
+            ->where('status', '!=', BenchmarkCollectionTask::STATUS_DRAFT)
+            ->first();
     }
 
     private function coachCanAccessTeam(Request $request, string $teamId): bool
