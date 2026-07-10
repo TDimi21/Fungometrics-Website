@@ -14,6 +14,13 @@ class PopulationMetricAudit extends Command
     protected $signature = 'intelligence:population-metric
         {metricKey : Benchmark metric key to audit}
         {--teamId= : Optional team scope}
+        {--age-group= : Optional age group bucket}
+        {--level= : Optional team/player level bucket}
+        {--position= : Optional position or role bucket}
+        {--bodyweight-band= : Optional bodyweight bucket}
+        {--height-band= : Optional height bucket}
+        {--throws= : Optional throwing side bucket}
+        {--bats= : Optional hitting side bucket}
         {--value= : Optional player value to compare against the FMTRX population bucket}
         {--days=365 : Population lookback window in days}';
 
@@ -78,11 +85,13 @@ class PopulationMetricAudit extends Command
             );
 
             $this->line('Value: '.$this->formatNumber($this->option('value')));
+            $this->line('Selected bucket level: '.($percentile['selected_bucket_level'] ?? 'none'));
+            $this->line('Selected bucket key: '.($percentile['selected_bucket_key'] ?? '-'));
+            $this->line('Selected bucket count: '.($percentile['bucket_count'] ?? 0));
             $this->line('Population percentile: '.$this->formatNumber($percentile['percentile'] ?? null));
             $this->line('Usable: '.(($percentile['usable'] ?? false) ? 'yes' : 'no'));
             $this->line('Confidence: '.($percentile['confidence'] ?? 'insufficient'));
-            $this->line('Bucket count: '.($percentile['bucket_count'] ?? 0));
-            $this->line('Bucket key: '.($percentile['bucket_key'] ?? '-'));
+            $this->line('Attempted buckets: '.$this->formatAttemptedBuckets($percentile['attempted_buckets'] ?? []));
             $this->line('Source: '.($percentile['source'] ?? 'fmtrx_population'));
             $this->line('Evidence: '.$this->formatEvidence($percentile['evidence'] ?? []));
         }
@@ -111,6 +120,21 @@ class PopulationMetricAudit extends Command
 
         if (is_string($teamId) && trim($teamId) !== '') {
             $context['team_id'] = trim($teamId);
+        }
+
+        foreach ([
+            'age-group' => 'age_group',
+            'level' => 'level',
+            'position' => 'position',
+            'bodyweight-band' => 'bodyweight_band',
+            'height-band' => 'height_band',
+            'throws' => 'throws',
+            'bats' => 'bats',
+        ] as $option => $contextKey) {
+            $value = $this->option($option);
+            if (is_string($value) && trim($value) !== '') {
+                $context[$contextKey] = trim($value);
+            }
         }
 
         return $context;
@@ -208,6 +232,23 @@ class PopulationMetricAudit extends Command
             fn ($item) => is_scalar($item) ? (string) $item : (json_encode($item, JSON_UNESCAPED_SLASHES) ?: ''),
             $evidence,
         ));
+    }
+
+    private function formatAttemptedBuckets(array $attemptedBuckets): string
+    {
+        if (empty($attemptedBuckets)) {
+            return '-';
+        }
+
+        return implode(' | ', array_map(function (array $attempt) {
+            return sprintf(
+                '%s=%s (%s%s)',
+                $attempt['level'] ?? 'unknown',
+                $attempt['bucket_key'] ?? '-',
+                (int) ($attempt['count'] ?? 0),
+                ($attempt['usable'] ?? false) ? ', usable' : ''
+            );
+        }, $attemptedBuckets));
     }
 
     private function formatNumber(mixed $value): string

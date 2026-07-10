@@ -102,6 +102,9 @@ class CompositeBenchmarkEngine
             'population_bucket_count' => (int) ($population['bucket_count'] ?? 0),
             'population_confidence' => $population['confidence'] ?? 'insufficient',
             'population_usable' => ($population['usable'] ?? false) === true,
+            'selected_bucket_key' => $population['selected_bucket_key'] ?? $population['bucket_key'] ?? null,
+            'selected_bucket_level' => $population['selected_bucket_level'] ?? null,
+            'attempted_bucket_count' => is_array($population['attempted_buckets'] ?? null) ? count($population['attempted_buckets']) : 0,
         ];
     }
 

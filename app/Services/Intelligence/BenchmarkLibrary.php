@@ -6,6 +6,12 @@ namespace App\Services\Intelligence;
 
 class BenchmarkLibrary
 {
+    public const BUCKET_EXACT_PEER = 'exact_peer';
+    public const BUCKET_ATHLETIC_PEER = 'athletic_peer';
+    public const BUCKET_AGE_ROLE = 'age_role';
+    public const BUCKET_AGE_ONLY = 'age_only';
+    public const BUCKET_GLOBAL_CLEAN = 'global_clean';
+
     public function all(): array
     {
         return collect($this->definitions())
@@ -67,15 +73,252 @@ class BenchmarkLibrary
 
     public function bucketKey(array $context): string
     {
-        return implode('|', [
-            'age:' . strtolower((string) ($context['age_group'] ?? BenchmarkDefinitions::AGE_UNKNOWN)),
-            'level:' . strtolower((string) ($context['level'] ?? 'unknown')),
-            'position:' . strtolower($this->normalizeList($context['position'] ?? $context['positions'] ?? 'unknown')),
-            'body:' . $this->bodyWeightBand($context['body_weight'] ?? null),
-            'height:' . $this->heightBand($context['height_inches'] ?? $context['height'] ?? null),
-            'throws:' . $this->normalizeSide($context['throws'] ?? $context['throw_side'] ?? null),
-            'bats:' . $this->normalizeSide($context['bats'] ?? $context['hit_side'] ?? null),
-        ]);
+        return $this->bucketKeyForLevel($context, self::BUCKET_EXACT_PEER);
+    }
+
+    public function bucketKeyForLevel(array $context, string $level): string
+    {
+        $context = $this->normalizeBenchmarkContext($context);
+
+        return match ($level) {
+            self::BUCKET_GLOBAL_CLEAN => 'global_clean_population',
+            self::BUCKET_AGE_ONLY => 'age:' . strtolower($context['age_group']),
+            self::BUCKET_AGE_ROLE => implode('|', [
+                'age:' . strtolower($context['age_group']),
+                'level:' . $context['level'],
+                'position:' . $context['position'],
+            ]),
+            self::BUCKET_ATHLETIC_PEER => implode('|', [
+                'age:' . strtolower($context['age_group']),
+                'level:' . $context['level'],
+                'position:' . $context['position'],
+                'body:' . $context['bodyweight_band'],
+            ]),
+            default => implode('|', [
+                'age:' . strtolower($context['age_group']),
+                'level:' . $context['level'],
+                'position:' . $context['position'],
+                'body:' . $context['bodyweight_band'],
+                'height:' . $context['height_band'],
+                'throws:' . $context['throws'],
+                'bats:' . $context['bats'],
+            ]),
+        };
+    }
+
+    public function bucketContextForLevel(array $context, string $level): array
+    {
+        $normalized = $this->normalizeBenchmarkContext($context);
+        $passthrough = array_filter([
+            'team_id' => $context['team_id'] ?? null,
+            'teamId' => $context['teamId'] ?? null,
+            'player_id' => $context['player_id'] ?? null,
+            'playerId' => $context['playerId'] ?? null,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        return match ($level) {
+            self::BUCKET_GLOBAL_CLEAN => $passthrough,
+            self::BUCKET_AGE_ONLY => $passthrough + [
+                'age_group' => $normalized['age_group'],
+            ],
+            self::BUCKET_AGE_ROLE => $passthrough + [
+                'age_group' => $normalized['age_group'],
+                'level' => $normalized['level'],
+                'position' => $normalized['position'],
+            ],
+            self::BUCKET_ATHLETIC_PEER => $passthrough + [
+                'age_group' => $normalized['age_group'],
+                'level' => $normalized['level'],
+                'position' => $normalized['position'],
+                'bodyweight_band' => $normalized['bodyweight_band'],
+            ],
+            default => $passthrough + [
+                'age_group' => $normalized['age_group'],
+                'level' => $normalized['level'],
+                'position' => $normalized['position'],
+                'bodyweight_band' => $normalized['bodyweight_band'],
+                'height_band' => $normalized['height_band'],
+                'throws' => $normalized['throws'],
+                'bats' => $normalized['bats'],
+            ],
+        };
+    }
+
+    public function populationBucketCandidates(array $context): array
+    {
+        $levels = [
+            self::BUCKET_EXACT_PEER,
+            self::BUCKET_ATHLETIC_PEER,
+            self::BUCKET_AGE_ROLE,
+            self::BUCKET_AGE_ONLY,
+            self::BUCKET_GLOBAL_CLEAN,
+        ];
+
+        return array_map(fn (string $level) => [
+            'level' => $level,
+            'bucket_key' => $this->bucketKeyForLevel($context, $level),
+            'context' => $this->bucketContextForLevel($context, $level),
+        ], $levels);
+    }
+
+    public function normalizeBenchmarkContext(array $context): array
+    {
+        $height = $context['height_inches'] ?? $context['height'] ?? null;
+        $bodyWeight = $context['body_weight'] ?? $context['bodyweight'] ?? null;
+        $ageGroup = $context['age_group'] ?? null;
+
+        if ((! $ageGroup || strtoupper((string) $ageGroup) === BenchmarkDefinitions::AGE_UNKNOWN) && ! empty($context['dob'])) {
+            $ageGroup = $this->ageGroupFromDate($context['dob']);
+        }
+
+        if ((! $ageGroup || strtoupper((string) $ageGroup) === BenchmarkDefinitions::AGE_UNKNOWN) && is_numeric($context['age'] ?? null)) {
+            $ageGroup = BenchmarkDefinitions::ageGroup((int) $context['age']);
+        }
+
+        return [
+            'age_group' => $this->normalizeAgeGroup($ageGroup),
+            'level' => $this->normalizeLevel($context['level'] ?? null),
+            'position' => $this->normalizePosition($context['position'] ?? $context['positions'] ?? $context['role'] ?? null),
+            'role' => $this->normalizePosition($context['role'] ?? $context['position'] ?? $context['positions'] ?? null),
+            'body_weight' => $bodyWeight,
+            'bodyweight_band' => $this->bodyweightBand($context['bodyweight_band'] ?? $bodyWeight),
+            'height_inches' => $height,
+            'height_band' => $this->heightBand($context['height_band'] ?? $height),
+            'throws' => $this->normalizeSide($context['throws'] ?? $context['throw_side'] ?? null),
+            'bats' => $this->normalizeSide($context['bats'] ?? $context['hit_side'] ?? null),
+        ];
+    }
+
+    public function bodyweightBand(mixed $value): string
+    {
+        if (is_string($value) && preg_match('/^(under_120|120_149|150_179|180_209|210_plus)$/', strtolower($value))) {
+            return strtolower($value);
+        }
+
+        if (! is_numeric($value) || (float) $value <= 0) {
+            return 'unknown';
+        }
+
+        $weight = (float) $value;
+
+        return match (true) {
+            $weight < 120 => 'under_120',
+            $weight < 150 => '120_149',
+            $weight < 180 => '150_179',
+            $weight < 210 => '180_209',
+            default => '210_plus',
+        };
+    }
+
+    public function heightBand(mixed $value): string
+    {
+        if (is_string($value) && preg_match('/^(under_63|63_65|66_68|69_71|72_74|75_plus)$/', strtolower($value))) {
+            return strtolower($value);
+        }
+
+        if (! is_numeric($value) || (float) $value <= 0) {
+            return 'unknown';
+        }
+
+        $height = (float) $value;
+
+        return match (true) {
+            $height < 63 => 'under_63',
+            $height < 66 => '63_65',
+            $height < 69 => '66_68',
+            $height < 72 => '69_71',
+            $height < 75 => '72_74',
+            default => '75_plus',
+        };
+    }
+
+    public function normalizePosition(mixed $value): string
+    {
+        $items = is_array($value)
+            ? $value
+            : (preg_split('/[\s,\/|;]+/', (string) $value) ?: []);
+
+        $positions = collect($items)
+            ->map(fn ($item) => $this->normalizeOnePosition($item))
+            ->filter(fn (string $item) => $item !== '' && $item !== 'unknown')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        return empty($positions) ? 'unknown' : implode(',', $positions);
+    }
+
+    public function normalizeLevel(mixed $value): string
+    {
+        $value = strtolower(trim((string) $value));
+        $value = str_replace(['-', ' '], '_', $value);
+
+        return match ($value) {
+            'ms', 'middle', 'middle_school', 'junior_high', 'jr_high' => 'middle_school',
+            'hs', 'highschool', 'high_school', 'varsity', 'jv' => 'high_school',
+            'college', 'juco', 'ncaa', 'naia' => 'college',
+            'pro', 'professional' => 'professional',
+            'youth', 'travel', 'club' => $value,
+            default => $value !== '' ? $value : 'unknown',
+        };
+    }
+
+    public function normalizeSide(mixed $value): string
+    {
+        $value = strtolower(trim((string) $value));
+
+        return match ($value) {
+            'r', 'right', 'rhp', 'rhh' => 'r',
+            'l', 'left', 'lhp', 'lhh' => 'l',
+            's', 'switch', 'both' => 's',
+            default => $value !== '' ? $value : 'unknown',
+        };
+    }
+
+    public function normalizeAgeGroup(mixed $value): string
+    {
+        $value = strtoupper(trim((string) $value));
+        $value = str_replace(['-', ' '], '_', $value);
+
+        return in_array($value, BenchmarkDefinitions::AGE_GROUPS, true)
+            ? $value
+            : BenchmarkDefinitions::AGE_UNKNOWN;
+    }
+
+    private function ageGroupFromDate(mixed $date): string
+    {
+        if (! $date) {
+            return BenchmarkDefinitions::AGE_UNKNOWN;
+        }
+
+        try {
+            return BenchmarkDefinitions::ageGroup(\Carbon\Carbon::parse((string) $date)->age);
+        } catch (\Throwable) {
+            return BenchmarkDefinitions::AGE_UNKNOWN;
+        }
+    }
+
+    private function normalizeOnePosition(mixed $value): string
+    {
+        $value = strtolower(trim((string) $value));
+        $value = str_replace(['-', '_'], ' ', $value);
+
+        return match ($value) {
+            'pitcher', 'pitching', 'p' => 'p',
+            'catcher', 'c' => 'c',
+            'first', 'first base', '1', '1b' => '1b',
+            'second', 'second base', '2', '2b' => '2b',
+            'third', 'third base', '3', '3b' => '3b',
+            'short', 'shortstop', 'ss' => 'ss',
+            'outfield', 'outfielder', 'of' => 'of',
+            'left field', 'leftfield', 'lf' => 'lf',
+            'center field', 'centerfield', 'cf' => 'cf',
+            'right field', 'rightfield', 'rf' => 'rf',
+            'utility', 'util', 'ut' => 'ut',
+            'designated hitter', 'dh' => 'dh',
+            default => $value !== '' ? str_replace(' ', '_', $value) : 'unknown',
+        };
     }
 
     /**
@@ -301,58 +544,4 @@ class BenchmarkLibrary
         ];
     }
 
-    private function normalizeList(mixed $value): string
-    {
-        if (is_array($value)) {
-            $value = array_values(array_filter(array_map(fn ($item) => trim((string) $item), $value)));
-
-            return count($value) ? implode(',', $value) : 'unknown';
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : 'unknown';
-    }
-
-    private function bodyWeightBand(mixed $value): string
-    {
-        if (! is_numeric($value) || (float) $value <= 0) {
-            return 'unknown';
-        }
-
-        $weight = (float) $value;
-
-        return match (true) {
-            $weight < 120 => 'under_120',
-            $weight < 150 => '120_149',
-            $weight < 180 => '150_179',
-            $weight < 210 => '180_209',
-            default => '210_plus',
-        };
-    }
-
-    private function heightBand(mixed $value): string
-    {
-        if (! is_numeric($value) || (float) $value <= 0) {
-            return 'unknown';
-        }
-
-        $height = (float) $value;
-
-        return match (true) {
-            $height < 63 => 'under_63',
-            $height < 66 => '63_65',
-            $height < 69 => '66_68',
-            $height < 72 => '69_71',
-            $height < 75 => '72_74',
-            default => '75_plus',
-        };
-    }
-
-    private function normalizeSide(mixed $value): string
-    {
-        $value = strtolower(trim((string) $value));
-
-        return $value !== '' ? $value : 'unknown';
-    }
 }

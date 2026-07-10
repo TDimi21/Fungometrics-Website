@@ -55,21 +55,26 @@ class PlayerIntelligenceService
         $dob = isset($player['born_date']) && $player['born_date'] ? (string) $player['born_date'] : null;
         $bodyWeight = $assembled['physical_development']['body_weight'] ?? $assembled['assessment_summary']['body_weight'] ?? null;
         $heightInches = $this->heightInches($player['height_ft'] ?? null, $player['height_in'] ?? null);
-        $context = [
+        $rawContext = [
             'age_group' => $ageBenchmarks['age_group'] ?? BenchmarkDefinitions::AGE_UNKNOWN,
+            'dob' => $dob,
             'age' => $player['age'] ?? null,
             'player_id' => $player['id'] ?? null,
             'team_id' => $player['team_id'] ?? $team['id'] ?? null,
             'position' => $player['positions'] ?? [],
+            'role' => $player['positions'] ?? [],
             'level' => $player['level'] ?? null,
             'body_weight' => $bodyWeight,
-            'bodyweight_band' => $this->bodyWeightBand($bodyWeight),
+            'bodyweight' => $bodyWeight,
             'height_inches' => $heightInches,
-            'height_band' => $this->heightBand($heightInches),
+            'height' => $heightInches,
             'throws' => $this->nonEmptyString($player['throw_side'] ?? null),
             'bats' => $this->nonEmptyString($player['hit_side'] ?? null),
+            'throw_side' => $this->nonEmptyString($player['throw_side'] ?? null),
+            'hit_side' => $this->nonEmptyString($player['hit_side'] ?? null),
             'population_days' => max(1, $days),
         ];
+        $context = array_merge($rawContext, $this->benchmarkLibrary->normalizeBenchmarkContext($rawContext));
         $contextEvidence = $this->contextEvidence($context);
         $flatMetrics = $ageBenchmarks['flat_metrics'] ?? [];
         $metrics = [];
@@ -129,7 +134,9 @@ class PlayerIntelligenceService
                 'source_mix' => $this->metricSourceMix($result),
                 'population_percentile' => $this->numericPercentile($result['population_percentile']['percentile'] ?? null),
                 'research_percentile' => $this->numericPercentile($result['research_percentile']['percentile_estimate'] ?? $result['percentile_estimate'] ?? null),
-                'population_bucket_key' => $result['population_percentile']['bucket_key'] ?? null,
+                'population_bucket_key' => $result['population_percentile']['selected_bucket_key'] ?? $result['population_percentile']['bucket_key'] ?? null,
+                'population_bucket_level' => $result['population_percentile']['selected_bucket_level'] ?? null,
+                'population_attempted_buckets' => $result['population_percentile']['attempted_buckets'] ?? [],
                 'population_percentile_detail' => $result['population_percentile'] ?? null,
                 'research_percentile_detail' => $result['research_percentile'] ?? null,
                 'evidence' => $this->metricEvidence($result, $contextEvidence),
@@ -144,12 +151,16 @@ class PlayerIntelligenceService
             'missing_metrics' => $missingMetrics,
             'benchmark_confidence' => $this->benchmarkConfidence($metrics),
             'source_mix' => $this->sourceMix($metrics),
-            'comparison_bucket_key' => $this->benchmarkLibrary->bucketKey($context),
+            'comparison_bucket_key' => $this->benchmarkLibrary->bucketKeyForLevel($context, BenchmarkLibrary::BUCKET_EXACT_PEER),
             'comparison_context' => [
                 'age_group' => $context['age_group'],
+                'dob' => $dob,
                 'position' => $context['position'],
+                'role' => $context['role'] ?? null,
                 'level' => $context['level'],
+                'bodyweight' => $context['body_weight'],
                 'bodyweight_band' => $context['bodyweight_band'],
+                'height' => $context['height_inches'],
                 'height_band' => $context['height_band'],
                 'throws' => $context['throws'],
                 'bats' => $context['bats'],
@@ -196,6 +207,8 @@ class PlayerIntelligenceService
                 'source_mix' => $metric['source_mix'] ?? [],
                 'population_percentile' => $metric['population_percentile'] ?? null,
                 'research_percentile' => $metric['research_percentile'] ?? null,
+                'population_bucket_key' => $metric['population_bucket_key'] ?? null,
+                'population_bucket_level' => $metric['population_bucket_level'] ?? null,
             ])
             ->values()
             ->all();
@@ -282,6 +295,9 @@ class PlayerIntelligenceService
             'population_bucket_count' => (int) ($sourceMix['population_bucket_count'] ?? $population['bucket_count'] ?? 0),
             'population_confidence' => $sourceMix['population_confidence'] ?? $population['confidence'] ?? 'insufficient',
             'population_usable' => (bool) ($sourceMix['population_usable'] ?? $population['usable'] ?? false),
+            'selected_bucket_key' => $sourceMix['selected_bucket_key'] ?? $population['selected_bucket_key'] ?? $population['bucket_key'] ?? null,
+            'selected_bucket_level' => $sourceMix['selected_bucket_level'] ?? $population['selected_bucket_level'] ?? null,
+            'attempted_bucket_count' => (int) ($sourceMix['attempted_bucket_count'] ?? (is_array($population['attempted_buckets'] ?? null) ? count($population['attempted_buckets']) : 0)),
         ];
     }
 
@@ -322,12 +338,12 @@ class PlayerIntelligenceService
 
         foreach ([
             'age_group' => BenchmarkDefinitions::AGE_UNKNOWN,
-            'position' => [],
-            'level' => null,
+            'position' => 'unknown',
+            'level' => 'unknown',
             'bodyweight_band' => 'unknown',
             'height_band' => 'unknown',
-            'throws' => null,
-            'bats' => null,
+            'throws' => 'unknown',
+            'bats' => 'unknown',
         ] as $key => $emptyValue) {
             $value = $context[$key] ?? null;
             if ($value === $emptyValue || $value === null || $value === '' || $value === []) {

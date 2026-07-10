@@ -32,6 +32,7 @@ class PopulationMetricRepository
 
     public function __construct(
         private readonly PopulationValueGuardrail $guardrail,
+        private readonly BenchmarkLibrary $benchmarkLibrary,
     ) {}
 
     public function valuesForMetric(string $metricKey, array $context = [], int $days = 365): array
@@ -496,32 +497,26 @@ class PopulationMetricRepository
 
     private function bucketKeyForContext(array $context): string
     {
-        return implode('|', [
-            'age:' . strtolower((string) ($context['age_group'] ?? BenchmarkDefinitions::AGE_UNKNOWN)),
-            'level:' . strtolower((string) ($context['level'] ?? 'unknown')),
-            'position:' . strtolower((string) ($context['position'] ?? $context['positions'] ?? 'unknown')),
-            'body:' . strtolower((string) ($context['bodyweight_band'] ?? 'unknown')),
-            'height:' . strtolower((string) ($context['height_band'] ?? 'unknown')),
-            'throws:' . strtolower((string) ($context['throws'] ?? $context['throw_side'] ?? 'unknown')),
-            'bats:' . strtolower((string) ($context['bats'] ?? $context['hit_side'] ?? 'unknown')),
-        ]);
+        $level = (string) ($context['_bucket_level'] ?? BenchmarkLibrary::BUCKET_EXACT_PEER);
+
+        return $this->benchmarkLibrary->bucketKeyForLevel($context, $level);
     }
 
     private function matchesContext(array $userContext, array $context): bool
     {
-        if ($this->filled($context['age_group'] ?? null) && strtoupper((string) $context['age_group']) !== $userContext['age_group']) {
+        if ($this->filled($context['age_group'] ?? null) && $this->benchmarkLibrary->normalizeAgeGroup($context['age_group']) !== $userContext['age_group']) {
             return false;
         }
 
-        if ($this->filled($context['level'] ?? null) && strtolower((string) $context['level']) !== strtolower((string) ($userContext['level'] ?? ''))) {
+        if ($this->filled($context['level'] ?? null) && $this->benchmarkLibrary->normalizeLevel($context['level']) !== $this->benchmarkLibrary->normalizeLevel($userContext['level'] ?? null)) {
             return false;
         }
 
-        if ($this->filled($context['throws'] ?? $context['throw_side'] ?? null) && $this->normalizeSide($context['throws'] ?? $context['throw_side']) !== $this->normalizeSide($userContext['throws'] ?? null)) {
+        if ($this->filled($context['throws'] ?? $context['throw_side'] ?? null) && $this->benchmarkLibrary->normalizeSide($context['throws'] ?? $context['throw_side']) !== $this->benchmarkLibrary->normalizeSide($userContext['throws'] ?? null)) {
             return false;
         }
 
-        if ($this->filled($context['bats'] ?? $context['hit_side'] ?? null) && $this->normalizeSide($context['bats'] ?? $context['hit_side']) !== $this->normalizeSide($userContext['bats'] ?? null)) {
+        if ($this->filled($context['bats'] ?? $context['hit_side'] ?? null) && $this->benchmarkLibrary->normalizeSide($context['bats'] ?? $context['hit_side']) !== $this->benchmarkLibrary->normalizeSide($userContext['bats'] ?? null)) {
             return false;
         }
 
@@ -529,11 +524,11 @@ class PopulationMetricRepository
             return false;
         }
 
-        if ($this->filled($context['bodyweight_band'] ?? null) && (string) $context['bodyweight_band'] !== $this->bodyWeightBand($userContext['body_weight'] ?? null)) {
+        if ($this->filled($context['bodyweight_band'] ?? null) && $this->benchmarkLibrary->bodyweightBand($context['bodyweight_band']) !== $this->benchmarkLibrary->bodyweightBand($userContext['body_weight'] ?? null)) {
             return false;
         }
 
-        if ($this->filled($context['height_band'] ?? null) && (string) $context['height_band'] !== $this->heightBand($userContext['height_inches'] ?? null)) {
+        if ($this->filled($context['height_band'] ?? null) && $this->benchmarkLibrary->heightBand($context['height_band']) !== $this->benchmarkLibrary->heightBand($userContext['height_inches'] ?? null)) {
             return false;
         }
 
@@ -555,13 +550,13 @@ class PopulationMetricRepository
                 $heightInches = $this->heightInches($user->player?->height_in_ft, $user->player?->height_in_inch);
 
                 return [(string) $user->id => [
-                    'age_group' => $this->ageGroupFromDate($bornDate),
-                    'level' => $user->profile?->level,
+                    'age_group' => $this->benchmarkLibrary->normalizeAgeGroup($this->ageGroupFromDate($bornDate)),
+                    'level' => $this->benchmarkLibrary->normalizeLevel($user->profile?->level),
                     'positions' => $user->positions?->pluck('position')->filter()->values()->all() ?? [],
                     'body_weight' => $this->playerBodyWeight($user),
                     'height_inches' => $heightInches,
-                    'throws' => $user->player?->throw_side,
-                    'bats' => $user->player?->hit_side,
+                    'throws' => $this->benchmarkLibrary->normalizeSide($user->player?->throw_side),
+                    'bats' => $this->benchmarkLibrary->normalizeSide($user->player?->hit_side),
                 ]];
             })
             ->all();
@@ -707,13 +702,13 @@ class PopulationMetricRepository
 
     private function positionMatches(mixed $requested, array $actual): bool
     {
-        $requested = $this->normalizeList($requested);
-        $actual = $this->normalizeList($actual);
+        $requested = $this->normalizePositionList($requested);
+        $actual = $this->normalizePositionList($actual);
 
         return ! empty(array_intersect($requested, $actual));
     }
 
-    private function normalizeList(mixed $value): array
+    private function normalizePositionList(mixed $value): array
     {
         if (is_array($value)) {
             $items = $value;
@@ -722,16 +717,11 @@ class PopulationMetricRepository
         }
 
         return collect($items)
-            ->map(fn ($item) => strtolower(trim((string) $item)))
-            ->filter()
+            ->map(fn ($item) => $this->benchmarkLibrary->normalizePosition($item))
+            ->filter(fn (string $item) => $item !== '' && $item !== 'unknown')
             ->unique()
             ->values()
             ->all();
-    }
-
-    private function normalizeSide(mixed $value): string
-    {
-        return strtolower(trim((string) $value));
     }
 
     private function heightInches(mixed $feet, mixed $inches): ?float
