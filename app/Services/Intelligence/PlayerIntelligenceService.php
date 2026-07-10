@@ -26,7 +26,7 @@ class PlayerIntelligenceService
         $assembled = $this->assembler->assembleForPlayer($teamId, $playerId, $days);
         $trendBlocks = $this->trendEngine->analyze($assembled['trend_blocks'] ?? [], $assembled);
         $ageBenchmarks = $this->ageBenchmarkEngine->benchmarkPlayer($assembled);
-        $benchmarkProfile = $this->benchmarkProfile($assembled, $ageBenchmarks);
+        $benchmarkProfile = $this->benchmarkProfile($assembled, $ageBenchmarks, $days);
         $projections = $this->projectionEngine->project($trendBlocks, $assembled, $ageBenchmarks);
         $limiters = $this->limiterEngine->detect($assembled, $trendBlocks, $ageBenchmarks);
         $dna = $this->dnaEngine->build($assembled, $trendBlocks, $limiters, $ageBenchmarks);
@@ -48,21 +48,29 @@ class PlayerIntelligenceService
         );
     }
 
-    private function benchmarkProfile(array $assembled, array $ageBenchmarks): array
+    private function benchmarkProfile(array $assembled, array $ageBenchmarks, int $days = 365): array
     {
         $player = $assembled['player_context'] ?? [];
+        $team = $assembled['team_context'] ?? [];
         $dob = isset($player['born_date']) && $player['born_date'] ? (string) $player['born_date'] : null;
+        $bodyWeight = $assembled['physical_development']['body_weight'] ?? $assembled['assessment_summary']['body_weight'] ?? null;
+        $heightInches = $this->heightInches($player['height_ft'] ?? null, $player['height_in'] ?? null);
         $context = [
             'age_group' => $ageBenchmarks['age_group'] ?? BenchmarkDefinitions::AGE_UNKNOWN,
             'age' => $player['age'] ?? null,
             'player_id' => $player['id'] ?? null,
+            'team_id' => $player['team_id'] ?? $team['id'] ?? null,
             'position' => $player['positions'] ?? [],
             'level' => $player['level'] ?? null,
-            'body_weight' => $assembled['physical_development']['body_weight'] ?? $assembled['assessment_summary']['body_weight'] ?? null,
-            'height_inches' => $this->heightInches($player['height_ft'] ?? null, $player['height_in'] ?? null),
+            'body_weight' => $bodyWeight,
+            'bodyweight_band' => $this->bodyWeightBand($bodyWeight),
+            'height_inches' => $heightInches,
+            'height_band' => $this->heightBand($heightInches),
             'throws' => $this->nonEmptyString($player['throw_side'] ?? null),
             'bats' => $this->nonEmptyString($player['hit_side'] ?? null),
+            'population_days' => max(1, $days),
         ];
+        $contextEvidence = $this->contextEvidence($context);
         $flatMetrics = $ageBenchmarks['flat_metrics'] ?? [];
         $metrics = [];
         $missingMetrics = [];
@@ -118,7 +126,13 @@ class PlayerIntelligenceService
                 'gap_to_elite' => $result['gap_to_elite'] ?? null,
                 'confidence' => $result['confidence'] ?? 'low',
                 'source' => $result['source'] ?? 'research_benchmark',
-                'evidence' => $result['evidence'] ?? [],
+                'source_mix' => $this->metricSourceMix($result),
+                'population_percentile' => $this->numericPercentile($result['population_percentile']['percentile'] ?? null),
+                'research_percentile' => $this->numericPercentile($result['research_percentile']['percentile_estimate'] ?? $result['percentile_estimate'] ?? null),
+                'population_bucket_key' => $result['population_percentile']['bucket_key'] ?? null,
+                'population_percentile_detail' => $result['population_percentile'] ?? null,
+                'research_percentile_detail' => $result['research_percentile'] ?? null,
+                'evidence' => $this->metricEvidence($result, $contextEvidence),
             ];
         }
 
@@ -131,6 +145,17 @@ class PlayerIntelligenceService
             'benchmark_confidence' => $this->benchmarkConfidence($metrics),
             'source_mix' => $this->sourceMix($metrics),
             'comparison_bucket_key' => $this->benchmarkLibrary->bucketKey($context),
+            'comparison_context' => [
+                'age_group' => $context['age_group'],
+                'position' => $context['position'],
+                'level' => $context['level'],
+                'bodyweight_band' => $context['bodyweight_band'],
+                'height_band' => $context['height_band'],
+                'throws' => $context['throws'],
+                'bats' => $context['bats'],
+                'team_id' => $context['team_id'],
+                'player_id' => $context['player_id'],
+            ],
         ];
     }
 
@@ -167,6 +192,10 @@ class PlayerIntelligenceService
                 'percentile' => $metric['percentile'],
                 'label' => $metric['label'],
                 'confidence' => $metric['confidence'],
+                'source' => $metric['source'] ?? 'research_benchmark',
+                'source_mix' => $metric['source_mix'] ?? [],
+                'population_percentile' => $metric['population_percentile'] ?? null,
+                'research_percentile' => $metric['research_percentile'] ?? null,
             ])
             ->values()
             ->all();
@@ -207,25 +236,143 @@ class PlayerIntelligenceService
             'population' => 0,
             'composite' => 0,
         ];
+        $populationBucketCounts = [];
 
         foreach ($metrics as $metric) {
             $source = (string) ($metric['source'] ?? '');
-            if ($source === 'composite_benchmark') {
+            if (in_array($source, ['composite', 'composite_benchmark'], true)) {
                 $counts['composite']++;
             } elseif ($source === 'fmtrx_population') {
                 $counts['population']++;
             } else {
                 $counts['research']++;
             }
+
+            $bucketCount = $this->numberOrNull($metric['source_mix']['population_bucket_count'] ?? null);
+            if ($bucketCount !== null) {
+                $populationBucketCounts[] = $bucketCount;
+            }
         }
 
         $total = max(1, count($metrics));
+        $averageBucketCount = ! empty($populationBucketCounts) ? round(array_sum($populationBucketCounts) / count($populationBucketCounts), 1) : 0.0;
 
         return $counts + [
+            'research_count' => $counts['research'],
+            'population_count' => $counts['population'],
+            'composite_count' => $counts['composite'],
+            'average_population_bucket_count' => $averageBucketCount,
+            'percent_research' => round(($counts['research'] / $total) * 100, 1),
+            'percent_population' => round(($counts['population'] / $total) * 100, 1),
+            'percent_composite' => round(($counts['composite'] / $total) * 100, 1),
             'research_share' => round($counts['research'] / $total, 2),
             'population_share' => round($counts['population'] / $total, 2),
             'composite_share' => round($counts['composite'] / $total, 2),
         ];
+    }
+
+    private function metricSourceMix(array $result): array
+    {
+        $sourceMix = is_array($result['source_mix'] ?? null) ? $result['source_mix'] : [];
+        $population = is_array($result['population_percentile'] ?? null) ? $result['population_percentile'] : [];
+
+        return [
+            'research_weight' => $this->numberOrNull($sourceMix['research_weight'] ?? null) ?? 1.0,
+            'population_weight' => $this->numberOrNull($sourceMix['population_weight'] ?? null) ?? 0.0,
+            'population_bucket_count' => (int) ($sourceMix['population_bucket_count'] ?? $population['bucket_count'] ?? 0),
+            'population_confidence' => $sourceMix['population_confidence'] ?? $population['confidence'] ?? 'insufficient',
+            'population_usable' => (bool) ($sourceMix['population_usable'] ?? $population['usable'] ?? false),
+        ];
+    }
+
+    private function metricEvidence(array $result, array $contextEvidence): array
+    {
+        $evidence = $result['evidence'] ?? [];
+
+        if (! is_array($evidence)) {
+            $evidence = ['message' => $evidence];
+        }
+
+        if (! empty($contextEvidence)) {
+            $evidence['context_warnings'] = $contextEvidence;
+        }
+
+        return $evidence;
+    }
+
+    private function numericPercentile(mixed $value): ?float
+    {
+        $value = $this->numberOrNull($value);
+
+        return $value === null ? null : round($value, 1);
+    }
+
+    private function numberOrNull(mixed $value): ?float
+    {
+        if ($value === null || $value === '' || ! is_numeric($value)) {
+            return null;
+        }
+
+        return (float) $value;
+    }
+
+    private function contextEvidence(array $context): array
+    {
+        $missing = [];
+
+        foreach ([
+            'age_group' => BenchmarkDefinitions::AGE_UNKNOWN,
+            'position' => [],
+            'level' => null,
+            'bodyweight_band' => 'unknown',
+            'height_band' => 'unknown',
+            'throws' => null,
+            'bats' => null,
+        ] as $key => $emptyValue) {
+            $value = $context[$key] ?? null;
+            if ($value === $emptyValue || $value === null || $value === '' || $value === []) {
+                $missing[] = $key;
+            }
+        }
+
+        if (empty($missing)) {
+            return [];
+        }
+
+        return ['Population benchmark bucket used fallback context for missing fields: '.implode(', ', $missing).'.'];
+    }
+
+    private function bodyWeightBand(mixed $value): string
+    {
+        $value = $this->numberOrNull($value);
+        if ($value === null || $value <= 0) {
+            return 'unknown';
+        }
+
+        return match (true) {
+            $value < 120 => 'under_120',
+            $value < 150 => '120_149',
+            $value < 180 => '150_179',
+            $value < 210 => '180_209',
+            default => '210_plus',
+        };
+    }
+
+    private function heightBand(mixed $value): string
+    {
+        $value = $this->numberOrNull($value);
+        if ($value === null || $value <= 0) {
+            return 'unknown';
+        }
+
+        return match (true) {
+            $value < 63 => 'under_63',
+            $value < 66 => '63_65',
+            $value < 69 => '66_68',
+            $value < 72 => '69_71',
+            $value < 75 => '72_74',
+            default => '75_plus',
+        };
     }
 
     private function heightInches(mixed $feet, mixed $inches): ?float

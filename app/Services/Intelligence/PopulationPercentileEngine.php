@@ -107,7 +107,7 @@ class PopulationPercentileEngine
         }
 
         if (! $this->canUsePopulationBucket($count)) {
-            return ['Not enough FMTRX population rows yet. Minimum is 30.'];
+            return ['FMTRX population sample is not large enough yet. Minimum is 30.'];
         }
 
         return ['FMTRX population bucket has '.$count.' rows.'];

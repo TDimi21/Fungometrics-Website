@@ -71,7 +71,7 @@ class CompositeBenchmarkEngine
             'gap_to_good' => $research['gap_to_good'] ?? null,
             'gap_to_elite' => $research['gap_to_elite'] ?? null,
             'confidence' => $this->confidence((string) ($research['confidence'] ?? 'low'), (string) ($population['confidence'] ?? 'insufficient')),
-            'source' => 'composite_benchmark',
+            'source' => 'composite',
             'composite_percentile' => $score,
             'research_percentile' => $research,
             'population_percentile' => $population,
@@ -101,6 +101,7 @@ class CompositeBenchmarkEngine
             'population_weight' => round($populationWeight, 2),
             'population_bucket_count' => (int) ($population['bucket_count'] ?? 0),
             'population_confidence' => $population['confidence'] ?? 'insufficient',
+            'population_usable' => ($population['usable'] ?? false) === true,
         ];
     }
 

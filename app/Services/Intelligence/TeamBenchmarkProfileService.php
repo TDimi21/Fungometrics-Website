@@ -235,12 +235,15 @@ class TeamBenchmarkProfileService
                     'metric_count' => $scores->count(),
                     'label' => $this->label($score),
                     'confidence' => $this->confidenceForMetrics($metricRows->all()),
+                    'source_mix' => $this->sourceMix($metricRows->all()),
                     'players' => collect($metricRows)->map(fn (array $metric) => [
                         'player_id' => $metric['player_id'] ?? null,
                         'name' => $metric['player_name'] ?? 'Unknown Player',
                         'score_0_100' => $metric['score_0_100'] ?? null,
                         'raw_value' => $metric['raw_value'] ?? null,
                         'label' => $metric['label'] ?? null,
+                        'source' => $metric['source'] ?? 'research_benchmark',
+                        'source_mix' => $metric['source_mix'] ?? [],
                     ])->values()->all(),
                 ];
             })
@@ -697,21 +700,37 @@ class TeamBenchmarkProfileService
     private function sourceMix(array $metrics): array
     {
         $counts = ['research' => 0, 'population' => 0, 'composite' => 0];
+        $populationBucketCounts = [];
 
         foreach ($metrics as $metric) {
             $source = (string) ($metric['source'] ?? '');
-            if ($source === 'composite_benchmark') {
+            if (in_array($source, ['composite', 'composite_benchmark'], true)) {
                 $counts['composite']++;
             } elseif ($source === 'fmtrx_population') {
                 $counts['population']++;
             } else {
                 $counts['research']++;
             }
+
+            $bucketCount = $this->numberOrNull($metric['source_mix']['population_bucket_count'] ?? null);
+            if ($bucketCount !== null) {
+                $populationBucketCounts[] = $bucketCount;
+            }
         }
 
         $total = max(1, count($metrics));
+        $averageBucketCount = ! empty($populationBucketCounts)
+            ? round(array_sum($populationBucketCounts) / count($populationBucketCounts), 1)
+            : 0.0;
 
         return [
+            'research_count' => $counts['research'],
+            'population_count' => $counts['population'],
+            'composite_count' => $counts['composite'],
+            'average_population_bucket_count' => $averageBucketCount,
+            'percent_research' => round(($counts['research'] / $total) * 100, 1),
+            'percent_population' => round(($counts['population'] / $total) * 100, 1),
+            'percent_composite' => round(($counts['composite'] / $total) * 100, 1),
             'research_share' => round($counts['research'] / $total, 2),
             'population_share' => round($counts['population'] / $total, 2),
             'composite_share' => round($counts['composite'] / $total, 2),
