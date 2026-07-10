@@ -10,6 +10,7 @@ use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Intelligence\BenchmarkCollectionPlanner;
+use App\Services\Intelligence\BenchmarkTaskAssignmentService;
 use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\TeamIntelligenceService;
@@ -25,6 +26,7 @@ class IntelligenceController extends Controller
         private readonly PlayerIntelligenceService $playerIntelligence,
         private readonly DecisionEngine $decisionEngine,
         private readonly BenchmarkCollectionPlanner $benchmarkCollectionPlanner,
+        private readonly BenchmarkTaskAssignmentService $benchmarkTaskAssignmentService,
     ) {
     }
 
@@ -60,6 +62,17 @@ class IntelligenceController extends Controller
             ]);
 
             $snapshot['benchmark_collection_plan'] = null;
+        }
+
+        try {
+            $snapshot['benchmark_task_assignments'] = $this->benchmarkTaskAssignmentService->buildAssignableTasks($teamId, $days);
+        } catch (\Throwable $exception) {
+            Log::warning('IntelligenceController benchmark task assignments unavailable: '.$exception->getMessage(), [
+                'team_id' => $teamId,
+                'days' => $days,
+            ]);
+
+            $snapshot['benchmark_task_assignments'] = null;
         }
 
         return response()->json($snapshot);

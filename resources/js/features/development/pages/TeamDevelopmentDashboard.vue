@@ -958,6 +958,33 @@ const collectionPlayerNames = (players) =>
     .slice(0, 6)
     .join(', ')
 
+const benchmarkTaskAssignments = computed(() => {
+  const assignments = teamIntelligence.value?.benchmark_task_assignments
+  return assignments && typeof assignments === 'object' ? assignments : null
+})
+
+const assignableBenchmarkTasks = computed(() =>
+  asArray(benchmarkTaskAssignments.value?.assignable_tasks)
+)
+
+const benchmarkTeamTasks = computed(() =>
+  asArray(benchmarkTaskAssignments.value?.team_tasks).slice(0, 6)
+)
+
+const benchmarkPlayerTaskGroups = computed(() =>
+  asArray(benchmarkTaskAssignments.value?.player_tasks).slice(0, 6)
+)
+
+const taskTypeLabel = (type) => ({
+  roster_cleanup: 'Roster Cleanup',
+  exit_velocity_baseline: 'Exit Velocity Baseline',
+  bullpen_baseline: 'Bullpen Baseline',
+  long_toss_weighted_ball: 'Long Toss / Weighted Ball',
+  strength_baseline: 'Strength Baseline',
+  athletic_testing: 'Athletic Testing',
+  mobility_screen: 'Mobility Screen',
+}[type] || humanizeKey(type, 'Benchmark Task'))
+
 const playerWeakCategory = (player) => {
   const category = player?.weakest_category
   if (typeof category === 'string') return categoryLabel(category)
@@ -2019,6 +2046,7 @@ const priorityTop10Rows = computed(() => {
                     </p>
                   </div>
                 </div>
+
               </template>
             </div>
 
@@ -2170,6 +2198,113 @@ const priorityTop10Rows = computed(() => {
                       · {{ task.recommended_session }}
                     </p>
                   </div>
+                </div>
+
+                <div class="mt-3 rounded-md border border-sky-300/20 bg-sky-500/10 p-3">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p class="text-[10px] uppercase tracking-widest text-sky-200/80">Assignable Benchmark Tasks</p>
+                      <h5 class="mt-1 text-base font-semibold text-white">Draft Player Tasks</h5>
+                    </div>
+                    <span
+                      class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
+                      :class="benchmarkTaskAssignments ? 'border-sky-300/30 bg-sky-500/15 text-sky-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                    >
+                      {{ benchmarkTaskAssignments ? 'Draft Only' : 'Not Available' }}
+                    </span>
+                  </div>
+
+                  <p v-if="!benchmarkTaskAssignments" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
+                    Assignable benchmark tasks are not available yet.
+                  </p>
+
+                  <template v-else>
+                    <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                      <div class="rounded border border-white/10 bg-slate-950/35 p-2">
+                        <p class="text-[10px] uppercase tracking-wider text-white/35">Tasks</p>
+                        <p class="text-lg font-black text-white">{{ fmtCount(benchmarkTaskAssignments.task_count, '0') }}</p>
+                      </div>
+                      <div class="rounded border border-white/10 bg-slate-950/35 p-2">
+                        <p class="text-[10px] uppercase tracking-wider text-white/35">Player Tasks</p>
+                        <p class="text-lg font-black text-white">{{ fmtCount(benchmarkTaskAssignments.player_task_count, '0') }}</p>
+                      </div>
+                      <div class="rounded border border-white/10 bg-slate-950/35 p-2">
+                        <p class="text-[10px] uppercase tracking-wider text-white/35">Team Tasks</p>
+                        <p class="text-lg font-black text-white">{{ fmtCount(benchmarkTaskAssignments.team_task_count, '0') }}</p>
+                      </div>
+                      <div class="rounded border border-white/10 bg-slate-950/35 p-2">
+                        <p class="text-[10px] uppercase tracking-wider text-white/35">Priority</p>
+                        <p class="text-lg font-black text-white">{{ humanizeKey(benchmarkTaskAssignments.priority_level) }}</p>
+                      </div>
+                    </div>
+
+                    <p class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
+                      These are draft tasks only. No player assignments are sent or saved yet.
+                    </p>
+
+                    <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                      <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+                        <p class="text-[10px] uppercase tracking-widest text-sky-200/80">Tasks By Player</p>
+                        <div class="mt-2 space-y-2">
+                          <div
+                            v-for="group in benchmarkPlayerTaskGroups"
+                            :key="group.player_id || group.player_name"
+                            class="rounded border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-300"
+                          >
+                            <div class="flex flex-wrap items-start justify-between gap-2">
+                              <p class="font-black text-white">{{ group.player_name || 'Player' }}</p>
+                              <span class="text-sky-100">{{ humanizeKey(group.priority) }} · {{ fmtCount(group.task_count, '0') }} tasks</span>
+                            </div>
+                            <div class="mt-2 space-y-1">
+                              <p
+                                v-for="task in asArray(group.tasks).slice(0, 5)"
+                                :key="task.temporary_key"
+                                class="rounded border border-sky-300/15 bg-sky-500/10 px-2 py-1"
+                              >
+                                <span class="font-black text-white">{{ task.title }}</span>
+                                · {{ taskTypeLabel(task.task_type) }}
+                                · {{ humanizeKey(task.priority) }}
+                                · {{ fmtCount(task.estimated_minutes, '0') }} min
+                                · {{ humanizeKey(task.due_window) }}
+                                · {{ humanizeKey(task.status) }}
+                                <span v-if="collectionTaskMetricNames(task.metrics)" class="block text-sky-100/90">
+                                  {{ collectionTaskMetricNames(task.metrics) }}
+                                </span>
+                                <span v-if="asArray(task.missing_fields).length" class="block text-sky-100/90">
+                                  {{ asArray(task.missing_fields).join(', ') }}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                          <p v-if="!benchmarkPlayerTaskGroups.length" class="text-xs text-slate-300">No draft player tasks are currently available.</p>
+                        </div>
+                      </div>
+
+                      <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+                        <p class="text-[10px] uppercase tracking-widest text-sky-200/80">Team Tasks</p>
+                        <div class="mt-2 space-y-2">
+                          <div
+                            v-for="task in benchmarkTeamTasks"
+                            :key="task.temporary_key"
+                            class="rounded border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-300"
+                          >
+                            <div class="flex flex-wrap items-start justify-between gap-2">
+                              <p class="font-black text-white">{{ task.title }}</p>
+                              <span class="text-sky-100">{{ humanizeKey(task.priority) }} · {{ fmtCount(task.estimated_minutes, '0') }} min</span>
+                            </div>
+                            <p class="mt-1">{{ task.description }}</p>
+                            <p class="mt-1 text-sky-100">
+                              {{ taskTypeLabel(task.task_type) }} · {{ humanizeKey(task.due_window) }} · {{ humanizeKey(task.status) }}
+                            </p>
+                            <p v-if="collectionTaskMetricNames(task.metrics)" class="mt-1">
+                              <span class="font-black text-white">Metrics:</span> {{ collectionTaskMetricNames(task.metrics) }}
+                            </p>
+                          </div>
+                          <p v-if="!benchmarkTeamTasks.length" class="text-xs text-slate-300">No draft team tasks are currently available.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
                 </div>
               </template>
             </div>
