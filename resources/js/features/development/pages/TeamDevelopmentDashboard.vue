@@ -371,11 +371,20 @@ const benchmarkSourceMix = computed(() => {
 const sourceMixStatusText = (sourceMix = {}) => {
   const populationWeight = n(sourceMix.population_weight) ?? 0
   const bucketCount = n(sourceMix.population_bucket_count) ?? 0
+  const selectedBucketLevel = sourceMix.selected_bucket_level || null
 
   if (populationWeight <= 0) {
     return bucketCount < 30
       ? 'Population sample below 30. Research benchmark remains active.'
       : 'Research benchmark active. FMTRX sample is not included in this score.'
+  }
+
+  if (selectedBucketLevel === 'global_clean') {
+    return 'This is a broad comparison group. Peer-specific confidence improves as more players collect data.'
+  }
+
+  if (selectedBucketLevel === 'exact_peer') {
+    return 'Strong peer match.'
   }
 
   if (bucketCount >= 300) return 'High-confidence FMTRX population blend.'
@@ -385,24 +394,49 @@ const sourceMixStatusText = (sourceMix = {}) => {
   return 'FMTRX population learning is included in this score.'
 }
 
-const sourceMetricRows = computed(() => {
+const playerBenchmarkMetricRows = computed(() =>
+  teamPlayersIntelligence.value.flatMap((snapshot) => {
+    const playerName = snapshot?.summary?.player?.name || snapshot?.summary?.player?.first_name || 'Player'
+    return asArray(snapshot?.benchmark_profile?.metrics).map((metric) => ({
+      ...metric,
+      player_name: playerName,
+      player_id: snapshot?.player_id,
+    }))
+  })
+)
+
+const allBenchmarkMetricRows = computed(() => {
   const metricMap = new Map()
   const metricSources = [
     ...asArray(benchmarkProfile.value?.metrics),
     ...asArray(benchmarkProfile.value?.weakest_metrics),
     ...asArray(benchmarkProfile.value?.strongest_metrics),
+    ...playerBenchmarkMetricRows.value,
   ]
 
   for (const metric of metricSources) {
     const key = metric?.metric_key || metric?.display_name
-    if (!key || metricMap.has(key)) continue
-    metricMap.set(key, metric)
+    if (!key) continue
+
+    const existing = metricMap.get(key)
+    if (!existing || metricBucketDetailScore(metric) > metricBucketDetailScore(existing)) {
+      metricMap.set(key, metric)
+    }
   }
 
-  return [...metricMap.values()].slice(0, 6)
+  return [...metricMap.values()]
 })
 
+const sourceMetricRows = computed(() => allBenchmarkMetricRows.value.slice(0, 6))
+
 const metricSourceMix = (metric) => metric?.source_mix && typeof metric.source_mix === 'object' ? metric.source_mix : {}
+const metricPopulationDetail = (metric) => {
+  const detail = metric?.population_percentile_detail
+  if (detail && typeof detail === 'object') return detail
+
+  const population = metric?.population_percentile
+  return population && typeof population === 'object' ? population : {}
+}
 const metricSource = (metric) => {
   if (metric?.source) return sourceLabel(metric.source)
 
@@ -420,12 +454,156 @@ const metricResearchPercentile = (metric) => {
   return value === null ? '—' : fmtRank(value)
 }
 const metricPopulationPercentile = (metric) => {
-  const value = n(metric?.population_percentile)
+  const value = n(
+    typeof metric?.population_percentile === 'object'
+      ? metric?.population_percentile?.percentile
+      : metric?.population_percentile
+  )
   return value === null ? '—' : fmtRank(value)
 }
-const metricPopulationBucketCount = (metric) => fmtCount(metricSourceMix(metric).population_bucket_count ?? 0, '0')
-const metricPopulationConfidence = (metric) => confidenceLabel(metricSourceMix(metric).population_confidence || 'insufficient')
-const metricPopulationUsable = (metric) => metricSourceMix(metric).population_usable === true ? 'Yes' : 'No'
+const metricPopulationBucketCountValue = (metric) => {
+  const sourceMix = metricSourceMix(metric)
+  const detail = metricPopulationDetail(metric)
+  return n(metric?.bucket_count)
+    ?? n(metric?.population_bucket_count)
+    ?? n(sourceMix.population_bucket_count)
+    ?? n(detail.bucket_count)
+    ?? 0
+}
+const metricPopulationBucketCount = (metric) => fmtCount(metricPopulationBucketCountValue(metric), '0')
+const metricPopulationConfidenceValue = (metric) => {
+  const sourceMix = metricSourceMix(metric)
+  const detail = metricPopulationDetail(metric)
+  return metric?.population_confidence
+    || sourceMix.population_confidence
+    || detail.confidence
+    || 'insufficient'
+}
+const metricPopulationConfidence = (metric) => confidenceLabel(metricPopulationConfidenceValue(metric))
+const metricPopulationUsableValue = (metric) => {
+  const sourceMix = metricSourceMix(metric)
+  const detail = metricPopulationDetail(metric)
+  return metric?.population_usable === true
+    || sourceMix.population_usable === true
+    || detail.usable === true
+}
+const metricPopulationUsable = (metric) => metricPopulationUsableValue(metric) ? 'Yes' : 'No'
+
+const bucketLabelOverrides = {
+  exact_peer: 'Exact Peer Group',
+  athletic_peer: 'Athletic Peer Group',
+  age_role: 'Age + Role Group',
+  age_only: 'Age Group',
+  global_clean: 'Global FMTRX Population',
+  none: 'Not Enough Population Data',
+}
+
+const bucketExplanations = {
+  exact_peer: 'Compared against players with similar age, level, position, body size, height, throws, and bats.',
+  athletic_peer: 'Compared against players with similar age, level, position, and bodyweight.',
+  age_role: 'Compared against players with similar age, level, and position.',
+  age_only: 'Compared against players in the same age group.',
+  global_clean: 'Compared against all valid guarded FMTRX values because smaller peer buckets were too small.',
+  none: 'Population sample is below 30, so research benchmark remains active.',
+}
+
+const bucketLevelValue = (metric) => {
+  const sourceMix = metricSourceMix(metric)
+  const detail = metricPopulationDetail(metric)
+  return metric?.selected_bucket_level
+    || metric?.population_bucket_level
+    || sourceMix.selected_bucket_level
+    || detail.selected_bucket_level
+    || (metricPopulationUsableValue(metric) ? 'global_clean' : 'none')
+}
+
+const bucketKeyValue = (metric) => {
+  const sourceMix = metricSourceMix(metric)
+  const detail = metricPopulationDetail(metric)
+  return metric?.selected_bucket_key
+    || metric?.population_bucket_key
+    || sourceMix.selected_bucket_key
+    || detail.selected_bucket_key
+    || detail.bucket_key
+    || null
+}
+
+const bucketLabel = (level) => bucketLabelOverrides[String(level ?? '').trim()] || 'Bucket quality not available yet.'
+const bucketExplanation = (level) => bucketExplanations[String(level ?? '').trim()] || 'Bucket quality not available yet.'
+
+const metricAttemptedBuckets = (metric) => {
+  const detail = metricPopulationDetail(metric)
+  const attempts = metric?.attempted_buckets || metric?.population_attempted_buckets || detail.attempted_buckets || []
+  return asArray(attempts).slice(0, 5)
+}
+
+const metricAttemptedBucketLabel = (attempt) => {
+  const count = fmtCount(attempt?.count ?? 0, '0')
+  return `${bucketLabel(attempt?.level)}: ${count} players${attempt?.usable ? ', selected' : ''}`
+}
+
+const metricBucketDetailScore = (metric) => {
+  let score = 0
+  if (bucketLevelValue(metric) && bucketLevelValue(metric) !== 'none') score += 3
+  if (metricAttemptedBuckets(metric).length) score += 3
+  if (metricPopulationBucketCountValue(metric) > 0) score += 2
+  if (metricPopulationUsableValue(metric)) score += 2
+  if (metric?.source_mix) score += 1
+  return score
+}
+
+const bucketQualityMetricRows = computed(() =>
+  allBenchmarkMetricRows.value
+    .filter((metric) => metric?.metric_key || metric?.display_name)
+    .map((metric) => {
+      const level = bucketLevelValue(metric) || 'none'
+      const bucketCount = metricPopulationBucketCountValue(metric)
+      return {
+        ...metric,
+        bucketLevel: level,
+        bucketLabel: bucketLabel(level),
+        bucketExplanation: bucketExplanation(level),
+        bucketKey: bucketKeyValue(metric),
+        bucketCount,
+        bucketConfidence: metricPopulationConfidenceValue(metric),
+        bucketUsable: metricPopulationUsableValue(metric),
+        attemptedBuckets: metricAttemptedBuckets(metric),
+        finalScore: n(metric?.score_0_100 ?? metric?.percentile_estimate ?? metric?.percentile),
+      }
+    })
+    .slice(0, 8)
+)
+
+const populationBucketQualitySummary = computed(() => {
+  const rows = bucketQualityMetricRows.value
+  const levels = ['exact_peer', 'athletic_peer', 'age_role', 'age_only', 'global_clean', 'none']
+  const counts = Object.fromEntries(levels.map((level) => [level, 0]))
+  const confidences = { insufficient: 0, low: 0, medium: 0, high: 0 }
+  const bucketCounts = []
+
+  for (const row of rows) {
+    const level = row.bucketUsable ? row.bucketLevel : 'none'
+    counts[level] = (counts[level] || 0) + 1
+    const confidence = String(row.bucketConfidence || 'insufficient')
+    confidences[confidence] = (confidences[confidence] || 0) + 1
+    bucketCounts.push(row.bucketCount || 0)
+  }
+
+  const averageBucketCount = bucketCounts.length
+    ? bucketCounts.reduce((sum, value) => sum + value, 0) / bucketCounts.length
+    : null
+
+  return {
+    available: rows.length > 0,
+    counts,
+    confidences,
+    averageBucketCount,
+    confidenceSummary: Object.entries(confidences)
+      .filter(([, count]) => count > 0)
+      .map(([confidence, count]) => `${confidenceLabel(confidence)} ${count}`)
+      .join(' · ') || 'Not Enough Data',
+  }
+})
 
 const benchmarkCategoryKeys = ['pitching', 'hitting', 'strength', 'athletic', 'mobility']
 
@@ -1401,6 +1579,122 @@ const priorityTop10Rows = computed(() => {
                     No metric-level source mix is available yet.
                   </p>
                 </div>
+              </template>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-indigo-300/20 bg-indigo-500/10 p-3">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-[10px] uppercase tracking-widest text-indigo-200/80">Population Bucket Quality</p>
+                  <h4 class="mt-1 text-lg font-semibold text-white">FMTRX Peer Group Trust</h4>
+                </div>
+                <span
+                  class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
+                  :class="populationBucketQualitySummary.available ? 'border-indigo-300/30 bg-indigo-500/15 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                >
+                  {{ populationBucketQualitySummary.available ? 'Bucket Detail Active' : 'Needs Data' }}
+                </span>
+              </div>
+
+              <p v-if="!populationBucketQualitySummary.available" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
+                Population bucket quality is not available yet.
+              </p>
+
+              <template v-else>
+                <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Exact Peer</p>
+                    <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.exact_peer, '0') }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Athletic Peer</p>
+                    <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.athletic_peer, '0') }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Age + Role</p>
+                    <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.age_role, '0') }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Age Only</p>
+                    <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.age_only, '0') }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Global</p>
+                    <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.global_clean, '0') }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Insufficient</p>
+                    <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.none, '0') }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Bucket</p>
+                    <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.averageBucketCount, '0') }}</p>
+                  </div>
+                </div>
+
+                <div class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-200">
+                  <p><span class="font-black text-white">Confidence:</span> {{ populationBucketQualitySummary.confidenceSummary }}</p>
+                  <p class="mt-1 text-indigo-100"><span class="font-black text-white">Rule:</span> Population sample below 30 means research benchmark remains active.</p>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <div
+                    v-for="metric in bucketQualityMetricRows"
+                    :key="`bucket-quality-${metric.metric_key || metric.display_name}`"
+                    class="rounded-md border border-white/10 bg-slate-950/35 p-3"
+                  >
+                    <div class="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p class="text-sm font-semibold text-white">{{ metric.display_name || humanizeKey(metric.metric_key) }}</p>
+                        <p class="mt-1 text-xs text-indigo-100">{{ metric.bucketLabel }}</p>
+                      </div>
+                      <span
+                        class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider"
+                        :class="metric.bucketUsable ? 'border-indigo-300/30 bg-indigo-500/15 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                      >
+                        {{ metric.bucketUsable ? 'Population Usable' : 'Research Active' }}
+                      </span>
+                    </div>
+
+                    <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
+                      <p>Bucket: <span class="font-semibold text-white">{{ fmtCount(metric.bucketCount, '0') }}</span></p>
+                      <p>Confidence: <span class="font-semibold text-white">{{ confidenceLabel(metric.bucketConfidence) }}</span></p>
+                      <p>Research: <span class="font-semibold text-white">{{ metricResearchPercentile(metric) }}</span></p>
+                      <p>Population: <span class="font-semibold text-white">{{ metricPopulationPercentile(metric) }}</span></p>
+                      <p>Source: <span class="font-semibold text-white">{{ metricSource(metric) }}</span></p>
+                      <p>Final: <span class="font-semibold text-white">{{ fmtScore(metric.finalScore) }}</span></p>
+                    </div>
+
+                    <p class="mt-2 text-xs text-slate-300">{{ metric.bucketExplanation }}</p>
+                    <p v-if="metric.bucketLevel === 'global_clean'" class="mt-2 rounded border border-amber-300/20 bg-amber-500/10 px-2 py-1 text-xs text-amber-100">
+                      This is a broad comparison group. Peer-specific confidence improves as more players collect data.
+                    </p>
+                    <p v-else-if="metric.bucketLevel === 'exact_peer' && metric.bucketUsable" class="mt-2 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-100">
+                      Strong peer match.
+                    </p>
+                    <p v-else-if="!metric.bucketUsable" class="mt-2 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300">
+                      Population sample below 30. Research benchmark remains active.
+                    </p>
+
+                    <div v-if="metric.attemptedBuckets.length" class="mt-3 rounded border border-white/10 bg-white/5 p-2">
+                      <p class="text-[10px] uppercase tracking-widest text-white/40">Attempted Buckets</p>
+                      <div class="mt-2 flex flex-wrap gap-1.5">
+                        <span
+                          v-for="attempt in metric.attemptedBuckets"
+                          :key="`${metric.metric_key}-${attempt.level}-${attempt.bucket_key}`"
+                          class="rounded-full border px-2 py-1 text-[10px]"
+                          :class="attempt.usable ? 'border-indigo-300/30 bg-indigo-500/15 text-indigo-100' : 'border-white/10 bg-slate-950/40 text-slate-300'"
+                        >
+                          {{ metricAttemptedBucketLabel(attempt) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <p v-if="!bucketQualityMetricRows.length" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
+                  No metric-level bucket details are available yet.
+                </p>
               </template>
             </div>
 
