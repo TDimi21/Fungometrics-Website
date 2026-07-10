@@ -45,6 +45,12 @@ const benchmarkTasksLoading = ref(false)
 const benchmarkTaskActionLoading = ref('')
 const benchmarkTaskMessage = ref('')
 const benchmarkTaskError = ref('')
+const benchmarkTaskWorkflow = ref(null)
+const benchmarkTaskWorkflowTaskId = ref('')
+const benchmarkTaskWorkflowLoading = ref('')
+const benchmarkTaskCompletionSaving = ref('')
+const benchmarkTaskFormValues = ref({})
+const benchmarkTaskCompletionNote = ref('')
 const sleepCheckinOpen = ref(false)
 const sleepCheckinSaving = ref(false)
 const sleepCheckinCheckedDate = ref('')
@@ -1721,6 +1727,48 @@ const benchmarkTaskCounts = computed(() =>
   }, {})
 )
 
+const benchmarkTaskId = (task) => task?.task_id || task?.id || ''
+
+const workflowForBenchmarkTask = (task) => {
+  const taskId = benchmarkTaskId(task)
+  return taskId && benchmarkTaskWorkflowTaskId.value === taskId ? benchmarkTaskWorkflow.value : null
+}
+
+const benchmarkWorkflowFields = (workflow) => [
+  ...asArray(workflow?.required_fields).map((field) => ({ ...field, required: true })),
+  ...asArray(workflow?.optional_fields).map((field) => ({ ...field, required: false })),
+]
+
+const fieldExistingValue = (workflow, field) => {
+  const key = field?.key
+  const summary = workflow?.existing_data_summary || {}
+  if (!key) return ''
+  if (summary[key] !== undefined && summary[key] !== null) return summary[key]
+  if (key === 'position' && Array.isArray(summary.positions)) return summary.positions[0] || ''
+  if (key === 'squat') return summary.back_squat ?? summary.front_squat ?? ''
+  if (key === 'deadlift') return summary.dead_lift ?? ''
+  if (key === 'pushups') return summary.push_ups ?? ''
+  if (key === 'forty_yard_dash') return summary.yd_40_dash ?? ''
+  if (key === 'sixty_yard_dash') return summary.yd_60_dash ?? ''
+  return ''
+}
+
+const seedBenchmarkTaskForm = (workflow) => {
+  const values = {}
+  benchmarkWorkflowFields(workflow).forEach((field) => {
+    if (!field?.key) return
+    values[field.key] = fieldExistingValue(workflow, field)
+  })
+  benchmarkTaskFormValues.value = values
+}
+
+const closeBenchmarkTaskWorkflow = () => {
+  benchmarkTaskWorkflow.value = null
+  benchmarkTaskWorkflowTaskId.value = ''
+  benchmarkTaskFormValues.value = {}
+  benchmarkTaskCompletionNote.value = ''
+}
+
 const loadBenchmarkTasks = async () => {
   benchmarkTasksLoading.value = true
   benchmarkTaskError.value = ''
@@ -1732,6 +1780,71 @@ const loadBenchmarkTasks = async () => {
     benchmarkTaskError.value = error?.response?.data?.message || 'Benchmark tasks are not available right now.'
   } finally {
     benchmarkTasksLoading.value = false
+  }
+}
+
+const openBenchmarkTask = async (task) => {
+  const taskId = benchmarkTaskId(task)
+  if (!taskId || benchmarkTaskWorkflowLoading.value) return
+
+  benchmarkTaskWorkflowLoading.value = taskId
+  benchmarkTaskError.value = ''
+  benchmarkTaskMessage.value = ''
+  try {
+    const response = await axiosGet(`player/benchmark-tasks/${taskId}/completion-workflow`)
+    const payload = apiPayload(response)
+    const workflow = payload.workflow || null
+    if (!workflow) {
+      benchmarkTaskError.value = 'Benchmark task workflow is not available yet.'
+      return
+    }
+
+    if (workflow.completion_mode === 'navigate' && workflow.target_route) {
+      await router.push({
+        path: workflow.target_route,
+        query: { benchmarkTaskId: taskId },
+      })
+      return
+    }
+
+    benchmarkTaskWorkflow.value = workflow
+    benchmarkTaskWorkflowTaskId.value = taskId
+    benchmarkTaskCompletionNote.value = ''
+    seedBenchmarkTaskForm(workflow)
+  } catch (error) {
+    benchmarkTaskError.value = error?.response?.data?.message || 'Could not open benchmark task.'
+  } finally {
+    benchmarkTaskWorkflowLoading.value = ''
+  }
+}
+
+const completeBenchmarkTaskWorkflow = async (task) => {
+  const taskId = benchmarkTaskId(task)
+  const workflow = workflowForBenchmarkTask(task)
+  if (!taskId || !workflow || benchmarkTaskCompletionSaving.value) return
+
+  benchmarkTaskCompletionSaving.value = taskId
+  benchmarkTaskError.value = ''
+  benchmarkTaskMessage.value = ''
+  try {
+    const payload = {
+      values: workflow.completion_mode === 'inline_form' ? benchmarkTaskFormValues.value : {},
+      manual_confirm: workflow.completion_mode !== 'inline_form',
+      note: benchmarkTaskCompletionNote.value || undefined,
+    }
+    await axiosPost(`player/benchmark-tasks/${taskId}/complete-with-payload`, payload)
+    await loadBenchmarkTasks()
+    closeBenchmarkTaskWorkflow()
+    benchmarkTaskMessage.value = workflow.completion_mode === 'inline_form'
+      ? 'Task data saved and marked complete.'
+      : 'Task marked collected.'
+  } catch (error) {
+    const missing = error?.response?.data?.missing_fields
+    benchmarkTaskError.value = Array.isArray(missing) && missing.length
+      ? `Missing required fields: ${missing.join(', ')}.`
+      : error?.response?.data?.message || error?.response?.data?.error || 'Could not complete benchmark task.'
+  } finally {
+    benchmarkTaskCompletionSaving.value = ''
   }
 }
 
@@ -2088,6 +2201,101 @@ onMounted(loadData)
                     {{ task.coach_notes }}
                   </p>
 
+                  <div
+                    v-if="workflowForBenchmarkTask(task)"
+                    class="mt-3 rounded-lg border border-sky-300/20 bg-sky-500/10 p-3"
+                  >
+                    <div class="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-sky-100/75">Completion Workflow</p>
+                        <p class="mt-1 text-xs text-white/70">
+                          {{ humanizeTaskValue(workflowForBenchmarkTask(task).completion_mode) }}
+                          <span v-if="workflowForBenchmarkTask(task).target_screen">
+                            · {{ workflowForBenchmarkTask(task).target_screen }}
+                          </span>
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        class="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white/55"
+                        @click="closeBenchmarkTaskWorkflow"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div
+                      v-if="workflowForBenchmarkTask(task).completion_mode === 'inline_form'"
+                      class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2"
+                    >
+                      <label
+                        v-for="field in benchmarkWorkflowFields(workflowForBenchmarkTask(task))"
+                        :key="field.key"
+                        class="block rounded-lg border border-white/10 bg-[#050b1f]/60 p-2"
+                      >
+                        <span class="block text-[10px] font-black uppercase tracking-wider text-white/45">
+                          {{ field.label || humanizeTaskValue(field.key) }}
+                          <span v-if="field.required" class="text-[#ff2d55]">*</span>
+                        </span>
+                        <select
+                          v-if="field.type === 'select'"
+                          v-model="benchmarkTaskFormValues[field.key]"
+                          class="mt-1 w-full rounded-md border border-white/10 bg-[#0b1230] px-2 py-2 text-xs text-white outline-none"
+                        >
+                          <option value="">Select</option>
+                          <option
+                            v-for="option in asArray(field.options)"
+                            :key="option"
+                            :value="option"
+                          >
+                            {{ option }}
+                          </option>
+                        </select>
+                        <input
+                          v-else
+                          v-model="benchmarkTaskFormValues[field.key]"
+                          :type="field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'"
+                          :min="field.min"
+                          :max="field.max"
+                          :step="field.step || 1"
+                          class="mt-1 w-full rounded-md border border-white/10 bg-[#0b1230] px-2 py-2 text-xs text-white outline-none"
+                        />
+                        <span v-if="field.unit" class="mt-1 block text-[10px] uppercase tracking-wider text-white/35">{{ field.unit }}</span>
+                      </label>
+                    </div>
+
+                    <div
+                      v-else
+                      class="mt-3 rounded-lg border border-white/10 bg-[#050b1f]/60 p-3 text-xs leading-5 text-white/70"
+                    >
+                      <p v-if="workflowForBenchmarkTask(task).existing_data_found" class="text-emerald-100">
+                        FMTRX found existing data for this task. You can mark it collected.
+                      </p>
+                      <p v-else>
+                        Confirm this baseline was collected in the correct FMTRX session or outside the web flow.
+                      </p>
+                    </div>
+
+                    <label class="mt-3 block">
+                      <span class="block text-[10px] font-black uppercase tracking-wider text-white/45">Optional Note</span>
+                      <textarea
+                        v-model="benchmarkTaskCompletionNote"
+                        rows="2"
+                        class="mt-1 w-full rounded-lg border border-white/10 bg-[#050b1f]/60 px-3 py-2 text-xs text-white outline-none"
+                        placeholder="Add a note for your coach"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      class="mt-3 rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-100 disabled:opacity-50"
+                      :disabled="benchmarkTaskCompletionSaving === task.task_id"
+                      @click="completeBenchmarkTaskWorkflow(task)"
+                    >
+                      {{ benchmarkTaskCompletionSaving === task.task_id ? 'Saving...' : (workflowForBenchmarkTask(task).completion_mode === 'inline_form' ? 'Save & Complete' : 'Mark Collected') }}
+                    </button>
+                  </div>
+
                   <div class="mt-3 flex flex-wrap gap-2">
                     <button
                       v-if="task.status === 'assigned'"
@@ -2100,11 +2308,11 @@ onMounted(loadData)
                     </button>
                     <button
                       type="button"
-                      class="rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-100 disabled:opacity-50"
-                      :disabled="!!benchmarkTaskActionLoading"
-                      @click="updateBenchmarkTaskStatus(task, 'complete')"
+                      class="rounded-lg border border-sky-300/30 bg-sky-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-sky-100 disabled:opacity-50"
+                      :disabled="!!benchmarkTaskWorkflowLoading"
+                      @click="openBenchmarkTask(task)"
                     >
-                      {{ benchmarkTaskActionLoading === `complete:${task.task_id}` ? 'Saving...' : 'Mark Complete' }}
+                      {{ benchmarkTaskWorkflowLoading === task.task_id ? 'Opening...' : (task.status === 'in_progress' ? 'Continue Task' : 'Open Task') }}
                     </button>
                     <button
                       type="button"

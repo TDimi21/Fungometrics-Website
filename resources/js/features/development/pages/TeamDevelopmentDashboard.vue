@@ -2617,6 +2617,7 @@ const priorityTop10Rows = computed(() => {
                         <p class="mt-1">
                           {{ taskTypeLabel(task.task_type) }}
                           · {{ humanizeKey(task.priority) }}
+                          · {{ humanizeKey(task.completion_mode, 'Manual Confirm') }}
                           · {{ humanizeKey(task.due_window) }}
                           · {{ fmtCount(task.estimated_minutes, '0') }} min
                         </p>

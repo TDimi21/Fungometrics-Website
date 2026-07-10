@@ -370,6 +370,10 @@ class BenchmarkTaskPersistenceService
                 return $this->invalidTransition('complete', $task, 'cannot_complete_draft_task');
             }
 
+            if ($task->status === BenchmarkCollectionTask::STATUS_COMPLETED) {
+                return $this->invalidTransition('complete', $task, 'task_already_completed');
+            }
+
             $task->status = BenchmarkCollectionTask::STATUS_COMPLETED;
             $task->completed_at = now();
             $task->payload = array_replace_recursive($task->payload ?? [], [
@@ -443,6 +447,7 @@ class BenchmarkTaskPersistenceService
             'source' => $task->source,
             'temporary_key' => $task->temporary_key,
             'task_type' => $task->task_type,
+            'completion_mode' => $this->completionModeForTaskType((string) $task->task_type),
             'title' => $task->title,
             'description' => $task->description,
             'priority' => $task->priority,
@@ -484,6 +489,7 @@ class BenchmarkTaskPersistenceService
             'status' => $serialized['status'],
             'task_type' => $taskType,
             'task_type_label' => self::TASK_LABELS[$taskType] ?? $this->headline($taskType),
+            'completion_mode' => $serialized['completion_mode'],
             'due_window' => $serialized['due_window'],
             'estimated_minutes' => $serialized['estimated_minutes'],
             'metrics' => $serialized['metrics'],
@@ -588,6 +594,20 @@ class BenchmarkTaskPersistenceService
             'error' => $reason,
             'task' => $this->serializeTask($task),
         ], false);
+    }
+
+    private function completionModeForTaskType(string $taskType): string
+    {
+        return match ($taskType) {
+            'roster_cleanup',
+            'strength_baseline',
+            'athletic_testing',
+            'mobility_screen' => 'inline_form',
+            'exit_velocity_baseline',
+            'bullpen_baseline',
+            'long_toss_weighted_ball' => 'navigate',
+            default => 'manual_confirm',
+        };
     }
 
     private function errorResult(string $action, ?string $teamId, Throwable $exception): array

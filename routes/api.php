@@ -175,8 +175,10 @@ Route::prefix('player')->group(function (): void {
         Route::get('statistics/{player}', ScoresStatisticPlayers::class);
         Route::get('benchmark-tasks', [IntelligenceController::class, 'listPlayerBenchmarkTasks']);
         Route::get('benchmark-tasks/{taskId}', [IntelligenceController::class, 'showPlayerBenchmarkTask']);
+        Route::get('benchmark-tasks/{taskId}/completion-workflow', [IntelligenceController::class, 'playerBenchmarkTaskCompletionWorkflow']);
         Route::post('benchmark-tasks/{taskId}/start', [IntelligenceController::class, 'startPlayerBenchmarkTask']);
         Route::post('benchmark-tasks/{taskId}/complete', [IntelligenceController::class, 'completePlayerBenchmarkTask']);
+        Route::post('benchmark-tasks/{taskId}/complete-with-payload', [IntelligenceController::class, 'completePlayerBenchmarkTaskWithPayload']);
         Route::post('benchmark-tasks/{taskId}/dismiss', [IntelligenceController::class, 'dismissPlayerBenchmarkTask']);
         Route::middleware('plan:view_advanced_stats')->get('development/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::middleware('plan:view_advanced_stats')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
@@ -248,7 +250,9 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
         Route::post('/teams/{teamId}/benchmark-tasks/generate', [IntelligenceController::class, 'generateBenchmarkTasks']);
         Route::post('/teams/{teamId}/benchmark-tasks/save-drafts', [IntelligenceController::class, 'saveBenchmarkDrafts']);
         Route::post('/teams/{teamId}/benchmark-tasks/assign', [IntelligenceController::class, 'assignBenchmarkTasks']);
+        Route::get('/benchmark-tasks/{taskId}/completion-workflow', [IntelligenceController::class, 'benchmarkTaskCompletionWorkflow']);
         Route::post('/benchmark-tasks/{taskId}/complete', [IntelligenceController::class, 'completeBenchmarkTask']);
+        Route::post('/benchmark-tasks/{taskId}/complete-with-payload', [IntelligenceController::class, 'completeBenchmarkTaskWithPayload']);
         Route::post('/benchmark-tasks/{taskId}/dismiss', [IntelligenceController::class, 'dismissBenchmarkTask']);
     });
 
