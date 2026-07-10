@@ -162,6 +162,24 @@ const fmtValue = (value, unit = '', fallback = '—') => {
   return display === fallback ? fallback : `${display}${unit ? ` ${unit}` : ''}`
 }
 
+const hasPositiveSample = (...values) => values.some((value) => (n(value) ?? 0) > 0)
+
+const valueWithSample = (value, sampleValues = [], { zeroIsMissing = true } = {}) => {
+  const parsed = n(value)
+  if (parsed === null) return null
+  if (sampleValues.length && !hasPositiveSample(...sampleValues)) return null
+  if (zeroIsMissing && parsed === 0) return null
+  return parsed
+}
+
+const firstMeaningfulNumber = (...values) => {
+  for (const value of values) {
+    const parsed = n(value)
+    if (parsed !== null && parsed !== 0) return parsed
+  }
+  return null
+}
+
 const fmtRank = (value, fallback = '—') => {
   const parsed = n(value)
   return parsed === null ? fallback : `${parsed.toFixed(1)}th`
@@ -597,15 +615,18 @@ const playerRows = computed(() => {
       projection: { projected30, projected60, projected90, confidence },
       metrics: {
         strike_percentage: projectionCurrent(snapshot, 'strike_percentage'),
-        top_pitch_velocity: firstNumber(projectionCurrent(snapshot, 'bullpen_max_velocity'), p?.top_ev_mph),
-        average_fastball_velocity: firstNumber(projectionCurrent(snapshot, 'bullpen_avg_velocity'), p?.scores?.bullpen),
+        top_pitch_velocity: projectionCurrent(snapshot, 'bullpen_max_velocity'),
+        average_fastball_velocity: projectionCurrent(snapshot, 'bullpen_avg_velocity'),
         pitcher_swing_miss_percentage: null,
         bullpen_score: bullpenScore,
-        long_toss_max_distance: n(p?.coverage?.long_toss ? 180 + (p.coverage.long_toss * 8) : null),
+        long_toss_max_distance: firstMeaningfulNumber(
+          projectionCurrent(snapshot, 'long_toss_max_distance'),
+          projectionCurrent(snapshot, 'long_toss_avg_distance'),
+        ),
         long_toss_carry_score: longTossScore,
-        average_exit_velocity: firstNumber(projectionCurrent(snapshot, 'exit_velocity_avg'), p?.scores?.ev),
-        top_exit_velocity: firstNumber(projectionCurrent(snapshot, 'exit_velocity_max'), p?.top_ev_mph),
-        hard_hit_percentage: n(p?.scores?.batting),
+        average_exit_velocity: projectionCurrent(snapshot, 'exit_velocity_avg'),
+        top_exit_velocity: firstMeaningfulNumber(projectionCurrent(snapshot, 'exit_velocity_max'), p?.top_ev_mph),
+        hard_hit_percentage: null,
         line_drive_percentage: null,
         hitter_swing_miss_percentage: null,
         damage_index: average([n(p?.scores?.batting), n(p?.scores?.ev)]),
@@ -633,7 +654,7 @@ const playersWithPercentile = computed(() => {
 })
 
 const teamComponentScores = computed(() => ({
-  strength: round1(firstNumber(teamIntelligence.value?.scores?.strength, average(playersWithPercentile.value.map((p) => p.metrics?.bullpen_score)))),
+  strength: round1(firstNumber(teamIntelligence.value?.scores?.strength, average((board.value || []).map((p) => p?.fitness?.strength_score)))),
   mobility: round1(firstNumber(teamIntelligence.value?.scores?.mobility, average((board.value || []).map((p) => p?.fitness?.mobility_score)))),
   bullpen: round1(firstNumber(teamIntelligence.value?.scores?.bullpen, average((board.value || []).map((p) => p?.scores?.bullpen)))),
   long_toss: round1(n(perf.value?.long_toss?.lts?.lts)),
@@ -648,32 +669,44 @@ const teamPercentile = computed(() => (tdi.value !== null ? clamp(Math.round((td
 
 const swingMissCreated = computed(() => {
   const sm = dashboard.value?.swing_miss_take_percents || {}
+  if (!hasPositiveSample(sm?.totals)) return null
   const keys = ['FB', 'CH', 'CB', 'SL', 'OTHER']
   return round1(keys.reduce((sum, k) => sum + (n(sm?.[k]?.SM) || 0), 0))
 })
 
-const hitterSwingMissAgainst = computed(() => n(dashboard.value?.type_hits_batting_percents?.SM?.percent))
-const lineDrivePct = computed(() => n(dashboard.value?.type_hits_batting_percents?.LD?.percent))
-const hardHitPct = computed(() => n(perf.value?.batting?.compScore))
+const hitterSwingMissAgainst = computed(() => {
+  const hitTypes = dashboard.value?.type_hits_batting_percents || {}
+  return valueWithSample(hitTypes?.SM?.percent ?? hitTypes?.['SM/F']?.percent, [hitTypes?.effective, hitTypes?.totals], { zeroIsMissing: false })
+})
+const lineDrivePct = computed(() => {
+  const hitTypes = dashboard.value?.type_hits_batting_percents || {}
+  return valueWithSample(hitTypes?.LD?.percent, [hitTypes?.effective, hitTypes?.totals], { zeroIsMissing: false })
+})
+const hardHitPct = computed(() => valueWithSample(perf.value?.batting?.compScore, [perf.value?.batting?.total], { zeroIsMissing: false }))
 
 const priorityMetrics = computed(() => {
   const bullpenNow = firstNumber(teamIntelligence.value?.scores?.bullpen, perf.value?.bullpen?.bps?.bps)
   const bullpenPrev = average((board.value || []).map((p) => p?.prev_scores?.bullpen))
-  const avgFbNow = average(playersWithPercentile.value.map((p) => p.metrics?.average_fastball_velocity)) ?? n(dashboard.value?.pitch_velocity_average?.FB)
-  const strikeNow = average(playersWithPercentile.value.map((p) => p.metrics?.strike_percentage)) ?? n(dashboard.value?.pitch_throws?.strike_percent)
-  const avgEvNow = average(playersWithPercentile.value.map((p) => p.metrics?.average_exit_velocity)) ?? n(perf.value?.batting?.avgEV)
-  const topEvNow = average(playersWithPercentile.value.map((p) => p.metrics?.top_exit_velocity)) ?? n(perf.value?.batting?.topEV)
+  const avgFbNow = average(playersWithPercentile.value.map((p) => p.metrics?.average_fastball_velocity))
+    ?? valueWithSample(dashboard.value?.pitch_velocity_average?.FB, [dashboard.value?.pitch_velocity_average?.totals])
+  const strikeNow = average(playersWithPercentile.value.map((p) => p.metrics?.strike_percentage))
+    ?? valueWithSample(dashboard.value?.pitch_throws?.strike_percent, [dashboard.value?.pitch_throws?.totals], { zeroIsMissing: false })
+  const avgEvNow = average(playersWithPercentile.value.map((p) => p.metrics?.average_exit_velocity))
+    ?? valueWithSample(perf.value?.batting?.avgEV, [perf.value?.batting?.total])
+  const topEvNow = average(playersWithPercentile.value.map((p) => p.metrics?.top_exit_velocity))
+    ?? valueWithSample(perf.value?.batting?.topEV, [perf.value?.batting?.total])
   const evNow = firstNumber(teamIntelligence.value?.scores?.exit_velocity, average((board.value || []).map((p) => p?.scores?.ev)))
   const evPrev = average((board.value || []).map((p) => p?.prev_scores?.ev))
-  const ltScore = n(perf.value?.long_toss?.lts?.lts)
-  const topPitch = average(playersWithPercentile.value.map((p) => p.metrics?.top_pitch_velocity)) ?? n(perf.value?.bullpen?.bps?.topVelo)
+  const ltScore = valueWithSample(perf.value?.long_toss?.lts?.lts)
+  const topPitch = average(playersWithPercentile.value.map((p) => p.metrics?.top_pitch_velocity))
+    ?? valueWithSample(perf.value?.bullpen?.bps?.topVelo, [perf.value?.bullpen?.bps?.total])
 
   return [
     { key: 'strike_percentage', value: strikeNow, delta: null, insight: 'Prioritize fastball command if below 65%.' },
     { key: 'top_pitch_velocity', value: topPitch, delta: null, insight: 'Track top-end arm speed gains by week.' },
     { key: 'average_fastball_velocity', value: avgFbNow, delta: null, insight: 'Use long toss-to-mound transfer block when flat.' },
     { key: 'pitcher_swing_miss_percentage', value: swingMissCreated.value, delta: null, insight: 'Higher is better for pitchers.' },
-    { key: 'long_toss_max_distance', value: n(perf.value?.long_toss?.distance_avg?.max), delta: null, insight: 'Build arm endurance and intent.' },
+    { key: 'long_toss_max_distance', value: valueWithSample(perf.value?.long_toss?.distance_avg?.max, [perf.value?.long_toss?.distance_avg?.team_totals?.throws, perf.value?.long_toss?.distance_avg?.throws]), delta: null, insight: 'Build arm endurance and intent.' },
     { key: 'bullpen_score', value: bullpenNow, delta: bullpenNow !== null && bullpenPrev !== null ? round1(bullpenNow - bullpenPrev) : null, insight: 'Blend command + velocity + execution.' },
     { key: 'average_exit_velocity', value: avgEvNow, delta: null, insight: 'Power floor from quality contact.' },
     { key: 'top_exit_velocity', value: topEvNow, delta: null, insight: 'Top-end power ceiling.' },
@@ -713,7 +746,7 @@ const metricCardData = computed(() => {
 
 const needsAttention = computed(() => {
   const toSeverity = (m) => {
-    if (m.value === null || m.goal === null) return 100
+    if (m.value === null || m.goal === null) return 0
     const diff = m.lowerBetter ? (m.value - m.goal) : (m.goal - m.value)
     return diff <= 0 ? 0 : Math.round(diff * 10)
   }
@@ -936,7 +969,8 @@ const openPlayer = (player) => {
 
 const trendChip = (delta) => {
   const d = n(delta)
-  if (d === null || d === 0) return { text: '→ Stable', cls: 'text-slate-300' }
+  if (d === null) return { text: 'No Trend', cls: 'text-slate-300' }
+  if (d === 0) return { text: '→ Stable', cls: 'text-slate-300' }
   if (d > 0) return { text: `↑ +${fmt1(d)}`, cls: 'text-emerald-300' }
   return { text: `↓ ${fmt1(d)}`, cls: 'text-red-300' }
 }
@@ -1405,7 +1439,7 @@ const priorityTop10Rows = computed(() => {
               @click="openPriorityTop10(m)"
             >
               <p class="text-[10px] uppercase tracking-wider text-white/40">{{ m.label }}</p>
-              <p class="mt-1 text-2xl font-black" :class="m.tone">{{ fmt1(m.value) }}<span class="text-sm font-semibold">{{ m.unit ? ` ${m.unit}` : '' }}</span></p>
+              <p class="mt-1 text-2xl font-black" :class="m.tone">{{ fmtValue(m.value, m.unit) }}</p>
               <p class="mt-1 text-xs" :class="trendChip(m.delta).cls">{{ trendChip(m.delta).text }}</p>
               <p class="mt-1 text-xs text-slate-300">{{ m.status }}<span v-if="m.goal !== null"> · Goal {{ fmtValue(m.goal, m.unit) }}</span></p>
               <p class="mt-1 text-[11px] text-white/50">{{ m.insight }}</p>
