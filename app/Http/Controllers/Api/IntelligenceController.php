@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\BenchmarkCollectionTask;
 use App\Models\CoachTeam;
 use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Intelligence\BenchmarkCollectionPlanner;
 use App\Services\Intelligence\BenchmarkTaskAssignmentService;
+use App\Services\Intelligence\BenchmarkTaskPersistenceService;
 use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\TeamIntelligenceService;
@@ -27,6 +29,7 @@ class IntelligenceController extends Controller
         private readonly DecisionEngine $decisionEngine,
         private readonly BenchmarkCollectionPlanner $benchmarkCollectionPlanner,
         private readonly BenchmarkTaskAssignmentService $benchmarkTaskAssignmentService,
+        private readonly BenchmarkTaskPersistenceService $benchmarkTaskPersistenceService,
     ) {
     }
 
@@ -101,11 +104,118 @@ class IntelligenceController extends Controller
         );
     }
 
+    public function listBenchmarkTasks(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        return response()->json($this->benchmarkTaskPersistenceService->listTeamTasks($teamId, [
+            'status' => $request->query('status'),
+            'player_id' => $request->query('player_id'),
+            'task_type' => $request->query('task_type'),
+        ]));
+    }
+
+    public function generateBenchmarkTasks(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        return response()->json($this->benchmarkTaskAssignmentService->buildAssignableTasks($teamId, $this->days($request)));
+    }
+
+    public function saveBenchmarkDrafts(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        $validated = $request->validate([
+            'tasks' => ['nullable', 'array'],
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+        ]);
+
+        $tasks = $validated['tasks'] ?? null;
+        if ($tasks === null) {
+            $generated = $this->benchmarkTaskAssignmentService->buildAssignableTasks($teamId, $this->days($request));
+            $tasks = [
+                ...($generated['team_tasks'] ?? []),
+                ...($generated['assignable_tasks'] ?? []),
+            ];
+        }
+
+        $result = $this->benchmarkTaskPersistenceService->saveDraftTasks($teamId, $tasks, (string) $request->user()?->id);
+        $result['saved_tasks'] = $this->benchmarkTaskPersistenceService->listTeamTasks($teamId)['tasks'] ?? [];
+
+        return response()->json($result);
+    }
+
+    public function assignBenchmarkTasks(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        $validated = $request->validate([
+            'task_ids' => ['nullable', 'array'],
+            'task_ids.*' => ['string'],
+        ]);
+
+        $result = $this->benchmarkTaskPersistenceService->assignTasks(
+            $teamId,
+            $validated['task_ids'] ?? [],
+            (string) $request->user()?->id,
+        );
+        $result['saved_tasks'] = $this->benchmarkTaskPersistenceService->listTeamTasks($teamId)['tasks'] ?? [];
+
+        return response()->json($result);
+    }
+
+    public function completeBenchmarkTask(Request $request, string $taskId): JsonResponse
+    {
+        $task = BenchmarkCollectionTask::query()->find($taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+            return $this->forbidden('You do not have access to this task');
+        }
+
+        return response()->json($this->benchmarkTaskPersistenceService->markTaskComplete($taskId, $request->all()));
+    }
+
+    public function dismissBenchmarkTask(Request $request, string $taskId): JsonResponse
+    {
+        $task = BenchmarkCollectionTask::query()->find($taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+            return $this->forbidden('You do not have access to this task');
+        }
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        return response()->json($this->benchmarkTaskPersistenceService->dismissTask($taskId, $validated['reason'] ?? null));
+    }
+
     private function days(Request $request): int
     {
-        $days = (int) $request->query('days', 365);
+        $days = (int) ($request->query('days', $request->input('days', 365)));
 
         return max(7, min(365, $days));
+    }
+
+    private function teamIsAccessible(Request $request, string $teamId): bool
+    {
+        return Team::query()->whereKey($teamId)->exists()
+            && $this->coachCanAccessTeam($request, $teamId);
     }
 
     private function coachCanAccessTeam(Request $request, string $teamId): bool

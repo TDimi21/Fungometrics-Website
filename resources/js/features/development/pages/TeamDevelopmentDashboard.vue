@@ -18,7 +18,7 @@ import {
 } from '../lib/teamDevelopmentCommandCenter'
 
 const router = useRouter()
-const { axiosGet } = useAxiosAuth()
+const { axiosGet, axiosPost } = useAxiosAuth()
 const { team } = storeToRefs(useTeamStore())
 
 const loading = ref(false)
@@ -27,6 +27,10 @@ const board = ref([])
 const dashboard = ref({})
 const perf = ref({})
 const teamIntelligence = ref(null)
+const savedBenchmarkTasks = ref([])
+const benchmarkTaskActionLoading = ref('')
+const benchmarkTaskActionError = ref('')
+const benchmarkTaskActionMessage = ref('')
 
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
@@ -97,6 +101,9 @@ const loadTeamCommandCenter = async () => {
   dashboard.value = {}
   perf.value = {}
   teamIntelligence.value = null
+  savedBenchmarkTasks.value = []
+  benchmarkTaskActionError.value = ''
+  benchmarkTaskActionMessage.value = ''
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -106,17 +113,20 @@ const loadTeamCommandCenter = async () => {
 
   loading.value = true
   try {
-    const [boardRes, dashRes, perfRes, intelligenceRes] = await Promise.all([
+    const [boardRes, dashRes, perfRes, intelligenceRes, benchmarkTasksRes] = await Promise.all([
       axiosGet(`coach/teams/${teamId}/player-development-board`).catch(() => null),
       axiosGet(`dashboard/${teamId}`).catch(() => null),
       axiosGet(`coach/performance-overview/${teamId}`).catch(() => null),
       axiosGet(`coach/teams/${teamId}/intelligence`, { days: 365 }).catch(() => null),
+      axiosGet(`intelligence/teams/${teamId}/benchmark-tasks`).catch(() => null),
     ])
 
     board.value = Array.isArray(boardRes?.data?.data) ? boardRes.data.data : []
     dashboard.value = dashRes?.data?.data ?? {}
     perf.value = perfRes?.data?.data ?? {}
     teamIntelligence.value = intelligenceRes?.data?.data || intelligenceRes?.data || null
+    const benchmarkTaskPayload = benchmarkTasksRes?.data?.data || benchmarkTasksRes?.data || {}
+    savedBenchmarkTasks.value = Array.isArray(benchmarkTaskPayload.tasks) ? benchmarkTaskPayload.tasks : []
 
     const hasIntelligenceData = Array.isArray(teamIntelligence.value?.players) && teamIntelligence.value.players.length
     const benchmarkMetricCount = n(teamIntelligence.value?.benchmark_profile?.metric_count) || 0
@@ -967,6 +977,11 @@ const assignableBenchmarkTasks = computed(() =>
   asArray(benchmarkTaskAssignments.value?.assignable_tasks)
 )
 
+const draftBenchmarkTasksForSave = computed(() => [
+  ...asArray(benchmarkTaskAssignments.value?.team_tasks),
+  ...assignableBenchmarkTasks.value,
+])
+
 const benchmarkTeamTasks = computed(() =>
   asArray(benchmarkTaskAssignments.value?.team_tasks).slice(0, 6)
 )
@@ -984,6 +999,103 @@ const taskTypeLabel = (type) => ({
   athletic_testing: 'Athletic Testing',
   mobility_screen: 'Mobility Screen',
 }[type] || humanizeKey(type, 'Benchmark Task'))
+
+const savedBenchmarkTaskRows = computed(() => asArray(savedBenchmarkTasks.value).slice(0, 20))
+
+const savedDraftBenchmarkTaskIds = computed(() =>
+  asArray(savedBenchmarkTasks.value)
+    .filter((task) => task?.status === 'draft')
+    .map((task) => task?.id)
+    .filter(Boolean)
+)
+
+const benchmarkTaskStatusCounts = computed(() =>
+  asArray(savedBenchmarkTasks.value).reduce((counts, task) => {
+    const status = task?.status || 'unknown'
+    counts[status] = (counts[status] || 0) + 1
+    return counts
+  }, {})
+)
+
+const responsePayload = (response) => response?.data?.data || response?.data || {}
+
+const refreshSavedBenchmarkTasks = async () => {
+  const teamId = resolveTeamId.value
+  if (!teamId) return
+
+  const response = await axiosGet(`intelligence/teams/${teamId}/benchmark-tasks`)
+  const payload = responsePayload(response)
+  savedBenchmarkTasks.value = Array.isArray(payload.tasks) ? payload.tasks : []
+}
+
+const generateBenchmarkDraftTasks = async () => {
+  const teamId = resolveTeamId.value
+  if (!teamId) return
+
+  benchmarkTaskActionLoading.value = 'generate'
+  benchmarkTaskActionError.value = ''
+  benchmarkTaskActionMessage.value = ''
+  try {
+    const response = await axiosPost(`intelligence/teams/${teamId}/benchmark-tasks/generate`, { days: 365 })
+    const payload = responsePayload(response)
+    teamIntelligence.value = {
+      ...(teamIntelligence.value || {}),
+      benchmark_task_assignments: payload,
+    }
+    benchmarkTaskActionMessage.value = `Generated ${fmtCount(payload.task_count, '0')} draft task previews.`
+  } catch {
+    benchmarkTaskActionError.value = 'Could not generate benchmark task previews.'
+  } finally {
+    benchmarkTaskActionLoading.value = ''
+  }
+}
+
+const saveBenchmarkDraftTasks = async () => {
+  const teamId = resolveTeamId.value
+  if (!teamId) return
+
+  benchmarkTaskActionLoading.value = 'save'
+  benchmarkTaskActionError.value = ''
+  benchmarkTaskActionMessage.value = ''
+  try {
+    const response = await axiosPost(`intelligence/teams/${teamId}/benchmark-tasks/save-drafts`, {
+      days: 365,
+      tasks: draftBenchmarkTasksForSave.value,
+    })
+    const payload = responsePayload(response)
+    savedBenchmarkTasks.value = Array.isArray(payload.saved_tasks)
+      ? payload.saved_tasks
+      : (Array.isArray(payload.tasks) ? payload.tasks : savedBenchmarkTasks.value)
+    benchmarkTaskActionMessage.value = `Saved drafts: ${fmtCount(payload.created_count, '0')} created, ${fmtCount(payload.updated_count, '0')} updated, ${fmtCount(payload.skipped_count, '0')} skipped.`
+  } catch {
+    benchmarkTaskActionError.value = 'Could not save benchmark draft tasks.'
+  } finally {
+    benchmarkTaskActionLoading.value = ''
+  }
+}
+
+const assignBenchmarkDraftTasks = async () => {
+  const teamId = resolveTeamId.value
+  if (!teamId) return
+
+  benchmarkTaskActionLoading.value = 'assign'
+  benchmarkTaskActionError.value = ''
+  benchmarkTaskActionMessage.value = ''
+  try {
+    const response = await axiosPost(`intelligence/teams/${teamId}/benchmark-tasks/assign`, {
+      task_ids: savedDraftBenchmarkTaskIds.value,
+    })
+    const payload = responsePayload(response)
+    savedBenchmarkTasks.value = Array.isArray(payload.saved_tasks)
+      ? payload.saved_tasks
+      : (Array.isArray(payload.tasks) ? payload.tasks : savedBenchmarkTasks.value)
+    benchmarkTaskActionMessage.value = `Assigned ${fmtCount(payload.assigned_count, '0')} task(s). ${fmtCount(payload.skipped_count, '0')} skipped.`
+  } catch {
+    benchmarkTaskActionError.value = 'Could not assign benchmark tasks.'
+  } finally {
+    benchmarkTaskActionLoading.value = ''
+  }
+}
 
 const playerWeakCategory = (player) => {
   const category = player?.weakest_category
@@ -2218,7 +2330,41 @@ const priorityTop10Rows = computed(() => {
                     Assignable benchmark tasks are not available yet.
                   </p>
 
-                  <template v-else>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      class="rounded border border-sky-300/30 bg-sky-500/15 px-3 py-2 text-xs font-black uppercase tracking-wider text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="!!benchmarkTaskActionLoading"
+                      @click="generateBenchmarkDraftTasks"
+                    >
+                      {{ benchmarkTaskActionLoading === 'generate' ? 'Generating...' : 'Generate Draft Tasks' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-xs font-black uppercase tracking-wider text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="!!benchmarkTaskActionLoading || !draftBenchmarkTasksForSave.length"
+                      @click="saveBenchmarkDraftTasks"
+                    >
+                      {{ benchmarkTaskActionLoading === 'save' ? 'Saving...' : 'Save Draft Tasks' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded border border-red-300/30 bg-red-500/15 px-3 py-2 text-xs font-black uppercase tracking-wider text-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="!!benchmarkTaskActionLoading || !savedDraftBenchmarkTaskIds.length"
+                      @click="assignBenchmarkDraftTasks"
+                    >
+                      {{ benchmarkTaskActionLoading === 'assign' ? 'Assigning...' : 'Assign Tasks' }}
+                    </button>
+                  </div>
+
+                  <p v-if="benchmarkTaskActionMessage" class="mt-3 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-2 text-xs text-emerald-100">
+                    {{ benchmarkTaskActionMessage }}
+                  </p>
+                  <p v-if="benchmarkTaskActionError" class="mt-3 rounded border border-red-300/20 bg-red-500/10 px-2 py-2 text-xs text-red-100">
+                    {{ benchmarkTaskActionError }}
+                  </p>
+
+                  <template v-if="benchmarkTaskAssignments">
                     <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
                       <div class="rounded border border-white/10 bg-slate-950/35 p-2">
                         <p class="text-[10px] uppercase tracking-wider text-white/35">Tasks</p>
@@ -2305,6 +2451,44 @@ const priorityTop10Rows = computed(() => {
                       </div>
                     </div>
                   </template>
+
+                  <div class="mt-3 rounded border border-white/10 bg-slate-950/35 p-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <p class="text-[10px] uppercase tracking-widest text-sky-200/80">Saved Task List</p>
+                      <p class="text-[10px] uppercase tracking-wider text-slate-300">
+                        Draft {{ fmtCount(benchmarkTaskStatusCounts.draft, '0') }}
+                        · Assigned {{ fmtCount(benchmarkTaskStatusCounts.assigned, '0') }}
+                        · Completed {{ fmtCount(benchmarkTaskStatusCounts.completed, '0') }}
+                      </p>
+                    </div>
+                    <div v-if="savedBenchmarkTaskRows.length" class="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
+                      <div
+                        v-for="task in savedBenchmarkTaskRows"
+                        :key="task.id"
+                        class="rounded border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-300"
+                      >
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p class="font-black text-white">{{ task.assigned_to_player_name || 'Team Task' }}</p>
+                            <p class="mt-1 text-slate-200">{{ task.title }}</p>
+                          </div>
+                          <span class="rounded-full border border-white/10 bg-slate-950/50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-sky-100">
+                            {{ humanizeKey(task.status) }}
+                          </span>
+                        </div>
+                        <p class="mt-1">
+                          {{ taskTypeLabel(task.task_type) }}
+                          · {{ humanizeKey(task.priority) }}
+                          · {{ humanizeKey(task.due_window) }}
+                          · {{ fmtCount(task.estimated_minutes, '0') }} min
+                        </p>
+                      </div>
+                    </div>
+                    <p v-else class="mt-2 text-xs text-slate-300">No saved benchmark tasks yet.</p>
+                    <p class="mt-3 text-[10px] uppercase tracking-wider text-slate-400">
+                      No notifications are sent yet. This only saves and assigns task records.
+                    </p>
+                  </div>
                 </div>
               </template>
             </div>

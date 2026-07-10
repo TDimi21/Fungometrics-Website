@@ -236,6 +236,17 @@ Route::prefix('coach')->group(function (): void {
     });
 });
 
+Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
+    ->prefix('intelligence')
+    ->group(function (): void {
+        Route::get('/teams/{teamId}/benchmark-tasks', [IntelligenceController::class, 'listBenchmarkTasks']);
+        Route::post('/teams/{teamId}/benchmark-tasks/generate', [IntelligenceController::class, 'generateBenchmarkTasks']);
+        Route::post('/teams/{teamId}/benchmark-tasks/save-drafts', [IntelligenceController::class, 'saveBenchmarkDrafts']);
+        Route::post('/teams/{teamId}/benchmark-tasks/assign', [IntelligenceController::class, 'assignBenchmarkTasks']);
+        Route::post('/benchmark-tasks/{taskId}/complete', [IntelligenceController::class, 'completeBenchmarkTask']);
+        Route::post('/benchmark-tasks/{taskId}/dismiss', [IntelligenceController::class, 'dismissBenchmarkTask']);
+    });
+
 Route::middleware(['auth:sanctum'])->prefix('training')->group(function (): void {
     Route::post('/', AddNewSession::class);
     Route::get('/{uuid}', GetSession::class);
