@@ -639,6 +639,170 @@ const displayBucketExplanation = (metric) => {
   return bucketExplanation(level)
 }
 
+const trustStatusDefinitions = {
+  research_only: {
+    label: 'Research Only',
+    meaning: 'This metric is using research benchmarks. FMTRX population data is not active for final scoring.',
+    badge: 'border-sky-300/30 bg-sky-500/15 text-sky-100',
+  },
+  composite_enabled: {
+    label: 'Research + FMTRX Blend',
+    meaning: 'This metric can blend research benchmarks with FMTRX population data when the population sample is valid.',
+    badge: 'border-emerald-300/35 bg-emerald-500/15 text-emerald-100',
+  },
+  population_enabled: {
+    label: 'Population Ready',
+    meaning: 'This metric is allowed to use trusted FMTRX population data when sample size and quality pass.',
+    badge: 'border-purple-300/35 bg-purple-500/15 text-purple-100',
+  },
+  needs_review: {
+    label: 'Needs Review',
+    meaning: 'This metric needs more QA before FMTRX population data can influence scoring.',
+    badge: 'border-amber-300/35 bg-amber-500/15 text-amber-100',
+  },
+  disabled: {
+    label: 'Disabled',
+    meaning: 'This metric is not currently used for benchmark scoring.',
+    badge: 'border-red-300/35 bg-red-500/15 text-red-100',
+  },
+  auto: {
+    label: 'Auto',
+    meaning: 'FMTRX is applying the default safety policy for this metric.',
+    badge: 'border-white/15 bg-white/10 text-slate-100',
+  },
+}
+
+const normalizeTrustStatus = (status) => {
+  const key = String(status ?? '').trim()
+  if (!key) return ''
+
+  return {
+    research_benchmark: 'research_only',
+    fmtrx_population: 'population_enabled',
+    population_ready: 'population_enabled',
+    composite: 'composite_enabled',
+    composite_benchmark: 'composite_enabled',
+    blend: 'composite_enabled',
+  }[key] || key
+}
+
+const boolFromPolicy = (value) => {
+  if (value === true || value === 1 || value === '1') return true
+  if (value === false || value === 0 || value === '0') return false
+
+  const text = String(value ?? '').trim().toLowerCase()
+  if (['true', 'yes', 'enabled', 'allowed'].includes(text)) return true
+  if (['false', 'no', 'disabled', 'blocked'].includes(text)) return false
+
+  return null
+}
+
+const yesNo = (value) => (value === true ? 'Yes' : value === false ? 'No' : 'Unknown')
+
+const metricTrustPolicy = (metric) =>
+  metric?.population_policy && typeof metric.population_policy === 'object'
+    ? metric.population_policy
+    : {}
+
+const metricTrustStatus = (metric) => {
+  const policyStatus = normalizeTrustStatus(metricTrustPolicy(metric).status)
+  if (policyStatus) return trustStatusDefinitions[policyStatus] ? policyStatus : 'auto'
+
+  const source = normalizeTrustStatus(metric?.source)
+  if (source === 'research_only') return 'research_only'
+  if (source === 'composite_enabled') return 'composite_enabled'
+  if (source === 'population_enabled') return 'population_enabled'
+
+  if (!metricPopulationUsableValue(metric)) return 'research_only'
+  if (bucketLevelValue(metric) === 'none') return 'research_only'
+
+  return 'auto'
+}
+
+const metricTrustPopulationAllowed = (metric) => {
+  const policy = metricTrustPolicy(metric)
+  const explicit = boolFromPolicy(policy.population_allowed ?? policy.population_enabled)
+  if (explicit !== null) return explicit
+
+  return ['population_enabled', 'composite_enabled'].includes(metricTrustStatus(metric))
+}
+
+const metricTrustCompositeAllowed = (metric) => {
+  const policy = metricTrustPolicy(metric)
+  const explicit = boolFromPolicy(policy.composite_allowed ?? policy.composite_enabled)
+  if (explicit !== null) return explicit
+
+  return metricTrustStatus(metric) === 'composite_enabled'
+}
+
+const metricResearchFallbackActive = (metric) => {
+  const sourceMix = metricSourceMix(metric)
+  const researchWeight = n(sourceMix.research_weight)
+  if (researchWeight !== null) return researchWeight > 0
+
+  const source = normalizeTrustStatus(metric?.source)
+  if (source === 'research_only' || source === 'composite_enabled') return true
+  if (source === 'population_enabled') return false
+
+  return !metricPopulationUsableValue(metric) || metricTrustStatus(metric) !== 'population_enabled'
+}
+
+const metricTrustBadge = (metric) => {
+  const status = metricTrustStatus(metric)
+  const definition = trustStatusDefinitions[status] || trustStatusDefinitions.auto
+  return {
+    status,
+    ...definition,
+  }
+}
+
+const metricTrustReason = (metric) => {
+  const policy = metricTrustPolicy(metric)
+  return policy.reason
+    || metricTrustBadge(metric).meaning
+    || sourceMixStatusText(metricSourceMix(metric))
+}
+
+const metricTrustTooltip = (metric) => {
+  const badge = metricTrustBadge(metric)
+  return [
+    `Policy status: ${badge.label}`,
+    `Reason: ${metricTrustReason(metric)}`,
+    `Population allowed: ${yesNo(metricTrustPopulationAllowed(metric))}`,
+    `Composite allowed: ${yesNo(metricTrustCompositeAllowed(metric))}`,
+    `Bucket count: ${metricPopulationBucketCount(metric)}`,
+    `Population confidence: ${metricPopulationConfidence(metric)}`,
+    `Research fallback active: ${yesNo(metricResearchFallbackActive(metric))}`,
+  ].join('\n')
+}
+
+const metricTrustLines = (metric) => [
+  { label: 'Policy Status', value: metricTrustBadge(metric).label },
+  { label: 'Reason', value: metricTrustReason(metric) },
+  { label: 'Population Allowed', value: yesNo(metricTrustPopulationAllowed(metric)) },
+  { label: 'Composite Allowed', value: yesNo(metricTrustCompositeAllowed(metric)) },
+  { label: 'Research Fallback Active', value: yesNo(metricResearchFallbackActive(metric)) },
+]
+
+const benchmarkTrustMetrics = computed(() => {
+  const profileMetrics = asArray(benchmarkProfile.value?.metrics)
+  return profileMetrics.length ? profileMetrics : allBenchmarkMetricRows.value
+})
+
+const benchmarkTrustSummary = computed(() => {
+  const counts = Object.fromEntries(Object.keys(trustStatusDefinitions).map((status) => [status, 0]))
+  for (const metric of benchmarkTrustMetrics.value) {
+    const status = metricTrustStatus(metric)
+    counts[status] = (counts[status] || 0) + 1
+  }
+
+  return {
+    available: benchmarkTrustMetrics.value.length > 0,
+    total: benchmarkTrustMetrics.value.length,
+    counts,
+  }
+})
+
 const metricBucketDetailScore = (metric) => {
   let score = 0
   if (bucketLevelValue(metric) && bucketLevelValue(metric) !== 'none') score += 3
@@ -781,6 +945,9 @@ const selectedMetricDetail = computed(() => {
     bucketCount: fmtCount(metricPopulationBucketCountValue(metric), '0'),
     bucketExplanation: displayBucketExplanation(metric),
     attemptedBuckets: metricAttemptedBuckets(metric),
+    trustBadge: metricTrustBadge(metric),
+    trustTooltip: metricTrustTooltip(metric),
+    trustLines: metricTrustLines(metric),
     goodGap: metricGapSentence(metric, 'gap_to_good', 'Good'),
     eliteGap: metricGapSentence(metric, 'gap_to_elite', 'Elite'),
     evidence,
@@ -2324,10 +2491,11 @@ const priorityTop10Rows = computed(() => {
                           <p class="mt-1 text-xs text-cyan-100">{{ metricSource(metric) }}</p>
                         </div>
                         <span
-                          class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider"
-                          :class="metricSourceMix(metric).population_usable ? 'border-cyan-300/30 bg-cyan-500/15 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                          class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                          :class="metricTrustBadge(metric).badge"
+                          :title="metricTrustTooltip(metric)"
                         >
-                          Usable {{ metricPopulationUsable(metric) }}
+                          {{ metricTrustBadge(metric).label }}
                         </span>
                       </div>
                       <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300">
@@ -2343,6 +2511,41 @@ const priorityTop10Rows = computed(() => {
                     No metric-level source mix is available yet.
                   </p>
                 </div>
+              </template>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-emerald-300/20 bg-emerald-500/10 p-3">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Benchmark Trust Summary</p>
+                  <h4 class="mt-1 text-lg font-semibold text-white">Policy Status by Metric</h4>
+                </div>
+                <span
+                  class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
+                  :class="benchmarkTrustSummary.available ? 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                >
+                  {{ benchmarkTrustSummary.available ? `${fmtCount(benchmarkTrustSummary.total, '0')} Metrics` : 'Needs Policy' }}
+                </span>
+              </div>
+
+              <p v-if="!benchmarkTrustSummary.available" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
+                Benchmark trust policy is not available yet. No metric trust details are available yet.
+              </p>
+
+              <template v-else>
+                <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+                  <div
+                    v-for="status in ['research_only', 'composite_enabled', 'population_enabled', 'needs_review', 'disabled', 'auto']"
+                    :key="`trust-summary-${status}`"
+                    class="rounded-md border border-white/10 bg-slate-950/35 p-2"
+                  >
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">{{ trustStatusDefinitions[status].label }}</p>
+                    <p class="mt-1 text-xl font-black text-white">{{ fmtCount(benchmarkTrustSummary.counts[status], '0') }}</p>
+                  </div>
+                </div>
+                <p class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-emerald-100">
+                  Population sample below threshold keeps research fallback active. FMTRX population blending is enabled only for metrics whose trust policy allows it.
+                </p>
               </template>
             </div>
 
@@ -2415,10 +2618,11 @@ const priorityTop10Rows = computed(() => {
                         <p class="mt-1 text-xs text-indigo-100">{{ metric.bucketLabel }}</p>
                       </div>
                       <span
-                        class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider"
-                        :class="metric.bucketUsable ? 'border-indigo-300/30 bg-indigo-500/15 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                        class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                        :class="metricTrustBadge(metric).badge"
+                        :title="metricTrustTooltip(metric)"
                       >
-                        {{ metric.bucketUsable ? 'Population Usable' : 'Research Active' }}
+                        {{ metricTrustBadge(metric).label }}
                       </span>
                     </div>
 
@@ -3306,8 +3510,17 @@ const priorityTop10Rows = computed(() => {
                     class="w-full rounded-md border border-white/10 bg-slate-950/35 p-2 text-left transition hover:border-red-300/40 hover:bg-red-500/10"
                     @click="openBenchmarkMetricDetail(metric)"
                   >
-                    <div class="flex items-center justify-between gap-2">
-                      <p class="text-sm font-semibold text-white">{{ metric.display_name || humanizeKey(metric.metric_key) }}</p>
+                    <div class="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p class="text-sm font-semibold text-white">{{ metric.display_name || humanizeKey(metric.metric_key) }}</p>
+                        <span
+                          class="mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                          :class="metricTrustBadge(metric).badge"
+                          :title="metricTrustTooltip(metric)"
+                        >
+                          {{ metricTrustBadge(metric).label }}
+                        </span>
+                      </div>
                       <span class="text-sm font-black" :class="scoreTone(metric.score_0_100)">{{ fmtScore(metric.score_0_100) }}</span>
                     </div>
                     <p class="text-xs text-slate-300">{{ categoryLabel(metric.category) }} · {{ metricPercentile(metric) }} · {{ humanizeKey(metric.label) }}</p>
@@ -3637,6 +3850,13 @@ const priorityTop10Rows = computed(() => {
                   <p class="text-xs uppercase tracking-widest text-indigo-200/70">Benchmark Metric Detail</p>
                   <h3 class="mt-1 text-xl font-black text-white">{{ selectedMetricDetail.displayName }}</h3>
                   <p class="mt-1 text-sm text-slate-300">{{ selectedMetricDetail.category }} · {{ selectedMetricDetail.label }}</p>
+                  <span
+                    class="mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                    :class="selectedMetricDetail.trustBadge.badge"
+                    :title="selectedMetricDetail.trustTooltip"
+                  >
+                    {{ selectedMetricDetail.trustBadge.label }}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -3689,6 +3909,26 @@ const priorityTop10Rows = computed(() => {
                     <p class="mt-3 rounded border border-white/10 bg-slate-950/35 p-2 text-xs text-cyan-100">
                       {{ selectedMetricSourceExplanation }}
                     </p>
+                    <div class="mt-3 rounded border border-white/10 bg-slate-950/35 p-2">
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Trust Policy</p>
+                        <span
+                          class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                          :class="selectedMetricDetail.trustBadge.badge"
+                          :title="selectedMetricDetail.trustTooltip"
+                        >
+                          {{ selectedMetricDetail.trustBadge.label }}
+                        </span>
+                      </div>
+                      <div class="mt-2 grid grid-cols-1 gap-1 text-xs text-slate-300 md:grid-cols-2">
+                        <p
+                          v-for="line in selectedMetricDetail.trustLines"
+                          :key="`trust-${line.label}`"
+                        >
+                          <span class="font-black text-white">{{ line.label }}:</span> {{ line.value }}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="rounded-lg border border-indigo-300/20 bg-indigo-500/10 p-3">
