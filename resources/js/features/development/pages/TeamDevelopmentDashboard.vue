@@ -427,32 +427,6 @@ const benchmarkSourceMix = computed(() => {
   }
 })
 
-const sourceMixStatusText = (sourceMix = {}) => {
-  const populationWeight = n(sourceMix.population_weight) ?? 0
-  const bucketCount = n(sourceMix.population_bucket_count) ?? 0
-  const selectedBucketLevel = sourceMix.selected_bucket_level || null
-
-  if (populationWeight <= 0) {
-    return bucketCount < 30
-      ? 'Population sample below 30. Research benchmark remains active.'
-      : 'Research benchmark active. FMTRX sample is not included in this score.'
-  }
-
-  if (selectedBucketLevel === 'global_clean') {
-    return 'This is a broad comparison group. Peer-specific confidence improves as more players collect data.'
-  }
-
-  if (selectedBucketLevel === 'exact_peer') {
-    return 'Strong peer match.'
-  }
-
-  if (bucketCount >= 300) return 'High-confidence FMTRX population blend.'
-  if (bucketCount >= 100) return 'Medium-confidence FMTRX population blend.'
-  if (bucketCount >= 30) return 'Low-confidence FMTRX population blend.'
-
-  return 'FMTRX population learning is included in this score.'
-}
-
 const playerBenchmarkMetricRows = computed(() =>
   teamPlayersIntelligence.value.flatMap((snapshot) => {
     const playerName = snapshot?.summary?.player?.name || snapshot?.summary?.player?.first_name || 'Player'
@@ -639,6 +613,33 @@ const displayBucketExplanation = (metric) => {
   return bucketExplanation(level)
 }
 
+const metricSourceStatusText = (metric) => {
+  const sourceMix = metricSourceMix(metric)
+  const populationWeight = n(sourceMix.population_weight) ?? 0
+  const bucketCount = metricPopulationBucketCountValue(metric)
+  const level = displayBucketLevel(metric)
+
+  if (populationWeight <= 0) {
+    return bucketCount < 30
+      ? 'Population sample below 30. Research benchmark remains active.'
+      : 'Research benchmark active. FMTRX sample is not included in this score.'
+  }
+
+  if (level === 'broad_unknown' || level === 'global_clean') {
+    return 'This is a broad comparison group. Peer-specific confidence improves as more players collect data.'
+  }
+
+  if (level === 'exact_peer') {
+    return 'Strong peer match.'
+  }
+
+  if (bucketCount >= 300) return 'High-confidence FMTRX population blend.'
+  if (bucketCount >= 100) return 'Medium-confidence FMTRX population blend.'
+  if (bucketCount >= 30) return 'Low-confidence FMTRX population blend.'
+
+  return 'FMTRX population learning is included in this score.'
+}
+
 const trustStatusDefinitions = {
   research_only: {
     label: 'Research Only',
@@ -760,7 +761,7 @@ const metricTrustReason = (metric) => {
   const policy = metricTrustPolicy(metric)
   return policy.reason
     || metricTrustBadge(metric).meaning
-    || sourceMixStatusText(metricSourceMix(metric))
+    || metricSourceStatusText(metric)
 }
 
 const metricTrustTooltip = (metric) => {
@@ -800,6 +801,42 @@ const benchmarkTrustSummary = computed(() => {
     available: benchmarkTrustMetrics.value.length > 0,
     total: benchmarkTrustMetrics.value.length,
     counts,
+  }
+})
+
+const metricHasPolicy = (metric) => Object.keys(metricTrustPolicy(metric)).length > 0
+const metricHasSourceMix = (metric) => Object.keys(metricSourceMix(metric)).length > 0
+const metricHasBucketDetails = (metric) => {
+  const detail = metricPopulationDetail(metric)
+  return Boolean(
+    metric?.selected_bucket_level
+    || metric?.selected_bucket_key
+    || metric?.bucket_count !== undefined
+    || metric?.population_bucket_count !== undefined
+    || asArray(metric?.attempted_buckets).length
+    || detail.selected_bucket_level
+    || detail.selected_bucket_key
+    || detail.bucket_key
+    || detail.bucket_count !== undefined
+    || asArray(detail.attempted_buckets).length
+  )
+}
+
+const benchmarkPayloadQa = computed(() => {
+  const metrics = benchmarkTrustMetrics.value
+  const metricCount = metrics.length
+  const withPolicy = metrics.filter(metricHasPolicy).length
+  const withSourceMix = metrics.filter(metricHasSourceMix).length
+  const withBucketDetails = metrics.filter(metricHasBucketDetails).length
+
+  return {
+    metricCount,
+    withPolicy,
+    missingPolicy: Math.max(metricCount - withPolicy, 0),
+    withSourceMix,
+    missingSourceMix: Math.max(metricCount - withSourceMix, 0),
+    withBucketDetails,
+    missingBucketDetails: Math.max(metricCount - withBucketDetails, 0),
   }
 })
 
@@ -2475,7 +2512,7 @@ const priorityTop10Rows = computed(() => {
                 <div class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3">
                   <div class="flex flex-wrap items-center justify-between gap-2">
                     <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Metric Source Status</p>
-                    <p class="text-[10px] uppercase tracking-widest text-white/35">Research percentile · Population percentile · Bucket</p>
+                    <p class="text-[10px] uppercase tracking-widest text-white/35">Percentiles · weights · bucket</p>
                   </div>
                   <div class="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
                     <button
@@ -2498,13 +2535,15 @@ const priorityTop10Rows = computed(() => {
                           {{ metricTrustBadge(metric).label }}
                         </span>
                       </div>
-                      <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300">
+                      <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-3">
                         <p>Research: <span class="font-semibold text-white">{{ metricResearchPercentile(metric) }}</span></p>
                         <p>Population: <span class="font-semibold text-white">{{ metricPopulationPercentile(metric) }}</span></p>
                         <p>Bucket: <span class="font-semibold text-white">{{ metricPopulationBucketCount(metric) }} players</span></p>
                         <p>Confidence: <span class="font-semibold text-white">{{ metricPopulationConfidence(metric) }}</span></p>
+                        <p>Usable: <span class="font-semibold text-white">{{ metricPopulationUsable(metric) }}</span></p>
+                        <p>Weights: <span class="font-semibold text-white">R {{ metricSourceWeight(metric, 'research_weight') }} / P {{ metricSourceWeight(metric, 'population_weight') }}</span></p>
                       </div>
-                      <p class="mt-2 text-[10px] text-slate-400">{{ sourceMixStatusText(metricSourceMix(metric)) }}</p>
+                      <p class="mt-2 text-[10px] text-slate-400">{{ metricSourceStatusText(metric) }}</p>
                     </button>
                   </div>
                   <p v-if="!sourceMetricRows.length" class="mt-2 text-sm text-slate-300">
@@ -2546,6 +2585,23 @@ const priorityTop10Rows = computed(() => {
                 <p class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-emerald-100">
                   Population sample below threshold keeps research fallback active. FMTRX population blending is enabled only for metrics whose trust policy allows it.
                 </p>
+                <details class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3">
+                  <summary class="cursor-pointer text-[10px] font-black uppercase tracking-widest text-emerald-200/80">
+                    Benchmark Payload QA
+                  </summary>
+                  <div v-if="benchmarkPayloadQa.metricCount" class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
+                    <p>Metric count: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.metricCount, '0') }}</span></p>
+                    <p>With policy: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.withPolicy, '0') }}</span></p>
+                    <p>Missing policy: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.missingPolicy, '0') }}</span></p>
+                    <p>With source mix: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.withSourceMix, '0') }}</span></p>
+                    <p>Missing source mix: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.missingSourceMix, '0') }}</span></p>
+                    <p>With bucket details: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.withBucketDetails, '0') }}</span></p>
+                    <p>Missing bucket details: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.missingBucketDetails, '0') }}</span></p>
+                  </div>
+                  <p v-else class="mt-3 text-xs text-slate-300">
+                    No metric trust details are available yet.
+                  </p>
+                </details>
               </template>
             </div>
 
@@ -3527,7 +3583,7 @@ const priorityTop10Rows = computed(() => {
                     <p class="mt-1 text-[10px] text-cyan-100">{{ metricSource(metric) }} · Bucket {{ metricPopulationBucketCount(metric) }} · {{ metricPopulationConfidence(metric) }}</p>
                     <p class="mt-1 text-[10px] text-white/45">Research {{ metricResearchPercentile(metric) }} · Population {{ metricPopulationPercentile(metric) }} · Usable {{ metricPopulationUsable(metric) }}</p>
                     <p class="mt-1 text-[10px] text-white/45">Good gap {{ metricGap(metric, 'gap_to_good') }} · Elite gap {{ metricGap(metric, 'gap_to_elite') }}</p>
-                    <p class="mt-1 text-[10px] text-slate-400">{{ sourceMixStatusText(metricSourceMix(metric)) }}</p>
+                    <p class="mt-1 text-[10px] text-slate-400">{{ metricSourceStatusText(metric) }}</p>
                   </button>
                   <p v-if="!weakestBenchmarkMetrics.length" class="text-sm text-slate-300">No weakest metrics available yet.</p>
                 </div>
