@@ -29,7 +29,9 @@ return new class extends Migration
             $table->boolean('allow_age_bucket')->default(true);
             $table->decimal('max_exclusion_rate', 5, 2)->nullable();
             $table->text('admin_notes')->nullable();
-            $table->json('last_audit_summary')->nullable();
+            // Older MariaDB versions used in production do not support native JSON columns.
+            // The model keeps an array cast, so Laravel still stores JSON in this text column.
+            $table->longText('last_audit_summary')->nullable();
             $table->timestamp('last_reviewed_at')->nullable();
             $table->uuid('reviewed_by_user_id')->nullable()->index();
             $table->timestamps();
