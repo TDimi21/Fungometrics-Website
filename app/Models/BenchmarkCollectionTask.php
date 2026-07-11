@@ -26,6 +26,16 @@ class BenchmarkCollectionTask extends Model
     public const REVIEW_REJECTED = 'rejected';
     public const REVIEW_CORRECTION_REQUESTED = 'correction_requested';
 
+    public const PROMOTION_PROMOTED = 'promoted';
+    public const PROMOTION_PARTIAL = 'partial';
+    public const PROMOTION_SKIPPED = 'skipped';
+    public const PROMOTION_FAILED = 'failed';
+
+    public const MODE_PROFILE_UPDATE = 'profile_update';
+    public const MODE_EXISTING_TABLE_INSERT = 'existing_table_insert';
+    public const MODE_TRUSTED_PAYLOAD_ONLY = 'trusted_payload_only';
+    public const MODE_MANUAL_REVIEW = 'manual_review';
+
     public const ACTIVE_STATUSES = [
         self::STATUS_DRAFT,
         self::STATUS_ASSIGNED,
@@ -59,10 +69,15 @@ class BenchmarkCollectionTask extends Model
         'payload',
         'submitted_payload',
         'approved_payload',
+        'promoted_by_user_id',
+        'promotion_status',
+        'promotion_mode',
+        'promotion_result',
         'assigned_at',
         'completed_at',
         'submitted_at',
         'reviewed_at',
+        'promoted_at',
         'dismissed_at',
         'review_notes',
         'rejection_reason',
@@ -76,10 +91,12 @@ class BenchmarkCollectionTask extends Model
         'payload' => 'array',
         'submitted_payload' => 'array',
         'approved_payload' => 'array',
+        'promotion_result' => 'array',
         'assigned_at' => 'datetime',
         'completed_at' => 'datetime',
         'submitted_at' => 'datetime',
         'reviewed_at' => 'datetime',
+        'promoted_at' => 'datetime',
         'dismissed_at' => 'datetime',
     ];
 
@@ -106,5 +123,10 @@ class BenchmarkCollectionTask extends Model
     public function reviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by_user_id', 'id');
+    }
+
+    public function promotedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'promoted_by_user_id', 'id');
     }
 }

@@ -13,7 +13,7 @@ class BenchmarkTaskReviewService
 {
     public function __construct(
         private readonly BenchmarkTaskPersistenceService $taskPersistence,
-        private readonly BenchmarkRefreshService $benchmarkRefreshService,
+        private readonly BenchmarkTrustedDataPromotionService $trustedDataPromotionService,
     ) {
     }
 
@@ -21,7 +21,7 @@ class BenchmarkTaskReviewService
     {
         try {
             $query = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
                 ->where('team_id', $teamId)
                 ->where('review_status', BenchmarkCollectionTask::REVIEW_PENDING)
                 ->orderByDesc('submitted_at')
@@ -65,7 +65,7 @@ class BenchmarkTaskReviewService
     {
         try {
             $task = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
                 ->find($taskId);
 
             if (! $task) {
@@ -88,12 +88,14 @@ class BenchmarkTaskReviewService
                 $task->completed_at ??= now();
                 $task->save();
 
-                return $task->fresh(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile']);
+                return $task->fresh(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile']);
             });
 
-            $refresh = $this->benchmarkRefreshService->refreshAfterTaskCompletion($taskId, [
+            $promotion = $this->trustedDataPromotionService->promoteApprovedTask($taskId, $reviewedByUserId, [
                 'days' => $this->days($options['days'] ?? 365),
+                'overwrite' => (bool) ($options['overwrite'] ?? false),
             ]);
+            $refresh = $promotion['refresh'] ?? null;
 
             return $this->result(true, [
                 'action' => 'approve',
@@ -101,8 +103,12 @@ class BenchmarkTaskReviewService
                 'team_id' => $reviewedTask->team_id,
                 'player_id' => $reviewedTask->assigned_to_player_id,
                 'review_status' => $reviewedTask->review_status,
-                'task' => $this->reviewTaskPayload($reviewedTask),
+                'task' => $this->reviewTaskPayload($reviewedTask->fresh(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])),
+                'promotion' => $promotion,
                 'refresh' => $refresh,
+                'message' => ($promotion['promotion_status'] ?? null) === BenchmarkCollectionTask::PROMOTION_FAILED
+                    ? 'Task approved, but trusted data promotion failed. Review promotion warnings.'
+                    : 'Task approved, trusted data promoted, and benchmark intelligence refreshed.',
             ]);
         } catch (Throwable $exception) {
             return $this->exceptionResult('approve', $taskId, $exception);
@@ -113,7 +119,7 @@ class BenchmarkTaskReviewService
     {
         try {
             $task = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
                 ->find($taskId);
 
             if (! $task) {
@@ -130,7 +136,7 @@ class BenchmarkTaskReviewService
                 $task->approved_payload = null;
                 $task->save();
 
-                return $task->fresh(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile']);
+                return $task->fresh(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile']);
             });
 
             return $this->result(true, [
@@ -151,7 +157,7 @@ class BenchmarkTaskReviewService
     {
         try {
             $task = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
                 ->find($taskId);
 
             if (! $task) {
@@ -168,7 +174,7 @@ class BenchmarkTaskReviewService
                 $task->approved_payload = null;
                 $task->save();
 
-                return $task->fresh(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile']);
+                return $task->fresh(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile']);
             });
 
             return $this->result(true, [
@@ -189,7 +195,7 @@ class BenchmarkTaskReviewService
     {
         try {
             $tasks = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
                 ->where('team_id', $teamId)
                 ->whereNotNull('review_status')
                 ->orderByDesc('updated_at')
@@ -242,7 +248,7 @@ class BenchmarkTaskReviewService
     {
         try {
             $task = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
                 ->find($taskId);
 
             if (! $task) {
@@ -280,7 +286,7 @@ class BenchmarkTaskReviewService
 
                 $task->save();
 
-                return $task->fresh(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile']);
+                return $task->fresh(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile']);
             });
 
             return $this->result(true, [
@@ -300,7 +306,7 @@ class BenchmarkTaskReviewService
     public function reviewStatusForTask(string $taskId, string $playerId): array
     {
         $task = BenchmarkCollectionTask::query()
-            ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+            ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
             ->whereKey($taskId)
             ->where('assigned_to_player_id', $playerId)
             ->where('status', '!=', BenchmarkCollectionTask::STATUS_DRAFT)

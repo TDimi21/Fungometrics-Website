@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
+use App\Models\BenchmarkCollectionTask;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -136,9 +137,83 @@ class PopulationMetricRepository
         return $metrics;
     }
 
+    public function trustedTaskPayloadValuesForMetric(string $metricKey, array $context = [], int $days = 365): array
+    {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
+        if (! in_array($metricKey, self::SUPPORTED_METRICS, true)) {
+            return [];
+        }
+
+        try {
+            if (! Schema::hasTable('benchmark_collection_tasks')) {
+                return [];
+            }
+
+            $query = BenchmarkCollectionTask::query()
+                ->where('review_status', BenchmarkCollectionTask::REVIEW_APPROVED)
+                ->where(function ($scope): void {
+                    $scope->where('promotion_status', BenchmarkCollectionTask::PROMOTION_PROMOTED)
+                        ->orWhere('promotion_status', BenchmarkCollectionTask::PROMOTION_PARTIAL)
+                        ->orWhere('promotion_mode', BenchmarkCollectionTask::MODE_TRUSTED_PAYLOAD_ONLY);
+                })
+                ->where(function ($scope) use ($days): void {
+                    $scope->where('promoted_at', '>=', now()->subDays(max(1, $days)))
+                        ->orWhere(function ($fallback) use ($days): void {
+                            $fallback->whereNull('promoted_at')
+                                ->where('reviewed_at', '>=', now()->subDays(max(1, $days)));
+                        });
+                });
+
+            if (! empty($context['team_id'] ?? $context['teamId'] ?? null)) {
+                $query->where('team_id', (string) ($context['team_id'] ?? $context['teamId']));
+            }
+
+            if (! empty($context['player_id'] ?? $context['playerId'] ?? null)) {
+                $query->where('assigned_to_player_id', (string) ($context['player_id'] ?? $context['playerId']));
+            }
+
+            return $query->get()
+                ->map(fn (BenchmarkCollectionTask $task) => $this->trustedMetricValue($task, $metricKey))
+                ->filter(fn ($value) => $value !== null)
+                ->map(fn ($value) => $this->guardrail->validate($metricKey, $value))
+                ->filter(fn (array $validation) => ($validation['included'] ?? false) === true)
+                ->map(fn (array $validation) => $validation['value'])
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
     public function supportedMetricKeys(): array
     {
         return self::SUPPORTED_METRICS;
+    }
+
+    private function trustedMetricValue(BenchmarkCollectionTask $task, string $metricKey): mixed
+    {
+        $payloadPromotion = ($task->payload ?? [])['promotion'] ?? [];
+        $trustedPayload = is_array($task->promotion_result ?? null)
+            ? ($task->promotion_result['trusted_payload'] ?? [])
+            : [];
+        if (empty($trustedPayload) && is_array($payloadPromotion)) {
+            $trustedPayload = $payloadPromotion['trusted_payload'] ?? [];
+        }
+
+        foreach ([
+            $trustedPayload['values'] ?? null,
+            $trustedPayload ?? null,
+            $task->approved_payload['submitted_values'] ?? null,
+            $task->approved_payload['values'] ?? null,
+            $task->approved_payload['payload']['values'] ?? null,
+            $task->approved_payload ?? null,
+        ] as $values) {
+            if (is_array($values) && array_key_exists($metricKey, $values)) {
+                return $values[$metricKey];
+            }
+        }
+
+        return null;
     }
 
     private function populationRowsForMetric(string $metricKey, array $context, int $days, array &$stats): Collection

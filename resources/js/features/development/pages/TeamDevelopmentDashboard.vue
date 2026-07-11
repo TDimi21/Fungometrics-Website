@@ -29,12 +29,17 @@ const perf = ref({})
 const teamIntelligence = ref(null)
 const savedBenchmarkTasks = ref([])
 const benchmarkTaskReviews = ref(null)
+const benchmarkTaskPromotions = ref(null)
 const benchmarkTaskActionLoading = ref('')
 const benchmarkTaskActionError = ref('')
 const benchmarkTaskActionMessage = ref('')
 const benchmarkReviewActionLoading = ref('')
 const benchmarkReviewActionError = ref('')
 const benchmarkReviewActionMessage = ref('')
+const benchmarkPromotionActionLoading = ref('')
+const benchmarkPromotionActionError = ref('')
+const benchmarkPromotionActionMessage = ref('')
+const selectedPromotionPreview = ref(null)
 const benchmarkRefreshLoading = ref(false)
 const benchmarkRefreshError = ref('')
 const benchmarkRefreshMessage = ref('')
@@ -110,10 +115,14 @@ const loadTeamCommandCenter = async () => {
   teamIntelligence.value = null
   savedBenchmarkTasks.value = []
   benchmarkTaskReviews.value = null
+  benchmarkTaskPromotions.value = null
+  selectedPromotionPreview.value = null
   benchmarkTaskActionError.value = ''
   benchmarkTaskActionMessage.value = ''
   benchmarkReviewActionError.value = ''
   benchmarkReviewActionMessage.value = ''
+  benchmarkPromotionActionError.value = ''
+  benchmarkPromotionActionMessage.value = ''
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -123,13 +132,14 @@ const loadTeamCommandCenter = async () => {
 
   loading.value = true
   try {
-    const [boardRes, dashRes, perfRes, intelligenceRes, benchmarkTasksRes, benchmarkReviewsRes] = await Promise.all([
+    const [boardRes, dashRes, perfRes, intelligenceRes, benchmarkTasksRes, benchmarkReviewsRes, benchmarkPromotionsRes] = await Promise.all([
       axiosGet(`coach/teams/${teamId}/player-development-board`).catch(() => null),
       axiosGet(`dashboard/${teamId}`).catch(() => null),
       axiosGet(`coach/performance-overview/${teamId}`).catch(() => null),
       axiosGet(`coach/teams/${teamId}/intelligence`, { days: 365 }).catch(() => null),
       axiosGet(`intelligence/teams/${teamId}/benchmark-tasks`).catch(() => null),
       axiosGet(`intelligence/teams/${teamId}/benchmark-task-reviews`).catch(() => null),
+      axiosGet(`intelligence/teams/${teamId}/benchmark-task-promotions`).catch(() => null),
     ])
 
     board.value = Array.isArray(boardRes?.data?.data) ? boardRes.data.data : []
@@ -140,6 +150,8 @@ const loadTeamCommandCenter = async () => {
     savedBenchmarkTasks.value = Array.isArray(benchmarkTaskPayload.tasks) ? benchmarkTaskPayload.tasks : []
     const benchmarkReviewPayload = benchmarkReviewsRes?.data?.data || benchmarkReviewsRes?.data || null
     benchmarkTaskReviews.value = benchmarkReviewPayload || teamIntelligence.value?.benchmark_task_review_summary || null
+    const benchmarkPromotionPayload = benchmarkPromotionsRes?.data?.data || benchmarkPromotionsRes?.data || null
+    benchmarkTaskPromotions.value = benchmarkPromotionPayload || teamIntelligence.value?.benchmark_task_promotion_status || null
 
     const hasIntelligenceData = Array.isArray(teamIntelligence.value?.players) && teamIntelligence.value.players.length
     const benchmarkMetricCount = n(teamIntelligence.value?.benchmark_profile?.metric_count) || 0
@@ -1143,6 +1155,57 @@ const pendingBenchmarkReviewCount = computed(() =>
   n(benchmarkTaskReviewSummary.value?.pending_count) ?? pendingBenchmarkReviewTasks.value.length
 )
 
+const benchmarkTaskPromotionStatus = computed(() =>
+  benchmarkTaskPromotions.value || teamIntelligence.value?.benchmark_task_promotion_status || null
+)
+
+const approvedAwaitingPromotionTasks = computed(() =>
+  asArray(benchmarkTaskPromotionStatus.value?.approved_awaiting_promotion).slice(0, 8)
+)
+
+const promotedBenchmarkTasks = computed(() =>
+  asArray(benchmarkTaskPromotionStatus.value?.promoted_tasks).slice(0, 6)
+)
+
+const manualPromotionReviewTasks = computed(() =>
+  [
+    ...asArray(benchmarkTaskPromotionStatus.value?.manual_review_tasks),
+    ...asArray(benchmarkTaskPromotionStatus.value?.skipped_tasks),
+  ].slice(0, 6)
+)
+
+const promotionModeLabel = (mode) => ({
+  profile_update: 'Profile Update',
+  existing_table_insert: 'Existing Table',
+  trusted_payload_only: 'Trusted Payload',
+  manual_review: 'Manual Review',
+}[mode] || humanizeKey(mode, 'Not Promoted'))
+
+const promotionStatusLabel = (status) => ({
+  promoted: 'Promoted',
+  partial: 'Partial',
+  skipped: 'Skipped',
+  failed: 'Failed',
+}[status] || 'Awaiting Promotion')
+
+const promotionStatusClass = (status) => ({
+  promoted: 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100',
+  partial: 'border-amber-300/30 bg-amber-500/15 text-amber-100',
+  skipped: 'border-slate-300/20 bg-white/5 text-slate-200',
+  failed: 'border-red-300/30 bg-red-500/15 text-red-100',
+}[status] || 'border-sky-300/30 bg-sky-500/15 text-sky-100')
+
+const promotionTaskTitle = (task) =>
+  `${task?.assigned_to_player_name || 'Player'} · ${task?.title || taskTypeLabel(task?.task_type)}`
+
+const promotionTargetLabel = (task) => {
+  const result = task?.promotion_result || {}
+  const table = result.target_table || task?.promotion_result?.target_table
+  const mode = task?.promotion_mode || result.promotion_mode
+  if (table) return `${promotionModeLabel(mode)} · ${table}`
+  return promotionModeLabel(mode)
+}
+
 const reviewStateLabel = (status) => ({
   not_required: 'No Review Required',
   pending_review: 'Pending Coach Review',
@@ -1168,6 +1231,14 @@ const refreshBenchmarkTaskReviews = async () => {
 
   const response = await axiosGet(`intelligence/teams/${teamId}/benchmark-task-reviews`)
   benchmarkTaskReviews.value = responsePayload(response)
+}
+
+const refreshBenchmarkTaskPromotions = async () => {
+  const teamId = resolveTeamId.value
+  if (!teamId) return
+
+  const response = await axiosGet(`intelligence/teams/${teamId}/benchmark-task-promotions`)
+  benchmarkTaskPromotions.value = responsePayload(response)
 }
 
 const applyReviewRefreshPayload = (refresh) => {
@@ -1214,12 +1285,16 @@ const reviewBenchmarkTask = async (task, action) => {
     const response = await axiosPost(`intelligence/benchmark-tasks/${taskId}/${action}`, payload)
     const result = responsePayload(response)
     applyReviewRefreshPayload(result.refresh)
+    if (result.promotion) {
+      selectedPromotionPreview.value = result.promotion
+    }
     await Promise.all([
       refreshSavedBenchmarkTasks(),
       refreshBenchmarkTaskReviews(),
+      refreshBenchmarkTaskPromotions(),
     ])
     benchmarkReviewActionMessage.value = action === 'approve'
-      ? 'Benchmark task approved. Intelligence refreshed from approved data.'
+      ? (result.message || 'Benchmark task approved. Trusted data promotion checked.')
       : action === 'reject'
         ? 'Benchmark task rejected and returned to the player.'
         : 'Correction request sent to the player.'
@@ -1227,6 +1302,73 @@ const reviewBenchmarkTask = async (task, action) => {
     benchmarkReviewActionError.value = error?.response?.data?.message || `Could not ${humanizeKey(action)} benchmark task.`
   } finally {
     benchmarkReviewActionLoading.value = ''
+  }
+}
+
+const previewBenchmarkPromotion = async (task) => {
+  const taskId = task?.id || task?.task_id
+  if (!taskId || benchmarkPromotionActionLoading.value) return
+
+  benchmarkPromotionActionLoading.value = `preview:${taskId}`
+  benchmarkPromotionActionError.value = ''
+  benchmarkPromotionActionMessage.value = ''
+  try {
+    const response = await axiosPost(`intelligence/benchmark-tasks/${taskId}/preview-promotion`, {})
+    selectedPromotionPreview.value = responsePayload(response)
+    benchmarkPromotionActionMessage.value = 'Promotion preview loaded.'
+  } catch (error) {
+    benchmarkPromotionActionError.value = error?.response?.data?.message || 'Could not preview trusted data promotion.'
+  } finally {
+    benchmarkPromotionActionLoading.value = ''
+  }
+}
+
+const promoteBenchmarkTask = async (task) => {
+  const taskId = task?.id || task?.task_id
+  if (!taskId || benchmarkPromotionActionLoading.value) return
+
+  benchmarkPromotionActionLoading.value = `promote:${taskId}`
+  benchmarkPromotionActionError.value = ''
+  benchmarkPromotionActionMessage.value = ''
+  try {
+    const response = await axiosPost(`intelligence/benchmark-tasks/${taskId}/promote`, { days: 365 })
+    const result = responsePayload(response)
+    selectedPromotionPreview.value = result
+    applyReviewRefreshPayload(result.refresh)
+    await Promise.all([
+      refreshSavedBenchmarkTasks(),
+      refreshBenchmarkTaskPromotions(),
+      refreshBenchmarkTaskReviews(),
+    ])
+    benchmarkPromotionActionMessage.value = `Promotion ${promotionStatusLabel(result.promotion_status).toLowerCase()}.`
+  } catch (error) {
+    benchmarkPromotionActionError.value = error?.response?.data?.message || 'Could not promote approved benchmark task.'
+  } finally {
+    benchmarkPromotionActionLoading.value = ''
+  }
+}
+
+const promoteAllApprovedBenchmarkTasks = async () => {
+  const teamId = resolveTeamId.value
+  if (!teamId || benchmarkPromotionActionLoading.value) return
+
+  benchmarkPromotionActionLoading.value = 'promote-all'
+  benchmarkPromotionActionError.value = ''
+  benchmarkPromotionActionMessage.value = ''
+  try {
+    const response = await axiosPost(`intelligence/teams/${teamId}/promote-approved-benchmark-tasks`, { days: 365 })
+    const result = responsePayload(response)
+    selectedPromotionPreview.value = asArray(result.results)[0] || null
+    await Promise.all([
+      refreshSavedBenchmarkTasks(),
+      refreshBenchmarkTaskPromotions(),
+      refreshBenchmarkTaskReviews(),
+    ])
+    benchmarkPromotionActionMessage.value = `Promoted ${fmtCount(result.promoted_count, '0')} approved tasks. ${fmtCount(result.skipped_count, '0')} skipped.`
+  } catch (error) {
+    benchmarkPromotionActionError.value = error?.response?.data?.message || 'Could not promote approved benchmark tasks.'
+  } finally {
+    benchmarkPromotionActionLoading.value = ''
   }
 }
 
@@ -2739,6 +2881,183 @@ const priorityTop10Rows = computed(() => {
 	                    <p v-else class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
 	                      No benchmark tasks are waiting for coach review.
 	                    </p>
+	                  </div>
+
+	                  <div class="mt-3 rounded-md border border-emerald-300/20 bg-emerald-500/10 p-3">
+	                    <div class="flex flex-wrap items-start justify-between gap-3">
+	                      <div>
+	                        <p class="text-[10px] uppercase tracking-widest text-emerald-100/80">Trusted Data Promotion</p>
+	                        <h5 class="mt-1 text-base font-semibold text-white">Approved Data Routing</h5>
+	                      </div>
+	                      <div class="flex flex-wrap gap-2 text-[10px] uppercase tracking-wider">
+	                        <span class="rounded-full border border-sky-300/30 bg-sky-500/15 px-3 py-1 text-sky-100">
+	                          {{ fmtCount(benchmarkTaskPromotionStatus?.awaiting_promotion_count, '0') }} Awaiting
+	                        </span>
+	                        <span class="rounded-full border border-emerald-300/30 bg-emerald-500/15 px-3 py-1 text-emerald-100">
+	                          {{ fmtCount(benchmarkTaskPromotionStatus?.promoted_count, '0') }} Promoted
+	                        </span>
+	                      </div>
+	                    </div>
+
+	                    <p v-if="benchmarkPromotionActionMessage" class="mt-3 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-2 text-xs text-emerald-100">
+	                      {{ benchmarkPromotionActionMessage }}
+	                    </p>
+	                    <p v-if="benchmarkPromotionActionError" class="mt-3 rounded border border-red-300/20 bg-red-500/10 px-2 py-2 text-xs text-red-100">
+	                      {{ benchmarkPromotionActionError }}
+	                    </p>
+
+	                    <p v-if="!benchmarkTaskPromotionStatus" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
+	                      Trusted data promotion status is not available yet.
+	                    </p>
+
+	                    <template v-else>
+	                      <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+	                        <div class="rounded border border-white/10 bg-slate-950/35 p-2">
+	                          <p class="text-[10px] uppercase tracking-wider text-white/35">Approved</p>
+	                          <p class="text-lg font-black text-white">{{ fmtCount(benchmarkTaskPromotionStatus.approved_count, '0') }}</p>
+	                        </div>
+	                        <div class="rounded border border-white/10 bg-slate-950/35 p-2">
+	                          <p class="text-[10px] uppercase tracking-wider text-white/35">Awaiting</p>
+	                          <p class="text-lg font-black text-sky-100">{{ fmtCount(benchmarkTaskPromotionStatus.awaiting_promotion_count, '0') }}</p>
+	                        </div>
+	                        <div class="rounded border border-white/10 bg-slate-950/35 p-2">
+	                          <p class="text-[10px] uppercase tracking-wider text-white/35">Promoted</p>
+	                          <p class="text-lg font-black text-emerald-100">{{ fmtCount(benchmarkTaskPromotionStatus.promoted_count, '0') }}</p>
+	                        </div>
+	                        <div class="rounded border border-white/10 bg-slate-950/35 p-2">
+	                          <p class="text-[10px] uppercase tracking-wider text-white/35">Manual Review</p>
+	                          <p class="text-lg font-black text-amber-100">{{ fmtCount(benchmarkTaskPromotionStatus.manual_review_count, '0') }}</p>
+	                        </div>
+	                      </div>
+
+	                      <div class="mt-3 flex flex-wrap gap-2">
+	                        <button
+	                          type="button"
+	                          class="rounded border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+	                          :disabled="!!benchmarkPromotionActionLoading || !approvedAwaitingPromotionTasks.length"
+	                          @click="promoteAllApprovedBenchmarkTasks"
+	                        >
+	                          {{ benchmarkPromotionActionLoading === 'promote-all' ? 'Promoting...' : 'Promote All Approved' }}
+	                        </button>
+	                      </div>
+
+	                      <div v-if="approvedAwaitingPromotionTasks.length" class="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
+	                        <div
+	                          v-for="task in approvedAwaitingPromotionTasks"
+	                          :key="task.id"
+	                          class="rounded border border-white/10 bg-slate-950/40 p-3 text-xs text-slate-300"
+	                        >
+	                          <div class="flex flex-wrap items-start justify-between gap-2">
+	                            <div>
+	                              <p class="font-black text-white">{{ promotionTaskTitle(task) }}</p>
+	                              <p class="mt-1 text-slate-100">{{ taskTypeLabel(task.task_type) }}</p>
+	                            </div>
+	                            <span class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider" :class="promotionStatusClass(task.promotion_status)">
+	                              {{ promotionStatusLabel(task.promotion_status) }}
+	                            </span>
+	                          </div>
+	                          <p class="mt-2 text-[10px] uppercase tracking-wider text-white/45">
+	                            Reviewed {{ task.reviewed_at ? formatDate(task.reviewed_at) : '—' }} · {{ promotionTargetLabel(task) }}
+	                          </p>
+	                          <div class="mt-3 flex flex-wrap gap-2">
+	                            <button
+	                              type="button"
+	                              class="rounded border border-sky-300/30 bg-sky-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-sky-100 disabled:opacity-50"
+	                              :disabled="!!benchmarkPromotionActionLoading"
+	                              @click="previewBenchmarkPromotion(task)"
+	                            >
+	                              {{ benchmarkPromotionActionLoading === `preview:${task.id}` ? 'Previewing...' : 'Preview Promotion' }}
+	                            </button>
+	                            <button
+	                              type="button"
+	                              class="rounded border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-100 disabled:opacity-50"
+	                              :disabled="!!benchmarkPromotionActionLoading"
+	                              @click="promoteBenchmarkTask(task)"
+	                            >
+	                              {{ benchmarkPromotionActionLoading === `promote:${task.id}` ? 'Promoting...' : 'Promote Task' }}
+	                            </button>
+	                          </div>
+	                        </div>
+	                      </div>
+
+	                      <p v-else class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
+	                        No approved benchmark tasks awaiting promotion.
+	                      </p>
+
+	                      <div
+	                        v-if="selectedPromotionPreview"
+	                        class="mt-3 rounded border border-white/10 bg-slate-950/45 p-3 text-xs text-slate-300"
+	                      >
+	                        <div class="flex flex-wrap items-start justify-between gap-2">
+	                          <div>
+	                            <p class="text-[10px] uppercase tracking-widest text-emerald-100/80">Promotion Preview / Result</p>
+	                            <p class="mt-1 font-black text-white">
+	                              {{ taskTypeLabel(selectedPromotionPreview.task_type) }} · {{ promotionModeLabel(selectedPromotionPreview.promotion_mode) }}
+	                            </p>
+	                          </div>
+	                          <span class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider" :class="promotionStatusClass(selectedPromotionPreview.promotion_status)">
+	                            {{ promotionStatusLabel(selectedPromotionPreview.promotion_status) }}
+	                          </span>
+	                        </div>
+	                        <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+	                          <p class="rounded border border-white/10 bg-white/5 px-2 py-1">
+	                            <span class="block text-[10px] uppercase tracking-wider text-white/35">Target</span>
+	                            <span class="font-black text-white">{{ selectedPromotionPreview.target_table || 'Trusted Payload' }}</span>
+	                          </p>
+	                          <p class="rounded border border-white/10 bg-white/5 px-2 py-1">
+	                            <span class="block text-[10px] uppercase tracking-wider text-white/35">Fields</span>
+	                            <span class="font-black text-white">{{ fmtCount(asArray(selectedPromotionPreview.promoted_fields).length, '0') }}</span>
+	                          </p>
+	                          <p class="rounded border border-white/10 bg-white/5 px-2 py-1">
+	                            <span class="block text-[10px] uppercase tracking-wider text-white/35">Refresh</span>
+	                            <span class="font-black text-white">{{ humanizeKey(selectedPromotionPreview.refresh?.refresh_status, '—') }}</span>
+	                          </p>
+	                        </div>
+	                        <div v-if="asArray(selectedPromotionPreview.promoted_fields).length" class="mt-2 flex flex-wrap gap-1">
+	                          <span
+	                            v-for="field in asArray(selectedPromotionPreview.promoted_fields).slice(0, 8)"
+	                            :key="`${field.field}-${field.target}`"
+	                            class="rounded-full border border-emerald-300/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-100"
+	                          >
+	                            {{ humanizeKey(field.field) }}
+	                          </span>
+	                        </div>
+	                        <p v-if="asArray(selectedPromotionPreview.warnings).length" class="mt-2 rounded border border-amber-300/20 bg-amber-500/10 px-2 py-2 text-xs text-amber-100">
+	                          {{ asArray(selectedPromotionPreview.warnings).join(' ') }}
+	                        </p>
+	                      </div>
+
+	                      <div v-if="promotedBenchmarkTasks.length || manualPromotionReviewTasks.length" class="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
+	                        <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+	                          <p class="text-[10px] uppercase tracking-widest text-emerald-100/80">Recently Promoted</p>
+	                          <div class="mt-2 space-y-1">
+	                            <p
+	                              v-for="task in promotedBenchmarkTasks"
+	                              :key="`promoted-${task.id}`"
+	                              class="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300"
+	                            >
+	                              <span class="font-black text-white">{{ promotionTaskTitle(task) }}</span>
+	                              · {{ promotionTargetLabel(task) }}
+	                            </p>
+	                            <p v-if="!promotedBenchmarkTasks.length" class="text-xs text-slate-400">No promoted tasks yet.</p>
+	                          </div>
+	                        </div>
+	                        <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+	                          <p class="text-[10px] uppercase tracking-widest text-amber-100/80">Skipped / Manual Review</p>
+	                          <div class="mt-2 space-y-1">
+	                            <p
+	                              v-for="task in manualPromotionReviewTasks"
+	                              :key="`manual-${task.id}`"
+	                              class="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300"
+	                            >
+	                              <span class="font-black text-white">{{ promotionTaskTitle(task) }}</span>
+	                              · {{ promotionTargetLabel(task) }}
+	                            </p>
+	                            <p v-if="!manualPromotionReviewTasks.length" class="text-xs text-slate-400">No manual review promotion issues.</p>
+	                          </div>
+	                        </div>
+	                      </div>
+	                    </template>
 	                  </div>
 
 	                  <template v-if="benchmarkTaskAssignments">

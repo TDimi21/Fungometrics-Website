@@ -16,6 +16,7 @@ use App\Services\Intelligence\BenchmarkTaskAssignmentService;
 use App\Services\Intelligence\BenchmarkTaskCompletionService;
 use App\Services\Intelligence\BenchmarkTaskPersistenceService;
 use App\Services\Intelligence\BenchmarkTaskReviewService;
+use App\Services\Intelligence\BenchmarkTrustedDataPromotionService;
 use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\TeamIntelligenceService;
@@ -36,6 +37,7 @@ class IntelligenceController extends Controller
         private readonly BenchmarkTaskCompletionService $benchmarkTaskCompletionService,
         private readonly BenchmarkRefreshService $benchmarkRefreshService,
         private readonly BenchmarkTaskReviewService $benchmarkTaskReviewService,
+        private readonly BenchmarkTrustedDataPromotionService $benchmarkTrustedDataPromotionService,
     ) {
     }
 
@@ -86,6 +88,7 @@ class IntelligenceController extends Controller
 
         $snapshot['benchmark_refresh_status'] = $this->benchmarkRefreshService->buildRefreshStatus($teamId, null, $days);
         $snapshot['benchmark_task_review_summary'] = $this->benchmarkTaskReviewService->buildTeamReviewSummary($teamId);
+        $snapshot['benchmark_task_promotion_status'] = $this->benchmarkTrustedDataPromotionService->buildPromotionStatus($teamId);
 
         return response()->json($snapshot);
     }
@@ -307,6 +310,77 @@ class IntelligenceController extends Controller
         );
 
         return response()->json($result, ($result['ok'] ?? false) ? HttpCodes::HTTP_OK : HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    public function listBenchmarkTaskPromotions(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        return response()->json($this->benchmarkTrustedDataPromotionService->buildPromotionStatus($teamId));
+    }
+
+    public function previewBenchmarkTaskPromotion(Request $request, string $taskId): JsonResponse
+    {
+        $task = BenchmarkCollectionTask::query()->find($taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+            return $this->forbidden('You do not have access to this task');
+        }
+
+        return response()->json($this->benchmarkTrustedDataPromotionService->previewPromotion($taskId));
+    }
+
+    public function promoteBenchmarkTask(Request $request, string $taskId): JsonResponse
+    {
+        $task = BenchmarkCollectionTask::query()->find($taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+            return $this->forbidden('You do not have access to this task');
+        }
+
+        $validated = $request->validate([
+            'overwrite' => ['nullable', 'boolean'],
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+        ]);
+
+        $result = $this->benchmarkTrustedDataPromotionService->promoteApprovedTask(
+            $taskId,
+            (string) $request->user()?->id,
+            [
+                'overwrite' => (bool) ($validated['overwrite'] ?? false),
+                'days' => $this->days($request),
+            ],
+        );
+
+        return response()->json($result, ($result['promotion_status'] ?? null) === BenchmarkCollectionTask::PROMOTION_FAILED
+            ? HttpCodes::HTTP_UNPROCESSABLE_ENTITY
+            : HttpCodes::HTTP_OK);
+    }
+
+    public function promoteApprovedBenchmarkTasks(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        $validated = $request->validate([
+            'overwrite' => ['nullable', 'boolean'],
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+        ]);
+
+        return response()->json($this->benchmarkTrustedDataPromotionService->promoteTeamApprovedTasks($teamId, [
+            'overwrite' => (bool) ($validated['overwrite'] ?? false),
+            'days' => $this->days($request),
+            'promoted_by_user_id' => (string) $request->user()?->id,
+        ]));
     }
 
     public function dismissBenchmarkTask(Request $request, string $taskId): JsonResponse

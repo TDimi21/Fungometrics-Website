@@ -186,7 +186,7 @@ class BenchmarkTaskPersistenceService
     {
         try {
             $query = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
                 ->where('team_id', $teamId)
                 ->orderByRaw("FIELD(status, 'draft', 'assigned', 'in_progress', 'completed', 'dismissed')")
                 ->orderByDesc('priority')
@@ -223,7 +223,7 @@ class BenchmarkTaskPersistenceService
     {
         try {
             $query = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
                 ->where('assigned_to_player_id', $playerId)
                 ->where('status', '!=', BenchmarkCollectionTask::STATUS_DRAFT)
                 ->orderByRaw("FIELD(status, 'assigned', 'in_progress', 'completed', 'dismissed')")
@@ -281,7 +281,7 @@ class BenchmarkTaskPersistenceService
     {
         try {
             $task = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile', 'promotedBy.profile'])
                 ->whereKey($taskId)
                 ->where('assigned_to_player_id', $playerId)
                 ->where('status', '!=', BenchmarkCollectionTask::STATUS_DRAFT)
@@ -439,6 +439,7 @@ class BenchmarkTaskPersistenceService
         $playerName = trim((string) (($profile?->first_name ?? '').' '.($profile?->last_name ?? ''))) ?: null;
         $submittedBy = $task->relationLoaded('submittedBy') ? $task->submittedBy : null;
         $reviewedBy = $task->relationLoaded('reviewedBy') ? $task->reviewedBy : null;
+        $promotedBy = $task->relationLoaded('promotedBy') ? $task->promotedBy : null;
 
         return [
             'id' => $task->id,
@@ -459,6 +460,8 @@ class BenchmarkTaskPersistenceService
             'submitted_by_name' => $this->userName($submittedBy),
             'reviewed_by_user_id' => $task->reviewed_by_user_id,
             'reviewed_by_name' => $this->userName($reviewedBy),
+            'promoted_by_user_id' => $task->promoted_by_user_id,
+            'promoted_by_name' => $this->userName($promotedBy),
             'due_window' => $task->due_window,
             'estimated_minutes' => $task->estimated_minutes,
             'metrics' => $task->metrics ?? [],
@@ -468,10 +471,14 @@ class BenchmarkTaskPersistenceService
             'payload' => $task->payload ?? [],
             'submitted_payload' => $task->submitted_payload ?? [],
             'approved_payload' => $task->approved_payload ?? [],
+            'promotion_status' => $task->promotion_status,
+            'promotion_mode' => $task->promotion_mode,
+            'promotion_result' => $task->promotion_result ?? ($task->payload['promotion'] ?? null),
             'assigned_at' => $task->assigned_at?->toIso8601String(),
             'completed_at' => $task->completed_at?->toIso8601String(),
             'submitted_at' => $task->submitted_at?->toIso8601String(),
             'reviewed_at' => $task->reviewed_at?->toIso8601String(),
+            'promoted_at' => $task->promoted_at?->toIso8601String(),
             'dismissed_at' => $task->dismissed_at?->toIso8601String(),
             'review_notes' => $task->review_notes,
             'rejection_reason' => $task->rejection_reason,

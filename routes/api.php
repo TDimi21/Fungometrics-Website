@@ -26,6 +26,13 @@ use App\Http\Controllers\Api\Coach\GetPracticePlans;
 use App\Http\Controllers\Api\Coach\GetStatsBundle;
 use App\Http\Controllers\Api\Coach\SavePracticePlan;
 use App\Http\Controllers\Api\Coach\DeletePracticePlan;
+// Daily Planner — its own domain, shared between app and web
+use App\Http\Controllers\Api\Planner\GetDailyPlans;
+use App\Http\Controllers\Api\Planner\SaveDailyPlan;
+use App\Http\Controllers\Api\Planner\DeleteDailyPlan;
+use App\Http\Controllers\Api\Planner\GetMyWorkouts;
+use App\Http\Controllers\Api\Planner\GetMyWorkout;
+use App\Http\Controllers\Api\Planner\SaveWorkoutProgress;
 use App\Http\Controllers\Api\Coach\GetFieldPresets;
 use App\Http\Controllers\Api\Coach\SaveFieldPreset;
 use App\Http\Controllers\Api\Coach\DeleteFieldPreset;
@@ -183,6 +190,11 @@ Route::prefix('player')->group(function (): void {
         Route::post('benchmark-tasks/{taskId}/dismiss', [IntelligenceController::class, 'dismissPlayerBenchmarkTask']);
         Route::middleware('plan:view_advanced_stats')->get('development/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::middleware('plan:view_advanced_stats')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
+
+        // Daily Planner (player side) — "My Workouts" + progress
+        Route::get('daily-plans', GetMyWorkouts::class);
+        Route::get('daily-plans/{id}', GetMyWorkout::class);
+        Route::post('daily-plans/{id}/progress', SaveWorkoutProgress::class);
     });
 });
 
@@ -229,6 +241,11 @@ Route::prefix('coach')->group(function (): void {
         Route::post('/practice-plans', SavePracticePlan::class);
         Route::delete('/practice-plans/{id}', DeletePracticePlan::class);
 
+        // Daily Planner (coach authoring) — synced between app and web
+        Route::get('/daily-plans', GetDailyPlans::class);
+        Route::post('/daily-plans', SaveDailyPlan::class);
+        Route::delete('/daily-plans/{id}', DeleteDailyPlan::class);
+
         // Saved field presets (Game Mode field builder) — user-scoped, synced replacement for localStorage
         Route::get('/field-presets', GetFieldPresets::class);
         Route::post('/field-presets', SaveFieldPreset::class);
@@ -253,10 +270,14 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
         Route::post('/teams/{teamId}/benchmark-tasks/assign', [IntelligenceController::class, 'assignBenchmarkTasks']);
         Route::post('/teams/{teamId}/refresh-benchmarks', [IntelligenceController::class, 'refreshTeamBenchmarks']);
         Route::get('/teams/{teamId}/benchmark-task-reviews', [IntelligenceController::class, 'listBenchmarkTaskReviews']);
+        Route::get('/teams/{teamId}/benchmark-task-promotions', [IntelligenceController::class, 'listBenchmarkTaskPromotions']);
+        Route::post('/teams/{teamId}/promote-approved-benchmark-tasks', [IntelligenceController::class, 'promoteApprovedBenchmarkTasks']);
         Route::get('/benchmark-tasks/{taskId}/completion-workflow', [IntelligenceController::class, 'benchmarkTaskCompletionWorkflow']);
         Route::post('/benchmark-tasks/{taskId}/complete', [IntelligenceController::class, 'completeBenchmarkTask']);
         Route::post('/benchmark-tasks/{taskId}/complete-with-payload', [IntelligenceController::class, 'completeBenchmarkTaskWithPayload']);
         Route::post('/benchmark-tasks/{taskId}/approve', [IntelligenceController::class, 'approveBenchmarkTask']);
+        Route::post('/benchmark-tasks/{taskId}/preview-promotion', [IntelligenceController::class, 'previewBenchmarkTaskPromotion']);
+        Route::post('/benchmark-tasks/{taskId}/promote', [IntelligenceController::class, 'promoteBenchmarkTask']);
         Route::post('/benchmark-tasks/{taskId}/reject', [IntelligenceController::class, 'rejectBenchmarkTask']);
         Route::post('/benchmark-tasks/{taskId}/request-correction', [IntelligenceController::class, 'requestBenchmarkTaskCorrection']);
         Route::post('/benchmark-tasks/{taskId}/dismiss', [IntelligenceController::class, 'dismissBenchmarkTask']);
