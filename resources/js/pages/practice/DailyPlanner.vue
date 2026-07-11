@@ -33,6 +33,7 @@ const picker = ref(null)          // the bucket object being added to
 const pickerCategory = ref(null)
 const pickerQuery = ref('')
 const customName = ref('')
+const customDrills = ref([])      // coach's saved custom drills/lifts (merge into library)
 
 // ── data ─────────────────────────────────────────────────────────────────────
 const loadPlans = async () => {
@@ -63,7 +64,15 @@ const loadRoster = async () => {
     })).filter((p) => p.id)
   } catch { teamPlayers.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster() })
+// Coach's saved custom drills/lifts — merged into the picker library (+ shared team ones).
+const loadCustomDrills = async () => {
+  try {
+    const res = await axiosGet('coach/drills')
+    const rows = res?.data?.data
+    customDrills.value = Array.isArray(rows) ? rows : []
+  } catch { customDrills.value = [] }
+}
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -92,21 +101,43 @@ const isStrengthItem = (it) => Array.isArray(it.setList)
 // ── drill picker ─────────────────────────────────────────────────────────────
 const openPicker = (bucket) => { picker.value = bucket; pickerCategory.value = null; pickerQuery.value = ''; customName.value = '' }
 const closePicker = () => { picker.value = null }
-const pickerCategories = computed(() => picker.value ? getCategoriesForBucket(picker.value.type) : [])
+const pickerCategories = computed(() => picker.value ? getCategoriesForBucket(picker.value.type, customDrills.value) : [])
 const pickerDrills = computed(() => {
   if (!picker.value) return []
-  let list = searchDrills(pickerQuery.value, picker.value.type)
+  let list = searchDrills(pickerQuery.value, picker.value.type, customDrills.value)
   if (pickerCategory.value) list = list.filter((d) => drillCategory(d) === pickerCategory.value)
   return list.slice(0, 200)
 })
 const addDrill = (drill) => { picker.value.items.push(itemFromDrill(drill)) }
-const addCustomDrill = () => {
+
+const buildCustomDrill = (name, bucketType) => {
+  const def = bucketDef(bucketType)
+  const workloadType = def.throwing ? 'throwing' : def.strength ? 'strength' : 'none'
+  return {
+    id: uid('drill'), name, bucket: bucketType, workloadType, source: 'custom',
+    categoryGroup: '', subcategory: '',
+    defaultSets: 3, defaultReps: 5, defaultIntensity: 'Moderate',
+    defaultPrescriptionType: def.strength ? 'percent_1rm' : null,
+  }
+}
+const addCustomDrill = async () => {
   const name = customName.value.trim()
   if (!name || !picker.value) return
-  const def = bucketDef(picker.value.type)
-  const workloadType = def.throwing ? 'throwing' : def.strength ? 'strength' : 'none'
-  picker.value.items.push(itemFromDrill({ id: null, name, bucket: picker.value.type, workloadType, defaultSets: 3, defaultReps: 5, defaultIntensity: 'Moderate' }))
+  const drill = buildCustomDrill(name, picker.value.type)
+  picker.value.items.push(itemFromDrill(drill))     // drop it into the plan now
+  customDrills.value = [drill, ...customDrills.value] // and into the library list
   customName.value = ''
+  // Persist to the drill library so it syncs and reappears next time (best-effort).
+  try {
+    await axiosPost('coach/drills', {
+      ...drill,
+      category_group: drill.categoryGroup || '',
+      equipment: '',
+      visibility: 'private',
+      source: 'custom',
+      ...(activeTeamId.value ? { team_id: String(activeTeamId.value) } : {}),
+    })
+  } catch { /* stays local for this session; will sync on the next save */ }
 }
 const removeItem = (bucket, id) => { bucket.items = bucket.items.filter((it) => it.id !== id) }
 
