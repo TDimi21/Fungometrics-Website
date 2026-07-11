@@ -1,29 +1,21 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // FMTRX Daily Planner (Workout) — web feature module.
 //
-// Pure data + shape mappers shared by the Workout tab. Mirrors the mobile app's
-// plan shape so a plan authored on either client is compatible. API calls live in
-// the component (they need the useAxiosAuth composable); this file stays pure.
+// API shape mappers + a couple of helpers. The real bucket / drill / prescription
+// data lives in ./lib (ported verbatim from the app so web and app build identical
+// plans). Keep this file pure — API calls stay in the component.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const PLAN_BUCKETS = [
-  { type: 'throwing', title: 'Throwing' },
-  { type: 'hitting', title: 'Hitting' },
-  { type: 'strength', title: 'Strength' },
-  { type: 'arm_care', title: 'Arm Care' },
-  { type: 'conditioning', title: 'Conditioning' },
-  { type: 'recovery', title: 'Recovery' },
-]
+import { BUCKET_BY_TYPE } from './lib/plannerBuckets'
 
-export const PLAN_PHASES = ['Foundation', 'Build', 'Peak', 'In-Season', 'Recovery']
-export const WORKLOAD_LEVELS = ['Light', 'Moderate', 'High']
-
-export const bucketTitle = (type) =>
-  PLAN_BUCKETS.find((b) => b.type === type)?.title || type
+export const bucketTitle = (type) => BUCKET_BY_TYPE[type]?.title || type
 
 export const uid = (p = 'dp') => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-
 export const todayISO = () => new Date().toISOString().slice(0, 10)
+
+// ~4 min per item, matching the app's rough estimate.
+export const estimateMinutes = (plan) =>
+  (plan.buckets || []).reduce((n, b) => n + (b.items || []).length, 0) * 4
 
 export function blankPlan() {
   return {
@@ -33,18 +25,12 @@ export function blankPlan() {
     phase: 'Foundation',
     primaryGoal: '',
     workloadLevel: 'Moderate',
-    buckets: [],            // [{ type, title, items: [{ id, name, sets, reps, note }] }]
+    buckets: [],
     assignedPlayerIds: [],
-    status: 'draft',        // draft | published
+    status: 'draft',
     publishedAt: null,
   }
 }
-
-export const blankItem = () => ({ id: uid('it'), name: '', sets: null, reps: null, note: '' })
-
-// Estimate: ~4 min per item, floored so an empty plan reads 0.
-export const estimateMinutes = (plan) =>
-  (plan.buckets || []).reduce((n, b) => n + (b.items || []).length, 0) * 4
 
 // ── shape mappers (web camelCase ↔ api snake_case) ───────────────────────────
 export const planToApi = (p, teamId) => ({

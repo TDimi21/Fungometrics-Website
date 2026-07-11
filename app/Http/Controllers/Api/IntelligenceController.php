@@ -17,6 +17,7 @@ use App\Services\Intelligence\BenchmarkTaskCompletionService;
 use App\Services\Intelligence\BenchmarkTaskPersistenceService;
 use App\Services\Intelligence\BenchmarkTaskReviewService;
 use App\Services\Intelligence\BenchmarkTrustedDataPromotionService;
+use App\Services\Intelligence\CoachActionPracticePlanner;
 use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\TeamIntelligenceService;
@@ -38,6 +39,7 @@ class IntelligenceController extends Controller
         private readonly BenchmarkRefreshService $benchmarkRefreshService,
         private readonly BenchmarkTaskReviewService $benchmarkTaskReviewService,
         private readonly BenchmarkTrustedDataPromotionService $benchmarkTrustedDataPromotionService,
+        private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
     ) {
     }
 
@@ -84,6 +86,17 @@ class IntelligenceController extends Controller
             ]);
 
             $snapshot['benchmark_task_assignments'] = null;
+        }
+
+        try {
+            $snapshot['coach_action_practice_plan'] = $this->coachActionPracticePlanner->buildPracticePlanFromCoachActions($teamId, $days);
+        } catch (\Throwable $exception) {
+            Log::warning('IntelligenceController coach action practice plan unavailable: '.$exception->getMessage(), [
+                'team_id' => $teamId,
+                'days' => $days,
+            ]);
+
+            $snapshot['coach_action_practice_plan'] = null;
         }
 
         $snapshot['benchmark_refresh_status'] = $this->benchmarkRefreshService->buildRefreshStatus($teamId, null, $days);

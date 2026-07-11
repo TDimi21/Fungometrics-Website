@@ -4,8 +4,14 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
 import { storeToRefs } from 'pinia'
 import {
-  PLAN_BUCKETS, PLAN_PHASES, WORKLOAD_LEVELS, bucketTitle,
-  blankPlan, blankItem, estimateMinutes, planToApi, planFromApi, groupFromApi,
+  BUCKETS, BUCKET_BY_TYPE, INTENSITY_LEVELS, THROW_INTENTS, PHASES, WORKLOAD_LEVELS,
+} from '@/features/planner/lib/plannerBuckets.js'
+import {
+  getCategoriesForBucket, searchDrills, drillCategory, itemFromDrill,
+} from '@/features/planner/lib/plannerDrills.js'
+import { PRESCRIPTION_TYPES, makeSet, renumber, setSummary } from '@/features/planner/lib/strengthLoad.js'
+import {
+  blankPlan, estimateMinutes, planToApi, planFromApi, groupFromApi, bucketTitle, uid,
 } from '@/features/planner/dailyPlanner.js'
 
 const { axiosGet, axiosPost, axiosDelete } = useAxiosAuth()
@@ -16,11 +22,17 @@ const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? nul
 const plans = ref([])
 const groups = ref([])
 const teamPlayers = ref([])
-const editing = ref(null)       // plan object while building, else null
+const editing = ref(null)
 const loading = ref(false)
 const saving = ref(false)
 const offline = ref(false)
 const playerSearch = ref('')
+
+// Drill picker
+const picker = ref(null)          // the bucket object being added to
+const pickerCategory = ref(null)
+const pickerQuery = ref('')
+const customName = ref('')
 
 // ── data ─────────────────────────────────────────────────────────────────────
 const loadPlans = async () => {
@@ -31,13 +43,8 @@ const loadPlans = async () => {
     if (!Array.isArray(rows)) throw new Error('bad response')
     plans.value = rows.map(planFromApi).filter((p) => p.status !== 'template')
     offline.value = false
-  } catch {
-    offline.value = true
-  } finally {
-    loading.value = false
-  }
+  } catch { offline.value = true } finally { loading.value = false }
 }
-
 const loadGroups = async () => {
   try {
     const res = await axiosGet('coach/player-groups')
@@ -45,7 +52,6 @@ const loadGroups = async () => {
     groups.value = Array.isArray(rows) ? rows.map(groupFromApi) : []
   } catch { groups.value = [] }
 }
-
 const loadRoster = async () => {
   if (!activeTeamId.value) return
   try {
@@ -57,23 +63,57 @@ const loadRoster = async () => {
     })).filter((p) => p.id)
   } catch { teamPlayers.value = [] }
 }
-
 onMounted(() => { loadPlans(); loadGroups(); loadRoster() })
 
-// ── builder ──────────────────────────────────────────────────────────────────
+// ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
 const editPlan = (p) => { editing.value = JSON.parse(JSON.stringify(p)) }
 const cancelEdit = () => { editing.value = null }
 
-const availableBuckets = computed(() =>
-  PLAN_BUCKETS.filter((b) => !(editing.value?.buckets || []).some((x) => x.type === b.type)))
+const itemCount = (p) => (p.buckets || []).reduce((n, b) => n + (b.items || []).length, 0)
+const fmtDate = (iso) => {
+  if (!iso) return ''
+  try { return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) } catch { return iso }
+}
 
-const addBucket = (b) => { editing.value.buckets.push({ type: b.type, title: b.title, items: [blankItem()] }) }
+// Buckets not yet on the plan (keep the app's ordering).
+const availableBuckets = computed(() =>
+  BUCKETS.filter((b) => !(editing.value?.buckets || []).some((x) => x.type === b.type)))
+const bucketDef = (type) => BUCKET_BY_TYPE[type] || {}
+const addBucket = (b) => {
+  editing.value.buckets.push({ type: b.type, title: b.title, kind: b.kind, items: [], note: '' })
+  editing.value.buckets = BUCKETS
+    .filter((def) => editing.value.buckets.some((x) => x.type === def.type))
+    .map((def) => editing.value.buckets.find((x) => x.type === def.type))
+}
 const removeBucket = (type) => { editing.value.buckets = editing.value.buckets.filter((b) => b.type !== type) }
-const addItem = (bucket) => { bucket.items.push(blankItem()) }
+const isStrengthItem = (it) => Array.isArray(it.setList)
+
+// ── drill picker ─────────────────────────────────────────────────────────────
+const openPicker = (bucket) => { picker.value = bucket; pickerCategory.value = null; pickerQuery.value = ''; customName.value = '' }
+const closePicker = () => { picker.value = null }
+const pickerCategories = computed(() => picker.value ? getCategoriesForBucket(picker.value.type) : [])
+const pickerDrills = computed(() => {
+  if (!picker.value) return []
+  let list = searchDrills(pickerQuery.value, picker.value.type)
+  if (pickerCategory.value) list = list.filter((d) => drillCategory(d) === pickerCategory.value)
+  return list.slice(0, 200)
+})
+const addDrill = (drill) => { picker.value.items.push(itemFromDrill(drill)) }
+const addCustomDrill = () => {
+  const name = customName.value.trim()
+  if (!name || !picker.value) return
+  const def = bucketDef(picker.value.type)
+  const workloadType = def.throwing ? 'throwing' : def.strength ? 'strength' : 'none'
+  picker.value.items.push(itemFromDrill({ id: null, name, bucket: picker.value.type, workloadType, defaultSets: 3, defaultReps: 5, defaultIntensity: 'Moderate' }))
+  customName.value = ''
+}
 const removeItem = (bucket, id) => { bucket.items = bucket.items.filter((it) => it.id !== id) }
 
-const itemCount = (p) => (p.buckets || []).reduce((n, b) => n + (b.items || []).length, 0)
+// ── strength sets ("type of reps") ───────────────────────────────────────────
+const addSet = (item) => { item.setList = renumber([...(item.setList || []), makeSet((item.setList?.length || 0) + 1, { prescriptionType: item.defaultPrescriptionType || 'percent_1rm' })]) }
+const removeSet = (item, sid) => { item.setList = renumber((item.setList || []).filter((s) => s.id !== sid)) }
+const summary = (s) => setSummary(s)
 
 // ── assign ───────────────────────────────────────────────────────────────────
 const selected = computed(() => new Set((editing.value?.assignedPlayerIds || []).map(String)))
@@ -103,22 +143,12 @@ const save = async (status) => {
     await axiosPost('coach/daily-plans', planToApi(editing.value, activeTeamId.value))
     await loadPlans()
     editing.value = null
-  } catch {
-    alert('Could not reach the server — check your connection and try again.')
-  } finally {
-    saving.value = false
-  }
+  } catch { alert('Could not reach the server — check your connection and try again.') } finally { saving.value = false }
 }
-
 const del = async (p) => {
   if (!confirm(`Delete "${p.name || 'Untitled'}"?`)) return
   plans.value = plans.value.filter((x) => x.id !== p.id)
-  try { await axiosDelete('coach/daily-plans/', p.id) } catch { /* server reconciles next load */ }
-}
-
-const fmtDate = (iso) => {
-  if (!iso) return ''
-  try { return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) } catch { return iso }
+  try { await axiosDelete('coach/daily-plans/', p.id) } catch { /* server reconciles */ }
 }
 </script>
 
@@ -131,18 +161,13 @@ const fmtDate = (iso) => {
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
             <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Workout Plans</h1>
-            <p class="text-white/40 text-sm mt-0.5">Build a player's day, assign it to players or a group, and publish it to their app.</p>
+            <p class="text-white/40 text-sm mt-0.5">Build a player's day from buckets and the drill library, then publish it to their app.</p>
           </div>
           <button class="dp-btn dp-btn--primary" @click="newPlan">+ New Plan</button>
         </div>
-
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
-
         <div v-if="loading" class="dp-empty">Loading…</div>
-        <div v-else-if="plans.length === 0" class="dp-empty">
-          No workout plans yet. Click <strong>New Plan</strong> to build one.
-        </div>
-
+        <div v-else-if="plans.length === 0" class="dp-empty">No workout plans yet. Click <strong>New Plan</strong> to build one.</div>
         <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <div v-for="p in plans" :key="p.id" class="dp-card" @click="editPlan(p)">
             <div class="flex items-start justify-between gap-2">
@@ -150,9 +175,7 @@ const fmtDate = (iso) => {
                 <div class="font-extrabold truncate">{{ p.name || 'Untitled plan' }}</div>
                 <div class="text-white/40 text-xs mt-0.5">{{ fmtDate(p.date) }} · {{ p.phase || '—' }}</div>
               </div>
-              <span class="dp-badge" :class="p.status === 'published' ? 'dp-badge--pub' : 'dp-badge--draft'">
-                {{ p.status === 'published' ? 'Published' : 'Draft' }}
-              </span>
+              <span class="dp-badge" :class="p.status === 'published' ? 'dp-badge--pub' : 'dp-badge--draft'">{{ p.status === 'published' ? 'Published' : 'Draft' }}</span>
             </div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-white/50">
               <span>{{ p.buckets.length }} bucket{{ p.buckets.length === 1 ? '' : 's' }}</span>
@@ -179,47 +202,94 @@ const fmtDate = (iso) => {
 
         <!-- Plan info -->
         <div class="dp-panel grid gap-3 sm:grid-cols-2 mb-4">
-          <label class="dp-field sm:col-span-2">
-            <span class="dp-label">Plan name</span>
-            <input v-model="editing.name" class="dp-input" placeholder="e.g. Tuesday Lift + Throw" />
-          </label>
+          <label class="dp-field sm:col-span-2"><span class="dp-label">Plan name</span>
+            <input v-model="editing.name" class="dp-input" placeholder="e.g. Tuesday Lift + Throw" /></label>
           <label class="dp-field"><span class="dp-label">Date</span><input v-model="editing.date" type="date" class="dp-input" /></label>
           <label class="dp-field"><span class="dp-label">Phase</span>
-            <select v-model="editing.phase" class="dp-input"><option v-for="ph in PLAN_PHASES" :key="ph" :value="ph">{{ ph }}</option></select>
-          </label>
+            <select v-model="editing.phase" class="dp-input"><option v-for="ph in PHASES" :key="ph" :value="ph">{{ ph }}</option></select></label>
           <label class="dp-field"><span class="dp-label">Workload</span>
-            <select v-model="editing.workloadLevel" class="dp-input"><option v-for="w in WORKLOAD_LEVELS" :key="w" :value="w">{{ w }}</option></select>
-          </label>
+            <select v-model="editing.workloadLevel" class="dp-input"><option v-for="w in WORKLOAD_LEVELS" :key="w.label" :value="w.label">{{ w.label }}</option></select></label>
           <label class="dp-field"><span class="dp-label">Primary goal</span><input v-model="editing.primaryGoal" class="dp-input" placeholder="Optional" /></label>
         </div>
 
-        <!-- Buckets -->
+        <!-- Add bucket -->
         <div class="dp-panel mb-4">
-          <div class="dp-section">Buckets</div>
-          <div v-if="availableBuckets.length" class="flex flex-wrap gap-1.5 mb-3">
-            <button v-for="b in availableBuckets" :key="b.type" class="dp-chip" @click="addBucket(b)">+ {{ b.title }}</button>
-          </div>
-
-          <div v-if="editing.buckets.length === 0" class="dp-empty dp-empty--sm">Add a bucket to start building the day.</div>
-
-          <div v-for="bucket in editing.buckets" :key="bucket.type" class="dp-bucket">
-            <div class="flex items-center justify-between mb-2">
-              <div class="font-bold">{{ bucketTitle(bucket.type) }}</div>
-              <button class="dp-link dp-link--danger" @click="removeBucket(bucket.type)">Remove</button>
-            </div>
-            <div v-for="it in bucket.items" :key="it.id" class="dp-item">
-              <input v-model="it.name" class="dp-input flex-1 min-w-0" placeholder="Drill / lift name" />
-              <input v-model.number="it.sets" type="number" min="0" class="dp-input dp-input--num" placeholder="Sets" />
-              <input v-model.number="it.reps" type="number" min="0" class="dp-input dp-input--num" placeholder="Reps" />
-              <input v-model="it.note" class="dp-input flex-1 min-w-0" placeholder="Note (optional)" />
-              <button class="dp-x" title="Remove item" @click="removeItem(bucket, it.id)">×</button>
-            </div>
-            <button class="dp-link mt-1" @click="addItem(bucket)">+ Add item</button>
+          <div class="dp-section">Add a bucket</div>
+          <div class="flex flex-wrap gap-1.5">
+            <button v-for="b in availableBuckets" :key="b.type" class="dp-chip" @click="addBucket(b)">
+              <span class="dp-dot" :style="{ background: b.color }"></span>{{ b.title }}
+            </button>
+            <span v-if="!availableBuckets.length" class="text-white/40 text-sm">All buckets added.</span>
           </div>
         </div>
 
+        <!-- Buckets -->
+        <div v-for="bucket in editing.buckets" :key="bucket.type" class="dp-bucket">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 font-bold">
+              <span class="dp-dot" :style="{ background: bucketDef(bucket.type).color }"></span>{{ bucketTitle(bucket.type) }}
+            </div>
+            <button class="dp-link dp-link--danger" @click="removeBucket(bucket.type)">Remove</button>
+          </div>
+          <p class="text-white/35 text-xs -mt-1 mb-3">{{ bucketDef(bucket.type).hint }}</p>
+
+          <!-- survey buckets -->
+          <div v-if="bucketDef(bucket.type).kind === 'survey'" class="dp-note-box">
+            The player completes this survey {{ bucket.type === 'daily_readiness' ? 'before' : 'after' }} the session.
+          </div>
+
+          <!-- note buckets -->
+          <textarea v-else-if="bucketDef(bucket.type).kind === 'note'" v-model="bucket.note" class="dp-input w-full" rows="3" placeholder="Message to the player…"></textarea>
+
+          <!-- content buckets: items + drill picker -->
+          <template v-else>
+            <div v-for="it in bucket.items" :key="it.id" class="dp-item-card">
+              <div class="flex items-start justify-between gap-2">
+                <div class="font-bold">{{ it.name }}</div>
+                <button class="dp-x" title="Remove" @click="removeItem(bucket, it.id)">×</button>
+              </div>
+
+              <!-- STRENGTH: per-set prescription (type of reps) -->
+              <div v-if="isStrengthItem(it)" class="mt-2">
+                <div v-for="s in it.setList" :key="s.id" class="dp-set">
+                  <span class="dp-set-n">{{ s.setNumber }}</span>
+                  <select v-model="s.prescriptionType" class="dp-input dp-input--sm">
+                    <option v-for="pt in PRESCRIPTION_TYPES" :key="pt.type" :value="pt.type">{{ pt.short }}</option>
+                  </select>
+                  <input v-model.number="s.targetReps" type="number" min="0" class="dp-input dp-input--num" placeholder="Reps" />
+                  <input v-if="s.prescriptionType === 'percent_1rm'" v-model.number="s.percentage" type="number" min="0" max="150" class="dp-input dp-input--num" placeholder="% 1RM" />
+                  <input v-else-if="s.prescriptionType === 'fixed_weight' || s.prescriptionType === 'bodyweight'" v-model.number="s.weight" type="number" min="0" class="dp-input dp-input--num" placeholder="lb" />
+                  <input v-else-if="s.prescriptionType === 'timed'" v-model.number="s.timeSec" type="number" min="0" class="dp-input dp-input--num" placeholder="sec" />
+                  <input v-else-if="s.prescriptionType === 'distance'" v-model.number="s.distance" type="number" min="0" class="dp-input dp-input--num" placeholder="ft" />
+                  <input v-else-if="s.prescriptionType === 'velocity'" v-model.number="s.velocity" type="number" min="0" class="dp-input dp-input--num" placeholder="mph" />
+                  <input v-else-if="s.prescriptionType === 'rpe'" v-model.number="s.rpe" type="number" min="0" max="10" class="dp-input dp-input--num" placeholder="RPE" />
+                  <input v-else-if="s.prescriptionType === 'custom'" v-model="s.customText" class="dp-input flex-1 min-w-0" placeholder="Custom…" />
+                  <button class="dp-x" title="Remove set" @click="removeSet(it, s.id)">×</button>
+                  <span class="dp-set-sum">{{ summary(s) }}</span>
+                </div>
+                <button class="dp-link mt-1" @click="addSet(it)">+ Add set</button>
+              </div>
+
+              <!-- CONTENT: sets / reps / intensity (+ throwing intent) -->
+              <div v-else class="mt-2 flex flex-wrap items-center gap-2">
+                <label class="dp-mini"><span>Sets</span><input v-model.number="it.sets" type="number" min="0" class="dp-input dp-input--num" /></label>
+                <label class="dp-mini"><span>Reps</span><input v-model.number="it.reps" type="number" min="0" class="dp-input dp-input--num" /></label>
+                <label class="dp-mini"><span>Intensity</span>
+                  <select v-model="it.intensity" class="dp-input dp-input--sm"><option v-for="lv in INTENSITY_LEVELS" :key="lv.label" :value="lv.label">{{ lv.label }}</option></select>
+                </label>
+                <label v-if="bucketDef(bucket.type).throwing" class="dp-mini"><span>Intent</span>
+                  <select v-model.number="it.intent" class="dp-input dp-input--sm"><option :value="null">—</option><option v-for="pct in THROW_INTENTS" :key="pct" :value="pct">{{ pct }}%</option></select>
+                </label>
+                <label v-if="bucketDef(bucket.type).throwing" class="dp-mini"><span>Throws</span><input v-model.number="it.throws" type="number" min="0" class="dp-input dp-input--num" /></label>
+              </div>
+            </div>
+
+            <button class="dp-add-drill" @click="openPicker(bucket)">+ Add drill / lift</button>
+          </template>
+        </div>
+
         <!-- Assign -->
-        <div class="dp-panel">
+        <div class="dp-panel mt-4">
           <div class="dp-section flex items-center justify-between">
             <span>Assign to</span>
             <span class="text-white/40 text-xs font-normal normal-case">{{ editing.assignedPlayerIds.length }} selected</span>
@@ -239,7 +309,35 @@ const fmtDate = (iso) => {
           </div>
         </div>
       </template>
+    </div>
 
+    <!-- ══ DRILL PICKER MODAL ══ -->
+    <div v-if="picker" class="dp-modal" @click.self="closePicker">
+      <div class="dp-modal-card">
+        <div class="flex items-center justify-between mb-3">
+          <div class="font-black text-lg">Add to {{ bucketTitle(picker.type) }}</div>
+          <button class="dp-x" @click="closePicker">×</button>
+        </div>
+        <div v-if="pickerCategories.length" class="flex flex-wrap gap-1.5 mb-3">
+          <button class="dp-cat" :class="{ 'dp-cat--on': !pickerCategory }" @click="pickerCategory = null">All</button>
+          <button v-for="c in pickerCategories" :key="c.label" class="dp-cat" :class="{ 'dp-cat--on': pickerCategory === c.label }" @click="pickerCategory = c.label">{{ c.label }} ({{ c.count }})</button>
+        </div>
+        <div class="flex gap-2 mb-2">
+          <input v-model="customName" class="dp-input flex-1" placeholder="Custom drill / lift name…" @keyup.enter="addCustomDrill" />
+          <button class="dp-btn dp-btn--primary" @click="addCustomDrill">+</button>
+        </div>
+        <input v-model="pickerQuery" class="dp-input mb-2" placeholder="Search library…" />
+        <div class="dp-modal-list">
+          <button v-for="d in pickerDrills" :key="d.id" class="dp-drill-row" @click="addDrill(d)">
+            <div class="min-w-0 text-left">
+              <div class="font-bold truncate">{{ d.name }}</div>
+              <div class="text-white/40 text-xs truncate">{{ drillCategory(d) || d.subcategory || '' }}</div>
+            </div>
+            <span class="dp-plus">+</span>
+          </button>
+          <div v-if="!pickerDrills.length" class="dp-empty dp-empty--sm">No drills here — clear the filter or add a custom one above.</div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -256,27 +354,47 @@ const fmtDate = (iso) => {
 .dp-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,.45); font-weight:700; }
 .dp-input { background:#0b1322; border:1px solid rgba(255,255,255,.12); color:#fff; border-radius:9px; padding:9px 11px; font-size:14px; outline:none; }
 .dp-input:focus { border-color:#3a6df0; }
-.dp-input--num { width:76px; flex:none; }
-.dp-chip { background:#1b2742; border:1px solid rgba(255,255,255,.14); color:#fff; font-size:13px; font-weight:700; padding:6px 12px; border-radius:999px; cursor:pointer; }
+.dp-input--num { width:74px; flex:none; text-align:center; }
+.dp-input--sm { padding:7px 9px; font-size:13px; }
+.dp-chip { display:inline-flex; align-items:center; gap:7px; background:#1b2742; border:1px solid rgba(255,255,255,.14); color:#fff; font-size:13px; font-weight:700; padding:6px 12px; border-radius:999px; cursor:pointer; }
 .dp-chip:hover { background:#243357; }
 .dp-chip--ghost { background:transparent; color:rgba(255,255,255,.6); }
-.dp-bucket { border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:12px; margin-bottom:10px; background:rgba(255,255,255,.02); }
-.dp-item { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:8px; }
-.dp-x { width:30px; height:30px; border-radius:8px; border:1px solid rgba(255,255,255,.12); background:transparent; color:rgba(255,255,255,.6); font-size:18px; line-height:1; cursor:pointer; flex:none; }
+.dp-dot { width:9px; height:9px; border-radius:50%; flex:none; }
+.dp-bucket { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:16px; margin-bottom:12px; }
+.dp-note-box { background:rgba(255,255,255,.04); border:1px dashed rgba(255,255,255,.14); border-radius:10px; padding:12px; color:rgba(255,255,255,.55); font-size:13px; }
+.dp-item-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:12px; margin-bottom:10px; }
+.dp-set { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:6px; }
+.dp-set-n { width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,.08); color:rgba(255,255,255,.7); font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex:none; }
+.dp-set-sum { color:rgba(255,255,255,.4); font-size:12px; margin-left:auto; }
+.dp-mini { display:flex; flex-direction:column; gap:3px; }
+.dp-mini > span { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.4); font-weight:700; }
+.dp-x { width:28px; height:28px; border-radius:8px; border:1px solid rgba(255,255,255,.12); background:transparent; color:rgba(255,255,255,.6); font-size:17px; line-height:1; cursor:pointer; flex:none; }
 .dp-x:hover { color:#f0787e; border-color:#f0787e; }
 .dp-link { background:none; border:none; color:#7ca6f5; font-weight:700; font-size:13px; cursor:pointer; padding:2px 0; }
 .dp-link:hover { text-decoration:underline; }
 .dp-link--danger { color:#f0787e; }
-.dp-card { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:16px; cursor:pointer; transition:border-color .12s, background .12s; }
+.dp-add-drill { width:100%; margin-top:4px; background:rgba(33,96,196,.14); border:1px dashed rgba(124,166,245,.5); color:#9fc0ff; font-weight:800; font-size:13px; padding:11px; border-radius:10px; cursor:pointer; }
+.dp-add-drill:hover { background:rgba(33,96,196,.22); }
+.dp-card { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:16px; cursor:pointer; }
 .dp-card:hover { border-color:rgba(255,255,255,.22); background:rgba(255,255,255,.06); }
 .dp-badge { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:3px 8px; border-radius:6px; white-space:nowrap; }
 .dp-badge--pub { color:#43d089; background:rgba(52,211,153,.15); }
 .dp-badge--draft { color:#9aa6c0; background:rgba(148,163,184,.15); }
 .dp-empty { border:1px dashed rgba(255,255,255,.14); border-radius:14px; padding:34px 20px; text-align:center; color:rgba(255,255,255,.5); font-size:14px; }
-.dp-empty--sm { padding:18px; font-size:13px; }
+.dp-empty--sm { padding:16px; font-size:13px; }
 .dp-hint { color:#f5a524; font-size:13px; }
 .dp-players { max-height:320px; overflow-y:auto; display:grid; gap:2px; }
 .dp-player { display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; font-size:14px; cursor:pointer; }
 .dp-player:hover { background:rgba(255,255,255,.05); }
 .dp-player input { width:16px; height:16px; accent-color:#d8232a; }
+/* drill picker modal */
+.dp-modal { position:fixed; inset:0; background:rgba(3,7,18,.72); display:flex; align-items:flex-end; justify-content:center; z-index:60; padding:0; }
+.dp-modal-card { width:100%; max-width:620px; background:#0f1830; border:1px solid rgba(255,255,255,.12); border-radius:18px 18px 0 0; padding:18px; max-height:85vh; display:flex; flex-direction:column; }
+@media (min-width:640px){ .dp-modal { align-items:center; padding:20px; } .dp-modal-card { border-radius:18px; } }
+.dp-cat { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.7); font-size:12px; font-weight:700; padding:5px 11px; border-radius:999px; cursor:pointer; }
+.dp-cat--on { background:#d8232a; border-color:#d8232a; color:#fff; }
+.dp-modal-list { overflow-y:auto; margin-top:4px; }
+.dp-drill-row { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,.07); cursor:pointer; }
+.dp-drill-row:hover { background:rgba(255,255,255,.04); }
+.dp-plus { color:#7ca6f5; font-size:20px; font-weight:800; flex:none; }
 </style>

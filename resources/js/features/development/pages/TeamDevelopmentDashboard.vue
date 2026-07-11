@@ -1692,6 +1692,37 @@ const coachActionCards = computed(() => {
   return actions.slice(0, 6)
 })
 
+const coachActionPracticePlan = computed(() => {
+  const plan = teamIntelligence.value?.coach_action_practice_plan
+  return plan && typeof plan === 'object' ? plan : null
+})
+
+const coachPracticeBlocks = computed(() =>
+  asArray(coachActionPracticePlan.value?.practice_blocks).slice(0, 8)
+)
+
+const coachNextSessionBlocks = computed(() =>
+  asArray(coachActionPracticePlan.value?.next_session_blocks).slice(0, 6)
+)
+
+const coachDataCollectionPracticeBlocks = computed(() =>
+  asArray(coachActionPracticePlan.value?.data_collection_blocks).slice(0, 5)
+)
+
+const practiceBlockMetricLabels = (block) =>
+  asArray(block?.metrics_to_collect)
+    .map((metric) => coachFriendlyMetricLabel(metric))
+    .filter(Boolean)
+    .slice(0, 5)
+    .join(', ')
+
+const practiceBlockPlayerNames = (block) =>
+  asArray(block?.players)
+    .map((player) => player?.player_name || player?.name || player?.player_id)
+    .filter(Boolean)
+    .slice(0, 6)
+    .join(', ')
+
 const benchmarkTaskAssignments = computed(() => {
   const assignments = teamIntelligence.value?.benchmark_task_assignments
   return assignments && typeof assignments === 'object' ? assignments : null
@@ -2992,6 +3023,111 @@ const priorityTop10Rows = computed(() => {
                   </p>
                 </div>
               </div>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-emerald-300/20 bg-emerald-500/10 p-3">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Suggested Practice Plan</p>
+                  <h4 class="mt-1 text-lg font-semibold text-white">
+                    {{ coachActionPracticePlan?.plan_title || 'Coach Action Practice Plan' }}
+                  </h4>
+                  <p class="mt-1 text-xs text-slate-300">
+                    Practice-ready blocks built from today’s primary focus, benchmark gaps, and collection tasks.
+                  </p>
+                </div>
+                <span
+                  class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
+                  :class="coachPracticeBlocks.length ? 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100' : 'border-white/10 bg-white/5 text-slate-300'"
+                >
+                  {{ fmtCount(coachActionPracticePlan?.estimated_total_minutes, '0') }} Min
+                </span>
+              </div>
+
+              <p v-if="!coachActionPracticePlan" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
+                Suggested practice plan is not available yet.
+              </p>
+
+              <template v-else>
+                <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Priority Focus</p>
+                    <p class="mt-1 text-sm font-black text-white">{{ coachActionPracticePlan.priority_focus || 'Needs Data' }}</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Today</p>
+                    <p class="mt-1 text-sm font-black text-white">{{ fmtCount(coachPracticeBlocks.length, '0') }} Blocks</p>
+                  </div>
+                  <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">Overflow</p>
+                    <p class="mt-1 text-sm font-black text-white">{{ fmtCount(coachNextSessionBlocks.length, '0') }} Next Session</p>
+                  </div>
+                </div>
+
+                <p v-if="!coachPracticeBlocks.length" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
+                  No practice blocks were recommended from the current intelligence payload.
+                </p>
+
+                <div v-else class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <div
+                    v-for="block in coachPracticeBlocks"
+                    :key="`coach-practice-${block.temporary_key || block.title}`"
+                    class="rounded-lg border border-white/10 bg-slate-950/40 p-3"
+                  >
+                    <div class="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p class="text-[10px] uppercase tracking-widest text-white/35">
+                          {{ categoryLabel(block.category) }}
+                          <span v-if="block.duration_minutes"> · {{ fmtCount(block.duration_minutes, '0') }} min</span>
+                        </p>
+                        <h5 class="mt-1 text-base font-black text-white">{{ block.title }}</h5>
+                      </div>
+                      <span
+                        class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                        :class="coachActionPriorityClass(block.priority)"
+                      >
+                        {{ humanizeKey(block.priority, 'Low') }}
+                      </span>
+                    </div>
+                    <p class="mt-2 text-xs text-slate-300">
+                      <span class="font-black text-white">Why:</span> {{ block.why || 'This block supports today’s recommended practice focus.' }}
+                    </p>
+                    <p class="mt-1 text-xs text-slate-300">
+                      <span class="font-black text-white">How:</span> {{ block.description || 'Run the block and record the listed metrics.' }}
+                    </p>
+                    <p v-if="practiceBlockMetricLabels(block)" class="mt-2 text-[10px] text-emerald-100">
+                      <span class="font-black text-white">Metrics:</span> {{ practiceBlockMetricLabels(block) }}
+                    </p>
+                    <p v-if="practiceBlockPlayerNames(block)" class="mt-1 text-[10px] text-slate-300">
+                      <span class="font-black text-white">Players:</span> {{ practiceBlockPlayerNames(block) }}
+                    </p>
+                    <p class="mt-1 text-[10px] uppercase tracking-wider text-white/35">
+                      Source: {{ humanizeKey(block.source, 'Coach Action') }}
+                    </p>
+                  </div>
+                </div>
+
+                <div v-if="coachDataCollectionPracticeBlocks.length" class="mt-3 rounded-md border border-cyan-300/15 bg-cyan-500/10 p-3">
+                  <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Data Collection Inside Plan</p>
+                  <p class="mt-1 text-xs text-slate-300">
+                    {{ fmtCount(coachDataCollectionPracticeBlocks.length, '0') }} baseline block(s) are included so the intelligence gets stronger after practice.
+                  </p>
+                </div>
+
+                <div v-if="coachNextSessionBlocks.length" class="mt-3 rounded-md border border-amber-300/20 bg-amber-500/10 p-3">
+                  <p class="text-[10px] uppercase tracking-widest text-amber-200/80">Moved To Next Session</p>
+                  <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <div
+                      v-for="block in coachNextSessionBlocks"
+                      :key="`coach-next-${block.temporary_key || block.title}`"
+                      class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-200"
+                    >
+                      <span class="font-black text-white">{{ block.title }}</span>
+                      <span v-if="block.duration_minutes"> · {{ fmtCount(block.duration_minutes, '0') }} min</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
 
             <div class="mt-4 rounded-lg border border-cyan-300/20 bg-cyan-500/10 p-3">
