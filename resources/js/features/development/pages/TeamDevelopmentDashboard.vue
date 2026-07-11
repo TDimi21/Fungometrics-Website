@@ -275,6 +275,14 @@ const readableLabelOverrides = {
   composite: 'Research + FMTRX Blend',
   composite_benchmark: 'Research + FMTRX Blend',
   insufficient: 'Not Enough Data',
+  research_only: 'Research Only',
+  composite_enabled: 'Research + FMTRX Blend',
+  population_enabled: 'Population Ready',
+  needs_review: 'Needs Review',
+  disabled: 'Not Used',
+  auto: 'Auto Safety Mode',
+  player_context: 'Roster Profile',
+  player_benchmark_metrics: 'Benchmark Baseline',
 }
 
 const humanizeKey = (value, fallback = 'Needs Data') => {
@@ -351,9 +359,9 @@ const sourceLabelOverrides = {
 
 const confidenceLabelOverrides = {
   insufficient: 'Not Enough Data',
-  low: 'Low Confidence',
-  medium: 'Medium Confidence',
-  high: 'High Confidence',
+  low: 'Early Sample',
+  medium: 'Growing Sample',
+  high: 'Strong Sample',
 }
 
 const sourceLabel = (source) => sourceLabelOverrides[String(source ?? '').trim()] || humanizeKey(source, 'Research Benchmark')
@@ -392,8 +400,8 @@ const benchmarkSourceMix = computed(() => {
       populationCount: null,
       compositeCount: null,
       populationCompositeCount: null,
-      activeSourceText: 'Benchmark source mix is not available yet.',
-      guidance: 'Benchmark source mix is not available yet.',
+      activeSourceText: 'Benchmark source details are not available yet.',
+      guidance: 'Benchmark source details are not available yet.',
     }
   }
 
@@ -418,14 +426,14 @@ const benchmarkSourceMix = computed(() => {
     compositeCount,
     populationCompositeCount,
     populationActive,
-    activeSourceText: populationActive
-      ? 'FMTRX population learning is active for some metrics.'
-      : 'Research benchmarks are still the primary source.',
-    guidance: averageBucketCount < 30
-      ? 'Population samples under 30 remain research-only.'
-      : 'Population benchmark confidence improves as more players are added.',
-  }
-})
+	    activeSourceText: populationActive
+	      ? 'FMTRX population learning is active for some metrics.'
+	      : 'Research benchmarks are active while FMTRX population learning grows.',
+	    guidance: averageBucketCount < 30
+	      ? 'FMTRX needs at least 30 trusted values before population learning can influence a metric.'
+	      : 'FMTRX trust improves as more players complete roster profiles and baseline testing.',
+	  }
+	})
 
 const playerBenchmarkMetricRows = computed(() =>
   teamPlayersIntelligence.value.flatMap((snapshot) => {
@@ -523,21 +531,21 @@ const metricPopulationUsableValue = (metric) => {
 const metricPopulationUsable = (metric) => metricPopulationUsableValue(metric) ? 'Yes' : 'No'
 
 const bucketLabelOverrides = {
-  exact_peer: 'Exact Peer Group',
+  exact_peer: 'Closest Peer Group',
   athletic_peer: 'Athletic Peer Group',
   age_role: 'Age + Role Group',
   age_only: 'Age Group',
-  global_clean: 'Global FMTRX Population',
-  none: 'Not Enough Population Data',
+  global_clean: 'Broad FMTRX Population',
+  none: 'Not Enough FMTRX Data',
 }
 
 const bucketExplanations = {
-  exact_peer: 'Compared against players with similar age, level, position, body size, height, throws, and bats.',
+  exact_peer: 'Compared with players most similar in age, level, position, body size, height, throwing hand, and batting side.',
   athletic_peer: 'Compared against players with similar age, level, position, and bodyweight.',
   age_role: 'Compared against players with similar age, level, and position.',
   age_only: 'Compared against players in the same age group.',
-  global_clean: 'Compared against all valid guarded FMTRX values because smaller peer buckets were too small.',
-  none: 'Population sample is below 30, so research benchmark remains active.',
+  global_clean: 'Compared with all valid trusted FMTRX values because smaller peer groups were not large enough yet.',
+  none: 'FMTRX needs at least 30 trusted values before population learning can influence this metric, so research benchmarks remain active.',
 }
 
 const bucketLevelValue = (metric) => {
@@ -561,8 +569,8 @@ const bucketKeyValue = (metric) => {
     || null
 }
 
-const bucketLabel = (level) => bucketLabelOverrides[String(level ?? '').trim()] || 'Bucket quality not available yet.'
-const bucketExplanation = (level) => bucketExplanations[String(level ?? '').trim()] || 'Bucket quality not available yet.'
+const bucketLabel = (level) => bucketLabelOverrides[String(level ?? '').trim()] || 'Comparison group details are not available yet.'
+const bucketExplanation = (level) => bucketExplanations[String(level ?? '').trim()] || 'Comparison group details are not available yet.'
 
 const metricAttemptedBuckets = (metric) => {
   const detail = metricPopulationDetail(metric)
@@ -608,7 +616,7 @@ const displayBucketLabel = (metric) => {
 const displayBucketExplanation = (metric) => {
   const level = displayBucketLevel(metric)
   if (level === 'broad_unknown') {
-    return 'Compared against guarded FMTRX values because player context is missing or incomplete.'
+    return 'FMTRX is using a broad comparison because this player is missing context like age, level, position, height, weight, throws, or bats.'
   }
   return bucketExplanation(level)
 }
@@ -621,54 +629,54 @@ const metricSourceStatusText = (metric) => {
 
   if (populationWeight <= 0) {
     return bucketCount < 30
-      ? 'Population sample below 30. Research benchmark remains active.'
-      : 'Research benchmark active. FMTRX sample is not included in this score.'
+      ? 'FMTRX needs at least 30 trusted values before population learning can influence this metric.'
+      : 'Research benchmark remains active. FMTRX player data is not included in this score.'
   }
 
   if (level === 'broad_unknown' || level === 'global_clean') {
-    return 'This is a broad comparison group. Peer-specific confidence improves as more players collect data.'
+    return 'This is a broad comparison group. Peer-specific confidence improves as more players complete roster profiles and baseline testing.'
   }
 
   if (level === 'exact_peer') {
     return 'Strong peer match.'
   }
 
-  if (bucketCount >= 300) return 'High-confidence FMTRX population blend.'
-  if (bucketCount >= 100) return 'Medium-confidence FMTRX population blend.'
-  if (bucketCount >= 30) return 'Low-confidence FMTRX population blend.'
+  if (bucketCount >= 300) return 'Strong FMTRX player sample is included in this score.'
+  if (bucketCount >= 100) return 'Growing FMTRX player sample is included in this score.'
+  if (bucketCount >= 30) return 'Early FMTRX player sample is included in this score.'
 
-  return 'FMTRX population learning is included in this score.'
+  return 'FMTRX player data is included in this score.'
 }
 
 const trustStatusDefinitions = {
   research_only: {
     label: 'Research Only',
-    meaning: 'This metric is using research benchmarks. FMTRX population data is not active for final scoring.',
+    meaning: 'FMTRX population data is not used in this score yet. Research standards remain active.',
     badge: 'border-sky-300/30 bg-sky-500/15 text-sky-100',
   },
   composite_enabled: {
     label: 'Research + FMTRX Blend',
-    meaning: 'This metric can blend research benchmarks with FMTRX population data when the population sample is valid.',
+    meaning: 'This metric is approved to blend research standards with FMTRX population data when the sample is large enough.',
     badge: 'border-emerald-300/35 bg-emerald-500/15 text-emerald-100',
   },
   population_enabled: {
     label: 'Population Ready',
-    meaning: 'This metric is allowed to use trusted FMTRX population data when sample size and quality pass.',
+    meaning: 'This metric has enough trusted FMTRX data to support population-based comparison.',
     badge: 'border-purple-300/35 bg-purple-500/15 text-purple-100',
   },
   needs_review: {
     label: 'Needs Review',
-    meaning: 'This metric needs more QA before FMTRX population data can influence scoring.',
+    meaning: 'FMTRX has data for this metric, but it needs more quality review before it can influence scoring.',
     badge: 'border-amber-300/35 bg-amber-500/15 text-amber-100',
   },
   disabled: {
-    label: 'Disabled',
+    label: 'Not Used',
     meaning: 'This metric is not currently used for benchmark scoring.',
     badge: 'border-red-300/35 bg-red-500/15 text-red-100',
   },
   auto: {
-    label: 'Auto',
-    meaning: 'FMTRX is applying the default safety policy for this metric.',
+    label: 'Auto Safety Mode',
+    meaning: 'FMTRX is using the safest available benchmark source for this metric.',
     badge: 'border-white/15 bg-white/10 text-slate-100',
   },
 }
@@ -767,22 +775,22 @@ const metricTrustReason = (metric) => {
 const metricTrustTooltip = (metric) => {
   const badge = metricTrustBadge(metric)
   return [
-    `Policy status: ${badge.label}`,
+    `Trust status: ${badge.label}`,
     `Reason: ${metricTrustReason(metric)}`,
-    `Population allowed: ${yesNo(metricTrustPopulationAllowed(metric))}`,
-    `Composite allowed: ${yesNo(metricTrustCompositeAllowed(metric))}`,
-    `Bucket count: ${metricPopulationBucketCount(metric)}`,
-    `Population confidence: ${metricPopulationConfidence(metric)}`,
-    `Research fallback active: ${yesNo(metricResearchFallbackActive(metric))}`,
+    `FMTRX player data allowed: ${yesNo(metricTrustPopulationAllowed(metric))}`,
+    `Blend allowed: ${yesNo(metricTrustCompositeAllowed(metric))}`,
+    `Comparison group count: ${metricPopulationBucketCount(metric)}`,
+    `FMTRX confidence: ${metricPopulationConfidence(metric)}`,
+    `Research benchmark active: ${yesNo(metricResearchFallbackActive(metric))}`,
   ].join('\n')
 }
 
 const metricTrustLines = (metric) => [
-  { label: 'Policy Status', value: metricTrustBadge(metric).label },
+  { label: 'Trust Status', value: metricTrustBadge(metric).label },
   { label: 'Reason', value: metricTrustReason(metric) },
-  { label: 'Population Allowed', value: yesNo(metricTrustPopulationAllowed(metric)) },
-  { label: 'Composite Allowed', value: yesNo(metricTrustCompositeAllowed(metric)) },
-  { label: 'Research Fallback Active', value: yesNo(metricResearchFallbackActive(metric)) },
+  { label: 'FMTRX Data Allowed', value: yesNo(metricTrustPopulationAllowed(metric)) },
+  { label: 'Blend Allowed', value: yesNo(metricTrustCompositeAllowed(metric)) },
+  { label: 'Research Benchmark Active', value: yesNo(metricResearchFallbackActive(metric)) },
 ]
 
 const benchmarkTrustMetrics = computed(() => {
@@ -924,6 +932,51 @@ const metricGapSentence = (metric, key, label) => {
   return `Needs +${fmtValue(gap, metric?.unit || '')} to reach ${label}.`
 }
 
+const metricSourceExplanation = (metric) => {
+  const source = metric?.source || (metricPopulationUsableValue(metric) ? 'fmtrx_population' : 'research_benchmark')
+  if (source === 'composite' || source === 'composite_benchmark') {
+    return 'This score blends research standards with trusted FMTRX player data. Research still protects the score while the FMTRX sample grows.'
+  }
+  if (source === 'fmtrx_population') {
+    return 'This score is based on trusted FMTRX player data from a large enough sample.'
+  }
+  return 'This score is based on age-adjusted baseball research standards. FMTRX will keep using this until enough trusted FMTRX player data is available.'
+}
+
+const metricConfidenceExplanation = (metric) => {
+  const confidence = String(metricPopulationConfidenceValue(metric) || '').trim()
+  if (confidence === 'high') return 'FMTRX has a large trusted sample for this benchmark.'
+  if (confidence === 'medium') return 'FMTRX has a stronger sample and can place more trust in the population comparison.'
+  if (confidence === 'low') return 'FMTRX has enough data to learn from this sample, but confidence is still early.'
+  return 'FMTRX does not have enough trusted player values to use this comparison yet.'
+}
+
+const metricImproveScoreCopy = (metric) => {
+  const goodGap = n(metric?.gap_to_good)
+  const eliteGap = n(metric?.gap_to_elite)
+  if (goodGap !== null && goodGap > 0) return metricGapSentence(metric, 'gap_to_good', 'Good')
+  if (eliteGap !== null && eliteGap > 0) return metricGapSentence(metric, 'gap_to_elite', 'Elite')
+  return 'Keep collecting quality reps and compare the next session against this benchmark.'
+}
+
+const metricImproveConfidenceCopy = (metric) => {
+  const level = displayBucketLevel(metric)
+  const bucketCount = metricPopulationBucketCountValue(metric)
+  if (level === 'broad_unknown') {
+    return 'Add roster details like age, level, position, height, weight, throws, and bats to improve peer matching.'
+  }
+  if (bucketCount < 30) {
+    return 'FMTRX needs at least 30 trusted values before population learning can influence this metric.'
+  }
+  if (level === 'global_clean') {
+    return 'Add roster details and collect more baselines so FMTRX can compare this player to a tighter peer group.'
+  }
+  return 'Continue collecting trusted baseline data to strengthen future comparisons.'
+}
+
+const metricWhyMattersCopy = (metric) =>
+  `${metric?.display_name || humanizeKey(metric?.metric_key, 'This benchmark')} helps show whether the player is ahead, on track, or needs a targeted development focus.`
+
 const readableEvidenceLines = (value, prefix = '') => {
   if (value === null || value === undefined || value === '') return []
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
@@ -980,32 +1033,39 @@ const selectedMetricDetail = computed(() => {
     bucketLabel: level === 'broad_unknown' ? 'Broad FMTRX Population' : bucketLabel(level),
     bucketKey: bucketKeyValue(metric),
     bucketCount: fmtCount(metricPopulationBucketCountValue(metric), '0'),
-    bucketExplanation: displayBucketExplanation(metric),
-    attemptedBuckets: metricAttemptedBuckets(metric),
-    trustBadge: metricTrustBadge(metric),
-    trustTooltip: metricTrustTooltip(metric),
-    trustLines: metricTrustLines(metric),
-    goodGap: metricGapSentence(metric, 'gap_to_good', 'Good'),
-    eliteGap: metricGapSentence(metric, 'gap_to_elite', 'Elite'),
-    evidence,
+	    bucketExplanation: displayBucketExplanation(metric),
+	    attemptedBuckets: metricAttemptedBuckets(metric),
+	    trustBadge: metricTrustBadge(metric),
+	    trustTooltip: metricTrustTooltip(metric),
+	    trustLines: metricTrustLines(metric),
+	    coachExplanations: [
+	      { label: 'Why This Score Matters', value: metricWhyMattersCopy(metric) },
+	      { label: 'Where This Benchmark Came From', value: metricSourceExplanation(metric) },
+	      { label: 'How Confident FMTRX Is', value: metricConfidenceExplanation(metric) },
+	      { label: 'What Would Improve The Score', value: metricImproveScoreCopy(metric) },
+	      { label: 'What Would Improve Confidence', value: metricImproveConfidenceCopy(metric) },
+	    ],
+	    goodGap: metricGapSentence(metric, 'gap_to_good', 'Good'),
+	    eliteGap: metricGapSentence(metric, 'gap_to_elite', 'Elite'),
+	    evidence,
     hasSourceMix: Object.keys(sourceMix).length > 0 || Object.keys(population).length > 0,
   }
 })
 
 const selectedMetricSourceExplanation = computed(() => {
-  const detail = selectedMetricDetail.value
-  if (!detail) return ''
-  if (detail.populationUsable === 'No') {
-    return 'FMTRX population sample is below the minimum threshold of 30, so the research benchmark remains active.'
-  }
-  if (detail.sourceKey === 'composite' || detail.sourceKey === 'composite_benchmark') {
-    return 'FMTRX is blending research benchmarks with population data because the population bucket has enough guarded values.'
-  }
-  if (detail.sourceKey === 'fmtrx_population') {
-    return 'FMTRX population data is carrying this benchmark because enough trusted sample data exists.'
-  }
-  return 'Research benchmark remains active for this metric.'
-})
+	  const detail = selectedMetricDetail.value
+	  if (!detail) return ''
+	  if (detail.populationUsable === 'No') {
+	    return 'FMTRX does not have enough trusted values for this comparison yet. Research benchmarks remain active.'
+	  }
+	  if (detail.sourceKey === 'composite' || detail.sourceKey === 'composite_benchmark') {
+	    return 'FMTRX is blending research standards with trusted FMTRX population data for this metric. Research still protects the score while the FMTRX sample grows.'
+	  }
+	  if (detail.sourceKey === 'fmtrx_population') {
+	    return 'This score is based on trusted FMTRX player data from a large enough sample.'
+	  }
+	  return 'FMTRX is using research standards for this metric because the trusted FMTRX sample is not large enough or not approved yet.'
+	})
 
 const openBenchmarkMetricDetail = (metric) => {
   if (!metric) return
@@ -2406,8 +2466,8 @@ const priorityTop10Rows = computed(() => {
             </div>
           </div>
 
-          <div v-if="!hasBenchmarkProfile" class="mt-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-            Benchmark profile not available yet.
+	          <div v-if="!hasBenchmarkProfile" class="mt-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+	            Benchmark intelligence will appear after players have roster profiles and baseline data.
           </div>
 
           <template v-else>
@@ -2423,9 +2483,12 @@ const priorityTop10Rows = computed(() => {
                 </p>
               </div>
 
-              <div class="rounded-lg border border-white/10 bg-white/5 p-3">
-                <p class="text-[10px] uppercase tracking-widest text-white/40">Team Benchmark Snapshot</p>
-                <div class="mt-3 grid grid-cols-2 gap-2">
+	              <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+	                <p class="text-[10px] uppercase tracking-widest text-white/40">Team Benchmark Snapshot</p>
+	                <p class="mt-2 text-xs text-slate-300">
+	                  FMTRX compares your players to age-adjusted standards and, when enough trusted data exists, to the FMTRX player population.
+	                </p>
+	                <div class="mt-3 grid grid-cols-2 gap-2">
                   <div class="rounded-md bg-slate-950/40 p-2">
                     <p class="text-[10px] uppercase tracking-wider text-white/35">Players</p>
                     <p class="text-xl font-black text-white">{{ fmt1(benchmarkSnapshot.playerCount) }}</p>
@@ -2439,12 +2502,12 @@ const priorityTop10Rows = computed(() => {
                     <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSnapshot.researchShare, '%') }}</p>
                   </div>
                   <div class="rounded-md bg-slate-950/40 p-2">
-                    <p class="text-[10px] uppercase tracking-wider text-white/35">Population</p>
+                    <p class="text-[10px] uppercase tracking-wider text-white/35">FMTRX Data</p>
                     <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSnapshot.populationShare, '%') }}</p>
                   </div>
                 </div>
-                <p v-if="benchmarkSnapshot.populationShare === 0" class="mt-3 text-xs text-slate-300">
-                  Research benchmarks active. FMTRX population learning improves as more data is collected.
+	                <p v-if="benchmarkSnapshot.populationShare === 0" class="mt-3 text-xs text-slate-300">
+	                  Research benchmarks are active while FMTRX population learning grows.
                 </p>
               </div>
 
@@ -2464,19 +2527,22 @@ const priorityTop10Rows = computed(() => {
             <div class="mt-4 rounded-lg border border-cyan-300/20 bg-cyan-500/10 p-3">
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Benchmark Source Mix</p>
-                  <h4 class="mt-1 text-lg font-semibold text-white">Research + FMTRX Population Learning</h4>
+	                  <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Benchmark Source Mix</p>
+	                  <h4 class="mt-1 text-lg font-semibold text-white">Research + FMTRX Population Learning</h4>
+	                  <p class="mt-1 text-xs text-slate-300">
+	                    This shows how much of the benchmark system is powered by research standards, FMTRX player data, or a blend of both.
+	                  </p>
                 </div>
                 <span
                   class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
                   :class="benchmarkSourceMix.populationActive ? 'border-cyan-300/30 bg-cyan-500/15 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-300'"
                 >
-                  {{ benchmarkSourceMix.populationActive ? 'Composite Active' : 'Research Active' }}
+                  {{ benchmarkSourceMix.populationActive ? 'Blend Active' : 'Research Active' }}
                 </span>
               </div>
 
               <p v-if="!benchmarkSourceMix.available" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
-                Benchmark source mix is not available yet.
+	                Benchmark source details are not available yet.
               </p>
 
               <template v-else>
@@ -2487,32 +2553,32 @@ const priorityTop10Rows = computed(() => {
                     <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.researchCount, '0') }} research-only metrics</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
-                    <p class="text-[10px] uppercase tracking-wider text-white/35">FMTRX Population</p>
-                    <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSourceMix.populationPercent, '%') }}</p>
-                    <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.populationCount, '0') }} population metrics</p>
+	                    <p class="text-[10px] uppercase tracking-wider text-white/35">FMTRX Player Data</p>
+	                    <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSourceMix.populationPercent, '%') }}</p>
+	                    <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.populationCount, '0') }} player-data metrics</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
-                    <p class="text-[10px] uppercase tracking-wider text-white/35">Composite</p>
+	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Blend</p>
                     <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSourceMix.compositePercent, '%') }}</p>
                     <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.compositeCount, '0') }} blended metrics</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
-                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Bucket</p>
-                    <p class="text-xl font-black text-white">{{ fmtCount(benchmarkSourceMix.averageBucketCount, '0') }}</p>
-                    <p class="mt-1 text-[10px] text-slate-300">population sample size</p>
+	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Group</p>
+	                    <p class="text-xl font-black text-white">{{ fmtCount(benchmarkSourceMix.averageBucketCount, '0') }}</p>
+	                    <p class="mt-1 text-[10px] text-slate-300">trusted sample size</p>
                   </div>
                 </div>
 
                 <div class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-200">
                   <p><span class="font-black text-white">What:</span> {{ benchmarkSourceMix.activeSourceText }}</p>
-                  <p class="mt-1"><span class="font-black text-white">Why:</span> Population benchmark confidence improves as more players are added.</p>
+	                  <p class="mt-1"><span class="font-black text-white">Why:</span> FMTRX trust improves as players complete roster profiles and baseline testing.</p>
                   <p class="mt-1 text-cyan-100"><span class="font-black text-white">Rule:</span> {{ benchmarkSourceMix.guidance }}</p>
                 </div>
 
                 <div class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3">
                   <div class="flex flex-wrap items-center justify-between gap-2">
                     <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Metric Source Status</p>
-                    <p class="text-[10px] uppercase tracking-widest text-white/35">Percentiles · weights · bucket</p>
+	                    <p class="text-[10px] uppercase tracking-widest text-white/35">Percentiles · blend weights · comparison group</p>
                   </div>
                   <div class="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
                     <button
@@ -2537,17 +2603,17 @@ const priorityTop10Rows = computed(() => {
                       </div>
                       <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-3">
                         <p>Research: <span class="font-semibold text-white">{{ metricResearchPercentile(metric) }}</span></p>
-                        <p>Population: <span class="font-semibold text-white">{{ metricPopulationPercentile(metric) }}</span></p>
-                        <p>Bucket: <span class="font-semibold text-white">{{ metricPopulationBucketCount(metric) }} players</span></p>
-                        <p>Confidence: <span class="font-semibold text-white">{{ metricPopulationConfidence(metric) }}</span></p>
-                        <p>Usable: <span class="font-semibold text-white">{{ metricPopulationUsable(metric) }}</span></p>
-                        <p>Weights: <span class="font-semibold text-white">R {{ metricSourceWeight(metric, 'research_weight') }} / P {{ metricSourceWeight(metric, 'population_weight') }}</span></p>
+	                        <p>FMTRX Data: <span class="font-semibold text-white">{{ metricPopulationPercentile(metric) }}</span></p>
+	                        <p>Group: <span class="font-semibold text-white">{{ metricPopulationBucketCount(metric) }} players</span></p>
+	                        <p>Trust: <span class="font-semibold text-white">{{ metricPopulationConfidence(metric) }}</span></p>
+	                        <p>Used: <span class="font-semibold text-white">{{ metricPopulationUsable(metric) }}</span></p>
+                        <p>Blend: <span class="font-semibold text-white">Research {{ metricSourceWeight(metric, 'research_weight') }} / FMTRX {{ metricSourceWeight(metric, 'population_weight') }}</span></p>
                       </div>
                       <p class="mt-2 text-[10px] text-slate-400">{{ metricSourceStatusText(metric) }}</p>
                     </button>
                   </div>
                   <p v-if="!sourceMetricRows.length" class="mt-2 text-sm text-slate-300">
-                    No metric-level source mix is available yet.
+                    No metric-level source details are available yet.
                   </p>
                 </div>
               </template>
@@ -2555,20 +2621,23 @@ const priorityTop10Rows = computed(() => {
 
             <div class="mt-4 rounded-lg border border-emerald-300/20 bg-emerald-500/10 p-3">
               <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Benchmark Trust Summary</p>
-                  <h4 class="mt-1 text-lg font-semibold text-white">Policy Status by Metric</h4>
-                </div>
+	                <div>
+	                  <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Benchmark Trust Summary</p>
+	                  <h4 class="mt-1 text-lg font-semibold text-white">Benchmark Trust by Metric</h4>
+	                  <p class="mt-1 text-xs text-slate-300">
+	                    These badges show which metrics are ready for FMTRX population learning and which still use research standards.
+	                  </p>
+	                </div>
                 <span
                   class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
                   :class="benchmarkTrustSummary.available ? 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100' : 'border-white/10 bg-white/5 text-slate-300'"
                 >
-                  {{ benchmarkTrustSummary.available ? `${fmtCount(benchmarkTrustSummary.total, '0')} Metrics` : 'Needs Policy' }}
+	                  {{ benchmarkTrustSummary.available ? `${fmtCount(benchmarkTrustSummary.total, '0')} Metrics` : 'Safe Source' }}
                 </span>
               </div>
 
               <p v-if="!benchmarkTrustSummary.available" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
-                Benchmark trust policy is not available yet. No metric trust details are available yet.
+	                FMTRX is using the safest available benchmark source. No metric trust details are available yet.
               </p>
 
               <template v-else>
@@ -2583,20 +2652,20 @@ const priorityTop10Rows = computed(() => {
                   </div>
                 </div>
                 <p class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-emerald-100">
-                  Population sample below threshold keeps research fallback active. FMTRX population blending is enabled only for metrics whose trust policy allows it.
+	                  FMTRX needs at least 30 trusted values before population learning can influence a metric. Research standards stay active until then.
                 </p>
                 <details class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3">
                   <summary class="cursor-pointer text-[10px] font-black uppercase tracking-widest text-emerald-200/80">
-                    Benchmark Payload QA
+	                    Benchmark Data QA
                   </summary>
                   <div v-if="benchmarkPayloadQa.metricCount" class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
                     <p>Metric count: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.metricCount, '0') }}</span></p>
-                    <p>With policy: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.withPolicy, '0') }}</span></p>
-                    <p>Missing policy: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.missingPolicy, '0') }}</span></p>
-                    <p>With source mix: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.withSourceMix, '0') }}</span></p>
-                    <p>Missing source mix: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.missingSourceMix, '0') }}</span></p>
-                    <p>With bucket details: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.withBucketDetails, '0') }}</span></p>
-                    <p>Missing bucket details: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.missingBucketDetails, '0') }}</span></p>
+	                    <p>With trust status: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.withPolicy, '0') }}</span></p>
+	                    <p>Missing trust status: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.missingPolicy, '0') }}</span></p>
+	                    <p>With source details: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.withSourceMix, '0') }}</span></p>
+	                    <p>Missing source details: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.missingSourceMix, '0') }}</span></p>
+	                    <p>With comparison details: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.withBucketDetails, '0') }}</span></p>
+	                    <p>Missing comparison details: <span class="font-black text-white">{{ fmtCount(benchmarkPayloadQa.missingBucketDetails, '0') }}</span></p>
                   </div>
                   <p v-else class="mt-3 text-xs text-slate-300">
                     No metric trust details are available yet.
@@ -2608,25 +2677,28 @@ const priorityTop10Rows = computed(() => {
             <div class="mt-4 rounded-lg border border-indigo-300/20 bg-indigo-500/10 p-3">
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p class="text-[10px] uppercase tracking-widest text-indigo-200/80">Population Bucket Quality</p>
-                  <h4 class="mt-1 text-lg font-semibold text-white">FMTRX Peer Group Trust</h4>
+	                  <p class="text-[10px] uppercase tracking-widest text-indigo-200/80">Benchmark Comparison Quality</p>
+	                  <h4 class="mt-1 text-lg font-semibold text-white">FMTRX Peer Group Trust</h4>
+	                  <p class="mt-1 text-xs text-slate-300">
+	                    This shows whether FMTRX found a strong peer group or had to use a broader comparison group.
+	                  </p>
                 </div>
                 <span
                   class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
                   :class="populationBucketQualitySummary.available ? 'border-indigo-300/30 bg-indigo-500/15 text-indigo-100' : 'border-white/10 bg-white/5 text-slate-300'"
                 >
-                  {{ populationBucketQualitySummary.available ? 'Bucket Detail Active' : 'Needs Data' }}
+	                  {{ populationBucketQualitySummary.available ? 'Comparison Active' : 'Needs Data' }}
                 </span>
               </div>
 
               <p v-if="!populationBucketQualitySummary.available" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
-                Population bucket quality is not available yet.
+	                Comparison group details are not available yet.
               </p>
 
               <template v-else>
                 <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
-                    <p class="text-[10px] uppercase tracking-wider text-white/35">Exact Peer</p>
+	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Closest Peer</p>
                     <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.exact_peer, '0') }}</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
@@ -2642,22 +2714,22 @@ const priorityTop10Rows = computed(() => {
                     <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.age_only, '0') }}</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
-                    <p class="text-[10px] uppercase tracking-wider text-white/35">Global</p>
+	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Broad</p>
                     <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.global_clean, '0') }}</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
-                    <p class="text-[10px] uppercase tracking-wider text-white/35">Insufficient</p>
+	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Needs Data</p>
                     <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.none, '0') }}</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
-                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Bucket</p>
+	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Group</p>
                     <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.averageBucketCount, '0') }}</p>
                   </div>
                 </div>
 
                 <div class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-200">
                   <p><span class="font-black text-white">Confidence:</span> {{ populationBucketQualitySummary.confidenceSummary }}</p>
-                  <p class="mt-1 text-indigo-100"><span class="font-black text-white">Rule:</span> Population sample below 30 means research benchmark remains active.</p>
+	                  <p class="mt-1 text-indigo-100"><span class="font-black text-white">Rule:</span> FMTRX needs at least 30 trusted values before population learning can influence a metric.</p>
                 </div>
 
                 <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
@@ -2683,27 +2755,27 @@ const priorityTop10Rows = computed(() => {
                     </div>
 
                     <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
-                      <p>Bucket: <span class="font-semibold text-white">{{ fmtCount(metric.bucketCount, '0') }}</span></p>
-                      <p>Confidence: <span class="font-semibold text-white">{{ confidenceLabel(metric.bucketConfidence) }}</span></p>
+                      <p>Group: <span class="font-semibold text-white">{{ fmtCount(metric.bucketCount, '0') }}</span></p>
+                      <p>Trust: <span class="font-semibold text-white">{{ confidenceLabel(metric.bucketConfidence) }}</span></p>
                       <p>Research: <span class="font-semibold text-white">{{ metricResearchPercentile(metric) }}</span></p>
-                      <p>Population: <span class="font-semibold text-white">{{ metricPopulationPercentile(metric) }}</span></p>
+                      <p>FMTRX Data: <span class="font-semibold text-white">{{ metricPopulationPercentile(metric) }}</span></p>
                       <p>Source: <span class="font-semibold text-white">{{ metricSource(metric) }}</span></p>
                       <p>Final: <span class="font-semibold text-white">{{ fmtScore(metric.finalScore) }}</span></p>
                     </div>
 
                     <p class="mt-2 text-xs text-slate-300">{{ metric.bucketExplanation }}</p>
                     <p v-if="metric.bucketLevel === 'global_clean'" class="mt-2 rounded border border-amber-300/20 bg-amber-500/10 px-2 py-1 text-xs text-amber-100">
-                      This is a broad comparison group. Peer-specific confidence improves as more players collect data.
+                      This is a broad comparison group. Peer-specific confidence improves as more players complete roster profiles and baseline testing.
                     </p>
                     <p v-else-if="metric.bucketDisplayLevel === 'exact_peer' && metric.bucketUsable" class="mt-2 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-100">
                       Strong peer match.
                     </p>
                     <p v-else-if="!metric.bucketUsable" class="mt-2 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300">
-                      Population sample below 30. Research benchmark remains active.
+                      FMTRX needs at least 30 trusted values before population learning can influence this metric. Research benchmark remains active.
                     </p>
 
                     <div v-if="metric.attemptedBuckets.length" class="mt-3 rounded border border-white/10 bg-white/5 p-2">
-                      <p class="text-[10px] uppercase tracking-widest text-white/40">Attempted Buckets</p>
+                      <p class="text-[10px] uppercase tracking-widest text-white/40">Comparison Groups Checked</p>
                       <div class="mt-2 flex flex-wrap gap-1.5">
                         <span
                           v-for="attempt in metric.attemptedBuckets"
@@ -2719,7 +2791,7 @@ const priorityTop10Rows = computed(() => {
                 </div>
 
                 <p v-if="!bucketQualityMetricRows.length" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
-                  No metric-level bucket details are available yet.
+                  No metric-level comparison group details are available yet.
                 </p>
               </template>
             </div>
@@ -2729,6 +2801,9 @@ const priorityTop10Rows = computed(() => {
                 <div>
                   <p class="text-[10px] uppercase tracking-widest text-red-200/80">Benchmark Data Quality</p>
                   <h4 class="mt-1 text-lg font-semibold text-white">Roster + Baseline Readiness</h4>
+                  <p class="mt-1 text-xs text-slate-300">
+                    Better roster profiles and baseline testing improve benchmark confidence and peer comparisons.
+                  </p>
                 </div>
                 <span
                   class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
@@ -2739,7 +2814,7 @@ const priorityTop10Rows = computed(() => {
               </div>
 
               <p v-if="!dataCollectionPriority" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
-                Benchmark data quality is not available yet.
+                Benchmark data quality will appear after roster profiles and baseline testing are available.
               </p>
 
               <template v-else>
@@ -2774,7 +2849,7 @@ const priorityTop10Rows = computed(() => {
                     </p>
                     <p class="mt-1">
                       <span class="font-black text-white">{{ fmtCount(benchmarkDataQuality.rosterCleanupCount) }}</span>
-                      players need roster cleanup.
+                      players need roster profile updates.
                     </p>
                     <p class="mt-2 text-red-100">
                       <span class="font-black text-white">Next action:</span> {{ benchmarkDataQuality.nextAction }}
@@ -2785,7 +2860,7 @@ const priorityTop10Rows = computed(() => {
                   </div>
 
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
-                    <p class="text-[10px] uppercase tracking-widest text-white/40">Missing Data</p>
+                    <p class="text-[10px] uppercase tracking-widest text-white/40">Baselines Needed</p>
                     <p class="mt-2 text-sm text-slate-200">
                       Critical <span class="font-black text-white">{{ fmtCount(benchmarkDataQuality.criticalCount) }}</span>
                       · Supporting <span class="font-black text-white">{{ fmtCount(benchmarkDataQuality.supportingCount) }}</span>
@@ -2798,29 +2873,29 @@ const priorityTop10Rows = computed(() => {
 
                 <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
-                    <p class="text-[10px] uppercase tracking-widest text-red-200/80">Critical Missing Data</p>
+                    <p class="text-[10px] uppercase tracking-widest text-red-200/80">Critical Baselines Needed</p>
                     <div class="mt-2 space-y-1 text-xs">
                       <p v-for="row in allCriticalMissingRows.slice(0, 6)" :key="`quality-critical-${row.metric_key}`" class="rounded border border-red-300/15 bg-red-500/10 px-2 py-1 text-red-100">
                         {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
                       </p>
-                      <p v-if="!allCriticalMissingRows.length" class="text-slate-300">No critical benchmark gaps are currently flagged.</p>
+                      <p v-if="!allCriticalMissingRows.length" class="text-slate-300">No critical benchmark baselines are currently missing.</p>
                     </div>
                   </div>
 
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
-                    <p class="text-[10px] uppercase tracking-widest text-amber-200/80">Supporting Missing Data</p>
+                    <p class="text-[10px] uppercase tracking-widest text-amber-200/80">Supporting Baselines Needed</p>
                     <div class="mt-2 space-y-1 text-xs">
                       <p v-for="row in allSupportingMissingRows.slice(0, 6)" :key="`quality-supporting-${row.metric_key}`" class="rounded border border-amber-300/15 bg-amber-500/10 px-2 py-1 text-amber-100">
                         {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
                       </p>
-                      <p v-if="!allSupportingMissingRows.length" class="text-slate-300">No supporting benchmark gaps are currently flagged.</p>
+                      <p v-if="!allSupportingMissingRows.length" class="text-slate-300">No supporting benchmark baselines are currently missing.</p>
                     </div>
                   </div>
                 </div>
 
                 <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
-                    <p class="text-[10px] uppercase tracking-widest text-white/40">Roster Cleanup Needs</p>
+                    <p class="text-[10px] uppercase tracking-widest text-white/40">Roster Profile Needs</p>
                     <div v-if="rosterCleanupPlayers.length" class="mt-2 flex flex-wrap gap-2">
                       <span
                         v-for="player in rosterCleanupPlayers"
@@ -2833,7 +2908,7 @@ const priorityTop10Rows = computed(() => {
                         </span>
                       </span>
                     </div>
-                    <p v-else class="mt-2 text-xs text-slate-300">No roster cleanup names are currently attached.</p>
+                    <p v-else class="mt-2 text-xs text-slate-300">No roster profile updates are currently attached.</p>
                   </div>
 
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-3">
@@ -2846,7 +2921,7 @@ const priorityTop10Rows = computed(() => {
                     </div>
                     <p v-else class="mt-2 text-xs text-slate-300">No collection plan is attached yet.</p>
                     <p v-if="benchmarkSnapshot.populationShare === 0" class="mt-3 text-xs text-slate-300">
-                      Research benchmarks active. FMTRX population learning improves as more data is collected.
+                      Research benchmarks are active while FMTRX population learning improves as more players complete roster profiles and baseline testing.
                     </p>
                   </div>
                 </div>
@@ -2859,6 +2934,9 @@ const priorityTop10Rows = computed(() => {
                 <div>
                   <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Benchmark Collection Plan</p>
                   <h4 class="mt-1 text-lg font-semibold text-white">Coach Workflow</h4>
+                  <p class="mt-1 text-xs text-slate-300">
+                    FMTRX turns missing baseline data into a simple collection plan for the coach.
+                  </p>
                 </div>
                 <span
                   class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
@@ -2869,7 +2947,7 @@ const priorityTop10Rows = computed(() => {
               </div>
 
               <p v-if="!benchmarkCollectionPlan" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
-                Benchmark collection plan is not available yet.
+                Benchmark collection plan will appear after baseline collection needs are identified.
               </p>
 
               <template v-else>
@@ -2893,7 +2971,7 @@ const priorityTop10Rows = computed(() => {
                 </div>
 
                 <div class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-200">
-                  <p>{{ benchmarkCollectionPlan.summary || 'FMTRX will turn missing benchmark data into collection tasks as data becomes available.' }}</p>
+                  <p>{{ benchmarkCollectionPlan.summary || 'FMTRX will turn missing baseline data into collection tasks as data becomes available.' }}</p>
                 </div>
 
                 <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -3580,8 +3658,8 @@ const priorityTop10Rows = computed(() => {
                       <span class="text-sm font-black" :class="scoreTone(metric.score_0_100)">{{ fmtScore(metric.score_0_100) }}</span>
                     </div>
                     <p class="text-xs text-slate-300">{{ categoryLabel(metric.category) }} · {{ metricPercentile(metric) }} · {{ humanizeKey(metric.label) }}</p>
-                    <p class="mt-1 text-[10px] text-cyan-100">{{ metricSource(metric) }} · Bucket {{ metricPopulationBucketCount(metric) }} · {{ metricPopulationConfidence(metric) }}</p>
-                    <p class="mt-1 text-[10px] text-white/45">Research {{ metricResearchPercentile(metric) }} · Population {{ metricPopulationPercentile(metric) }} · Usable {{ metricPopulationUsable(metric) }}</p>
+                    <p class="mt-1 text-[10px] text-cyan-100">{{ metricSource(metric) }} · Group {{ metricPopulationBucketCount(metric) }} · {{ metricPopulationConfidence(metric) }}</p>
+                    <p class="mt-1 text-[10px] text-white/45">Research {{ metricResearchPercentile(metric) }} · FMTRX Data {{ metricPopulationPercentile(metric) }} · Used {{ metricPopulationUsable(metric) }}</p>
                     <p class="mt-1 text-[10px] text-white/45">Good gap {{ metricGap(metric, 'gap_to_good') }} · Elite gap {{ metricGap(metric, 'gap_to_elite') }}</p>
                     <p class="mt-1 text-[10px] text-slate-400">{{ metricSourceStatusText(metric) }}</p>
                   </button>
@@ -3611,7 +3689,7 @@ const priorityTop10Rows = computed(() => {
               </div>
 
               <div class="rounded-lg border border-white/10 bg-white/5 p-3">
-                <h4 class="text-sm font-semibold text-white">Missing Data Priority</h4>
+                <h4 class="text-sm font-semibold text-white">Baseline Priority</h4>
                 <div class="mt-2 space-y-3 text-xs">
                   <div>
                     <p class="font-black uppercase tracking-wider text-red-200">Critical</p>
@@ -3619,7 +3697,7 @@ const priorityTop10Rows = computed(() => {
                       <p v-for="row in criticalMissingRows" :key="`critical-${missingRowTitle(row)}`" class="rounded border border-red-300/15 bg-red-500/10 px-2 py-1 text-red-100">
                         {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
                       </p>
-                      <p v-if="!criticalMissingRows.length" class="text-slate-300">No critical missing data.</p>
+                      <p v-if="!criticalMissingRows.length" class="text-slate-300">No critical benchmark baselines are currently missing.</p>
                     </div>
                   </div>
 
@@ -3629,7 +3707,7 @@ const priorityTop10Rows = computed(() => {
                       <p v-for="row in supportingMissingRows" :key="`supporting-${missingRowTitle(row)}`" class="rounded border border-amber-300/15 bg-amber-500/10 px-2 py-1 text-amber-100">
                         {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
                       </p>
-                      <p v-if="!supportingMissingRows.length" class="text-slate-300">No supporting missing data.</p>
+                      <p v-if="!supportingMissingRows.length" class="text-slate-300">No supporting benchmark baselines are currently missing.</p>
                     </div>
                   </div>
 
@@ -3650,14 +3728,14 @@ const priorityTop10Rows = computed(() => {
                   </div>
 
                   <div v-if="!dataCollectionPriority && benchmarkMissingMetrics.length">
-                    <p class="font-black uppercase tracking-wider text-amber-200">Benchmark Gaps</p>
+                    <p class="font-black uppercase tracking-wider text-amber-200">Benchmark Baselines</p>
                     <p v-for="row in benchmarkMissingMetrics.slice(0, 5)" :key="row.metric_key" class="mt-1 rounded border border-amber-300/15 bg-amber-500/10 px-2 py-1 text-amber-100">
                       {{ missingRowTitle(row) }} · {{ missingRowCount(row) }}
                     </p>
                   </div>
 
                   <p v-if="!hasMissingDataPriorityRows" class="rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-slate-300">
-                    No missing benchmark data is currently flagged.
+                    No benchmark baselines are currently flagged.
                   </p>
                 </div>
               </div>
@@ -3944,9 +4022,23 @@ const priorityTop10Rows = computed(() => {
                     <p class="mt-1 text-xs text-slate-300">{{ selectedMetricDetail.confidence }}</p>
                   </div>
                   <div class="rounded-lg border border-white/10 bg-white/5 p-3">
-                    <p class="text-[10px] uppercase tracking-widest text-white/35">Selected Bucket</p>
+                    <p class="text-[10px] uppercase tracking-widest text-white/35">Comparison Group</p>
                     <p class="mt-1 text-lg font-black text-white">{{ selectedMetricDetail.bucketLabel }}</p>
                     <p class="mt-1 text-xs text-slate-300">{{ selectedMetricDetail.bucketCount }} players</p>
+                  </div>
+                </div>
+
+                <div class="mt-3 rounded-lg border border-white/10 bg-white/5 p-3">
+                  <p class="text-[10px] uppercase tracking-widest text-white/40">Coach Explanation</p>
+                  <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <div
+                      v-for="line in selectedMetricDetail.coachExplanations"
+                      :key="line.label"
+                      class="rounded-md border border-white/10 bg-slate-950/35 p-2"
+                    >
+                      <p class="text-[10px] uppercase tracking-wider text-white/35">{{ line.label }}</p>
+                      <p class="mt-1 text-xs text-slate-200">{{ line.value }}</p>
+                    </div>
                   </div>
                 </div>
 
@@ -3954,20 +4046,20 @@ const priorityTop10Rows = computed(() => {
                   <div class="rounded-lg border border-cyan-300/20 bg-cyan-500/10 p-3">
                     <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Benchmark Source</p>
                     <div class="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-200">
-                      <p>Research Weight: <span class="font-black text-white">{{ selectedMetricDetail.researchWeight }}</span></p>
-                      <p>Population Weight: <span class="font-black text-white">{{ selectedMetricDetail.populationWeight }}</span></p>
+                      <p>Research Share: <span class="font-black text-white">{{ selectedMetricDetail.researchWeight }}</span></p>
+                      <p>FMTRX Data Share: <span class="font-black text-white">{{ selectedMetricDetail.populationWeight }}</span></p>
                       <p>Research Percentile: <span class="font-black text-white">{{ selectedMetricDetail.researchPercentile }}</span></p>
-                      <p>Population Percentile: <span class="font-black text-white">{{ selectedMetricDetail.populationPercentile }}</span></p>
-                      <p>Bucket Count: <span class="font-black text-white">{{ selectedMetricDetail.populationBucketCount }}</span></p>
-                      <p>Population Confidence: <span class="font-black text-white">{{ selectedMetricDetail.populationConfidence }}</span></p>
-                      <p>Population Usable: <span class="font-black text-white">{{ selectedMetricDetail.populationUsable }}</span></p>
+                      <p>FMTRX Percentile: <span class="font-black text-white">{{ selectedMetricDetail.populationPercentile }}</span></p>
+                      <p>Comparison Group Count: <span class="font-black text-white">{{ selectedMetricDetail.populationBucketCount }}</span></p>
+                      <p>FMTRX Trust: <span class="font-black text-white">{{ selectedMetricDetail.populationConfidence }}</span></p>
+                      <p>FMTRX Data Used: <span class="font-black text-white">{{ selectedMetricDetail.populationUsable }}</span></p>
                     </div>
                     <p class="mt-3 rounded border border-white/10 bg-slate-950/35 p-2 text-xs text-cyan-100">
                       {{ selectedMetricSourceExplanation }}
                     </p>
                     <div class="mt-3 rounded border border-white/10 bg-slate-950/35 p-2">
                       <div class="flex flex-wrap items-center justify-between gap-2">
-                        <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Trust Policy</p>
+                        <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Trust Status</p>
                         <span
                           class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
                           :class="selectedMetricDetail.trustBadge.badge"
@@ -3988,18 +4080,15 @@ const priorityTop10Rows = computed(() => {
                   </div>
 
                   <div class="rounded-lg border border-indigo-300/20 bg-indigo-500/10 p-3">
-                    <p class="text-[10px] uppercase tracking-widest text-indigo-200/80">Population Bucket Quality</p>
+                    <p class="text-[10px] uppercase tracking-widest text-indigo-200/80">Comparison Group Quality</p>
                     <p class="mt-2 text-sm text-slate-200">
-                      <span class="font-black text-white">Selected:</span> {{ selectedMetricDetail.bucketLabel }}
-                    </p>
-                    <p class="mt-1 text-xs text-slate-300 break-all">
-                      <span class="font-black text-white">Key:</span> {{ selectedMetricDetail.bucketKey || '—' }}
+                      <span class="font-black text-white">Selected group:</span> {{ selectedMetricDetail.bucketLabel }}
                     </p>
                     <p class="mt-2 rounded border border-white/10 bg-slate-950/35 p-2 text-xs text-indigo-100">
                       {{ selectedMetricDetail.bucketExplanation }}
                     </p>
                     <div class="mt-3">
-                      <p class="text-[10px] uppercase tracking-widest text-white/40">Attempted Buckets</p>
+                      <p class="text-[10px] uppercase tracking-widest text-white/40">Comparison Groups Checked</p>
                       <div v-if="selectedMetricDetail.attemptedBuckets.length" class="mt-2 flex flex-wrap gap-1.5">
                         <span
                           v-for="attempt in selectedMetricDetail.attemptedBuckets.slice(0, 5)"
@@ -4010,7 +4099,7 @@ const priorityTop10Rows = computed(() => {
                           {{ metricAttemptedBucketLabel(attempt) }}
                         </span>
                       </div>
-                      <p v-else class="mt-2 text-xs text-slate-300">No bucket ladder details are available yet.</p>
+                      <p v-else class="mt-2 text-xs text-slate-300">No comparison group details are available yet.</p>
                     </div>
                   </div>
                 </div>
