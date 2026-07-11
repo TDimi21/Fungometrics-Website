@@ -38,6 +38,10 @@ use App\Http\Controllers\Api\Planner\GetCustomDrills;
 use App\Http\Controllers\Api\Planner\DeleteCustomDrill;
 use App\Http\Controllers\Api\Planner\GetDrillLibrary;
 use App\Http\Controllers\Api\Planner\GetWorkoutCompletions;
+// Player sub-groups — reusable assign presets, shared app↔web
+use App\Http\Controllers\Api\Coach\GetPlayerGroups;
+use App\Http\Controllers\Api\Coach\SavePlayerGroup;
+use App\Http\Controllers\Api\Coach\DeletePlayerGroup;
 use App\Http\Controllers\Api\Coach\GetFieldPresets;
 use App\Http\Controllers\Api\Coach\SaveFieldPreset;
 use App\Http\Controllers\Api\Coach\DeleteFieldPreset;
@@ -260,6 +264,11 @@ Route::prefix('coach')->group(function (): void {
 
         // Recent workout completions — polled by the coach app for in-app alerts.
         Route::get('/workout-completions', GetWorkoutCompletions::class);
+
+        // Player sub-groups — reusable assign presets for plans & practices.
+        Route::get('/player-groups', GetPlayerGroups::class);
+        Route::post('/player-groups', SavePlayerGroup::class);
+        Route::delete('/player-groups/{id}', DeletePlayerGroup::class);
 
         // Saved field presets (Game Mode field builder) — user-scoped, synced replacement for localStorage
         Route::get('/field-presets', GetFieldPresets::class);
