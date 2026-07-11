@@ -150,6 +150,38 @@ class PopulationLearningControlService
         return $this->getControlForMetric($metricKey);
     }
 
+    public function applyMetricPolicy(string $metricKey, array $policy, ?string $reviewedByUserId = null): array
+    {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
+        $current = $this->getControlForMetric($metricKey);
+        $preserveNotes = (bool) ($policy['preserve_notes'] ?? false);
+        $rolloutNote = trim((string) ($policy['admin_notes'] ?? ''));
+        $existingNotes = trim((string) ($current['admin_notes'] ?? ''));
+
+        $payload = [
+            'category' => $policy['category'] ?? $current['category'] ?? null,
+            'status' => $policy['recommended_status'] ?? $policy['status'] ?? PopulationLearningControl::STATUS_AUTO,
+            'population_enabled' => (bool) ($policy['population_enabled'] ?? false),
+            'research_enabled' => (bool) ($policy['research_enabled'] ?? true),
+            'composite_enabled' => (bool) ($policy['composite_enabled'] ?? true),
+            'minimum_sample_size' => (int) ($policy['minimum_sample_size'] ?? PopulationPercentileEngine::MIN_LOW_CONFIDENCE),
+            'minimum_confidence' => $policy['minimum_confidence'] ?? null,
+            'allow_global_bucket' => (bool) ($policy['allow_global_bucket'] ?? true),
+            'allow_exact_peer_bucket' => (bool) ($policy['allow_exact_peer_bucket'] ?? true),
+            'allow_age_bucket' => (bool) ($policy['allow_age_bucket'] ?? true),
+            'max_exclusion_rate' => $policy['max_exclusion_rate'] ?? null,
+            'last_audit_summary' => $policy['last_audit_summary'] ?? null,
+        ];
+
+        if ($preserveNotes && $existingNotes !== '') {
+            $payload['admin_notes'] = $existingNotes;
+        } else {
+            $payload['admin_notes'] = $this->rolloutNotes($existingNotes, $rolloutNote, (string) ($policy['rollout_profile'] ?? 'metric_trust_rollout'));
+        }
+
+        return $this->updateControl($metricKey, $payload, $reviewedByUserId);
+    }
+
     public function listControls(array $filters = []): array
     {
         $category = $filters['category'] ?? null;
@@ -355,6 +387,22 @@ class PopulationLearningControlService
             'qa_flags' => $metricReport['qa_flags'] ?? [],
             'recommended_actions' => array_slice($metricReport['recommended_actions'] ?? [], 0, 5),
         ];
+    }
+
+    private function rolloutNotes(string $existingNotes, string $rolloutNote, string $profile): ?string
+    {
+        if ($rolloutNote === '') {
+            return $existingNotes !== '' ? $existingNotes : null;
+        }
+
+        $marker = 'Metric Trust Rollout '.$profile;
+        if (str_contains($existingNotes, $marker)) {
+            return $existingNotes;
+        }
+
+        $entry = $marker.' @ '.now()->toIso8601String().': '.$rolloutNote;
+
+        return $existingNotes !== '' ? $existingNotes."\n".$entry : $entry;
     }
 
     private function sampleSize(array $audit): int

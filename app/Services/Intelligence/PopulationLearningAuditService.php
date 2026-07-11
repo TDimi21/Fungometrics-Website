@@ -81,6 +81,7 @@ class PopulationLearningAuditService
         ]);
         $safeToUse = $this->safeToUse($readiness, $qaFlags)
             && ((bool) ($policy['population_allowed'] ?? false) || (bool) ($policy['composite_allowed'] ?? false));
+        $rolloutRecommendation = $this->rolloutRecommendation($metricKey, $definition, $readiness, $qaFlags, $finalCount);
 
         return [
             'metric_key' => $metricKey,
@@ -125,6 +126,12 @@ class PopulationLearningAuditService
             'admin_notes' => $policy['admin_notes'] ?? null,
             'population_policy' => $policy,
             'safe_to_use' => $safeToUse,
+            'recommended_control_status' => $rolloutRecommendation['recommended_control_status'],
+            'rollout_reason' => $rolloutRecommendation['rollout_reason'],
+            'safe_to_enable_composite' => $rolloutRecommendation['safe_to_enable_composite'],
+            'safe_to_enable_population' => $rolloutRecommendation['safe_to_enable_population'],
+            'should_remain_research_only' => $rolloutRecommendation['should_remain_research_only'],
+            'should_mark_needs_review' => $rolloutRecommendation['should_mark_needs_review'],
             'qa_flags' => $qaFlags,
             'evidence' => $this->evidence($definition, $mappingExists, $audit, $fallback, $qaFlags, $sourceMix),
             'recommended_actions' => $this->metricRecommendedActions($metricKey, $definition, $audit, $readiness, $qaFlags, $policy),
@@ -524,6 +531,79 @@ class PopulationLearningAuditService
         return $readiness === 'composite_ready'
             && ! in_array('high_exclusion_rate', $qaFlags, true)
             && ! in_array('suspicious_outliers_removed', $qaFlags, true);
+    }
+
+    private function rolloutRecommendation(string $metricKey, ?array $definition, string $readiness, array $qaFlags, int $finalCount): array
+    {
+        $missingSetup = in_array('missing_metric_mapping', $qaFlags, true)
+            || in_array('missing_research_benchmark', $qaFlags, true);
+        $criticalReview = $missingSetup
+            || in_array('high_exclusion_rate', $qaFlags, true)
+            || in_array('suspicious_outliers_removed', $qaFlags, true)
+            || in_array('trusted_task_payloads_excluded', $qaFlags, true);
+        $safeComposite = $this->safeToUse($readiness, $qaFlags)
+            && is_array($definition)
+            && $finalCount >= PopulationPercentileEngine::MIN_LOW_CONFIDENCE;
+
+        if (! $missingSetup && in_array($metricKey, ['bench_press', 'squat', 'deadlift'], true)) {
+            return [
+                'recommended_control_status' => PopulationLearningControl::STATUS_RESEARCH_ONLY,
+                'rollout_reason' => 'Official rollout keeps primary strength metrics research-only until sample quality improves.',
+                'safe_to_enable_composite' => false,
+                'safe_to_enable_population' => false,
+                'should_remain_research_only' => true,
+                'should_mark_needs_review' => false,
+            ];
+        }
+
+        if (! $missingSetup && in_array($metricKey, [
+            'mobility_score',
+            'shoulder_mobility_score',
+            'hip_mobility_score',
+            't_spine_mobility_score',
+            'long_toss_max_distance',
+            'weighted_ball_5oz_velocity',
+        ], true)) {
+            return [
+                'recommended_control_status' => PopulationLearningControl::STATUS_NEEDS_REVIEW,
+                'rollout_reason' => 'Official rollout keeps this metric in needs-review until clean metric-specific data exists.',
+                'safe_to_enable_composite' => false,
+                'safe_to_enable_population' => false,
+                'should_remain_research_only' => false,
+                'should_mark_needs_review' => true,
+            ];
+        }
+
+        if ($safeComposite) {
+            return [
+                'recommended_control_status' => PopulationLearningControl::STATUS_COMPOSITE_ENABLED,
+                'rollout_reason' => 'Audit sample is large enough and quality checks passed for cautious composite blending.',
+                'safe_to_enable_composite' => true,
+                'safe_to_enable_population' => false,
+                'should_remain_research_only' => false,
+                'should_mark_needs_review' => false,
+            ];
+        }
+
+        if ($criticalReview) {
+            return [
+                'recommended_control_status' => PopulationLearningControl::STATUS_NEEDS_REVIEW,
+                'rollout_reason' => 'Audit found mapping, benchmark, guardrail, or trusted-payload issues requiring review.',
+                'safe_to_enable_composite' => false,
+                'safe_to_enable_population' => false,
+                'should_remain_research_only' => false,
+                'should_mark_needs_review' => true,
+            ];
+        }
+
+        return [
+            'recommended_control_status' => PopulationLearningControl::STATUS_RESEARCH_ONLY,
+            'rollout_reason' => 'Research fallback should remain active until population sample reaches 30 guarded values.',
+            'safe_to_enable_composite' => false,
+            'safe_to_enable_population' => false,
+            'should_remain_research_only' => true,
+            'should_mark_needs_review' => false,
+        ];
     }
 
     private function contextFromOptions(array $options, array $base = []): array

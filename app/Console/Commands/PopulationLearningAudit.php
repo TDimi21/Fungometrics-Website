@@ -137,6 +137,9 @@ class PopulationLearningAudit extends Command
             if (! empty($metric['policy_reason'] ?? null)) {
                 $this->line('  policy: '.$metric['policy_reason']);
             }
+            if (! empty($metric['recommended_control_status'] ?? null)) {
+                $this->line('  rollout: '.$metric['recommended_control_status'].' - '.($metric['rollout_reason'] ?? '-'));
+            }
             if (! empty($metric['admin_notes'] ?? null)) {
                 $this->line('  notes: '.$metric['admin_notes']);
             }
