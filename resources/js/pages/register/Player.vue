@@ -132,7 +132,7 @@ const typeClicked = (type) => {
   <div class="flex flex-row h-screen flex-nowrap">
     <BannerLeftRegister :backgroundImage="imgPath" title="Player" />
 
-    <section class="w-full lg:w-[65%]" >
+    <section class="w-full lg:w-[65%] bg-[#061530]" >
 
       <RouterLink to="/"
                   class="absolute right-6 top-6"><img src="@/assets/img/register/cancel.svg" alt="Icon close view"></RouterLink>
@@ -148,7 +148,7 @@ const typeClicked = (type) => {
 
             <!-- type player -->
             <div class="flex flex-col">
-              <LabelField text="Type of player" :required="true" class="mt-8 mb-5 text-fungo-darkblue"/>
+              <LabelField text="Type of player" :required="true" class="mt-8 mb-5 text-white"/>
               <div class="flex flex-row justify-between">
                 <input v-for="(type) in playerTypes" type="button" :value="type" @click="typeClicked(type)"
                   class="btn-type-player" :class="{'active-button' : player.type.includes(type) }">
@@ -157,13 +157,13 @@ const typeClicked = (type) => {
 
             <!-- player height -->
             <div class="flex flex-col mt-4">
-              <LabelField text="Height of player (ft and inch*)" class="mt-8 mb-5 text-fungo-darkblue"/>
+              <LabelField text="Height of player (ft and inch*)" class="mt-8 mb-5 text-white"/>
               <div class="flex flex-row justify-between mt-4">
-                <LabelField text="ft" class="mb-5 text-fungo-darkblue"/>
+                <LabelField text="ft" class="mb-5 text-white"/>
                 <InputBase v-model="player.heightFt" :inputType="'number'" inputClasses="w-10/12" />
               </div>
               <div class="flex flex-row justify-between mt-6">
-                <LabelField text="inch" class="mb-5 text-fungo-darkblue"/>
+                <LabelField text="inch" class="mb-5 text-white"/>
                 <InputBase v-model="player.heightInch" :inputType="'number'" inputClasses="w-10/12" />
               </div>
             </div>
@@ -184,15 +184,15 @@ const typeClicked = (type) => {
           <!-- first row -->
           <div class="flex flex-col justify-between lg:flex-row">
             <div class="box-input-col">
-              <LabelField text="First name" :required="true" class="mb-5 text-fungo-darkblue"/>
+              <LabelField text="First name" :required="true" class="mb-5 text-white"/>
               <InputBase v-model="player.firstName" />
             </div>
             <div class="box-input-col">
-              <LabelField text="Last name" :required="true" class="mb-5 text-fungo-darkblue"/>
+              <LabelField text="Last name" :required="true" class="mb-5 text-white"/>
               <InputBase v-model="player.lastName" />
             </div>
             <div class="box-input-col">
-              <LabelField text="Born" :required="true" class="mb-5 text-fungo-darkblue"/>
+              <LabelField text="Born" :required="true" class="mb-5 text-white"/>
               <InputBase v-model="player.born" inputType="date"/>
             </div>
           </div>
@@ -200,15 +200,15 @@ const typeClicked = (type) => {
           <!-- second row -->
           <div class="flex flex-col justify-between lg:flex-row">
             <div class="box-input-col">
-              <LabelField text="E-Mail address" :required="true" class="mb-5 text-fungo-darkblue"/>
+              <LabelField text="E-Mail address" :required="true" class="mb-5 text-white"/>
               <InputBase v-model="player.email" inputType="email"/>
             </div>
             <div class="box-input-col">
-              <LabelField text="Password" :required="true" class="mb-5 text-fungo-darkblue"/>
+              <LabelField text="Password" :required="true" class="mb-5 text-white"/>
               <PasswordField v-model="player.password"/>
             </div>
             <div class="box-input-col">
-              <LabelField text="Confirm password" :required="true" class="mb-5 text-fungo-darkblue"/>
+              <LabelField text="Confirm password" :required="true" class="mb-5 text-white"/>
               <PasswordField v-model="player.confirmPassword"/>
             </div>
           </div>
@@ -216,7 +216,7 @@ const typeClicked = (type) => {
           <!-- third row -->
           <div class="flex flex-col justify-between lg:flex-row">
             <div class="box-input-col">
-              <LabelField text="Mobile number" :required="true" class="mb-5 text-fungo-darkblue"/>
+              <LabelField text="Mobile number" :required="true" class="mb-5 text-white"/>
               <InutTel v-model="player.mobileNumber"/>
             </div>
             <div class="box-input-col">
@@ -244,10 +244,17 @@ const typeClicked = (type) => {
 }
 
 .form-header {
-  @apply bg-[#F7F8F9] h-[80%] md:h-[54%] lg:h-[43%] flex flex-col lg:flex-row justify-center items-center;
+  @apply text-white h-[80%] md:h-[54%] lg:h-[43%] flex flex-col lg:flex-row justify-center items-center;
+  background: #0a1f42;
 }
 .form-body {
-  @apply bg-[#E7EAEE] h-auto lg:h-[57%] px-20 py-12 2xl:px-28 2xl:pt-10 2xl:pb-20 flex flex-col justify-between;
+  @apply text-white h-auto lg:h-[57%] px-20 py-12 2xl:px-28 2xl:pt-10 2xl:pb-20 flex flex-col justify-between;
+  background: linear-gradient(180deg, #0a1f42 0%, #061530 100%);
+}
+
+/* InputImage's own label ("Picture") is dark by default — make it readable on the dark form. */
+:deep(.image-input-label) {
+  color: #ffffff;
 }
 .btn-type-player {
   @apply rounded-md bg-white border-[1px] border-black py-2 w-10 h-10 ml-1 cursor-pointer text-fungo-darkblue;

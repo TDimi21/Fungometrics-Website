@@ -1280,6 +1280,412 @@ const collectionPlayerNames = (players) =>
     .slice(0, 6)
     .join(', ')
 
+const formatCoachPriority = (priority, fallback = 'Medium') => {
+  const text = String(priority ?? '').trim().toLowerCase()
+  if (['critical', 'high'].includes(text)) return 'High'
+  if (['medium', 'moderate'].includes(text)) return 'Medium'
+  if (['low', 'none'].includes(text)) return 'Low'
+  return fallback
+}
+
+const coachActionPriorityClass = (priority) => ({
+  High: 'border-red-300/30 bg-red-500/15 text-red-100',
+  Medium: 'border-amber-300/30 bg-amber-500/15 text-amber-100',
+  Low: 'border-cyan-300/30 bg-cyan-500/15 text-cyan-100',
+}[formatCoachPriority(priority)] || 'border-white/10 bg-white/5 text-slate-200')
+
+const coachActionCategoryClass = (category) => ({
+  hitting: 'text-red-200',
+  pitching: 'text-sky-200',
+  throwing: 'text-cyan-200',
+  strength: 'text-amber-200',
+  athletic: 'text-purple-200',
+  mobility: 'text-emerald-200',
+  roster: 'text-orange-200',
+  trust: 'text-indigo-200',
+}[String(category ?? '').toLowerCase()] || 'text-slate-200')
+
+const coachActionMetricName = (metric) => {
+  if (typeof metric === 'string') return coachFriendlyMetricLabel(metric)
+  return metric?.display_name || coachFriendlyMetricLabel(metric)
+}
+
+const rowMetricKeys = (row) => [
+  row?.metric_key,
+  ...asArray(row?.metric_keys),
+  ...asArray(row?.metrics).map((metric) => typeof metric === 'string' ? metric : metric?.metric_key),
+].filter(Boolean)
+
+const rowMatchesMetric = (row, keys) => {
+  const keySet = new Set(asArray(keys))
+  return rowMetricKeys(row).some((key) => keySet.has(key))
+}
+
+const metricRowsForKeys = (keys) => [
+  ...allCriticalMissingRows.value,
+  ...allSupportingMissingRows.value,
+  ...benchmarkMissingMetrics.value,
+].filter((row) => rowMatchesMetric(row, keys))
+
+const missingCountForRows = (rows) => {
+  const counts = asArray(rows)
+    .map((row) => n(row?.missing_count))
+    .filter((count) => count !== null)
+  return counts.length ? Math.max(...counts) : null
+}
+
+const playersForRows = (rows) => {
+  const players = new Map()
+  asArray(rows).forEach((row) => {
+    asArray(row?.players_missing || row?.players).forEach((player) => {
+      const id = player?.player_id || player?.id || player?.player_name || player?.name
+      if (!id || players.has(id)) return
+      players.set(id, player?.player_name || player?.name || id)
+    })
+  })
+  return Array.from(players.values()).slice(0, 6)
+}
+
+const metricKeysForRows = (rows) =>
+  Array.from(new Set(asArray(rows).flatMap(rowMetricKeys)))
+    .map((key) => coachFriendlyMetricLabel(key))
+    .filter(Boolean)
+    .slice(0, 6)
+
+const actionFromCollectionNextBest = () => {
+  const next = benchmarkCollectionNextAction.value
+  if (!next) return null
+
+  return {
+    title: next.title || 'Complete Benchmark Baselines',
+    priority: formatCoachPriority(next.priority || benchmarkCollectionPlan.value?.priority_level),
+    category: next.category || 'baseline',
+    why: next.why || 'FMTRX found a benchmark collection task that will improve confidence.',
+    action: asArray(next.coach_instructions).length
+      ? asArray(next.coach_instructions).join(' ')
+      : 'Complete the recommended benchmark baseline block.',
+    players: asArray(next.players).map((player) => player?.player_name || player?.name || player?.player_id).filter(Boolean).slice(0, 6),
+    metrics: asArray(next.metrics).map((metric) => coachActionMetricName(metric)).filter(Boolean).slice(0, 6),
+    minutes: n(next.duration_minutes),
+    source: 'collection_plan',
+  }
+}
+
+const coachActionForMetric = (metric, overrides = {}) => {
+  const key = String(metric?.metric_key || metric || '').trim()
+  const category = String(metric?.category || overrides.category || '').toLowerCase()
+  const label = coachActionMetricName(metric)
+
+  if (['average_exit_velocity', 'max_exit_velocity', 'hard_hit_percentage', 'line_drive_percentage'].includes(key) || category === 'hitting') {
+    return {
+      title: 'Run Exit Velocity Baseline',
+      priority: overrides.priority || 'High',
+      category: 'hitting',
+      why: `${label} is limiting the hitting benchmark picture.`,
+      action: 'Run controlled barrel rounds, then max-intent EV rounds. Track average EV, max EV, and line-drive quality.',
+      metrics: [label],
+      source: overrides.source || 'benchmark_profile',
+    }
+  }
+
+  if (['average_fastball_velocity', 'max_fastball_velocity', 'strike_percentage'].includes(key) || category === 'pitching') {
+    return {
+      title: 'Run Bullpen Baseline',
+      priority: overrides.priority || 'High',
+      category: 'pitching',
+      why: `${label} is needed to evaluate command and mound performance.`,
+      action: 'Run a tracked bullpen and record average FB velo, max FB velo, and strike percentage.',
+      metrics: [label],
+      source: overrides.source || 'benchmark_profile',
+    }
+  }
+
+  if (['long_toss_max_distance', 'weighted_ball_5oz_velocity'].includes(key)) {
+    return {
+      title: 'Collect Throwing Capacity Baseline',
+      priority: overrides.priority || 'Medium',
+      category: 'throwing',
+      why: 'FMTRX needs long toss and 5 oz velocity to understand throwing capacity and mound transfer.',
+      action: 'Record max long toss distance and 5 oz velocity where appropriate.',
+      metrics: [label],
+      source: overrides.source || 'benchmark_profile',
+    }
+  }
+
+  if (['bench_press', 'squat', 'deadlift', 'pull_ups', 'pushups'].includes(key) || category === 'strength') {
+    return {
+      title: 'Complete Strength Baseline',
+      priority: overrides.priority || 'Medium',
+      category: 'strength',
+      why: 'Strength benchmarks are still research-based because FMTRX needs more clean strength data.',
+      action: 'Collect bench, squat, deadlift, pull-ups, and pushups during the next testing block.',
+      metrics: [label],
+      source: overrides.source || 'benchmark_profile',
+    }
+  }
+
+  if (['forty_yard_dash', 'sixty_yard_dash', 'broad_jump', 'vertical_jump'].includes(key) || category === 'athletic') {
+    return {
+      title: 'Run Athletic Testing',
+      priority: overrides.priority || 'Medium',
+      category: 'athletic',
+      why: 'Speed and explosiveness data improves player benchmark accuracy.',
+      action: 'Collect 40-yard, 60-yard, broad jump, and vertical jump baselines.',
+      metrics: [label],
+      source: overrides.source || 'benchmark_profile',
+    }
+  }
+
+  if (key.includes('mobility') || category === 'mobility') {
+    return {
+      title: 'Run Mobility Screen',
+      priority: overrides.priority || 'Medium',
+      category: 'mobility',
+      why: 'Mobility scores need more review and clean data before FMTRX population learning can influence scoring.',
+      action: 'Screen shoulder, hip, and T-spine mobility and record scores.',
+      metrics: [label],
+      source: overrides.source || 'benchmark_profile',
+    }
+  }
+
+  return {
+    title: `Address ${label}`,
+    priority: overrides.priority || 'Medium',
+    category: category || 'benchmark',
+    why: `${label} is part of the current benchmark picture.`,
+    action: 'Use the next testing block to collect a clean baseline and coach the related development need.',
+    metrics: [label],
+    source: overrides.source || 'benchmark_profile',
+  }
+}
+
+const selectedMetricCoachAction = computed(() =>
+  selectedBenchmarkMetric.value ? coachActionForMetric(selectedBenchmarkMetric.value) : null
+)
+
+const coachActionCards = computed(() => {
+  const actions = []
+  const addAction = (action) => {
+    if (!action?.title) return
+    const title = String(action.title).trim()
+    if (!title || actions.some((existing) => existing.title === title)) return
+    actions.push({
+      priority: formatCoachPriority(action.priority),
+      category: action.category || 'benchmark',
+      why: action.why || 'FMTRX found a benchmark signal that needs coach attention.',
+      action: action.action || 'Review this benchmark and collect the next clean baseline.',
+      players: asArray(action.players).filter(Boolean).slice(0, 6),
+      metrics: asArray(action.metrics).filter(Boolean).slice(0, 6),
+      minutes: n(action.minutes),
+      source: action.source || 'benchmark_profile',
+      title,
+    })
+  }
+
+  const primaryTitle = String(primaryFocusCard.value.title || '').toLowerCase()
+  if (primaryTitle.includes('exit velocity') || primaryTitle.includes('power')) {
+    const rows = metricRowsForKeys(['average_exit_velocity', 'max_exit_velocity', 'hard_hit_percentage', 'line_drive_percentage'])
+    const count = missingCountForRows(rows)
+    addAction({
+      title: 'Run Exit Velocity Baseline',
+      priority: 'High',
+      category: 'hitting',
+      why: count
+        ? `Power output is today’s primary focus and ${fmtCount(count, '0')} players need EV baselines.`
+        : 'Power output is today’s primary focus.',
+      action: 'Run a 15-minute EV baseline before power rounds. Track average EV, max EV, and line-drive quality.',
+      players: playersForRows(rows),
+      metrics: ['Exit Velocity Baseline', 'Max Exit Velocity Baseline', 'Line Drive Quality'],
+      minutes: 15,
+      source: 'decision_brief',
+    })
+  } else if (primaryTitle.includes('fastball') || primaryTitle.includes('command')) {
+    const rows = metricRowsForKeys(['average_fastball_velocity', 'max_fastball_velocity', 'strike_percentage'])
+    addAction({
+      title: 'Run Bullpen Baseline',
+      priority: 'High',
+      category: 'pitching',
+      why: 'Fastball command is today’s primary focus and FMTRX needs velocity plus strike percentage to evaluate mound performance.',
+      action: 'Run a tracked bullpen and record average FB velo, max FB velo, and strike percentage.',
+      players: playersForRows(rows),
+      metrics: ['Fastball Velocity Baseline', 'Max Fastball Baseline', 'Strike % Baseline'],
+      source: 'decision_brief',
+    })
+  } else if (primaryTitle.includes('long toss') || primaryTitle.includes('mound transfer')) {
+    addAction({
+      title: 'Collect Throwing Capacity Baseline',
+      priority: 'High',
+      category: 'throwing',
+      why: 'Throwing capacity is today’s primary focus, and long toss plus 5 oz velocity clarify mound transfer.',
+      action: 'Record max long toss distance and 5 oz velocity where appropriate.',
+      metrics: ['Long Toss Max', '5 oz Velocity'],
+      source: 'decision_brief',
+    })
+  } else if (primaryTitle && !primaryTitle.includes('needs more intelligence')) {
+    addAction({
+      title: primaryFocusCard.value.title,
+      priority: primaryFocusCard.value.confidence === 'high' ? 'High' : 'Medium',
+      category: 'practice',
+      why: primaryFocusCard.value.why,
+      action: primaryFocusCard.value.action,
+      source: 'decision_brief',
+    })
+  }
+
+  addAction(actionFromCollectionNextBest())
+
+  if ((n(rosterCleanupRow.value?.missing_count) ?? rosterCleanupPlayers.value.length) > 0) {
+    addAction({
+      title: 'Clean Up Roster Profiles',
+      priority: 'High',
+      category: 'roster',
+      why: `${fmtCount(n(rosterCleanupRow.value?.missing_count) ?? rosterCleanupPlayers.value.length, '0')} players are missing DOB or position, which limits peer comparisons.`,
+      action: 'Update roster profile details before the next benchmark session.',
+      players: rosterCleanupPlayers.value.map((player) => player?.player_name || player?.name || player).filter(Boolean),
+      metrics: ['DOB', 'Position', 'Height', 'Weight', 'Throws', 'Bats'],
+      source: 'benchmark_profile',
+    })
+  }
+
+  const missingGroups = [
+    {
+      keys: ['average_exit_velocity', 'max_exit_velocity'],
+      build: (rows) => ({
+        title: 'Run Exit Velocity Baseline',
+        priority: 'High',
+        category: 'hitting',
+        why: `${fmtCount(missingCountForRows(rows), '0')} players need EV baselines for better hitting benchmarks.`,
+        action: 'Run controlled barrel rounds, then max-intent EV rounds. Track average EV, max EV, and line-drive quality.',
+        players: playersForRows(rows),
+        metrics: metricKeysForRows(rows),
+        source: 'benchmark_profile',
+      }),
+    },
+    {
+      keys: ['average_fastball_velocity', 'max_fastball_velocity', 'strike_percentage'],
+      build: (rows) => ({
+        title: 'Run Bullpen Baseline',
+        priority: 'High',
+        category: 'pitching',
+        why: 'FMTRX needs velocity and strike percentage to evaluate command and mound performance.',
+        action: 'Run a tracked bullpen and record average FB velo, max FB velo, and strike percentage.',
+        players: playersForRows(rows),
+        metrics: metricKeysForRows(rows),
+        source: 'benchmark_profile',
+      }),
+    },
+    {
+      keys: ['long_toss_max_distance', 'weighted_ball_5oz_velocity'],
+      build: (rows) => ({
+        title: 'Collect Throwing Capacity Baseline',
+        priority: 'Medium',
+        category: 'throwing',
+        why: 'FMTRX needs long toss and 5 oz velocity to understand throwing capacity and mound transfer.',
+        action: 'Record max long toss distance and 5 oz velocity where appropriate.',
+        players: playersForRows(rows),
+        metrics: metricKeysForRows(rows),
+        source: 'benchmark_profile',
+      }),
+    },
+    {
+      keys: ['bench_press', 'squat', 'deadlift', 'pull_ups', 'pushups'],
+      build: (rows) => ({
+        title: 'Complete Strength Baseline',
+        priority: 'Medium',
+        category: 'strength',
+        why: 'Strength benchmarks are still research-based because FMTRX needs more clean strength data.',
+        action: 'Collect bench, squat, deadlift, pull-ups, and pushups during the next testing block.',
+        players: playersForRows(rows),
+        metrics: metricKeysForRows(rows),
+        source: 'benchmark_profile',
+      }),
+    },
+    {
+      keys: ['forty_yard_dash', 'sixty_yard_dash', 'broad_jump', 'vertical_jump'],
+      build: (rows) => ({
+        title: 'Run Athletic Testing',
+        priority: 'Medium',
+        category: 'athletic',
+        why: 'Speed and explosiveness data improves player benchmark accuracy.',
+        action: 'Collect 40-yard, 60-yard, broad jump, and vertical jump baselines.',
+        players: playersForRows(rows),
+        metrics: metricKeysForRows(rows),
+        source: 'benchmark_profile',
+      }),
+    },
+    {
+      keys: ['mobility_score', 'shoulder_mobility_score', 'hip_mobility_score', 't_spine_mobility_score'],
+      build: (rows) => ({
+        title: 'Run Mobility Screen',
+        priority: 'Medium',
+        category: 'mobility',
+        why: 'Mobility scores need more review and clean data before FMTRX population learning can influence scoring.',
+        action: 'Screen shoulder, hip, and T-spine mobility and record scores.',
+        players: playersForRows(rows),
+        metrics: metricKeysForRows(rows),
+        source: 'benchmark_profile',
+      }),
+    },
+  ]
+
+  missingGroups.forEach((group) => {
+    const rows = metricRowsForKeys(group.keys)
+    if (rows.length) addAction(group.build(rows))
+  })
+
+  weakestBenchmarkMetrics.value.slice(0, 2).forEach((metric) => {
+    addAction(coachActionForMetric(metric, {
+      priority: n(metric?.score_0_100) !== null && n(metric?.score_0_100) < 50 ? 'High' : 'Medium',
+      source: 'benchmark_profile',
+    }))
+  })
+
+  const needsReviewMetric = benchmarkTrustMetrics.value.find((metric) => metricTrustStatus(metric) === 'needs_review')
+  if (needsReviewMetric) {
+    addAction({
+      title: 'Review Data Quality',
+      priority: 'Medium',
+      category: 'trust',
+      why: 'This metric has data, but FMTRX has not approved it for population learning yet.',
+      action: 'Check for missing context, outliers, or inconsistent entries before enabling population influence.',
+      metrics: [coachActionMetricName(needsReviewMetric)],
+      source: 'trust_badge',
+    })
+  }
+
+  const broadMetric = bucketQualityMetricRows.value.find((metric) =>
+    metric.bucketDisplayLevel === 'broad_unknown' || metric.bucketLevel === 'global_clean'
+  )
+  if (broadMetric) {
+    addAction({
+      title: 'Improve Peer Matching',
+      priority: 'Medium',
+      category: 'trust',
+      why: 'FMTRX used a broad comparison group for some metrics.',
+      action: 'Add height, weight, throws, bats, and level to improve comparison quality.',
+      metrics: [coachActionMetricName(broadMetric)],
+      source: 'comparison_quality',
+    })
+  }
+
+  const researchOnlyStrength = benchmarkTrustMetrics.value.find((metric) =>
+    metricTrustStatus(metric) === 'research_only' && String(metric?.category || '').toLowerCase() === 'strength'
+  )
+  if (researchOnlyStrength) {
+    addAction({
+      title: 'Keep Research Benchmark Active',
+      priority: 'Low',
+      category: 'trust',
+      why: 'FMTRX does not have enough trusted player data for this metric yet.',
+      action: 'Continue collecting baselines. FMTRX will blend player data when the sample is ready.',
+      metrics: [coachActionMetricName(researchOnlyStrength)],
+      source: 'trust_badge',
+    })
+  }
+
+  return actions.slice(0, 6)
+})
+
 const benchmarkTaskAssignments = computed(() => {
   const assignments = teamIntelligence.value?.benchmark_task_assignments
   return assignments && typeof assignments === 'object' ? assignments : null
