@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\Planner\SaveCustomDrill;
 use App\Http\Controllers\Api\Planner\GetCustomDrills;
 use App\Http\Controllers\Api\Planner\DeleteCustomDrill;
 use App\Http\Controllers\Api\Planner\GetDrillLibrary;
+use App\Http\Controllers\Api\Planner\GetWorkoutCompletions;
 use App\Http\Controllers\Api\Coach\GetFieldPresets;
 use App\Http\Controllers\Api\Coach\SaveFieldPreset;
 use App\Http\Controllers\Api\Coach\DeleteFieldPreset;
@@ -256,6 +257,9 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/drills/library', GetDrillLibrary::class);
         Route::post('/drills', SaveCustomDrill::class);
         Route::delete('/drills/{id}', DeleteCustomDrill::class);
+
+        // Recent workout completions — polled by the coach app for in-app alerts.
+        Route::get('/workout-completions', GetWorkoutCompletions::class);
 
         // Saved field presets (Game Mode field builder) — user-scoped, synced replacement for localStorage
         Route::get('/field-presets', GetFieldPresets::class);

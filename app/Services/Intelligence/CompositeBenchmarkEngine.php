@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
+use App\Models\PopulationLearningControl;
+
 class CompositeBenchmarkEngine
 {
     public function __construct(
         private readonly ResearchPercentileEngine $researchPercentileEngine,
         private readonly PopulationPercentileEngine $populationPercentileEngine,
+        private readonly PopulationLearningControlService $populationLearningControlService,
     ) {}
 
     public function benchmarkMetric(string $metricKey, mixed $value, ?string $dob, array $context = [], array $populationValues = []): array
@@ -35,17 +38,63 @@ class CompositeBenchmarkEngine
         $populationPercentile = $populationUsable
             ? (float) $population['percentile']
             : null;
+        $policy = $this->populationLearningControlService->resolvePolicyForMetric($metricKey, [
+            'population_confidence' => $population['confidence'] ?? 'insufficient',
+            'selected_bucket_level' => $population['selected_bucket_level'] ?? null,
+            'selected_bucket_key' => $population['selected_bucket_key'] ?? null,
+            'bucket_count' => (int) ($population['bucket_count'] ?? 0),
+            'final_population_values_count' => (int) ($population['final_population_values_count'] ?? $population['bucket_count'] ?? 0),
+            'research_available' => $researchPercentile !== null,
+        ]);
 
-        if ($populationPercentile === null) {
+        if (($policy['status'] ?? null) === PopulationLearningControl::STATUS_DISABLED) {
+            return $this->disabledResult($metricKey, $value, $research, $population, $policy);
+        }
+
+        if ($populationPercentile !== null && $this->isPopulationOnlyPolicy($policy)) {
+            $score = (int) round(max(0, min(100, $populationPercentile)));
+            $label = $this->labelFromPercentile($score);
+
+            return [
+                'metric_key' => BenchmarkDefinitions::normalizeMetricKey($metricKey),
+                'age_group' => $research['age_group'] ?? BenchmarkDefinitions::AGE_UNKNOWN,
+                'raw_value' => $research['raw_value'] ?? (is_numeric($value) ? (float) $value : null),
+                'unit' => $research['unit'] ?? null,
+                'percentile_estimate' => $score,
+                'score_0_100' => $score,
+                'label' => $label,
+                'benchmark_label' => $label,
+                'gap_to_good' => $research['gap_to_good'] ?? null,
+                'gap_to_elite' => $research['gap_to_elite'] ?? null,
+                'confidence' => (string) ($population['confidence'] ?? 'low'),
+                'source' => 'fmtrx_population',
+                'composite_percentile' => $score,
+                'research_percentile' => $research,
+                'population_percentile' => $population,
+                'source_mix' => $this->sourceMix(0.0, 1.0, $population),
+                'population_policy' => $policy,
+                'evidence' => [
+                    'population_policy' => $policy,
+                    'research' => $research,
+                    'population' => $population,
+                ],
+            ];
+        }
+
+        if ($populationPercentile === null || ($policy['composite_allowed'] ?? false) !== true) {
             return array_merge($research, [
                 'composite_percentile' => $researchPercentile,
                 'research_percentile' => $research,
                 'population_percentile' => $population,
                 'source_mix' => $this->sourceMix(1.0, 0.0, $population),
+                'population_policy' => $policy,
                 'source' => $research['source'] ?? 'research_benchmark',
                 'evidence' => array_merge(
                     $research['evidence'] ?? [],
-                    ['population' => $population['evidence'] ?? ['FMTRX population benchmark is not usable yet.']],
+                    [
+                        'population' => $population['evidence'] ?? ['FMTRX population benchmark is not usable yet.'],
+                        'population_policy' => $policy,
+                    ],
                 ),
             ]);
         }
@@ -76,12 +125,50 @@ class CompositeBenchmarkEngine
             'research_percentile' => $research,
             'population_percentile' => $population,
             'source_mix' => $this->sourceMix($researchWeight, $populationWeight, $population),
+            'population_policy' => $policy,
             'evidence' => [
                 'blend' => $this->sourceMix($researchWeight, $populationWeight, $population),
+                'population_policy' => $policy,
                 'research' => $research,
                 'population' => $population,
             ],
         ];
+    }
+
+    private function disabledResult(string $metricKey, mixed $value, array $research, array $population, array $policy): array
+    {
+        return [
+            'metric_key' => BenchmarkDefinitions::normalizeMetricKey($metricKey),
+            'age_group' => $research['age_group'] ?? BenchmarkDefinitions::AGE_UNKNOWN,
+            'raw_value' => $research['raw_value'] ?? (is_numeric($value) ? (float) $value : null),
+            'unit' => $research['unit'] ?? null,
+            'percentile_estimate' => null,
+            'score_0_100' => null,
+            'label' => 'disabled',
+            'benchmark_label' => 'disabled',
+            'gap_to_good' => null,
+            'gap_to_elite' => null,
+            'confidence' => 'low',
+            'source' => 'disabled',
+            'composite_percentile' => null,
+            'research_percentile' => $research,
+            'population_percentile' => $population,
+            'source_mix' => $this->sourceMix(0.0, 0.0, $population),
+            'population_policy' => $policy,
+            'evidence' => [
+                'reason' => $policy['reason'] ?? 'Metric is disabled by admin control.',
+                'population_policy' => $policy,
+                'research' => $research,
+                'population' => $population,
+            ],
+        ];
+    }
+
+    private function isPopulationOnlyPolicy(array $policy): bool
+    {
+        return ($policy['status'] ?? null) === PopulationLearningControl::STATUS_POPULATION_ENABLED
+            && ($policy['population_allowed'] ?? false) === true
+            && ($policy['composite_allowed'] ?? false) !== true;
     }
 
     private function populationWeight(string $confidence): float

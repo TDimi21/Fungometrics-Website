@@ -139,6 +139,7 @@ class PlayerIntelligenceService
                 'population_attempted_buckets' => $result['population_percentile']['attempted_buckets'] ?? [],
                 'population_percentile_detail' => $result['population_percentile'] ?? null,
                 'research_percentile_detail' => $result['research_percentile'] ?? null,
+                'population_policy' => $result['population_policy'] ?? null,
                 'evidence' => $this->metricEvidence($result, $contextEvidence),
             ];
         }
@@ -209,6 +210,7 @@ class PlayerIntelligenceService
                 'research_percentile' => $metric['research_percentile'] ?? null,
                 'population_bucket_key' => $metric['population_bucket_key'] ?? null,
                 'population_bucket_level' => $metric['population_bucket_level'] ?? null,
+                'population_policy' => $metric['population_policy'] ?? null,
             ])
             ->values()
             ->all();

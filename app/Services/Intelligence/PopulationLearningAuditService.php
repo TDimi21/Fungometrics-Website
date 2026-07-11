@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
+use App\Models\PopulationLearningControl;
+
 class PopulationLearningAuditService
 {
     public function __construct(
         private readonly BenchmarkLibrary $benchmarkLibrary,
         private readonly PopulationMetricRepository $populationMetricRepository,
+        private readonly PopulationLearningControlService $controlService,
     ) {
     }
 
@@ -65,6 +68,19 @@ class PopulationLearningAuditService
         );
         $qaFlags = $this->qaFlags($audit, $readiness, $fallback, $bucketReports, $definition, $mappingExists);
         $sourceMix = $this->sourceMixPreview($researchExists, $finalCount, $populationConfidence);
+        $policy = $this->controlService->resolvePolicyForMetric($metricKey, [
+            'population_confidence' => $populationConfidence,
+            'selected_bucket_level' => $selected['level'] ?? $fallback['level'] ?? null,
+            'selected_bucket_key' => $selected['bucket_key'] ?? $fallback['bucket_key'] ?? null,
+            'bucket_count' => $finalCount,
+            'final_population_values_count' => $finalCount,
+            'raw_values_found' => (int) ($audit['raw_values_found'] ?? 0),
+            'guardrail_excluded_count' => (int) ($audit['values_excluded'] ?? $audit['excluded_count'] ?? 0),
+            'qa_flags' => $qaFlags,
+            'research_available' => $researchExists,
+        ]);
+        $safeToUse = $this->safeToUse($readiness, $qaFlags)
+            && ((bool) ($policy['population_allowed'] ?? false) || (bool) ($policy['composite_allowed'] ?? false));
 
         return [
             'metric_key' => $metricKey,
@@ -102,10 +118,16 @@ class PopulationLearningAuditService
                 $audit['trusted_task_status_excluded_samples'] ?? [],
             ), 0, 12),
             'source_mix_preview' => $sourceMix,
-            'safe_to_use' => $this->safeToUse($readiness, $qaFlags),
+            'control_status' => $policy['status'] ?? PopulationLearningControl::STATUS_AUTO,
+            'population_allowed' => (bool) ($policy['population_allowed'] ?? false),
+            'composite_allowed' => (bool) ($policy['composite_allowed'] ?? false),
+            'policy_reason' => $policy['reason'] ?? 'Population learning policy was not available.',
+            'admin_notes' => $policy['admin_notes'] ?? null,
+            'population_policy' => $policy,
+            'safe_to_use' => $safeToUse,
             'qa_flags' => $qaFlags,
             'evidence' => $this->evidence($definition, $mappingExists, $audit, $fallback, $qaFlags, $sourceMix),
-            'recommended_actions' => $this->metricRecommendedActions($metricKey, $definition, $audit, $readiness, $qaFlags),
+            'recommended_actions' => $this->metricRecommendedActions($metricKey, $definition, $audit, $readiness, $qaFlags, $policy),
         ];
     }
 
@@ -392,7 +414,7 @@ class PopulationLearningAuditService
         return array_values(array_unique($flags));
     }
 
-    private function metricRecommendedActions(string $metricKey, ?array $definition, array $audit, string $readiness, array $qaFlags): array
+    private function metricRecommendedActions(string $metricKey, ?array $definition, array $audit, string $readiness, array $qaFlags, array $policy): array
     {
         $display = $definition['display_name'] ?? $this->humanMetric($metricKey);
         $actions = [];
@@ -419,7 +441,18 @@ class PopulationLearningAuditService
             $actions[] = 'Review trusted task payload values rejected by guardrails for '.$display.'.';
         }
         if ($readiness === 'composite_ready') {
-            $actions[] = 'Population learning is active for '.$display.' with '.$this->populationConfidence((int) ($audit['final_population_values_count'] ?? 0)).' confidence.';
+            if (($policy['composite_allowed'] ?? false) === true) {
+                $actions[] = 'Population learning is active for '.$display.' with '.$this->populationConfidence((int) ($audit['final_population_values_count'] ?? 0)).' confidence.';
+            } elseif (($policy['status'] ?? null) === PopulationLearningControl::STATUS_RESEARCH_ONLY) {
+                $actions[] = $display.' has enough population data, but admin control is keeping it research-only.';
+            } elseif (($policy['status'] ?? null) === PopulationLearningControl::STATUS_NEEDS_REVIEW) {
+                $actions[] = $display.' has enough population data, but it is marked needs review before use.';
+            } else {
+                $actions[] = $display.' has enough population data, but control policy blocks blending: '.($policy['reason'] ?? 'policy unavailable');
+            }
+        }
+        if (($policy['status'] ?? null) === PopulationLearningControl::STATUS_DISABLED) {
+            $actions[] = $display.' is disabled for benchmark scoring by admin control.';
         }
 
         return array_values(array_unique($actions));

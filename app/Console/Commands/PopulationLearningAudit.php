@@ -117,9 +117,12 @@ class PopulationLearningAudit extends Command
 
         foreach ($metrics as $metric) {
             $this->line(sprintf(
-                '- %s | readiness %s | confidence %s | bucket %s (%s) | raw %s | included %s | final %s | excluded %s | trusted %s | flags %s',
+                '- %s | readiness %s | control %s | population %s | composite %s | confidence %s | bucket %s (%s) | raw %s | included %s | final %s | excluded %s | trusted %s | flags %s',
                 $metric['display_name'] ?? $metric['metric_key'] ?? 'Unknown Metric',
                 $metric['readiness'] ?? 'not_ready',
+                $metric['control_status'] ?? 'auto',
+                ($metric['population_allowed'] ?? false) ? 'allowed' : 'blocked',
+                ($metric['composite_allowed'] ?? false) ? 'allowed' : 'blocked',
                 $metric['population_confidence'] ?? 'insufficient',
                 $metric['selected_bucket_level'] ?? 'none',
                 $metric['bucket_count'] ?? 0,
@@ -131,6 +134,12 @@ class PopulationLearningAudit extends Command
                 empty($metric['qa_flags'] ?? []) ? '-' : implode(', ', $metric['qa_flags']),
             ));
 
+            if (! empty($metric['policy_reason'] ?? null)) {
+                $this->line('  policy: '.$metric['policy_reason']);
+            }
+            if (! empty($metric['admin_notes'] ?? null)) {
+                $this->line('  notes: '.$metric['admin_notes']);
+            }
             if (! empty($metric['recommended_actions'] ?? [])) {
                 foreach (array_slice($metric['recommended_actions'], 0, 2) as $action) {
                     $this->line('  action: '.$action);
