@@ -30,7 +30,7 @@ const sidebarItems = ref([
     url: '/roster'
   },
   {
-    title: 'Practice Planner',
+    title: 'Practice/Workout',
     iconPath: iconStartPractice,
     url: '/practice-planner'
   },

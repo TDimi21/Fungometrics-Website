@@ -11,11 +11,15 @@ import {
 } from '@/features/practice/practicePlanner.js'
 import { EQUIPMENT_LIBRARY, EQUIPMENT_ALL, drillRunnable } from '@/features/practice/equipmentLibrary.js'
 import { LOCATION_GROUPS } from '@/features/practice/practiceLocations.js'
+import DailyPlanner from './DailyPlanner.vue'
 
 const { axiosGet, axiosPost, axiosDelete } = useAxiosAuth()
 const teamStore = useTeamStore()
 const { team } = storeToRefs(teamStore)
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
+
+// Practice / Workout tabs — the Workout tab is the Daily Planner.
+const activeTab = ref('practice')
 
 const CUSTOM_KEY = 'fmtrx_custom_drills'
 const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
@@ -413,6 +417,13 @@ const groupColor = (g) => ({
 
 <template>
   <Layout>
+    <div class="bg-[#060b14] px-4 pt-6 lg:px-8 no-print">
+      <div class="pp-tabs">
+        <button class="pp-tab" :class="{ 'pp-tab--on': activeTab === 'practice' }" @click="activeTab = 'practice'">Practice</button>
+        <button class="pp-tab" :class="{ 'pp-tab--on': activeTab === 'workout' }" @click="activeTab = 'workout'">Workout</button>
+      </div>
+    </div>
+    <div v-show="activeTab === 'practice'">
     <div class="min-h-screen bg-[#060b14] text-white">
       <div class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
 
@@ -608,6 +619,8 @@ const groupColor = (g) => ({
       <div v-if="notes" class="ps-footnote">Notes: {{ notes }}</div>
       <div class="ps-foot">TRAIN · TRACK · TRANSFORM — fmtrx.com</div>
     </div>
+    </div>
+    <DailyPlanner v-if="activeTab === 'workout'" />
 
     <!-- Add Drill modal -->
     <Teleport to="body">
@@ -772,6 +785,10 @@ const groupColor = (g) => ({
 </template>
 
 <style scoped>
+.pp-tabs { display: inline-flex; gap: 4px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 4px; }
+.pp-tab { background: transparent; border: none; color: rgba(255,255,255,.55); font-weight: 800; font-size: 13px; letter-spacing: .03em; padding: 8px 22px; border-radius: 9px; cursor: pointer; }
+.pp-tab:hover { color: rgba(255,255,255,.8); }
+.pp-tab--on { background: #d8232a; color: #fff; }
 .pp-section { font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; color: #fff; margin-bottom: 10px; }
 .pp-label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,.45); margin-bottom: 4px; }
 .pp-input {
