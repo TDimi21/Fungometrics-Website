@@ -176,6 +176,7 @@ Route::prefix('player')->group(function (): void {
         Route::get('benchmark-tasks', [IntelligenceController::class, 'listPlayerBenchmarkTasks']);
         Route::get('benchmark-tasks/{taskId}', [IntelligenceController::class, 'showPlayerBenchmarkTask']);
         Route::get('benchmark-tasks/{taskId}/completion-workflow', [IntelligenceController::class, 'playerBenchmarkTaskCompletionWorkflow']);
+        Route::get('benchmark-tasks/{taskId}/review-status', [IntelligenceController::class, 'playerBenchmarkTaskReviewStatus']);
         Route::post('benchmark-tasks/{taskId}/start', [IntelligenceController::class, 'startPlayerBenchmarkTask']);
         Route::post('benchmark-tasks/{taskId}/complete', [IntelligenceController::class, 'completePlayerBenchmarkTask']);
         Route::post('benchmark-tasks/{taskId}/complete-with-payload', [IntelligenceController::class, 'completePlayerBenchmarkTaskWithPayload']);
@@ -251,9 +252,13 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
         Route::post('/teams/{teamId}/benchmark-tasks/save-drafts', [IntelligenceController::class, 'saveBenchmarkDrafts']);
         Route::post('/teams/{teamId}/benchmark-tasks/assign', [IntelligenceController::class, 'assignBenchmarkTasks']);
         Route::post('/teams/{teamId}/refresh-benchmarks', [IntelligenceController::class, 'refreshTeamBenchmarks']);
+        Route::get('/teams/{teamId}/benchmark-task-reviews', [IntelligenceController::class, 'listBenchmarkTaskReviews']);
         Route::get('/benchmark-tasks/{taskId}/completion-workflow', [IntelligenceController::class, 'benchmarkTaskCompletionWorkflow']);
         Route::post('/benchmark-tasks/{taskId}/complete', [IntelligenceController::class, 'completeBenchmarkTask']);
         Route::post('/benchmark-tasks/{taskId}/complete-with-payload', [IntelligenceController::class, 'completeBenchmarkTaskWithPayload']);
+        Route::post('/benchmark-tasks/{taskId}/approve', [IntelligenceController::class, 'approveBenchmarkTask']);
+        Route::post('/benchmark-tasks/{taskId}/reject', [IntelligenceController::class, 'rejectBenchmarkTask']);
+        Route::post('/benchmark-tasks/{taskId}/request-correction', [IntelligenceController::class, 'requestBenchmarkTaskCorrection']);
         Route::post('/benchmark-tasks/{taskId}/dismiss', [IntelligenceController::class, 'dismissBenchmarkTask']);
     });
 

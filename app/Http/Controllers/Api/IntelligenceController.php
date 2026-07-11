@@ -15,6 +15,7 @@ use App\Services\Intelligence\BenchmarkRefreshService;
 use App\Services\Intelligence\BenchmarkTaskAssignmentService;
 use App\Services\Intelligence\BenchmarkTaskCompletionService;
 use App\Services\Intelligence\BenchmarkTaskPersistenceService;
+use App\Services\Intelligence\BenchmarkTaskReviewService;
 use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\TeamIntelligenceService;
@@ -34,6 +35,7 @@ class IntelligenceController extends Controller
         private readonly BenchmarkTaskPersistenceService $benchmarkTaskPersistenceService,
         private readonly BenchmarkTaskCompletionService $benchmarkTaskCompletionService,
         private readonly BenchmarkRefreshService $benchmarkRefreshService,
+        private readonly BenchmarkTaskReviewService $benchmarkTaskReviewService,
     ) {
     }
 
@@ -83,6 +85,7 @@ class IntelligenceController extends Controller
         }
 
         $snapshot['benchmark_refresh_status'] = $this->benchmarkRefreshService->buildRefreshStatus($teamId, null, $days);
+        $snapshot['benchmark_task_review_summary'] = $this->benchmarkTaskReviewService->buildTeamReviewSummary($teamId);
 
         return response()->json($snapshot);
     }
@@ -179,6 +182,26 @@ class IntelligenceController extends Controller
         return response()->json($result);
     }
 
+    public function listBenchmarkTaskReviews(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        $summary = $this->benchmarkTaskReviewService->buildTeamReviewSummary($teamId);
+        $pending = $this->benchmarkTaskReviewService->listPendingReviewTasks($teamId, [
+            'player_id' => $request->query('player_id'),
+            'task_type' => $request->query('task_type'),
+            'priority' => $request->query('priority'),
+        ]);
+
+        return response()->json([
+            ...$summary,
+            'pending_tasks' => $pending['tasks'] ?? $summary['pending_tasks'] ?? [],
+            'pending_count' => $pending['pending_count'] ?? $summary['pending_count'] ?? 0,
+        ]);
+    }
+
     public function completeBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
@@ -190,9 +213,100 @@ class IntelligenceController extends Controller
             return $this->forbidden('You do not have access to this task');
         }
 
-        $result = $this->benchmarkTaskPersistenceService->markTaskComplete($taskId, $request->all());
+        $payload = [
+            'completed_by_user_id' => (string) $request->user()?->id,
+            'source' => 'coach_dashboard',
+            'payload' => $request->all(),
+        ];
+        $result = $this->benchmarkTaskPersistenceService->markTaskComplete($taskId, $payload);
+        if ($result['ok'] ?? false) {
+            $review = $this->benchmarkTaskReviewService->recordCompletionSubmission(
+                $taskId,
+                (string) $request->user()?->id,
+                $payload,
+            );
+            $result['review'] = $review;
+            $result['task'] = $review['task'] ?? $result['task'] ?? null;
+        }
 
         return response()->json($this->withCompletionRefresh($result, $taskId, $this->days($request)));
+    }
+
+    public function approveBenchmarkTask(Request $request, string $taskId): JsonResponse
+    {
+        $task = BenchmarkCollectionTask::query()->find($taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+            return $this->forbidden('You do not have access to this task');
+        }
+
+        $validated = $request->validate([
+            'review_notes' => ['nullable', 'string', 'max:1000'],
+            'approved_payload' => ['nullable', 'array'],
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+        ]);
+
+        $result = $this->benchmarkTaskReviewService->approveTask(
+            $taskId,
+            (string) $request->user()?->id,
+            [
+                ...$validated,
+                'days' => $this->days($request),
+            ],
+        );
+
+        return response()->json($result, ($result['ok'] ?? false) ? HttpCodes::HTTP_OK : HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    public function rejectBenchmarkTask(Request $request, string $taskId): JsonResponse
+    {
+        $task = BenchmarkCollectionTask::query()->find($taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+            return $this->forbidden('You do not have access to this task');
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $result = $this->benchmarkTaskReviewService->rejectTask(
+            $taskId,
+            $validated['reason'],
+            (string) $request->user()?->id,
+        );
+
+        return response()->json($result, ($result['ok'] ?? false) ? HttpCodes::HTTP_OK : HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    public function requestBenchmarkTaskCorrection(Request $request, string $taskId): JsonResponse
+    {
+        $task = BenchmarkCollectionTask::query()->find($taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+            return $this->forbidden('You do not have access to this task');
+        }
+
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $result = $this->benchmarkTaskReviewService->requestCorrection(
+            $taskId,
+            $validated['message'],
+            (string) $request->user()?->id,
+        );
+
+        return response()->json($result, ($result['ok'] ?? false) ? HttpCodes::HTTP_OK : HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     public function dismissBenchmarkTask(Request $request, string $taskId): JsonResponse
@@ -297,11 +411,21 @@ class IntelligenceController extends Controller
             return $this->notFound('Benchmark task not found');
         }
 
-        $result = $this->benchmarkTaskPersistenceService->markTaskComplete($taskId, [
+        $payload = [
             'completed_by_user_id' => (string) $request->user()?->id,
             'source' => 'player_dashboard',
             'payload' => $request->all(),
-        ]);
+        ];
+        $result = $this->benchmarkTaskPersistenceService->markTaskComplete($taskId, $payload);
+        if ($result['ok'] ?? false) {
+            $review = $this->benchmarkTaskReviewService->recordCompletionSubmission(
+                $taskId,
+                (string) $request->user()?->id,
+                $payload,
+            );
+            $result['review'] = $review;
+            $result['task'] = $review['task'] ?? $result['task'] ?? null;
+        }
 
         return response()->json($this->withCompletionRefresh($result, $taskId, $this->days($request)));
     }
@@ -329,6 +453,18 @@ class IntelligenceController extends Controller
 
         return response()->json(
             $this->benchmarkTaskCompletionService->getCompletionWorkflow($taskId, (string) $request->user()?->id)
+        );
+    }
+
+    public function playerBenchmarkTaskReviewStatus(Request $request, string $taskId): JsonResponse
+    {
+        $task = $this->playerVisibleTaskForRequest($request, $taskId);
+        if (! $task) {
+            return $this->notFound('Benchmark task not found');
+        }
+
+        return response()->json(
+            $this->benchmarkTaskReviewService->reviewStatusForTask($taskId, (string) $request->user()?->id)
         );
     }
 

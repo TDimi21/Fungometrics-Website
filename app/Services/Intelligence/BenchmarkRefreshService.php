@@ -44,7 +44,22 @@ class BenchmarkRefreshService
             if ($task->status !== BenchmarkCollectionTask::STATUS_COMPLETED && ! $allowPreview) {
                 return $this->skipped($taskId, $teamId, $playerId, [
                     'Benchmark task is not completed yet.',
-                ]);
+                ], $task);
+            }
+
+            if (! $allowPreview && $task->review_status === BenchmarkCollectionTask::REVIEW_PENDING) {
+                return $this->skipped($taskId, $teamId, $playerId, [
+                    'Task is pending coach review. Benchmark refresh will use approved data after review.',
+                ], $task);
+            }
+
+            if (! $allowPreview && in_array($task->review_status, [
+                BenchmarkCollectionTask::REVIEW_REJECTED,
+                BenchmarkCollectionTask::REVIEW_CORRECTION_REQUESTED,
+            ], true)) {
+                return $this->skipped($taskId, $teamId, $playerId, [
+                    'Benchmark task is not approved for refresh.',
+                ], $task);
             }
 
             $this->clearRelevantCaches($teamId, $playerId, $days);
@@ -77,6 +92,7 @@ class BenchmarkRefreshService
                     'days' => $days,
                     'task_type' => $task->task_type,
                     'task_status' => $task->status,
+                    'review_status' => $task->review_status,
                     'player_metric_count' => count($playerProfile['metrics'] ?? []),
                     'team_metric_count' => $teamProfile['metric_count'] ?? null,
                     'team_benchmark_confidence' => $teamProfile['benchmark_confidence'] ?? null,
@@ -333,7 +349,7 @@ class BenchmarkRefreshService
         ][$taskType] ?? null;
     }
 
-    private function skipped(string $taskId, ?string $teamId, ?string $playerId, array $warnings): array
+    private function skipped(string $taskId, ?string $teamId, ?string $playerId, array $warnings, ?BenchmarkCollectionTask $task = null): array
     {
         return [
             'task_id' => $taskId,
@@ -349,6 +365,8 @@ class BenchmarkRefreshService
             'changed_signals' => [],
             'warnings' => $warnings,
             'evidence' => [
+                'task_status' => $task?->status,
+                'review_status' => $task?->review_status,
                 'persistence' => 'live_rebuild_payload_only',
             ],
         ];

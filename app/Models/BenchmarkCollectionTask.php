@@ -20,6 +20,12 @@ class BenchmarkCollectionTask extends Model
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_DISMISSED = 'dismissed';
 
+    public const REVIEW_NOT_REQUIRED = 'not_required';
+    public const REVIEW_PENDING = 'pending_review';
+    public const REVIEW_APPROVED = 'approved';
+    public const REVIEW_REJECTED = 'rejected';
+    public const REVIEW_CORRECTION_REQUESTED = 'correction_requested';
+
     public const ACTIVE_STATUSES = [
         self::STATUS_DRAFT,
         self::STATUS_ASSIGNED,
@@ -41,6 +47,9 @@ class BenchmarkCollectionTask extends Model
         'description',
         'priority',
         'status',
+        'review_status',
+        'submitted_by_user_id',
+        'reviewed_by_user_id',
         'due_window',
         'estimated_minutes',
         'metrics',
@@ -48,9 +57,16 @@ class BenchmarkCollectionTask extends Model
         'instructions',
         'coach_notes',
         'payload',
+        'submitted_payload',
+        'approved_payload',
         'assigned_at',
         'completed_at',
+        'submitted_at',
+        'reviewed_at',
         'dismissed_at',
+        'review_notes',
+        'rejection_reason',
+        'correction_message',
     ];
 
     protected $casts = [
@@ -58,8 +74,12 @@ class BenchmarkCollectionTask extends Model
         'missing_fields' => 'array',
         'instructions' => 'array',
         'payload' => 'array',
+        'submitted_payload' => 'array',
+        'approved_payload' => 'array',
         'assigned_at' => 'datetime',
         'completed_at' => 'datetime',
+        'submitted_at' => 'datetime',
+        'reviewed_at' => 'datetime',
         'dismissed_at' => 'datetime',
     ];
 
@@ -76,5 +96,15 @@ class BenchmarkCollectionTask extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id', 'id');
+    }
+
+    public function submittedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by_user_id', 'id');
+    }
+
+    public function reviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by_user_id', 'id');
     }
 }

@@ -28,9 +28,13 @@ const dashboard = ref({})
 const perf = ref({})
 const teamIntelligence = ref(null)
 const savedBenchmarkTasks = ref([])
+const benchmarkTaskReviews = ref(null)
 const benchmarkTaskActionLoading = ref('')
 const benchmarkTaskActionError = ref('')
 const benchmarkTaskActionMessage = ref('')
+const benchmarkReviewActionLoading = ref('')
+const benchmarkReviewActionError = ref('')
+const benchmarkReviewActionMessage = ref('')
 const benchmarkRefreshLoading = ref(false)
 const benchmarkRefreshError = ref('')
 const benchmarkRefreshMessage = ref('')
@@ -105,8 +109,11 @@ const loadTeamCommandCenter = async () => {
   perf.value = {}
   teamIntelligence.value = null
   savedBenchmarkTasks.value = []
+  benchmarkTaskReviews.value = null
   benchmarkTaskActionError.value = ''
   benchmarkTaskActionMessage.value = ''
+  benchmarkReviewActionError.value = ''
+  benchmarkReviewActionMessage.value = ''
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -116,12 +123,13 @@ const loadTeamCommandCenter = async () => {
 
   loading.value = true
   try {
-    const [boardRes, dashRes, perfRes, intelligenceRes, benchmarkTasksRes] = await Promise.all([
+    const [boardRes, dashRes, perfRes, intelligenceRes, benchmarkTasksRes, benchmarkReviewsRes] = await Promise.all([
       axiosGet(`coach/teams/${teamId}/player-development-board`).catch(() => null),
       axiosGet(`dashboard/${teamId}`).catch(() => null),
       axiosGet(`coach/performance-overview/${teamId}`).catch(() => null),
       axiosGet(`coach/teams/${teamId}/intelligence`, { days: 365 }).catch(() => null),
       axiosGet(`intelligence/teams/${teamId}/benchmark-tasks`).catch(() => null),
+      axiosGet(`intelligence/teams/${teamId}/benchmark-task-reviews`).catch(() => null),
     ])
 
     board.value = Array.isArray(boardRes?.data?.data) ? boardRes.data.data : []
@@ -130,6 +138,8 @@ const loadTeamCommandCenter = async () => {
     teamIntelligence.value = intelligenceRes?.data?.data || intelligenceRes?.data || null
     const benchmarkTaskPayload = benchmarkTasksRes?.data?.data || benchmarkTasksRes?.data || {}
     savedBenchmarkTasks.value = Array.isArray(benchmarkTaskPayload.tasks) ? benchmarkTaskPayload.tasks : []
+    const benchmarkReviewPayload = benchmarkReviewsRes?.data?.data || benchmarkReviewsRes?.data || null
+    benchmarkTaskReviews.value = benchmarkReviewPayload || teamIntelligence.value?.benchmark_task_review_summary || null
 
     const hasIntelligenceData = Array.isArray(teamIntelligence.value?.players) && teamIntelligence.value.players.length
     const benchmarkMetricCount = n(teamIntelligence.value?.benchmark_profile?.metric_count) || 0
@@ -174,6 +184,13 @@ const fmtCount = (value, fallback = '—') => {
 const fmtValue = (value, unit = '', fallback = '—') => {
   const display = fmt1(value, fallback)
   return display === fallback ? fallback : `${display}${unit ? ` ${unit}` : ''}`
+}
+
+const formatDate = (value) => {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10)
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 const hasPositiveSample = (...values) => values.some((value) => (n(value) ?? 0) > 0)
@@ -1113,6 +1130,105 @@ const savedBenchmarkTaskTypeSummaryRows = computed(() => {
     .sort((a, b) => b.task_count - a.task_count || taskTypeLabel(a.task_type).localeCompare(taskTypeLabel(b.task_type)))
     .slice(0, 6)
 })
+
+const benchmarkTaskReviewSummary = computed(() =>
+  benchmarkTaskReviews.value || teamIntelligence.value?.benchmark_task_review_summary || null
+)
+
+const pendingBenchmarkReviewTasks = computed(() =>
+  asArray(benchmarkTaskReviewSummary.value?.pending_tasks).slice(0, 8)
+)
+
+const pendingBenchmarkReviewCount = computed(() =>
+  n(benchmarkTaskReviewSummary.value?.pending_count) ?? pendingBenchmarkReviewTasks.value.length
+)
+
+const reviewStateLabel = (status) => ({
+  not_required: 'No Review Required',
+  pending_review: 'Pending Coach Review',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  correction_requested: 'Correction Requested',
+}[status] || humanizeKey(status, 'Not Submitted'))
+
+const reviewStateClass = (status) => ({
+  pending_review: 'border-amber-300/30 bg-amber-500/15 text-amber-100',
+  approved: 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100',
+  rejected: 'border-red-300/30 bg-red-500/15 text-red-100',
+  correction_requested: 'border-sky-300/30 bg-sky-500/15 text-sky-100',
+  not_required: 'border-white/10 bg-white/5 text-white/55',
+}[status] || 'border-white/10 bg-white/5 text-white/55')
+
+const submittedValueRows = (task) =>
+  asArray(task?.submitted_values_summary).slice(0, 6)
+
+const refreshBenchmarkTaskReviews = async () => {
+  const teamId = resolveTeamId.value
+  if (!teamId) return
+
+  const response = await axiosGet(`intelligence/teams/${teamId}/benchmark-task-reviews`)
+  benchmarkTaskReviews.value = responsePayload(response)
+}
+
+const applyReviewRefreshPayload = (refresh) => {
+  if (!refresh || typeof refresh !== 'object') return
+
+  teamIntelligence.value = {
+    ...(teamIntelligence.value || {}),
+    benchmark_profile: refresh.team_benchmark_profile || teamIntelligence.value?.benchmark_profile || null,
+    decision_brief: refresh.decision_brief || teamIntelligence.value?.decision_brief || null,
+    benchmark_collection_plan: refresh.collection_plan || teamIntelligence.value?.benchmark_collection_plan || null,
+    benchmark_refresh_status: {
+      status: refresh.refresh_status || 'unknown',
+      last_refreshed_at: refresh.refreshed_at || null,
+      reason: refresh.refresh_status === 'completed'
+        ? 'Benchmark intelligence was refreshed from approved task data.'
+        : 'Benchmark intelligence is calculated live from current data.',
+      changed_signals: asArray(refresh.changed_signals),
+      warnings: asArray(refresh.warnings),
+      evidence: refresh.evidence || {},
+    },
+  }
+}
+
+const reviewBenchmarkTask = async (task, action) => {
+  const taskId = task?.id || task?.task_id
+  if (!taskId || benchmarkReviewActionLoading.value) return
+
+  let payload = { days: 365 }
+  if (action === 'reject') {
+    const reason = window.prompt('Why is this benchmark task being rejected?')
+    if (!String(reason || '').trim()) return
+    payload = { reason: String(reason).trim() }
+  }
+  if (action === 'request-correction') {
+    const message = window.prompt('What should the player correct?')
+    if (!String(message || '').trim()) return
+    payload = { message: String(message).trim() }
+  }
+
+  benchmarkReviewActionLoading.value = `${action}:${taskId}`
+  benchmarkReviewActionError.value = ''
+  benchmarkReviewActionMessage.value = ''
+  try {
+    const response = await axiosPost(`intelligence/benchmark-tasks/${taskId}/${action}`, payload)
+    const result = responsePayload(response)
+    applyReviewRefreshPayload(result.refresh)
+    await Promise.all([
+      refreshSavedBenchmarkTasks(),
+      refreshBenchmarkTaskReviews(),
+    ])
+    benchmarkReviewActionMessage.value = action === 'approve'
+      ? 'Benchmark task approved. Intelligence refreshed from approved data.'
+      : action === 'reject'
+        ? 'Benchmark task rejected and returned to the player.'
+        : 'Correction request sent to the player.'
+  } catch (error) {
+    benchmarkReviewActionError.value = error?.response?.data?.message || `Could not ${humanizeKey(action)} benchmark task.`
+  } finally {
+    benchmarkReviewActionLoading.value = ''
+  }
+}
 
 const responsePayload = (response) => response?.data?.data || response?.data || {}
 
@@ -2534,11 +2650,98 @@ const priorityTop10Rows = computed(() => {
                   <p v-if="benchmarkTaskActionMessage" class="mt-3 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-2 text-xs text-emerald-100">
                     {{ benchmarkTaskActionMessage }}
                   </p>
-                  <p v-if="benchmarkTaskActionError" class="mt-3 rounded border border-red-300/20 bg-red-500/10 px-2 py-2 text-xs text-red-100">
-                    {{ benchmarkTaskActionError }}
-                  </p>
+	                  <p v-if="benchmarkTaskActionError" class="mt-3 rounded border border-red-300/20 bg-red-500/10 px-2 py-2 text-xs text-red-100">
+	                    {{ benchmarkTaskActionError }}
+	                  </p>
 
-                  <template v-if="benchmarkTaskAssignments">
+	                  <div class="mt-3 rounded-md border border-amber-300/20 bg-amber-500/10 p-3">
+	                    <div class="flex flex-wrap items-start justify-between gap-3">
+	                      <div>
+	                        <p class="text-[10px] uppercase tracking-widest text-amber-100/80">Benchmark Task Review Queue</p>
+	                        <h5 class="mt-1 text-base font-semibold text-white">Coach Approval</h5>
+	                      </div>
+	                      <span class="rounded-full border border-amber-300/30 bg-amber-500/15 px-3 py-1 text-xs uppercase tracking-wider text-amber-100">
+	                        {{ fmtCount(pendingBenchmarkReviewCount, '0') }} Pending
+	                      </span>
+	                    </div>
+
+	                    <p v-if="benchmarkReviewActionMessage" class="mt-3 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-2 text-xs text-emerald-100">
+	                      {{ benchmarkReviewActionMessage }}
+	                    </p>
+	                    <p v-if="benchmarkReviewActionError" class="mt-3 rounded border border-red-300/20 bg-red-500/10 px-2 py-2 text-xs text-red-100">
+	                      {{ benchmarkReviewActionError }}
+	                    </p>
+
+	                    <p v-if="!benchmarkTaskReviewSummary" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
+	                      Benchmark task reviews are not available yet.
+	                    </p>
+
+	                    <div v-else-if="pendingBenchmarkReviewTasks.length" class="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
+	                      <div
+	                        v-for="task in pendingBenchmarkReviewTasks"
+	                        :key="task.id"
+	                        class="rounded border border-white/10 bg-slate-950/40 p-3 text-xs text-slate-300"
+	                      >
+	                        <div class="flex flex-wrap items-start justify-between gap-2">
+	                          <div>
+	                            <p class="font-black text-white">{{ task.assigned_to_player_name || 'Player' }}</p>
+	                            <p class="mt-1 text-slate-100">{{ task.title || taskTypeLabel(task.task_type) }}</p>
+	                          </div>
+	                          <span class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider" :class="reviewStateClass(task.review_status)">
+	                            {{ reviewStateLabel(task.review_status) }}
+	                          </span>
+	                        </div>
+	                        <p class="mt-2 text-[10px] uppercase tracking-wider text-white/45">
+	                          {{ taskTypeLabel(task.task_type) }} · Submitted {{ task.submitted_at ? formatDate(task.submitted_at) : '—' }}
+	                        </p>
+	                        <div v-if="submittedValueRows(task).length" class="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
+	                          <p
+	                            v-for="value in submittedValueRows(task)"
+	                            :key="value.key"
+	                            class="rounded border border-white/10 bg-white/5 px-2 py-1"
+	                          >
+	                            <span class="font-black text-white">{{ value.label }}</span>
+	                            <span class="text-slate-200">: {{ value.value ?? '—' }}</span>
+	                          </p>
+	                        </div>
+	                        <p v-else class="mt-2 rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-400">
+	                          No submitted values were attached to this task.
+	                        </p>
+	                        <div class="mt-3 flex flex-wrap gap-2">
+	                          <button
+	                            type="button"
+	                            class="rounded border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-100 disabled:opacity-50"
+	                            :disabled="!!benchmarkReviewActionLoading"
+	                            @click="reviewBenchmarkTask(task, 'approve')"
+	                          >
+	                            {{ benchmarkReviewActionLoading === `approve:${task.id}` ? 'Approving...' : 'Approve' }}
+	                          </button>
+	                          <button
+	                            type="button"
+	                            class="rounded border border-sky-300/30 bg-sky-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-sky-100 disabled:opacity-50"
+	                            :disabled="!!benchmarkReviewActionLoading"
+	                            @click="reviewBenchmarkTask(task, 'request-correction')"
+	                          >
+	                            {{ benchmarkReviewActionLoading === `request-correction:${task.id}` ? 'Sending...' : 'Correction' }}
+	                          </button>
+	                          <button
+	                            type="button"
+	                            class="rounded border border-red-300/30 bg-red-500/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-red-100 disabled:opacity-50"
+	                            :disabled="!!benchmarkReviewActionLoading"
+	                            @click="reviewBenchmarkTask(task, 'reject')"
+	                          >
+	                            {{ benchmarkReviewActionLoading === `reject:${task.id}` ? 'Rejecting...' : 'Reject' }}
+	                          </button>
+	                        </div>
+	                      </div>
+	                    </div>
+
+	                    <p v-else class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
+	                      No benchmark tasks are waiting for coach review.
+	                    </p>
+	                  </div>
+
+	                  <template v-if="benchmarkTaskAssignments">
                     <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
                       <div class="rounded border border-white/10 bg-slate-950/35 p-2">
                         <p class="text-[10px] uppercase tracking-wider text-white/35">Tasks</p>
@@ -2706,12 +2909,19 @@ const priorityTop10Rows = computed(() => {
                             <p class="font-black text-white">{{ task.assigned_to_player_name || 'Team Task' }}</p>
                             <p class="mt-1 text-slate-200">{{ task.title }}</p>
                           </div>
-                          <span class="rounded-full border border-white/10 bg-slate-950/50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-sky-100">
-                            {{ humanizeKey(task.status) }}
-                          </span>
-                        </div>
-                        <p class="mt-1">
-                          {{ taskTypeLabel(task.task_type) }}
+	                          <span class="rounded-full border border-white/10 bg-slate-950/50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-sky-100">
+	                            {{ humanizeKey(task.status) }}
+	                          </span>
+	                        </div>
+	                        <span
+	                          v-if="task.review_status"
+	                          class="mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider"
+	                          :class="reviewStateClass(task.review_status)"
+	                        >
+	                          {{ reviewStateLabel(task.review_status) }}
+	                        </span>
+	                        <p class="mt-1">
+	                          {{ taskTypeLabel(task.task_type) }}
                           · {{ humanizeKey(task.priority) }}
                           · {{ humanizeKey(task.completion_mode, 'Manual Confirm') }}
                           · {{ humanizeKey(task.due_window) }}

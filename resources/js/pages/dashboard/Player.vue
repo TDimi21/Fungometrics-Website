@@ -1703,6 +1703,10 @@ const benchmarkRefreshCompletionMessage = (refresh) => {
     return 'Task completed. Benchmark refresh will update next time the dashboard loads.'
   }
 
+  if (status === 'skipped' && asArray(refresh?.warnings).some((warning) => String(warning).toLowerCase().includes('pending coach review'))) {
+    return 'Submitted for coach review. Benchmark intelligence will refresh after approval.'
+  }
+
   return ''
 }
 
@@ -1712,6 +1716,39 @@ const taskStatusClass = (status) => ({
   completed: 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100',
   dismissed: 'border-white/10 bg-white/5 text-white/45',
 }[status] || 'border-white/10 bg-white/5 text-white/60')
+
+const taskReviewStatusLabel = (status) => ({
+  not_required: 'No Review Required',
+  pending_review: 'Pending Coach Review',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  correction_requested: 'Correction Requested',
+}[status] || humanizeTaskValue(status, 'Not Submitted'))
+
+const taskReviewStatusClass = (status) => ({
+  pending_review: 'border-amber-300/30 bg-amber-500/15 text-amber-100',
+  approved: 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100',
+  rejected: 'border-[#ff2d55]/30 bg-[#ff2d55]/10 text-red-100',
+  correction_requested: 'border-sky-300/30 bg-sky-500/15 text-sky-100',
+  not_required: 'border-white/10 bg-white/5 text-white/45',
+}[status] || 'border-white/10 bg-white/5 text-white/45')
+
+const benchmarkTaskReviewNotice = (task) => {
+  const status = task?.review_status
+  if (status === 'pending_review') {
+    return 'Your submission is waiting for coach review.'
+  }
+  if (status === 'approved') {
+    return 'Approved by your coach. FMTRX benchmark intelligence can use this data.'
+  }
+  if (status === 'correction_requested') {
+    return task?.correction_message || 'Your coach requested a correction. Open the task to update it.'
+  }
+  if (status === 'rejected') {
+    return task?.rejection_reason || 'This submission was rejected by your coach.'
+  }
+  return ''
+}
 
 const taskPriorityClass = (priority) => ({
   critical: 'text-[#ff2d55]',
@@ -1851,12 +1888,13 @@ const completeBenchmarkTaskWorkflow = async (task) => {
     const response = await axiosPost(`player/benchmark-tasks/${taskId}/complete-with-payload`, payload)
     const completionPayload = apiPayload(response)
     const refreshMessage = benchmarkRefreshCompletionMessage(completionPayload.refresh)
+    const reviewMessage = benchmarkTaskReviewNotice(completionPayload.task || completionPayload.review?.task)
     await loadBenchmarkTasks()
     closeBenchmarkTaskWorkflow()
     const baseMessage = workflow.completion_mode === 'inline_form'
       ? 'Task data saved and marked complete.'
       : 'Task marked collected.'
-    benchmarkTaskMessage.value = refreshMessage ? `${baseMessage} ${refreshMessage}` : baseMessage
+    benchmarkTaskMessage.value = reviewMessage || (refreshMessage ? `${baseMessage} ${refreshMessage}` : baseMessage)
   } catch (error) {
     const missing = error?.response?.data?.missing_fields
     benchmarkTaskError.value = Array.isArray(missing) && missing.length
@@ -1879,13 +1917,16 @@ const updateBenchmarkTaskStatus = async (task, action) => {
     const refreshMessage = action === 'complete'
       ? benchmarkRefreshCompletionMessage(apiPayload(response).refresh)
       : ''
+    const reviewMessage = action === 'complete'
+      ? benchmarkTaskReviewNotice(apiPayload(response).task || apiPayload(response).review?.task)
+      : ''
     await loadBenchmarkTasks()
     const baseMessage = action === 'start'
       ? 'Task started.'
       : action === 'complete'
         ? 'Task marked complete.'
         : 'Task dismissed.'
-    benchmarkTaskMessage.value = refreshMessage ? `${baseMessage} ${refreshMessage}` : baseMessage
+    benchmarkTaskMessage.value = reviewMessage || (refreshMessage ? `${baseMessage} ${refreshMessage}` : baseMessage)
   } catch (error) {
     benchmarkTaskError.value = error?.response?.data?.message || `Could not ${action} task.`
   } finally {
@@ -2202,15 +2243,30 @@ onMounted(loadData)
                         {{ humanizeTaskValue(task.priority, 'Priority') }} · {{ task.task_type_label || humanizeTaskValue(task.task_type, 'Benchmark Task') }}
                       </p>
                     </div>
-                    <span class="rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider" :class="taskStatusClass(task.status)">
-                      {{ humanizeTaskValue(task.status) }}
-                    </span>
-                  </div>
+	                    <span class="rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider" :class="taskStatusClass(task.status)">
+	                      {{ humanizeTaskValue(task.status) }}
+	                    </span>
+	                  </div>
+	                  <span
+	                    v-if="task.review_status"
+	                    class="mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider"
+	                    :class="taskReviewStatusClass(task.review_status)"
+	                  >
+	                    {{ taskReviewStatusLabel(task.review_status) }}
+	                  </span>
 
-                  <p v-if="task.description" class="mt-2 text-xs leading-5 text-white/65">{{ task.description }}</p>
-                  <p class="mt-2 text-[11px] uppercase tracking-wider text-white/45">
-                    {{ humanizeTaskValue(task.due_window, 'No due window') }} · {{ task.estimated_minutes || '—' }} min
-                  </p>
+	                  <p v-if="task.description" class="mt-2 text-xs leading-5 text-white/65">{{ task.description }}</p>
+	                  <p class="mt-2 text-[11px] uppercase tracking-wider text-white/45">
+	                    {{ humanizeTaskValue(task.due_window, 'No due window') }} · {{ task.estimated_minutes || '—' }} min
+	                  </p>
+
+	                  <p
+	                    v-if="benchmarkTaskReviewNotice(task)"
+	                    class="mt-2 rounded-lg border px-3 py-2 text-xs leading-5"
+	                    :class="taskReviewStatusClass(task.review_status)"
+	                  >
+	                    {{ benchmarkTaskReviewNotice(task) }}
+	                  </p>
 
                   <div v-if="asArray(task.instructions).length" class="mt-3 rounded-lg border border-white/10 bg-[#050b1f]/60 p-3">
                     <p class="text-[10px] font-black uppercase tracking-widest text-white/45">What To Do</p>
@@ -2356,9 +2412,18 @@ onMounted(loadData)
                       :key="task.task_id"
                       class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#050b1f]/40 px-3 py-2 text-xs"
                     >
-                      <span class="font-bold text-white">{{ task.title }}</span>
-                      <span class="text-white/55">{{ formatTaskDate(task.completed_at) }}</span>
-                    </div>
+	                      <span class="font-bold text-white">{{ task.title }}</span>
+	                      <span class="flex flex-wrap items-center justify-end gap-2">
+	                        <span
+	                          v-if="task.review_status"
+	                          class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+	                          :class="taskReviewStatusClass(task.review_status)"
+	                        >
+	                          {{ taskReviewStatusLabel(task.review_status) }}
+	                        </span>
+	                        <span class="text-white/55">{{ formatTaskDate(task.completed_at) }}</span>
+	                      </span>
+	                    </div>
                   </div>
                 </div>
               </div>

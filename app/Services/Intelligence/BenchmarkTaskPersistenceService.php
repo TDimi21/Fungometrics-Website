@@ -186,7 +186,7 @@ class BenchmarkTaskPersistenceService
     {
         try {
             $query = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
                 ->where('team_id', $teamId)
                 ->orderByRaw("FIELD(status, 'draft', 'assigned', 'in_progress', 'completed', 'dismissed')")
                 ->orderByDesc('priority')
@@ -223,7 +223,7 @@ class BenchmarkTaskPersistenceService
     {
         try {
             $query = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
                 ->where('assigned_to_player_id', $playerId)
                 ->where('status', '!=', BenchmarkCollectionTask::STATUS_DRAFT)
                 ->orderByRaw("FIELD(status, 'assigned', 'in_progress', 'completed', 'dismissed')")
@@ -281,7 +281,7 @@ class BenchmarkTaskPersistenceService
     {
         try {
             $task = BenchmarkCollectionTask::query()
-                ->with(['assignedPlayer.profile'])
+                ->with(['assignedPlayer.profile', 'submittedBy.profile', 'reviewedBy.profile'])
                 ->whereKey($taskId)
                 ->where('assigned_to_player_id', $playerId)
                 ->where('status', '!=', BenchmarkCollectionTask::STATUS_DRAFT)
@@ -437,6 +437,8 @@ class BenchmarkTaskPersistenceService
         $player = $task->relationLoaded('assignedPlayer') ? $task->assignedPlayer : null;
         $profile = $player?->profile;
         $playerName = trim((string) (($profile?->first_name ?? '').' '.($profile?->last_name ?? ''))) ?: null;
+        $submittedBy = $task->relationLoaded('submittedBy') ? $task->submittedBy : null;
+        $reviewedBy = $task->relationLoaded('reviewedBy') ? $task->reviewedBy : null;
 
         return [
             'id' => $task->id,
@@ -452,6 +454,11 @@ class BenchmarkTaskPersistenceService
             'description' => $task->description,
             'priority' => $task->priority,
             'status' => $task->status,
+            'review_status' => $task->review_status,
+            'submitted_by_user_id' => $task->submitted_by_user_id,
+            'submitted_by_name' => $this->userName($submittedBy),
+            'reviewed_by_user_id' => $task->reviewed_by_user_id,
+            'reviewed_by_name' => $this->userName($reviewedBy),
             'due_window' => $task->due_window,
             'estimated_minutes' => $task->estimated_minutes,
             'metrics' => $task->metrics ?? [],
@@ -459,9 +466,16 @@ class BenchmarkTaskPersistenceService
             'instructions' => $task->instructions ?? [],
             'coach_notes' => $task->coach_notes,
             'payload' => $task->payload ?? [],
+            'submitted_payload' => $task->submitted_payload ?? [],
+            'approved_payload' => $task->approved_payload ?? [],
             'assigned_at' => $task->assigned_at?->toIso8601String(),
             'completed_at' => $task->completed_at?->toIso8601String(),
+            'submitted_at' => $task->submitted_at?->toIso8601String(),
+            'reviewed_at' => $task->reviewed_at?->toIso8601String(),
             'dismissed_at' => $task->dismissed_at?->toIso8601String(),
+            'review_notes' => $task->review_notes,
+            'rejection_reason' => $task->rejection_reason,
+            'correction_message' => $task->correction_message,
             'created_at' => $task->created_at?->toIso8601String(),
             'updated_at' => $task->updated_at?->toIso8601String(),
         ];
@@ -487,6 +501,12 @@ class BenchmarkTaskPersistenceService
             'description' => $serialized['description'],
             'priority' => $serialized['priority'],
             'status' => $serialized['status'],
+            'review_status' => $serialized['review_status'],
+            'submitted_at' => $serialized['submitted_at'],
+            'reviewed_at' => $serialized['reviewed_at'],
+            'review_notes' => $serialized['review_notes'],
+            'rejection_reason' => $serialized['rejection_reason'],
+            'correction_message' => $serialized['correction_message'],
             'task_type' => $taskType,
             'task_type_label' => self::TASK_LABELS[$taskType] ?? $this->headline($taskType),
             'completion_mode' => $serialized['completion_mode'],
@@ -657,5 +677,17 @@ class BenchmarkTaskPersistenceService
         $value = trim(str_replace(['_', '-'], ' ', $value));
 
         return $value !== '' ? ucwords($value) : 'Benchmark Task';
+    }
+
+    private function userName(mixed $user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+
+        $profile = $user->profile ?? null;
+        $name = trim((string) (($profile?->first_name ?? '').' '.($profile?->last_name ?? '')));
+
+        return $name !== '' ? $name : ($user->email ?? $user->phone ?? null);
     }
 }

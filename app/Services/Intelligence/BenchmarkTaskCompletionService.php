@@ -22,6 +22,7 @@ class BenchmarkTaskCompletionService
     public function __construct(
         private readonly BenchmarkTaskPersistenceService $taskPersistence,
         private readonly BenchmarkRefreshService $benchmarkRefreshService,
+        private readonly BenchmarkTaskReviewService $taskReviewService,
     ) {
     }
 
@@ -39,7 +40,7 @@ class BenchmarkTaskCompletionService
             ]);
         }
 
-        if ($userId && $task->assigned_to_player_id && (string) $task->assigned_to_player_id !== $userId) {
+        if ($this->isPlayerUser($userId) && $task->assigned_to_player_id && (string) $task->assigned_to_player_id !== $userId) {
             return $this->result(false, [
                 'task_id' => $taskId,
                 'error' => 'task_not_assigned_to_user',
@@ -68,7 +69,7 @@ class BenchmarkTaskCompletionService
                 ]);
             }
 
-            if ($userId && $task->assigned_to_player_id && (string) $task->assigned_to_player_id !== $userId) {
+            if ($this->isPlayerUser($userId) && $task->assigned_to_player_id && (string) $task->assigned_to_player_id !== $userId) {
                 return $this->result(false, [
                     'task_id' => $taskId,
                     'error' => 'task_not_assigned_to_user',
@@ -135,8 +136,18 @@ class BenchmarkTaskCompletionService
                 'saved_data' => $savedData,
             ]);
 
+            $review = null;
             $refresh = null;
             if ($completion['ok'] ?? false) {
+                $review = $this->taskReviewService->recordCompletionSubmission($taskId, $userId, [
+                    'completed_by_user_id' => $userId,
+                    'source' => 'benchmark_task_completion',
+                    'completion_mode' => $workflow['completion_mode'] ?? null,
+                    'submitted_values' => $values,
+                    'manual_confirm' => $this->manualConfirmRequested($payload),
+                    'note' => $payload['note'] ?? $payload['coach_notes'] ?? null,
+                    'saved_data' => $savedData,
+                ]);
                 $refresh = $this->refreshAfterCompletion($taskId);
             }
 
@@ -144,7 +155,8 @@ class BenchmarkTaskCompletionService
                 'task_id' => $taskId,
                 'workflow' => $this->workflowForTask($task?->fresh(['assignedPlayer.profile', 'assignedPlayer.player', 'assignedPlayer.positions']) ?? $task),
                 'completion' => $completion,
-                'task' => $completion['task'] ?? null,
+                'review' => $review,
+                'task' => $review['task'] ?? $completion['task'] ?? null,
                 'refresh' => $refresh,
             ]);
         } catch (Throwable $exception) {
@@ -668,6 +680,15 @@ class BenchmarkTaskCompletionService
     private function manualConfirmRequested(array $payload): bool
     {
         return filter_var($payload['manual_confirm'] ?? false, FILTER_VALIDATE_BOOL);
+    }
+
+    private function isPlayerUser(?string $userId): bool
+    {
+        if (! $userId) {
+            return false;
+        }
+
+        return (string) User::query()->whereKey($userId)->value('type') === 'player';
     }
 
     private function mobilityTenPoint(mixed $value): ?int
