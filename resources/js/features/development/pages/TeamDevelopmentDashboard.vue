@@ -256,6 +256,12 @@ const categoryLabel = (key) => ({
   hitting: 'Hitting',
   bullpen: 'Pitching',
   pitching: 'Pitching',
+  throwing: 'Throwing',
+  roster: 'Roster Profile',
+  trust: 'Data Confidence',
+  baseline: 'Benchmark Baseline',
+  practice: 'Practice Focus',
+  benchmark: 'Benchmark',
   cage: 'Cage',
   exit_velocity: 'Exit Velocity',
 }[key] || String(key || '').replaceAll('_', ' '))
@@ -2930,6 +2936,64 @@ const priorityTop10Rows = computed(() => {
               </div>
             </div>
 
+            <div class="mt-4 rounded-lg border border-red-300/20 bg-red-500/10 p-3">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-[10px] uppercase tracking-widest text-red-200/80">Coach Action Language</p>
+                  <h4 class="mt-1 text-lg font-semibold text-white">What To Do Next</h4>
+                  <p class="mt-1 text-xs text-slate-300">
+                    FMTRX turns benchmark results into simple coach actions for today’s practice plan.
+                  </p>
+                </div>
+                <span class="rounded-full border border-red-300/30 bg-red-500/15 px-3 py-1 text-xs uppercase tracking-wider text-red-100">
+                  {{ fmtCount(coachActionCards.length, '0') }} Actions
+                </span>
+              </div>
+
+              <p v-if="!coachActionCards.length" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">
+                FMTRX will recommend coach actions after more roster profiles and benchmark baselines are collected.
+              </p>
+
+              <div v-else class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
+                <div
+                  v-for="(action, idx) in coachActionCards"
+                  :key="`coach-action-${action.title}`"
+                  class="rounded-lg border border-white/10 bg-slate-950/40 p-3"
+                >
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p class="text-[10px] uppercase tracking-widest text-white/35">
+                        {{ idx === 0 ? 'Top Action' : action.category === 'trust' ? 'Data Confidence Action' : 'Supporting Action' }}
+                      </p>
+                      <h5 class="mt-1 text-base font-black text-white">{{ action.title }}</h5>
+                    </div>
+                    <span
+                      class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                      :class="coachActionPriorityClass(action.priority)"
+                    >
+                      {{ action.priority }}
+                    </span>
+                  </div>
+                  <p class="mt-2 text-[10px] uppercase tracking-widest" :class="coachActionCategoryClass(action.category)">
+                    {{ categoryLabel(action.category) }}
+                    <span v-if="action.minutes"> · {{ fmtCount(action.minutes, '0') }} min</span>
+                  </p>
+                  <p class="mt-2 text-xs text-slate-300">
+                    <span class="font-black text-white">Why:</span> {{ action.why }}
+                  </p>
+                  <p class="mt-2 text-xs text-red-100">
+                    <span class="font-black text-white">Action:</span> {{ action.action }}
+                  </p>
+                  <p v-if="action.players.length" class="mt-2 text-[10px] text-slate-300">
+                    <span class="font-black text-white">Players:</span> {{ action.players.join(', ') }}
+                  </p>
+                  <p v-if="action.metrics.length" class="mt-1 text-[10px] text-slate-300">
+                    <span class="font-black text-white">Metrics:</span> {{ action.metrics.join(', ') }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div class="mt-4 rounded-lg border border-cyan-300/20 bg-cyan-500/10 p-3">
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -4446,6 +4510,27 @@ const priorityTop10Rows = computed(() => {
                       <p class="mt-1 text-xs text-slate-200">{{ line.value }}</p>
                     </div>
                   </div>
+                </div>
+
+                <div v-if="selectedMetricCoachAction" class="mt-3 rounded-lg border border-red-300/20 bg-red-500/10 p-3">
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p class="text-[10px] uppercase tracking-widest text-red-200/80">Coach Action</p>
+                      <h4 class="mt-1 text-base font-black text-white">{{ selectedMetricCoachAction.title }}</h4>
+                    </div>
+                    <span
+                      class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                      :class="coachActionPriorityClass(selectedMetricCoachAction.priority)"
+                    >
+                      {{ formatCoachPriority(selectedMetricCoachAction.priority) }}
+                    </span>
+                  </div>
+                  <p class="mt-2 text-xs text-slate-300">
+                    <span class="font-black text-white">Why:</span> {{ selectedMetricCoachAction.why }}
+                  </p>
+                  <p class="mt-2 text-xs text-red-100">
+                    <span class="font-black text-white">Action:</span> {{ selectedMetricCoachAction.action }}
+                  </p>
                 </div>
 
                 <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
