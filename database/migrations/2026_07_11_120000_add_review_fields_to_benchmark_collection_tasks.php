@@ -44,11 +44,11 @@ return new class extends Migration
             }
 
             if (! Schema::hasColumn('benchmark_collection_tasks', 'submitted_payload')) {
-                $table->json('submitted_payload')->nullable()->after('payload');
+                $table->longText('submitted_payload')->nullable()->after('payload');
             }
 
             if (! Schema::hasColumn('benchmark_collection_tasks', 'approved_payload')) {
-                $table->json('approved_payload')->nullable()->after('submitted_payload');
+                $table->longText('approved_payload')->nullable()->after('submitted_payload');
             }
         });
     }
