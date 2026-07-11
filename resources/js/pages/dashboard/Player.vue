@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { parseDOB, resolveBornValue } from '@/utils/dob.js'
 import Layout from '@/layout/Layout.vue'
 import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
-import ArmCarePanel from '@/components/training/ArmCarePanel.vue'
+import PlayerWorkoutsPanel from '@/components/planner/PlayerWorkoutsPanel.vue'
 import { useUserStore } from '@/store/user'
 import { useAxiosAuth } from '@/composables/axios-auth'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
@@ -19,12 +19,12 @@ const connectionMessage = ref('')
 const activeTopTab = ref('stats')
 const activeStatTab = ref('bp')
 const lastStatTab = ref('bp')
-const toggleArmCare = () => {
-  if (activeStatTab.value === 'armCare') {
+const toggleWorkout = () => {
+  if (activeStatTab.value === 'workout') {
     activeStatTab.value = lastStatTab.value
   } else {
     lastStatTab.value = activeStatTab.value
-    activeStatTab.value = 'armCare'
+    activeStatTab.value = 'workout'
   }
 }
 const isOpenPlayerMetricsModal = ref(false)
@@ -2499,27 +2499,27 @@ onMounted(loadData)
                 <div class="relative flex w-full max-w-sm rounded-2xl border border-white/15 bg-[#0b1230] p-1.5 shadow-lg">
                   <span
                     class="absolute inset-y-1.5 left-1.5 w-[calc(50%-0.375rem)] rounded-xl bg-[#ff2d55] shadow-md transition-transform duration-300 ease-out"
-                    :class="activeStatTab === 'armCare' ? 'translate-x-full' : 'translate-x-0'"
+                    :class="activeStatTab === 'workout' ? 'translate-x-full' : 'translate-x-0'"
                   ></span>
                   <button
                     type="button"
                     class="relative z-10 flex-1 rounded-xl py-3.5 text-base font-black uppercase tracking-wide transition-colors duration-200"
-                    :class="activeStatTab !== 'armCare' ? 'text-white' : 'text-white/55'"
-                    @click="activeStatTab === 'armCare' && toggleArmCare()"
+                    :class="activeStatTab !== 'workout' ? 'text-white' : 'text-white/55'"
+                    @click="activeStatTab === 'workout' && toggleWorkout()"
                   >
                     Stats
                   </button>
                   <button
                     type="button"
                     class="relative z-10 flex-1 rounded-xl py-3.5 text-base font-black uppercase tracking-wide transition-colors duration-200"
-                    :class="activeStatTab === 'armCare' ? 'text-white' : 'text-white/55'"
-                    @click="activeStatTab !== 'armCare' && toggleArmCare()"
+                    :class="activeStatTab === 'workout' ? 'text-white' : 'text-white/55'"
+                    @click="activeStatTab !== 'workout' && toggleWorkout()"
                   >
-                    Arm Care
+                    Workout
                   </button>
                 </div>
               </div>
-              <div v-if="activeStatTab !== 'armCare'" class="flex flex-wrap justify-center gap-2">
+              <div v-if="activeStatTab !== 'workout'" class="flex flex-wrap justify-center gap-2">
                 <button
                   v-for="tab in statTabs"
                   :key="tab.key"
@@ -2535,7 +2535,7 @@ onMounted(loadData)
           <div v-if="loading" class="py-10 text-center text-white/50">Loading player stats…</div>
 
           <div v-else class="space-y-3">
-            <ArmCarePanel v-if="activeStatTab === 'armCare'" />
+            <PlayerWorkoutsPanel v-if="activeStatTab === 'workout'" />
 
             <template v-else>
             <div
