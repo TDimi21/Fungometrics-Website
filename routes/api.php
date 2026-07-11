@@ -33,6 +33,10 @@ use App\Http\Controllers\Api\Planner\DeleteDailyPlan;
 use App\Http\Controllers\Api\Planner\GetMyWorkouts;
 use App\Http\Controllers\Api\Planner\GetMyWorkout;
 use App\Http\Controllers\Api\Planner\SaveWorkoutProgress;
+use App\Http\Controllers\Api\Planner\SaveCustomDrill;
+use App\Http\Controllers\Api\Planner\GetCustomDrills;
+use App\Http\Controllers\Api\Planner\DeleteCustomDrill;
+use App\Http\Controllers\Api\Planner\GetDrillLibrary;
 use App\Http\Controllers\Api\Coach\GetFieldPresets;
 use App\Http\Controllers\Api\Coach\SaveFieldPreset;
 use App\Http\Controllers\Api\Coach\DeleteFieldPreset;
@@ -245,6 +249,13 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/daily-plans', GetDailyPlans::class);
         Route::post('/daily-plans', SaveDailyPlan::class);
         Route::delete('/daily-plans/{id}', DeleteDailyPlan::class);
+
+        // Custom drills / lifts — saved per coach; `library` is the shared,
+        // browse-other-coaches' community view (public drills).
+        Route::get('/drills', GetCustomDrills::class);
+        Route::get('/drills/library', GetDrillLibrary::class);
+        Route::post('/drills', SaveCustomDrill::class);
+        Route::delete('/drills/{id}', DeleteCustomDrill::class);
 
         // Saved field presets (Game Mode field builder) — user-scoped, synced replacement for localStorage
         Route::get('/field-presets', GetFieldPresets::class);

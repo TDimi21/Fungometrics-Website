@@ -24,11 +24,16 @@ class PopulationMetricRepository
         'bench_press',
         'squat',
         'deadlift',
+        'pull_ups',
+        'pushups',
         'forty_yard_dash',
         'sixty_yard_dash',
         'broad_jump',
         'vertical_jump',
         'mobility_score',
+        'shoulder_mobility_score',
+        'hip_mobility_score',
+        't_spine_mobility_score',
     ];
 
     public function __construct(
@@ -47,8 +52,14 @@ class PopulationMetricRepository
             $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
             $days = max(1, $days);
             $stats = $this->emptyAuditStats();
-            $rows = $this->populationRowsForMetric($metricKey, $context, $days, $stats);
-            $rows = $this->guardRows($rows, $metricKey, $stats, 'aggregate');
+            $includeTrustedTasks = $this->includeTrustedTasks($context);
+            $tableRows = $this->populationRowsForMetric($metricKey, $context, $days, $stats);
+            $tableRows = $this->guardRows($tableRows, $metricKey, $stats, 'aggregate');
+            $stats['table_values_count'] = $tableRows->count();
+            $trustedRows = $includeTrustedTasks
+                ? $this->trustedTaskPayloadRowsForMetric($metricKey, $context, $days, $stats)
+                : collect();
+            $rows = $this->mergeTableAndTrustedRows($tableRows, $trustedRows, $stats);
             $guardrailFilteredCount = $rows->count();
             $guardrailFilteredSample = $this->sampleRowValues($rows);
             $rows = $this->filterRowsByContextWithAudit($rows, $context, $stats);
@@ -57,15 +68,30 @@ class PopulationMetricRepository
                 ->filter(fn (?float $value) => $value !== null)
                 ->values()
                 ->all();
+            $trustedFinalCount = $rows
+                ->filter(fn (array $row) => ($row['source'] ?? null) === 'trusted_task_payload')
+                ->count();
 
             return [
                 'metric_key' => $metricKey,
                 'days' => $days,
+                'trusted_tasks_included' => $includeTrustedTasks,
                 'raw_count' => $stats['raw_values_found'],
                 'raw_values_found' => $stats['raw_values_found'],
                 'raw_values_included' => $stats['raw_values_included'],
                 'raw_sample_before_guardrails' => $stats['raw_samples'],
                 'raw_included_sample' => $stats['raw_included_samples'],
+                'table_values_count' => $stats['table_values_count'],
+                'trusted_task_values_found' => $stats['trusted_task_values_found'],
+                'trusted_task_values_included_before_dedupe' => $stats['trusted_task_values_included_before_dedupe'],
+                'trusted_task_values_count' => $trustedFinalCount,
+                'trusted_task_values_included' => $trustedFinalCount,
+                'trusted_task_values_excluded' => count($stats['trusted_task_excluded']),
+                'trusted_task_excluded_reasons' => $this->excludedReasonCounts($stats['trusted_task_excluded']),
+                'trusted_task_excluded_samples' => array_slice($stats['trusted_task_excluded'], 0, 10),
+                'trusted_task_sample' => $stats['trusted_task_samples'],
+                'deduped_count' => $stats['trusted_task_deduped_count'],
+                'trusted_task_deduped_count' => $stats['trusted_task_deduped_count'],
                 'included_count' => $guardrailFilteredCount,
                 'guardrail_filtered_count' => $guardrailFilteredCount,
                 'guardrail_filtered_sample' => $guardrailFilteredSample,
@@ -78,6 +104,7 @@ class PopulationMetricRepository
                 'bucket_context_removed_samples' => $stats['bucket_context_removed_samples'],
                 'values_included' => count($values),
                 'final_values_count' => count($values),
+                'final_population_values_count' => count($values),
                 'values_excluded' => count($stats['excluded']),
                 'excluded_count' => count($stats['excluded']),
                 'excluded_reasons' => $this->excludedReasonCounts($stats['excluded']),
@@ -114,6 +141,19 @@ class PopulationMetricRepository
                 'excluded_samples' => [],
                 'values' => [],
                 'final_values' => [],
+                'trusted_tasks_included' => $this->includeTrustedTasks($context),
+                'table_values_count' => 0,
+                'trusted_task_values_found' => 0,
+                'trusted_task_values_included_before_dedupe' => 0,
+                'trusted_task_values_count' => 0,
+                'trusted_task_values_included' => 0,
+                'trusted_task_values_excluded' => 0,
+                'trusted_task_excluded_reasons' => [],
+                'trusted_task_excluded_samples' => [],
+                'trusted_task_sample' => [],
+                'deduped_count' => 0,
+                'trusted_task_deduped_count' => 0,
+                'final_population_values_count' => 0,
             ];
         }
     }
@@ -139,50 +179,31 @@ class PopulationMetricRepository
 
     public function trustedTaskPayloadValuesForMetric(string $metricKey, array $context = [], int $days = 365): array
     {
-        $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
-        if (! in_array($metricKey, self::SUPPORTED_METRICS, true)) {
-            return [];
-        }
+        return $this->trustedTaskPayloadAuditForMetric($metricKey, $context, $days)['values'] ?? [];
+    }
 
-        try {
-            if (! Schema::hasTable('benchmark_collection_tasks')) {
-                return [];
-            }
+    public function trustedTaskPayloadAuditForMetric(string $metricKey, array $context = [], int $days = 365): array
+    {
+        $stats = $this->emptyAuditStats();
+        $rows = $this->trustedTaskPayloadRowsForMetric($metricKey, $context, max(1, $days), $stats);
+        $rows = $this->filterRowsByContext($rows, $context);
+        $values = $rows
+            ->map(fn (array $row) => $this->numberOrNull($row['value'] ?? null, $metricKey))
+            ->filter(fn (?float $value) => $value !== null)
+            ->values()
+            ->all();
 
-            $query = BenchmarkCollectionTask::query()
-                ->where('review_status', BenchmarkCollectionTask::REVIEW_APPROVED)
-                ->where(function ($scope): void {
-                    $scope->where('promotion_status', BenchmarkCollectionTask::PROMOTION_PROMOTED)
-                        ->orWhere('promotion_status', BenchmarkCollectionTask::PROMOTION_PARTIAL)
-                        ->orWhere('promotion_mode', BenchmarkCollectionTask::MODE_TRUSTED_PAYLOAD_ONLY);
-                })
-                ->where(function ($scope) use ($days): void {
-                    $scope->where('promoted_at', '>=', now()->subDays(max(1, $days)))
-                        ->orWhere(function ($fallback) use ($days): void {
-                            $fallback->whereNull('promoted_at')
-                                ->where('reviewed_at', '>=', now()->subDays(max(1, $days)));
-                        });
-                });
-
-            if (! empty($context['team_id'] ?? $context['teamId'] ?? null)) {
-                $query->where('team_id', (string) ($context['team_id'] ?? $context['teamId']));
-            }
-
-            if (! empty($context['player_id'] ?? $context['playerId'] ?? null)) {
-                $query->where('assigned_to_player_id', (string) ($context['player_id'] ?? $context['playerId']));
-            }
-
-            return $query->get()
-                ->map(fn (BenchmarkCollectionTask $task) => $this->trustedMetricValue($task, $metricKey))
-                ->filter(fn ($value) => $value !== null)
-                ->map(fn ($value) => $this->guardrail->validate($metricKey, $value))
-                ->filter(fn (array $validation) => ($validation['included'] ?? false) === true)
-                ->map(fn (array $validation) => $validation['value'])
-                ->values()
-                ->all();
-        } catch (\Throwable) {
-            return [];
-        }
+        return [
+            'metric_key' => BenchmarkDefinitions::normalizeMetricKey($metricKey),
+            'days' => max(1, $days),
+            'trusted_task_values_found' => $stats['trusted_task_values_found'],
+            'trusted_task_values_included' => $rows->count(),
+            'trusted_task_values_excluded' => count($stats['trusted_task_excluded']),
+            'trusted_task_excluded_reasons' => $this->excludedReasonCounts($stats['trusted_task_excluded']),
+            'trusted_task_excluded_samples' => array_slice($stats['trusted_task_excluded'], 0, 10),
+            'trusted_task_sample' => $stats['trusted_task_samples'],
+            'values' => $values,
+        ];
     }
 
     public function supportedMetricKeys(): array
@@ -192,6 +213,7 @@ class PopulationMetricRepository
 
     private function trustedMetricValue(BenchmarkCollectionTask $task, string $metricKey): mixed
     {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
         $payloadPromotion = ($task->payload ?? [])['promotion'] ?? [];
         $trustedPayload = is_array($task->promotion_result ?? null)
             ? ($task->promotion_result['trusted_payload'] ?? [])
@@ -206,14 +228,274 @@ class PopulationMetricRepository
             $task->approved_payload['submitted_values'] ?? null,
             $task->approved_payload['values'] ?? null,
             $task->approved_payload['payload']['values'] ?? null,
+            $task->approved_payload['payload']['submitted_values'] ?? null,
+            $task->submitted_payload['submitted_values'] ?? null,
+            $task->submitted_payload['values'] ?? null,
+            $task->submitted_payload['payload']['values'] ?? null,
             $task->approved_payload ?? null,
         ] as $values) {
-            if (is_array($values) && array_key_exists($metricKey, $values)) {
-                return $values[$metricKey];
+            if (! is_array($values)) {
+                continue;
+            }
+
+            foreach ($this->metricAliases($metricKey) as $alias) {
+                if (array_key_exists($alias, $values)) {
+                    return $values[$alias];
+                }
             }
         }
 
         return null;
+    }
+
+    private function includeTrustedTasks(array $context): bool
+    {
+        if (($context['exclude_trusted_tasks'] ?? false) === true) {
+            return false;
+        }
+
+        if (array_key_exists('include_trusted_tasks', $context)) {
+            return (bool) $context['include_trusted_tasks'];
+        }
+
+        return true;
+    }
+
+    private function trustedTaskPayloadRowsForMetric(string $metricKey, array $context, int $days, array &$stats): Collection
+    {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
+        if (! in_array($metricKey, self::SUPPORTED_METRICS, true)) {
+            return collect();
+        }
+
+        try {
+            $query = $this->trustedTaskQuery($context, $days);
+            if ($query === null) {
+                return collect();
+            }
+
+            $rows = $query->get()
+                ->map(function (BenchmarkCollectionTask $task) use ($metricKey, &$stats) {
+                    $value = $this->trustedMetricValue($task, $metricKey);
+                    if ($value === null) {
+                        return null;
+                    }
+
+                    $stats['trusted_task_values_found']++;
+                    $validation = $this->guardrail->validate($metricKey, $value);
+                    if (($validation['included'] ?? false) !== true) {
+                        $this->recordTrustedExcluded($stats, $validation, $task, $metricKey);
+
+                        return null;
+                    }
+
+                    $this->recordTrustedSample($stats, $task, $metricKey, $validation['value']);
+
+                    return [
+                        'user_id' => (string) ($task->assigned_to_player_id ?? ''),
+                        'value' => $validation['value'],
+                        'created_at' => $task->promoted_at ?? $task->reviewed_at ?? $task->updated_at ?? null,
+                        'source' => 'trusted_task_payload',
+                        'task_id' => (string) $task->id,
+                        'task_type' => (string) ($task->task_type ?? ''),
+                        'team_id' => $task->team_id ? (string) $task->team_id : null,
+                    ];
+                })
+                ->filter()
+                ->values();
+
+            $stats['trusted_task_values_included_before_dedupe'] = $rows->count();
+
+            return $this->aggregateTrustedRows($rows, $this->aggregateForMetric($metricKey));
+        } catch (\Throwable) {
+            return collect();
+        }
+    }
+
+    private function trustedTaskQuery(array $context, int $days)
+    {
+        if (! Schema::hasTable('benchmark_collection_tasks')) {
+            return null;
+        }
+
+        foreach (['review_status', 'status', 'promotion_status', 'promotion_mode', 'assigned_to_player_id'] as $column) {
+            if (! Schema::hasColumn('benchmark_collection_tasks', $column)) {
+                return null;
+            }
+        }
+
+        $query = BenchmarkCollectionTask::query()
+            ->where('status', BenchmarkCollectionTask::STATUS_COMPLETED)
+            ->where('review_status', BenchmarkCollectionTask::REVIEW_APPROVED)
+            ->where(function ($scope): void {
+                $scope->where('promotion_status', BenchmarkCollectionTask::PROMOTION_PROMOTED)
+                    ->orWhere('promotion_status', BenchmarkCollectionTask::PROMOTION_PARTIAL)
+                    ->orWhere('promotion_mode', BenchmarkCollectionTask::MODE_TRUSTED_PAYLOAD_ONLY);
+            })
+            ->whereNotNull('assigned_to_player_id');
+
+        if (Schema::hasColumn('benchmark_collection_tasks', 'promoted_at') || Schema::hasColumn('benchmark_collection_tasks', 'reviewed_at')) {
+            $query->where(function ($scope) use ($days): void {
+                if (Schema::hasColumn('benchmark_collection_tasks', 'promoted_at')) {
+                    $scope->where('promoted_at', '>=', now()->subDays($days));
+                }
+
+                if (Schema::hasColumn('benchmark_collection_tasks', 'reviewed_at')) {
+                    $scope->orWhere(function ($fallback) use ($days): void {
+                        if (Schema::hasColumn('benchmark_collection_tasks', 'promoted_at')) {
+                            $fallback->whereNull('promoted_at');
+                        }
+                        $fallback->where('reviewed_at', '>=', now()->subDays($days));
+                    });
+                }
+            });
+        }
+
+        if (! empty($context['team_id'] ?? $context['teamId'] ?? null) && Schema::hasColumn('benchmark_collection_tasks', 'team_id')) {
+            $query->where('team_id', (string) ($context['team_id'] ?? $context['teamId']));
+        }
+
+        if (! empty($context['player_id'] ?? $context['playerId'] ?? null)) {
+            $query->where('assigned_to_player_id', (string) ($context['player_id'] ?? $context['playerId']));
+        }
+
+        return $query;
+    }
+
+    private function mergeTableAndTrustedRows(Collection $tableRows, Collection $trustedRows, array &$stats): Collection
+    {
+        if ($trustedRows->isEmpty()) {
+            return $tableRows->values();
+        }
+
+        $tableUserIds = $tableRows
+            ->pluck('user_id')
+            ->filter()
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values()
+            ->all();
+        $seenTrustedUsers = [];
+        $keptTrusted = collect();
+
+        foreach ($trustedRows as $row) {
+            $userId = (string) ($row['user_id'] ?? '');
+            if ($userId === '') {
+                $stats['trusted_task_deduped_count']++;
+                continue;
+            }
+
+            if (in_array($userId, $tableUserIds, true) || in_array($userId, $seenTrustedUsers, true)) {
+                $stats['trusted_task_deduped_count']++;
+                continue;
+            }
+
+            $seenTrustedUsers[] = $userId;
+            $keptTrusted->push($row);
+        }
+
+        return $tableRows->merge($keptTrusted)->values();
+    }
+
+    private function aggregateTrustedRows(Collection $rows, string $aggregate): Collection
+    {
+        return $rows
+            ->groupBy('user_id')
+            ->map(function (Collection $playerRows) use ($aggregate) {
+                $values = $playerRows
+                    ->pluck('value')
+                    ->map(fn ($value) => is_numeric($value) ? (float) $value : null)
+                    ->filter(fn ($value) => $value !== null);
+
+                if ($values->isEmpty()) {
+                    $value = null;
+                } else {
+                    $value = match ($aggregate) {
+                        'avg' => round((float) $values->avg(), 1),
+                        'min' => round((float) $values->min(), 2),
+                        'latest' => $this->latestValue($playerRows),
+                        default => round((float) $values->max(), 1),
+                    };
+                }
+
+                return [
+                    'user_id' => $playerRows->first()['user_id'] ?? null,
+                    'value' => $value,
+                    'source' => 'trusted_task_payload',
+                    'source_count' => $playerRows->count(),
+                    'task_ids' => $playerRows->pluck('task_id')->filter()->unique()->values()->all(),
+                ];
+            })
+            ->values();
+    }
+
+    private function aggregateForMetric(string $metricKey): string
+    {
+        return match (BenchmarkDefinitions::normalizeMetricKey($metricKey)) {
+            'average_exit_velocity',
+            'average_fastball_velocity',
+            'strike_percentage' => 'avg',
+            'forty_yard_dash',
+            'sixty_yard_dash' => 'min',
+            'mobility_score',
+            'shoulder_mobility_score',
+            'hip_mobility_score',
+            't_spine_mobility_score' => 'latest',
+            default => 'max',
+        };
+    }
+
+    private function metricAliases(string $metricKey): array
+    {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
+        $aliases = match ($metricKey) {
+            'average_exit_velocity' => ['average_exit_velocity', 'avg_exit_velocity', 'avg_ev', 'exit_velocity_avg', 'batting_avg_ev', 'cage_avg_ev'],
+            'max_exit_velocity' => ['max_exit_velocity', 'max_ev', 'exit_velocity_max'],
+            'average_fastball_velocity' => ['average_fastball_velocity', 'avg_fastball_velocity', 'avg_fastball', 'avg_pitch_velocity', 'bullpen_avg_velocity'],
+            'max_fastball_velocity' => ['max_fastball_velocity', 'max_fastball', 'max_pitch_velocity', 'bullpen_max_velocity'],
+            'strike_percentage' => ['strike_percentage', 'strike_pct'],
+            'forty_yard_dash' => ['forty_yard_dash', 'forty', '40_yard_dash', 'forty_yard_sec', 'yd_40_dash'],
+            'sixty_yard_dash' => ['sixty_yard_dash', 'sixty', '60_yard_dash', 'sixty_yard_sec', 'yd_60_dash'],
+            'pushups' => ['pushups', 'push_ups'],
+            'deadlift' => ['deadlift', 'dead_lift'],
+            'squat' => ['squat', 'back_squat', 'front_squat'],
+            default => [$metricKey],
+        };
+
+        return array_values(array_unique(array_merge([$metricKey], $aliases)));
+    }
+
+    private function recordTrustedSample(array &$stats, BenchmarkCollectionTask $task, string $metricKey, mixed $value): void
+    {
+        if (count($stats['trusted_task_samples']) >= 10) {
+            return;
+        }
+
+        $stats['trusted_task_samples'][] = [
+            'task_id' => (string) $task->id,
+            'task_type' => $task->task_type,
+            'team_id' => $task->team_id,
+            'user_id' => $task->assigned_to_player_id,
+            'metric_key' => $metricKey,
+            'value' => $value,
+        ];
+    }
+
+    private function recordTrustedExcluded(array &$stats, array $validation, BenchmarkCollectionTask $task, string $metricKey): void
+    {
+        $stats['trusted_task_excluded'][] = [
+            'metric_key' => $validation['metric_key'] ?? $metricKey,
+            'reason' => $validation['reason'] ?? 'invalid_value',
+            'raw_value' => $validation['raw_value'] ?? null,
+            'parsed_value' => $validation['value'] ?? null,
+            'valid_range' => $validation['range'] ?? null,
+            'table' => 'benchmark_collection_tasks',
+            'column' => 'trusted_payload',
+            'user_id' => $task->assigned_to_player_id ? (string) $task->assigned_to_player_id : null,
+            'task_id' => (string) $task->id,
+            'task_type' => $task->task_type,
+            'stage' => 'trusted_task_payload',
+        ];
     }
 
     private function populationRowsForMetric(string $metricKey, array $context, int $days, array &$stats): Collection
@@ -239,6 +521,12 @@ class PopulationMetricRepository
                 ['player_fitnesses', 'user_id', 'dead_lift'],
                 ['player_assessments', 'user_id', 'deadlift_lbs'],
             ], 'max', $metricKey, $stats),
+            'pull_ups' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'pull_ups'],
+            ], 'max', $metricKey, $stats),
+            'pushups' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'push_ups'],
+            ], 'max', $metricKey, $stats),
             'forty_yard_dash' => $this->strengthRows($context, $days, [
                 ['player_fitnesses', 'user_id', 'yd_40_dash'],
             ], 'min', $metricKey, $stats),
@@ -256,6 +544,15 @@ class PopulationMetricRepository
             'mobility_score' => $this->strengthRows($context, $days, [
                 ['player_fitnesses', 'user_id', 'mobility_score'],
                 ['player_assessments', 'user_id', 'mobility_overall_score'],
+            ], 'latest', $metricKey, $stats),
+            'shoulder_mobility_score' => $this->strengthRows($context, $days, [
+                ['player_assessments', 'user_id', 'shoulder_mobility'],
+            ], 'latest', $metricKey, $stats),
+            'hip_mobility_score' => $this->strengthRows($context, $days, [
+                ['player_assessments', 'user_id', 'hip_mobility'],
+            ], 'latest', $metricKey, $stats),
+            't_spine_mobility_score' => $this->strengthRows($context, $days, [
+                ['player_assessments', 'user_id', 'rotational_mobility'],
             ], 'latest', $metricKey, $stats),
             default => collect(),
         };
@@ -296,6 +593,8 @@ class PopulationMetricRepository
                 return [
                     'user_id' => $playerRows->first()['user_id'] ?? null,
                     'value' => $values->isNotEmpty() ? round((float) $values->avg() * 100, 1) : null,
+                    'source' => 'table',
+                    'source_count' => $playerRows->count(),
                 ];
             })
             ->values();
@@ -347,6 +646,9 @@ class PopulationMetricRepository
                     'user_id' => (string) ($row->user_id ?? ''),
                     'value' => $validation['value'],
                     'created_at' => $row->created_at ?? null,
+                    'source' => 'table',
+                    'table' => $table,
+                    'column' => $valueColumn,
                 ];
             })
             ->filter()
@@ -377,6 +679,8 @@ class PopulationMetricRepository
                 return [
                     'user_id' => $playerRows->first()['user_id'] ?? null,
                     'value' => $value,
+                    'source' => (string) ($playerRows->first()['source'] ?? 'table'),
+                    'source_count' => $playerRows->count(),
                 ];
             })
             ->values();
@@ -409,6 +713,12 @@ class PopulationMetricRepository
             'excluded' => [],
             'raw_samples' => [],
             'raw_included_samples' => [],
+            'table_values_count' => 0,
+            'trusted_task_values_found' => 0,
+            'trusted_task_values_included_before_dedupe' => 0,
+            'trusted_task_deduped_count' => 0,
+            'trusted_task_excluded' => [],
+            'trusted_task_samples' => [],
             'bucket_filter_applied' => false,
             'bucket_context_before_count' => 0,
             'bucket_context_after_count' => 0,
@@ -481,6 +791,7 @@ class PopulationMetricRepository
             ->map(fn (array $row) => [
                 'user_id' => $row['user_id'] ?? null,
                 'value' => $row['value'] ?? null,
+                'source' => $row['source'] ?? null,
             ])
             ->values()
             ->all();

@@ -50,6 +50,10 @@ class PopulationPercentileEngine
             'bucket_key' => $bucketKey,
             'count' => $bucketCount,
             'usable' => $usable,
+            'table_values_count' => $bucketCount,
+            'trusted_task_values_count' => 0,
+            'deduped_count' => 0,
+            'final_population_values_count' => $bucketCount,
         ]];
 
         return [
@@ -62,6 +66,10 @@ class PopulationPercentileEngine
             'confidence' => $this->confidence($bucketCount, $bucketLevel),
             'source' => 'fmtrx_population',
             'usable' => $usable,
+            'table_values_count' => $bucketCount,
+            'trusted_task_values_count' => 0,
+            'deduped_count' => 0,
+            'final_population_values_count' => $bucketCount,
             'attempted_buckets' => $attemptedBuckets,
             'evidence' => $this->evidence($bucketCount, $raw, $rawValidation['reason'] ?? null, $usable ? $bucketLevel : null),
         ];
@@ -96,6 +104,12 @@ class PopulationPercentileEngine
                 'bucket_key' => (string) ($candidate['bucket_key'] ?? $this->benchmarkLibrary->bucketKeyForLevel($context, (string) ($candidate['level'] ?? BenchmarkLibrary::BUCKET_EXACT_PEER))),
                 'count' => $count,
                 'usable' => $usable,
+                'table_values_count' => (int) ($audit['table_values_count'] ?? 0),
+                'trusted_task_values_count' => (int) ($audit['trusted_task_values_count'] ?? 0),
+                'deduped_count' => (int) ($audit['deduped_count'] ?? 0),
+                'final_population_values_count' => (int) ($audit['final_population_values_count'] ?? $count),
+                'trusted_task_excluded_reasons' => $audit['trusted_task_excluded_reasons'] ?? [],
+                'trusted_tasks_included' => (bool) ($audit['trusted_tasks_included'] ?? false),
             ];
             $attemptedBuckets[] = $attempt;
 
@@ -119,6 +133,11 @@ class PopulationPercentileEngine
                 'confidence' => 'insufficient',
                 'source' => 'fmtrx_population',
                 'usable' => false,
+                'table_values_count' => (int) ($lastAttempt['table_values_count'] ?? 0),
+                'trusted_task_values_count' => (int) ($lastAttempt['trusted_task_values_count'] ?? 0),
+                'deduped_count' => (int) ($lastAttempt['deduped_count'] ?? 0),
+                'final_population_values_count' => (int) ($lastAttempt['final_population_values_count'] ?? $lastAttempt['count'] ?? 0),
+                'trusted_task_excluded_reasons' => $lastAttempt['trusted_task_excluded_reasons'] ?? [],
                 'attempted_buckets' => $attemptedBuckets,
                 'evidence' => $this->evidence((int) ($lastAttempt['count'] ?? 0), $raw, $rawValidation['reason'] ?? null, null, $attemptedBuckets),
                 'days' => $days,
@@ -135,6 +154,11 @@ class PopulationPercentileEngine
             'confidence' => $this->confidence((int) $selected['count'], (string) $selected['level']),
             'source' => 'fmtrx_population',
             'usable' => true,
+            'table_values_count' => (int) ($selected['table_values_count'] ?? 0),
+            'trusted_task_values_count' => (int) ($selected['trusted_task_values_count'] ?? 0),
+            'deduped_count' => (int) ($selected['deduped_count'] ?? 0),
+            'final_population_values_count' => (int) ($selected['final_population_values_count'] ?? $selected['count']),
+            'trusted_task_excluded_reasons' => $selected['trusted_task_excluded_reasons'] ?? [],
             'attempted_buckets' => $attemptedBuckets,
             'evidence' => $this->evidence((int) $selected['count'], $raw, null, (string) $selected['level'], $attemptedBuckets),
         ];
@@ -196,12 +220,13 @@ class PopulationPercentileEngine
                 $message .= ' Attempted buckets: '.$this->attemptSummary($attemptedBuckets).'.';
             }
 
-            return [$message];
+            return array_merge([$message], $this->trustedTaskEvidence($attemptedBuckets));
         }
 
         $label = $selectedBucketLevel ?: 'selected';
+        $messages = ['FMTRX population '.$label.' bucket selected with '.$count.' guarded values.'];
 
-        return ['FMTRX population '.$label.' bucket selected with '.$count.' guarded values.'];
+        return array_merge($messages, $this->trustedTaskEvidence($attemptedBuckets));
     }
 
     private function higherIsBetter(string $metricKey): bool
@@ -218,5 +243,31 @@ class PopulationPercentileEngine
             fn (array $attempt) => ($attempt['level'] ?? 'unknown').': '.(int) ($attempt['count'] ?? 0),
             $attemptedBuckets
         ));
+    }
+
+    private function trustedTaskEvidence(array $attemptedBuckets): array
+    {
+        $trustedCount = 0;
+        $dedupedCount = 0;
+
+        foreach ($attemptedBuckets as $attempt) {
+            $trustedCount = max($trustedCount, (int) ($attempt['trusted_task_values_count'] ?? 0));
+            $dedupedCount = max($dedupedCount, (int) ($attempt['deduped_count'] ?? 0));
+        }
+
+        $messages = [];
+        if ($trustedCount > 0) {
+            $messages[] = 'FMTRX population bucket includes '.$trustedCount.' approved benchmark task payload value'.($trustedCount === 1 ? '' : 's').'.';
+        }
+
+        if ($dedupedCount > 0) {
+            $messages[] = $dedupedCount.' trusted benchmark task payload value'.($dedupedCount === 1 ? ' was' : 's were').' deduped behind existing table values.';
+        }
+
+        if ($trustedCount > 0 || $dedupedCount > 0) {
+            $messages[] = 'Draft, pending review, rejected, and unapproved task payloads are excluded from population learning.';
+        }
+
+        return $messages;
     }
 }

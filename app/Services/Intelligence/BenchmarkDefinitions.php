@@ -63,10 +63,13 @@ class BenchmarkDefinitions
             'push_ups' => 'pushups',
             'dead_lift' => 'deadlift',
             'back_squat', 'front_squat' => 'squat',
-            'avg_fastball_velocity', 'avg_pitch_velocity', 'bullpen_avg_velocity' => 'average_fastball_velocity',
-            'max_pitch_velocity', 'bullpen_max_velocity' => 'max_fastball_velocity',
-            'avg_exit_velocity', 'exit_velocity_avg', 'batting_avg_ev', 'cage_avg_ev' => 'average_exit_velocity',
-            'exit_velocity_max' => 'max_exit_velocity',
+            'avg_fastball', 'avg_fastball_velocity', 'avg_pitch_velocity', 'bullpen_avg_velocity' => 'average_fastball_velocity',
+            'max_fastball', 'max_pitch_velocity', 'bullpen_max_velocity' => 'max_fastball_velocity',
+            'strike_pct' => 'strike_percentage',
+            'avg_ev', 'avg_exit_velocity', 'exit_velocity_avg', 'batting_avg_ev', 'cage_avg_ev' => 'average_exit_velocity',
+            'max_ev', 'exit_velocity_max' => 'max_exit_velocity',
+            'forty' => 'forty_yard_dash',
+            'sixty' => 'sixty_yard_dash',
             default => $metricKey,
         };
     }

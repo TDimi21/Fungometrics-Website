@@ -105,6 +105,10 @@ class CompositeBenchmarkEngine
             'selected_bucket_key' => $population['selected_bucket_key'] ?? $population['bucket_key'] ?? null,
             'selected_bucket_level' => $population['selected_bucket_level'] ?? null,
             'attempted_bucket_count' => is_array($population['attempted_buckets'] ?? null) ? count($population['attempted_buckets']) : 0,
+            'table_values_count' => (int) ($population['table_values_count'] ?? 0),
+            'trusted_task_values_count' => (int) ($population['trusted_task_values_count'] ?? 0),
+            'deduped_count' => (int) ($population['deduped_count'] ?? 0),
+            'final_population_values_count' => (int) ($population['final_population_values_count'] ?? $population['bucket_count'] ?? 0),
         ];
     }
 

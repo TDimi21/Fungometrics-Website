@@ -22,6 +22,8 @@ class PopulationMetricAudit extends Command
         {--throws= : Optional throwing side bucket}
         {--bats= : Optional hitting side bucket}
         {--value= : Optional player value to compare against the FMTRX population bucket}
+        {--include-trusted-tasks : Include approved/promoted benchmark task payloads in population samples}
+        {--exclude-trusted-tasks : Exclude approved/promoted benchmark task payloads from population samples}
         {--days=365 : Population lookback window in days}';
 
     protected $description = 'Audit FMTRX population values for one benchmark metric.';
@@ -39,6 +41,7 @@ class PopulationMetricAudit extends Command
         $this->line('Metric key: '.$metricKey);
         $this->line('Days: '.$days);
         $this->line('Context: '.$this->formatContext($context));
+        $this->line('Trusted task payloads: '.(($audit['trusted_tasks_included'] ?? false) ? 'included' : 'excluded'));
 
         $this->newLine();
         $this->info('RAW SAMPLE BEFORE GUARDRAILS');
@@ -54,6 +57,22 @@ class PopulationMetricAudit extends Command
         $this->line('Sample player-level values: '.$this->sampleDebugRows($audit['guardrail_filtered_sample'] ?? [], 'value'));
         $this->line('Note: valid raw rows are grouped by player before percentile calculation.');
         $this->line('Sample excluded values: '.$this->sampleExcludedValues($audit['excluded_samples'] ?? []));
+
+        $this->newLine();
+        $this->info('TRUSTED TASK PAYLOAD SAMPLE');
+        if (! ($audit['trusted_tasks_included'] ?? false)) {
+            $this->line('Trusted task payload sampling is disabled for this audit.');
+        } else {
+            $this->line('Trusted task values found: '.($audit['trusted_task_values_found'] ?? 0));
+            $this->line('Trusted task values included after guardrails: '.($audit['trusted_task_values_included_before_dedupe'] ?? 0));
+            $this->line('Trusted task values excluded by guardrails: '.($audit['trusted_task_values_excluded'] ?? 0));
+            $this->line('Trusted excluded reasons: '.$this->formatReasonCounts($audit['trusted_task_excluded_reasons'] ?? []));
+            $this->line('Trusted task values deduped behind existing table values: '.($audit['trusted_task_deduped_count'] ?? $audit['deduped_count'] ?? 0));
+            $this->line('Trusted task values in final sample: '.($audit['trusted_task_values_count'] ?? 0));
+            $this->line('Sample trusted task values: '.$this->sampleDebugRows($audit['trusted_task_sample'] ?? [], 'value'));
+            $this->line('Sample trusted excluded values: '.$this->sampleExcludedValues($audit['trusted_task_excluded_samples'] ?? []));
+            $this->line('Note: only completed, approved, promoted benchmark task payloads are eligible. Pending, draft, rejected, and unapproved tasks are excluded.');
+        }
 
         $this->newLine();
         $this->info('BUCKET / CONTEXT FILTERED SAMPLE');
@@ -88,6 +107,10 @@ class PopulationMetricAudit extends Command
             $this->line('Selected bucket level: '.($percentile['selected_bucket_level'] ?? 'none'));
             $this->line('Selected bucket key: '.($percentile['selected_bucket_key'] ?? '-'));
             $this->line('Selected bucket count: '.($percentile['bucket_count'] ?? 0));
+            $this->line('Table values in selected bucket: '.($percentile['table_values_count'] ?? 0));
+            $this->line('Trusted task values in selected bucket: '.($percentile['trusted_task_values_count'] ?? 0));
+            $this->line('Values deduped before percentile: '.($percentile['deduped_count'] ?? 0));
+            $this->line('Final population values: '.($percentile['final_population_values_count'] ?? $percentile['bucket_count'] ?? 0));
             $this->line('Population percentile: '.$this->formatNumber($percentile['percentile'] ?? null));
             $this->line('Usable: '.(($percentile['usable'] ?? false) ? 'yes' : 'no'));
             $this->line('Confidence: '.($percentile['confidence'] ?? 'insufficient'));
@@ -135,6 +158,11 @@ class PopulationMetricAudit extends Command
             if (is_string($value) && trim($value) !== '') {
                 $context[$contextKey] = trim($value);
             }
+        }
+
+        $context['include_trusted_tasks'] = ! (bool) $this->option('exclude-trusted-tasks');
+        if ((bool) $this->option('include-trusted-tasks')) {
+            $context['include_trusted_tasks'] = true;
         }
 
         return $context;
@@ -241,11 +269,16 @@ class PopulationMetricAudit extends Command
         }
 
         return implode(' | ', array_map(function (array $attempt) {
+            $trusted = isset($attempt['trusted_task_values_count'])
+                ? ', trusted '.$attempt['trusted_task_values_count']
+                : '';
+
             return sprintf(
-                '%s=%s (%s%s)',
+                '%s=%s (%s%s%s)',
                 $attempt['level'] ?? 'unknown',
                 $attempt['bucket_key'] ?? '-',
                 (int) ($attempt['count'] ?? 0),
+                $trusted,
                 ($attempt['usable'] ?? false) ? ', usable' : ''
             );
         }, $attemptedBuckets));
