@@ -56,6 +56,9 @@ class PopulationMetricRepository
             $tableRows = $this->populationRowsForMetric($metricKey, $context, $days, $stats);
             $tableRows = $this->guardRows($tableRows, $metricKey, $stats, 'aggregate');
             $stats['table_values_count'] = $tableRows->count();
+            if ($includeTrustedTasks) {
+                $this->recordIneligibleTrustedTaskPayloads($metricKey, $context, $days, $stats);
+            }
             $trustedRows = $includeTrustedTasks
                 ? $this->trustedTaskPayloadRowsForMetric($metricKey, $context, $days, $stats)
                 : collect();
@@ -87,8 +90,11 @@ class PopulationMetricRepository
                 'trusted_task_values_count' => $trustedFinalCount,
                 'trusted_task_values_included' => $trustedFinalCount,
                 'trusted_task_values_excluded' => count($stats['trusted_task_excluded']),
+                'trusted_task_values_status_excluded' => count($stats['trusted_task_status_excluded']),
                 'trusted_task_excluded_reasons' => $this->excludedReasonCounts($stats['trusted_task_excluded']),
+                'trusted_task_status_excluded_reasons' => $this->excludedReasonCounts($stats['trusted_task_status_excluded']),
                 'trusted_task_excluded_samples' => array_slice($stats['trusted_task_excluded'], 0, 10),
+                'trusted_task_status_excluded_samples' => array_slice($stats['trusted_task_status_excluded'], 0, 10),
                 'trusted_task_sample' => $stats['trusted_task_samples'],
                 'deduped_count' => $stats['trusted_task_deduped_count'],
                 'trusted_task_deduped_count' => $stats['trusted_task_deduped_count'],
@@ -148,8 +154,11 @@ class PopulationMetricRepository
                 'trusted_task_values_count' => 0,
                 'trusted_task_values_included' => 0,
                 'trusted_task_values_excluded' => 0,
+                'trusted_task_values_status_excluded' => 0,
                 'trusted_task_excluded_reasons' => [],
+                'trusted_task_status_excluded_reasons' => [],
                 'trusted_task_excluded_samples' => [],
+                'trusted_task_status_excluded_samples' => [],
                 'trusted_task_sample' => [],
                 'deduped_count' => 0,
                 'trusted_task_deduped_count' => 0,
@@ -362,6 +371,62 @@ class PopulationMetricRepository
         return $query;
     }
 
+    private function recordIneligibleTrustedTaskPayloads(string $metricKey, array $context, int $days, array &$stats): void
+    {
+        if (! Schema::hasTable('benchmark_collection_tasks')) {
+            return;
+        }
+
+        foreach (['review_status', 'status', 'promotion_status', 'promotion_mode', 'assigned_to_player_id'] as $column) {
+            if (! Schema::hasColumn('benchmark_collection_tasks', $column)) {
+                return;
+            }
+        }
+
+        try {
+            $query = BenchmarkCollectionTask::query()
+                ->whereNotNull('assigned_to_player_id')
+                ->where(function ($scope): void {
+                    $scope->where('status', '!=', BenchmarkCollectionTask::STATUS_COMPLETED)
+                        ->orWhere('review_status', '!=', BenchmarkCollectionTask::REVIEW_APPROVED)
+                        ->orWhere(function ($promotion): void {
+                            $promotion->where(function ($status): void {
+                                $status->whereNotIn('promotion_status', [
+                                    BenchmarkCollectionTask::PROMOTION_PROMOTED,
+                                    BenchmarkCollectionTask::PROMOTION_PARTIAL,
+                                ])->orWhereNull('promotion_status');
+                            })->where(function ($mode): void {
+                                $mode->where('promotion_mode', '!=', BenchmarkCollectionTask::MODE_TRUSTED_PAYLOAD_ONLY)
+                                    ->orWhereNull('promotion_mode');
+                            });
+                        });
+                });
+
+            if (Schema::hasColumn('benchmark_collection_tasks', 'created_at')) {
+                $query->where('created_at', '>=', now()->subDays($days));
+            }
+
+            if (! empty($context['team_id'] ?? $context['teamId'] ?? null) && Schema::hasColumn('benchmark_collection_tasks', 'team_id')) {
+                $query->where('team_id', (string) ($context['team_id'] ?? $context['teamId']));
+            }
+
+            if (! empty($context['player_id'] ?? $context['playerId'] ?? null)) {
+                $query->where('assigned_to_player_id', (string) ($context['player_id'] ?? $context['playerId']));
+            }
+
+            $query->get()->each(function (BenchmarkCollectionTask $task) use ($metricKey, &$stats): void {
+                $value = $this->trustedMetricValue($task, $metricKey);
+                if ($value === null) {
+                    return;
+                }
+
+                $this->recordTrustedStatusExcluded($stats, $task, $metricKey, $value);
+            });
+        } catch (\Throwable) {
+            return;
+        }
+    }
+
     private function mergeTableAndTrustedRows(Collection $tableRows, Collection $trustedRows, array &$stats): Collection
     {
         if ($trustedRows->isEmpty()) {
@@ -495,6 +560,32 @@ class PopulationMetricRepository
             'task_id' => (string) $task->id,
             'task_type' => $task->task_type,
             'stage' => 'trusted_task_payload',
+        ];
+    }
+
+    private function recordTrustedStatusExcluded(array &$stats, BenchmarkCollectionTask $task, string $metricKey, mixed $value): void
+    {
+        $reason = match (true) {
+            $task->status !== BenchmarkCollectionTask::STATUS_COMPLETED => 'task_not_completed',
+            $task->review_status !== BenchmarkCollectionTask::REVIEW_APPROVED => 'task_not_approved',
+            ! in_array($task->promotion_status, [
+                BenchmarkCollectionTask::PROMOTION_PROMOTED,
+                BenchmarkCollectionTask::PROMOTION_PARTIAL,
+            ], true) && $task->promotion_mode !== BenchmarkCollectionTask::MODE_TRUSTED_PAYLOAD_ONLY => 'task_not_promoted',
+            default => 'task_not_population_eligible',
+        };
+
+        $stats['trusted_task_status_excluded'][] = [
+            'metric_key' => $metricKey,
+            'reason' => $reason,
+            'raw_value' => $value,
+            'parsed_value' => $this->numberOrNull($value, $metricKey),
+            'table' => 'benchmark_collection_tasks',
+            'column' => 'submitted_or_approved_payload',
+            'user_id' => $task->assigned_to_player_id ? (string) $task->assigned_to_player_id : null,
+            'task_id' => (string) $task->id,
+            'task_type' => $task->task_type,
+            'stage' => 'trusted_task_status',
         ];
     }
 
@@ -718,6 +809,7 @@ class PopulationMetricRepository
             'trusted_task_values_included_before_dedupe' => 0,
             'trusted_task_deduped_count' => 0,
             'trusted_task_excluded' => [],
+            'trusted_task_status_excluded' => [],
             'trusted_task_samples' => [],
             'bucket_filter_applied' => false,
             'bucket_context_before_count' => 0,
