@@ -51,6 +51,9 @@ const practicePlanSuggestionActionLoading = ref('')
 const practicePlanSuggestionActionError = ref('')
 const practicePlanSuggestionActionMessage = ref('')
 const selectedPracticePlanSuggestionIds = ref([])
+const dailyPlanRevisions = ref(null)
+const dailyPlanRevisionLoading = ref(false)
+const dailyPlanRevisionError = ref('')
 
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
@@ -137,6 +140,8 @@ const loadTeamCommandCenter = async () => {
   practicePlanSuggestionActionError.value = ''
   practicePlanSuggestionActionMessage.value = ''
   selectedPracticePlanSuggestionIds.value = []
+  dailyPlanRevisions.value = null
+  dailyPlanRevisionError.value = ''
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -303,6 +308,14 @@ const readableLabelOverrides = {
   auto: 'Auto Safety Mode',
   player_context: 'Roster Profile',
   player_benchmark_metrics: 'Benchmark Baseline',
+  coach_edit: 'Coach Edit',
+  benchmark_intelligence: 'FMTRX Intelligence',
+  practice_plan_update_suggestion: 'Suggested Update',
+  manual_revision: 'Manual Revision',
+  suggestions_applied: 'Suggestions Applied',
+  republished: 'Republished',
+  edited: 'Edited',
+  published: 'Published',
 }
 
 const humanizeKey = (value, fallback = 'Needs Data') => {
@@ -2002,6 +2015,20 @@ const suggestionPlayerNames = (suggestion) =>
     .slice(0, 5)
     .join(', ')
 
+const dailyPlanRevisionCards = computed(() =>
+  asArray(dailyPlanRevisions.value?.revisions).slice(0, 6)
+)
+
+const revisionDiffCount = (revision, key) =>
+  asArray(revision?.diff_summary?.[key]).length
+
+const revisionSuggestionTitles = (revision) =>
+  asArray(revision?.applied_suggestions)
+    .map((suggestion) => suggestion?.title || suggestion?.suggestion_id)
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(', ')
+
 const benchmarkRescoreSummary = computed(() =>
   recentBenchmarkRescore.value?.improvement_summary && typeof recentBenchmarkRescore.value.improvement_summary === 'object'
     ? recentBenchmarkRescore.value.improvement_summary
@@ -2298,11 +2325,35 @@ const saveCoachPracticePlanToDailyPlanner = async (mode = 'draft') => {
     const dailyPlanId = payload.saved_daily_plan_id || payload.daily_plan?.id || payload.id
     if (dailyPlanId) {
       await refreshPracticePlanUpdateSuggestions(dailyPlanId, true)
+      await refreshDailyPlanRevisions(dailyPlanId, true)
     }
   } catch (error) {
     coachPracticePlanSaveError.value = error?.response?.data?.message || 'Could not save the suggested plan to Daily Planner.'
   } finally {
     coachPracticePlanSaveLoading.value = ''
+  }
+}
+
+const refreshDailyPlanRevisions = async (dailyPlanId = null, silent = false) => {
+  const planId = dailyPlanId || practicePlanSuggestionDailyPlanId.value
+  if (!planId) return
+
+  if (!silent) {
+    dailyPlanRevisionLoading.value = true
+    dailyPlanRevisionError.value = ''
+  }
+
+  try {
+    const response = await axiosGet(`coach/daily-plans/${planId}/revisions`)
+    dailyPlanRevisions.value = responsePayload(response)
+  } catch (error) {
+    if (!silent) {
+      dailyPlanRevisionError.value = error?.response?.data?.message || 'Could not load daily plan revision history.'
+    }
+  } finally {
+    if (!silent) {
+      dailyPlanRevisionLoading.value = false
+    }
   }
 }
 
@@ -2327,6 +2378,9 @@ const refreshPracticePlanUpdateSuggestions = async (dailyPlanId = null, silent =
       practice_plan_update_suggestions: payload,
     }
     selectedPracticePlanSuggestionIds.value = []
+    if (payload.daily_plan_id) {
+      await refreshDailyPlanRevisions(payload.daily_plan_id, true)
+    }
     if (!silent) {
       practicePlanSuggestionActionMessage.value = payload.summary || 'Practice plan suggestions refreshed.'
     }
@@ -2366,6 +2420,9 @@ const applySelectedPracticePlanSuggestions = async () => {
     const payload = responsePayload(response)
     if (payload.daily_plan) {
       savedCoachPracticeDailyPlan.value = payload.daily_plan
+    }
+    if (payload.daily_plan_id) {
+      await refreshDailyPlanRevisions(payload.daily_plan_id, true)
     }
     teamIntelligence.value = {
       ...(teamIntelligence.value || {}),
@@ -3585,6 +3642,81 @@ const priorityTop10Rows = computed(() => {
                 <p v-if="practicePlanSuggestionActionError" class="mt-2 rounded border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
                   {{ practicePlanSuggestionActionError }}
                 </p>
+              </div>
+
+              <div class="mt-3 rounded-md border border-violet-300/20 bg-violet-500/10 p-3">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p class="text-[10px] uppercase tracking-widest text-violet-100/80">Daily Plan Revision History</p>
+                    <p class="mt-1 text-sm text-slate-200">
+                      Changes will be tracked when FMTRX suggestions are applied.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="rounded border border-violet-300/30 bg-violet-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-violet-100 transition hover:bg-violet-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                    :disabled="dailyPlanRevisionLoading || !practicePlanSuggestionDailyPlanId"
+                    @click="refreshDailyPlanRevisions()"
+                  >
+                    {{ dailyPlanRevisionLoading ? 'Loading...' : 'Load History' }}
+                  </button>
+                </div>
+
+                <p v-if="dailyPlanRevisionError" class="mt-2 rounded border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                  {{ dailyPlanRevisionError }}
+                </p>
+
+                <p v-if="!practicePlanSuggestionDailyPlanId" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                  Revision history is not available until a Daily Plan draft or published plan exists.
+                </p>
+                <p v-else-if="dailyPlanRevisions && !dailyPlanRevisionCards.length" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                  No revisions saved yet.
+                </p>
+                <p v-else-if="!dailyPlanRevisions" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                  Revision history is not loaded yet.
+                </p>
+
+                <div v-if="dailyPlanRevisionCards.length" class="mt-3 space-y-2">
+                  <div
+                    v-for="revision in dailyPlanRevisionCards"
+                    :key="`daily-plan-revision-${revision.revision_id}`"
+                    class="rounded-lg border border-white/10 bg-slate-950/40 p-3"
+                  >
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p class="text-[10px] uppercase tracking-widest text-white/35">
+                          Revision #{{ revision.revision_number }} · {{ formatDate(revision.created_at) }}
+                        </p>
+                        <h5 class="mt-1 text-sm font-black text-white">
+                          {{ humanizeKey(revision.source, 'System') }} · {{ humanizeKey(revision.change_type, 'Edited') }}
+                        </h5>
+                      </div>
+                      <span class="rounded-full border border-violet-300/30 bg-violet-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-violet-100">
+                        {{ fmtCount(revision.diff_summary?.duration_delta, '0') }} min
+                      </span>
+                    </div>
+                    <p class="mt-2 text-xs text-slate-300">
+                      {{ revision.reason || 'Daily Plan change recorded.' }}
+                    </p>
+                    <div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-[10px] text-slate-300">
+                        <span class="font-black text-white">Added:</span> {{ fmtCount(revisionDiffCount(revision, 'blocks_added'), '0') }}
+                      </p>
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-[10px] text-slate-300">
+                        <span class="font-black text-white">Removed:</span> {{ fmtCount(revisionDiffCount(revision, 'blocks_removed'), '0') }}
+                      </p>
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-[10px] text-slate-300">
+                        <span class="font-black text-white">Updated:</span> {{ fmtCount(revisionDiffCount(revision, 'blocks_updated'), '0') }}
+                      </p>
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-[10px] text-slate-300">
+                        <span class="font-black text-white">Warnings:</span> {{ fmtCount(asArray(revision.diff_summary?.warnings).length, '0') }}
+                      </p>
+                    </div>
+                    <p v-if="revisionSuggestionTitles(revision)" class="mt-2 rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-[10px] text-slate-300">
+                      <span class="font-black text-white">Applied suggestions:</span> {{ revisionSuggestionTitles(revision) }}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <p v-if="!coachActionPracticePlan" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">

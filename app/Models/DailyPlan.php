@@ -51,6 +51,11 @@ class DailyPlan extends Model
         return $this->hasMany(DailyPlanProgress::class, 'plan_id');
     }
 
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(DailyPlanRevision::class, 'daily_plan_id');
+    }
+
     /**
      * @return array<int, string>
      */

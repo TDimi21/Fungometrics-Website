@@ -6,6 +6,7 @@ namespace App\Services\Intelligence;
 
 use App\Models\DailyPlan;
 use App\Models\DailyPlanProgress;
+use App\Services\Planner\DailyPlanRevisionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -42,6 +43,7 @@ class PracticePlanUpdateSuggestionService
 
     public function __construct(
         private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
+        private readonly DailyPlanRevisionService $dailyPlanRevisionService,
     ) {
     }
 
@@ -306,6 +308,7 @@ class PracticePlanUpdateSuggestionService
             ];
         }
 
+        $beforeSnapshot = $this->dailyPlanRevisionService->snapshotPlan($dailyPlanId);
         $completedItemIds = $this->completedItemIds($plan->progress?->toArray() ?? []);
         $warnings = [];
         $applied = [];
@@ -359,6 +362,22 @@ class PracticePlanUpdateSuggestionService
         });
 
         $plan->refresh()->load(['assignments', 'progress']);
+        $afterSnapshot = $this->dailyPlanRevisionService->snapshotPlan((string) $plan->id);
+        $revision = [];
+        if (! empty($applied)) {
+            $revision = $this->dailyPlanRevisionService->createRevision((string) $plan->id, $beforeSnapshot, $afterSnapshot, [
+                'source' => 'practice_plan_update_suggestion',
+                'change_type' => $plan->status === 'published' ? 'republished' : 'suggestions_applied',
+                'created_by_user_id' => $approvedByUserId,
+                'applied_suggestions' => $applied,
+                'reason' => 'Coach approved FMTRX practice plan update suggestions.',
+                'coach_notes' => $options['coach_notes'] ?? null,
+            ]);
+
+            if (($revision['revision_status'] ?? null) === 'failed') {
+                $warnings[] = 'Daily plan was updated, but revision history could not be saved.';
+            }
+        }
 
         return [
             'ok' => ! empty($applied),
@@ -370,6 +389,8 @@ class PracticePlanUpdateSuggestionService
             'republished' => $plan->status === 'published',
             'applied_suggestions' => $applied,
             'skipped_suggestions' => $skipped,
+            'revision' => $revision,
+            'diff_summary' => $revision['diff_summary'] ?? [],
             'warnings' => $warnings,
             'daily_plan' => $plan->toArray(),
             'post_apply_preview' => $this->suggestUpdatesForDailyPlan((string) $plan->id, $options),
@@ -380,7 +401,8 @@ class PracticePlanUpdateSuggestionService
                 'completed_item_count' => count($completedItemIds),
                 'assignments_preserved' => true,
                 'progress_preserved' => true,
-                'database_records_created' => false,
+                'database_records_created' => ($revision['revision_status'] ?? null) === 'created',
+                'revision_record_created' => ($revision['revision_status'] ?? null) === 'created',
             ],
         ];
     }

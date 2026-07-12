@@ -25,6 +25,7 @@ use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\PracticePlanUpdateSuggestionService;
 use App\Services\Intelligence\TeamIntelligenceService;
+use App\Services\Planner\DailyPlanRevisionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -47,6 +48,7 @@ class IntelligenceController extends Controller
         private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
         private readonly BenchmarkPracticePlanDailyPlannerAdapter $coachActionDailyPlannerAdapter,
         private readonly PracticePlanUpdateSuggestionService $practicePlanUpdateSuggestionService,
+        private readonly DailyPlanRevisionService $dailyPlanRevisionService,
     ) {
     }
 
@@ -276,6 +278,62 @@ class IntelligenceController extends Controller
         );
 
         return response()->json($result, ($result['ok'] ?? false) ? HttpCodes::HTTP_OK : HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    public function listDailyPlanRevisions(Request $request, string $dailyPlanId): JsonResponse
+    {
+        $plan = DailyPlan::query()->find($dailyPlanId);
+        if (! $plan) {
+            return $this->notFound('Daily plan not found');
+        }
+
+        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+            return $this->forbidden('You do not have access to this daily plan');
+        }
+
+        return response()->json($this->dailyPlanRevisionService->listRevisions($dailyPlanId));
+    }
+
+    public function showDailyPlanRevision(Request $request, string $dailyPlanId, string $revisionId): JsonResponse
+    {
+        $plan = DailyPlan::query()->find($dailyPlanId);
+        if (! $plan) {
+            return $this->notFound('Daily plan not found');
+        }
+
+        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+            return $this->forbidden('You do not have access to this daily plan');
+        }
+
+        $revision = $this->dailyPlanRevisionService->revisionById($dailyPlanId, $revisionId);
+        if (! $revision) {
+            return $this->notFound('Revision not found');
+        }
+
+        return response()->json($revision);
+    }
+
+    public function compareDailyPlanRevisions(Request $request, string $dailyPlanId): JsonResponse
+    {
+        $plan = DailyPlan::query()->find($dailyPlanId);
+        if (! $plan) {
+            return $this->notFound('Daily plan not found');
+        }
+
+        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+            return $this->forbidden('You do not have access to this daily plan');
+        }
+
+        $validated = $request->validate([
+            'from' => ['required', 'integer', 'min:1'],
+            'to' => ['required', 'integer', 'min:1'],
+        ]);
+
+        return response()->json($this->dailyPlanRevisionService->compareRevisions(
+            $dailyPlanId,
+            (int) $validated['from'],
+            (int) $validated['to'],
+        ));
     }
 
     public function saveBenchmarkDrafts(Request $request, string $teamId): JsonResponse
