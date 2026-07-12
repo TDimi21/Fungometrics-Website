@@ -445,26 +445,30 @@ const updateBlockText = (block = {}) => {
   return parts.join(' · ') || cleanText(block.message) || 'Plan block'
 }
 
-const markPlanUpdateSeen = async () => {
+const acknowledgePlanUpdate = async () => {
   const status = planUpdateStatus.value
   const planId = current.value?.plan?.id
   if (!status || !planId) return
 
   try {
-    const res = await axiosPost(`player/daily-plans/${planId}/mark-update-seen`, {
+    const res = await axiosPost(`player/daily-plans/${planId}/acknowledge-update`, {
       revision_id: status.latest_revision_id || null,
     })
-    const nextStatus = res?.data?.data || res?.data || {
+    const payload = res?.data?.data || res?.data || {}
+    const nextStatus = payload.update_status || payload || {
       ...status,
       has_update: false,
       seen: true,
+      acknowledged: true,
+      acknowledged_at: new Date().toISOString(),
     }
     current.value.plan.update_status = nextStatus
     workouts.value = workouts.value.map((workout) => (
       workout.id === planId ? { ...workout, update_status: nextStatus } : workout
     ))
+    saveNotice.value = payload.message || 'Plan update acknowledged.'
   } catch {
-    alert('Could not mark this update as seen — check your connection and try again.')
+    alert('Could not acknowledge update. Try again.')
   }
 }
 
@@ -585,7 +589,7 @@ const finish = async () => {
             <div class="pw-update-eyebrow">Coach Update</div>
             <div class="pw-update-title">{{ planUpdateStatus.update_title || 'Plan Updated' }}</div>
           </div>
-          <button type="button" class="pw-update-dismiss" @click.stop="markPlanUpdateSeen">Got it</button>
+          <button type="button" class="pw-update-dismiss" @click.stop="acknowledgePlanUpdate">Acknowledge Update</button>
         </div>
         <p class="pw-update-message">
           {{ planUpdateStatus.update_message || 'Your coach updated this plan. Your completed progress was preserved.' }}

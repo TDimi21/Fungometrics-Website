@@ -27,11 +27,14 @@ use App\Http\Controllers\Api\Coach\GetStatsBundle;
 use App\Http\Controllers\Api\Coach\SavePracticePlan;
 use App\Http\Controllers\Api\Coach\DeletePracticePlan;
 // Daily Planner — its own domain, shared between app and web
+use App\Http\Controllers\Api\Planner\AcknowledgeDailyPlanUpdate;
 use App\Http\Controllers\Api\Planner\GetDailyPlans;
 use App\Http\Controllers\Api\Planner\SaveDailyPlan;
 use App\Http\Controllers\Api\Planner\DeleteDailyPlan;
 use App\Http\Controllers\Api\Planner\GetMyWorkouts;
 use App\Http\Controllers\Api\Planner\GetMyWorkout;
+use App\Http\Controllers\Api\Planner\GetDailyPlanAcknowledgements;
+use App\Http\Controllers\Api\Planner\GetDailyPlanUpdateStatus;
 use App\Http\Controllers\Api\Planner\MarkDailyPlanUpdateSeen;
 use App\Http\Controllers\Api\Planner\SaveWorkoutProgress;
 use App\Http\Controllers\Api\Planner\SaveCustomDrill;
@@ -206,6 +209,8 @@ Route::prefix('player')->group(function (): void {
         // Daily Planner (player side) — "My Workouts" + progress
         Route::get('daily-plans', GetMyWorkouts::class);
         Route::get('daily-plans/{id}', GetMyWorkout::class);
+        Route::get('daily-plans/{id}/update-status', GetDailyPlanUpdateStatus::class);
+        Route::post('daily-plans/{id}/acknowledge-update', AcknowledgeDailyPlanUpdate::class);
         Route::post('daily-plans/{id}/mark-update-seen', MarkDailyPlanUpdateSeen::class);
         Route::post('daily-plans/{id}/progress', SaveWorkoutProgress::class);
     });
@@ -261,6 +266,7 @@ Route::prefix('coach')->group(function (): void {
         // Coach reviews player results: all players' progress for a plan, + per-player review.
         Route::get('/daily-plans/{id}/progress', GetDailyPlanProgress::class);
         Route::post('/daily-plans/{planId}/players/{playerId}/review', SaveCoachWorkoutReview::class);
+        Route::get('/daily-plans/{dailyPlanId}/acknowledgements', GetDailyPlanAcknowledgements::class);
         Route::get('/daily-plans/{dailyPlanId}/update-suggestions', [IntelligenceController::class, 'dailyPlanUpdateSuggestions']);
         Route::post('/daily-plans/{dailyPlanId}/apply-update-suggestions', [IntelligenceController::class, 'applyDailyPlanUpdateSuggestions']);
         Route::get('/daily-plans/{dailyPlanId}/republish-review', [IntelligenceController::class, 'dailyPlanRepublishReview']);

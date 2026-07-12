@@ -59,6 +59,9 @@ const dailyPlanRepublishPreview = ref(null)
 const dailyPlanRepublishReviewLoading = ref('')
 const dailyPlanRepublishReviewError = ref('')
 const dailyPlanRepublishReviewMessage = ref('')
+const dailyPlanAcknowledgements = ref(null)
+const dailyPlanAcknowledgementLoading = ref(false)
+const dailyPlanAcknowledgementError = ref('')
 
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
@@ -151,6 +154,8 @@ const loadTeamCommandCenter = async () => {
   dailyPlanRepublishPreview.value = null
   dailyPlanRepublishReviewError.value = ''
   dailyPlanRepublishReviewMessage.value = ''
+  dailyPlanAcknowledgements.value = null
+  dailyPlanAcknowledgementError.value = ''
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -2085,6 +2090,32 @@ const dailyPlanRevisionCards = computed(() =>
   asArray(dailyPlanRevisions.value?.revisions).slice(0, 6)
 )
 
+const dailyPlanAcknowledgedRows = computed(() =>
+  asArray(dailyPlanAcknowledgements.value?.players_acknowledged).slice(0, 8)
+)
+
+const dailyPlanPendingAcknowledgementRows = computed(() =>
+  asArray(dailyPlanAcknowledgements.value?.players_not_acknowledged).slice(0, 8)
+)
+
+const dailyPlanAcknowledgementPercent = computed(() =>
+  fmtCount(dailyPlanAcknowledgements.value?.acknowledgement_percentage, '0')
+)
+
+const dailyPlanAcknowledgementSummary = computed(() => {
+  const status = dailyPlanAcknowledgements.value
+  if (!status) return 'Acknowledgement status is not available yet.'
+  const assigned = fmtCount(status.assigned_player_count, '0')
+  if (!Number(status.assigned_player_count || 0)) return 'No players assigned to this plan.'
+  if (!status.latest_revision_id) return 'No updated plan acknowledgement needed.'
+
+  return `${fmtCount(status.acknowledged_count, '0')} of ${assigned} players acknowledged the updated plan.`
+})
+
+const acknowledgementStatusClass = (acknowledged) => acknowledged
+  ? 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100'
+  : 'border-amber-300/30 bg-amber-500/15 text-amber-100'
+
 const revisionDiffCount = (revision, key) =>
   asArray(revision?.diff_summary?.[key]).length
 
@@ -2392,6 +2423,7 @@ const saveCoachPracticePlanToDailyPlanner = async (mode = 'draft') => {
     if (dailyPlanId) {
       await refreshPracticePlanUpdateSuggestions(dailyPlanId, true)
       await refreshDailyPlanRevisions(dailyPlanId, true)
+      await refreshDailyPlanAcknowledgements(dailyPlanId, true)
     }
   } catch (error) {
     coachPracticePlanSaveError.value = error?.response?.data?.message || 'Could not save the suggested plan to Daily Planner.'
@@ -2419,6 +2451,29 @@ const refreshDailyPlanRevisions = async (dailyPlanId = null, silent = false) => 
   } finally {
     if (!silent) {
       dailyPlanRevisionLoading.value = false
+    }
+  }
+}
+
+const refreshDailyPlanAcknowledgements = async (dailyPlanId = null, silent = false) => {
+  const planId = dailyPlanId || practicePlanSuggestionDailyPlanId.value
+  if (!planId) return
+
+  if (!silent) {
+    dailyPlanAcknowledgementLoading.value = true
+    dailyPlanAcknowledgementError.value = ''
+  }
+
+  try {
+    const response = await axiosGet(`coach/daily-plans/${planId}/acknowledgements`)
+    dailyPlanAcknowledgements.value = responsePayload(response)
+  } catch (error) {
+    if (!silent) {
+      dailyPlanAcknowledgementError.value = error?.response?.data?.message || 'Could not load acknowledgement status.'
+    }
+  } finally {
+    if (!silent) {
+      dailyPlanAcknowledgementLoading.value = false
     }
   }
 }
@@ -2529,6 +2584,7 @@ const applyDailyPlanRepublishReview = async (republish = false) => {
     if (payload.daily_plan_id) {
       await refreshDailyPlanRevisions(payload.daily_plan_id, true)
       await refreshPracticePlanUpdateSuggestions(payload.daily_plan_id, true)
+      await refreshDailyPlanAcknowledgements(payload.daily_plan_id, true)
     }
     dailyPlanRepublishReview.value = payload.editable_changes ? payload : null
     dailyPlanRepublishPreview.value = payload.preview_plan || null
@@ -2578,6 +2634,7 @@ const refreshPracticePlanUpdateSuggestions = async (dailyPlanId = null, silent =
     dailyPlanRepublishPreview.value = null
     if (payload.daily_plan_id) {
       await refreshDailyPlanRevisions(payload.daily_plan_id, true)
+      await refreshDailyPlanAcknowledgements(payload.daily_plan_id, true)
     }
     if (!silent) {
       practicePlanSuggestionActionMessage.value = payload.summary || 'Practice plan suggestions refreshed.'
@@ -2604,6 +2661,8 @@ const togglePracticePlanSuggestion = (suggestionId) => {
   dailyPlanRepublishPreview.value = null
   dailyPlanRepublishReviewError.value = ''
   dailyPlanRepublishReviewMessage.value = ''
+  dailyPlanAcknowledgements.value = null
+  dailyPlanAcknowledgementError.value = ''
 }
 
 const applySelectedPracticePlanSuggestions = async () => {
@@ -4031,6 +4090,101 @@ const priorityTop10Rows = computed(() => {
                 <p v-if="dailyPlanRepublishReviewError" class="mt-2 rounded border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
                   {{ dailyPlanRepublishReviewError }}
                 </p>
+              </div>
+
+              <div class="mt-3 rounded-md border border-sky-300/20 bg-sky-500/10 p-3">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p class="text-[10px] uppercase tracking-widest text-sky-100/80">Plan Update Acknowledgements</p>
+                    <p class="mt-1 text-sm text-slate-200">
+                      {{ dailyPlanAcknowledgementSummary }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="rounded border border-sky-300/30 bg-sky-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-sky-100 transition hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                    :disabled="dailyPlanAcknowledgementLoading || !practicePlanSuggestionDailyPlanId"
+                    @click="refreshDailyPlanAcknowledgements()"
+                  >
+                    {{ dailyPlanAcknowledgementLoading ? 'Loading...' : 'Load Status' }}
+                  </button>
+                </div>
+
+                <p v-if="dailyPlanAcknowledgementError" class="mt-2 rounded border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                  {{ dailyPlanAcknowledgementError }}
+                </p>
+
+                <p v-if="!practicePlanSuggestionDailyPlanId" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                  Acknowledgement status is available after a Daily Plan exists.
+                </p>
+                <p v-else-if="!dailyPlanAcknowledgements" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                  Acknowledgement status is not loaded yet.
+                </p>
+
+                <template v-else>
+                  <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+                    <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                      <span class="block text-[10px] uppercase tracking-wider text-white/35">Revision</span>
+                      <span class="font-black text-white">#{{ dailyPlanAcknowledgements.latest_revision_number || '—' }}</span>
+                    </p>
+                    <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                      <span class="block text-[10px] uppercase tracking-wider text-white/35">Assigned</span>
+                      <span class="font-black text-white">{{ fmtCount(dailyPlanAcknowledgements.assigned_player_count, '0') }}</span>
+                    </p>
+                    <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                      <span class="block text-[10px] uppercase tracking-wider text-white/35">Acknowledged</span>
+                      <span class="font-black text-emerald-100">{{ fmtCount(dailyPlanAcknowledgements.acknowledged_count, '0') }}</span>
+                    </p>
+                    <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                      <span class="block text-[10px] uppercase tracking-wider text-white/35">Pending</span>
+                      <span class="font-black text-amber-100">{{ fmtCount(dailyPlanAcknowledgements.not_acknowledged_count, '0') }}</span>
+                    </p>
+                    <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                      <span class="block text-[10px] uppercase tracking-wider text-white/35">Percent</span>
+                      <span class="font-black text-white">{{ dailyPlanAcknowledgementPercent }}%</span>
+                    </p>
+                  </div>
+
+                  <p v-if="asArray(dailyPlanAcknowledgements.warnings).length" class="mt-3 rounded border border-amber-300/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                    {{ asArray(dailyPlanAcknowledgements.warnings).join(' ') }}
+                  </p>
+
+                  <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+                      <p class="text-[10px] uppercase tracking-widest text-emerald-100/80">Acknowledged</p>
+                      <p v-if="!dailyPlanAcknowledgedRows.length" class="mt-2 text-xs text-slate-400">No players have acknowledged this update yet.</p>
+                      <div v-else class="mt-2 space-y-2">
+                        <p
+                          v-for="row in dailyPlanAcknowledgedRows"
+                          :key="`daily-plan-ack-${row.player_id}`"
+                          class="rounded border px-3 py-2 text-xs"
+                          :class="acknowledgementStatusClass(true)"
+                        >
+                          <span class="font-black text-white">{{ row.player_name || 'Player' }}</span>
+                          <span class="block text-emerald-100/80">Acknowledged: {{ row.acknowledged_at || '—' }}</span>
+                          <span v-if="row.latest_revision_seen_at" class="block text-slate-300">Seen: {{ row.latest_revision_seen_at }}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+                      <p class="text-[10px] uppercase tracking-widest text-amber-100/80">Pending</p>
+                      <p v-if="!dailyPlanPendingAcknowledgementRows.length" class="mt-2 text-xs text-slate-400">No players are pending acknowledgement.</p>
+                      <div v-else class="mt-2 space-y-2">
+                        <p
+                          v-for="row in dailyPlanPendingAcknowledgementRows"
+                          :key="`daily-plan-pending-ack-${row.player_id}`"
+                          class="rounded border px-3 py-2 text-xs"
+                          :class="acknowledgementStatusClass(false)"
+                        >
+                          <span class="font-black text-white">{{ row.player_name || 'Player' }}</span>
+                          <span class="block text-amber-100/80">Pending acknowledgement</span>
+                          <span v-if="row.latest_revision_seen_at" class="block text-slate-300">Seen: {{ row.latest_revision_seen_at }}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </template>
               </div>
 
               <div class="mt-3 rounded-md border border-violet-300/20 bg-violet-500/10 p-3">

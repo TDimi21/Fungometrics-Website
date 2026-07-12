@@ -15,25 +15,25 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
-class MarkDailyPlanUpdateSeen extends Controller
+class AcknowledgeDailyPlanUpdate extends Controller
 {
-    public function __invoke(string $id, Request $request, DailyPlanPlayerUpdateService $updateService): JsonResponse
+    public function __invoke(string $dailyPlanId, Request $request, DailyPlanPlayerUpdateService $updateService): JsonResponse
     {
         try {
-            $userId = (string) Auth::id();
+            $playerId = (string) Auth::id();
             $assigned = DailyPlanAssignment::query()
-                ->where('plan_id', $id)
-                ->where('user_id', $userId)
+                ->where('plan_id', $dailyPlanId)
+                ->where('user_id', $playerId)
                 ->exists();
 
             $planExists = DailyPlan::query()
-                ->where('id', $id)
+                ->where('id', $dailyPlanId)
                 ->where('status', 'published')
                 ->exists();
 
             if (! $assigned || ! $planExists) {
                 return response()->json([
-                    'code' => '095-NF',
+                    'code' => '096-NF',
                     'message' => 'workout update not found',
                     'status' => 'error',
                     'data' => [],
@@ -41,27 +41,27 @@ class MarkDailyPlanUpdateSeen extends Controller
             }
 
             $status = $updateService->acknowledgeUpdate(
-                $id,
-                $userId,
+                $dailyPlanId,
+                $playerId,
                 $request->filled('revision_id') ? (string) $request->input('revision_id') : null,
                 [
-                    'source' => 'mark_update_seen_endpoint',
-                    'label' => 'Got it',
+                    'source' => 'player_daily_plan_update_banner',
+                    'client_payload' => $request->except(['revision_id']),
                 ]
             );
 
             return response()->json([
-                'code' => '095',
+                'code' => '096',
                 'message' => 'workout update acknowledged',
                 'status' => 'success',
                 'data' => $status,
             ], HttpCodes::HTTP_OK);
         } catch (Exception $e) {
-            Log::error('MarkDailyPlanUpdateSeen: '.$e->getMessage());
+            Log::error('AcknowledgeDailyPlanUpdate: '.$e->getMessage());
 
             return response()->json([
-                'code' => '095-E',
-                'message' => 'failed to mark workout update seen',
+                'code' => '096-E',
+                'message' => 'failed to acknowledge workout update',
                 'status' => 'error',
                 'data' => [],
             ], HttpCodes::HTTP_INTERNAL_SERVER_ERROR);

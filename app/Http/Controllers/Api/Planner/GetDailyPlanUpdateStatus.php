@@ -11,57 +11,46 @@ use App\Services\Planner\DailyPlanPlayerUpdateService;
 use Auth;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
-class MarkDailyPlanUpdateSeen extends Controller
+class GetDailyPlanUpdateStatus extends Controller
 {
-    public function __invoke(string $id, Request $request, DailyPlanPlayerUpdateService $updateService): JsonResponse
+    public function __invoke(string $dailyPlanId, DailyPlanPlayerUpdateService $updateService): JsonResponse
     {
         try {
-            $userId = (string) Auth::id();
+            $playerId = (string) Auth::id();
             $assigned = DailyPlanAssignment::query()
-                ->where('plan_id', $id)
-                ->where('user_id', $userId)
+                ->where('plan_id', $dailyPlanId)
+                ->where('user_id', $playerId)
                 ->exists();
 
             $planExists = DailyPlan::query()
-                ->where('id', $id)
+                ->where('id', $dailyPlanId)
                 ->where('status', 'published')
                 ->exists();
 
             if (! $assigned || ! $planExists) {
                 return response()->json([
-                    'code' => '095-NF',
+                    'code' => '097-NF',
                     'message' => 'workout update not found',
                     'status' => 'error',
                     'data' => [],
                 ], HttpCodes::HTTP_NOT_FOUND);
             }
 
-            $status = $updateService->acknowledgeUpdate(
-                $id,
-                $userId,
-                $request->filled('revision_id') ? (string) $request->input('revision_id') : null,
-                [
-                    'source' => 'mark_update_seen_endpoint',
-                    'label' => 'Got it',
-                ]
-            );
-
             return response()->json([
-                'code' => '095',
-                'message' => 'workout update acknowledged',
+                'code' => '097',
+                'message' => 'workout update status',
                 'status' => 'success',
-                'data' => $status,
+                'data' => $updateService->buildPlayerPlanUpdateStatus($dailyPlanId, $playerId),
             ], HttpCodes::HTTP_OK);
         } catch (Exception $e) {
-            Log::error('MarkDailyPlanUpdateSeen: '.$e->getMessage());
+            Log::error('GetDailyPlanUpdateStatus: '.$e->getMessage());
 
             return response()->json([
-                'code' => '095-E',
-                'message' => 'failed to mark workout update seen',
+                'code' => '097-E',
+                'message' => 'failed to fetch workout update status',
                 'status' => 'error',
                 'data' => [],
             ], HttpCodes::HTTP_INTERNAL_SERVER_ERROR);

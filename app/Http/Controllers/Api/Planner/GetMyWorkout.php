@@ -47,7 +47,13 @@ class GetMyWorkout extends Controller
             $arr['progress'] = DailyPlanProgress::where('plan_id', $id)
                 ->where('user_id', $userId)
                 ->first();
-            $arr['update_status'] = $updateService->buildPlayerPlanUpdateStatus((string) $plan->id, (string) $userId);
+            // Fail-safe: never let the update service block loading the workout.
+            try {
+                $arr['update_status'] = $updateService->buildPlayerPlanUpdateStatus((string) $plan->id, (string) $userId);
+            } catch (\Throwable $e) {
+                Log::warning('GetMyWorkout update_status failed: ' . $e->getMessage());
+                $arr['update_status'] = null;
+            }
 
             return response()->json([
                 'code'    => '094',

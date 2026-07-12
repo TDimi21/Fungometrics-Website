@@ -41,7 +41,14 @@ class GetMyWorkouts extends Controller
             $data = $plans->map(function (DailyPlan $plan) use ($progress, $updateService, $userId) {
                 $arr = $plan->toArray();
                 $arr['progress'] = $progress->get($plan->id);
-                $arr['update_status'] = $updateService->buildPlayerPlanUpdateStatus((string) $plan->id, (string) $userId);
+                // Fail-safe: a broken/undeployed update service must never stop a
+                // player from loading their workouts.
+                try {
+                    $arr['update_status'] = $updateService->buildPlayerPlanUpdateStatus((string) $plan->id, (string) $userId);
+                } catch (\Throwable $e) {
+                    Log::warning('GetMyWorkouts update_status failed: ' . $e->getMessage());
+                    $arr['update_status'] = null;
+                }
 
                 return $arr;
             });

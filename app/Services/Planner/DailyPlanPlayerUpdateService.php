@@ -8,6 +8,7 @@ use App\Models\DailyPlan;
 use App\Models\DailyPlanAssignment;
 use App\Models\DailyPlanProgress;
 use App\Models\DailyPlanRevision;
+use App\Models\Profile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -53,12 +54,11 @@ class DailyPlanPlayerUpdateService
             ->first();
 
         $reflection = is_array($progress?->reflection) ? $progress->reflection : [];
-        $seenRevisionIds = array_values(array_unique(array_filter(array_map(
-            'strval',
-            Arr::wrap($reflection['seen_revision_ids'] ?? [])
-        ))));
         $latestRevisionId = (string) $revision->id;
-        $seen = in_array($latestRevisionId, $seenRevisionIds, true);
+        $seenState = $this->seenState($reflection, $latestRevisionId);
+        $acknowledgementState = $this->acknowledgementState($reflection, $latestRevisionId);
+        $seen = (bool) $seenState['seen'];
+        $acknowledged = (bool) $acknowledgementState['acknowledged'];
 
         $diff = is_array($revision->diff_summary) ? $revision->diff_summary : [];
         $addedBlocks = $this->blockSummaries(Arr::wrap($diff['blocks_added'] ?? []), 'added');
@@ -69,7 +69,7 @@ class DailyPlanPlayerUpdateService
         ];
         $changeSummary = $this->changeSummary($diff, $addedBlocks, $updatedBlocks, $removedOrMovedBlocks);
         $hasMaterialChange = $this->hasMaterialChange($diff, $addedBlocks, $updatedBlocks, $removedOrMovedBlocks);
-        $hasUpdate = $hasMaterialChange && ! $seen;
+        $hasUpdate = $hasMaterialChange && ! $acknowledged;
 
         if (! $hasMaterialChange) {
             $warnings[] = 'Latest revision did not include player-visible plan changes.';
@@ -91,7 +91,163 @@ class DailyPlanPlayerUpdateService
             'progress_preserved' => true,
             'requires_attention' => $hasUpdate && (! empty($addedBlocks) || ! empty($updatedBlocks) || ! empty($removedOrMovedBlocks)),
             'seen' => $seen,
+            'latest_revision_seen_at' => $seenState['latest_revision_seen_at'],
+            'acknowledged' => $acknowledged,
+            'acknowledged_at' => $acknowledgementState['acknowledged_at'],
             'warnings' => array_values(array_unique($warnings)),
+        ];
+    }
+
+    public function acknowledgeUpdate(string $dailyPlanId, string $playerId, ?string $revisionId = null, array $payload = []): array
+    {
+        $assigned = DailyPlanAssignment::query()
+            ->where('plan_id', $dailyPlanId)
+            ->where('user_id', $playerId)
+            ->exists();
+
+        if (! $assigned) {
+            return [
+                'daily_plan_id' => $dailyPlanId,
+                'player_id' => $playerId,
+                'revision_id' => null,
+                'acknowledged' => false,
+                'acknowledged_at' => null,
+                'message' => 'Player is not assigned to this Daily Plan.',
+                'warnings' => ['Player is not assigned to this Daily Plan.'],
+            ];
+        }
+
+        $revision = $this->revisionForAcknowledgement($dailyPlanId, $revisionId);
+        if (! $revision) {
+            return [
+                'daily_plan_id' => $dailyPlanId,
+                'player_id' => $playerId,
+                'revision_id' => null,
+                'acknowledged' => false,
+                'acknowledged_at' => null,
+                'message' => 'No Daily Plan update is available to acknowledge.',
+                'warnings' => ['Daily Plan revision could not be found.'],
+            ];
+        }
+
+        $now = now()->toIso8601String();
+        $progress = DailyPlanProgress::query()->firstOrCreate(
+            [
+                'plan_id' => $dailyPlanId,
+                'user_id' => $playerId,
+            ],
+            [
+                'readiness' => [],
+                'items' => [],
+                'reflection' => [],
+            ]
+        );
+
+        $revisionId = (string) $revision->id;
+        $reflection = is_array($progress->reflection) ? $progress->reflection : [];
+        $reflection['seen_revision_ids'] = $this->appendUniqueString($reflection['seen_revision_ids'] ?? [], $revisionId);
+        $reflection['acknowledged_revision_ids'] = $this->appendUniqueString($reflection['acknowledged_revision_ids'] ?? [], $revisionId);
+        $reflection['latest_revision_seen_id'] = $revisionId;
+        $reflection['latest_update_seen_at'] = $now;
+        $reflection['acknowledged_revision_id'] = $revisionId;
+        $reflection['acknowledged_at'] = $now;
+        $reflection['acknowledgement_payload'] = $payload;
+        $reflection['acknowledgement_history'] = $this->acknowledgementHistory($reflection, $revision, $payload, $now);
+
+        $progress->reflection = $reflection;
+        $progress->save();
+
+        return [
+            'daily_plan_id' => $dailyPlanId,
+            'player_id' => $playerId,
+            'revision_id' => $revisionId,
+            'latest_revision_number' => (int) $revision->revision_number,
+            'acknowledged' => true,
+            'acknowledged_at' => $now,
+            'message' => 'Plan update acknowledged.',
+            'update_status' => $this->buildPlayerPlanUpdateStatus($dailyPlanId, $playerId),
+            'warnings' => [],
+        ];
+    }
+
+    public function buildTeamAcknowledgementStatus(string $dailyPlanId): array
+    {
+        $plan = DailyPlan::query()
+            ->with(['assignments.user.profile'])
+            ->where('id', $dailyPlanId)
+            ->first();
+
+        if (! $plan) {
+            return [
+                'daily_plan_id' => $dailyPlanId,
+                'team_id' => null,
+                'latest_revision_id' => null,
+                'latest_revision_number' => null,
+                'assigned_player_count' => 0,
+                'acknowledged_count' => 0,
+                'not_acknowledged_count' => 0,
+                'acknowledgement_percentage' => 0.0,
+                'players_acknowledged' => [],
+                'players_not_acknowledged' => [],
+                'warnings' => ['Daily Plan could not be found.'],
+            ];
+        }
+
+        $revision = $this->revisionForAcknowledgement($dailyPlanId);
+        $needsAcknowledgement = $revision ? $this->revisionNeedsAcknowledgement($revision) : false;
+        $rows = $plan->assignments
+            ->map(fn (DailyPlanAssignment $assignment): array => $this->buildPlayerAcknowledgementStatus($dailyPlanId, (string) $assignment->user_id))
+            ->values()
+            ->all();
+
+        $acknowledged = array_values(array_filter($rows, fn (array $row): bool => (bool) ($row['acknowledged'] ?? false)));
+        $pending = $needsAcknowledgement
+            ? array_values(array_filter($rows, fn (array $row): bool => ! (bool) ($row['acknowledged'] ?? false)))
+            : [];
+        $assignedCount = count($rows);
+        $acknowledgedCount = $needsAcknowledgement ? count($acknowledged) : 0;
+        $pendingCount = count($pending);
+
+        return [
+            'daily_plan_id' => $dailyPlanId,
+            'team_id' => $plan->team_id ? (string) $plan->team_id : null,
+            'latest_revision_id' => $revision ? (string) $revision->id : null,
+            'latest_revision_number' => $revision ? (int) $revision->revision_number : null,
+            'latest_revision_at' => $revision ? optional($revision->created_at)->toIso8601String() : null,
+            'assigned_player_count' => $assignedCount,
+            'acknowledged_count' => $acknowledgedCount,
+            'not_acknowledged_count' => $pendingCount,
+            'acknowledgement_percentage' => $assignedCount > 0 && $needsAcknowledgement
+                ? round(($acknowledgedCount / $assignedCount) * 100, 1)
+                : 0.0,
+            'players_acknowledged' => $needsAcknowledgement ? $acknowledged : [],
+            'players_not_acknowledged' => $pending,
+            'warnings' => array_values(array_filter([
+                $revision ? null : 'No Daily Plan revision exists yet.',
+                $revision && ! $needsAcknowledgement ? 'Latest revision does not require player acknowledgement.' : null,
+                $assignedCount === 0 ? 'No players are assigned to this Daily Plan.' : null,
+            ])),
+        ];
+    }
+
+    public function buildPlayerAcknowledgementStatus(string $dailyPlanId, string $playerId): array
+    {
+        $status = $this->buildPlayerPlanUpdateStatus($dailyPlanId, $playerId);
+        $assigned = DailyPlanAssignment::query()
+            ->where('plan_id', $dailyPlanId)
+            ->where('user_id', $playerId)
+            ->exists();
+
+        return [
+            'player_id' => $playerId,
+            'player_name' => $this->playerName($playerId),
+            'assigned' => $assigned,
+            'has_update' => (bool) ($status['has_update'] ?? false),
+            'acknowledged' => (bool) ($status['acknowledged'] ?? false),
+            'acknowledged_at' => $status['acknowledged_at'] ?? null,
+            'latest_revision_seen_at' => $status['latest_revision_seen_at'] ?? null,
+            'latest_revision_number' => $status['latest_revision_number'] ?? null,
+            'warnings' => $status['warnings'] ?? [],
         ];
     }
 
@@ -171,10 +327,8 @@ class DailyPlanPlayerUpdateService
         );
 
         $reflection = is_array($progress->reflection) ? $progress->reflection : [];
-        $seenRevisionIds = Arr::wrap($reflection['seen_revision_ids'] ?? []);
-        $seenRevisionIds[] = (string) $revision->id;
-
-        $reflection['seen_revision_ids'] = array_values(array_unique(array_filter(array_map('strval', $seenRevisionIds))));
+        $reflection['seen_revision_ids'] = $this->appendUniqueString($reflection['seen_revision_ids'] ?? [], (string) $revision->id);
+        $reflection['latest_revision_seen_id'] = (string) $revision->id;
         $reflection['latest_update_seen_at'] = now()->toIso8601String();
 
         $progress->reflection = $reflection;
@@ -201,8 +355,104 @@ class DailyPlanPlayerUpdateService
             'progress_preserved' => true,
             'requires_attention' => false,
             'seen' => true,
+            'latest_revision_seen_at' => null,
+            'acknowledged' => false,
+            'acknowledged_at' => null,
             'warnings' => $warnings,
         ];
+    }
+
+    private function revisionForAcknowledgement(string $dailyPlanId, ?string $revisionId = null): ?DailyPlanRevision
+    {
+        return DailyPlanRevision::query()
+            ->where('daily_plan_id', $dailyPlanId)
+            ->when($revisionId, function ($query) use ($revisionId): void {
+                $query->where(function ($revisionQuery) use ($revisionId): void {
+                    $revisionQuery->where('id', $revisionId);
+                    if (ctype_digit($revisionId)) {
+                        $revisionQuery->orWhere('revision_number', (int) $revisionId);
+                    }
+                });
+            }, fn ($query) => $query->orderByDesc('revision_number'))
+            ->first();
+    }
+
+    private function revisionNeedsAcknowledgement(DailyPlanRevision $revision): bool
+    {
+        $diff = is_array($revision->diff_summary) ? $revision->diff_summary : [];
+        $addedBlocks = $this->blockSummaries(Arr::wrap($diff['blocks_added'] ?? []), 'added');
+        $updatedBlocks = $this->updatedBlockSummaries(Arr::wrap($diff['blocks_updated'] ?? []));
+        $removedOrMovedBlocks = [
+            ...$this->blockSummaries(Arr::wrap($diff['blocks_removed'] ?? []), 'removed'),
+            ...$this->reorderedBlockSummaries($diff['blocks_reordered'] ?? []),
+        ];
+
+        return $this->hasMaterialChange($diff, $addedBlocks, $updatedBlocks, $removedOrMovedBlocks);
+    }
+
+    private function seenState(array $reflection, string $latestRevisionId): array
+    {
+        $seenRevisionIds = $this->stringList($reflection['seen_revision_ids'] ?? []);
+        $latestSeenId = (string) ($reflection['latest_revision_seen_id'] ?? '');
+        $seen = $latestSeenId === $latestRevisionId || in_array($latestRevisionId, $seenRevisionIds, true);
+
+        return [
+            'seen' => $seen,
+            'latest_revision_seen_at' => $seen ? ($reflection['latest_update_seen_at'] ?? null) : null,
+        ];
+    }
+
+    private function acknowledgementState(array $reflection, string $latestRevisionId): array
+    {
+        $acknowledgedRevisionIds = $this->stringList($reflection['acknowledged_revision_ids'] ?? []);
+        $latestAcknowledgedId = (string) ($reflection['acknowledged_revision_id'] ?? '');
+        $acknowledged = $latestAcknowledgedId === $latestRevisionId || in_array($latestRevisionId, $acknowledgedRevisionIds, true);
+
+        return [
+            'acknowledged' => $acknowledged,
+            'acknowledged_at' => $acknowledged ? ($reflection['acknowledged_at'] ?? null) : null,
+        ];
+    }
+
+    private function acknowledgementHistory(array $reflection, DailyPlanRevision $revision, array $payload, string $acknowledgedAt): array
+    {
+        $revisionId = (string) $revision->id;
+        $history = array_values(array_filter(
+            Arr::wrap($reflection['acknowledgement_history'] ?? []),
+            fn ($row): bool => is_array($row) && (string) ($row['revision_id'] ?? '') !== $revisionId
+        ));
+        $history[] = [
+            'revision_id' => $revisionId,
+            'revision_number' => (int) $revision->revision_number,
+            'acknowledged_at' => $acknowledgedAt,
+            'payload' => $payload,
+        ];
+
+        return array_slice($history, -20);
+    }
+
+    private function appendUniqueString(mixed $values, string $value): array
+    {
+        return array_values(array_unique(array_filter([
+            ...$this->stringList($values),
+            $value,
+        ])));
+    }
+
+    private function stringList(mixed $values): array
+    {
+        return array_values(array_unique(array_filter(array_map('strval', Arr::wrap($values)))));
+    }
+
+    private function playerName(string $playerId): string
+    {
+        $profile = Profile::query()->where('user_id', $playerId)->first();
+        $name = trim(implode(' ', array_filter([
+            $profile?->first_name,
+            $profile?->last_name,
+        ])));
+
+        return $name !== '' ? $name : 'Player';
     }
 
     private function blockSummaries(array $blocks, string $type): array
