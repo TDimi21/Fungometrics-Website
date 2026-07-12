@@ -260,15 +260,74 @@ const fmtDate = (iso) => {
   try { return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) } catch { return iso }
 }
 
+const progressItemMetadata = (item = {}, bucket = {}) => {
+  const keys = [
+    'id',
+    'name',
+    'source',
+    'tags',
+    'relatedMetrics',
+    'related_metrics',
+    'metrics_to_collect',
+    'metricsToCollect',
+    'metrics',
+    'metric_values',
+    'metricValues',
+    'actuals',
+    'values',
+    'submitted_values',
+    'benchmark_task_id',
+    'benchmark_task_type',
+    'benchmark_task_temporary_key',
+    'task_id',
+    'task_type',
+    'temporary_key',
+    'coachCue',
+    'coach_cue',
+    'note',
+    'instructions',
+  ]
+
+  const payload = {}
+  keys.forEach((key) => {
+    if (item[key] !== undefined && item[key] !== null) payload[key] = item[key]
+  })
+
+  payload.bucket = item.bucket || bucket.type || null
+  payload.bucket_type = bucket.type || item.bucket_type || null
+  payload.bucket_title = bucket.title || item.bucket_title || null
+
+  return payload
+}
+
 const open = (w) => {
   const items = {}
   const prog = w.progress?.items || {}
-  ;(w.buckets || []).forEach((b) => (b.items || []).forEach((it) => { items[it.id] = { done: !!prog[it.id]?.done } }))
+  ;(w.buckets || []).forEach((b) => (b.items || []).forEach((it) => {
+    const saved = prog[it.id] || {}
+    items[it.id] = {
+      ...progressItemMetadata(it, b),
+      ...saved,
+      id: it.id,
+      done: !!saved.done,
+      completed: !!saved.completed || !!saved.done,
+      completed_at: saved.completed_at || null,
+    }
+  }))
   expandedInstructions.value = new Set()
   current.value = { plan: w, items, startedAt: w.progress?.started_at || new Date().toISOString() }
 }
 const back = () => { current.value = null }
-const toggleItem = (id) => { current.value.items[id].done = !current.value.items[id].done }
+const toggleItem = (id) => {
+  const item = current.value.items[id] || {}
+  const done = !item.done
+  current.value.items[id] = {
+    ...item,
+    done,
+    completed: done,
+    completed_at: done ? (item.completed_at || new Date().toISOString()) : null,
+  }
+}
 
 const total = computed(() => current.value ? itemCount(current.value.plan) : 0)
 const done = computed(() => current.value ? Object.values(current.value.items).filter((i) => i.done).length : 0)

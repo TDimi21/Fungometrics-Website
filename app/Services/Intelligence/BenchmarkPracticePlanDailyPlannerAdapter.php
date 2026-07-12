@@ -302,10 +302,28 @@ class BenchmarkPracticePlanDailyPlannerAdapter
             'baseballCorrelation' => (string) ($block['category'] ?? ''),
             'baseballCorrelations' => array_values(array_filter([$block['category'] ?? null])),
             'relatedMetrics' => array_values($block['metrics_to_collect'] ?? []),
+            'benchmark_task_type' => $this->taskTypeForBlock($block),
+            'benchmark_task_temporary_key' => $block['temporary_key'] ?? null,
             'tags' => ['benchmark-generated', (string) ($block['source'] ?? 'coach_action')],
             'note' => $this->blockNote($block),
             'source' => 'coach_action_practice_plan',
         ];
+    }
+
+    private function taskTypeForBlock(array $block): ?string
+    {
+        return match ((string) ($block['temporary_key'] ?? '')) {
+            'roster_cleanup_block' => 'roster_cleanup',
+            'exit_velocity_baseline_block',
+            'power_development_block' => 'exit_velocity_baseline',
+            'bullpen_baseline_block',
+            'fastball_command_block' => 'bullpen_baseline',
+            'throwing_capacity_block' => 'long_toss_weighted_ball',
+            'strength_baseline_block' => 'strength_baseline',
+            'athletic_testing_block' => 'athletic_testing',
+            'mobility_screen_block' => 'mobility_screen',
+            default => null,
+        };
     }
 
     private function bucketTypeForBlock(array $block): string

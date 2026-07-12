@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Planner;
 use App\Http\Controllers\Controller;
 use App\Models\DailyPlanAssignment;
 use App\Models\DailyPlanProgress;
+use App\Services\Intelligence\DailyPlanBenchmarkCompletionBridge;
 use Auth;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response as HttpCodes;
  */
 class SaveWorkoutProgress extends Controller
 {
-    public function __invoke(Request $request, string $id): JsonResponse
+    public function __invoke(Request $request, string $id, DailyPlanBenchmarkCompletionBridge $benchmarkCompletionBridge): JsonResponse
     {
         try {
             $userId = Auth::id();
@@ -57,11 +58,34 @@ class SaveWorkoutProgress extends Controller
                 ]
             );
 
+            $bridgeResult = null;
+            try {
+                $bridgeResult = $benchmarkCompletionBridge->handleDailyPlanProgressUpdate(
+                    $id,
+                    (string) $userId,
+                    $validated,
+                    (string) $userId,
+                );
+            } catch (\Throwable $bridgeException) {
+                Log::warning('SaveWorkoutProgress benchmark bridge failed: '.$bridgeException->getMessage(), [
+                    'daily_plan_id' => $id,
+                    'player_id' => $userId,
+                ]);
+
+                $bridgeResult = [
+                    'status' => 'failed',
+                    'daily_plan_id' => $id,
+                    'player_id' => (string) $userId,
+                    'warnings' => ['Benchmark task bridge failed, but daily plan progress was saved.'],
+                ];
+            }
+
             return response()->json([
                 'code'    => '095',
                 'message' => 'progress saved',
                 'status'  => 'success',
                 'data'    => $progress,
+                'benchmark_completion_bridge' => $bridgeResult,
             ], HttpCodes::HTTP_OK);
         } catch (Exception $e) {
             Log::error('SaveWorkoutProgress: ' . $e->getMessage());
