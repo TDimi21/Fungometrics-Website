@@ -50,6 +50,7 @@ use App\Http\Controllers\Api\Planner\SaveNextWeekPlanDraftDay;
 use App\Http\Controllers\Api\Planner\SaveWorkoutProgress;
 use App\Http\Controllers\Api\Planner\SendDailyPlanReminder;
 use App\Http\Controllers\Api\Planner\SaveCustomDrill;
+use App\Http\Controllers\Api\Planner\WeeklyPlanPublishController;
 use App\Http\Controllers\Api\Planner\GetCustomDrills;
 use App\Http\Controllers\Api\Planner\DeleteCustomDrill;
 use App\Http\Controllers\Api\Planner\GetDrillLibrary;
@@ -301,6 +302,10 @@ Route::prefix('coach')->group(function (): void {
         Route::post('/teams/{teamId}/next-week-plan-draft/save-day', SaveNextWeekPlanDraftDay::class);
         Route::get('/teams/{teamId}/next-week-calendar-draft', GetNextWeekCalendarDraft::class);
         Route::post('/teams/{teamId}/next-week-calendar-draft/save-days', SaveNextWeekCalendarDraftDays::class);
+        Route::get('/teams/{teamId}/weekly-draft-plans', [WeeklyPlanPublishController::class, 'list']);
+        Route::post('/teams/{teamId}/weekly-draft-plans/publish', [WeeklyPlanPublishController::class, 'publishWeeklyDrafts']);
+        Route::post('/daily-plans/{dailyPlanId}/publish', [WeeklyPlanPublishController::class, 'publishPlan']);
+        Route::post('/daily-plans/{dailyPlanId}/publish-and-assign', [WeeklyPlanPublishController::class, 'publishAndAssignPlan']);
         Route::get('/teams/{teamId}/daily-plan-update-suggestions', [IntelligenceController::class, 'teamDailyPlanUpdateSuggestions']);
 
         // Custom drills / lifts — saved per coach; `library` is the shared,

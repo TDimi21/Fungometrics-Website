@@ -2,10 +2,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { planFromApi, bucketTitle } from '@/features/planner/dailyPlanner.js'
+import { coalesceMaxes, setSummary, oneRMFieldForExercise } from '@/features/planner/lib/strengthLoad.js'
 
 const { axiosGet, axiosPost } = useAxiosAuth()
 
 const workouts = ref([])
+const playerMaxes = ref({})   // { bench_press, back_squat, … } — resolves % 1RM sets to lb
 const current = ref(null)   // { plan, items: { [id]: { done } }, startedAt }
 const loading = ref(false)
 const saving = ref(false)
@@ -307,7 +309,25 @@ const load = async () => {
     loading.value = false
   }
 }
-onMounted(load)
+// Pull the logged-in player's lift maxes so percent-of-1RM sets resolve to lb,
+// exactly like the mobile player workout sheet.
+const loadMaxes = async () => {
+  try {
+    const meRes = await axiosGet('player/me')
+    const pid = meRes?.data?.data?.id
+    if (!pid) return
+    const fitRes = await axiosGet(`player/fitness/${pid}`)
+    const rows = fitRes?.data?.data
+    playerMaxes.value = coalesceMaxes(Array.isArray(rows) ? rows : (rows ? [rows] : []))
+  } catch { /* targets fall back to % if we can't load maxes */ }
+}
+onMounted(() => { load(); loadMaxes() })
+
+// ── strength / percent-of-1RM resolution (player side) ───────────────────────
+const strengthSets = (it) => ((it?.workloadType === 'strength' && Array.isArray(it?.setList)) ? it.setList : [])
+const oneRMFor = (it) => playerMaxes.value[it?.oneRMField || oneRMFieldForExercise(it?.name)] || null
+const usesPercent = (it) => strengthSets(it).some((s) => s?.prescriptionType === 'percent_1rm')
+const setTargetText = (s, it) => setSummary(s, oneRMFor(it))
 
 const itemCount = (w) => (w.buckets || []).reduce((n, b) => n + (b.items || []).length, 0)
 const isDone = (w) => !!(w.progress && w.progress.completed_at)
@@ -1003,6 +1023,18 @@ const finish = async () => {
             <span class="pw-item-name">{{ it.name || 'Item' }}</span>
             <span v-if="itemMetaParts(it, bucket).length" class="pw-item-meta">{{ itemMetaParts(it, bucket).join(' · ') }}</span>
 
+            <!-- STRENGTH: per-set targets, with % 1RM resolved to lb from the player's maxes -->
+            <div v-if="strengthSets(it).length" class="pw-sets" @click.stop>
+              <div v-if="usesPercent(it)" class="pw-max-line" :class="{ 'pw-max-line--missing': !oneRMFor(it) }">
+                <span v-if="oneRMFor(it)">🏋 Training Max: {{ oneRMFor(it) }} lb · from your metrics</span>
+                <span v-else>⚠ Max needed — log this lift in Player Metrics to see lb targets</span>
+              </div>
+              <div v-for="(s, si) in strengthSets(it)" :key="s.id || si" class="pw-set-row">
+                <span class="pw-set-n">{{ si + 1 }}</span>
+                <span class="pw-set-target">{{ setTargetText(s, it) }}</span>
+              </div>
+            </div>
+
             <template v-if="isBenchmarkItem(it)">
               <p class="pw-why">
                 <span>Why:</span> {{ benchmarkWhy(it, bucket) }}
@@ -1228,6 +1260,12 @@ const finish = async () => {
 .pw-item-name { display: block; color: #fff; font-size: 15px; font-weight: 700; }
 .pw-item--done .pw-item-name { text-decoration: line-through; color: rgba(255,255,255,.45); }
 .pw-item-meta { display: block; color: rgba(255,255,255,.55); font-size: 12.5px; margin-top: 1px; }
+.pw-sets { margin-top: 8px; border-top: 1px solid rgba(255,255,255,.08); padding-top: 8px; }
+.pw-max-line { font-size: 12px; font-weight: 700; color: #86efac; margin-bottom: 6px; }
+.pw-max-line--missing { color: #fca5a5; }
+.pw-set-row { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+.pw-set-n { flex: none; width: 20px; text-align: center; font-size: 12px; font-weight: 800; color: rgba(255,255,255,.5); }
+.pw-set-target { color: #fff; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pw-item-note { display: block; color: rgba(255,255,255,.4); font-size: 12.5px; font-style: italic; margin-top: 1px; }
 .pw-why { color:rgba(255,255,255,.72); font-size:12.5px; line-height:1.45; margin:8px 0 0; }
 .pw-why span, .pw-role-line span, .pw-metrics-label { color:#fff; font-weight:900; }

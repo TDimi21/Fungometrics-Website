@@ -59,6 +59,12 @@ const selectedCalendarDayIndexes = ref([])
 const previewCalendarDay = ref(null)
 const savingCalendarDays = ref(false)
 const savedCalendarPlans = ref([])
+const weeklyDraftPlans = ref(null)
+const weeklyDraftPlansLoading = ref(false)
+const weeklyDraftPlansError = ref('')
+const weeklyPublishMessage = ref('')
+const selectedWeeklyDraftPlanIds = ref([])
+const weeklyPublishLoading = ref('')
 
 // Drill picker
 const picker = ref(null)          // the bucket object being added to
@@ -85,6 +91,7 @@ const loadCommandCenter = async () => {
     weeklyRollup.value = null
     nextWeekDraft.value = null
     nextWeekCalendarDraft.value = null
+    weeklyDraftPlans.value = null
     return
   }
   commandLoading.value = true
@@ -154,6 +161,26 @@ const loadNextWeekCalendarDraft = async () => {
     nextWeekCalendarLoading.value = false
   }
 }
+const loadWeeklyDraftPlans = async () => {
+  weeklyDraftPlansError.value = ''
+  if (!activeTeamId.value) {
+    weeklyDraftPlans.value = null
+    return null
+  }
+
+  weeklyDraftPlansLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/weekly-draft-plans`)
+    weeklyDraftPlans.value = res?.data?.data || null
+    return weeklyDraftPlans.value
+  } catch {
+    weeklyDraftPlans.value = null
+    weeklyDraftPlansError.value = 'Could not load saved weekly draft plans.'
+    return null
+  } finally {
+    weeklyDraftPlansLoading.value = false
+  }
+}
 const loadWeeklyRollup = async () => {
   weeklyRollupError.value = ''
   if (!activeTeamId.value) {
@@ -220,8 +247,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft(); loadNextWeekCalendarDraft() })
-watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft(); loadNextWeekCalendarDraft() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -295,6 +322,9 @@ const calendarSummary = computed(() => nextWeekCalendarDraft.value?.weekly_workl
 const calendarTargets = computed(() => Array.isArray(nextWeekCalendarDraft.value?.benchmark_collection_targets) ? nextWeekCalendarDraft.value.benchmark_collection_targets : [])
 const calendarNotes = computed(() => Array.isArray(nextWeekCalendarDraft.value?.coach_notes) ? nextWeekCalendarDraft.value.coach_notes : [])
 const selectedCalendarDays = computed(() => calendarDays.value.filter((day) => selectedCalendarDayIndexes.value.includes(Number(day.day_index))))
+const savedWeeklyDraftPlans = computed(() => Array.isArray(weeklyDraftPlans.value?.plans) ? weeklyDraftPlans.value.plans : [])
+const weeklyDraftSummary = computed(() => weeklyDraftPlans.value || {})
+const selectedWeeklyDraftPlans = computed(() => savedWeeklyDraftPlans.value.filter((plan) => selectedWeeklyDraftPlanIds.value.includes(String(plan.daily_plan_id))))
 const weeklyCards = computed(() => [
   {
     label: 'Weekly Execution',
@@ -451,6 +481,7 @@ const handleActionResult = async (result, action) => {
   await loadWeeklyRollup()
   await loadNextWeekDraft()
   await loadNextWeekCalendarDraft()
+  await loadWeeklyDraftPlans()
   if (action?.action_type === 'review_submissions') await openReviewQueue()
   if (action?.action_type === 'generate_next_plan') {
     generatedPlanPreview.value = result?.result?.daily_plan_preview || null
@@ -482,6 +513,7 @@ const saveNextWeekDayAsDraft = async (day) => {
     savedNextWeekDailyPlan.value = res?.data?.data || null
     nextWeekDraftMessage.value = `Saved ${day.title || 'suggested day'} as a Daily Planner draft.`
     await loadPlans()
+    await loadWeeklyDraftPlans()
     if (savedNextWeekDailyPlan.value?.daily_plan) {
       editing.value = planFromApi(savedNextWeekDailyPlan.value.daily_plan)
     }
@@ -560,6 +592,7 @@ const saveCalendarDraftDays = async (daysToSave = selectedCalendarDays.value) =>
     }
     await loadPlans()
     await loadNextWeekCalendarDraft()
+    await loadWeeklyDraftPlans()
   } catch {
     nextWeekCalendarMessage.value = 'Could not save selected days.'
   } finally {
@@ -567,6 +600,87 @@ const saveCalendarDraftDays = async (daysToSave = selectedCalendarDays.value) =>
   }
 }
 const saveOneCalendarDraftDay = (day) => saveCalendarDraftDays(day ? [day] : [])
+const weeklyDraftSelected = (plan) => selectedWeeklyDraftPlanIds.value.includes(String(plan?.daily_plan_id))
+const toggleWeeklyDraftPlan = (plan) => {
+  const id = String(plan?.daily_plan_id || '')
+  if (!id) return
+  const selectedSet = new Set(selectedWeeklyDraftPlanIds.value.map(String))
+  selectedSet.has(id) ? selectedSet.delete(id) : selectedSet.add(id)
+  selectedWeeklyDraftPlanIds.value = [...selectedSet]
+}
+const openWeeklyDraftPlan = async (plan) => {
+  const dailyPlan = plan?.daily_plan
+  if (dailyPlan) {
+    editing.value = planFromApi(dailyPlan)
+    return
+  }
+  const planId = plan?.daily_plan_id
+  if (!planId) return
+  let local = plans.value.find((row) => String(row.id) === String(planId))
+  if (!local) {
+    await loadPlans()
+    local = plans.value.find((row) => String(row.id) === String(planId))
+  }
+  if (local) editing.value = JSON.parse(JSON.stringify(local))
+}
+const publishWeeklyDraftPlan = async (plan, assignAll = false) => {
+  const planId = String(plan?.daily_plan_id || '')
+  if (!planId) return
+  weeklyPublishMessage.value = ''
+  weeklyPublishLoading.value = `${planId}:${assignAll ? 'assign' : 'publish'}`
+  try {
+    const endpoint = assignAll ? `coach/daily-plans/${planId}/publish-and-assign` : `coach/daily-plans/${planId}/publish`
+    const res = await axiosPost(endpoint, {
+      assign_all: assignAll,
+      player_ids: [],
+      notify_players: false,
+    })
+    const data = res?.data?.data || {}
+    weeklyPublishMessage.value = data.status === 'skipped'
+      ? (data.skipped_plans?.[0]?.reason || data.warnings?.[0] || 'This plan was skipped.')
+      : assignAll
+        ? 'Plan published and assigned to available players.'
+        : 'Plan published. Assign players when you are ready.'
+    await loadPlans()
+    await loadWeeklyDraftPlans()
+    await loadNextWeekCalendarDraft()
+  } catch {
+    weeklyPublishMessage.value = 'Could not publish that weekly draft plan.'
+  } finally {
+    weeklyPublishLoading.value = ''
+  }
+}
+const publishSelectedWeeklyDraftPlans = async (assignAll = false) => {
+  weeklyPublishMessage.value = ''
+  if (!activeTeamId.value) return
+  if (!selectedWeeklyDraftPlanIds.value.length) {
+    weeklyPublishMessage.value = 'Select one or more weekly draft plans first.'
+    return
+  }
+
+  weeklyPublishLoading.value = assignAll ? 'bulk-assign' : 'bulk-publish'
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/weekly-draft-plans/publish`, {
+      daily_plan_ids: selectedWeeklyDraftPlanIds.value,
+      assign_all: assignAll,
+      player_ids: [],
+      notify_players: false,
+    })
+    const data = res?.data?.data || {}
+    weeklyPublishMessage.value = `${data.published_count || 0} selected plan${Number(data.published_count || 0) === 1 ? '' : 's'} published. ${data.assigned_count || 0} new assignment${Number(data.assigned_count || 0) === 1 ? '' : 's'} created.`
+    if (Number(data.skipped_count || 0) > 0 && data.skipped_plans?.[0]?.reason) {
+      weeklyPublishMessage.value += ` ${data.skipped_plans[0].reason}`
+    }
+    selectedWeeklyDraftPlanIds.value = []
+    await loadPlans()
+    await loadWeeklyDraftPlans()
+    await loadNextWeekCalendarDraft()
+  } catch {
+    weeklyPublishMessage.value = 'Could not publish selected weekly draft plans.'
+  } finally {
+    weeklyPublishLoading.value = ''
+  }
+}
 
 // Buckets not yet on the plan (keep the app's ordering).
 const availableBuckets = computed(() =>
@@ -1118,6 +1232,102 @@ const del = async (p) => {
               </template>
             </div>
 
+            <div class="dp-command-block">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div>
+                  <div class="dp-section mb-0">Weekly Draft Publish Flow</div>
+                  <p class="dp-command-sub">Publish saved weekly draft days when the coach is ready. Players see them after publish plus assignment.</p>
+                </div>
+                <div class="dp-calendar-controls">
+                  <button class="dp-link" :disabled="weeklyDraftPlansLoading" @click="loadWeeklyDraftPlans">{{ weeklyDraftPlansLoading ? 'Loading…' : 'Refresh Drafts' }}</button>
+                  <button class="dp-btn dp-btn--small" :disabled="weeklyPublishLoading || !selectedWeeklyDraftPlans.length" @click="publishSelectedWeeklyDraftPlans(false)">
+                    {{ weeklyPublishLoading === 'bulk-publish' ? 'Publishing…' : `Publish Selected${selectedWeeklyDraftPlans.length ? ` (${selectedWeeklyDraftPlans.length})` : ''}` }}
+                  </button>
+                  <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="weeklyPublishLoading || !selectedWeeklyDraftPlans.length || !teamPlayers.length" @click="publishSelectedWeeklyDraftPlans(true)">
+                    {{ weeklyPublishLoading === 'bulk-assign' ? 'Publishing…' : 'Publish Selected + Assign All' }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="weeklyDraftPlansLoading && !weeklyDraftPlans" class="dp-command-loading">Loading saved weekly draft plans…</div>
+              <div v-else-if="weeklyDraftPlansError" class="dp-empty dp-empty--sm">{{ weeklyDraftPlansError }}</div>
+              <div v-else-if="!weeklyDraftPlans" class="dp-empty dp-empty--sm">No weekly draft plans saved yet.</div>
+              <template v-else>
+                <div class="dp-calendar-summary">
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Saved Drafts</div>
+                    <div class="dp-command-value">{{ weeklyDraftSummary.draft_count || 0 }}</div>
+                    <div class="dp-command-sub">Save days from the weekly calendar before publishing.</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Published</div>
+                    <div class="dp-command-value">{{ weeklyDraftSummary.published_count || 0 }}</div>
+                    <div class="dp-command-sub">Published assigned plans appear for players.</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Available Players</div>
+                    <div class="dp-command-value">{{ teamPlayers.length || 0 }}</div>
+                    <div class="dp-command-sub">Assign All uses the current roster.</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Selected</div>
+                    <div class="dp-command-value">{{ selectedWeeklyDraftPlans.length || 0 }}</div>
+                    <div class="dp-command-sub">No auto-publish. Coach action only.</div>
+                  </div>
+                </div>
+
+                <div v-if="savedWeeklyDraftPlans.length" class="dp-weekly-publish-list">
+                  <div
+                    v-for="plan in savedWeeklyDraftPlans"
+                    :key="`weekly-publish-${plan.daily_plan_id}`"
+                    class="dp-weekly-publish-row"
+                    :class="{ 'dp-weekly-publish-row--published': plan.status === 'published' }"
+                  >
+                    <label class="dp-calendar-check">
+                      <input
+                        type="checkbox"
+                        :checked="weeklyDraftSelected(plan)"
+                        :disabled="plan.status === 'published'"
+                        @change="toggleWeeklyDraftPlan(plan)"
+                      />
+                      <span>{{ fmtDate(plan.scheduled_for) }}</span>
+                    </label>
+                    <div class="dp-weekly-publish-main">
+                      <div class="dp-calendar-title">{{ plan.title }}</div>
+                      <div class="dp-command-sub">{{ plan.primary_focus || 'Weekly Plan' }} · {{ plan.estimated_minutes || 0 }} min · {{ plan.block_count || 0 }} blocks</div>
+                      <div class="dp-command-mini">
+                        <span>{{ human(plan.status) }}</span>
+                        <span>{{ plan.assigned_player_count || 0 }} assigned</span>
+                        <span v-if="plan.has_progress">Progress preserved</span>
+                      </div>
+                      <div v-if="plan.warnings?.length" class="dp-calendar-warning mt-2">{{ plan.warnings[0] }}</div>
+                    </div>
+                    <div class="dp-weekly-publish-actions">
+                      <button class="dp-btn dp-btn--small" @click="openWeeklyDraftPlan(plan)">Open in Daily Planner</button>
+                      <button
+                        class="dp-btn dp-btn--small"
+                        :disabled="weeklyPublishLoading || plan.status === 'published'"
+                        @click="publishWeeklyDraftPlan(plan, false)"
+                      >
+                        {{ weeklyPublishLoading === `${plan.daily_plan_id}:publish` ? 'Publishing…' : plan.status === 'published' ? 'Already Published' : 'Publish Day' }}
+                      </button>
+                      <button
+                        class="dp-btn dp-btn--primary dp-btn--small"
+                        :disabled="weeklyPublishLoading || !teamPlayers.length"
+                        @click="publishWeeklyDraftPlan(plan, true)"
+                      >
+                        {{ weeklyPublishLoading === `${plan.daily_plan_id}:assign` ? 'Publishing…' : 'Publish + Assign All' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-3">No weekly draft plans saved yet. Save days from the weekly calendar before publishing.</div>
+
+                <div v-if="!teamPlayers.length" class="dp-calendar-warning mt-3">No players are available to assign.</div>
+                <p v-if="weeklyPublishMessage" class="dp-command-message">{{ weeklyPublishMessage }}</p>
+              </template>
+            </div>
+
             <div v-if="commandActions.length" class="dp-command-block">
               <div class="dp-section mb-2">Coach Command Center</div>
               <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -1488,6 +1698,13 @@ const del = async (p) => {
 .dp-calendar-warning { border:1px solid rgba(245,158,11,.28); background:rgba(245,158,11,.08); color:#fcd34d; border-radius:10px; padding:8px; font-size:11.5px; line-height:1.35; font-weight:800; }
 .dp-calendar-notes { margin:8px 0 0; padding-left:17px; color:rgba(255,255,255,.66); font-size:12.5px; line-height:1.45; }
 .dp-calendar-notes li { margin-top:3px; }
+.dp-weekly-publish-list { display:grid; gap:10px; margin-top:12px; }
+.dp-weekly-publish-row { background:rgba(9,14,29,.62); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:12px; display:grid; grid-template-columns:1fr; gap:10px; align-items:start; }
+@media (min-width:980px){ .dp-weekly-publish-row { grid-template-columns:150px minmax(0,1fr) auto; } }
+.dp-weekly-publish-row--published { border-color:rgba(52,211,153,.22); background:rgba(52,211,153,.055); }
+.dp-weekly-publish-main { min-width:0; }
+.dp-weekly-publish-actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-start; }
+@media (min-width:980px){ .dp-weekly-publish-actions { justify-content:flex-end; } }
 .dp-command-grid { display:grid; grid-template-columns:repeat(1, minmax(0, 1fr)); gap:10px; }
 .dp-command-grid--two { margin-top:12px; }
 @media (min-width:768px){ .dp-command-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); } .dp-command-grid--two { grid-template-columns:repeat(2, minmax(0, 1fr)); } }

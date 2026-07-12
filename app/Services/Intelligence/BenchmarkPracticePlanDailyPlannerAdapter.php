@@ -429,6 +429,10 @@ class BenchmarkPracticePlanDailyPlannerAdapter
                     'benchmark-plan',
                     'weekly-draft',
                 ]));
+                $bucket['generated_from'] = [
+                    'weekly_rollup' => true,
+                    'next_week_plan' => true,
+                ];
                 $bucket['items'] = collect(Arr::wrap($bucket['items'] ?? []))
                     ->map(function ($item) {
                         if (! is_array($item)) {
@@ -442,6 +446,10 @@ class BenchmarkPracticePlanDailyPlannerAdapter
                             'benchmark-plan',
                             'weekly-draft',
                         ]));
+                        $item['generated_from'] = [
+                            'weekly_rollup' => true,
+                            'next_week_plan' => true,
+                        ];
 
                         return $item;
                     })
