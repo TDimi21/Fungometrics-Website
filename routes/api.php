@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\Planner\GetDailyPlanCommandCenter;
 use App\Http\Controllers\Api\Planner\GetMyWorkouts;
 use App\Http\Controllers\Api\Planner\GetMyWorkout;
 use App\Http\Controllers\Api\Planner\GetPlayerWeeklyPlans;
+use App\Http\Controllers\Api\Planner\GetPlayerWeeklyCompletionSummary;
 use App\Http\Controllers\Api\Planner\GetDailyPlanAcknowledgements;
 use App\Http\Controllers\Api\Planner\GetDailyPlanReminderPreview;
 use App\Http\Controllers\Api\Planner\GetDailyPlanUpdateStatus;
@@ -222,6 +223,7 @@ Route::prefix('player')->group(function (): void {
 
         // Daily Planner (player side) — "My Workouts" + progress
         Route::get('weekly-plans', GetPlayerWeeklyPlans::class);
+        Route::get('weekly-completion-summary', GetPlayerWeeklyCompletionSummary::class);
         Route::get('daily-plans', GetMyWorkouts::class);
         Route::get('daily-plans/{id}', GetMyWorkout::class);
         Route::get('daily-plans/{dailyPlanId}/completion-summary', GetPlayerDailyPlanCompletionSummary::class);

@@ -19,6 +19,8 @@ const completionSummaryLoading = ref(false)
 const weeklyPlan = ref(null)
 const weeklyPlansError = ref('')
 const weeklyActionLoading = ref('')
+const weeklyCompletionSummary = ref(null)
+const weeklyCompletionSummaryError = ref('')
 
 const metricDefinitions = {
   average_exit_velocity: { label: 'Average EV', unit: 'mph', type: 'number', step: '0.1', min: 0.1, placeholder: '82.4' },
@@ -304,6 +306,7 @@ const normalizeWorkout = (r = {}) => ({
 const load = async () => {
   loading.value = true
   weeklyPlansError.value = ''
+  weeklyCompletionSummaryError.value = ''
   let weeklyOk = false
   let flatOk = false
 
@@ -314,6 +317,14 @@ const load = async () => {
   } catch {
     weeklyPlan.value = null
     weeklyPlansError.value = 'Could not load weekly plans. Try again.'
+  }
+
+  try {
+    const summaryRes = await axiosGet('player/weekly-completion-summary')
+    weeklyCompletionSummary.value = summaryRes?.data?.data || null
+  } catch {
+    weeklyCompletionSummary.value = null
+    weeklyCompletionSummaryError.value = 'Could not load weekly summary.'
   }
 
   try {
@@ -588,6 +599,16 @@ const completedMinutes = computed(() => {
 const weeklyDays = computed(() => asArray(weeklyPlan.value?.days))
 const weeklySummary = computed(() => weeklyPlan.value?.weekly_summary || {})
 const weeklyNextAction = computed(() => weeklyPlan.value?.next_action || {})
+const weeklyCompletion = computed(() => weeklyCompletionSummary.value?.weekly_completion || {})
+const weeklyBenchmarkSummary = computed(() => weeklyCompletionSummary.value?.benchmark_summary || {})
+const weeklyReviewStatus = computed(() => weeklyCompletionSummary.value?.review_status_summary || {})
+const weeklyPlanRows = computed(() => asArray(weeklyCompletionSummary.value?.plan_rows))
+const weeklyApprovedPreview = computed(() => asArray(weeklyCompletionSummary.value?.approved_results).slice(0, 2))
+const weeklyCorrectionPreview = computed(() => asArray(weeklyCompletionSummary.value?.corrections_requested).slice(0, 2))
+const weeklySubmittedPreview = computed(() => asArray(weeklyBenchmarkSummary.value?.metrics_submitted).slice(0, 3))
+const weeklySummaryNextStep = computed(() => weeklyCompletionSummary.value?.next_step || {})
+const weeklySummaryNextDay = computed(() => weeklyDays.value.find((day) => day.daily_plan_id === weeklySummaryNextStep.value?.daily_plan_id) || null)
+const weeklyCorrectionCount = computed(() => Number(weeklyBenchmarkSummary.value?.correction_requested_count || 0) + Number(weeklyBenchmarkSummary.value?.rejected_count || 0))
 const hasWeeklyPlans = computed(() => weeklyDays.value.length > 0)
 const isTodayCard = (day = {}) => day.scheduled_for === todayISO()
 const weeklyStatusLabel = (status) => ({
@@ -611,6 +632,30 @@ const weeklyCardButtonLabel = (day = {}) => {
 }
 const weeklyPlanTitle = computed(() => weeklyPlan.value?.week_label ? `This Week · ${weeklyPlan.value.week_label}` : 'This Week')
 const weeklyProgressText = (day = {}) => `${Number(day.completed_items || 0)} of ${Number(day.total_items || 0)} complete`
+const weeklySummaryStatusLabel = (status) => ({
+  complete: 'Complete',
+  partial: 'In Progress',
+  empty: 'No Published Plans',
+}[status] || humanizeMetric(status || 'Weekly Summary'))
+const weeklyMetricText = (row = {}) => {
+  const value = row.value ?? row.raw_value ?? row.metric_value ?? ''
+  const unit = row.unit ? ` ${row.unit}` : ''
+  return `${row.display_name || row.label || humanizeMetric(row.metric_key)} ${value}${unit}`.trim()
+}
+const weeklyReviewStatusText = computed(() => {
+  const pending = asArray(weeklyReviewStatus.value?.waiting_for_coach_review).length
+  const approved = asArray(weeklyReviewStatus.value?.approved_results).length
+  const corrections = asArray(weeklyReviewStatus.value?.needs_correction).length + asArray(weeklyReviewStatus.value?.rejected_results).length
+  if (corrections > 0) return `${corrections} correction${corrections === 1 ? '' : 's'} requested`
+  if (pending > 0) return `${pending} waiting for coach review`
+  if (approved > 0) return `${approved} approved`
+  return 'No coach review needed'
+})
+const openWeeklySummaryNextStep = () => {
+  const planId = weeklySummaryNextStep.value?.daily_plan_id
+  if (!planId) return
+  openWeeklyDay(weeklySummaryNextDay.value || { daily_plan_id: planId })
+}
 const weeklyPrimaryLine = (day = {}) => {
   const parts = [
     day.primary_focus,
@@ -894,13 +939,116 @@ const finish = async () => {
             </div>
           </div>
 
-          <div class="pw-weekly-next">
-            <span>Next Action</span>
-            <p>{{ weeklyNextAction.message || 'Select a plan to view the workout.' }}</p>
-          </div>
+	          <div class="pw-weekly-next">
+	            <span>Next Action</span>
+	            <p>{{ weeklyNextAction.message || 'Select a plan to view the workout.' }}</p>
+	          </div>
 
-          <div v-if="!hasWeeklyPlans" class="pw-empty pw-empty--compact">
-            <strong>No workouts assigned this week.</strong>
+	          <section class="pw-weekly-completion">
+	            <div class="pw-weekly-completion-head">
+	              <div>
+	                <div class="pw-weekly-completion-eyebrow">Weekly Summary</div>
+	                <h4>{{ weeklyCompletionSummary?.week_label || weeklyPlan?.week_label || 'This Week' }}</h4>
+	              </div>
+	              <span class="pw-weekly-completion-score">
+	                {{ oneDecimal(weeklyCompletion.completion_percentage) }}%
+	              </span>
+	            </div>
+	            <p class="pw-weekly-completion-message">
+	              {{ weeklyCompletionSummary?.player_message || 'Weekly summary is not available yet.' }}
+	            </p>
+	            <div v-if="weeklyCompletionSummaryError" class="pw-weekly-error">
+	              {{ weeklyCompletionSummaryError }}
+	            </div>
+	            <div class="pw-weekly-completion-grid">
+	              <div>
+	                <strong>{{ weeklyCompletion.completed_plan_count || 0 }}/{{ weeklyCompletion.assigned_plan_count || 0 }}</strong>
+	                <span>Workouts</span>
+	              </div>
+	              <div>
+	                <strong>{{ weeklyCompletion.benchmark_values_submitted || 0 }}</strong>
+	                <span>Submitted</span>
+	              </div>
+	              <div>
+	                <strong>{{ weeklyBenchmarkSummary.pending_review_count || 0 }}</strong>
+	                <span>Pending Review</span>
+	              </div>
+	              <div>
+	                <strong>{{ weeklyBenchmarkSummary.approved_count || 0 }}</strong>
+	                <span>Approved</span>
+	              </div>
+	              <div>
+	                <strong>{{ weeklyCorrectionCount }}</strong>
+	                <span>Corrections</span>
+	              </div>
+	              <div>
+	                <strong>{{ weeklyReviewStatusText }}</strong>
+	                <span>Coach Review</span>
+	              </div>
+	            </div>
+	            <div class="pw-weekly-completion-next">
+	              <div>
+	                <span>{{ weeklySummaryStatusLabel(weeklyCompletionSummary?.summary_status) }}</span>
+	                <p>{{ weeklySummaryNextStep.message || 'No next step is available yet.' }}</p>
+	              </div>
+	              <button
+	                v-if="weeklySummaryNextStep.button_label && weeklySummaryNextStep.daily_plan_id"
+	                type="button"
+	                class="pw-weekly-completion-action"
+	                :disabled="weeklyActionLoading === weeklySummaryNextStep.daily_plan_id"
+	                @click="openWeeklySummaryNextStep"
+	              >
+	                {{ weeklyActionLoading === weeklySummaryNextStep.daily_plan_id ? 'Opening…' : weeklySummaryNextStep.button_label }}
+	              </button>
+	            </div>
+	            <div v-if="weeklySubmittedPreview.length" class="pw-weekly-completion-block">
+	              <div class="pw-weekly-completion-label">Submitted Results</div>
+	              <div class="pw-weekly-completion-pills">
+	                <span v-for="row in weeklySubmittedPreview" :key="`${row.daily_plan_id}-${row.metric_key}-${row.status}`">
+	                  {{ weeklyMetricText(row) }}
+	                </span>
+	              </div>
+	            </div>
+	            <div v-else class="pw-weekly-completion-note">
+	              No benchmark results submitted this week.
+	            </div>
+	            <div v-if="weeklyApprovedPreview.length || weeklyCorrectionPreview.length" class="pw-weekly-review-grid">
+	              <div v-if="weeklyApprovedPreview.length" class="pw-weekly-review-card pw-weekly-review-card--approved">
+	                <span>Approved</span>
+	                <p v-for="row in weeklyApprovedPreview" :key="`approved-${row.daily_plan_id}-${row.metric_key}`">
+	                  {{ weeklyMetricText(row) }}
+	                </p>
+	              </div>
+	              <div v-if="weeklyCorrectionPreview.length" class="pw-weekly-review-card pw-weekly-review-card--correction">
+	                <span>Needs Update</span>
+	                <p v-for="row in weeklyCorrectionPreview" :key="`correction-${row.daily_plan_id}-${row.metric_key}`">
+	                  {{ weeklyMetricText(row) }}
+	                </p>
+	              </div>
+	            </div>
+	            <div v-if="weeklyPlanRows.length" class="pw-weekly-plan-rows">
+	              <div class="pw-weekly-completion-label">Week at a Glance</div>
+	              <div
+	                v-for="row in weeklyPlanRows"
+	                :key="`summary-${row.daily_plan_id}`"
+	                class="pw-weekly-plan-row"
+	              >
+	                <div>
+	                  <strong>{{ row.title || 'Daily Plan' }}</strong>
+	                  <span>{{ fmtDate(row.scheduled_for) }} · {{ weeklyStatusLabel(row.status) }}</span>
+	                </div>
+	                <small>
+	                  {{ row.completed_items || 0 }}/{{ row.total_items || 0 }}
+	                  <template v-if="row.pending_review_count"> · {{ row.pending_review_count }} pending</template>
+	                  <template v-if="row.approved_count"> · {{ row.approved_count }} approved</template>
+	                  <template v-if="row.correction_requested_count"> · {{ row.correction_requested_count }} corrections</template>
+	                </small>
+	              </div>
+	            </div>
+	          </section>
+
+	          <div v-if="!hasWeeklyPlans" class="pw-empty pw-empty--compact">
+	            <strong>No workouts assigned this week.</strong>
             <span>Your coach has not published this week’s plans yet.</span>
           </div>
           <div v-else class="pw-weekly-days">
@@ -1393,6 +1541,37 @@ const finish = async () => {
 .pw-weekly-next { margin-top:12px; border:1px solid rgba(56,189,248,.18); background:rgba(14,165,233,.085); border-radius:12px; padding:10px 12px; }
 .pw-weekly-next span { display:block; color:#bae6fd; font-size:10.5px; font-weight:950; text-transform:uppercase; letter-spacing:.07em; }
 .pw-weekly-next p { margin:4px 0 0; color:rgba(255,255,255,.84); font-size:13px; font-weight:850; line-height:1.4; }
+.pw-weekly-completion { margin-top:12px; border:1px solid rgba(125,166,245,.18); background:linear-gradient(145deg, rgba(15,23,42,.74), rgba(15,23,42,.46)); border-radius:16px; padding:14px; box-shadow:0 12px 30px rgba(0,0,0,.16); }
+.pw-weekly-completion-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.pw-weekly-completion-eyebrow { color:#93c5fd; font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; }
+.pw-weekly-completion h4 { color:#fff; font-size:18px; line-height:1.15; font-weight:1000; margin:2px 0 0; overflow-wrap:anywhere; }
+.pw-weekly-completion-score { flex:none; color:#fff; background:rgba(255,45,85,.18); border:1px solid rgba(255,45,85,.32); border-radius:999px; padding:7px 10px; font-size:14px; font-weight:1000; }
+.pw-weekly-completion-message { margin:10px 0 0; color:rgba(255,255,255,.76); font-size:13px; line-height:1.45; font-weight:800; }
+.pw-weekly-completion-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; margin-top:12px; }
+.pw-weekly-completion-grid div { border:1px solid rgba(255,255,255,.09); background:rgba(5,11,31,.48); border-radius:12px; padding:10px; min-width:0; }
+.pw-weekly-completion-grid strong { display:block; color:#fff; font-size:18px; line-height:1.1; font-weight:1000; overflow-wrap:anywhere; }
+.pw-weekly-completion-grid span { display:block; color:rgba(255,255,255,.48); font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.05em; margin-top:5px; }
+.pw-weekly-completion-next { margin-top:12px; border:1px solid rgba(52,211,153,.18); background:rgba(52,211,153,.08); border-radius:12px; padding:10px 11px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.pw-weekly-completion-next span { display:block; color:#bbf7d0; font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; }
+.pw-weekly-completion-next p { margin:3px 0 0; color:rgba(255,255,255,.84); font-size:13px; line-height:1.4; font-weight:850; }
+.pw-weekly-completion-action { flex:none; border:0; border-radius:10px; padding:9px 11px; background:#ff2d55; color:#fff; font-size:12px; font-weight:950; cursor:pointer; white-space:nowrap; }
+.pw-weekly-completion-action:disabled { opacity:.62; cursor:default; }
+.pw-weekly-completion-block, .pw-weekly-plan-rows { margin-top:12px; border-top:1px solid rgba(255,255,255,.08); padding-top:11px; }
+.pw-weekly-completion-label { color:rgba(255,255,255,.5); font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; margin-bottom:7px; }
+.pw-weekly-completion-pills { display:flex; flex-wrap:wrap; gap:6px; }
+.pw-weekly-completion-pills span { border:1px solid rgba(56,189,248,.22); background:rgba(14,165,233,.11); color:#bae6fd; border-radius:999px; padding:4px 8px; font-size:11.5px; font-weight:900; }
+.pw-weekly-completion-note { margin-top:10px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.035); color:rgba(255,255,255,.55); border-radius:10px; padding:8px 10px; font-size:12px; font-weight:800; }
+.pw-weekly-review-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-top:12px; }
+.pw-weekly-review-card { border:1px solid rgba(52,211,153,.22); background:rgba(52,211,153,.08); border-radius:12px; padding:10px; min-width:0; }
+.pw-weekly-review-card--correction { border-color:rgba(248,113,113,.25); background:rgba(239,68,68,.1); }
+.pw-weekly-review-card span { display:block; color:#bbf7d0; font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; }
+.pw-weekly-review-card--correction span { color:#fecaca; }
+.pw-weekly-review-card p { margin:5px 0 0; color:rgba(255,255,255,.76); font-size:12px; line-height:1.38; font-weight:800; overflow-wrap:anywhere; }
+.pw-weekly-plan-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid rgba(255,255,255,.06); }
+.pw-weekly-plan-row:first-of-type { border-top:0; padding-top:0; }
+.pw-weekly-plan-row strong { display:block; color:#fff; font-size:13px; line-height:1.25; font-weight:950; overflow-wrap:anywhere; }
+.pw-weekly-plan-row span { display:block; color:rgba(255,255,255,.5); font-size:11.5px; font-weight:800; margin-top:2px; }
+.pw-weekly-plan-row small { flex:none; color:rgba(255,255,255,.62); font-size:11px; font-weight:850; text-align:right; }
 .pw-weekly-days { display:grid; gap:10px; margin-top:12px; }
 .pw-day-card { border:1px solid rgba(255,255,255,.1); background:rgba(5,11,31,.42); border-radius:14px; padding:12px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .pw-day-card--today { border-color:rgba(255,45,85,.38); background:linear-gradient(135deg, rgba(255,45,85,.13), rgba(5,11,31,.45)); }
@@ -1553,6 +1732,12 @@ const finish = async () => {
   .pw-weekly-head { flex-direction:column; }
   .pw-weekly-range { align-self:flex-start; }
   .pw-weekly-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .pw-weekly-completion-head, .pw-weekly-completion-next { flex-direction:column; align-items:flex-start; }
+  .pw-weekly-completion-score { align-self:flex-start; }
+  .pw-weekly-completion-grid, .pw-weekly-review-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .pw-weekly-completion-action { width:100%; }
+  .pw-weekly-plan-row { align-items:flex-start; flex-direction:column; }
+  .pw-weekly-plan-row small { text-align:left; }
   .pw-day-card { flex-direction:column; }
   .pw-day-main { width:100%; }
   .pw-day-date { width:72px; }
