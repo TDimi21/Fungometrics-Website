@@ -6,7 +6,9 @@ namespace App\Services\Intelligence;
 
 use App\Models\DailyPlan;
 use App\Models\DailyPlanAssignment;
+use App\Models\DailyPlanProgress;
 use App\Models\PlayerTeam;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -152,7 +154,7 @@ class BenchmarkPracticePlanDailyPlannerAdapter
         return [
             'generated_at' => now()->toIso8601String(),
             'team_id' => $teamId,
-            'source' => 'weekly_planner_rollup_generated_day',
+            'source' => 'weekly_rollup_next_week_plan',
             'day_index' => $planDay['day_index'] ?? null,
             'daily_plan_preview' => $payload,
             'warnings' => $this->warnings([
@@ -210,12 +212,111 @@ class BenchmarkPracticePlanDailyPlannerAdapter
             'published' => false,
             'assigned_player_ids' => $plan->assigned_player_ids,
             'assigned_player_count' => count($plan->assigned_player_ids),
-            'source' => 'weekly_planner_rollup_generated_day',
+            'source' => 'weekly_rollup_next_week_plan',
             'day_index' => $planDay['day_index'] ?? null,
             'daily_plan' => $plan->toArray(),
             'warnings' => $this->warnings([
                 'practice_blocks' => $planDay['blocks'] ?? [],
             ], $payload),
+        ];
+    }
+
+    public function saveGeneratedDaysToDailyPlanner(string $teamId, array $days, array $options = []): array
+    {
+        $saved = [];
+        $skipped = [];
+        $warnings = [];
+
+        foreach (array_values($days) as $index => $day) {
+            if (! is_array($day)) {
+                $skipped[] = [
+                    'day_index' => $index + 1,
+                    'reason' => 'Invalid generated day payload.',
+                ];
+                continue;
+            }
+
+            $explicitAssignments = array_key_exists('assigned_player_ids', $day)
+                || array_key_exists('assign_player_ids', $day)
+                || array_key_exists('assigned_player_ids', $options)
+                || array_key_exists('assign_player_ids', $options);
+            $dayOptions = [
+                ...$options,
+                ...Arr::wrap($day['save_options'] ?? []),
+                'scheduled_for' => $day['scheduled_for'] ?? $options['scheduled_for'] ?? null,
+                'assigned_player_ids' => $day['assigned_player_ids']
+                    ?? $day['assign_player_ids']
+                    ?? $options['assigned_player_ids']
+                    ?? $options['assign_player_ids']
+                    ?? [],
+                'status' => 'draft',
+            ];
+            $overwrite = filter_var($day['overwrite_existing'] ?? $options['overwrite_existing'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $scheduledFor = (string) ($dayOptions['scheduled_for'] ?? $day['scheduled_for'] ?? now()->toDateString());
+            $existing = $this->existingDailyPlanForDate($teamId, $scheduledFor);
+
+            if ($existing && ! $overwrite) {
+                $message = 'Plan already exists for this date. Open existing plan or choose another date.';
+                $skipped[] = [
+                    'day_index' => $day['day_index'] ?? ($index + 1),
+                    'scheduled_for' => $scheduledFor,
+                    'reason' => $message,
+                    'existing_daily_plan_id' => (string) $existing->id,
+                    'status' => $existing->status,
+                ];
+                $warnings[] = $message;
+                continue;
+            }
+
+            if ($existing && $overwrite && $this->dailyPlanHasProgress((string) $existing->id)) {
+                $message = 'Existing plan has player progress and cannot be overwritten.';
+                $skipped[] = [
+                    'day_index' => $day['day_index'] ?? ($index + 1),
+                    'scheduled_for' => $scheduledFor,
+                    'reason' => $message,
+                    'existing_daily_plan_id' => (string) $existing->id,
+                    'status' => $existing->status,
+                ];
+                $warnings[] = $message;
+                continue;
+            }
+
+            if ($existing && $overwrite) {
+                $dayOptions['daily_plan_id'] = (string) $existing->id;
+                if (! $explicitAssignments) {
+                    $existing->loadMissing('assignments');
+                    $dayOptions['assigned_player_ids'] = $existing->assigned_player_ids;
+                }
+            }
+
+            $result = $this->saveGeneratedDayToDailyPlanner($teamId, $day, $dayOptions);
+            $saved[] = [
+                'day_index' => $day['day_index'] ?? ($index + 1),
+                'scheduled_for' => $scheduledFor,
+                'saved_daily_plan_id' => $result['saved_daily_plan_id'] ?? null,
+                'status' => $result['status'] ?? 'draft',
+                'published' => false,
+                'assigned_player_count' => $result['assigned_player_count'] ?? 0,
+                'daily_plan' => $result['daily_plan'] ?? null,
+                'overwrote_existing' => $existing !== null,
+            ];
+            $warnings = [
+                ...$warnings,
+                ...Arr::wrap($result['warnings'] ?? []),
+            ];
+        }
+
+        return [
+            'saved_count' => count($saved),
+            'skipped_count' => count($skipped),
+            'saved_daily_plans' => $saved,
+            'skipped_days' => $skipped,
+            'warnings' => array_values(array_unique(array_filter($warnings))),
+            'source' => 'weekly_rollup_next_week_plan',
+            'status' => 'draft',
+            'published' => false,
+            'persistence' => 'daily_plans',
+            'database_records_created' => count($saved) > 0,
         ];
     }
 
@@ -302,7 +403,8 @@ class BenchmarkPracticePlanDailyPlannerAdapter
             'status' => 'draft',
         ]);
 
-        $payload['source'] = 'weekly_planner_rollup_generated_day';
+        $payload['source'] = 'weekly_rollup_next_week_plan';
+        $payload['buckets'] = $this->markGeneratedDayBuckets($payload['buckets'] ?? []);
         $payload['assigned_player_ids'] = array_values(array_unique(array_filter(array_map(
             'strval',
             $options['assigned_player_ids'] ?? $options['assign_player_ids'] ?? []
@@ -310,6 +412,62 @@ class BenchmarkPracticePlanDailyPlannerAdapter
         $payload['published_at'] = null;
 
         return $payload;
+    }
+
+    private function markGeneratedDayBuckets(array $buckets): array
+    {
+        return collect($buckets)
+            ->map(function ($bucket) {
+                if (! is_array($bucket)) {
+                    return $bucket;
+                }
+
+                $bucket['source'] = 'weekly_rollup_next_week_plan';
+                $bucket['tags'] = array_values(array_unique([
+                    ...Arr::wrap($bucket['tags'] ?? []),
+                    'fmtrx-generated',
+                    'benchmark-plan',
+                    'weekly-draft',
+                ]));
+                $bucket['items'] = collect(Arr::wrap($bucket['items'] ?? []))
+                    ->map(function ($item) {
+                        if (! is_array($item)) {
+                            return $item;
+                        }
+
+                        $item['source'] = 'weekly_rollup_next_week_plan';
+                        $item['tags'] = array_values(array_unique([
+                            ...Arr::wrap($item['tags'] ?? []),
+                            'fmtrx-generated',
+                            'benchmark-plan',
+                            'weekly-draft',
+                        ]));
+
+                        return $item;
+                    })
+                    ->values()
+                    ->all();
+
+                return $bucket;
+            })
+            ->values()
+            ->all();
+    }
+
+    private function existingDailyPlanForDate(string $teamId, string $scheduledFor): ?DailyPlan
+    {
+        return DailyPlan::query()
+            ->where('team_id', $teamId)
+            ->whereDate('date', $scheduledFor)
+            ->orderByDesc('created_at')
+            ->first();
+    }
+
+    private function dailyPlanHasProgress(string $dailyPlanId): bool
+    {
+        return DailyPlanProgress::query()
+            ->where('plan_id', $dailyPlanId)
+            ->exists();
     }
 
     private function blocksToBuckets(array $blocks): array

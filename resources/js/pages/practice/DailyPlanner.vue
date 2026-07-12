@@ -50,6 +50,15 @@ const nextWeekDraftMessage = ref('')
 const nextWeekPreviewDay = ref(null)
 const savingNextWeekDay = ref('')
 const savedNextWeekDailyPlan = ref(null)
+const nextWeekCalendarDraft = ref(null)
+const nextWeekCalendarLoading = ref(false)
+const nextWeekCalendarError = ref('')
+const nextWeekCalendarMessage = ref('')
+const nextWeekCalendarStart = ref('')
+const selectedCalendarDayIndexes = ref([])
+const previewCalendarDay = ref(null)
+const savingCalendarDays = ref(false)
+const savedCalendarPlans = ref([])
 
 // Drill picker
 const picker = ref(null)          // the bucket object being added to
@@ -75,6 +84,7 @@ const loadCommandCenter = async () => {
     completionSummary.value = null
     weeklyRollup.value = null
     nextWeekDraft.value = null
+    nextWeekCalendarDraft.value = null
     return
   }
   commandLoading.value = true
@@ -113,6 +123,35 @@ const loadNextWeekDraft = async () => {
     return null
   } finally {
     nextWeekDraftLoading.value = false
+  }
+}
+const loadNextWeekCalendarDraft = async () => {
+  nextWeekCalendarError.value = ''
+  if (!activeTeamId.value) {
+    nextWeekCalendarDraft.value = null
+    return null
+  }
+
+  nextWeekCalendarLoading.value = true
+  try {
+    const params = {
+      days: 7,
+      plan_days: 5,
+      max_minutes_per_day: 90,
+    }
+    if (nextWeekCalendarStart.value) params.next_week_start_date = nextWeekCalendarStart.value
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/next-week-calendar-draft`, params)
+    nextWeekCalendarDraft.value = res?.data?.data || null
+    nextWeekCalendarStart.value = nextWeekCalendarDraft.value?.week_start_date || nextWeekCalendarStart.value
+    selectedCalendarDayIndexes.value = []
+    previewCalendarDay.value = null
+    return nextWeekCalendarDraft.value
+  } catch {
+    nextWeekCalendarDraft.value = null
+    nextWeekCalendarError.value = 'Could not generate weekly calendar draft.'
+    return null
+  } finally {
+    nextWeekCalendarLoading.value = false
   }
 }
 const loadWeeklyRollup = async () => {
@@ -181,8 +220,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft() })
-watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft(); loadNextWeekCalendarDraft() })
+watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft(); loadNextWeekCalendarDraft() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -200,6 +239,29 @@ const prettyDateTime = (value) => {
 }
 const oneDecimal = (value) => Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '0.0'
 const human = (value) => String(value || '—').replace(/[_-]/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
+const metricLabels = {
+  average_exit_velocity: 'Average EV',
+  max_exit_velocity: 'Max EV',
+  hard_hit_percentage: 'Hard Hit %',
+  line_drive_percentage: 'Line-Drive %',
+  hitter_swing_miss_percentage: 'Swing & Miss %',
+  average_fastball_velocity: 'Average Fastball Velocity',
+  max_fastball_velocity: 'Max Fastball Velocity',
+  strike_percentage: 'Strike %',
+  long_toss_max_distance: 'Long Toss Max',
+  weighted_ball_5oz_velocity: '5 oz Weighted Ball Velocity',
+  bench_press: 'Bench Press',
+  squat: 'Squat',
+  deadlift: 'Deadlift',
+  mobility_score: 'Mobility Score',
+}
+const metricLabel = (value) => metricLabels[value] || human(value)
+const workloadLabel = (value) => ({
+  light: 'Light Day',
+  moderate: 'Moderate Day',
+  heavy: 'Heavy Day',
+  too_heavy: 'Too Heavy',
+}[value] || human(value))
 const commandPlan = computed(() => commandCenter.value?.plan_status || {})
 const commandSummary = computed(() => commandCenter.value?.player_status_summary || {})
 const commandBenchmark = computed(() => commandCenter.value?.benchmark_workflow_summary || {})
@@ -228,6 +290,11 @@ const nextWeekDays = computed(() => Array.isArray(nextWeekDraft.value?.suggested
 const nextWeekAssignments = computed(() => Array.isArray(nextWeekDraft.value?.player_assignments) ? nextWeekDraft.value.player_assignments : [])
 const nextWeekTargets = computed(() => Array.isArray(nextWeekDraft.value?.benchmark_collection_targets) ? nextWeekDraft.value.benchmark_collection_targets : [])
 const nextWeekNotes = computed(() => Array.isArray(nextWeekDraft.value?.coach_notes) ? nextWeekDraft.value.coach_notes : [])
+const calendarDays = computed(() => Array.isArray(nextWeekCalendarDraft.value?.calendar_days) ? nextWeekCalendarDraft.value.calendar_days : [])
+const calendarSummary = computed(() => nextWeekCalendarDraft.value?.weekly_workload_summary || {})
+const calendarTargets = computed(() => Array.isArray(nextWeekCalendarDraft.value?.benchmark_collection_targets) ? nextWeekCalendarDraft.value.benchmark_collection_targets : [])
+const calendarNotes = computed(() => Array.isArray(nextWeekCalendarDraft.value?.coach_notes) ? nextWeekCalendarDraft.value.coach_notes : [])
+const selectedCalendarDays = computed(() => calendarDays.value.filter((day) => selectedCalendarDayIndexes.value.includes(Number(day.day_index))))
 const weeklyCards = computed(() => [
   {
     label: 'Weekly Execution',
@@ -383,6 +450,7 @@ const handleActionResult = async (result, action) => {
   }
   await loadWeeklyRollup()
   await loadNextWeekDraft()
+  await loadNextWeekCalendarDraft()
   if (action?.action_type === 'review_submissions') await openReviewQueue()
   if (action?.action_type === 'generate_next_plan') {
     generatedPlanPreview.value = result?.result?.daily_plan_preview || null
@@ -423,6 +491,82 @@ const saveNextWeekDayAsDraft = async (day) => {
     savingNextWeekDay.value = ''
   }
 }
+const calendarDaySelected = (day) => selectedCalendarDayIndexes.value.includes(Number(day?.day_index))
+const toggleCalendarDay = (day) => {
+  const dayIndex = Number(day?.day_index)
+  if (!dayIndex) return
+  const selectedSet = new Set(selectedCalendarDayIndexes.value.map(Number))
+  selectedSet.has(dayIndex) ? selectedSet.delete(dayIndex) : selectedSet.add(dayIndex)
+  selectedCalendarDayIndexes.value = [...selectedSet].sort((a, b) => a - b)
+}
+const previewCalendarDraftDay = (day) => {
+  previewCalendarDay.value = day
+}
+const openCalendarDailyPlan = async (dayOrSaved) => {
+  const dailyPlan = dayOrSaved?.daily_plan
+  if (dailyPlan) {
+    editing.value = planFromApi(dailyPlan)
+    return
+  }
+  const planId = dayOrSaved?.saved_daily_plan_id || dayOrSaved?.save_status?.existing_daily_plan_id || dayOrSaved?.existing_daily_plan_id
+  if (!planId) {
+    nextWeekCalendarMessage.value = 'No saved Daily Planner draft is connected to this day yet.'
+    return
+  }
+  let plan = plans.value.find((row) => String(row.id) === String(planId))
+  if (!plan) {
+    await loadPlans()
+    plan = plans.value.find((row) => String(row.id) === String(planId))
+  }
+  if (plan) {
+    editing.value = JSON.parse(JSON.stringify(plan))
+  } else {
+    nextWeekCalendarMessage.value = 'The saved draft exists, but it is not loaded in this browser yet. Refresh the plan list and try again.'
+  }
+}
+const saveCalendarDraftDays = async (daysToSave = selectedCalendarDays.value) => {
+  nextWeekCalendarMessage.value = ''
+  if (!activeTeamId.value) return
+  if (!daysToSave.length) {
+    nextWeekCalendarMessage.value = 'No days selected.'
+    return
+  }
+
+  savingCalendarDays.value = true
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/next-week-calendar-draft/save-days`, {
+      days: daysToSave.map((day) => ({
+        day_index: day.day_index,
+        scheduled_for: day.scheduled_for,
+        status: 'draft',
+        assign_player_ids: [],
+        overwrite_existing: false,
+      })),
+      next_week_start_date: nextWeekCalendarDraft.value?.week_start_date || nextWeekCalendarStart.value || null,
+      days_to_review: 7,
+      plan_days: 5,
+      max_minutes_per_day: 90,
+    })
+    const data = res?.data?.data || {}
+    savedCalendarPlans.value = Array.isArray(data.saved_daily_plans) ? data.saved_daily_plans : []
+    const savedCount = Number(data.saved_count || 0)
+    const skippedCount = Number(data.skipped_count || 0)
+    if (savedCount > 0) {
+      nextWeekCalendarMessage.value = `${savedCount} selected day${savedCount === 1 ? '' : 's'} saved as Daily Planner draft${savedCount === 1 ? '' : 's'}.`
+    } else if (skippedCount > 0) {
+      nextWeekCalendarMessage.value = data.skipped_days?.[0]?.reason || 'A plan already exists for this date.'
+    } else {
+      nextWeekCalendarMessage.value = 'No days were saved.'
+    }
+    await loadPlans()
+    await loadNextWeekCalendarDraft()
+  } catch {
+    nextWeekCalendarMessage.value = 'Could not save selected days.'
+  } finally {
+    savingCalendarDays.value = false
+  }
+}
+const saveOneCalendarDraftDay = (day) => saveCalendarDraftDays(day ? [day] : [])
 
 // Buckets not yet on the plan (keep the app's ordering).
 const availableBuckets = computed(() =>
@@ -820,6 +964,160 @@ const del = async (p) => {
               </template>
             </div>
 
+            <div class="dp-command-block">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div>
+                  <div class="dp-section mb-0">Next Week Calendar Draft</div>
+                  <p class="dp-command-sub">Review the generated week by day, then save selected days as Daily Planner drafts.</p>
+                </div>
+                <div class="dp-calendar-controls">
+                  <input v-model="nextWeekCalendarStart" class="dp-input dp-input--compact" type="date" aria-label="Next week start date" />
+                  <button class="dp-link" :disabled="nextWeekCalendarLoading" @click="loadNextWeekCalendarDraft">{{ nextWeekCalendarLoading ? 'Generating…' : 'Generate Calendar Draft' }}</button>
+                  <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="savingCalendarDays || !selectedCalendarDays.length" @click="saveCalendarDraftDays()">
+                    {{ savingCalendarDays ? 'Saving…' : `Save Selected Days${selectedCalendarDays.length ? ` (${selectedCalendarDays.length})` : ''}` }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="nextWeekCalendarLoading && !nextWeekCalendarDraft" class="dp-command-loading">Generating next week calendar draft…</div>
+              <div v-else-if="nextWeekCalendarError" class="dp-empty dp-empty--sm">{{ nextWeekCalendarError }}</div>
+              <div v-else-if="!nextWeekCalendarDraft" class="dp-empty dp-empty--sm">Generate a next-week draft to see calendar days.</div>
+              <template v-else>
+                <div class="dp-calendar-summary">
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Week</div>
+                    <div class="dp-command-value">{{ nextWeekCalendarDraft.week_start_date || '—' }}</div>
+                    <div class="dp-command-sub">to {{ nextWeekCalendarDraft.week_end_date || '—' }}</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Total Minutes</div>
+                    <div class="dp-command-value">{{ calendarSummary.total_planned_minutes || 0 }}</div>
+                    <div class="dp-command-sub">{{ oneDecimal(calendarSummary.average_minutes_per_day) }} average per day</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">High Workload</div>
+                    <div class="dp-command-value">{{ calendarSummary.high_workload_days || 0 }}</div>
+                    <div class="dp-command-sub">{{ calendarSummary.recovery_support_days || 0 }} recovery/support days</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Benchmark Targets</div>
+                    <div class="dp-command-value">{{ calendarSummary.benchmark_collection_targets || calendarTargets.length || 0 }}</div>
+                    <div class="dp-command-sub">{{ calendarSummary.players_needing_follow_up || 0 }} players needing follow-up</div>
+                  </div>
+                </div>
+
+                <div v-if="calendarDays.length" class="dp-calendar-grid">
+                  <div
+                    v-for="day in calendarDays"
+                    :key="`calendar-${day.day_index}`"
+                    class="dp-calendar-day"
+                    :class="[`dp-calendar-day--${day.workload_label || 'moderate'}`, { 'dp-calendar-day--saved': day.save_status?.already_saved, 'dp-calendar-day--blocked': day.save_status?.blocking_existing_plan }]"
+                  >
+                    <div class="dp-calendar-day-top">
+                      <label class="dp-calendar-check">
+                        <input
+                          type="checkbox"
+                          :checked="calendarDaySelected(day)"
+                          :disabled="Boolean(day.save_status?.existing_daily_plan_id)"
+                          @change="toggleCalendarDay(day)"
+                        />
+                        <span>{{ day.day_label || `Day ${day.day_index}` }}</span>
+                      </label>
+                      <span class="dp-status" :class="statusBadgeClass(day.workload_label === 'too_heavy' ? 'warning' : day.workload_label === 'light' ? 'info' : 'neutral')">
+                        {{ workloadLabel(day.workload_label) }}
+                      </span>
+                    </div>
+
+                    <div class="dp-command-label mt-2">{{ fmtDate(day.scheduled_for) }}</div>
+                    <div class="dp-calendar-title">{{ day.title }}</div>
+                    <div class="dp-command-sub">Focus: {{ day.primary_focus || 'Weekly Plan' }} · {{ day.estimated_total_minutes || 0 }} min</div>
+                    <p v-if="day.why_this_day" class="dp-empty-copy">FMTRX suggested this block because {{ day.why_this_day }}</p>
+
+                    <div class="dp-calendar-meta">
+                      <span>Benchmark targets: {{ (day.metrics_to_collect || []).slice(0, 3).map(metricLabel).join(', ') || 'None' }}</span>
+                      <span>Players: {{ (day.players || []).length || (day.player_assignments || []).length || 0 }}</span>
+                    </div>
+
+                    <div class="dp-calendar-blocks">
+                      <div v-for="block in (day.blocks || []).slice(0, 5)" :key="`calendar-${day.day_index}-${block.title}`" class="dp-calendar-block">
+                        <strong>{{ block.title }}</strong>
+                        <span>{{ block.duration_minutes || 0 }} min · {{ human(block.category) }}</span>
+                      </div>
+                      <div v-if="(day.blocks || []).length > 5" class="dp-command-sub">+{{ (day.blocks || []).length - 5 }} more blocks</div>
+                    </div>
+
+                    <div v-if="day.warnings?.length || day.save_status?.message" class="dp-calendar-warning">
+                      {{ day.save_status?.message || day.warnings[0] }}
+                    </div>
+
+                    <div class="dp-next-week-actions mt-3">
+                      <button class="dp-btn dp-btn--small" @click="previewCalendarDraftDay(day)">Preview</button>
+                      <button
+                        v-if="!day.save_status?.existing_daily_plan_id"
+                        class="dp-btn dp-btn--primary dp-btn--small"
+                        :disabled="savingCalendarDays"
+                        @click="saveOneCalendarDraftDay(day)"
+                      >
+                        {{ savingCalendarDays ? 'Saving…' : 'Save as Draft' }}
+                      </button>
+                      <button
+                        v-else
+                        class="dp-btn dp-btn--small"
+                        @click="openCalendarDailyPlan(day)"
+                      >
+                        Open in Daily Planner
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-3">No suggested days were generated.</div>
+
+                <div v-if="previewCalendarDay" class="dp-weekly-panel mt-3">
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <div class="dp-command-label">Calendar Day Preview</div>
+                      <div class="font-extrabold">{{ previewCalendarDay.day_label }} · {{ previewCalendarDay.title }}</div>
+                      <p class="dp-command-sub">{{ previewCalendarDay.primary_focus }} · {{ previewCalendarDay.estimated_total_minutes || 0 }} min</p>
+                    </div>
+                    <button class="dp-link" @click="previewCalendarDay = null">Close</button>
+                  </div>
+                  <ul class="dp-next-week-preview-list">
+                    <li v-for="block in (previewCalendarDay.blocks || [])" :key="`calendar-preview-${block.title}`">
+                      <strong>{{ block.title }} · {{ block.duration_minutes || 0 }} min</strong>
+                      <span>{{ block.description }}</span>
+                      <span v-if="block.why">Why: {{ block.why }}</span>
+                      <span v-if="block.metrics_to_collect?.length">Benchmark targets: {{ block.metrics_to_collect.map(metricLabel).join(', ') }}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="dp-weekly-columns">
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Benchmark Targets</div>
+                    <div v-if="calendarTargets.length" class="dp-weekly-list">
+                      <div v-for="target in calendarTargets.slice(0, 5)" :key="`calendar-target-${target.title}`" class="dp-gap-row">
+                        <span>{{ target.title }}</span>
+                        <span>{{ (target.metrics || []).map(metricLabel).slice(0, 2).join(', ') || 'Baseline' }}</span>
+                      </div>
+                    </div>
+                    <div v-else class="dp-command-sub">No benchmark targets are carried into this calendar draft.</div>
+                  </div>
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Coach Notes</div>
+                    <ul v-if="calendarNotes.length" class="dp-calendar-notes">
+                      <li v-for="note in calendarNotes.slice(0, 4)" :key="`calendar-note-${note}`">{{ note }}</li>
+                    </ul>
+                    <div v-else class="dp-command-sub">No coach notes are available yet.</div>
+                  </div>
+                </div>
+
+                <p v-if="nextWeekCalendarMessage" class="dp-command-message">
+                  {{ nextWeekCalendarMessage }}
+                  <button v-if="savedCalendarPlans[0]?.daily_plan" class="dp-link ml-2" @click="openCalendarDailyPlan(savedCalendarPlans[0])">Open Saved Plan</button>
+                </p>
+              </template>
+            </div>
+
             <div v-if="commandActions.length" class="dp-command-block">
               <div class="dp-section mb-2">Coach Command Center</div>
               <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -1164,6 +1462,32 @@ const del = async (p) => {
 .dp-next-week-preview-list { margin:10px 0 0; padding:0; list-style:none; display:grid; gap:8px; }
 .dp-next-week-preview-list li { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:9px 10px; display:grid; gap:3px; }
 .dp-next-week-preview-list span { color:rgba(255,255,255,.55); font-size:12px; line-height:1.4; }
+.dp-calendar-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-start; }
+@media (min-width:760px){ .dp-calendar-controls { justify-content:flex-end; } }
+.dp-calendar-summary { display:grid; grid-template-columns:repeat(1, minmax(0,1fr)); gap:10px; margin-top:10px; }
+@media (min-width:760px){ .dp-calendar-summary { grid-template-columns:repeat(4, minmax(0,1fr)); } }
+.dp-calendar-grid { display:grid; grid-template-columns:repeat(1, minmax(0,1fr)); gap:12px; margin-top:12px; }
+@media (min-width:980px){ .dp-calendar-grid { grid-template-columns:repeat(5, minmax(0,1fr)); align-items:stretch; } }
+.dp-calendar-day { background:rgba(9,14,29,.64); border:1px solid rgba(255,255,255,.1); border-radius:15px; padding:13px; min-width:0; display:flex; flex-direction:column; gap:9px; }
+.dp-calendar-day--light { border-color:rgba(59,130,246,.22); }
+.dp-calendar-day--moderate { border-color:rgba(255,255,255,.12); }
+.dp-calendar-day--heavy { border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.055); }
+.dp-calendar-day--too_heavy { border-color:rgba(216,35,42,.36); background:rgba(216,35,42,.08); }
+.dp-calendar-day--saved { box-shadow:0 0 0 1px rgba(52,211,153,.2) inset; }
+.dp-calendar-day--blocked { box-shadow:0 0 0 1px rgba(245,158,11,.2) inset; }
+.dp-calendar-day-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.dp-calendar-check { display:flex; align-items:center; gap:8px; color:#fff; font-weight:950; min-width:0; }
+.dp-calendar-check input { width:17px; height:17px; flex:none; accent-color:#ff2d55; }
+.dp-calendar-check span { overflow-wrap:anywhere; }
+.dp-calendar-title { color:#fff; font-size:17px; line-height:1.15; font-weight:950; overflow-wrap:anywhere; }
+.dp-calendar-meta { display:grid; gap:5px; color:rgba(255,255,255,.52); font-size:11.5px; font-weight:800; }
+.dp-calendar-blocks { display:grid; gap:6px; }
+.dp-calendar-block { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:8px; display:grid; gap:3px; }
+.dp-calendar-block strong { font-size:12.5px; line-height:1.25; overflow-wrap:anywhere; }
+.dp-calendar-block span { color:rgba(255,255,255,.48); font-size:11px; font-weight:800; }
+.dp-calendar-warning { border:1px solid rgba(245,158,11,.28); background:rgba(245,158,11,.08); color:#fcd34d; border-radius:10px; padding:8px; font-size:11.5px; line-height:1.35; font-weight:800; }
+.dp-calendar-notes { margin:8px 0 0; padding-left:17px; color:rgba(255,255,255,.66); font-size:12.5px; line-height:1.45; }
+.dp-calendar-notes li { margin-top:3px; }
 .dp-command-grid { display:grid; grid-template-columns:repeat(1, minmax(0, 1fr)); gap:10px; }
 .dp-command-grid--two { margin-top:12px; }
 @media (min-width:768px){ .dp-command-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); } .dp-command-grid--two { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
@@ -1204,6 +1528,7 @@ const del = async (p) => {
 .dp-input:focus { border-color:#3a6df0; }
 .dp-input--num { width:74px; flex:none; text-align:center; }
 .dp-input--sm { padding:7px 9px; font-size:13px; }
+.dp-input--compact { width:155px; max-width:100%; padding:7px 9px; font-size:12.5px; }
 .dp-chip { display:inline-flex; align-items:center; gap:7px; background:#1b2742; border:1px solid rgba(255,255,255,.14); color:#fff; font-size:13px; font-weight:700; padding:6px 12px; border-radius:999px; cursor:pointer; }
 .dp-chip:hover { background:#243357; }
 .dp-chip--ghost { background:transparent; color:rgba(255,255,255,.6); }

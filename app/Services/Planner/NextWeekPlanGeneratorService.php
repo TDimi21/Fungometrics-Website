@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Planner;
 
+use App\Models\DailyPlan;
 use App\Services\Intelligence\BenchmarkCollectionPlanner;
 use App\Services\Intelligence\DecisionEngine;
 use Carbon\CarbonImmutable;
@@ -123,6 +124,45 @@ class NextWeekPlanGeneratorService
             ->all();
 
         return $draft;
+    }
+
+    public function buildCalendarDraft(string $teamId, array $options = []): array
+    {
+        $options = $this->normalizeOptions($options);
+        $draft = $this->generateForTeam($teamId, $options);
+        $calendarDays = $this->calendarDaysFromDraft($teamId, $draft, $options);
+        $weekStart = ! empty($calendarDays)
+            ? (string) ($calendarDays[0]['scheduled_for'] ?? $options['next_week_start_date'])
+            : (string) $options['next_week_start_date'];
+        $weekEnd = ! empty($calendarDays)
+            ? (string) ($calendarDays[count($calendarDays) - 1]['scheduled_for'] ?? CarbonImmutable::parse($weekStart)->addDays(max(0, count($calendarDays) - 1))->toDateString())
+            : CarbonImmutable::parse($weekStart)->addDays(max(0, ((int) $options['plan_days']) - 1))->toDateString();
+
+        return [
+            'generated_at' => now()->toIso8601String(),
+            'team_id' => $teamId,
+            'source' => 'weekly_rollup_next_week_plan',
+            'week_start_date' => $weekStart,
+            'week_end_date' => $weekEnd,
+            'weekly_summary' => $draft['weekly_summary'] ?? [],
+            'priority_focuses' => $draft['priority_focuses'] ?? [],
+            'calendar_days' => $calendarDays,
+            'weekly_workload_summary' => $this->weeklyWorkloadSummary($calendarDays, $draft),
+            'benchmark_collection_targets' => $draft['benchmark_collection_targets'] ?? [],
+            'coach_notes' => $draft['coach_notes'] ?? [],
+            'warnings' => array_values(array_unique(array_filter([
+                ...Arr::wrap($draft['warnings'] ?? []),
+                ...$this->calendarWarnings($calendarDays, (int) $options['max_minutes_per_day']),
+            ]))),
+            'draft' => $draft,
+            'evidence' => [
+                'generation_status' => $draft['generation_status'] ?? null,
+                'suggested_day_count' => count(Arr::wrap($draft['suggested_plan_days'] ?? [])),
+                'calendar_day_count' => count($calendarDays),
+                'database_records_created' => false,
+                'persistence' => 'preview_only',
+            ],
+        ];
     }
 
     public function buildWeeklyPriorities(array $weeklyRollup, array $currentIntelligence = []): array
@@ -308,6 +348,184 @@ class NextWeekPlanGeneratorService
         }
 
         return $days;
+    }
+
+    private function calendarDaysFromDraft(string $teamId, array $draft, array $options): array
+    {
+        $maxMinutes = max(30, min(180, (int) ($options['max_minutes_per_day'] ?? 90)));
+
+        return collect(Arr::wrap($draft['suggested_plan_days'] ?? []))
+            ->filter('is_array')
+            ->map(function (array $day) use ($teamId, $maxMinutes): array {
+                $blocks = array_values(array_filter(Arr::wrap($day['blocks'] ?? []), 'is_array'));
+                $minutes = (int) ($day['estimated_total_minutes'] ?? array_sum(array_map(
+                    fn (array $block): int => (int) ($block['duration_minutes'] ?? 0),
+                    $blocks
+                )));
+                $scheduledFor = (string) ($day['scheduled_for'] ?? now()->toDateString());
+                $saveStatus = $this->saveStatusForDate($teamId, $scheduledFor);
+                $warnings = Arr::wrap($day['warnings'] ?? []);
+                if ($minutes > $maxMinutes) {
+                    $warnings[] = 'This day is over the target length. Move a lower-priority block to another day.';
+                }
+                if (($saveStatus['blocking_existing_plan'] ?? false) === true) {
+                    $warnings[] = 'A plan already exists for this date.';
+                }
+
+                return [
+                    'day_index' => (int) ($day['day_index'] ?? 0),
+                    'day_label' => (string) ($day['day_label'] ?? CarbonImmutable::parse($scheduledFor)->format('l')),
+                    'scheduled_for' => $scheduledFor,
+                    'title' => (string) ($day['title'] ?? 'FMTRX Suggested Plan Day'),
+                    'primary_focus' => (string) ($day['primary_focus'] ?? 'Weekly Plan'),
+                    'estimated_total_minutes' => $minutes,
+                    'workload_label' => $this->workloadLabel($minutes),
+                    'blocks' => $blocks,
+                    'metrics_to_collect' => $this->metricsFromBlocks($blocks),
+                    'players' => $this->playersFromBlocks($blocks),
+                    'player_assignments' => Arr::wrap($day['player_assignments'] ?? []),
+                    'coach_notes' => Arr::wrap($day['coach_notes'] ?? []),
+                    'why_this_day' => $day['why_this_day'] ?? null,
+                    'warnings' => array_values(array_unique(array_filter($warnings))),
+                    'save_status' => $saveStatus,
+                ];
+            })
+            ->filter(fn (array $day): bool => (int) ($day['day_index'] ?? 0) > 0)
+            ->values()
+            ->all();
+    }
+
+    private function saveStatusForDate(string $teamId, string $scheduledFor): array
+    {
+        $plan = DailyPlan::query()
+            ->where('team_id', $teamId)
+            ->whereDate('date', $scheduledFor)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if (! $plan) {
+            return [
+                'already_saved' => false,
+                'existing_daily_plan_id' => null,
+                'status' => null,
+                'blocking_existing_plan' => false,
+                'message' => null,
+            ];
+        }
+
+        $generated = $this->isWeeklyGeneratedPlan($plan);
+
+        return [
+            'already_saved' => $generated,
+            'existing_daily_plan_id' => (string) $plan->id,
+            'status' => $plan->status,
+            'blocking_existing_plan' => ! $generated,
+            'message' => $generated
+                ? 'Draft already saved'
+                : 'A plan already exists for this date.',
+        ];
+    }
+
+    private function isWeeklyGeneratedPlan(DailyPlan $plan): bool
+    {
+        $buckets = Arr::wrap($plan->buckets ?? []);
+        foreach ($buckets as $bucket) {
+            if (! is_array($bucket)) {
+                continue;
+            }
+            if (($bucket['source'] ?? null) === 'weekly_rollup_next_week_plan') {
+                return true;
+            }
+            foreach (Arr::wrap($bucket['items'] ?? []) as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                if (($item['source'] ?? null) === 'weekly_rollup_next_week_plan') {
+                    return true;
+                }
+                if (in_array('weekly-draft', Arr::wrap($item['tags'] ?? []), true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function weeklyWorkloadSummary(array $calendarDays, array $draft): array
+    {
+        $total = array_sum(array_map(fn (array $day): int => (int) ($day['estimated_total_minutes'] ?? 0), $calendarDays));
+        $count = count($calendarDays);
+        $labels = collect($calendarDays)->pluck('workload_label')->countBy();
+
+        return [
+            'total_planned_minutes' => $total,
+            'average_minutes_per_day' => $count > 0 ? round($total / $count, 1) : 0,
+            'high_workload_days' => (int) (($labels['heavy'] ?? 0) + ($labels['too_heavy'] ?? 0)),
+            'too_heavy_days' => (int) ($labels['too_heavy'] ?? 0),
+            'recovery_support_days' => collect($calendarDays)->filter(function (array $day): bool {
+                $text = strtolower((string) ($day['primary_focus'] ?? '').' '.(string) ($day['title'] ?? ''));
+                return str_contains($text, 'recovery') || str_contains($text, 'mobility') || str_contains($text, 'support');
+            })->count(),
+            'benchmark_collection_targets' => count(Arr::wrap($draft['benchmark_collection_targets'] ?? [])),
+            'players_needing_follow_up' => count(Arr::wrap($draft['player_assignments'] ?? [])),
+            'workload_counts' => [
+                'light' => (int) ($labels['light'] ?? 0),
+                'moderate' => (int) ($labels['moderate'] ?? 0),
+                'heavy' => (int) ($labels['heavy'] ?? 0),
+                'too_heavy' => (int) ($labels['too_heavy'] ?? 0),
+            ],
+        ];
+    }
+
+    private function calendarWarnings(array $calendarDays, int $maxMinutes): array
+    {
+        $warnings = [];
+        foreach ($calendarDays as $day) {
+            if ((int) ($day['estimated_total_minutes'] ?? 0) > $maxMinutes) {
+                $warnings[] = ((string) ($day['day_label'] ?? 'A day')).' is over the target length.';
+            }
+            if (Arr::get($day, 'save_status.blocking_existing_plan') === true) {
+                $warnings[] = ((string) ($day['day_label'] ?? 'A day')).' already has a Daily Planner plan.';
+            }
+        }
+
+        return array_values(array_unique($warnings));
+    }
+
+    private function workloadLabel(int $minutes): string
+    {
+        return match (true) {
+            $minutes < 45 => 'light',
+            $minutes <= 75 => 'moderate',
+            $minutes <= 90 => 'heavy',
+            default => 'too_heavy',
+        };
+    }
+
+    private function metricsFromBlocks(array $blocks): array
+    {
+        return collect($blocks)
+            ->flatMap(fn (array $block): array => Arr::wrap($block['metrics_to_collect'] ?? []))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function playersFromBlocks(array $blocks): array
+    {
+        return collect($blocks)
+            ->flatMap(fn (array $block): array => Arr::wrap($block['players'] ?? []))
+            ->filter('is_array')
+            ->map(fn (array $player): array => [
+                'player_id' => (string) ($player['player_id'] ?? ''),
+                'player_name' => (string) ($player['player_name'] ?? $player['name'] ?? 'Player'),
+            ])
+            ->filter(fn (array $player): bool => $player['player_id'] !== '' || $player['player_name'] !== '')
+            ->unique(fn (array $player): string => $player['player_id'] ?: $player['player_name'])
+            ->values()
+            ->all();
     }
 
     private function normalizeOptions(array $options): array
