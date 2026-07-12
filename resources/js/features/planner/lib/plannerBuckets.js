@@ -85,6 +85,7 @@ export const SURVEY_FIELDS = {
     { key: 'notes', label: 'Optional comments', scale: 'Text' },
   ],
   player_reflection: [
+    { key: 'workout_rating', label: 'Rate today’s workout', scale: '1–5' },
     { key: 'session_rpe', label: 'Session RPE', scale: '1–10' },
     { key: 'arm_feel', label: 'Arm feel', scale: '1–5' },
     { key: 'body_feel', label: 'Body feel', scale: '1–5' },

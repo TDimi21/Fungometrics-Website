@@ -14,29 +14,29 @@ const expandedInstructions = ref(new Set())
 const saveNotice = ref('')
 
 const metricDefinitions = {
-  average_exit_velocity: { label: 'Average EV', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
-  max_exit_velocity: { label: 'Max EV', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
-  hard_hit_percentage: { label: 'Hard-Hit %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100 },
-  line_drive_percentage: { label: 'Line-Drive %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100 },
-  hitter_swing_miss_percentage: { label: 'Swing/Miss %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100 },
-  average_fastball_velocity: { label: 'Avg Fastball', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
-  max_fastball_velocity: { label: 'Max Fastball', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
-  strike_percentage: { label: 'Strike %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100 },
-  long_toss_max_distance: { label: 'Long Toss Distance', unit: 'ft', type: 'number', step: '1', min: 0.1 },
-  weighted_ball_5oz_velocity: { label: '5 oz Velocity', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
-  bench_press: { label: 'Bench Press', unit: 'lb', type: 'number', step: '1', min: 0 },
-  squat: { label: 'Squat', unit: 'lb', type: 'number', step: '1', min: 0 },
-  deadlift: { label: 'Deadlift', unit: 'lb', type: 'number', step: '1', min: 0 },
-  pull_ups: { label: 'Pull-Ups', unit: 'reps', type: 'number', step: '1', min: 0 },
-  pushups: { label: 'Pushups', unit: 'reps', type: 'number', step: '1', min: 0 },
-  forty_yard_dash: { label: '40-Yard Dash', unit: 'sec', type: 'number', step: '0.01', min: 0.01 },
-  sixty_yard_dash: { label: '60-Yard Dash', unit: 'sec', type: 'number', step: '0.01', min: 0.01 },
-  broad_jump: { label: 'Broad Jump', unit: 'in', type: 'number', step: '0.5', min: 0.1 },
-  vertical_jump: { label: 'Vertical Jump', unit: 'in', type: 'number', step: '0.5', min: 0.1 },
-  mobility_score: { label: 'Mobility Score', unit: '/100', type: 'number', step: '1', min: 0, max: 100 },
-  shoulder_mobility_score: { label: 'Shoulder Mobility', unit: '/100', type: 'number', step: '1', min: 0, max: 100 },
-  hip_mobility_score: { label: 'Hip Mobility', unit: '/100', type: 'number', step: '1', min: 0, max: 100 },
-  t_spine_mobility_score: { label: 'T-Spine Mobility', unit: '/100', type: 'number', step: '1', min: 0, max: 100 },
+  average_exit_velocity: { label: 'Average EV', unit: 'mph', type: 'number', step: '0.1', min: 0.1, placeholder: '82.4' },
+  max_exit_velocity: { label: 'Max EV', unit: 'mph', type: 'number', step: '0.1', min: 0.1, placeholder: '91' },
+  hard_hit_percentage: { label: 'Hard-Hit %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100, placeholder: '42' },
+  line_drive_percentage: { label: 'Line-Drive %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100, placeholder: '28' },
+  hitter_swing_miss_percentage: { label: 'Swing/Miss %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100, placeholder: '12' },
+  average_fastball_velocity: { label: 'Avg Fastball', unit: 'mph', type: 'number', step: '0.1', min: 0.1, placeholder: '82.5' },
+  max_fastball_velocity: { label: 'Max Fastball', unit: 'mph', type: 'number', step: '0.1', min: 0.1, placeholder: '86' },
+  strike_percentage: { label: 'Strike %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100, placeholder: '65' },
+  long_toss_max_distance: { label: 'Long Toss Distance', unit: 'ft', type: 'number', step: '1', min: 0.1, placeholder: '240' },
+  weighted_ball_5oz_velocity: { label: '5 oz Velocity', unit: 'mph', type: 'number', step: '0.1', min: 0.1, placeholder: '84' },
+  bench_press: { label: 'Bench Press', unit: 'lb', type: 'number', step: '1', min: 0, placeholder: '135' },
+  squat: { label: 'Squat', unit: 'lb', type: 'number', step: '1', min: 0, placeholder: '225' },
+  deadlift: { label: 'Deadlift', unit: 'lb', type: 'number', step: '1', min: 0, placeholder: '275' },
+  pull_ups: { label: 'Pull-Ups', unit: 'reps', type: 'number', step: '1', min: 0, placeholder: '8' },
+  pushups: { label: 'Pushups', unit: 'reps', type: 'number', step: '1', min: 0, placeholder: '25' },
+  forty_yard_dash: { label: '40-Yard Dash', unit: 'sec', type: 'number', step: '0.01', min: 0.01, placeholder: '5.20' },
+  sixty_yard_dash: { label: '60-Yard Dash', unit: 'sec', type: 'number', step: '0.01', min: 0.01, placeholder: '7.10' },
+  broad_jump: { label: 'Broad Jump', unit: 'in', type: 'number', step: '0.5', min: 0.1, placeholder: '84' },
+  vertical_jump: { label: 'Vertical Jump', unit: 'in', type: 'number', step: '0.5', min: 0.1, placeholder: '24' },
+  mobility_score: { label: 'Mobility Score', unit: '/100', type: 'number', step: '1', min: 0, max: 100, placeholder: '80' },
+  shoulder_mobility_score: { label: 'Shoulder Mobility', unit: '/100', type: 'number', step: '1', min: 0, max: 100, placeholder: '80' },
+  hip_mobility_score: { label: 'Hip Mobility', unit: '/100', type: 'number', step: '1', min: 0, max: 100, placeholder: '80' },
+  t_spine_mobility_score: { label: 'T-Spine Mobility', unit: '/100', type: 'number', step: '1', min: 0, max: 100, placeholder: '80' },
   dob: { label: 'Date of Birth', type: 'date' },
   position: { label: 'Position', type: 'text' },
   height: { label: 'Height', type: 'text' },
@@ -264,8 +264,23 @@ const itemMetaParts = (item = {}, bucket = {}) => {
   return [...new Set(parts.filter(Boolean))]
 }
 
+const bucketItems = (plan = {}) => asArray(plan.buckets).flatMap((bucket) => (
+  asArray(bucket.items).map((item) => ({ bucket, item }))
+))
+
 const itemRequiredLabel = (item = {}) => item.required === false ? 'Optional' : 'Required'
 const coachCue = (item = {}) => cleanText(item.coachCue || item.coach_cue)
+const pct = (value) => `${Math.round(Math.max(0, Math.min(100, Number(value) || 0)))}%`
+const planStatusLabel = (plan = {}) => {
+  if (plan.update_status?.has_update) return 'Updated'
+  if (plan.progress?.completed_at) return 'Completed'
+  return 'Assigned'
+}
+
+const fmtDateTime = (iso) => {
+  if (!iso) return ''
+  try { return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return '' }
+}
 
 const load = async () => {
   loading.value = true
@@ -275,6 +290,10 @@ const load = async () => {
     if (!Array.isArray(rows)) throw new Error('bad response')
     workouts.value = rows.map((r) => ({
       ...planFromApi(r),
+      estimatedMinutes: r.estimated_minutes ?? r.estimatedMinutes ?? null,
+      updatedAt: r.updated_at ?? r.updatedAt ?? null,
+      republishedAt: r.republished_at ?? r.republishedAt ?? null,
+      assignedBy: r.assigned_by_name ?? r.assignedBy ?? r.created_by_name ?? r.coach_name ?? null,
       progress: r.progress || null,
       update_status: r.update_status || null,
     }))
@@ -324,6 +343,13 @@ const progressItemMetadata = (item = {}, bucket = {}) => {
     'completion_note',
     'player_note',
     'instructions',
+    'review_status',
+    'review_state_label',
+    'review_notes',
+    'rejection_reason',
+    'correction_message',
+    'submitted_at',
+    'reviewed_at',
   ]
 
   const payload = {}
@@ -418,6 +444,96 @@ const missingMetricCount = (itemId, item = {}) => {
 }
 
 const hasMetricValues = (itemId) => Object.keys(cleanMetricValues(current.value?.items?.[itemId]?.metric_values || {})).length > 0
+
+const reviewStatusFor = (itemId, item = {}) => {
+  const progress = current.value?.items?.[itemId] || {}
+  return normalizeToken(
+    progress.review_status
+      || progress.reviewStatus
+      || progress.review_state
+      || progress.reviewState
+      || item.review_status
+      || item.reviewStatus
+      || ''
+  )
+}
+
+const itemStatus = (itemId, item = {}) => {
+  const progress = current.value?.items?.[itemId] || {}
+  const review = reviewStatusFor(itemId, item)
+
+  if (review === 'pending_review') return { label: 'Submitted for Coach Review', tone: 'review' }
+  if (review === 'approved') return { label: 'Approved', tone: 'approved' }
+  if (review === 'correction_requested') return { label: 'Correction Requested', tone: 'correction' }
+  if (review === 'rejected') return { label: 'Needs Coach Follow-Up', tone: 'rejected' }
+  if (progress.done && isBenchmarkItem(item) && progress.submitted_at && hasMetricValues(itemId)) {
+    return { label: 'Submitted for Coach Review', tone: 'review' }
+  }
+  if (progress.done) return { label: 'Completed', tone: 'done' }
+  if (hasMetricValues(itemId) || cleanText(progress.completion_note || progress.player_note)) return { label: 'In Progress', tone: 'progress' }
+
+  return { label: 'Not Started', tone: 'muted' }
+}
+
+const itemStatusMessage = (itemId, item = {}) => {
+  const progress = current.value?.items?.[itemId] || {}
+  const review = reviewStatusFor(itemId, item)
+  const message = cleanText(progress.correction_message || progress.rejection_reason || progress.review_notes)
+
+  if (review === 'approved') return message || 'Your results were approved.'
+  if (review === 'correction_requested') return message || 'Coach requested a correction.'
+  if (review === 'rejected') return message || 'Your coach did not approve this submission yet.'
+  if (review === 'pending_review' || (progress.done && isBenchmarkItem(item) && progress.submitted_at && hasMetricValues(itemId))) {
+    return 'Your submitted results are waiting for coach review.'
+  }
+  if (progress.done && isBenchmarkItem(item) && !hasMetricValues(itemId)) {
+    return 'Workout marked complete. Add measured values if your coach asks.'
+  }
+  if (progress.done) return 'Completed.'
+
+  return ''
+}
+
+const itemStatusClass = (itemId, item = {}) => `pw-status-note pw-status-note--${itemStatus(itemId, item).tone}`
+
+const total = computed(() => current.value ? itemCount(current.value.plan) : 0)
+const done = computed(() => current.value ? Object.values(current.value.items).filter((i) => i.done).length : 0)
+const currentPairs = computed(() => current.value ? bucketItems(current.value.plan) : [])
+const blockCount = computed(() => asArray(current.value?.plan?.buckets).length)
+const benchmarkCount = computed(() => currentPairs.value.filter(({ item }) => isBenchmarkItem(item)).length)
+const progressPercent = computed(() => total.value > 0 ? Math.round((done.value / total.value) * 100) : 0)
+const planMinutes = computed(() => {
+  const explicit = Number(current.value?.plan?.estimatedMinutes ?? current.value?.plan?.estimated_minutes)
+  if (Number.isFinite(explicit) && explicit > 0) return Math.round(explicit)
+  const itemTotal = currentPairs.value.reduce((sum, { item }) => sum + (itemMinutes(item) || 0), 0)
+  return itemTotal || total.value * 4
+})
+const completedMinutes = computed(() => {
+  if (!total.value) return 0
+  const fromItems = currentPairs.value.reduce((sum, { item }) => {
+    if (!current.value?.items?.[item.id]?.done) return sum
+    return sum + (itemMinutes(item) || 4)
+  }, 0)
+  return fromItems || Math.round(planMinutes.value * (progressPercent.value / 100))
+})
+const submittedReviewCount = computed(() => currentPairs.value.filter(({ item }) => itemStatus(item.id, item).tone === 'review').length)
+const approvedReviewCount = computed(() => currentPairs.value.filter(({ item }) => itemStatus(item.id, item).tone === 'approved').length)
+const correctionReviewCount = computed(() => currentPairs.value.filter(({ item }) => ['correction', 'rejected'].includes(itemStatus(item.id, item).tone)).length)
+const assignedByLabel = computed(() => cleanText(current.value?.plan?.assignedBy) || '')
+const lastUpdatedLabel = computed(() => fmtDateTime(current.value?.plan?.republishedAt || current.value?.plan?.updatedAt || current.value?.plan?.publishedAt))
+const firstIncomplete = computed(() => currentPairs.value.find(({ item }) => !current.value?.items?.[item.id]?.done) || null)
+const firstIncompleteBenchmark = computed(() => currentPairs.value.find(({ item }) => isBenchmarkItem(item) && !current.value?.items?.[item.id]?.done) || null)
+const nextStep = computed(() => {
+  if (showPlanUpdateBanner.value) return 'Your coach updated the plan. Tap Got it before you start.'
+  if (correctionReviewCount.value > 0) return 'A coach requested a correction. Update the flagged results before you finish.'
+  if (submittedReviewCount.value > 0) return `You have ${submittedReviewCount.value} benchmark result${submittedReviewCount.value === 1 ? '' : 's'} waiting for coach review.`
+  if (total.value > 0 && done.value === total.value) return 'All assigned work is complete. Nice work.'
+  const nextBenchmark = firstIncompleteBenchmark.value
+  if (nextBenchmark) return `Next: Complete ${nextBenchmark.item.name || benchmarkTypeLabel(nextBenchmark.item, nextBenchmark.bucket)}.`
+  const next = firstIncomplete.value
+  if (next) return `Next: Complete ${next.item.name || bucketTitle(next.bucket.type)}.`
+  return 'Select a daily plan to see your workout.'
+})
 
 const bridgeSaveMessage = (bridge) => {
   if (!bridge) return 'Workout saved.'
@@ -521,9 +637,6 @@ const toggleItem = (id) => {
   }
 }
 
-const total = computed(() => current.value ? itemCount(current.value.plan) : 0)
-const done = computed(() => current.value ? Object.values(current.value.items).filter((i) => i.done).length : 0)
-
 const finish = async () => {
   saving.value = true
   try {
@@ -549,9 +662,15 @@ const finish = async () => {
 
     <!-- ══ LIST ══ -->
     <template v-if="!current">
-      <div v-if="loading" class="pw-empty">Loading…</div>
+      <div v-if="loading" class="pw-empty">
+        <strong>Loading today’s workout…</strong>
+        <span>FMTRX is checking your assigned daily plans.</span>
+      </div>
       <div v-else-if="offline" class="pw-empty">Couldn't load your workouts. Check your connection.</div>
-      <div v-else-if="workouts.length === 0" class="pw-empty">No workouts assigned yet. Your coach's plans show up here.</div>
+      <div v-else-if="workouts.length === 0" class="pw-empty">
+        <strong>No workout assigned yet.</strong>
+        <span>Your coach’s plans will show up here when they are published.</span>
+      </div>
 
       <div v-else class="grid gap-3 sm:grid-cols-2">
         <button v-for="w in workouts" :key="w.id" class="pw-card" @click="open(w)">
@@ -560,9 +679,17 @@ const finish = async () => {
               <div class="font-extrabold text-white truncate">{{ w.name || 'Workout' }}</div>
               <div class="text-white/45 text-xs mt-0.5">{{ fmtDate(w.date) }} · {{ w.phase || '—' }}</div>
             </div>
-            <span v-if="w.update_status?.has_update" class="pw-badge pw-badge--updated">Updated</span>
-            <span v-else-if="isDone(w)" class="pw-badge pw-badge--done">Completed</span>
-            <span v-else class="pw-badge">{{ itemCount(w) }} items</span>
+            <span
+              class="pw-badge"
+              :class="{ 'pw-badge--updated': w.update_status?.has_update, 'pw-badge--done': isDone(w) }"
+            >
+              {{ planStatusLabel(w) }}
+            </span>
+          </div>
+          <div class="pw-card-summary">
+            <span>{{ itemCount(w) }} item{{ itemCount(w) === 1 ? '' : 's' }}</span>
+            <span v-if="w.estimatedMinutes">{{ w.estimatedMinutes }} min</span>
+            <span v-if="bucketItems(w).some(({ item }) => isBenchmarkItem(item))">Benchmark blocks</span>
           </div>
           <div class="mt-3 flex flex-wrap gap-1.5">
             <span v-for="b in w.buckets" :key="b.type" class="pw-chip">{{ bucketTitle(b.type) }}</span>
@@ -578,9 +705,58 @@ const finish = async () => {
         <div class="text-white/50 text-sm font-bold">{{ done }}/{{ total }} done</div>
       </div>
 
-      <div class="mb-4">
-        <div class="text-xl font-black text-white">{{ current.plan.name || 'Workout' }}</div>
-        <div class="text-white/45 text-sm">{{ fmtDate(current.plan.date) }} · {{ current.plan.phase || '—' }}</div>
+      <div class="pw-workout-hero">
+        <div class="pw-hero-top">
+          <div class="min-w-0">
+            <div class="pw-hero-eyebrow">Today’s Workout</div>
+            <div class="pw-hero-title">{{ current.plan.name || 'Workout' }}</div>
+            <div class="pw-hero-sub">
+              <span>{{ fmtDate(current.plan.date) }}</span>
+              <span>{{ current.plan.phase || 'Foundation' }}</span>
+              <span v-if="assignedByLabel">Assigned by {{ assignedByLabel }}</span>
+              <span v-if="lastUpdatedLabel">Updated {{ lastUpdatedLabel }}</span>
+            </div>
+          </div>
+          <span
+            class="pw-badge pw-hero-status"
+            :class="{ 'pw-badge--updated': showPlanUpdateBanner, 'pw-badge--done': total > 0 && done === total }"
+          >
+            {{ showPlanUpdateBanner ? 'Updated' : total > 0 && done === total ? 'Complete' : 'In Progress' }}
+          </span>
+        </div>
+        <div class="pw-hero-stats">
+          <div>
+            <strong>{{ blockCount }}</strong>
+            <span>block{{ blockCount === 1 ? '' : 's' }}</span>
+          </div>
+          <div>
+            <strong>{{ completedMinutes }}/{{ planMinutes }}</strong>
+            <span>minutes</span>
+          </div>
+          <div>
+            <strong>{{ progressPercent }}%</strong>
+            <span>progress</span>
+          </div>
+          <div>
+            <strong>{{ benchmarkCount }}</strong>
+            <span>benchmark</span>
+          </div>
+        </div>
+        <div class="pw-progress-track" aria-label="Workout progress">
+          <span :style="{ width: pct(progressPercent) }" />
+        </div>
+        <div
+          v-if="submittedReviewCount || approvedReviewCount || correctionReviewCount"
+          class="pw-review-summary"
+        >
+          <span v-if="submittedReviewCount">{{ submittedReviewCount }} waiting for coach review</span>
+          <span v-if="approvedReviewCount">{{ approvedReviewCount }} approved</span>
+          <span v-if="correctionReviewCount">{{ correctionReviewCount }} needs follow-up</span>
+        </div>
+        <div class="pw-next-step">
+          <span>Next Step</span>
+          <p>{{ nextStep }}</p>
+        </div>
       </div>
 
       <div v-if="showPlanUpdateBanner" class="pw-update-banner">
@@ -589,7 +765,7 @@ const finish = async () => {
             <div class="pw-update-eyebrow">Coach Update</div>
             <div class="pw-update-title">{{ planUpdateStatus.update_title || 'Plan Updated' }}</div>
           </div>
-          <button type="button" class="pw-update-dismiss" @click.stop="acknowledgePlanUpdate">Acknowledge Update</button>
+          <button type="button" class="pw-update-dismiss" @click.stop="acknowledgePlanUpdate">Got it</button>
         </div>
         <p class="pw-update-message">
           {{ planUpdateStatus.update_message || 'Your coach updated this plan. Your completed progress was preserved.' }}
@@ -614,6 +790,14 @@ const finish = async () => {
             Changed: {{ updateBlockText(block) }}
           </li>
         </ul>
+      </div>
+
+      <div v-else-if="planUpdateStatus?.acknowledged_at || planUpdateStatus?.acknowledged" class="pw-update-ack">
+        Update acknowledged.
+      </div>
+
+      <div v-if="benchmarkCount === 0" class="pw-inline-empty">
+        No benchmark baselines in today’s workout.
       </div>
 
       <div v-for="bucket in current.plan.buckets" :key="bucket.type" class="pw-bucket">
@@ -641,6 +825,9 @@ const finish = async () => {
             <div class="pw-item-topline">
               <span v-if="isBenchmarkItem(it)" class="pw-benchmark-badge">{{ benchmarkTypeLabel(it, bucket) }}</span>
               <span class="pw-required" :class="{ 'pw-required--optional': it.required === false }">{{ itemRequiredLabel(it) }}</span>
+              <span class="pw-status-pill" :class="`pw-status-pill--${itemStatus(it.id, it).tone}`">
+                {{ itemStatus(it.id, it).label }}
+              </span>
             </div>
             <span class="pw-item-name">{{ it.name || 'Item' }}</span>
             <span v-if="itemMetaParts(it, bucket).length" class="pw-item-meta">{{ itemMetaParts(it, bucket).join(' · ') }}</span>
@@ -669,6 +856,9 @@ const finish = async () => {
                   <small v-if="hasMetricValues(it.id)">Saved in progress</small>
                   <small v-else>Optional until measured</small>
                 </div>
+                <p class="pw-results-help">
+                  Enter your measured result if your coach collected it today.
+                </p>
                 <div class="pw-result-grid">
                   <label
                     v-for="field in metricEntryFields(it)"
@@ -701,6 +891,7 @@ const finish = async () => {
                       :step="field.step || undefined"
                       :min="field.min ?? undefined"
                       :max="field.max ?? undefined"
+                      :placeholder="field.placeholder || ''"
                       @click.stop
                       @input="updateMetricValue(it.id, field.key, $event.target.value)"
                     />
@@ -735,6 +926,9 @@ const finish = async () => {
                   Results will be submitted for coach review when this item is completed.
                 </p>
               </div>
+              <p v-else class="pw-no-results">
+                No results need to be recorded for this item.
+              </p>
               <ul class="pw-instructions">
                 <li v-for="row in instructionRows(it, bucket)" :key="`${it.id}-${row}`">{{ row }}</li>
               </ul>
@@ -746,8 +940,8 @@ const finish = async () => {
               >
                 {{ expandedInstructions.has(it.id) ? 'Show less' : 'Show more' }}
               </button>
-              <p v-if="current.items[it.id]?.done" class="pw-complete-note">
-                Completed — benchmark data may need coach review.
+              <p v-if="itemStatusMessage(it.id, it)" :class="itemStatusClass(it.id, it)">
+                {{ itemStatusMessage(it.id, it) }}
               </p>
             </template>
 
@@ -760,22 +954,50 @@ const finish = async () => {
 
       <div v-if="!current.plan.buckets.length" class="pw-empty">This workout has no items yet.</div>
 
-      <button class="pw-finish" :disabled="saving" @click="finish">{{ saving ? 'Saving…' : 'Finish Workout' }}</button>
+      <div class="pw-finish-panel">
+        <div>
+          <span>Workout Status</span>
+          <p>{{ total > 0 && done === total ? 'Workout complete. Nice work.' : nextStep }}</p>
+        </div>
+        <button class="pw-finish" :disabled="saving" @click="finish">{{ saving ? 'Saving progress…' : 'Finish Workout' }}</button>
+      </div>
     </template>
   </div>
 </template>
 
 <style scoped>
 .pw-save-notice { margin-bottom: 12px; border: 1px solid rgba(52,211,153,.24); background: rgba(16,185,129,.12); color: #d1fae5; border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 900; }
-.pw-empty { border: 1px dashed rgba(255,255,255,.14); border-radius: 16px; padding: 30px 20px; text-align: center; color: rgba(255,255,255,.5); font-size: 14px; }
+.pw-empty { border: 1px dashed rgba(255,255,255,.14); border-radius: 16px; padding: 30px 20px; text-align: center; color: rgba(255,255,255,.5); font-size: 14px; display:flex; flex-direction:column; align-items:center; gap:5px; }
+.pw-empty strong { color:#fff; font-size:15px; font-weight:950; }
+.pw-empty span { max-width:420px; line-height:1.45; }
 .pw-card { display: block; width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 16px; cursor: pointer; transition: border-color .12s, background .12s; }
 .pw-card:hover { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.06); }
+.pw-card-summary { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.pw-card-summary span { color:rgba(255,255,255,.62); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.09); border-radius:999px; padding:3px 8px; font-size:11px; font-weight:850; }
 .pw-badge { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 3px 8px; border-radius: 6px; white-space: nowrap; color: rgba(255,255,255,.6); background: rgba(255,255,255,.08); }
 .pw-badge--done { color: #43d089; background: rgba(52,211,153,.16); }
 .pw-badge--updated { color: #fde68a; background: rgba(251,191,36,.16); border: 1px solid rgba(251,191,36,.24); }
 .pw-chip { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.7); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); padding: 3px 10px; border-radius: 999px; }
 .pw-link { background: none; border: none; color: #7ca6f5; font-weight: 800; font-size: 14px; cursor: pointer; }
 .pw-link:hover { text-decoration: underline; }
+.pw-workout-hero { margin: 0 0 14px; border:1px solid rgba(255,255,255,.12); border-radius:18px; background:linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.028)); padding:16px; box-shadow:0 18px 36px rgba(0,0,0,.18); }
+.pw-hero-top { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
+.pw-hero-eyebrow { color:#ff335d; font-size:11px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; margin-bottom:3px; }
+.pw-hero-title { color:#fff; font-size:22px; line-height:1.1; font-weight:1000; overflow-wrap:anywhere; }
+.pw-hero-sub { display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:7px; color:rgba(255,255,255,.56); font-size:12.5px; font-weight:800; }
+.pw-hero-sub span:not(:first-child)::before { content:'•'; color:rgba(255,255,255,.32); margin-right:10px; }
+.pw-hero-status { flex:none; margin-top:2px; }
+.pw-hero-stats { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin-top:14px; }
+.pw-hero-stats div { border:1px solid rgba(255,255,255,.09); background:rgba(5,11,31,.42); border-radius:12px; padding:10px; min-width:0; }
+.pw-hero-stats strong { display:block; color:#fff; font-size:20px; line-height:1; font-weight:1000; }
+.pw-hero-stats span { display:block; color:rgba(255,255,255,.52); font-size:10px; font-weight:900; letter-spacing:.04em; text-transform:uppercase; margin-top:5px; white-space:nowrap; }
+.pw-progress-track { height:8px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,.08); margin-top:12px; }
+.pw-progress-track span { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg, #ff2d55, #22c55e); transition:width .18s ease; }
+.pw-review-summary { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.pw-review-summary span { border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.055); color:rgba(255,255,255,.68); border-radius:999px; padding:4px 8px; font-size:11px; font-weight:900; }
+.pw-next-step { margin-top:12px; border:1px solid rgba(56,189,248,.18); background:rgba(14,165,233,.085); border-radius:12px; padding:10px 12px; }
+.pw-next-step span { display:block; color:#bae6fd; font-size:10.5px; font-weight:950; text-transform:uppercase; letter-spacing:.07em; }
+.pw-next-step p { margin:4px 0 0; color:rgba(255,255,255,.84); font-size:13px; font-weight:850; line-height:1.4; }
 .pw-update-banner { margin: 0 0 14px; border: 1px solid rgba(251,191,36,.28); border-radius: 16px; padding: 14px; background: linear-gradient(135deg, rgba(251,191,36,.15), rgba(59,130,246,.08)); box-shadow: 0 12px 30px rgba(0,0,0,.18); }
 .pw-update-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .pw-update-eyebrow { color:#fde68a; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; }
@@ -787,6 +1009,8 @@ const finish = async () => {
 .pw-update-summary span { border:1px solid rgba(255,255,255,.12); background:rgba(5,11,31,.42); color:rgba(255,255,255,.72); border-radius:999px; padding:4px 8px; font-size:11px; font-weight:900; }
 .pw-update-list { margin:10px 0 0; padding-left:18px; color:rgba(255,255,255,.68); font-size:12px; line-height:1.45; }
 .pw-update-list li { margin-top:3px; }
+.pw-update-ack, .pw-inline-empty { margin:0 0 12px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.04); color:rgba(255,255,255,.62); border-radius:12px; padding:9px 11px; font-size:12px; font-weight:850; }
+.pw-update-ack { color:#bbf7d0; border-color:rgba(52,211,153,.2); background:rgba(52,211,153,.08); }
 .pw-bucket { border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 14px; margin-bottom: 12px; background: rgba(255,255,255,.03); }
 .pw-bucket-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
 .pw-bucket-title { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: #fff; }
@@ -801,6 +1025,12 @@ const finish = async () => {
 .pw-benchmark-badge { display:inline-flex; align-items:center; color:#d1fae5; border:1px solid rgba(110,231,183,.28); background:rgba(16,185,129,.16); border-radius:999px; padding:3px 8px; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; }
 .pw-required { display:inline-flex; align-items:center; color:rgba(255,255,255,.68); border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); border-radius:999px; padding:3px 8px; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; }
 .pw-required--optional { color:#fde68a; border-color:rgba(251,191,36,.25); background:rgba(251,191,36,.1); }
+.pw-status-pill { display:inline-flex; align-items:center; border-radius:999px; padding:3px 8px; font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.05em; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.64); background:rgba(255,255,255,.06); }
+.pw-status-pill--progress { color:#bfdbfe; border-color:rgba(96,165,250,.25); background:rgba(59,130,246,.12); }
+.pw-status-pill--done { color:#bbf7d0; border-color:rgba(52,211,153,.22); background:rgba(52,211,153,.1); }
+.pw-status-pill--review { color:#fde68a; border-color:rgba(251,191,36,.25); background:rgba(251,191,36,.12); }
+.pw-status-pill--approved { color:#bbf7d0; border-color:rgba(52,211,153,.28); background:rgba(52,211,153,.14); }
+.pw-status-pill--correction, .pw-status-pill--rejected { color:#fecaca; border-color:rgba(248,113,113,.28); background:rgba(239,68,68,.13); }
 .pw-item-name { display: block; color: #fff; font-size: 15px; font-weight: 700; }
 .pw-item--done .pw-item-name { text-decoration: line-through; color: rgba(255,255,255,.45); }
 .pw-item-meta { display: block; color: rgba(255,255,255,.55); font-size: 12.5px; margin-top: 1px; }
@@ -814,6 +1044,7 @@ const finish = async () => {
 .pw-results { margin-top: 10px; border: 1px solid rgba(255,255,255,.1); background: rgba(5,11,31,.52); border-radius: 12px; padding: 10px; cursor: default; }
 .pw-results-head { display:flex; align-items:center; justify-content:space-between; gap:10px; color:#fff; font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.06em; }
 .pw-results-head small { color:rgba(255,255,255,.42); font-size:10px; letter-spacing:.03em; text-transform:none; white-space:nowrap; }
+.pw-results-help { margin:6px 0 0; color:rgba(255,255,255,.54); font-size:12px; line-height:1.35; }
 .pw-result-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-top:9px; }
 .pw-result-field { display:block; min-width:0; }
 .pw-result-field span, .pw-result-note span { display:flex; align-items:center; justify-content:space-between; gap:8px; color:rgba(255,255,255,.62); font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; }
@@ -824,16 +1055,33 @@ const finish = async () => {
 .pw-result-note textarea { min-height:58px; resize:vertical; font-weight:700; line-height:1.35; }
 .pw-result-warning { margin:8px 0 0; border:1px solid rgba(251,191,36,.22); background:rgba(251,191,36,.1); color:#fde68a; border-radius:8px; padding:7px 9px; font-size:12px; font-weight:800; line-height:1.35; }
 .pw-result-ok { margin:8px 0 0; color:#bbf7d0; font-size:12px; font-weight:800; line-height:1.35; }
+.pw-no-results { margin:9px 0 0; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.035); color:rgba(255,255,255,.55); border-radius:8px; padding:7px 9px; font-size:12px; font-weight:800; }
 .pw-instructions { margin:9px 0 0; padding-left:18px; color:rgba(255,255,255,.68); font-size:12.5px; line-height:1.45; }
 .pw-instructions li { margin-top:3px; }
 .pw-more { margin-top:7px; border:0; background:transparent; color:#7ca6f5; font-size:12px; font-weight:900; padding:0; cursor:pointer; }
 .pw-more:hover { text-decoration:underline; }
-.pw-complete-note { margin:9px 0 0; border:1px solid rgba(52,211,153,.22); background:rgba(52,211,153,.1); color:#bbf7d0; border-radius:8px; padding:7px 9px; font-size:12px; font-weight:800; }
-.pw-finish { width: 100%; margin-top: 8px; background: #22c55e; border: none; color: #06210f; font-weight: 900; font-size: 15px; padding: 14px; border-radius: 12px; cursor: pointer; }
+.pw-status-note { margin:9px 0 0; border:1px solid rgba(52,211,153,.22); background:rgba(52,211,153,.1); color:#bbf7d0; border-radius:8px; padding:7px 9px; font-size:12px; font-weight:800; line-height:1.35; }
+.pw-status-note--review { border-color:rgba(251,191,36,.22); background:rgba(251,191,36,.1); color:#fde68a; }
+.pw-status-note--correction, .pw-status-note--rejected { border-color:rgba(248,113,113,.28); background:rgba(239,68,68,.12); color:#fecaca; }
+.pw-status-note--progress, .pw-status-note--muted { border-color:rgba(96,165,250,.2); background:rgba(59,130,246,.08); color:#bfdbfe; }
+.pw-finish-panel { margin-top:12px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.045); border-radius:16px; padding:12px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.pw-finish-panel span { color:rgba(255,255,255,.48); font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.07em; }
+.pw-finish-panel p { margin:3px 0 0; color:rgba(255,255,255,.8); font-size:13px; line-height:1.35; font-weight:800; }
+.pw-finish { flex:none; min-width:170px; background: #22c55e; border: none; color: #06210f; font-weight: 900; font-size: 15px; padding: 14px; border-radius: 12px; cursor: pointer; }
 .pw-finish:hover { background: #2dd46a; }
 .pw-finish:disabled { opacity: .6; cursor: default; }
 @media (max-width: 520px) {
+  .pw-workout-hero { padding:14px; }
+  .pw-hero-top { flex-direction:column; }
+  .pw-hero-status { align-self:flex-start; }
+  .pw-hero-stats { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .pw-hero-sub { flex-direction:column; gap:4px; }
+  .pw-hero-sub span:not(:first-child)::before { content:''; margin:0; }
+  .pw-update-head { flex-direction:column; }
+  .pw-update-dismiss { width:100%; }
   .pw-result-grid { grid-template-columns: 1fr; }
   .pw-results-head { align-items:flex-start; flex-direction:column; }
+  .pw-finish-panel { flex-direction:column; align-items:stretch; }
+  .pw-finish { width:100%; min-width:0; }
 }
 </style>

@@ -268,10 +268,8 @@ const availableBuckets = computed(() =>
   BUCKETS.filter((b) => !(editing.value?.buckets || []).some((x) => x.type === b.type)))
 const bucketDef = (type) => BUCKET_BY_TYPE[type] || {}
 const addBucket = (b) => {
+  // Append in the order the coach selects them (matches the app's PlanBuilder).
   editing.value.buckets.push({ type: b.type, title: b.title, kind: b.kind, items: [], note: '' })
-  editing.value.buckets = BUCKETS
-    .filter((def) => editing.value.buckets.some((x) => x.type === def.type))
-    .map((def) => editing.value.buckets.find((x) => x.type === def.type))
 }
 const removeBucket = (type) => { editing.value.buckets = editing.value.buckets.filter((b) => b.type !== type) }
 const isStrengthItem = (it) => Array.isArray(it.setList)
