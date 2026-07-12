@@ -31,6 +31,11 @@ const commandCenter = ref(null)
 const commandLoading = ref(false)
 const commandError = ref('')
 const commandActionMessage = ref('')
+const commandActionLoading = ref('')
+const showReviewQueue = ref(false)
+const selectedReviewTaskIds = ref([])
+const correctionMessage = ref('')
+const generatedPlanPreview = ref(null)
 
 // Drill picker
 const picker = ref(null)          // the bucket object being added to
@@ -120,51 +125,117 @@ const commandTrusted = computed(() => commandCenter.value?.trusted_data_summary 
 const commandRows = computed(() => Array.isArray(commandCenter.value?.player_rows) ? commandCenter.value.player_rows : [])
 const commandActions = computed(() => Array.isArray(commandCenter.value?.next_actions) ? commandCenter.value.next_actions : [])
 const commandGaps = computed(() => Array.isArray(commandCenter.value?.remaining_benchmark_gaps) ? commandCenter.value.remaining_benchmark_gaps : [])
+const pendingReviewTasks = computed(() => Array.isArray(commandReview.value?.tasks_pending_review) ? commandReview.value.tasks_pending_review : [])
 const priorityClass = (priority) => ({
   critical: 'dp-priority--critical',
   high: 'dp-priority--high',
   medium: 'dp-priority--medium',
   low: 'dp-priority--low',
 }[priority] || 'dp-priority--medium')
-const canRunAction = (action) => ['publish_plan', 'send_reminder', 'review_submissions', 'refresh_intelligence'].includes(action?.action_type)
+const reviewTaskSelected = (taskId) => selectedReviewTaskIds.value.includes(String(taskId))
+const toggleReviewTask = (taskId) => {
+  const id = String(taskId || '')
+  if (!id) return
+  selectedReviewTaskIds.value = reviewTaskSelected(id)
+    ? selectedReviewTaskIds.value.filter((value) => value !== id)
+    : [...selectedReviewTaskIds.value, id]
+}
+const actionButtonDisabled = (action) => commandActionLoading.value !== '' || action?.enabled === false
+const actionConfirmText = (action, payload = {}) => {
+  const count = payload.task_ids?.length || action?.payload?.player_ids?.length || 0
+  if (action?.action_type === 'send_reminder') return `Send reminder to ${count || commandSummary.value.not_acknowledged_count || 0} players who have not acknowledged?`
+  if (action?.action_type === 'approve_values') return 'Approve selected benchmark submissions?'
+  if (action?.action_type === 'request_corrections') return 'Request corrections for selected benchmark submissions?'
+  if (action?.action_type === 'promote_trusted_data') return 'Promote approved values to trusted benchmark data?'
+  if (action?.action_type === 'publish_plan') return 'Publish this Daily Plan?'
+  return `Run "${action?.title || 'this action'}"?`
+}
 const runCommandAction = async (action) => {
   if (!action) return
   const actionType = action.action_type
   commandActionMessage.value = ''
+  generatedPlanPreview.value = null
 
-  if (actionType === 'publish_plan' && !commandCenter.value?.daily_plan_id) {
-    newPlan()
+  if (action.enabled === false) {
+    commandActionMessage.value = action.disabled_reason || 'This action is not available yet.'
     return
   }
 
-  if (!canRunAction(action)) return
+  if (action.target_route && !action.api_endpoint) {
+    if (actionType === 'open_daily_planner') newPlan()
+    commandActionMessage.value = action.disabled_reason || 'Open the existing Daily Planner section to continue.'
+    return
+  }
+
+  if (action.requires_confirmation && !confirm(actionConfirmText(action))) return
 
   try {
-    if (actionType === 'publish_plan') {
-      const plan = plans.value.find((p) => p.id === commandCenter.value?.daily_plan_id)
-      if (!plan) {
-        commandActionMessage.value = 'Open the plan card to publish it.'
-        return
-      }
-      const updated = { ...JSON.parse(JSON.stringify(plan)), status: 'published', publishedAt: plan.publishedAt || new Date().toISOString() }
-      await axiosPost('coach/daily-plans', planToApi(updated, activeTeamId.value))
-      commandActionMessage.value = 'Plan published.'
-      await loadPlans()
-    } else if (actionType === 'send_reminder') {
-      await axiosPost(`coach/daily-plans/${commandCenter.value?.daily_plan_id}/send-reminder`, {})
-      commandActionMessage.value = 'Reminder preview updated. Manual copy is used until push delivery is available.'
-    } else if (actionType === 'review_submissions') {
-      const res = await axiosGet(`intelligence/teams/${activeTeamId.value}/benchmark-task-reviews`)
-      const count = res?.data?.pending_count ?? res?.data?.data?.pending_count ?? commandReview.value.pending_review_count ?? 0
-      commandActionMessage.value = `${count} submission${Number(count) === 1 ? '' : 's'} pending review.`
-    } else if (actionType === 'refresh_intelligence') {
-      await axiosPost(`intelligence/teams/${activeTeamId.value}/refresh-benchmarks`, {})
-      commandActionMessage.value = 'Benchmark intelligence refreshed.'
+    commandActionLoading.value = action.action_id || actionType
+    const payload = {
+      ...(action.payload || {}),
+      action_type: actionType,
+      daily_plan_id: action.payload?.daily_plan_id || commandCenter.value?.daily_plan_id || null,
+      days: 365,
     }
-    await loadCommandCenter()
+    const res = await axiosPost(action.api_endpoint || `coach/teams/${activeTeamId.value}/planner-command-center/action`, payload)
+    handleActionResult(res?.data, action)
   } catch {
     commandActionMessage.value = 'Could not complete that command center action.'
+  } finally {
+    commandActionLoading.value = ''
   }
+}
+const runSelectedReviewAction = async (actionType) => {
+  commandActionMessage.value = ''
+  generatedPlanPreview.value = null
+  if (!selectedReviewTaskIds.value.length) {
+    commandActionMessage.value = 'Select one or more review tasks first.'
+    return
+  }
+  if (actionType === 'request_corrections' && !correctionMessage.value.trim()) {
+    commandActionMessage.value = 'Add a correction message before sending.'
+    return
+  }
+  const action = {
+    action_id: actionType,
+    action_type: actionType,
+    title: actionType === 'approve_values' ? 'Approve Selected' : 'Request Correction',
+    requires_confirmation: true,
+  }
+  if (!confirm(actionConfirmText(action, { task_ids: selectedReviewTaskIds.value }))) return
+  try {
+    commandActionLoading.value = actionType
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/planner-command-center/action`, {
+      action_type: actionType,
+      daily_plan_id: commandCenter.value?.daily_plan_id || null,
+      task_ids: selectedReviewTaskIds.value,
+      message: correctionMessage.value.trim() || null,
+      days: 365,
+    })
+    handleActionResult(res?.data, action)
+    selectedReviewTaskIds.value = []
+    correctionMessage.value = ''
+  } catch {
+    commandActionMessage.value = 'Could not complete review action. Try again.'
+  } finally {
+    commandActionLoading.value = ''
+  }
+}
+const handleActionResult = async (result, action) => {
+  if (result?.updated_command_center) {
+    commandCenter.value = result.updated_command_center
+  } else {
+    await loadCommandCenter()
+  }
+  if (action?.action_type === 'review_submissions') showReviewQueue.value = true
+  if (action?.action_type === 'generate_next_plan') {
+    generatedPlanPreview.value = result?.result?.daily_plan_preview || null
+  }
+  commandActionMessage.value = result?.message || action?.success_message || 'Action completed.'
+  if (Array.isArray(result?.warnings) && result.warnings.length) {
+    commandActionMessage.value += ` ${result.warnings[0]}`
+  }
+  if (action?.action_type === 'publish_plan') await loadPlans()
 }
 
 // Buckets not yet on the plan (keep the app's ordering).
@@ -336,20 +407,32 @@ const del = async (p) => {
                       <div class="font-extrabold mt-2">{{ action.title }}</div>
                     </div>
                     <button
-                      v-if="action.button_label && (canRunAction(action) || action.action_type === 'publish_plan')"
+                      v-if="action.button_label"
                       class="dp-btn dp-btn--primary dp-btn--small"
+                      :disabled="actionButtonDisabled(action)"
                       @click.stop="runCommandAction(action)"
                     >
-                      {{ action.button_label }}
+                      {{ commandActionLoading === (action.action_id || action.action_type) ? 'Working…' : action.button_label }}
                     </button>
                   </div>
                   <p class="text-white/55 text-xs mt-2">{{ action.why }}</p>
                   <p class="text-white/35 text-xs mt-1">{{ action.action }}</p>
+                  <p v-if="action.enabled === false && action.disabled_reason" class="text-red-200/70 text-xs mt-2">{{ action.disabled_reason }}</p>
                 </div>
               </div>
             </div>
 
             <p v-if="commandActionMessage" class="dp-command-message">{{ commandActionMessage }}</p>
+
+            <div v-if="generatedPlanPreview" class="dp-command-block">
+              <div class="dp-section mb-2">Generated Plan Preview</div>
+              <div class="dp-command-card">
+                <div class="dp-command-label">Preview Only</div>
+                <div class="dp-command-value">{{ generatedPlanPreview.name || 'Suggested Daily Plan' }}</div>
+                <div class="dp-command-sub">{{ generatedPlanPreview.primary_goal || 'No primary goal' }} · {{ generatedPlanPreview.estimated_minutes || 0 }} min · {{ generatedPlanPreview.buckets?.length || 0 }} blocks</div>
+                <p class="text-white/45 text-xs mt-3">Nothing was published. Open the Daily Planner to review, edit, assign, and publish this plan.</p>
+              </div>
+            </div>
 
             <div class="dp-command-block">
               <div class="dp-section mb-2">Player Rows</div>
@@ -375,10 +458,24 @@ const del = async (p) => {
                 <div class="dp-command-label">Review Queue</div>
                 <div class="dp-command-value">{{ commandReview.pending_review_count || 0 }} pending</div>
                 <div class="dp-command-sub">Oldest: {{ prettyDateTime(commandReview.oldest_pending_at) }}</div>
-                <div v-if="commandReview.tasks_pending_review?.length" class="mt-3 space-y-1">
-                  <div v-for="task in commandReview.tasks_pending_review.slice(0, 4)" :key="task.task_id" class="text-xs text-white/55">
-                    {{ task.player_name }} · {{ task.title }}
+                <button v-if="pendingReviewTasks.length && !showReviewQueue" class="dp-link mt-2" @click="showReviewQueue = true">Open review queue</button>
+                <div v-if="pendingReviewTasks.length && showReviewQueue" class="dp-review-box">
+                  <label v-for="task in pendingReviewTasks.slice(0, 8)" :key="task.task_id" class="dp-review-row">
+                    <input type="checkbox" :checked="reviewTaskSelected(task.task_id)" @change="toggleReviewTask(task.task_id)" />
+                    <span class="min-w-0">
+                      <strong>{{ task.player_name }}</strong>
+                      <small>{{ task.title }} · {{ prettyDateTime(task.submitted_at) }}</small>
+                    </span>
+                  </label>
+                  <div class="dp-review-actions">
+                    <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="commandActionLoading === 'approve_values'" @click="runSelectedReviewAction('approve_values')">
+                      {{ commandActionLoading === 'approve_values' ? 'Approving…' : 'Approve Selected' }}
+                    </button>
+                    <button class="dp-btn dp-btn--small" :disabled="commandActionLoading === 'request_corrections'" @click="runSelectedReviewAction('request_corrections')">
+                      {{ commandActionLoading === 'request_corrections' ? 'Sending…' : 'Request Correction' }}
+                    </button>
                   </div>
+                  <textarea v-model="correctionMessage" class="dp-input w-full mt-2" rows="2" placeholder="Correction message for selected submissions…"></textarea>
                 </div>
               </div>
               <div class="dp-command-card">
@@ -606,6 +703,12 @@ const del = async (p) => {
 .dp-player-status-metrics { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; color:rgba(255,255,255,.62); font-size:11px; font-weight:850; }
 .dp-player-status-metrics span { background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.075); border-radius:999px; padding:3px 7px; }
 .dp-gap-row { display:flex; align-items:center; justify-content:space-between; gap:10px; color:rgba(255,255,255,.62); font-size:12px; border-top:1px solid rgba(255,255,255,.06); padding-top:6px; }
+.dp-review-box { display:grid; gap:8px; margin-top:12px; }
+.dp-review-row { display:flex; align-items:flex-start; gap:8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:8px; font-size:12px; cursor:pointer; }
+.dp-review-row:hover { background:rgba(255,255,255,.065); }
+.dp-review-row input { width:14px; height:14px; accent-color:#d8232a; margin-top:2px; flex:none; }
+.dp-review-row small { display:block; color:rgba(255,255,255,.45); margin-top:2px; overflow-wrap:anywhere; }
+.dp-review-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
 .dp-section { font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.06em; color:#fff; margin-bottom:12px; }
 .dp-field { display:flex; flex-direction:column; gap:5px; }
 .dp-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,.45); font-weight:700; }

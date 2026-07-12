@@ -11,6 +11,8 @@ use App\Models\DailyPlanProgress;
 use App\Models\DailyPlanRevision;
 use App\Services\Intelligence\BenchmarkTaskPersistenceService;
 use App\Services\Intelligence\BenchmarkTaskReviewService;
+use App\Services\Intelligence\BenchmarkPracticePlanDailyPlannerAdapter;
+use App\Services\Intelligence\BenchmarkRefreshService;
 use App\Services\Intelligence\BenchmarkTrustedDataPromotionService;
 use App\Services\Intelligence\PracticePlanUpdateSuggestionService;
 use App\Services\Intelligence\TeamBenchmarkProfileService;
@@ -21,9 +23,12 @@ class CoachPlannerCommandCenterService
 {
     public function __construct(
         private readonly DailyPlanPlayerUpdateService $playerUpdateService,
+        private readonly DailyPlanReminderService $dailyPlanReminderService,
         private readonly BenchmarkTaskPersistenceService $taskPersistence,
         private readonly BenchmarkTaskReviewService $taskReviewService,
         private readonly BenchmarkTrustedDataPromotionService $trustedDataPromotionService,
+        private readonly BenchmarkRefreshService $benchmarkRefreshService,
+        private readonly BenchmarkPracticePlanDailyPlannerAdapter $dailyPlannerAdapter,
         private readonly TeamBenchmarkProfileService $teamBenchmarkProfileService,
         private readonly PracticePlanUpdateSuggestionService $practicePlanUpdateSuggestionService,
     ) {
@@ -181,6 +186,7 @@ class CoachPlannerCommandCenterService
     public function buildNextActions(array $status): array
     {
         $actions = [];
+        $teamId = (string) ($status['team_id'] ?? '');
         $plan = $status['plan_status'] ?? [];
         $summary = $status['player_status_summary'] ?? [];
         $benchmark = $status['benchmark_workflow_summary'] ?? [];
@@ -197,8 +203,10 @@ class CoachPlannerCommandCenterService
                 'Create or save today\'s Daily Plan so players have one clear workout path.',
                 'coach',
                 [],
-                'Create Plan',
-                'publish_plan'
+                'Generate Next Plan',
+                'generate_next_plan',
+                $teamId,
+                null,
             );
 
             return $actions;
@@ -213,7 +221,9 @@ class CoachPlannerCommandCenterService
                 'coach',
                 [],
                 'Publish Plan',
-                'publish_plan'
+                'publish_plan',
+                $teamId,
+                $dailyPlanId,
             );
         }
 
@@ -226,7 +236,9 @@ class CoachPlannerCommandCenterService
                 'players',
                 $this->playerIdsByNeed($status['player_rows'] ?? [], 'acknowledge'),
                 'Send Reminder',
-                'send_reminder'
+                'send_reminder',
+                $teamId,
+                $dailyPlanId,
             );
         }
 
@@ -239,7 +251,9 @@ class CoachPlannerCommandCenterService
                 'team',
                 [],
                 null,
-                'none'
+                'none',
+                $teamId,
+                $dailyPlanId,
             );
         }
 
@@ -255,7 +269,24 @@ class CoachPlannerCommandCenterService
                     Arr::wrap($review['tasks_pending_review'] ?? [])
                 )))),
                 'Review Submissions',
-                'review_submissions'
+                'review_submissions',
+                $teamId,
+                $dailyPlanId,
+            );
+        }
+
+        if ((int) ($trusted['awaiting_promotion_count'] ?? 0) > 0) {
+            $actions[] = $this->nextAction(
+                'Promote Trusted Benchmark Data',
+                'high',
+                ((int) $trusted['awaiting_promotion_count']).' approved benchmark task(s) are waiting to be promoted.',
+                'Promote approved values into the trusted benchmark data workflow.',
+                'coach',
+                [],
+                'Promote Trusted Data',
+                'promote_trusted_data',
+                $teamId,
+                $dailyPlanId,
             );
         }
 
@@ -268,7 +299,9 @@ class CoachPlannerCommandCenterService
                 'coach',
                 [],
                 'Refresh Intelligence',
-                'refresh_intelligence'
+                'refresh_intelligence',
+                $teamId,
+                $dailyPlanId,
             );
         }
 
@@ -285,7 +318,24 @@ class CoachPlannerCommandCenterService
                     Arr::wrap($topGap['players'] ?? [])
                 ))),
                 'Collect Baselines',
-                'collect_baselines'
+                'collect_baselines',
+                $teamId,
+                $dailyPlanId,
+            );
+        }
+
+        if (($plan['latest_revision_number'] ?? null) !== null) {
+            $actions[] = $this->nextAction(
+                'View Acknowledgement Status',
+                'low',
+                'The Daily Plan has revision history that players may need to acknowledge.',
+                'Open the acknowledgement and revision status for this plan.',
+                'coach',
+                [],
+                'View Acknowledgements',
+                'acknowledge_status',
+                $teamId,
+                $dailyPlanId,
             );
         }
 
@@ -298,7 +348,9 @@ class CoachPlannerCommandCenterService
                 'coach',
                 [],
                 null,
-                'none'
+                'none',
+                $teamId,
+                $dailyPlanId,
             );
         }
 
@@ -307,6 +359,149 @@ class CoachPlannerCommandCenterService
             ->values()
             ->take(6)
             ->all();
+    }
+
+    public function runAction(string $teamId, string $actionType, array $payload = [], ?string $actorUserId = null): array
+    {
+        $days = max(7, min(365, (int) ($payload['days'] ?? Arr::get($payload, 'options.days', 365))));
+        $dailyPlanId = $this->nullableString($payload['daily_plan_id'] ?? $payload['dailyPlanId'] ?? null);
+        $taskIds = $this->stringList(Arr::wrap($payload['task_ids'] ?? $payload['taskIds'] ?? []));
+        $playerIds = $this->stringList(Arr::wrap($payload['player_ids'] ?? $payload['playerIds'] ?? []));
+        $message = $this->nullableString($payload['message'] ?? null);
+        $options = is_array($payload['options'] ?? null) ? $payload['options'] : [];
+        $dryRun = (bool) ($payload['dry_run'] ?? $payload['dryRun'] ?? false);
+        $warnings = [];
+        $result = [];
+
+        if ($dryRun) {
+            return $this->actionResult($teamId, $dailyPlanId, $actionType, 'skipped', 'Dry run: action was not executed.', [
+                'would_execute' => $actionType,
+                'daily_plan_id' => $dailyPlanId,
+                'task_ids' => $taskIds,
+                'player_ids' => $playerIds,
+                'message_required' => $actionType === 'request_corrections',
+            ], [], $days);
+        }
+
+        try {
+            switch ($actionType) {
+                case 'publish_plan':
+                    $plan = $this->teamPlan($teamId, $dailyPlanId);
+                    if (! $plan) {
+                        return $this->actionResult($teamId, $dailyPlanId, $actionType, 'failed', 'Daily Plan was not found for this team.', [], ['No matching Daily Plan found.'], $days);
+                    }
+
+                    if ($plan->status === 'published') {
+                        return $this->actionResult($teamId, (string) $plan->id, $actionType, 'skipped', 'Plan is already published.', ['plan_id' => (string) $plan->id], [], $days);
+                    }
+
+                    $plan->status = 'published';
+                    $plan->published_at ??= now();
+                    $plan->save();
+                    $result = [
+                        'plan_id' => (string) $plan->id,
+                        'status' => $plan->status,
+                        'published_at' => $plan->published_at?->toIso8601String(),
+                    ];
+
+                    return $this->actionResult($teamId, (string) $plan->id, $actionType, 'completed', 'Plan published.', $result, [], $days);
+
+                case 'send_reminder':
+                    $plan = $this->teamPlan($teamId, $dailyPlanId);
+                    if (! $plan) {
+                        return $this->actionResult($teamId, $dailyPlanId, $actionType, 'failed', 'Daily Plan was not found for this team.', [], ['No matching Daily Plan found.'], $days);
+                    }
+
+                    $result = empty($playerIds)
+                        ? $this->dailyPlanReminderService->sendReminderToUnacknowledged((string) $plan->id, $actorUserId, $options)
+                        : $this->dailyPlanReminderService->sendReminderToPlayers((string) $plan->id, $playerIds, $actorUserId, $options);
+                    $selectedCount = (int) Arr::get($result, 'send_result.selected_player_count', $result['unacknowledged_count'] ?? 0);
+                    $status = $selectedCount > 0 ? 'completed' : 'skipped';
+                    $warnings = Arr::wrap($result['warnings'] ?? []);
+
+                    return $this->actionResult($teamId, (string) $plan->id, $actionType, $status, $selectedCount > 0 ? 'Reminder prepared for '.$selectedCount.' player(s).' : 'No players need a reminder.', $result, $warnings, $days);
+
+                case 'review_submissions':
+                    $result = $this->taskReviewService->listPendingReviewTasks($teamId);
+
+                    return $this->actionResult($teamId, $dailyPlanId, $actionType, 'completed', ((int) ($result['pending_count'] ?? 0)).' submission(s) pending review.', $result, Arr::wrap($result['warnings'] ?? []), $days);
+
+                case 'approve_values':
+                    if (empty($taskIds)) {
+                        return $this->actionResult($teamId, $dailyPlanId, $actionType, 'skipped', 'Select one or more review tasks before approving.', [], ['No task IDs were provided.'], $days);
+                    }
+
+                    $result = $this->reviewSelectedTasks($teamId, $taskIds, fn (string $taskId): array => $this->taskReviewService->approveTask($taskId, $actorUserId, [
+                        'days' => $days,
+                    ]));
+
+                    return $this->actionResult($teamId, $dailyPlanId, $actionType, $result['failed_count'] > 0 ? 'partial' : 'completed', $result['approved_count'].' task(s) approved.', $result, $result['warnings'], $days);
+
+                case 'request_corrections':
+                    if (empty($taskIds)) {
+                        return $this->actionResult($teamId, $dailyPlanId, $actionType, 'skipped', 'Select one or more review tasks before requesting corrections.', [], ['No task IDs were provided.'], $days);
+                    }
+
+                    if (! $message) {
+                        return $this->actionResult($teamId, $dailyPlanId, $actionType, 'skipped', 'Add a correction message before sending.', [], ['Correction message is required.'], $days);
+                    }
+
+                    $result = $this->reviewSelectedTasks($teamId, $taskIds, fn (string $taskId): array => $this->taskReviewService->requestCorrection($taskId, $message, $actorUserId), 'correction_requested_count');
+
+                    return $this->actionResult($teamId, $dailyPlanId, $actionType, $result['failed_count'] > 0 ? 'partial' : 'completed', $result['correction_requested_count'].' correction request(s) sent.', $result, $result['warnings'], $days);
+
+                case 'promote_trusted_data':
+                    if (! empty($taskIds)) {
+                        $result = $this->promoteSelectedTasks($teamId, $taskIds, $actorUserId, $days);
+
+                        return $this->actionResult($teamId, $dailyPlanId, $actionType, $result['failed_count'] > 0 ? 'partial' : 'completed', $result['promoted_count'].' task(s) promoted.', $result, $result['warnings'], $days);
+                    }
+
+                    $result = $this->trustedDataPromotionService->promoteTeamApprovedTasks($teamId, [
+                        'promoted_by_user_id' => $actorUserId,
+                        'days' => $days,
+                    ]);
+                    $warnings = Arr::wrap($result['warnings'] ?? []);
+
+                    return $this->actionResult($teamId, $dailyPlanId, $actionType, ((int) ($result['failed_count'] ?? 0)) > 0 ? 'partial' : 'completed', ((int) ($result['promoted_count'] ?? 0)).' approved task(s) promoted.', $result, $warnings, $days);
+
+                case 'refresh_intelligence':
+                    $result = $this->benchmarkRefreshService->refreshTeamBenchmarks($teamId, $days);
+
+                    return $this->actionResult($teamId, $dailyPlanId, $actionType, 'completed', 'Benchmark intelligence refreshed.', $result, Arr::wrap($result['warnings'] ?? []), $days);
+
+                case 'generate_next_plan':
+                    $result = $this->dailyPlannerAdapter->previewMapping($teamId, $days);
+
+                    return $this->actionResult($teamId, $dailyPlanId, $actionType, 'completed', 'Generated next Daily Plan preview. Nothing was published.', $result, Arr::wrap($result['warnings'] ?? []), $days, false);
+
+                case 'acknowledge_status':
+                    $plan = $this->teamPlan($teamId, $dailyPlanId);
+                    if (! $plan) {
+                        return $this->actionResult($teamId, $dailyPlanId, $actionType, 'failed', 'Daily Plan was not found for this team.', [], ['No matching Daily Plan found.'], $days);
+                    }
+
+                    $result = $this->playerUpdateService->buildTeamAcknowledgementStatus((string) $plan->id);
+
+                    return $this->actionResult($teamId, (string) $plan->id, $actionType, 'completed', 'Acknowledgement status loaded.', $result, Arr::wrap($result['warnings'] ?? []), $days);
+
+                case 'open_daily_planner':
+                case 'view_revision_history':
+                case 'assign_plan':
+                case 'collect_baselines':
+                case 'none':
+                    return $this->actionResult($teamId, $dailyPlanId, $actionType, 'skipped', 'This action opens an existing screen or guidance and does not run a backend workflow.', [
+                        'target_route' => $this->targetRouteForAction($actionType, $teamId, $dailyPlanId),
+                    ], [], $days);
+
+                default:
+                    return $this->actionResult($teamId, $dailyPlanId, $actionType, 'failed', 'Unknown command center action.', [], ['Unsupported action type: '.$actionType], $days);
+            }
+        } catch (Throwable $exception) {
+            return $this->actionResult($teamId, $dailyPlanId, $actionType, 'failed', 'Could not complete action. Try again.', [
+                'exception' => class_basename($exception),
+            ], [$exception->getMessage()], $days);
+        }
     }
 
     private function emptyPayload(string $teamId, ?string $dailyPlanId, array $warnings, array $options = []): array
@@ -547,6 +742,7 @@ class CoachPlannerCommandCenterService
 
         return [
             'trusted_values_added' => $promoted->sum(fn (array $task): int => count($this->trustedPayloadValues($task))),
+            'awaiting_promotion_count' => (int) ($trusted['awaiting_promotion_count'] ?? 0),
             'players_improved' => $promoted
                 ->pluck('assigned_to_player_id')
                 ->filter()
@@ -858,9 +1054,18 @@ class CoachPlannerCommandCenterService
         string $target,
         array $playerIds,
         ?string $buttonLabel,
-        string $actionType
+        string $actionType,
+        ?string $teamId = null,
+        ?string $dailyPlanId = null,
+        bool $enabled = true,
+        ?string $disabledReason = null,
+        array $payload = [],
     ): array {
+        $metadata = $this->actionMetadata($actionType, $teamId, $dailyPlanId, $playerIds, $payload);
+        $enabled = $enabled && (bool) $metadata['enabled'];
+
         return [
+            'action_id' => $this->actionId($actionType, $title),
             'title' => $title,
             'priority' => $this->priority($priority),
             'why' => $why,
@@ -869,7 +1074,68 @@ class CoachPlannerCommandCenterService
             'player_ids' => array_values(array_unique(array_filter(array_map('strval', $playerIds)))),
             'button_label' => $buttonLabel,
             'action_type' => $actionType,
+            'enabled' => $enabled,
+            'requires_confirmation' => (bool) $metadata['requires_confirmation'],
+            'target_route' => $metadata['target_route'],
+            'api_endpoint' => $metadata['api_endpoint'],
+            'method' => $metadata['method'],
+            'payload' => $metadata['payload'],
+            'success_message' => $metadata['success_message'],
+            'disabled_reason' => $enabled ? null : ($disabledReason ?: $metadata['disabled_reason']),
         ];
+    }
+
+    private function actionMetadata(string $actionType, ?string $teamId, ?string $dailyPlanId, array $playerIds, array $payload): array
+    {
+        $endpoint = $teamId ? 'coach/teams/'.$teamId.'/planner-command-center/action' : null;
+        $basePayload = array_filter([
+            'action_type' => $actionType,
+            'daily_plan_id' => $dailyPlanId,
+            'player_ids' => $playerIds,
+            ...$payload,
+        ], fn ($value): bool => $value !== null && $value !== []);
+
+        $map = [
+            'publish_plan' => ['Publish Plan', true, 'Plan published.'],
+            'assign_plan' => ['Assign to Players', false, 'Assignments are edited in the Daily Planner.'],
+            'send_reminder' => ['Send Reminder', true, 'Reminder prepared.'],
+            'review_submissions' => ['Review Submissions', false, 'Review queue opened.'],
+            'approve_values' => ['Approve Selected', true, 'Selected values approved.'],
+            'request_corrections' => ['Request Correction', true, 'Correction request sent.'],
+            'promote_trusted_data' => ['Promote Trusted Data', true, 'Trusted data promoted.'],
+            'refresh_intelligence' => ['Refresh Intelligence', false, 'Benchmark intelligence refreshed.'],
+            'generate_next_plan' => ['Generate Next Plan', false, 'Generated next plan preview.'],
+            'open_daily_planner' => ['Open Daily Planner', false, null],
+            'view_revision_history' => ['View Revision History', false, null],
+            'acknowledge_status' => ['View Acknowledgements', false, 'Acknowledgement status loaded.'],
+            'collect_baselines' => ['Collect Baselines', false, 'Baseline collection guidance opened.'],
+            'none' => [null, false, null],
+        ];
+
+        $known = array_key_exists($actionType, $map);
+        $needsPlan = in_array($actionType, ['publish_plan', 'send_reminder', 'acknowledge_status', 'view_revision_history'], true);
+        $enabled = $known && (! $needsPlan || $dailyPlanId !== null);
+        if (in_array($actionType, ['assign_plan', 'open_daily_planner', 'view_revision_history', 'collect_baselines', 'none'], true)) {
+            $endpoint = null;
+        }
+
+        return [
+            'enabled' => $enabled,
+            'requires_confirmation' => (bool) ($map[$actionType][1] ?? false),
+            'target_route' => $this->targetRouteForAction($actionType, $teamId, $dailyPlanId),
+            'api_endpoint' => $endpoint,
+            'method' => $endpoint ? 'POST' : null,
+            'payload' => $basePayload,
+            'success_message' => $map[$actionType][2] ?? null,
+            'disabled_reason' => $known
+                ? ($needsPlan && ! $dailyPlanId ? 'A saved Daily Plan is required for this action.' : null)
+                : 'This action is not available yet.',
+        ];
+    }
+
+    private function actionId(string $actionType, string $title): string
+    {
+        return strtolower(trim(preg_replace('/[^a-z0-9]+/i', '_', $actionType.'_'.$title), '_'));
     }
 
     private function gapPriority(array $gap): string
@@ -902,6 +1168,141 @@ class CoachPlannerCommandCenterService
             'medium' => 2,
             default => 3,
         };
+    }
+
+    private function actionResult(string $teamId, ?string $dailyPlanId, string $actionType, string $status, string $message, array $result, array $warnings, int $days, bool $includeUpdatedCommandCenter = true): array
+    {
+        $updated = $includeUpdatedCommandCenter
+            ? $this->buildForTeam($teamId, [
+                'daily_plan_id' => $dailyPlanId,
+                'days' => $days,
+            ])
+            : null;
+
+        return [
+            'action_type' => $actionType,
+            'status' => in_array($status, ['completed', 'partial', 'skipped', 'failed'], true) ? $status : 'failed',
+            'message' => $message,
+            'result' => $result,
+            'updated_command_center' => $updated,
+            'warnings' => array_values(array_unique(array_filter(array_map('strval', $warnings)))),
+        ];
+    }
+
+    private function teamPlan(string $teamId, ?string $dailyPlanId): ?DailyPlan
+    {
+        if (! $dailyPlanId) {
+            return null;
+        }
+
+        return DailyPlan::query()
+            ->whereKey($dailyPlanId)
+            ->where('team_id', $teamId)
+            ->first();
+    }
+
+    private function reviewSelectedTasks(string $teamId, array $taskIds, callable $callback, string $successKey = 'approved_count'): array
+    {
+        $validIds = $this->teamTaskIds($teamId, $taskIds);
+        $warnings = [];
+        $results = [];
+        $success = 0;
+        $failed = 0;
+
+        foreach ($taskIds as $taskId) {
+            if (! in_array($taskId, $validIds, true)) {
+                $warnings[] = 'Task '.$taskId.' does not belong to this team or was not found.';
+                $failed++;
+                continue;
+            }
+
+            $result = $callback($taskId);
+            $results[] = $result;
+            if (($result['ok'] ?? false) === true) {
+                $success++;
+            } else {
+                $failed++;
+                $warnings[] = $result['message'] ?? $result['error'] ?? 'Task '.$taskId.' could not be reviewed.';
+            }
+        }
+
+        return [
+            $successKey => $success,
+            'failed_count' => $failed,
+            'results' => $results,
+            'warnings' => array_values(array_unique(array_filter($warnings))),
+        ];
+    }
+
+    private function promoteSelectedTasks(string $teamId, array $taskIds, ?string $actorUserId, int $days): array
+    {
+        $validIds = $this->teamTaskIds($teamId, $taskIds);
+        $warnings = [];
+        $results = [];
+        $promoted = 0;
+        $failed = 0;
+
+        foreach ($taskIds as $taskId) {
+            if (! in_array($taskId, $validIds, true)) {
+                $warnings[] = 'Task '.$taskId.' does not belong to this team or was not found.';
+                $failed++;
+                continue;
+            }
+
+            $result = $this->trustedDataPromotionService->promoteApprovedTask($taskId, $actorUserId, [
+                'days' => $days,
+            ]);
+            $results[] = $result;
+            if (in_array((string) ($result['promotion_status'] ?? ''), [
+                BenchmarkCollectionTask::PROMOTION_PROMOTED,
+                BenchmarkCollectionTask::PROMOTION_PARTIAL,
+                BenchmarkCollectionTask::PROMOTION_SKIPPED,
+            ], true)) {
+                $promoted++;
+            } else {
+                $failed++;
+                $warnings = [...$warnings, ...Arr::wrap($result['warnings'] ?? [])];
+            }
+        }
+
+        return [
+            'promoted_count' => $promoted,
+            'failed_count' => $failed,
+            'results' => $results,
+            'warnings' => array_values(array_unique(array_filter($warnings))),
+        ];
+    }
+
+    private function teamTaskIds(string $teamId, array $taskIds): array
+    {
+        if (empty($taskIds)) {
+            return [];
+        }
+
+        return BenchmarkCollectionTask::query()
+            ->where('team_id', $teamId)
+            ->whereIn('id', $taskIds)
+            ->pluck('id')
+            ->map(fn ($id): string => (string) $id)
+            ->all();
+    }
+
+    private function targetRouteForAction(string $actionType, ?string $teamId, ?string $dailyPlanId): ?string
+    {
+        return match ($actionType) {
+            'open_daily_planner', 'assign_plan', 'collect_baselines' => '/practice-planner',
+            'view_revision_history' => $dailyPlanId ? '/practice-planner?dailyPlanId='.$dailyPlanId.'&panel=revisions' : '/practice-planner',
+            'acknowledge_status' => $dailyPlanId ? '/practice-planner?dailyPlanId='.$dailyPlanId.'&panel=acknowledgements' : '/practice-planner',
+            default => null,
+        };
+    }
+
+    private function stringList(array $values): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            fn ($value): string => trim((string) $value),
+            $values
+        ))));
     }
 
     private function nullableString(mixed $value): ?string
