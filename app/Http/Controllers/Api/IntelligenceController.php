@@ -11,6 +11,7 @@ use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Intelligence\BenchmarkCollectionPlanner;
+use App\Services\Intelligence\BenchmarkPracticePlanDailyPlannerAdapter;
 use App\Services\Intelligence\BenchmarkRefreshService;
 use App\Services\Intelligence\BenchmarkTaskAssignmentService;
 use App\Services\Intelligence\BenchmarkTaskCompletionService;
@@ -40,6 +41,7 @@ class IntelligenceController extends Controller
         private readonly BenchmarkTaskReviewService $benchmarkTaskReviewService,
         private readonly BenchmarkTrustedDataPromotionService $benchmarkTrustedDataPromotionService,
         private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
+        private readonly BenchmarkPracticePlanDailyPlannerAdapter $coachActionDailyPlannerAdapter,
     ) {
     }
 
@@ -149,6 +151,57 @@ class IntelligenceController extends Controller
         }
 
         return response()->json($this->benchmarkTaskAssignmentService->buildAssignableTasks($teamId, $this->days($request)));
+    }
+
+    public function saveCoachActionPracticePlanToDailyPlanner(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        $validated = $request->validate([
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+            'max_minutes' => ['nullable', 'integer', 'min:30', 'max:180'],
+            'status' => ['nullable', 'string', 'in:draft,published'],
+            'publish' => ['nullable', 'boolean'],
+            'assign_all' => ['nullable', 'boolean'],
+            'assigned_player_ids' => ['nullable', 'array'],
+            'assigned_player_ids.*' => ['string'],
+            'name' => ['nullable', 'string', 'max:200'],
+            'date' => ['nullable', 'date'],
+            'primary_goal' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $status = ($validated['publish'] ?? false) === true
+            ? 'published'
+            : (string) ($validated['status'] ?? 'draft');
+        $assignAll = (bool) ($validated['assign_all'] ?? ($status === 'published'));
+
+        try {
+            return response()->json($this->coachActionDailyPlannerAdapter->saveToExistingDailyPlanner($teamId, null, [
+                'days' => $this->days($request),
+                'max_minutes' => $validated['max_minutes'] ?? 90,
+                'status' => $status,
+                'assign_all' => $assignAll,
+                'assigned_player_ids' => $validated['assigned_player_ids'] ?? null,
+                'name' => $validated['name'] ?? null,
+                'date' => $validated['date'] ?? null,
+                'primary_goal' => $validated['primary_goal'] ?? null,
+                'created_by' => (string) $request->user()?->id,
+            ]));
+        } catch (\Throwable $exception) {
+            Log::warning('IntelligenceController coach action practice plan daily planner save failed: '.$exception->getMessage(), [
+                'team_id' => $teamId,
+                'status' => $status,
+                'assign_all' => $assignAll,
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Could not save the suggested practice plan to Daily Planner.',
+                'warnings' => [$exception->getMessage()],
+            ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+        }
     }
 
     public function saveBenchmarkDrafts(Request $request, string $teamId): JsonResponse

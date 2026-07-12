@@ -43,6 +43,10 @@ const selectedPromotionPreview = ref(null)
 const benchmarkRefreshLoading = ref(false)
 const benchmarkRefreshError = ref('')
 const benchmarkRefreshMessage = ref('')
+const coachPracticePlanSaveLoading = ref('')
+const coachPracticePlanSaveError = ref('')
+const coachPracticePlanSaveMessage = ref('')
+const savedCoachPracticeDailyPlan = ref(null)
 
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
@@ -123,6 +127,9 @@ const loadTeamCommandCenter = async () => {
   benchmarkReviewActionMessage.value = ''
   benchmarkPromotionActionError.value = ''
   benchmarkPromotionActionMessage.value = ''
+  coachPracticePlanSaveError.value = ''
+  coachPracticePlanSaveMessage.value = ''
+  savedCoachPracticeDailyPlan.value = null
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -1709,6 +1716,10 @@ const coachDataCollectionPracticeBlocks = computed(() =>
   asArray(coachActionPracticePlan.value?.data_collection_blocks).slice(0, 5)
 )
 
+const coachPracticePlanCanSave = computed(() =>
+  Boolean(coachActionPracticePlan.value && coachPracticeBlocks.value.length)
+)
+
 const practiceBlockMetricLabels = (block) =>
   asArray(block?.metrics_to_collect)
     .map((metric) => coachFriendlyMetricLabel(metric))
@@ -2080,6 +2091,35 @@ const promoteAllApprovedBenchmarkTasks = async () => {
 }
 
 const responsePayload = (response) => response?.data?.data || response?.data || {}
+
+const saveCoachPracticePlanToDailyPlanner = async (mode = 'draft') => {
+  const teamId = resolveTeamId.value
+  if (!teamId || !coachPracticePlanCanSave.value || coachPracticePlanSaveLoading.value) return
+
+  const publish = mode === 'publish'
+  coachPracticePlanSaveLoading.value = publish ? 'publish' : 'draft'
+  coachPracticePlanSaveError.value = ''
+  coachPracticePlanSaveMessage.value = ''
+  try {
+    const response = await axiosPost(`intelligence/teams/${teamId}/coach-action-practice-plan/daily-plan`, {
+      days: 365,
+      max_minutes: 90,
+      status: publish ? 'published' : 'draft',
+      publish,
+      assign_all: publish,
+    })
+    const payload = responsePayload(response)
+    savedCoachPracticeDailyPlan.value = payload.daily_plan || payload
+
+    coachPracticePlanSaveMessage.value = publish
+      ? `Published to Daily Planner and assigned to ${fmtCount(payload.assigned_player_count, '0')} player(s).`
+      : `Saved Daily Planner draft ${payload.saved_daily_plan_id || ''}`.trim()
+  } catch (error) {
+    coachPracticePlanSaveError.value = error?.response?.data?.message || 'Could not save the suggested plan to Daily Planner.'
+  } finally {
+    coachPracticePlanSaveLoading.value = ''
+  }
+}
 
 const refreshBenchmarkIntelligence = async () => {
   const teamId = resolveTeamId.value
@@ -3034,6 +3074,30 @@ const priorityTop10Rows = computed(() => {
                   </h4>
                   <p class="mt-1 text-xs text-slate-300">
                     Practice-ready blocks built from today’s primary focus, benchmark gaps, and collection tasks.
+                  </p>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      class="rounded-md border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-xs font-black uppercase tracking-wider text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                      :disabled="!coachPracticePlanCanSave || Boolean(coachPracticePlanSaveLoading)"
+                      @click="saveCoachPracticePlanToDailyPlanner('draft')"
+                    >
+                      {{ coachPracticePlanSaveLoading === 'draft' ? 'Saving...' : 'Save Draft to Daily Planner' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded-md border border-red-300/40 bg-red-500 px-3 py-2 text-xs font-black uppercase tracking-wider text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-45"
+                      :disabled="!coachPracticePlanCanSave || Boolean(coachPracticePlanSaveLoading)"
+                      @click="saveCoachPracticePlanToDailyPlanner('publish')"
+                    >
+                      {{ coachPracticePlanSaveLoading === 'publish' ? 'Publishing...' : 'Publish + Assign to Players' }}
+                    </button>
+                  </div>
+                  <p v-if="coachPracticePlanSaveMessage" class="mt-2 rounded-md border border-emerald-300/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                    {{ coachPracticePlanSaveMessage }}
+                  </p>
+                  <p v-if="coachPracticePlanSaveError" class="mt-2 rounded-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                    {{ coachPracticePlanSaveError }}
                   </p>
                 </div>
                 <span

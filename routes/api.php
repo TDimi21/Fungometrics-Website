@@ -290,6 +290,7 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
     ->group(function (): void {
         Route::get('/teams/{teamId}/benchmark-tasks', [IntelligenceController::class, 'listBenchmarkTasks']);
         Route::post('/teams/{teamId}/benchmark-tasks/generate', [IntelligenceController::class, 'generateBenchmarkTasks']);
+        Route::post('/teams/{teamId}/coach-action-practice-plan/daily-plan', [IntelligenceController::class, 'saveCoachActionPracticePlanToDailyPlanner']);
         Route::post('/teams/{teamId}/benchmark-tasks/save-drafts', [IntelligenceController::class, 'saveBenchmarkDrafts']);
         Route::post('/teams/{teamId}/benchmark-tasks/assign', [IntelligenceController::class, 'assignBenchmarkTasks']);
         Route::post('/teams/{teamId}/refresh-benchmarks', [IntelligenceController::class, 'refreshTeamBenchmarks']);
