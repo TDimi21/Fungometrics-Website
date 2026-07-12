@@ -62,6 +62,10 @@ const dailyPlanRepublishReviewMessage = ref('')
 const dailyPlanAcknowledgements = ref(null)
 const dailyPlanAcknowledgementLoading = ref(false)
 const dailyPlanAcknowledgementError = ref('')
+const dailyPlanReminderPreview = ref(null)
+const dailyPlanReminderLoading = ref('')
+const dailyPlanReminderError = ref('')
+const dailyPlanReminderMessage = ref('')
 
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
@@ -156,6 +160,9 @@ const loadTeamCommandCenter = async () => {
   dailyPlanRepublishReviewMessage.value = ''
   dailyPlanAcknowledgements.value = null
   dailyPlanAcknowledgementError.value = ''
+  dailyPlanReminderPreview.value = null
+  dailyPlanReminderError.value = ''
+  dailyPlanReminderMessage.value = ''
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -2112,6 +2119,38 @@ const dailyPlanAcknowledgementSummary = computed(() => {
   return `${fmtCount(status.acknowledged_count, '0')} of ${assigned} players acknowledged the updated plan.`
 })
 
+const dailyPlanReminderRows = computed(() =>
+  asArray(dailyPlanReminderPreview.value?.players_to_remind).slice(0, 8)
+)
+
+const dailyPlanReminderCopy = computed(() =>
+  dailyPlanReminderPreview.value?.reminder_preview?.coach_copy
+    || dailyPlanReminderPreview.value?.reminder_preview?.message
+    || 'Reminder: today\'s FMTRX plan was updated. Please open the app, review the changes, and tap Got it.'
+)
+
+const dailyPlanReminderCanSend = computed(() =>
+  ['existing_notification', 'existing_message'].includes(String(dailyPlanReminderPreview.value?.reminder_channel || ''))
+)
+
+const dailyPlanReminderChannelLabel = computed(() => {
+  const channel = String(dailyPlanReminderPreview.value?.reminder_channel || 'none')
+  return {
+    existing_notification: 'Existing Notification',
+    existing_message: 'Existing Message',
+    manual_copy: 'Manual Copy',
+    none: 'No Reminder Needed',
+  }[channel] || humanizeKey(channel, 'No Reminder Needed')
+})
+
+const dailyPlanReminderSummary = computed(() => {
+  const preview = dailyPlanReminderPreview.value
+  if (!preview) return 'Follow-up status is not loaded yet.'
+  const count = Number(preview.unacknowledged_count || 0)
+  if (!count) return 'All assigned players have acknowledged this update.'
+  return `${fmtCount(count, '0')} player${count === 1 ? '' : 's'} still need${count === 1 ? 's' : ''} a follow-up.`
+})
+
 const acknowledgementStatusClass = (acknowledged) => acknowledged
   ? 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100'
   : 'border-amber-300/30 bg-amber-500/15 text-amber-100'
@@ -2424,6 +2463,7 @@ const saveCoachPracticePlanToDailyPlanner = async (mode = 'draft') => {
       await refreshPracticePlanUpdateSuggestions(dailyPlanId, true)
       await refreshDailyPlanRevisions(dailyPlanId, true)
       await refreshDailyPlanAcknowledgements(dailyPlanId, true)
+      await refreshDailyPlanReminderPreview(dailyPlanId, true)
     }
   } catch (error) {
     coachPracticePlanSaveError.value = error?.response?.data?.message || 'Could not save the suggested plan to Daily Planner.'
@@ -2475,6 +2515,60 @@ const refreshDailyPlanAcknowledgements = async (dailyPlanId = null, silent = fal
     if (!silent) {
       dailyPlanAcknowledgementLoading.value = false
     }
+  }
+}
+
+const refreshDailyPlanReminderPreview = async (dailyPlanId = null, silent = false) => {
+  const planId = dailyPlanId || practicePlanSuggestionDailyPlanId.value
+  if (!planId) return
+
+  if (!silent) {
+    dailyPlanReminderLoading.value = 'preview'
+    dailyPlanReminderError.value = ''
+    dailyPlanReminderMessage.value = ''
+  }
+
+  try {
+    const response = await axiosGet(`coach/daily-plans/${planId}/reminder-preview`)
+    dailyPlanReminderPreview.value = responsePayload(response)
+  } catch (error) {
+    if (!silent) {
+      dailyPlanReminderError.value = error?.response?.data?.message || 'Could not load reminder preview.'
+    }
+  } finally {
+    if (!silent) {
+      dailyPlanReminderLoading.value = ''
+    }
+  }
+}
+
+const sendDailyPlanReminder = async () => {
+  const planId = practicePlanSuggestionDailyPlanId.value
+  if (!planId || dailyPlanReminderLoading.value) return
+
+  dailyPlanReminderLoading.value = 'send'
+  dailyPlanReminderError.value = ''
+  dailyPlanReminderMessage.value = ''
+  try {
+    const response = await axiosPost(`coach/daily-plans/${planId}/send-reminder`, {})
+    dailyPlanReminderPreview.value = responsePayload(response)
+    const result = dailyPlanReminderPreview.value?.send_result || {}
+    dailyPlanReminderMessage.value = result.message || 'Reminder result loaded.'
+  } catch (error) {
+    dailyPlanReminderError.value = error?.response?.data?.message || 'Could not prepare reminder follow-up.'
+  } finally {
+    dailyPlanReminderLoading.value = ''
+  }
+}
+
+const copyDailyPlanReminderText = async () => {
+  dailyPlanReminderError.value = ''
+  dailyPlanReminderMessage.value = ''
+  try {
+    await navigator.clipboard.writeText(dailyPlanReminderCopy.value)
+    dailyPlanReminderMessage.value = 'Reminder text copied.'
+  } catch (error) {
+    dailyPlanReminderError.value = 'Could not copy reminder text. Select the text and copy it manually.'
   }
 }
 
@@ -2585,6 +2679,7 @@ const applyDailyPlanRepublishReview = async (republish = false) => {
       await refreshDailyPlanRevisions(payload.daily_plan_id, true)
       await refreshPracticePlanUpdateSuggestions(payload.daily_plan_id, true)
       await refreshDailyPlanAcknowledgements(payload.daily_plan_id, true)
+      await refreshDailyPlanReminderPreview(payload.daily_plan_id, true)
     }
     dailyPlanRepublishReview.value = payload.editable_changes ? payload : null
     dailyPlanRepublishPreview.value = payload.preview_plan || null
@@ -2635,6 +2730,7 @@ const refreshPracticePlanUpdateSuggestions = async (dailyPlanId = null, silent =
     if (payload.daily_plan_id) {
       await refreshDailyPlanRevisions(payload.daily_plan_id, true)
       await refreshDailyPlanAcknowledgements(payload.daily_plan_id, true)
+      await refreshDailyPlanReminderPreview(payload.daily_plan_id, true)
     }
     if (!silent) {
       practicePlanSuggestionActionMessage.value = payload.summary || 'Practice plan suggestions refreshed.'
@@ -2663,6 +2759,9 @@ const togglePracticePlanSuggestion = (suggestionId) => {
   dailyPlanRepublishReviewMessage.value = ''
   dailyPlanAcknowledgements.value = null
   dailyPlanAcknowledgementError.value = ''
+  dailyPlanReminderPreview.value = null
+  dailyPlanReminderError.value = ''
+  dailyPlanReminderMessage.value = ''
 }
 
 const applySelectedPracticePlanSuggestions = async () => {
@@ -2684,6 +2783,8 @@ const applySelectedPracticePlanSuggestions = async () => {
     }
     if (payload.daily_plan_id) {
       await refreshDailyPlanRevisions(payload.daily_plan_id, true)
+      await refreshDailyPlanAcknowledgements(payload.daily_plan_id, true)
+      await refreshDailyPlanReminderPreview(payload.daily_plan_id, true)
     }
     teamIntelligence.value = {
       ...(teamIntelligence.value || {}),
@@ -4183,6 +4284,108 @@ const priorityTop10Rows = computed(() => {
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  <div class="mt-3 rounded border border-amber-300/20 bg-amber-500/10 p-3">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p class="text-[10px] uppercase tracking-widest text-amber-100/80">Follow Up</p>
+                        <p class="mt-1 text-xs text-slate-200">{{ dailyPlanReminderSummary }}</p>
+                      </div>
+                      <div class="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          class="rounded border border-amber-300/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-100 transition hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                          :disabled="dailyPlanReminderLoading || !practicePlanSuggestionDailyPlanId"
+                          @click="refreshDailyPlanReminderPreview()"
+                        >
+                          {{ dailyPlanReminderLoading === 'preview' ? 'Loading...' : 'Load Follow Up' }}
+                        </button>
+                        <button
+                          v-if="dailyPlanReminderCanSend"
+                          type="button"
+                          class="rounded border border-emerald-300/30 bg-emerald-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                          :disabled="dailyPlanReminderLoading || !dailyPlanReminderRows.length"
+                          @click="sendDailyPlanReminder"
+                        >
+                          {{ dailyPlanReminderLoading === 'send' ? 'Sending...' : 'Send Reminder' }}
+                        </button>
+                        <button
+                          v-else-if="dailyPlanReminderPreview && dailyPlanReminderRows.length"
+                          type="button"
+                          class="rounded border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-white/15"
+                          @click="copyDailyPlanReminderText"
+                        >
+                          Copy Reminder Text
+                        </button>
+                      </div>
+                    </div>
+
+                    <p v-if="dailyPlanReminderError" class="mt-2 rounded border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                      {{ dailyPlanReminderError }}
+                    </p>
+                    <p v-if="dailyPlanReminderMessage" class="mt-2 rounded border border-emerald-300/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                      {{ dailyPlanReminderMessage }}
+                    </p>
+
+                    <p v-if="!dailyPlanReminderPreview" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                      Load follow-up to see who still needs a reminder.
+                    </p>
+
+                    <template v-else>
+                      <div class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                        <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                          <span class="block text-[10px] uppercase tracking-wider text-white/35">Channel</span>
+                          <span class="font-black text-white">{{ dailyPlanReminderChannelLabel }}</span>
+                        </p>
+                        <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                          <span class="block text-[10px] uppercase tracking-wider text-white/35">To Remind</span>
+                          <span class="font-black text-amber-100">{{ fmtCount(dailyPlanReminderPreview.unacknowledged_count, '0') }}</span>
+                        </p>
+                        <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                          <span class="block text-[10px] uppercase tracking-wider text-white/35">Assigned</span>
+                          <span class="font-black text-white">{{ fmtCount(dailyPlanReminderPreview.assigned_player_count, '0') }}</span>
+                        </p>
+                        <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                          <span class="block text-[10px] uppercase tracking-wider text-white/35">Revision</span>
+                          <span class="font-black text-white">#{{ dailyPlanReminderPreview.latest_revision_number || '—' }}</span>
+                        </p>
+                      </div>
+
+                      <p v-if="asArray(dailyPlanReminderPreview.warnings).length" class="mt-3 rounded border border-amber-300/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                        {{ asArray(dailyPlanReminderPreview.warnings).join(' ') }}
+                      </p>
+
+                      <p v-if="!dailyPlanReminderRows.length" class="mt-3 rounded border border-emerald-300/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                        All assigned players have acknowledged this update.
+                      </p>
+
+                      <div v-else class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+                          <p class="text-[10px] uppercase tracking-widest text-amber-100/80">Players</p>
+                          <div class="mt-2 space-y-2">
+                            <p
+                              v-for="row in dailyPlanReminderRows"
+                              :key="`daily-plan-reminder-${row.player_id}`"
+                              class="rounded border border-amber-300/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
+                            >
+                              <span class="font-black text-white">{{ row.player_name || 'Player' }}</span>
+                              <span class="block text-amber-100/80">Needs update acknowledgement</span>
+                              <span v-if="row.last_seen_at" class="block text-slate-300">Seen: {{ row.last_seen_at }}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+                          <p class="text-[10px] uppercase tracking-widest text-slate-300">Reminder Copy</p>
+                          <p class="mt-2 whitespace-pre-wrap rounded border border-white/10 bg-slate-950/60 px-3 py-2 text-xs leading-relaxed text-slate-100">
+                            {{ dailyPlanReminderCopy }}
+                          </p>
+                          <p v-if="!dailyPlanReminderCanSend" class="mt-2 text-[11px] text-slate-400">
+                            Reminder sending is not available yet. Copy this message and send it through your current team communication channel.
+                          </p>
+                        </div>
+                      </div>
+                    </template>
                   </div>
                 </template>
               </div>
