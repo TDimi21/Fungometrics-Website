@@ -37,8 +37,10 @@ use App\Http\Controllers\Api\Planner\GetMyWorkout;
 use App\Http\Controllers\Api\Planner\GetDailyPlanAcknowledgements;
 use App\Http\Controllers\Api\Planner\GetDailyPlanReminderPreview;
 use App\Http\Controllers\Api\Planner\GetDailyPlanUpdateStatus;
+use App\Http\Controllers\Api\Planner\GetDailyPlanCompletionSummary;
 use App\Http\Controllers\Api\Planner\GetTeamPlannerCommandCenter;
 use App\Http\Controllers\Api\Planner\MarkDailyPlanUpdateSeen;
+use App\Http\Controllers\Api\Planner\GetPlayerDailyPlanCompletionSummary;
 use App\Http\Controllers\Api\Planner\RunPlannerCommandCenterAction;
 use App\Http\Controllers\Api\Planner\SaveWorkoutProgress;
 use App\Http\Controllers\Api\Planner\SendDailyPlanReminder;
@@ -214,6 +216,7 @@ Route::prefix('player')->group(function (): void {
         // Daily Planner (player side) — "My Workouts" + progress
         Route::get('daily-plans', GetMyWorkouts::class);
         Route::get('daily-plans/{id}', GetMyWorkout::class);
+        Route::get('daily-plans/{dailyPlanId}/completion-summary', GetPlayerDailyPlanCompletionSummary::class);
         Route::get('daily-plans/{id}/update-status', GetDailyPlanUpdateStatus::class);
         Route::post('daily-plans/{id}/acknowledge-update', AcknowledgeDailyPlanUpdate::class);
         Route::post('daily-plans/{id}/mark-update-seen', MarkDailyPlanUpdateSeen::class);
@@ -270,6 +273,7 @@ Route::prefix('coach')->group(function (): void {
         Route::delete('/daily-plans/{id}', DeleteDailyPlan::class);
         // Coach reviews player results: all players' progress for a plan, + per-player review.
         Route::get('/daily-plans/{id}/progress', GetDailyPlanProgress::class);
+        Route::get('/daily-plans/{dailyPlanId}/completion-summary', GetDailyPlanCompletionSummary::class);
         Route::post('/daily-plans/{planId}/players/{playerId}/review', SaveCoachWorkoutReview::class);
         Route::get('/daily-plans/{dailyPlanId}/acknowledgements', GetDailyPlanAcknowledgements::class);
         Route::get('/daily-plans/{dailyPlanId}/reminder-preview', GetDailyPlanReminderPreview::class);

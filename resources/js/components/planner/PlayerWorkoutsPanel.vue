@@ -12,6 +12,8 @@ const saving = ref(false)
 const offline = ref(false)
 const expandedInstructions = ref(new Set())
 const saveNotice = ref('')
+const completionSummaries = ref({})
+const completionSummaryLoading = ref(false)
 
 const metricDefinitions = {
   average_exit_velocity: { label: 'Average EV', unit: 'mph', type: 'number', step: '0.1', min: 0.1, placeholder: '82.4' },
@@ -281,6 +283,7 @@ const fmtDateTime = (iso) => {
   if (!iso) return ''
   try { return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return '' }
 }
+const oneDecimal = (value) => Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '0.0'
 
 const load = async () => {
   loading.value = true
@@ -496,6 +499,32 @@ const itemStatusMessage = (itemId, item = {}) => {
 
 const itemStatusClass = (itemId, item = {}) => `pw-status-note pw-status-note--${itemStatus(itemId, item).tone}`
 
+const fetchCompletionSummary = async (planId) => {
+  if (!planId) return null
+  completionSummaryLoading.value = true
+  try {
+    const res = await axiosGet(`player/daily-plans/${planId}/completion-summary`)
+    const summary = res?.data?.data || null
+    if (summary) {
+      completionSummaries.value = {
+        ...completionSummaries.value,
+        [planId]: summary,
+      }
+    }
+
+    return summary
+  } catch {
+    completionSummaries.value = {
+      ...completionSummaries.value,
+      [planId]: null,
+    }
+
+    return null
+  } finally {
+    completionSummaryLoading.value = false
+  }
+}
+
 const total = computed(() => current.value ? itemCount(current.value.plan) : 0)
 const done = computed(() => current.value ? Object.values(current.value.items).filter((i) => i.done).length : 0)
 const currentPairs = computed(() => current.value ? bucketItems(current.value.plan) : [])
@@ -534,6 +563,42 @@ const nextStep = computed(() => {
   if (next) return `Next: Complete ${next.item.name || bucketTitle(next.bucket.type)}.`
   return 'Select a daily plan to see your workout.'
 })
+const completionSummary = computed(() => current.value ? completionSummaries.value[current.value.plan.id] || null : null)
+const showCompletionSummary = computed(() => {
+  const summary = completionSummary.value
+  if (!summary) return false
+  return done.value === total.value
+    || asArray(summary.metric_values_submitted).length > 0
+    || asArray(summary.pending_review).length > 0
+    || asArray(summary.approved_results).length > 0
+    || asArray(summary.corrections_requested).length > 0
+})
+const summaryStatusLabel = (status) => ({
+  not_started: 'Not Started',
+  in_progress: 'In Progress',
+  completed: 'Complete',
+  submitted_for_review: 'Submitted for Coach Review',
+  approved: 'Approved',
+  needs_correction: 'Correction Requested',
+}[status] || humanizeMetric(status || 'Summary'))
+const summaryStatusTone = (status) => ({
+  completed: 'done',
+  submitted_for_review: 'review',
+  approved: 'approved',
+  needs_correction: 'correction',
+  in_progress: 'progress',
+  not_started: 'muted',
+}[status] || 'muted')
+const formatMetricRow = (row = {}) => {
+  const value = row.value ?? row.raw_value ?? row.metric_value ?? ''
+  const unit = row.unit ? ` ${row.unit}` : ''
+  return `${row.label || humanizeMetric(row.metric_key)} ${value}${unit}`.trim()
+}
+const taskMetricLabels = (task = {}) => {
+  if (asArray(task.metric_labels).length) return asArray(task.metric_labels)
+  const values = task.metric_values && typeof task.metric_values === 'object' ? task.metric_values : {}
+  return Object.entries(values).map(([key, value]) => `${humanizeMetric(key)} ${value}${metricDefinition(key).unit ? ` ${metricDefinition(key).unit}` : ''}`)
+}
 
 const bridgeSaveMessage = (bridge) => {
   if (!bridge) return 'Workout saved.'
@@ -623,6 +688,7 @@ const open = (w) => {
   }))
   expandedInstructions.value = new Set()
   current.value = { plan: w, items, startedAt: w.progress?.started_at || new Date().toISOString() }
+  fetchCompletionSummary(w.id)
 }
 const back = () => { current.value = null }
 const toggleItem = (id) => {
@@ -647,7 +713,11 @@ const finish = async () => {
     })
     saveNotice.value = bridgeSaveMessage(res?.data?.benchmark_completion_bridge)
     await load()
-    current.value = null
+    const freshPlan = workouts.value.find((workout) => workout.id === current.value.plan.id)
+    if (freshPlan) {
+      current.value.plan = freshPlan
+    }
+    await fetchCompletionSummary(current.value.plan.id)
   } catch {
     alert('Could not save — check your connection and try again.')
   } finally {
@@ -795,6 +865,107 @@ const finish = async () => {
       <div v-else-if="planUpdateStatus?.acknowledged_at || planUpdateStatus?.acknowledged" class="pw-update-ack">
         Update acknowledged.
       </div>
+
+      <div v-if="completionSummaryLoading && !completionSummary" class="pw-summary pw-summary--loading">
+        Loading workout summary…
+      </div>
+
+      <section v-else-if="showCompletionSummary" class="pw-summary">
+        <div class="pw-summary-head">
+          <div class="min-w-0">
+            <div class="pw-summary-eyebrow">Workout Summary</div>
+            <h3>{{ completionSummary.plan_title || current.plan.name || 'Daily Plan' }}</h3>
+          </div>
+          <span class="pw-status-pill" :class="`pw-status-pill--${summaryStatusTone(completionSummary.summary_status)}`">
+            {{ summaryStatusLabel(completionSummary.summary_status) }}
+          </span>
+        </div>
+
+        <div class="pw-summary-grid">
+          <div>
+            <strong>{{ completionSummary.completed_items || 0 }}/{{ completionSummary.total_items || 0 }}</strong>
+            <span>Complete</span>
+          </div>
+          <div>
+            <strong>{{ oneDecimal(completionSummary.completion_percentage) }}%</strong>
+            <span>Progress</span>
+          </div>
+          <div>
+            <strong>{{ completionSummary.benchmark_items_completed || 0 }}</strong>
+            <span>Benchmark</span>
+          </div>
+          <div>
+            <strong>{{ asArray(completionSummary.metric_values_submitted).length }}</strong>
+            <span>Submitted</span>
+          </div>
+        </div>
+
+        <p v-if="completionSummary.message" class="pw-summary-message">{{ completionSummary.message }}</p>
+
+        <div v-if="asArray(completionSummary.metric_values_submitted).length" class="pw-summary-block">
+          <div class="pw-summary-label">Submitted Results</div>
+          <div class="pw-summary-pills">
+            <span
+              v-for="row in asArray(completionSummary.metric_values_submitted).slice(0, 6)"
+              :key="`${row.item_id || row.metric_key}-${row.metric_key}-${row.value}`"
+            >
+              {{ formatMetricRow(row) }}
+            </span>
+          </div>
+        </div>
+
+        <div
+          v-if="asArray(completionSummary.pending_review).length || asArray(completionSummary.approved_results).length || asArray(completionSummary.corrections_requested).length"
+          class="pw-summary-review"
+        >
+          <div v-if="asArray(completionSummary.pending_review).length" class="pw-summary-review-card">
+            <div class="pw-summary-label">Pending Coach Review</div>
+            <p
+              v-for="task in asArray(completionSummary.pending_review).slice(0, 3)"
+              :key="`pending-${task.task_id || task.id || task.title}`"
+            >
+              {{ task.title || 'Benchmark result' }}
+              <span v-if="taskMetricLabels(task).length">· {{ taskMetricLabels(task).join(', ') }}</span>
+            </p>
+          </div>
+          <div v-if="asArray(completionSummary.approved_results).length" class="pw-summary-review-card pw-summary-review-card--approved">
+            <div class="pw-summary-label">Approved</div>
+            <p
+              v-for="task in asArray(completionSummary.approved_results).slice(0, 3)"
+              :key="`approved-${task.task_id || task.id || task.title}`"
+            >
+              {{ task.title || 'Approved result' }}
+              <span v-if="taskMetricLabels(task).length">· {{ taskMetricLabels(task).join(', ') }}</span>
+            </p>
+          </div>
+          <div v-if="asArray(completionSummary.corrections_requested).length" class="pw-summary-review-card pw-summary-review-card--correction">
+            <div class="pw-summary-label">Correction Requested</div>
+            <p
+              v-for="task in asArray(completionSummary.corrections_requested).slice(0, 3)"
+              :key="`correction-${task.task_id || task.id || task.title}`"
+            >
+              {{ task.title || 'Result needs correction' }}
+              <span v-if="task.note || task.message">· {{ task.note || task.message }}</span>
+            </p>
+          </div>
+        </div>
+
+        <div v-if="asArray(completionSummary.coach_feedback).length" class="pw-summary-block">
+          <div class="pw-summary-label">Coach Feedback</div>
+          <p
+            v-for="feedback in asArray(completionSummary.coach_feedback).slice(0, 3)"
+            :key="`${feedback.task_id || feedback.created_at || feedback.message}`"
+            class="pw-summary-note"
+          >
+            {{ feedback.message || feedback.note || feedback.review_notes }}
+          </p>
+        </div>
+
+        <div v-if="completionSummary.next_step" class="pw-summary-next">
+          <span>Next</span>
+          <p>{{ completionSummary.next_step }}</p>
+        </div>
+      </section>
 
       <div v-if="benchmarkCount === 0" class="pw-inline-empty">
         No benchmark baselines in today’s workout.
@@ -1011,6 +1182,29 @@ const finish = async () => {
 .pw-update-list li { margin-top:3px; }
 .pw-update-ack, .pw-inline-empty { margin:0 0 12px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.04); color:rgba(255,255,255,.62); border-radius:12px; padding:9px 11px; font-size:12px; font-weight:850; }
 .pw-update-ack { color:#bbf7d0; border-color:rgba(52,211,153,.2); background:rgba(52,211,153,.08); }
+.pw-summary { margin:0 0 14px; border:1px solid rgba(125,166,245,.18); background:linear-gradient(145deg, rgba(15,23,42,.74), rgba(15,23,42,.46)); border-radius:16px; padding:14px; box-shadow:0 12px 30px rgba(0,0,0,.16); }
+.pw-summary--loading { color:rgba(255,255,255,.55); text-align:center; font-size:13px; font-weight:850; }
+.pw-summary-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.pw-summary-eyebrow { color:#93c5fd; font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; }
+.pw-summary h3 { color:#fff; font-size:18px; line-height:1.15; font-weight:1000; margin:2px 0 0; overflow-wrap:anywhere; }
+.pw-summary-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; margin-top:12px; }
+.pw-summary-grid div { border:1px solid rgba(255,255,255,.09); background:rgba(5,11,31,.48); border-radius:12px; padding:10px; min-width:0; }
+.pw-summary-grid strong { display:block; color:#fff; font-size:18px; line-height:1; font-weight:1000; overflow-wrap:anywhere; }
+.pw-summary-grid span { display:block; color:rgba(255,255,255,.48); font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.05em; margin-top:5px; }
+.pw-summary-message { margin:11px 0 0; color:rgba(255,255,255,.76); font-size:13px; line-height:1.45; font-weight:800; }
+.pw-summary-block { margin-top:12px; border-top:1px solid rgba(255,255,255,.08); padding-top:11px; }
+.pw-summary-label { color:rgba(255,255,255,.5); font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; margin-bottom:7px; }
+.pw-summary-pills { display:flex; flex-wrap:wrap; gap:6px; }
+.pw-summary-pills span { border:1px solid rgba(56,189,248,.22); background:rgba(14,165,233,.11); color:#bae6fd; border-radius:999px; padding:4px 8px; font-size:11.5px; font-weight:900; }
+.pw-summary-review { display:grid; grid-template-columns:repeat(1, minmax(0,1fr)); gap:8px; margin-top:12px; }
+.pw-summary-review-card { border:1px solid rgba(251,191,36,.2); background:rgba(251,191,36,.08); border-radius:12px; padding:10px; min-width:0; }
+.pw-summary-review-card--approved { border-color:rgba(52,211,153,.22); background:rgba(52,211,153,.08); }
+.pw-summary-review-card--correction { border-color:rgba(248,113,113,.25); background:rgba(239,68,68,.1); }
+.pw-summary-review-card p, .pw-summary-note { margin:5px 0 0; color:rgba(255,255,255,.76); font-size:12px; line-height:1.38; font-weight:800; overflow-wrap:anywhere; }
+.pw-summary-review-card p span { color:rgba(255,255,255,.52); font-weight:750; }
+.pw-summary-next { margin-top:12px; border:1px solid rgba(52,211,153,.18); background:rgba(52,211,153,.08); border-radius:12px; padding:10px 11px; }
+.pw-summary-next span { display:block; color:#bbf7d0; font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; }
+.pw-summary-next p { margin:3px 0 0; color:rgba(255,255,255,.84); font-size:13px; line-height:1.4; font-weight:850; }
 .pw-bucket { border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 14px; margin-bottom: 12px; background: rgba(255,255,255,.03); }
 .pw-bucket-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
 .pw-bucket-title { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: #fff; }
@@ -1079,6 +1273,8 @@ const finish = async () => {
   .pw-hero-sub span:not(:first-child)::before { content:''; margin:0; }
   .pw-update-head { flex-direction:column; }
   .pw-update-dismiss { width:100%; }
+  .pw-summary-head { flex-direction:column; }
+  .pw-summary-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
   .pw-result-grid { grid-template-columns: 1fr; }
   .pw-results-head { align-items:flex-start; flex-direction:column; }
   .pw-finish-panel { flex-direction:column; align-items:stretch; }

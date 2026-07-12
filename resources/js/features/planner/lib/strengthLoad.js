@@ -53,7 +53,8 @@ export const roundToIncrement = (w, inc = 5) => {
 };
 
 // Target load for a percent-of-1RM set. Returns null when no valid max.
-export const targetFromPercent = (oneRM, pct, inc = 5) => {
+// Rounds to 2.5 lb (smallest common plate pair) so e.g. 75% of 250 → 187.5 lb.
+export const targetFromPercent = (oneRM, pct, inc = 2.5) => {
   const rm = n(oneRM);
   const p = n(pct);
   if (!(rm > 0) || !(p > 0)) return null;
@@ -82,11 +83,11 @@ export function coalesceMaxes(rows) {
 // Never guesses across lifts — an unmapped exercise returns null ("Max needed").
 export function oneRMFieldForExercise(nameOrDrill) {
   const name = String(nameOrDrill?.name ?? nameOrDrill ?? '').toLowerCase();
-  if (name.includes('back squat')) return 'back_squat';
   if (name.includes('front squat')) return 'front_squat';
-  if (name.includes('bench')) return 'bench_press';
-  if (name.includes('dead')) return 'dead_lift'; // deadlift / RDL
-  if (name.includes('clean')) return 'power_clean';
+  if (name.includes('squat')) return 'back_squat';          // back squat / barbell squat / squat
+  if (name.includes('bench')) return 'bench_press';         // bench press / db bench / incline bench
+  if (name.includes('dead')) return 'dead_lift';            // deadlift / RDL / sumo dead
+  if (name.includes('clean')) return 'power_clean';         // power clean / hang clean
   return null;
 }
 

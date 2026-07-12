@@ -37,6 +37,9 @@ const selectedReviewTaskIds = ref([])
 const correctionMessage = ref('')
 const generatedPlanPreview = ref(null)
 const reviewQueueRef = ref(null)
+const completionSummary = ref(null)
+const completionSummaryLoading = ref(false)
+const completionSummaryError = ref('')
 
 // Drill picker
 const picker = ref(null)          // the bucket object being added to
@@ -59,6 +62,7 @@ const loadPlans = async () => {
 const loadCommandCenter = async () => {
   if (!activeTeamId.value) {
     commandCenter.value = null
+    completionSummary.value = null
     return
   }
   commandLoading.value = true
@@ -66,11 +70,33 @@ const loadCommandCenter = async () => {
   try {
     const res = await axiosGet(`coach/teams/${activeTeamId.value}/planner-command-center`, { days: 365 })
     commandCenter.value = res?.data?.data || null
+    await loadCompletionSummary(commandCenter.value?.daily_plan_id)
   } catch {
     commandCenter.value = null
+    completionSummary.value = null
     commandError.value = 'Could not load the planner command center.'
   } finally {
     commandLoading.value = false
+  }
+}
+const loadCompletionSummary = async (dailyPlanId = commandCenter.value?.daily_plan_id) => {
+  completionSummaryError.value = ''
+  if (!dailyPlanId) {
+    completionSummary.value = null
+    return null
+  }
+
+  completionSummaryLoading.value = true
+  try {
+    const res = await axiosGet(`coach/daily-plans/${dailyPlanId}/completion-summary`, { days: 365 })
+    completionSummary.value = res?.data?.data || null
+    return completionSummary.value
+  } catch {
+    completionSummary.value = null
+    completionSummaryError.value = 'Completion summary is not available yet.'
+    return null
+  } finally {
+    completionSummaryLoading.value = false
   }
 }
 const loadGroups = async () => {
@@ -131,6 +157,17 @@ const commandHeader = computed(() => commandCenter.value?.operating_header || {}
 const primaryAction = computed(() => commandCenter.value?.primary_next_action || commandActions.value[0] || null)
 const commandStatusCards = computed(() => Array.isArray(commandCenter.value?.status_cards) ? commandCenter.value.status_cards : [])
 const commandVisibility = computed(() => commandCenter.value?.section_visibility || {})
+const completionRows = computed(() => Array.isArray(completionSummary.value?.player_summaries) ? completionSummary.value.player_summaries : [])
+const completionActions = computed(() => Array.isArray(completionSummary.value?.coach_next_actions) ? completionSummary.value.coach_next_actions : [])
+const completionSummaryCards = computed(() => {
+  const summary = completionSummary.value || {}
+  return [
+    { label: 'Team Complete', value: `${oneDecimal(summary.team_completion_percentage)}%`, detail: `${summary.completed_player_count || 0} completed` },
+    { label: 'In Progress', value: summary.in_progress_player_count || 0, detail: `${summary.not_started_player_count || 0} not started` },
+    { label: 'Review Needed', value: summary.pending_review_count || 0, detail: `${summary.benchmark_submissions_count || 0} submitted values` },
+    { label: 'Coach Feedback', value: `${summary.approved_count || 0}/${summary.correction_requested_count || 0}`, detail: 'approved / correction' },
+  ]
+})
 const priorityClass = (priority) => ({
   critical: 'dp-priority--critical',
   high: 'dp-priority--high',
@@ -249,6 +286,7 @@ const runSelectedReviewAction = async (actionType) => {
 const handleActionResult = async (result, action) => {
   if (result?.updated_command_center) {
     commandCenter.value = result.updated_command_center
+    await loadCompletionSummary(commandCenter.value?.daily_plan_id)
   } else {
     await loadCommandCenter()
   }
@@ -435,6 +473,49 @@ const del = async (p) => {
                 <div class="dp-command-value">{{ card.value }}</div>
                 <div class="dp-command-sub">{{ card.detail }}</div>
               </div>
+            </div>
+
+            <div class="dp-command-block">
+              <div class="dp-section mb-2">Workout Completion Summary</div>
+              <div v-if="completionSummaryLoading && !completionSummary" class="dp-command-loading">Loading completion summary…</div>
+              <div v-else-if="completionSummaryError" class="dp-empty dp-empty--sm">{{ completionSummaryError }}</div>
+              <div v-else-if="!completionSummary" class="dp-empty dp-empty--sm">No workout progress yet.</div>
+              <template v-else>
+                <div class="dp-completion-grid">
+                  <div v-for="card in completionSummaryCards" :key="card.label" class="dp-command-card">
+                    <div class="dp-command-label">{{ card.label }}</div>
+                    <div class="dp-command-value">{{ card.value }}</div>
+                    <div class="dp-command-sub">{{ card.detail }}</div>
+                  </div>
+                </div>
+
+                <div v-if="completionRows.length" class="dp-completion-list">
+                  <div v-for="row in completionRows" :key="row.player_id" class="dp-completion-row">
+                    <div class="min-w-0">
+                      <div class="font-bold truncate">{{ row.player_name }}</div>
+                      <div class="text-white/40 text-xs">{{ row.next_needed_action || 'No coach action needed.' }}</div>
+                      <div v-if="row.last_activity_at" class="text-white/30 text-[11px] mt-0.5">Last activity {{ prettyDateTime(row.last_activity_at) }}</div>
+                    </div>
+                    <div class="dp-player-status-metrics">
+                      <span>{{ oneDecimal(row.completion_percentage) }}%</span>
+                      <span>{{ row.completed_items || 0 }}/{{ row.total_items || 0 }} items</span>
+                      <span>{{ row.benchmark_values_submitted || 0 }} submitted</span>
+                      <span>{{ row.pending_review_count || 0 }} review</span>
+                      <span>{{ row.approved_count || 0 }} approved</span>
+                      <span>{{ row.correction_requested_count || 0 }} correction</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-2">No assigned player progress has been recorded yet.</div>
+
+                <div v-if="completionActions.length" class="dp-completion-actions">
+                  <div class="dp-command-label">Coach Next Actions</div>
+                  <ul>
+                    <li v-for="action in completionActions.slice(0, 4)" :key="action">{{ action }}</li>
+                  </ul>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-2">No coach review needed.</div>
+              </template>
             </div>
 
             <div v-if="commandActions.length" class="dp-command-block">
@@ -752,6 +833,14 @@ const del = async (p) => {
 .dp-status-card--good { border-color:rgba(52,211,153,.24); background:rgba(52,211,153,.08); }
 .dp-status-card--info { border-color:rgba(59,130,246,.24); background:rgba(59,130,246,.08); }
 .dp-status-card--complete { border-color:rgba(20,184,166,.24); background:rgba(20,184,166,.08); }
+.dp-completion-grid { display:grid; grid-template-columns:repeat(1, minmax(0,1fr)); gap:10px; }
+@media (min-width:700px){ .dp-completion-grid { grid-template-columns:repeat(4, minmax(0,1fr)); } }
+.dp-completion-list { display:grid; gap:7px; margin-top:10px; }
+.dp-completion-row { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; }
+@media (min-width:800px){ .dp-completion-row { flex-direction:row; align-items:center; } }
+.dp-completion-actions { margin-top:10px; border:1px solid rgba(59,130,246,.18); background:rgba(59,130,246,.07); border-radius:12px; padding:11px 12px; }
+.dp-completion-actions ul { margin:7px 0 0; padding-left:17px; color:rgba(255,255,255,.68); font-size:12.5px; line-height:1.45; }
+.dp-completion-actions li { margin-top:3px; }
 .dp-command-grid { display:grid; grid-template-columns:repeat(1, minmax(0, 1fr)); gap:10px; }
 .dp-command-grid--two { margin-top:12px; }
 @media (min-width:768px){ .dp-command-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); } .dp-command-grid--two { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
