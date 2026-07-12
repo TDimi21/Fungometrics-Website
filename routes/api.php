@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\Planner\SaveDailyPlan;
 use App\Http\Controllers\Api\Planner\DeleteDailyPlan;
 use App\Http\Controllers\Api\Planner\GetMyWorkouts;
 use App\Http\Controllers\Api\Planner\GetMyWorkout;
+use App\Http\Controllers\Api\Planner\MarkDailyPlanUpdateSeen;
 use App\Http\Controllers\Api\Planner\SaveWorkoutProgress;
 use App\Http\Controllers\Api\Planner\SaveCustomDrill;
 use App\Http\Controllers\Api\Planner\GetCustomDrills;
@@ -203,6 +204,7 @@ Route::prefix('player')->group(function (): void {
         // Daily Planner (player side) — "My Workouts" + progress
         Route::get('daily-plans', GetMyWorkouts::class);
         Route::get('daily-plans/{id}', GetMyWorkout::class);
+        Route::post('daily-plans/{id}/mark-update-seen', MarkDailyPlanUpdateSeen::class);
         Route::post('daily-plans/{id}/progress', SaveWorkoutProgress::class);
     });
 });

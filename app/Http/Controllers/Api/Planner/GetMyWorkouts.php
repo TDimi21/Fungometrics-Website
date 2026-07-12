@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DailyPlan;
 use App\Models\DailyPlanAssignment;
 use App\Models\DailyPlanProgress;
+use App\Services\Planner\DailyPlanPlayerUpdateService;
 use Auth;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response as HttpCodes;
  */
 class GetMyWorkouts extends Controller
 {
-    public function __invoke(): JsonResponse
+    public function __invoke(DailyPlanPlayerUpdateService $updateService): JsonResponse
     {
         try {
             $userId = Auth::id();
@@ -37,9 +38,10 @@ class GetMyWorkouts extends Controller
                 ->get()
                 ->keyBy('plan_id');
 
-            $data = $plans->map(function (DailyPlan $plan) use ($progress) {
+            $data = $plans->map(function (DailyPlan $plan) use ($progress, $updateService, $userId) {
                 $arr = $plan->toArray();
                 $arr['progress'] = $progress->get($plan->id);
+                $arr['update_status'] = $updateService->buildPlayerPlanUpdateStatus((string) $plan->id, (string) $userId);
 
                 return $arr;
             });
