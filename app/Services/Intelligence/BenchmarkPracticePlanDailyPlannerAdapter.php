@@ -145,6 +145,80 @@ class BenchmarkPracticePlanDailyPlannerAdapter
         ];
     }
 
+    public function previewDailyPlanFromGeneratedDay(string $teamId, array $planDay, array $options = []): array
+    {
+        $payload = $this->mapGeneratedDayToDailyPlanPayload($teamId, $planDay, $options);
+
+        return [
+            'generated_at' => now()->toIso8601String(),
+            'team_id' => $teamId,
+            'source' => 'weekly_planner_rollup_generated_day',
+            'day_index' => $planDay['day_index'] ?? null,
+            'daily_plan_preview' => $payload,
+            'warnings' => $this->warnings([
+                'practice_blocks' => $planDay['blocks'] ?? [],
+            ], $payload),
+            'persistence' => 'preview_only',
+            'database_records_created' => false,
+        ];
+    }
+
+    public function saveGeneratedDayToDailyPlanner(string $teamId, array $planDay, array $options = []): array
+    {
+        $payload = $this->mapGeneratedDayToDailyPlanPayload($teamId, $planDay, [
+            ...$options,
+            'status' => 'draft',
+        ]);
+        $requestedAssignments = array_values(array_unique(array_filter(array_map(
+            'strval',
+            $options['assigned_player_ids'] ?? $options['assign_player_ids'] ?? []
+        ))));
+
+        if (($options['assign_all'] ?? false) === true) {
+            $requestedAssignments = $this->teamPlayerIds($teamId);
+        }
+
+        $plan = DB::transaction(function () use ($payload, $teamId, $requestedAssignments) {
+            $plan = DailyPlan::updateOrCreate(
+                ['id' => $payload['id']],
+                [
+                    'team_id' => $teamId,
+                    'created_by' => $payload['created_by'],
+                    'name' => $payload['name'],
+                    'date' => $payload['date'],
+                    'phase' => $payload['phase'],
+                    'primary_goal' => $payload['primary_goal'],
+                    'estimated_minutes' => $payload['estimated_minutes'],
+                    'workload_level' => $payload['workload_level'],
+                    'status' => 'draft',
+                    'buckets' => $payload['buckets'],
+                    'published_at' => null,
+                ]
+            );
+
+            $this->syncAssignments((string) $plan->id, $teamId, $requestedAssignments);
+
+            return $plan;
+        });
+
+        $plan->load('assignments');
+
+        return [
+            'ok' => true,
+            'saved_daily_plan_id' => (string) $plan->id,
+            'status' => $plan->status,
+            'published' => false,
+            'assigned_player_ids' => $plan->assigned_player_ids,
+            'assigned_player_count' => count($plan->assigned_player_ids),
+            'source' => 'weekly_planner_rollup_generated_day',
+            'day_index' => $planDay['day_index'] ?? null,
+            'daily_plan' => $plan->toArray(),
+            'warnings' => $this->warnings([
+                'practice_blocks' => $planDay['blocks'] ?? [],
+            ], $payload),
+        ];
+    }
+
     public function assignExistingDailyPlan(string $dailyPlanId, array $playerIds = [], array $options = []): array
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
@@ -206,6 +280,36 @@ class BenchmarkPracticePlanDailyPlannerAdapter
             'published_at' => $status === 'published' ? now() : null,
             'source' => 'coach_action_practice_plan',
         ];
+    }
+
+    private function mapGeneratedDayToDailyPlanPayload(string $teamId, array $planDay, array $options = []): array
+    {
+        $blocks = array_values(array_filter($planDay['blocks'] ?? [], 'is_array'));
+        $practicePlan = [
+            'plan_title' => $planDay['title'] ?? 'FMTRX Next Week Plan Day',
+            'priority_focus' => $planDay['primary_focus'] ?? 'Weekly Rollup Focus',
+            'estimated_total_minutes' => $planDay['estimated_total_minutes'] ?? array_sum(array_map(fn (array $block) => (int) ($block['duration_minutes'] ?? 0), $blocks)),
+            'practice_blocks' => $blocks,
+        ];
+
+        $payload = $this->mapPracticePlanToDailyPlanPayload($teamId, $practicePlan, [
+            ...$options,
+            'daily_plan_id' => $options['daily_plan_id'] ?? 'dp_weekly_'.($planDay['day_index'] ?? 'day').'_'.Str::uuid(),
+            'name' => $options['name'] ?? $planDay['title'] ?? 'FMTRX Next Week Plan Day',
+            'date' => $options['scheduled_for'] ?? $options['date'] ?? $planDay['scheduled_for'] ?? now()->toDateString(),
+            'phase' => $options['phase'] ?? 'Weekly Plan',
+            'primary_goal' => $options['primary_goal'] ?? $planDay['primary_focus'] ?? 'Weekly rollup generated plan',
+            'status' => 'draft',
+        ]);
+
+        $payload['source'] = 'weekly_planner_rollup_generated_day';
+        $payload['assigned_player_ids'] = array_values(array_unique(array_filter(array_map(
+            'strval',
+            $options['assigned_player_ids'] ?? $options['assign_player_ids'] ?? []
+        ))));
+        $payload['published_at'] = null;
+
+        return $payload;
     }
 
     private function blocksToBuckets(array $blocks): array

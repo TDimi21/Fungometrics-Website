@@ -43,6 +43,13 @@ const completionSummaryError = ref('')
 const weeklyRollup = ref(null)
 const weeklyRollupLoading = ref(false)
 const weeklyRollupError = ref('')
+const nextWeekDraft = ref(null)
+const nextWeekDraftLoading = ref(false)
+const nextWeekDraftError = ref('')
+const nextWeekDraftMessage = ref('')
+const nextWeekPreviewDay = ref(null)
+const savingNextWeekDay = ref('')
+const savedNextWeekDailyPlan = ref(null)
 
 // Drill picker
 const picker = ref(null)          // the bucket object being added to
@@ -67,6 +74,7 @@ const loadCommandCenter = async () => {
     commandCenter.value = null
     completionSummary.value = null
     weeklyRollup.value = null
+    nextWeekDraft.value = null
     return
   }
   commandLoading.value = true
@@ -81,6 +89,30 @@ const loadCommandCenter = async () => {
     commandError.value = 'Could not load the planner command center.'
   } finally {
     commandLoading.value = false
+  }
+}
+const loadNextWeekDraft = async () => {
+  nextWeekDraftError.value = ''
+  if (!activeTeamId.value) {
+    nextWeekDraft.value = null
+    return null
+  }
+
+  nextWeekDraftLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/next-week-plan-draft`, {
+      days: 7,
+      plan_days: 5,
+      max_minutes_per_day: 90,
+    })
+    nextWeekDraft.value = res?.data?.data || null
+    return nextWeekDraft.value
+  } catch {
+    nextWeekDraft.value = null
+    nextWeekDraftError.value = 'Next week draft is not available yet.'
+    return null
+  } finally {
+    nextWeekDraftLoading.value = false
   }
 }
 const loadWeeklyRollup = async () => {
@@ -149,8 +181,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup() })
-watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft() })
+watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -191,6 +223,11 @@ const weeklyTrustedSummary = computed(() => weeklyRollup.value?.trusted_data_sum
 const weeklyRecommendations = computed(() => Array.isArray(weeklyRollup.value?.next_week_recommendations) ? weeklyRollup.value.next_week_recommendations : [])
 const weeklyFollowUps = computed(() => Array.isArray(weeklyPlayerSummary.value?.players_needing_follow_up) ? weeklyPlayerSummary.value.players_needing_follow_up : [])
 const weeklyMissingMetrics = computed(() => Array.isArray(weeklyBenchmarkSummary.value?.top_missing_metrics_remaining) ? weeklyBenchmarkSummary.value.top_missing_metrics_remaining : [])
+const nextWeekPriorities = computed(() => Array.isArray(nextWeekDraft.value?.priority_focuses) ? nextWeekDraft.value.priority_focuses : [])
+const nextWeekDays = computed(() => Array.isArray(nextWeekDraft.value?.suggested_plan_days) ? nextWeekDraft.value.suggested_plan_days : [])
+const nextWeekAssignments = computed(() => Array.isArray(nextWeekDraft.value?.player_assignments) ? nextWeekDraft.value.player_assignments : [])
+const nextWeekTargets = computed(() => Array.isArray(nextWeekDraft.value?.benchmark_collection_targets) ? nextWeekDraft.value.benchmark_collection_targets : [])
+const nextWeekNotes = computed(() => Array.isArray(nextWeekDraft.value?.coach_notes) ? nextWeekDraft.value.coach_notes : [])
 const weeklyCards = computed(() => [
   {
     label: 'Weekly Execution',
@@ -345,6 +382,7 @@ const handleActionResult = async (result, action) => {
     await loadCommandCenter()
   }
   await loadWeeklyRollup()
+  await loadNextWeekDraft()
   if (action?.action_type === 'review_submissions') await openReviewQueue()
   if (action?.action_type === 'generate_next_plan') {
     generatedPlanPreview.value = result?.result?.daily_plan_preview || null
@@ -354,6 +392,36 @@ const handleActionResult = async (result, action) => {
     commandActionMessage.value += ` ${result.warnings[0]}`
   }
   if (action?.action_type === 'publish_plan') await loadPlans()
+}
+const previewNextWeekDay = (day) => {
+  nextWeekPreviewDay.value = day
+}
+const openSavedNextWeekPlan = () => {
+  const plan = savedNextWeekDailyPlan.value?.daily_plan
+  if (plan) editing.value = planFromApi(plan)
+}
+const saveNextWeekDayAsDraft = async (day) => {
+  if (!day?.day_index || !activeTeamId.value) return
+  nextWeekDraftMessage.value = ''
+  savingNextWeekDay.value = String(day.day_index)
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/next-week-plan-draft/save-day`, {
+      day_index: day.day_index,
+      scheduled_for: day.scheduled_for,
+      status: 'draft',
+      assign_player_ids: [],
+    })
+    savedNextWeekDailyPlan.value = res?.data?.data || null
+    nextWeekDraftMessage.value = `Saved ${day.title || 'suggested day'} as a Daily Planner draft.`
+    await loadPlans()
+    if (savedNextWeekDailyPlan.value?.daily_plan) {
+      editing.value = planFromApi(savedNextWeekDailyPlan.value.daily_plan)
+    }
+  } catch {
+    nextWeekDraftMessage.value = 'Could not save that suggested day as a draft.'
+  } finally {
+    savingNextWeekDay.value = ''
+  }
 }
 
 // Buckets not yet on the plan (keep the app's ordering).
@@ -634,6 +702,121 @@ const del = async (p) => {
                   </div>
                   <div v-else class="dp-command-sub">No next-week recommendations are available yet.</div>
                 </div>
+              </template>
+            </div>
+
+            <div class="dp-command-block">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div class="dp-section mb-0">Next Week Plan Draft</div>
+                <button class="dp-link" :disabled="nextWeekDraftLoading" @click="loadNextWeekDraft">{{ nextWeekDraftLoading ? 'Generating…' : 'Regenerate Draft' }}</button>
+              </div>
+              <div v-if="nextWeekDraftLoading && !nextWeekDraft" class="dp-command-loading">Generating next week draft from the weekly rollup…</div>
+              <div v-else-if="nextWeekDraftError" class="dp-empty dp-empty--sm">{{ nextWeekDraftError }}</div>
+              <div v-else-if="!nextWeekDraft" class="dp-empty dp-empty--sm">Next week draft is not available yet.</div>
+              <template v-else>
+                <div class="dp-weekly-header">
+                  <div>
+                    <div class="dp-command-label">Starts {{ nextWeekDraft.next_week_start_date || '—' }}</div>
+                    <p class="dp-empty-copy">
+                      <span v-if="nextWeekDraft.generation_status === 'empty'">Complete or assign plans this week to generate next week’s draft.</span>
+                      <span v-else>FMTRX built this draft from weekly completion, benchmark collection, review status, trusted data, and current team intelligence.</span>
+                    </p>
+                  </div>
+                  <span class="dp-status" :class="statusBadgeClass(nextWeekDraft.generation_status === 'complete' ? 'complete' : nextWeekDraft.generation_status === 'partial' ? 'warning' : 'muted')">
+                    {{ human(nextWeekDraft.generation_status || 'empty') }}
+                  </span>
+                </div>
+
+                <div v-if="nextWeekPriorities.length" class="dp-weekly-panel mt-3">
+                  <div class="dp-command-label">Top Priorities</div>
+                  <div class="dp-weekly-recommendations">
+                    <div v-for="priority in nextWeekPriorities.slice(0, 4)" :key="`${priority.rank}-${priority.title}`" class="dp-action-card">
+                      <span class="dp-priority" :class="priorityClass(priority.priority)">{{ human(priority.priority) }}</span>
+                      <div class="font-extrabold mt-2">#{{ priority.rank }} {{ priority.title }}</div>
+                      <p class="text-white/55 text-xs mt-2">{{ priority.why }}</p>
+                      <p v-if="priority.metrics?.length" class="text-white/35 text-xs mt-1">Metrics: {{ priority.metrics.join(', ') }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="nextWeekDays.length" class="dp-next-week-days">
+                  <div v-for="day in nextWeekDays" :key="day.day_index" class="dp-next-week-day">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <div class="dp-command-label">Day {{ day.day_index }} · {{ day.day_label }} · {{ day.scheduled_for || 'Unscheduled' }}</div>
+                        <div class="dp-command-value">{{ day.title }}</div>
+                        <div class="dp-command-sub">{{ day.primary_focus }} · {{ day.estimated_total_minutes || 0 }} min</div>
+                        <p class="dp-empty-copy">{{ day.why_this_day }}</p>
+                      </div>
+                      <div class="dp-next-week-actions">
+                        <button class="dp-btn dp-btn--small" @click="previewNextWeekDay(day)">Preview Day</button>
+                        <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="savingNextWeekDay === String(day.day_index)" @click="saveNextWeekDayAsDraft(day)">
+                          {{ savingNextWeekDay === String(day.day_index) ? 'Saving…' : 'Save Day as Draft' }}
+                        </button>
+                      </div>
+                    </div>
+                    <div class="dp-next-week-blocks">
+                      <div v-for="block in (day.blocks || [])" :key="`${day.day_index}-${block.title}-${block.category}`" class="dp-next-week-block">
+                        <strong>{{ block.title }}</strong>
+                        <span>{{ human(block.category) }} · {{ block.duration_minutes || 0 }} min</span>
+                        <small>{{ block.why || block.description }}</small>
+                        <small v-if="block.metrics_to_collect?.length">Collect: {{ block.metrics_to_collect.join(', ') }}</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-3">No suggested days yet. Complete or assign plans this week to generate next week’s draft.</div>
+
+                <div v-if="nextWeekPreviewDay" class="dp-weekly-panel mt-3">
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <div class="dp-command-label">Preview Day</div>
+                      <div class="font-extrabold">{{ nextWeekPreviewDay.title }}</div>
+                      <p class="dp-command-sub">{{ nextWeekPreviewDay.why_this_day }}</p>
+                    </div>
+                    <button class="dp-link" @click="nextWeekPreviewDay = null">Close</button>
+                  </div>
+                  <ul class="dp-next-week-preview-list">
+                    <li v-for="block in (nextWeekPreviewDay.blocks || [])" :key="`${nextWeekPreviewDay.day_index}-${block.title}`">
+                      <strong>{{ block.title }}</strong>
+                      <span>{{ block.description }}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="dp-weekly-columns">
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Benchmark Collection Targets</div>
+                    <div v-if="nextWeekTargets.length" class="dp-weekly-list">
+                      <div v-for="target in nextWeekTargets.slice(0, 5)" :key="`${target.title}-${target.priority}`" class="dp-gap-row">
+                        <span>{{ target.title }}</span>
+                        <span>{{ (target.metrics || []).length }} metrics</span>
+                      </div>
+                    </div>
+                    <div v-else class="dp-command-sub">No benchmark collection targets are currently carried forward.</div>
+                  </div>
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Individual Assignments</div>
+                    <div v-if="nextWeekAssignments.length" class="dp-weekly-list">
+                      <div v-for="assignment in nextWeekAssignments.slice(0, 5)" :key="assignment.player_id || assignment.player_name" class="dp-gap-row">
+                        <span>{{ assignment.player_name || 'Player' }}</span>
+                        <span>{{ human(assignment.priority) }}</span>
+                      </div>
+                    </div>
+                    <div v-else class="dp-command-sub">No individual follow-up assignments are surfaced yet.</div>
+                  </div>
+                </div>
+
+                <div v-if="nextWeekNotes.length" class="dp-completion-actions">
+                  <div class="dp-command-label">Coach Notes</div>
+                  <ul>
+                    <li v-for="note in nextWeekNotes.slice(0, 4)" :key="note">{{ note }}</li>
+                  </ul>
+                </div>
+                <p v-if="nextWeekDraftMessage" class="dp-command-message">
+                  {{ nextWeekDraftMessage }}
+                  <button v-if="savedNextWeekDailyPlan?.daily_plan" class="dp-link ml-2" @click="openSavedNextWeekPlan">Open Daily Planner to Edit</button>
+                </p>
               </template>
             </div>
 
@@ -968,6 +1151,19 @@ const del = async (p) => {
 .dp-weekly-list { display:grid; gap:6px; margin-top:8px; }
 .dp-weekly-recommendations { display:grid; gap:8px; margin-top:9px; }
 @media (min-width:900px){ .dp-weekly-recommendations { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+.dp-next-week-days { display:grid; gap:12px; margin-top:12px; }
+.dp-next-week-day { background:rgba(9,14,29,.62); border:1px solid rgba(255,255,255,.1); border-radius:15px; padding:14px; min-width:0; }
+.dp-next-week-actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-start; }
+@media (min-width:760px){ .dp-next-week-actions { justify-content:flex-end; } }
+.dp-next-week-blocks { display:grid; grid-template-columns:1fr; gap:8px; margin-top:12px; }
+@media (min-width:860px){ .dp-next-week-blocks { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+.dp-next-week-block { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; display:grid; gap:4px; min-width:0; }
+.dp-next-week-block strong { font-size:13px; overflow-wrap:anywhere; }
+.dp-next-week-block span { color:rgba(255,255,255,.55); font-size:11.5px; font-weight:800; }
+.dp-next-week-block small { color:rgba(255,255,255,.43); font-size:11.5px; line-height:1.35; overflow-wrap:anywhere; }
+.dp-next-week-preview-list { margin:10px 0 0; padding:0; list-style:none; display:grid; gap:8px; }
+.dp-next-week-preview-list li { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:9px 10px; display:grid; gap:3px; }
+.dp-next-week-preview-list span { color:rgba(255,255,255,.55); font-size:12px; line-height:1.4; }
 .dp-command-grid { display:grid; grid-template-columns:repeat(1, minmax(0, 1fr)); gap:10px; }
 .dp-command-grid--two { margin-top:12px; }
 @media (min-width:768px){ .dp-command-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); } .dp-command-grid--two { grid-template-columns:repeat(2, minmax(0, 1fr)); } }

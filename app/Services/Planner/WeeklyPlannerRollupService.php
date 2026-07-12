@@ -253,6 +253,11 @@ class WeeklyPlannerRollupService
             ->all();
     }
 
+    public function buildNextWeekPlanDraft(string $teamId, array $options = []): array
+    {
+        return app(NextWeekPlanGeneratorService::class)->generateForTeam($teamId, $options);
+    }
+
     /**
      * @return Collection<int, DailyPlan>
      */
