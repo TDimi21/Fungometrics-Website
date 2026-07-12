@@ -287,6 +287,27 @@ class BenchmarkRefreshService
             ];
         }
 
+        $approvedPayload = is_array($task->approved_payload ?? null) ? $task->approved_payload : [];
+        if (($approvedPayload['source'] ?? null) === 'daily_plan_progress') {
+            foreach ($this->approvedMetricLabels($approvedPayload) as $label) {
+                $signals[] = [
+                    'type' => 'trusted_daily_plan_metric',
+                    'message' => $label.' was approved from a daily plan submission.',
+                    'before' => 'pending_review',
+                    'after' => 'trusted',
+                ];
+            }
+
+            if (! empty($approvedPayload['daily_plan_item_title'] ?? null)) {
+                $signals[] = [
+                    'type' => 'daily_plan_item',
+                    'message' => 'Trusted values came from '.$approvedPayload['daily_plan_item_title'].'.',
+                    'before' => null,
+                    'after' => 'approved',
+                ];
+            }
+        }
+
         if (count($playerProfile['metrics'] ?? []) > 0) {
             $signals[] = [
                 'type' => 'player_benchmark_profile',
@@ -300,6 +321,24 @@ class BenchmarkRefreshService
             ...$signals,
             ...$this->teamChangedSignals($teamProfile, $collectionPlan),
         ];
+    }
+
+    private function approvedMetricLabels(array $payload): array
+    {
+        $values = [];
+        foreach (['metric_values', 'actuals', 'results', 'submitted_values', 'values'] as $key) {
+            if (is_array($payload[$key] ?? null)) {
+                $values = $payload[$key];
+                break;
+            }
+        }
+
+        return collect(array_keys($values))
+            ->map(fn ($key): string => ucwords(str_replace('_', ' ', (string) $key)))
+            ->filter()
+            ->take(6)
+            ->values()
+            ->all();
     }
 
     private function teamChangedSignals(array $teamProfile, array $collectionPlan): array

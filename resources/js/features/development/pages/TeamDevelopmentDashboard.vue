@@ -1893,10 +1893,10 @@ const manualPromotionReviewTasks = computed(() =>
 )
 
 const promotionModeLabel = (mode) => ({
-  profile_update: 'Profile Update',
-  existing_table_insert: 'Existing Table',
-  trusted_payload_only: 'Trusted Payload',
-  manual_review: 'Manual Review',
+  profile_update: 'Roster Profile Updated',
+  existing_table_insert: 'Saved to Performance Data',
+  trusted_payload_only: 'Trusted Benchmark Evidence',
+  manual_review: 'Manual Mapping Needed',
 }[mode] || humanizeKey(mode, 'Not Promoted'))
 
 const promotionStatusLabel = (status) => ({
@@ -1912,6 +1912,16 @@ const promotionStatusClass = (status) => ({
   skipped: 'border-slate-300/20 bg-white/5 text-slate-200',
   failed: 'border-red-300/30 bg-red-500/15 text-red-100',
 }[status] || 'border-sky-300/30 bg-sky-500/15 text-sky-100')
+
+const promotionResultCoachMessage = (promotion) => {
+  if (!promotion) return ''
+  if (promotion.promotion_status === 'failed') return 'Approved values need attention before trusted data can update.'
+  if (promotion.promotion_mode === 'trusted_payload_only') return 'Approved values are stored as trusted benchmark evidence.'
+  if (promotion.promotion_mode === 'existing_table_insert') return 'Approved values were saved to the existing performance data table.'
+  if (promotion.promotion_mode === 'profile_update') return 'Roster profile updated from approved values.'
+  if (promotion.promotion_mode === 'manual_review') return 'Manual mapping is needed before this value can update benchmarks.'
+  return 'Approved values promoted to trusted benchmark data.'
+}
 
 const promotionTaskTitle = (task) =>
   `${task?.assigned_to_player_name || 'Player'} · ${task?.title || taskTypeLabel(task?.task_type)}`
@@ -2047,7 +2057,7 @@ const reviewBenchmarkTask = async (task, action) => {
       refreshBenchmarkTaskPromotions(),
     ])
     benchmarkReviewActionMessage.value = action === 'approve'
-      ? (result.message || 'Benchmark task approved. Trusted data promotion checked.')
+      ? ([result.message, promotionResultCoachMessage(result.promotion)].filter(Boolean).join(' '))
       : action === 'reject'
         ? 'Benchmark task rejected and returned to the player.'
         : 'Correction request sent to the player.'
@@ -4051,6 +4061,9 @@ const priorityTop10Rows = computed(() => {
 	                            {{ promotionStatusLabel(selectedPromotionPreview.promotion_status) }}
 	                          </span>
 	                        </div>
+	                        <p v-if="promotionResultCoachMessage(selectedPromotionPreview)" class="mt-2 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-2 text-xs text-emerald-100">
+	                          {{ promotionResultCoachMessage(selectedPromotionPreview) }}
+	                        </p>
 	                        <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
 	                          <p class="rounded border border-white/10 bg-white/5 px-2 py-1">
 	                            <span class="block text-[10px] uppercase tracking-wider text-white/35">Target</span>

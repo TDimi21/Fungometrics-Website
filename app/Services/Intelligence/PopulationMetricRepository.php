@@ -74,6 +74,12 @@ class PopulationMetricRepository
             $trustedFinalCount = $rows
                 ->filter(fn (array $row) => ($row['source'] ?? null) === 'trusted_task_payload')
                 ->count();
+            $dailyPlanTrustedFinalCount = $rows
+                ->filter(fn (array $row) => ($row['source'] ?? null) === 'trusted_task_payload')
+                ->filter(fn (array $row) => ($row['submitted_source'] ?? null) === 'daily_plan_progress')
+                ->count();
+            $trustedStatusReasonCounts = $this->excludedReasonCounts($stats['trusted_task_status_excluded']);
+            $trustedGuardrailReasonCounts = $this->excludedReasonCounts($stats['trusted_task_excluded']);
 
             return [
                 'metric_key' => $metricKey,
@@ -89,10 +95,15 @@ class PopulationMetricRepository
                 'trusted_task_values_included_before_dedupe' => $stats['trusted_task_values_included_before_dedupe'],
                 'trusted_task_values_count' => $trustedFinalCount,
                 'trusted_task_values_included' => $trustedFinalCount,
+                'daily_plan_trusted_values_count' => $dailyPlanTrustedFinalCount,
+                'trusted_payload_values_count' => $trustedFinalCount,
                 'trusted_task_values_excluded' => count($stats['trusted_task_excluded']),
                 'trusted_task_values_status_excluded' => count($stats['trusted_task_status_excluded']),
-                'trusted_task_excluded_reasons' => $this->excludedReasonCounts($stats['trusted_task_excluded']),
-                'trusted_task_status_excluded_reasons' => $this->excludedReasonCounts($stats['trusted_task_status_excluded']),
+                'excluded_pending_review_count' => (int) ($trustedStatusReasonCounts['pending_review'] ?? 0),
+                'excluded_rejected_count' => (int) (($trustedStatusReasonCounts['rejected'] ?? 0) + ($trustedStatusReasonCounts['correction_requested'] ?? 0)),
+                'excluded_guardrail_count' => count($stats['trusted_task_excluded']),
+                'trusted_task_excluded_reasons' => $trustedGuardrailReasonCounts,
+                'trusted_task_status_excluded_reasons' => $trustedStatusReasonCounts,
                 'trusted_task_excluded_samples' => array_slice($stats['trusted_task_excluded'], 0, 10),
                 'trusted_task_status_excluded_samples' => array_slice($stats['trusted_task_status_excluded'], 0, 10),
                 'trusted_task_sample' => $stats['trusted_task_samples'],
@@ -153,8 +164,13 @@ class PopulationMetricRepository
                 'trusted_task_values_included_before_dedupe' => 0,
                 'trusted_task_values_count' => 0,
                 'trusted_task_values_included' => 0,
+                'daily_plan_trusted_values_count' => 0,
+                'trusted_payload_values_count' => 0,
                 'trusted_task_values_excluded' => 0,
                 'trusted_task_values_status_excluded' => 0,
+                'excluded_pending_review_count' => 0,
+                'excluded_rejected_count' => 0,
+                'excluded_guardrail_count' => 0,
                 'trusted_task_excluded_reasons' => [],
                 'trusted_task_status_excluded_reasons' => [],
                 'trusted_task_excluded_samples' => [],
@@ -234,10 +250,16 @@ class PopulationMetricRepository
         foreach ([
             $trustedPayload['values'] ?? null,
             $trustedPayload ?? null,
+            $task->approved_payload['metric_values'] ?? null,
+            $task->approved_payload['actuals'] ?? null,
+            $task->approved_payload['results'] ?? null,
             $task->approved_payload['submitted_values'] ?? null,
             $task->approved_payload['values'] ?? null,
             $task->approved_payload['payload']['values'] ?? null,
             $task->approved_payload['payload']['submitted_values'] ?? null,
+            $task->submitted_payload['metric_values'] ?? null,
+            $task->submitted_payload['actuals'] ?? null,
+            $task->submitted_payload['results'] ?? null,
             $task->submitted_payload['submitted_values'] ?? null,
             $task->submitted_payload['values'] ?? null,
             $task->submitted_payload['payload']['values'] ?? null,
@@ -308,6 +330,9 @@ class PopulationMetricRepository
                         'task_id' => (string) $task->id,
                         'task_type' => (string) ($task->task_type ?? ''),
                         'team_id' => $task->team_id ? (string) $task->team_id : null,
+                        'submitted_source' => $task->approved_payload['source'] ?? $task->submitted_payload['source'] ?? null,
+                        'daily_plan_id' => $task->approved_payload['daily_plan_id'] ?? $task->submitted_payload['daily_plan_id'] ?? null,
+                        'daily_plan_item_key' => $task->approved_payload['daily_plan_item_key'] ?? $task->submitted_payload['daily_plan_item_key'] ?? null,
                     ];
                 })
                 ->filter()
@@ -335,7 +360,10 @@ class PopulationMetricRepository
 
         $query = BenchmarkCollectionTask::query()
             ->where('status', BenchmarkCollectionTask::STATUS_COMPLETED)
-            ->where('review_status', BenchmarkCollectionTask::REVIEW_APPROVED)
+            ->whereIn('review_status', [
+                BenchmarkCollectionTask::REVIEW_APPROVED,
+                BenchmarkCollectionTask::REVIEW_NOT_REQUIRED,
+            ])
             ->where(function ($scope): void {
                 $scope->where('promotion_status', BenchmarkCollectionTask::PROMOTION_PROMOTED)
                     ->orWhere('promotion_status', BenchmarkCollectionTask::PROMOTION_PARTIAL)
@@ -388,7 +416,10 @@ class PopulationMetricRepository
                 ->whereNotNull('assigned_to_player_id')
                 ->where(function ($scope): void {
                     $scope->where('status', '!=', BenchmarkCollectionTask::STATUS_COMPLETED)
-                        ->orWhere('review_status', '!=', BenchmarkCollectionTask::REVIEW_APPROVED)
+                        ->orWhereNotIn('review_status', [
+                            BenchmarkCollectionTask::REVIEW_APPROVED,
+                            BenchmarkCollectionTask::REVIEW_NOT_REQUIRED,
+                        ])
                         ->orWhere(function ($promotion): void {
                             $promotion->where(function ($status): void {
                                 $status->whereNotIn('promotion_status', [
@@ -567,7 +598,13 @@ class PopulationMetricRepository
     {
         $reason = match (true) {
             $task->status !== BenchmarkCollectionTask::STATUS_COMPLETED => 'task_not_completed',
-            $task->review_status !== BenchmarkCollectionTask::REVIEW_APPROVED => 'task_not_approved',
+            $task->review_status === BenchmarkCollectionTask::REVIEW_PENDING => 'pending_review',
+            $task->review_status === BenchmarkCollectionTask::REVIEW_REJECTED => 'rejected',
+            $task->review_status === BenchmarkCollectionTask::REVIEW_CORRECTION_REQUESTED => 'correction_requested',
+            ! in_array($task->review_status, [
+                BenchmarkCollectionTask::REVIEW_APPROVED,
+                BenchmarkCollectionTask::REVIEW_NOT_REQUIRED,
+            ], true) => 'task_not_approved',
             ! in_array($task->promotion_status, [
                 BenchmarkCollectionTask::PROMOTION_PROMOTED,
                 BenchmarkCollectionTask::PROMOTION_PARTIAL,

@@ -107,8 +107,8 @@ class BenchmarkTaskReviewService
                 'promotion' => $promotion,
                 'refresh' => $refresh,
                 'message' => ($promotion['promotion_status'] ?? null) === BenchmarkCollectionTask::PROMOTION_FAILED
-                    ? 'Task approved, but trusted data promotion failed. Review promotion warnings.'
-                    : 'Task approved, trusted data promoted, and benchmark intelligence refreshed.',
+                    ? 'Submitted values were approved, but trusted data promotion failed. Review promotion warnings.'
+                    : 'Submitted values approved and trusted benchmark data updated.',
             ]);
         } catch (Throwable $exception) {
             return $this->exceptionResult('approve', $taskId, $exception);

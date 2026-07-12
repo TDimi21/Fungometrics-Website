@@ -26,6 +26,7 @@ class BenchmarkTrustedDataPromotionService
     public function __construct(
         private readonly BenchmarkTaskPersistenceService $taskPersistence,
         private readonly BenchmarkRefreshService $benchmarkRefreshService,
+        private readonly PopulationValueGuardrail $guardrail,
     ) {
     }
 
@@ -98,6 +99,7 @@ class BenchmarkTrustedDataPromotionService
             BenchmarkCollectionTask::PROMOTION_PROMOTED,
             BenchmarkCollectionTask::PROMOTION_PARTIAL,
         ], true)) {
+            $this->storePromotionResult($task->fresh() ?? $task, $result, $reviewedByUserId);
             $result = $this->attachRefresh($taskId, $result, $options);
         }
 
@@ -412,6 +414,18 @@ class BenchmarkTrustedDataPromotionService
 
     private function promoteTrustedPayloadOnly(BenchmarkCollectionTask $task, array $values, array $trustedPayload, bool $preview): array
     {
+        if (empty($values)) {
+            return $this->baseResult((string) $task->id, $task, BenchmarkCollectionTask::PROMOTION_SKIPPED, BenchmarkCollectionTask::MODE_MANUAL_REVIEW, [
+                'trusted_payload' => $trustedPayload,
+                'warnings' => ['No approved metric values were found to promote.'],
+                'evidence' => [
+                    'preview' => $preview,
+                    'task_type' => $task->task_type,
+                    'reason' => 'empty_approved_values',
+                ],
+            ]);
+        }
+
         if (! in_array((string) $task->task_type, self::TRUSTED_PAYLOAD_TASK_TYPES, true)) {
             return $this->baseResult((string) $task->id, $task, BenchmarkCollectionTask::PROMOTION_SKIPPED, BenchmarkCollectionTask::MODE_MANUAL_REVIEW, [
                 'trusted_payload' => $trustedPayload,
@@ -657,6 +671,9 @@ class BenchmarkTrustedDataPromotionService
 
     private function baseResult(string $taskId, ?BenchmarkCollectionTask $task, string $status, string $mode, array $overrides = []): array
     {
+        $overrideEvidence = is_array($overrides['evidence'] ?? null) ? $overrides['evidence'] : [];
+        unset($overrides['evidence']);
+
         return [
             'task_id' => $taskId,
             'team_id' => $task?->team_id,
@@ -673,6 +690,8 @@ class BenchmarkTrustedDataPromotionService
             'warnings' => [],
             'evidence' => [
                 'generated_at' => now()->toIso8601String(),
+                ...$this->dailyPlanEvidence($task),
+                ...$overrideEvidence,
             ],
             'refresh' => [],
             ...$overrides,
@@ -687,6 +706,9 @@ class BenchmarkTrustedDataPromotionService
         }
 
         foreach ([
+            ['metric_values'],
+            ['actuals'],
+            ['results'],
             ['submitted_values'],
             ['values'],
             ['payload', 'values'],
@@ -714,6 +736,11 @@ class BenchmarkTrustedDataPromotionService
             'values' => $values,
             'approved_payload' => $task->approved_payload ?? [],
             'source' => 'approved_benchmark_collection_task',
+            'submitted_source' => $task->approved_payload['source'] ?? $task->submitted_payload['source'] ?? null,
+            'daily_plan_id' => $task->approved_payload['daily_plan_id'] ?? $task->submitted_payload['daily_plan_id'] ?? null,
+            'daily_plan_item_key' => $task->approved_payload['daily_plan_item_key'] ?? $task->submitted_payload['daily_plan_item_key'] ?? null,
+            'daily_plan_item_title' => $task->approved_payload['daily_plan_item_title'] ?? $task->submitted_payload['daily_plan_item_title'] ?? null,
+            'guardrail_results' => $this->guardrailResults($values),
         ];
     }
 
@@ -723,6 +750,16 @@ class BenchmarkTrustedDataPromotionService
             $values['manual_confirm'],
             $values['source'],
             $values['payload'],
+            $values['daily_plan_id'],
+            $values['daily_plan_item_id'],
+            $values['daily_plan_item_key'],
+            $values['daily_plan_item_name'],
+            $values['daily_plan_item_title'],
+            $values['submitted_by_user_id'],
+            $values['submitted_at'],
+            $values['related_metrics'],
+            $values['metric_keys'],
+            $values['metrics_to_collect'],
             $values['completed_by_user_id'],
             $values['completion_mode'],
             $values['saved_data'],
@@ -731,6 +768,40 @@ class BenchmarkTrustedDataPromotionService
         );
 
         return $values;
+    }
+
+    private function dailyPlanEvidence(?BenchmarkCollectionTask $task): array
+    {
+        if (! $task) {
+            return [];
+        }
+
+        $payload = is_array($task->approved_payload ?? null)
+            ? $task->approved_payload
+            : (is_array($task->submitted_payload ?? null) ? $task->submitted_payload : []);
+
+        return [
+            'submitted_source' => $payload['source'] ?? null,
+            'daily_plan_id' => $payload['daily_plan_id'] ?? null,
+            'daily_plan_item_key' => $payload['daily_plan_item_key'] ?? $payload['daily_plan_item_id'] ?? null,
+            'daily_plan_item_title' => $payload['daily_plan_item_title'] ?? $payload['daily_plan_item_name'] ?? null,
+        ];
+    }
+
+    private function guardrailResults(array $values): array
+    {
+        $results = [];
+
+        foreach ($values as $key => $value) {
+            $metricKey = BenchmarkDefinitions::normalizeMetricKey((string) $key);
+            if ($this->guardrail->rangeForMetric($metricKey) === null) {
+                continue;
+            }
+
+            $results[$metricKey] = $this->guardrail->validate($metricKey, $value);
+        }
+
+        return $results;
     }
 
     private function task(string $taskId): ?BenchmarkCollectionTask

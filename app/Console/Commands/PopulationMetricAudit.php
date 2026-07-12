@@ -69,6 +69,13 @@ class PopulationMetricAudit extends Command
             $this->line('Trusted excluded reasons: '.$this->formatReasonCounts($audit['trusted_task_excluded_reasons'] ?? []));
             $this->line('Trusted task values deduped behind existing table values: '.($audit['trusted_task_deduped_count'] ?? $audit['deduped_count'] ?? 0));
             $this->line('Trusted task values in final sample: '.($audit['trusted_task_values_count'] ?? 0));
+            $this->line('Daily plan trusted values in final sample: '.($audit['daily_plan_trusted_values_count'] ?? 0));
+            $this->line('Trusted payload values in final sample: '.($audit['trusted_payload_values_count'] ?? 0));
+            $this->line('Trusted values excluded by status/review: '.($audit['trusted_task_values_status_excluded'] ?? 0));
+            $this->line('Excluded pending review count: '.($audit['excluded_pending_review_count'] ?? 0));
+            $this->line('Excluded rejected/correction count: '.($audit['excluded_rejected_count'] ?? 0));
+            $this->line('Excluded guardrail count: '.($audit['excluded_guardrail_count'] ?? 0));
+            $this->line('Trusted status excluded reasons: '.$this->formatReasonCounts($audit['trusted_task_status_excluded_reasons'] ?? []));
             $this->line('Sample trusted task values: '.$this->sampleDebugRows($audit['trusted_task_sample'] ?? [], 'value'));
             $this->line('Sample trusted excluded values: '.$this->sampleExcludedValues($audit['trusted_task_excluded_samples'] ?? []));
             $this->line('Note: only completed, approved, promoted benchmark task payloads are eligible. Pending, draft, rejected, and unapproved tasks are excluded.');
