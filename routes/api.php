@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\Planner\GetDailyPlanReminderPreview;
 use App\Http\Controllers\Api\Planner\GetDailyPlanUpdateStatus;
 use App\Http\Controllers\Api\Planner\GetDailyPlanCompletionSummary;
 use App\Http\Controllers\Api\Planner\GetTeamPlannerCommandCenter;
+use App\Http\Controllers\Api\Planner\GetWeeklyPlannerRollup;
 use App\Http\Controllers\Api\Planner\MarkDailyPlanUpdateSeen;
 use App\Http\Controllers\Api\Planner\GetPlayerDailyPlanCompletionSummary;
 use App\Http\Controllers\Api\Planner\RunPlannerCommandCenterAction;
@@ -291,6 +292,7 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/daily-plans/{dailyPlanId}/command-center', GetDailyPlanCommandCenter::class);
         Route::get('/teams/{teamId}/planner-command-center', GetTeamPlannerCommandCenter::class);
         Route::post('/teams/{teamId}/planner-command-center/action', RunPlannerCommandCenterAction::class);
+        Route::get('/teams/{teamId}/weekly-planner-rollup', GetWeeklyPlannerRollup::class);
         Route::get('/teams/{teamId}/daily-plan-update-suggestions', [IntelligenceController::class, 'teamDailyPlanUpdateSuggestions']);
 
         // Custom drills / lifts — saved per coach; `library` is the shared,

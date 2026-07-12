@@ -40,6 +40,9 @@ const reviewQueueRef = ref(null)
 const completionSummary = ref(null)
 const completionSummaryLoading = ref(false)
 const completionSummaryError = ref('')
+const weeklyRollup = ref(null)
+const weeklyRollupLoading = ref(false)
+const weeklyRollupError = ref('')
 
 // Drill picker
 const picker = ref(null)          // the bucket object being added to
@@ -63,6 +66,7 @@ const loadCommandCenter = async () => {
   if (!activeTeamId.value) {
     commandCenter.value = null
     completionSummary.value = null
+    weeklyRollup.value = null
     return
   }
   commandLoading.value = true
@@ -77,6 +81,26 @@ const loadCommandCenter = async () => {
     commandError.value = 'Could not load the planner command center.'
   } finally {
     commandLoading.value = false
+  }
+}
+const loadWeeklyRollup = async () => {
+  weeklyRollupError.value = ''
+  if (!activeTeamId.value) {
+    weeklyRollup.value = null
+    return null
+  }
+
+  weeklyRollupLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/weekly-planner-rollup`, { days: 7, include_players: true })
+    weeklyRollup.value = res?.data?.data || null
+    return weeklyRollup.value
+  } catch {
+    weeklyRollup.value = null
+    weeklyRollupError.value = 'Weekly planner rollup is not available yet.'
+    return null
+  } finally {
+    weeklyRollupLoading.value = false
   }
 }
 const loadCompletionSummary = async (dailyPlanId = commandCenter.value?.daily_plan_id) => {
@@ -125,8 +149,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter() })
-watch(activeTeamId, () => { loadRoster(); loadCommandCenter() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup() })
+watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -159,6 +183,36 @@ const commandStatusCards = computed(() => Array.isArray(commandCenter.value?.sta
 const commandVisibility = computed(() => commandCenter.value?.section_visibility || {})
 const completionRows = computed(() => Array.isArray(completionSummary.value?.player_summaries) ? completionSummary.value.player_summaries : [])
 const completionActions = computed(() => Array.isArray(completionSummary.value?.coach_next_actions) ? completionSummary.value.coach_next_actions : [])
+const weeklyPlanSummary = computed(() => weeklyRollup.value?.plan_execution_summary || {})
+const weeklyPlayerSummary = computed(() => weeklyRollup.value?.player_completion_summary || {})
+const weeklyBenchmarkSummary = computed(() => weeklyRollup.value?.benchmark_collection_summary || {})
+const weeklyReviewSummary = computed(() => weeklyRollup.value?.review_summary || {})
+const weeklyTrustedSummary = computed(() => weeklyRollup.value?.trusted_data_summary || {})
+const weeklyRecommendations = computed(() => Array.isArray(weeklyRollup.value?.next_week_recommendations) ? weeklyRollup.value.next_week_recommendations : [])
+const weeklyFollowUps = computed(() => Array.isArray(weeklyPlayerSummary.value?.players_needing_follow_up) ? weeklyPlayerSummary.value.players_needing_follow_up : [])
+const weeklyMissingMetrics = computed(() => Array.isArray(weeklyBenchmarkSummary.value?.top_missing_metrics_remaining) ? weeklyBenchmarkSummary.value.top_missing_metrics_remaining : [])
+const weeklyCards = computed(() => [
+  {
+    label: 'Weekly Execution',
+    value: `${oneDecimal(weeklyPlanSummary.value.average_completion_percentage)}%`,
+    detail: `${weeklyPlanSummary.value.plans_published || 0} published · ${weeklyPlanSummary.value.total_completed_assignments || 0}/${weeklyPlanSummary.value.total_assigned_players || 0} completed`,
+  },
+  {
+    label: 'Benchmark Collection',
+    value: weeklyBenchmarkSummary.value.metric_values_submitted || 0,
+    detail: `${weeklyBenchmarkSummary.value.metric_values_approved || 0} approved · ${weeklyReviewSummary.value.pending_review_count || 0} pending review`,
+  },
+  {
+    label: 'Trusted Data',
+    value: weeklyTrustedSummary.value.trusted_values_added || 0,
+    detail: `${weeklyTrustedSummary.value.players_improved || 0} players updated`,
+  },
+  {
+    label: 'Follow-Up',
+    value: weeklyFollowUps.value.length || 0,
+    detail: `${weeklyPlayerSummary.value.players_partially_completed || 0} partial · ${weeklyPlayerSummary.value.players_not_started || 0} not started`,
+  },
+])
 const completionSummaryCards = computed(() => {
   const summary = completionSummary.value || {}
   return [
@@ -290,6 +344,7 @@ const handleActionResult = async (result, action) => {
   } else {
     await loadCommandCenter()
   }
+  await loadWeeklyRollup()
   if (action?.action_type === 'review_submissions') await openReviewQueue()
   if (action?.action_type === 'generate_next_plan') {
     generatedPlanPreview.value = result?.result?.daily_plan_preview || null
@@ -515,6 +570,70 @@ const del = async (p) => {
                   </ul>
                 </div>
                 <div v-else class="dp-empty dp-empty--sm mt-2">No coach review needed.</div>
+              </template>
+            </div>
+
+            <div class="dp-command-block">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div class="dp-section mb-0">Weekly Planner Rollup</div>
+                <button class="dp-link" :disabled="weeklyRollupLoading" @click="loadWeeklyRollup">{{ weeklyRollupLoading ? 'Refreshing…' : 'Refresh Week' }}</button>
+              </div>
+              <div v-if="weeklyRollupLoading && !weeklyRollup" class="dp-command-loading">Loading weekly rollup…</div>
+              <div v-else-if="weeklyRollupError" class="dp-empty dp-empty--sm">{{ weeklyRollupError }}</div>
+              <div v-else-if="!weeklyRollup" class="dp-empty dp-empty--sm">No weekly planner rollup is available yet.</div>
+              <template v-else>
+                <div class="dp-weekly-header">
+                  <div>
+                    <div class="dp-command-label">{{ weeklyRollup.week_label || 'Current Week' }}</div>
+                    <p class="dp-empty-copy">{{ weeklyRollup.coach_summary || 'No daily plans were assigned this week.' }}</p>
+                  </div>
+                  <span class="dp-status" :class="statusBadgeClass(weeklyRollup.summary_status === 'complete' ? 'complete' : weeklyRollup.summary_status === 'partial' ? 'warning' : 'muted')">
+                    {{ human(weeklyRollup.summary_status || 'empty') }}
+                  </span>
+                </div>
+                <div class="dp-completion-grid mt-3">
+                  <div v-for="card in weeklyCards" :key="card.label" class="dp-command-card">
+                    <div class="dp-command-label">{{ card.label }}</div>
+                    <div class="dp-command-value">{{ card.value }}</div>
+                    <div class="dp-command-sub">{{ card.detail }}</div>
+                  </div>
+                </div>
+
+                <div class="dp-weekly-columns">
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Players Needing Follow-Up</div>
+                    <div v-if="weeklyFollowUps.length" class="dp-weekly-list">
+                      <div v-for="player in weeklyFollowUps.slice(0, 5)" :key="player.player_id || player.player_name" class="dp-gap-row">
+                        <span>{{ player.player_name || 'Player' }}</span>
+                        <span>{{ player.reason || 'Follow up' }}</span>
+                      </div>
+                    </div>
+                    <div v-else class="dp-command-sub">No player follow-up is needed from this week.</div>
+                  </div>
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Remaining Benchmark Gaps</div>
+                    <div v-if="weeklyMissingMetrics.length" class="dp-weekly-list">
+                      <div v-for="metric in weeklyMissingMetrics.slice(0, 5)" :key="`${metric.metric_key}-${metric.category}`" class="dp-gap-row">
+                        <span>{{ metric.display_name || human(metric.metric_key) }}</span>
+                        <span>{{ metric.missing_count || 0 }} missing</span>
+                      </div>
+                    </div>
+                    <div v-else class="dp-command-sub">No benchmark gaps are surfaced for this week.</div>
+                  </div>
+                </div>
+
+                <div class="dp-weekly-panel mt-3">
+                  <div class="dp-command-label">Next Week Recommendations</div>
+                  <div v-if="weeklyRecommendations.length" class="dp-weekly-recommendations">
+                    <div v-for="recommendation in weeklyRecommendations.slice(0, 4)" :key="`${recommendation.title}-${recommendation.priority}`" class="dp-action-card">
+                      <span class="dp-priority" :class="priorityClass(recommendation.priority)">{{ human(recommendation.priority) }}</span>
+                      <div class="font-extrabold mt-2">{{ recommendation.title }}</div>
+                      <p class="text-white/55 text-xs mt-2">{{ recommendation.why }}</p>
+                      <p v-if="recommendation.recommended_plan_block" class="text-white/35 text-xs mt-1">{{ recommendation.recommended_plan_block }} · {{ recommendation.estimated_minutes || 0 }} min</p>
+                    </div>
+                  </div>
+                  <div v-else class="dp-command-sub">No next-week recommendations are available yet.</div>
+                </div>
               </template>
             </div>
 
@@ -841,6 +960,14 @@ const del = async (p) => {
 .dp-completion-actions { margin-top:10px; border:1px solid rgba(59,130,246,.18); background:rgba(59,130,246,.07); border-radius:12px; padding:11px 12px; }
 .dp-completion-actions ul { margin:7px 0 0; padding-left:17px; color:rgba(255,255,255,.68); font-size:12.5px; line-height:1.45; }
 .dp-completion-actions li { margin-top:3px; }
+.dp-weekly-header { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; background:rgba(9,14,29,.64); border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:13px 14px; }
+@media (min-width:720px){ .dp-weekly-header { flex-direction:row; align-items:center; } }
+.dp-weekly-columns { display:grid; grid-template-columns:1fr; gap:10px; margin-top:10px; }
+@media (min-width:820px){ .dp-weekly-columns { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+.dp-weekly-panel { background:rgba(9,14,29,.5); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:12px; min-width:0; }
+.dp-weekly-list { display:grid; gap:6px; margin-top:8px; }
+.dp-weekly-recommendations { display:grid; gap:8px; margin-top:9px; }
+@media (min-width:900px){ .dp-weekly-recommendations { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 .dp-command-grid { display:grid; grid-template-columns:repeat(1, minmax(0, 1fr)); gap:10px; }
 .dp-command-grid--two { margin-top:12px; }
 @media (min-width:768px){ .dp-command-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); } .dp-command-grid--two { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
