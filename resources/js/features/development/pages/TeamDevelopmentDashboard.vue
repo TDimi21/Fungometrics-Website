@@ -54,6 +54,11 @@ const selectedPracticePlanSuggestionIds = ref([])
 const dailyPlanRevisions = ref(null)
 const dailyPlanRevisionLoading = ref(false)
 const dailyPlanRevisionError = ref('')
+const dailyPlanRepublishReview = ref(null)
+const dailyPlanRepublishPreview = ref(null)
+const dailyPlanRepublishReviewLoading = ref('')
+const dailyPlanRepublishReviewError = ref('')
+const dailyPlanRepublishReviewMessage = ref('')
 
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
@@ -142,6 +147,10 @@ const loadTeamCommandCenter = async () => {
   selectedPracticePlanSuggestionIds.value = []
   dailyPlanRevisions.value = null
   dailyPlanRevisionError.value = ''
+  dailyPlanRepublishReview.value = null
+  dailyPlanRepublishPreview.value = null
+  dailyPlanRepublishReviewError.value = ''
+  dailyPlanRepublishReviewMessage.value = ''
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -316,6 +325,15 @@ const readableLabelOverrides = {
   republished: 'Republished',
   edited: 'Edited',
   published: 'Published',
+  republish_review: 'Republish Review',
+  needs_review: 'Needs Review',
+  move_to_next_session: 'Move To Next Session',
+  add_block: 'Add Block',
+  remove_block: 'Remove Block',
+  replace_block: 'Replace Block',
+  update_duration: 'Update Duration',
+  update_metrics: 'Update Metrics',
+  update_note: 'Update Note',
 }
 
 const humanizeKey = (value, fallback = 'Needs Data') => {
@@ -2015,6 +2033,54 @@ const suggestionPlayerNames = (suggestion) =>
     .slice(0, 5)
     .join(', ')
 
+const dailyPlanRepublishChanges = computed(() =>
+  asArray(dailyPlanRepublishReview.value?.editable_changes).slice(0, 8)
+)
+
+const dailyPlanRepublishLockedBlocks = computed(() =>
+  asArray(dailyPlanRepublishReview.value?.locked_blocks).slice(0, 6)
+)
+
+const dailyPlanRepublishWarnings = computed(() =>
+  asArray(dailyPlanRepublishReview.value?.warnings).slice(0, 6)
+)
+
+const dailyPlanRepublishCanReview = computed(() =>
+  Boolean(practicePlanSuggestionDailyPlanId.value && practicePlanSuggestionSelectedCount.value && !dailyPlanRepublishReviewLoading.value)
+)
+
+const dailyPlanRepublishCanApply = computed(() =>
+  Boolean(dailyPlanRepublishReview.value?.can_apply && dailyPlanRepublishChanges.value.length && !dailyPlanRepublishReviewLoading.value)
+)
+
+const dailyPlanRepublishRequiresExplicitRepublish = computed(() =>
+  Boolean(dailyPlanRepublishReview.value?.requires_republish)
+)
+
+const republishLockedPlayerNames = (block) =>
+  asArray(block?.completed_players)
+    .map((player) => player?.player_name || player?.name || player?.player_id)
+    .filter(Boolean)
+    .slice(0, 5)
+    .join(', ')
+
+const reviewChangeMetricLabels = (change) =>
+  asArray(change?.edited_block?.metrics_to_collect || change?.suggested_block?.metrics_to_collect || change?.affected_metrics)
+    .map((metric) => coachFriendlyMetricLabel(metric))
+    .filter(Boolean)
+    .slice(0, 5)
+    .join(', ')
+
+const dailyPlanReviewEditsPayload = () =>
+  dailyPlanRepublishChanges.value
+    .filter((change) => !change?.blocked_reason)
+    .map((change) => ({
+      change_id: change.change_id,
+      suggestion_id: change.suggestion_id,
+      type: change.type,
+      edited_block: change.edited_block || {},
+    }))
+
 const dailyPlanRevisionCards = computed(() =>
   asArray(dailyPlanRevisions.value?.revisions).slice(0, 6)
 )
@@ -2357,6 +2423,133 @@ const refreshDailyPlanRevisions = async (dailyPlanId = null, silent = false) => 
   }
 }
 
+const setRepublishReviewChangeField = (changeId, field, value) => {
+  const review = dailyPlanRepublishReview.value
+  if (!review) return
+
+  dailyPlanRepublishReview.value = {
+    ...review,
+    editable_changes: asArray(review.editable_changes).map((change) => {
+      if (change?.change_id !== changeId) return change
+
+      return {
+        ...change,
+        edited_block: {
+          ...(change.edited_block || {}),
+          [field]: field === 'duration_minutes' ? Number(value) || 0 : value,
+        },
+      }
+    }),
+  }
+}
+
+const loadDailyPlanRepublishReview = async (silent = false) => {
+  const planId = practicePlanSuggestionDailyPlanId.value
+  if (!planId || !selectedPracticePlanSuggestionIds.value.length) return
+
+  if (!silent) {
+    dailyPlanRepublishReviewLoading.value = 'review'
+    dailyPlanRepublishReviewError.value = ''
+    dailyPlanRepublishReviewMessage.value = ''
+  }
+
+  try {
+    const response = await axiosPost(`coach/daily-plans/${planId}/republish-review/preview`, {
+      days: 365,
+      suggestion_ids: selectedPracticePlanSuggestionIds.value,
+      edits: [],
+    })
+    const payload = responsePayload(response)
+    dailyPlanRepublishReview.value = payload
+    dailyPlanRepublishPreview.value = payload.preview_plan || null
+    if (!silent) {
+      dailyPlanRepublishReviewMessage.value = payload.editable_changes?.length
+        ? 'Review package loaded. Edit fields, preview, then apply or republish.'
+        : 'No editable changes are available.'
+    }
+  } catch (error) {
+    if (!silent) {
+      dailyPlanRepublishReviewError.value = error?.response?.data?.message || 'Could not load republish review package.'
+    }
+  } finally {
+    if (!silent) {
+      dailyPlanRepublishReviewLoading.value = ''
+    }
+  }
+}
+
+const previewDailyPlanRepublishReview = async () => {
+  const planId = practicePlanSuggestionDailyPlanId.value
+  if (!planId || !dailyPlanRepublishReview.value || dailyPlanRepublishReviewLoading.value) return
+
+  dailyPlanRepublishReviewLoading.value = 'preview'
+  dailyPlanRepublishReviewError.value = ''
+  dailyPlanRepublishReviewMessage.value = ''
+  try {
+    const response = await axiosPost(`coach/daily-plans/${planId}/republish-review/preview`, {
+      days: 365,
+      suggestion_ids: selectedPracticePlanSuggestionIds.value,
+      edits: dailyPlanReviewEditsPayload(),
+    })
+    const payload = responsePayload(response)
+    dailyPlanRepublishReview.value = payload
+    dailyPlanRepublishPreview.value = payload.preview_plan || null
+    dailyPlanRepublishReviewMessage.value = 'Preview updated. Player progress is preserved.'
+  } catch (error) {
+    dailyPlanRepublishReviewError.value = error?.response?.data?.message || 'Could not preview edited plan.'
+  } finally {
+    dailyPlanRepublishReviewLoading.value = ''
+  }
+}
+
+const applyDailyPlanRepublishReview = async (republish = false) => {
+  const planId = practicePlanSuggestionDailyPlanId.value
+  if (!planId || !dailyPlanRepublishReview.value || dailyPlanRepublishReviewLoading.value) return
+
+  dailyPlanRepublishReviewLoading.value = republish ? 'republish' : 'apply'
+  dailyPlanRepublishReviewError.value = ''
+  dailyPlanRepublishReviewMessage.value = ''
+  try {
+    const endpoint = republish
+      ? `coach/daily-plans/${planId}/republish`
+      : `coach/daily-plans/${planId}/republish-review/apply`
+    const response = await axiosPost(endpoint, {
+      days: 365,
+      approved_edits: dailyPlanReviewEditsPayload(),
+      republish,
+      notify_players: false,
+      coach_note: republish
+        ? 'Updated from FMTRX benchmark intelligence.'
+        : 'Coach approved FMTRX suggested plan updates.',
+    })
+    const payload = responsePayload(response)
+    if (payload.daily_plan) {
+      savedCoachPracticeDailyPlan.value = payload.daily_plan
+    }
+    if (payload.daily_plan_id) {
+      await refreshDailyPlanRevisions(payload.daily_plan_id, true)
+      await refreshPracticePlanUpdateSuggestions(payload.daily_plan_id, true)
+    }
+    dailyPlanRepublishReview.value = payload.editable_changes ? payload : null
+    dailyPlanRepublishPreview.value = payload.preview_plan || null
+    selectedPracticePlanSuggestionIds.value = []
+    dailyPlanRepublishReviewMessage.value = payload.message || (republish
+      ? 'Plan republished. Existing player progress was preserved.'
+      : 'Changes saved as a new revision.')
+  } catch (error) {
+    const payload = error?.response?.data || {}
+    if (payload.editable_changes) {
+      dailyPlanRepublishReview.value = payload
+      dailyPlanRepublishPreview.value = payload.preview_plan || dailyPlanRepublishPreview.value
+    }
+    dailyPlanRepublishReviewError.value = payload.message || (republish
+      ? 'Could not republish updated plan.'
+      : 'Could not apply reviewed changes.')
+  } finally {
+    dailyPlanRepublishReviewLoading.value = ''
+  }
+}
+
 const refreshPracticePlanUpdateSuggestions = async (dailyPlanId = null, silent = false) => {
   const teamId = resolveTeamId.value
   const planId = dailyPlanId || practicePlanSuggestionDailyPlanId.value
@@ -2378,6 +2571,8 @@ const refreshPracticePlanUpdateSuggestions = async (dailyPlanId = null, silent =
       practice_plan_update_suggestions: payload,
     }
     selectedPracticePlanSuggestionIds.value = []
+    dailyPlanRepublishReview.value = null
+    dailyPlanRepublishPreview.value = null
     if (payload.daily_plan_id) {
       await refreshDailyPlanRevisions(payload.daily_plan_id, true)
     }
@@ -2402,6 +2597,10 @@ const togglePracticePlanSuggestion = (suggestionId) => {
   selectedPracticePlanSuggestionIds.value = selectedPracticePlanSuggestionIds.value.includes(id)
     ? selectedPracticePlanSuggestionIds.value.filter((selectedId) => selectedId !== id)
     : [...selectedPracticePlanSuggestionIds.value, id]
+  dailyPlanRepublishReview.value = null
+  dailyPlanRepublishPreview.value = null
+  dailyPlanRepublishReviewError.value = ''
+  dailyPlanRepublishReviewMessage.value = ''
 }
 
 const applySelectedPracticePlanSuggestions = async () => {
@@ -3628,12 +3827,193 @@ const priorityTop10Rows = computed(() => {
                     <button
                       type="button"
                       class="rounded-md border border-red-300/40 bg-red-500 px-3 py-2 text-xs font-black uppercase tracking-wider text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-45"
-                      :disabled="!practicePlanSuggestionsCanApply"
-                      @click="applySelectedPracticePlanSuggestions"
+                      :disabled="!dailyPlanRepublishCanReview"
+                      @click="loadDailyPlanRepublishReview()"
                     >
-                      {{ practicePlanSuggestionActionLoading === 'apply' ? 'Applying...' : practicePlanSuggestionsRequireRepublish ? 'Apply + Republish' : 'Apply Selected' }}
+                      {{ dailyPlanRepublishReviewLoading === 'review' ? 'Loading Review...' : 'Review Selected' }}
                     </button>
                   </div>
+                </div>
+
+                <div class="mt-3 rounded-lg border border-emerald-300/20 bg-emerald-500/10 p-3">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p class="text-[10px] uppercase tracking-widest text-emerald-100/80">Review Plan Updates Before Republish</p>
+                      <p class="mt-1 text-sm text-slate-200">
+                        Review FMTRX suggested changes, adjust the block details, then apply or explicitly republish.
+                      </p>
+                    </div>
+                    <span
+                      class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider"
+                      :class="rescoreStatusClass(dailyPlanRepublishReview?.review_status)"
+                    >
+                      {{ humanizeKey(dailyPlanRepublishReview?.review_status, 'Not Loaded') }}
+                    </span>
+                  </div>
+
+                  <p v-if="!dailyPlanRepublishReview" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                    Select one or more suggested updates, then load the coach review package.
+                  </p>
+
+                  <template v-else>
+                    <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-4">
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                        <span class="block text-[10px] uppercase tracking-wider text-white/35">Current Plan</span>
+                        <span class="font-black text-white">{{ dailyPlanRepublishReview.current_plan?.name || 'Saved Plan' }}</span>
+                      </p>
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                        <span class="block text-[10px] uppercase tracking-wider text-white/35">Focus</span>
+                        <span class="font-black text-white">
+                          {{ dailyPlanRepublishReview.current_plan?.primary_goal || '—' }}
+                          →
+                          {{ dailyPlanRepublishReview.suggested_plan?.priority_focus || '—' }}
+                        </span>
+                      </p>
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                        <span class="block text-[10px] uppercase tracking-wider text-white/35">Minutes</span>
+                        <span class="font-black text-white">
+                          {{ fmtCount(dailyPlanRepublishReview.estimated_minutes_before, '—') }}
+                          →
+                          {{ fmtCount(dailyPlanRepublishReview.estimated_minutes_after, '—') }}
+                        </span>
+                      </p>
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                        <span class="block text-[10px] uppercase tracking-wider text-white/35">Selected Changes</span>
+                        <span class="font-black text-white">{{ fmtCount(dailyPlanRepublishChanges.length, '0') }}</span>
+                      </p>
+                    </div>
+
+                    <div v-if="dailyPlanRepublishLockedBlocks.length" class="mt-3 rounded border border-amber-300/25 bg-amber-500/10 p-3">
+                      <p class="text-[10px] uppercase tracking-widest text-amber-100/80">Locked Blocks</p>
+                      <div class="mt-2 space-y-2">
+                        <p
+                          v-for="block in dailyPlanRepublishLockedBlocks"
+                          :key="`locked-republish-block-${block.change_id || block.block_id}`"
+                          class="rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-amber-100"
+                        >
+                          <span class="font-black text-white">{{ block.title }}</span>
+                          <span class="block">{{ block.reason || 'Locked because player progress already exists.' }}</span>
+                          <span v-if="republishLockedPlayerNames(block)" class="block text-slate-300">
+                            Completed by: {{ republishLockedPlayerNames(block) }}
+                          </span>
+                          <span class="block text-slate-300">Allowed: add note, add follow-up block, or move future work to next session.</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div v-if="dailyPlanRepublishChanges.length" class="mt-3 space-y-3">
+                      <div
+                        v-for="change in dailyPlanRepublishChanges"
+                        :key="`republish-review-change-${change.change_id}`"
+                        class="rounded-lg border border-white/10 bg-slate-950/40 p-3"
+                      >
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p class="text-[10px] uppercase tracking-widest text-white/35">
+                              {{ humanizeKey(change.type, 'Plan Update') }}
+                              <span v-if="reviewChangeMetricLabels(change)"> · {{ reviewChangeMetricLabels(change) }}</span>
+                            </p>
+                            <h5 class="mt-1 text-sm font-black text-white">{{ change.title }}</h5>
+                            <p class="mt-1 text-xs text-slate-300">{{ change.why }}</p>
+                          </div>
+                          <span
+                            class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                            :class="change.blocked_reason ? 'border-amber-300/30 bg-amber-500/15 text-amber-100' : coachActionPriorityClass(change.priority)"
+                          >
+                            {{ change.blocked_reason ? 'Locked' : humanizeKey(change.priority, 'Low') }}
+                          </span>
+                        </div>
+
+                        <p v-if="change.blocked_reason" class="mt-2 rounded border border-amber-300/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                          This block cannot be removed because players already completed it.
+                        </p>
+
+                        <div v-else class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                          <label class="text-[10px] uppercase tracking-wider text-slate-300">
+                            Title
+                            <input
+                              class="mt-1 w-full rounded border border-white/10 bg-slate-950/60 px-2 py-2 text-xs normal-case tracking-normal text-white"
+                              :value="change.edited_block?.title || change.edited_block?.name || change.title"
+                              @input="setRepublishReviewChangeField(change.change_id, 'title', $event.target.value)"
+                            />
+                          </label>
+                          <label class="text-[10px] uppercase tracking-wider text-slate-300">
+                            Duration
+                            <input
+                              type="number"
+                              min="1"
+                              class="mt-1 w-full rounded border border-white/10 bg-slate-950/60 px-2 py-2 text-xs normal-case tracking-normal text-white"
+                              :value="change.edited_block?.duration_minutes || change.current_block?.duration_minutes || 0"
+                              @input="setRepublishReviewChangeField(change.change_id, 'duration_minutes', $event.target.value)"
+                            />
+                          </label>
+                          <label class="text-[10px] uppercase tracking-wider text-slate-300 md:col-span-2">
+                            Description / Instructions
+                            <textarea
+                              rows="2"
+                              class="mt-1 w-full rounded border border-white/10 bg-slate-950/60 px-2 py-2 text-xs normal-case tracking-normal text-white"
+                              :value="change.edited_block?.instructions || change.edited_block?.description || ''"
+                              @input="setRepublishReviewChangeField(change.change_id, 'instructions', $event.target.value)"
+                            ></textarea>
+                          </label>
+                          <label class="text-[10px] uppercase tracking-wider text-slate-300 md:col-span-2">
+                            Coach Notes
+                            <textarea
+                              rows="2"
+                              class="mt-1 w-full rounded border border-white/10 bg-slate-950/60 px-2 py-2 text-xs normal-case tracking-normal text-white"
+                              :value="change.edited_block?.coach_notes || ''"
+                              @input="setRepublishReviewChangeField(change.change_id, 'coach_notes', $event.target.value)"
+                            ></textarea>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p v-else class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                      No editable changes are available.
+                    </p>
+
+                    <div v-if="dailyPlanRepublishPreview" class="mt-3 rounded border border-emerald-300/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                      Preview ready: {{ fmtCount(asArray(dailyPlanRepublishPreview.buckets).length, '0') }} plan bucket(s), {{ fmtCount(dailyPlanRepublishPreview.estimated_minutes, '0') }} minutes.
+                    </div>
+
+                    <div v-if="dailyPlanRepublishWarnings.length" class="mt-3 space-y-1">
+                      <p
+                        v-for="warning in dailyPlanRepublishWarnings"
+                        :key="`republish-review-warning-${warning}`"
+                        class="rounded border border-amber-300/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
+                      >
+                        {{ warning }}
+                      </p>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        class="rounded border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-xs font-black uppercase tracking-wider text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                        :disabled="!dailyPlanRepublishCanApply || dailyPlanRepublishReviewLoading === 'preview'"
+                        @click="previewDailyPlanRepublishReview"
+                      >
+                        {{ dailyPlanRepublishReviewLoading === 'preview' ? 'Previewing...' : 'Preview Changes' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded border border-cyan-300/30 bg-cyan-500/15 px-3 py-2 text-xs font-black uppercase tracking-wider text-cyan-100 transition hover:bg-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                        :disabled="!dailyPlanRepublishCanApply || dailyPlanRepublishRequiresExplicitRepublish || dailyPlanRepublishReviewLoading === 'apply'"
+                        @click="applyDailyPlanRepublishReview(false)"
+                      >
+                        {{ dailyPlanRepublishReviewLoading === 'apply' ? 'Applying...' : 'Apply Changes' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded border border-red-300/40 bg-red-500 px-3 py-2 text-xs font-black uppercase tracking-wider text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-45"
+                        :disabled="!dailyPlanRepublishCanApply || dailyPlanRepublishReviewLoading === 'republish'"
+                        @click="applyDailyPlanRepublishReview(true)"
+                      >
+                        {{ dailyPlanRepublishReviewLoading === 'republish' ? 'Republishing...' : 'Republish Updated Plan' }}
+                      </button>
+                    </div>
+                  </template>
                 </div>
 
                 <p v-if="practicePlanSuggestionActionMessage" class="mt-2 rounded border border-emerald-300/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
@@ -3641,6 +4021,12 @@ const priorityTop10Rows = computed(() => {
                 </p>
                 <p v-if="practicePlanSuggestionActionError" class="mt-2 rounded border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
                   {{ practicePlanSuggestionActionError }}
+                </p>
+                <p v-if="dailyPlanRepublishReviewMessage" class="mt-2 rounded border border-emerald-300/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                  {{ dailyPlanRepublishReviewMessage }}
+                </p>
+                <p v-if="dailyPlanRepublishReviewError" class="mt-2 rounded border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                  {{ dailyPlanRepublishReviewError }}
                 </p>
               </div>
 

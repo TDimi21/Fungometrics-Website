@@ -25,6 +25,7 @@ use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\PracticePlanUpdateSuggestionService;
 use App\Services\Intelligence\TeamIntelligenceService;
+use App\Services\Planner\DailyPlanRepublishReviewService;
 use App\Services\Planner\DailyPlanRevisionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,7 @@ class IntelligenceController extends Controller
         private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
         private readonly BenchmarkPracticePlanDailyPlannerAdapter $coachActionDailyPlannerAdapter,
         private readonly PracticePlanUpdateSuggestionService $practicePlanUpdateSuggestionService,
+        private readonly DailyPlanRepublishReviewService $dailyPlanRepublishReviewService,
         private readonly DailyPlanRevisionService $dailyPlanRevisionService,
     ) {
     }
@@ -274,6 +276,116 @@ class IntelligenceController extends Controller
             [
                 'days' => $this->days($request),
                 'republish' => (bool) ($validated['republish'] ?? false),
+            ],
+        );
+
+        return response()->json($result, ($result['ok'] ?? false) ? HttpCodes::HTTP_OK : HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    public function dailyPlanRepublishReview(Request $request, string $dailyPlanId): JsonResponse
+    {
+        $plan = DailyPlan::query()->find($dailyPlanId);
+        if (! $plan) {
+            return $this->notFound('Daily plan not found');
+        }
+
+        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+            return $this->forbidden('You do not have access to this daily plan');
+        }
+
+        return response()->json($this->dailyPlanRepublishReviewService->buildReviewPackage(
+            $dailyPlanId,
+            $this->requestIds($request, 'suggestion_ids'),
+            ['days' => $this->days($request)],
+        ));
+    }
+
+    public function previewDailyPlanRepublishReview(Request $request, string $dailyPlanId): JsonResponse
+    {
+        $plan = DailyPlan::query()->find($dailyPlanId);
+        if (! $plan) {
+            return $this->notFound('Daily plan not found');
+        }
+
+        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+            return $this->forbidden('You do not have access to this daily plan');
+        }
+
+        $validated = $request->validate([
+            'suggestion_ids' => ['nullable', 'array'],
+            'suggestion_ids.*' => ['string'],
+            'edits' => ['nullable', 'array'],
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+        ]);
+
+        return response()->json($this->dailyPlanRepublishReviewService->previewEditedPlan(
+            $dailyPlanId,
+            $validated['edits'] ?? [],
+            [
+                'days' => $this->days($request),
+                'suggestion_ids' => $validated['suggestion_ids'] ?? [],
+            ],
+        ));
+    }
+
+    public function applyDailyPlanRepublishReview(Request $request, string $dailyPlanId): JsonResponse
+    {
+        $plan = DailyPlan::query()->find($dailyPlanId);
+        if (! $plan) {
+            return $this->notFound('Daily plan not found');
+        }
+
+        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+            return $this->forbidden('You do not have access to this daily plan');
+        }
+
+        $validated = $request->validate([
+            'approved_edits' => ['nullable', 'array'],
+            'republish' => ['nullable', 'boolean'],
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+            'coach_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $result = $this->dailyPlanRepublishReviewService->applyCoachApprovedEdits(
+            $dailyPlanId,
+            $validated['approved_edits'] ?? [],
+            (string) $request->user()?->id,
+            [
+                'days' => $this->days($request),
+                'republish' => (bool) ($validated['republish'] ?? false),
+                'coach_note' => $validated['coach_note'] ?? null,
+            ],
+        );
+
+        return response()->json($result, ($result['ok'] ?? false) ? HttpCodes::HTTP_OK : HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    public function republishDailyPlan(Request $request, string $dailyPlanId): JsonResponse
+    {
+        $plan = DailyPlan::query()->find($dailyPlanId);
+        if (! $plan) {
+            return $this->notFound('Daily plan not found');
+        }
+
+        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+            return $this->forbidden('You do not have access to this daily plan');
+        }
+
+        $validated = $request->validate([
+            'approved_edits' => ['nullable', 'array'],
+            'notify_players' => ['nullable', 'boolean'],
+            'coach_note' => ['nullable', 'string', 'max:1000'],
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+        ]);
+
+        $result = $this->dailyPlanRepublishReviewService->republishPlan(
+            $dailyPlanId,
+            (string) $request->user()?->id,
+            [
+                'approved_edits' => $validated['approved_edits'] ?? [],
+                'notify_players' => (bool) ($validated['notify_players'] ?? false),
+                'coach_note' => $validated['coach_note'] ?? null,
+                'days' => $this->days($request),
             ],
         );
 
@@ -788,6 +900,16 @@ class IntelligenceController extends Controller
         $days = (int) ($request->query('days', $request->input('days', 365)));
 
         return max(7, min(365, $days));
+    }
+
+    private function requestIds(Request $request, string $key): array
+    {
+        $value = $request->query($key, $request->input($key, []));
+        if (is_string($value)) {
+            $value = explode(',', $value);
+        }
+
+        return array_values(array_unique(array_filter(array_map('strval', is_array($value) ? $value : []))));
     }
 
     private function teamIsAccessible(Request $request, string $teamId): bool

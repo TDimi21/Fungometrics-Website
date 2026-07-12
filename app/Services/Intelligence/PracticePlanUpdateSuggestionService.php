@@ -253,6 +253,37 @@ class PracticePlanUpdateSuggestionService
         ];
     }
 
+    public function buildEditableSuggestions(string $dailyPlanId, array $suggestions = []): array
+    {
+        $payload = empty($suggestions)
+            ? $this->suggestUpdatesForDailyPlan($dailyPlanId)
+            : ['suggestions' => $suggestions];
+
+        return collect($payload['suggestions'] ?? [])
+            ->filter(fn ($suggestion): bool => is_array($suggestion))
+            ->map(function (array $suggestion): array {
+                $suggestedBlock = is_array($suggestion['suggested_block'] ?? null) ? $suggestion['suggested_block'] : [];
+                $currentBlock = is_array($suggestion['current_block'] ?? null) ? $suggestion['current_block'] : [];
+
+                return [
+                    'change_id' => (string) ($suggestion['suggestion_id'] ?? Str::slug(($suggestion['type'] ?? 'change').' '.($suggestion['title'] ?? Str::uuid()), '_')),
+                    'suggestion_id' => (string) ($suggestion['suggestion_id'] ?? ''),
+                    'type' => (string) ($suggestion['type'] ?? 'update_note'),
+                    'priority' => (string) ($suggestion['priority'] ?? 'low'),
+                    'title' => (string) ($suggestion['title'] ?? 'Daily Plan Update'),
+                    'why' => (string) ($suggestion['why'] ?? $suggestion['description'] ?? 'FMTRX suggested this plan update.'),
+                    'current_block' => $currentBlock,
+                    'suggested_block' => $suggestedBlock,
+                    'coach_editable_fields' => ['title', 'duration_minutes', 'description', 'instructions', 'players', 'metrics_to_collect', 'coach_notes'],
+                    'edited_block' => ! empty($suggestedBlock) ? $suggestedBlock : $currentBlock,
+                    'requires_republish' => (bool) ($suggestion['requires_republish'] ?? false),
+                    'blocked_reason' => null,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     public function applyApprovedSuggestions(string $dailyPlanId, array $suggestionIds, ?string $approvedByUserId = null, array $options = []): array
     {
         $suggestionIds = array_values(array_unique(array_filter(array_map('strval', $suggestionIds))));

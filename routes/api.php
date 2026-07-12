@@ -256,6 +256,10 @@ Route::prefix('coach')->group(function (): void {
         Route::delete('/daily-plans/{id}', DeleteDailyPlan::class);
         Route::get('/daily-plans/{dailyPlanId}/update-suggestions', [IntelligenceController::class, 'dailyPlanUpdateSuggestions']);
         Route::post('/daily-plans/{dailyPlanId}/apply-update-suggestions', [IntelligenceController::class, 'applyDailyPlanUpdateSuggestions']);
+        Route::get('/daily-plans/{dailyPlanId}/republish-review', [IntelligenceController::class, 'dailyPlanRepublishReview']);
+        Route::post('/daily-plans/{dailyPlanId}/republish-review/preview', [IntelligenceController::class, 'previewDailyPlanRepublishReview']);
+        Route::post('/daily-plans/{dailyPlanId}/republish-review/apply', [IntelligenceController::class, 'applyDailyPlanRepublishReview']);
+        Route::post('/daily-plans/{dailyPlanId}/republish', [IntelligenceController::class, 'republishDailyPlan']);
         Route::get('/daily-plans/{dailyPlanId}/revisions/compare', [IntelligenceController::class, 'compareDailyPlanRevisions']);
         Route::get('/daily-plans/{dailyPlanId}/revisions/{revisionId}', [IntelligenceController::class, 'showDailyPlanRevision']);
         Route::get('/daily-plans/{dailyPlanId}/revisions', [IntelligenceController::class, 'listDailyPlanRevisions']);
