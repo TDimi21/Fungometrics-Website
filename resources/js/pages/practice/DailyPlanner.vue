@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
 import { storeToRefs } from 'pinia'
@@ -27,6 +27,10 @@ const loading = ref(false)
 const saving = ref(false)
 const offline = ref(false)
 const playerSearch = ref('')
+const commandCenter = ref(null)
+const commandLoading = ref(false)
+const commandError = ref('')
+const commandActionMessage = ref('')
 
 // Drill picker
 const picker = ref(null)          // the bucket object being added to
@@ -45,6 +49,23 @@ const loadPlans = async () => {
     plans.value = rows.map(planFromApi).filter((p) => p.status !== 'template')
     offline.value = false
   } catch { offline.value = true } finally { loading.value = false }
+}
+const loadCommandCenter = async () => {
+  if (!activeTeamId.value) {
+    commandCenter.value = null
+    return
+  }
+  commandLoading.value = true
+  commandError.value = ''
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/planner-command-center`, { days: 365 })
+    commandCenter.value = res?.data?.data || null
+  } catch {
+    commandCenter.value = null
+    commandError.value = 'Could not load the planner command center.'
+  } finally {
+    commandLoading.value = false
+  }
 }
 const loadGroups = async () => {
   try {
@@ -72,7 +93,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter() })
+watch(activeTeamId, () => { loadRoster(); loadCommandCenter() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -83,6 +105,66 @@ const itemCount = (p) => (p.buckets || []).reduce((n, b) => n + (b.items || []).
 const fmtDate = (iso) => {
   if (!iso) return ''
   try { return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) } catch { return iso }
+}
+const prettyDateTime = (value) => {
+  if (!value) return '—'
+  try { return new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return value }
+}
+const oneDecimal = (value) => Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '0.0'
+const human = (value) => String(value || '—').replace(/[_-]/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
+const commandPlan = computed(() => commandCenter.value?.plan_status || {})
+const commandSummary = computed(() => commandCenter.value?.player_status_summary || {})
+const commandBenchmark = computed(() => commandCenter.value?.benchmark_workflow_summary || {})
+const commandReview = computed(() => commandCenter.value?.review_queue_summary || {})
+const commandTrusted = computed(() => commandCenter.value?.trusted_data_summary || {})
+const commandRows = computed(() => Array.isArray(commandCenter.value?.player_rows) ? commandCenter.value.player_rows : [])
+const commandActions = computed(() => Array.isArray(commandCenter.value?.next_actions) ? commandCenter.value.next_actions : [])
+const commandGaps = computed(() => Array.isArray(commandCenter.value?.remaining_benchmark_gaps) ? commandCenter.value.remaining_benchmark_gaps : [])
+const priorityClass = (priority) => ({
+  critical: 'dp-priority--critical',
+  high: 'dp-priority--high',
+  medium: 'dp-priority--medium',
+  low: 'dp-priority--low',
+}[priority] || 'dp-priority--medium')
+const canRunAction = (action) => ['publish_plan', 'send_reminder', 'review_submissions', 'refresh_intelligence'].includes(action?.action_type)
+const runCommandAction = async (action) => {
+  if (!action) return
+  const actionType = action.action_type
+  commandActionMessage.value = ''
+
+  if (actionType === 'publish_plan' && !commandCenter.value?.daily_plan_id) {
+    newPlan()
+    return
+  }
+
+  if (!canRunAction(action)) return
+
+  try {
+    if (actionType === 'publish_plan') {
+      const plan = plans.value.find((p) => p.id === commandCenter.value?.daily_plan_id)
+      if (!plan) {
+        commandActionMessage.value = 'Open the plan card to publish it.'
+        return
+      }
+      const updated = { ...JSON.parse(JSON.stringify(plan)), status: 'published', publishedAt: plan.publishedAt || new Date().toISOString() }
+      await axiosPost('coach/daily-plans', planToApi(updated, activeTeamId.value))
+      commandActionMessage.value = 'Plan published.'
+      await loadPlans()
+    } else if (actionType === 'send_reminder') {
+      await axiosPost(`coach/daily-plans/${commandCenter.value?.daily_plan_id}/send-reminder`, {})
+      commandActionMessage.value = 'Reminder preview updated. Manual copy is used until push delivery is available.'
+    } else if (actionType === 'review_submissions') {
+      const res = await axiosGet(`intelligence/teams/${activeTeamId.value}/benchmark-task-reviews`)
+      const count = res?.data?.pending_count ?? res?.data?.data?.pending_count ?? commandReview.value.pending_review_count ?? 0
+      commandActionMessage.value = `${count} submission${Number(count) === 1 ? '' : 's'} pending review.`
+    } else if (actionType === 'refresh_intelligence') {
+      await axiosPost(`intelligence/teams/${activeTeamId.value}/refresh-benchmarks`, {})
+      commandActionMessage.value = 'Benchmark intelligence refreshed.'
+    }
+    await loadCommandCenter()
+  } catch {
+    commandActionMessage.value = 'Could not complete that command center action.'
+  }
 }
 
 // Buckets not yet on the plan (keep the app's ordering).
@@ -173,13 +255,14 @@ const save = async (status) => {
   try {
     await axiosPost('coach/daily-plans', planToApi(editing.value, activeTeamId.value))
     await loadPlans()
+    await loadCommandCenter()
     editing.value = null
   } catch { alert('Could not reach the server — check your connection and try again.') } finally { saving.value = false }
 }
 const del = async (p) => {
   if (!confirm(`Delete "${p.name || 'Untitled'}"?`)) return
   plans.value = plans.value.filter((x) => x.id !== p.id)
-  try { await axiosDelete('coach/daily-plans/', p.id) } catch { /* server reconciles */ }
+  try { await axiosDelete('coach/daily-plans/', p.id); await loadCommandCenter() } catch { /* server reconciles */ }
 }
 </script>
 
@@ -197,6 +280,122 @@ const del = async (p) => {
           <button class="dp-btn dp-btn--primary" @click="newPlan">+ New Plan</button>
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
+        <section class="dp-command mb-5">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <div class="dp-command-eyebrow">Coach Planner Command Center</div>
+              <h2 class="text-xl font-black tracking-wide">Today’s Planner Status</h2>
+              <p class="text-white/45 text-sm mt-1">Daily Plan, player acknowledgement, benchmark workflow, and next coach actions.</p>
+            </div>
+            <button class="dp-btn" :disabled="commandLoading" @click="loadCommandCenter">{{ commandLoading ? 'Refreshing…' : 'Refresh' }}</button>
+          </div>
+
+          <div v-if="commandError" class="dp-command-alert">{{ commandError }}</div>
+          <div v-else-if="commandLoading && !commandCenter" class="dp-command-loading">Loading planner command center…</div>
+          <template v-else-if="commandCenter">
+            <div class="dp-command-grid">
+              <div class="dp-command-card">
+                <div class="dp-command-label">Plan Status</div>
+                <div class="dp-command-value">{{ commandPlan.title || 'No active plan' }}</div>
+                <div class="dp-command-sub">{{ human(commandPlan.status) }} · {{ commandPlan.scheduled_for || 'No date' }}</div>
+                <div class="dp-command-mini">
+                  <span>{{ commandPlan.block_count || 0 }} blocks</span>
+                  <span>{{ commandPlan.estimated_total_minutes ?? '—' }} min</span>
+                  <span>{{ commandPlan.benchmark_generated ? 'Benchmark generated' : 'Manual plan' }}</span>
+                </div>
+              </div>
+              <div class="dp-command-card">
+                <div class="dp-command-label">Player Status</div>
+                <div class="dp-command-value">{{ commandSummary.completed_count || 0 }} / {{ commandSummary.assigned_count || 0 }} complete</div>
+                <div class="dp-command-sub">{{ oneDecimal(commandSummary.completion_percentage) }}% completion · {{ oneDecimal(commandSummary.acknowledgement_percentage) }}% acknowledged</div>
+                <div class="dp-command-mini">
+                  <span>{{ commandSummary.not_acknowledged_count || 0 }} not acknowledged</span>
+                  <span>{{ commandSummary.not_started_count || 0 }} not started</span>
+                  <span>{{ commandSummary.pending_review_count || 0 }} pending review</span>
+                </div>
+              </div>
+              <div class="dp-command-card">
+                <div class="dp-command-label">Benchmark Workflow</div>
+                <div class="dp-command-value">{{ commandBenchmark.benchmark_items_completed || 0 }} / {{ commandBenchmark.benchmark_items_total || 0 }} items</div>
+                <div class="dp-command-sub">{{ commandBenchmark.submitted_metric_count || 0 }} submitted metrics · {{ commandBenchmark.promoted_count || 0 }} promoted</div>
+                <div class="dp-command-mini">
+                  <span>{{ commandReview.pending_review_count || 0 }} review queue</span>
+                  <span>{{ commandTrusted.trusted_values_added || 0 }} trusted values</span>
+                  <span>{{ commandBenchmark.refresh_status || 'No refresh status' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="commandActions.length" class="dp-command-block">
+              <div class="dp-section mb-2">Next Actions</div>
+              <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div v-for="action in commandActions" :key="`${action.action_type}-${action.title}`" class="dp-action-card">
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <span class="dp-priority" :class="priorityClass(action.priority)">{{ human(action.priority) }}</span>
+                      <div class="font-extrabold mt-2">{{ action.title }}</div>
+                    </div>
+                    <button
+                      v-if="action.button_label && (canRunAction(action) || action.action_type === 'publish_plan')"
+                      class="dp-btn dp-btn--primary dp-btn--small"
+                      @click.stop="runCommandAction(action)"
+                    >
+                      {{ action.button_label }}
+                    </button>
+                  </div>
+                  <p class="text-white/55 text-xs mt-2">{{ action.why }}</p>
+                  <p class="text-white/35 text-xs mt-1">{{ action.action }}</p>
+                </div>
+              </div>
+            </div>
+
+            <p v-if="commandActionMessage" class="dp-command-message">{{ commandActionMessage }}</p>
+
+            <div class="dp-command-block">
+              <div class="dp-section mb-2">Player Rows</div>
+              <div v-if="!commandRows.length" class="dp-empty dp-empty--sm">No players are assigned to the active Daily Plan yet.</div>
+              <div v-else class="dp-player-status-list">
+                <div v-for="row in commandRows" :key="row.player_id" class="dp-player-status-row">
+                  <div class="min-w-0">
+                    <div class="font-bold truncate">{{ row.player_name }}</div>
+                    <div class="text-white/40 text-xs">{{ row.next_needed_action || 'No action needed' }}</div>
+                  </div>
+                  <div class="dp-player-status-metrics">
+                    <span>{{ row.acknowledged ? 'Ack' : 'Needs ack' }}</span>
+                    <span>{{ row.completed_items || 0 }}/{{ row.total_items || 0 }} items</span>
+                    <span>{{ oneDecimal(row.completion_percentage) }}%</span>
+                    <span>{{ row.pending_review_count || 0 }} review</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dp-command-grid dp-command-grid--two">
+              <div class="dp-command-card">
+                <div class="dp-command-label">Review Queue</div>
+                <div class="dp-command-value">{{ commandReview.pending_review_count || 0 }} pending</div>
+                <div class="dp-command-sub">Oldest: {{ prettyDateTime(commandReview.oldest_pending_at) }}</div>
+                <div v-if="commandReview.tasks_pending_review?.length" class="mt-3 space-y-1">
+                  <div v-for="task in commandReview.tasks_pending_review.slice(0, 4)" :key="task.task_id" class="text-xs text-white/55">
+                    {{ task.player_name }} · {{ task.title }}
+                  </div>
+                </div>
+              </div>
+              <div class="dp-command-card">
+                <div class="dp-command-label">Remaining Benchmark Gaps</div>
+                <div class="dp-command-value">{{ commandGaps.length }} tracked</div>
+                <div v-if="!commandGaps.length" class="dp-command-sub">No benchmark gaps surfaced for this plan.</div>
+                <div v-else class="mt-3 space-y-1">
+                  <div v-for="gap in commandGaps.slice(0, 5)" :key="`${gap.display_name}-${gap.category}`" class="dp-gap-row">
+                    <span>{{ gap.display_name }}</span>
+                    <span>{{ gap.missing_count }}/{{ gap.eligible_count }} · {{ human(gap.priority) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+          <div v-else class="dp-command-loading">Select a team to load the planner command center.</div>
+        </section>
         <div v-if="loading" class="dp-empty">Loading…</div>
         <div v-else-if="plans.length === 0" class="dp-empty">No workout plans yet. Click <strong>New Plan</strong> to build one.</div>
         <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -379,7 +578,34 @@ const del = async (p) => {
 .dp-btn:disabled { opacity:.55; cursor:default; }
 .dp-btn--primary { background:#d8232a; border-color:#d8232a; }
 .dp-btn--primary:hover { background:#e5484d; }
+.dp-btn--small { padding:7px 11px; font-size:11px; border-radius:8px; white-space:nowrap; }
 .dp-panel { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:16px; }
+.dp-command { background:linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.025)); border:1px solid rgba(255,255,255,.11); border-radius:18px; padding:16px; box-shadow:0 16px 50px rgba(0,0,0,.22); }
+.dp-command-eyebrow { color:#ff4a5f; text-transform:uppercase; letter-spacing:.08em; font-size:11px; font-weight:900; margin-bottom:3px; }
+.dp-command-grid { display:grid; grid-template-columns:repeat(1, minmax(0, 1fr)); gap:10px; }
+.dp-command-grid--two { margin-top:12px; }
+@media (min-width:768px){ .dp-command-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); } .dp-command-grid--two { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+.dp-command-card { background:rgba(9,14,29,.76); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:14px; min-width:0; }
+.dp-command-label { color:rgba(255,255,255,.48); text-transform:uppercase; letter-spacing:.08em; font-size:10.5px; font-weight:900; }
+.dp-command-value { font-size:20px; line-height:1.15; font-weight:950; margin-top:7px; overflow-wrap:anywhere; }
+.dp-command-sub { color:rgba(255,255,255,.48); font-size:12px; margin-top:5px; }
+.dp-command-mini { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.dp-command-mini span { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:999px; padding:3px 7px; font-size:10.5px; color:rgba(255,255,255,.58); font-weight:800; }
+.dp-command-block { margin-top:14px; }
+.dp-command-alert { border:1px solid rgba(248,113,113,.35); background:rgba(127,29,29,.28); color:#fecaca; border-radius:12px; padding:13px; font-size:13px; }
+.dp-command-loading { border:1px dashed rgba(255,255,255,.14); color:rgba(255,255,255,.48); border-radius:12px; padding:18px; text-align:center; font-size:13px; }
+.dp-command-message { background:rgba(52,211,153,.12); border:1px solid rgba(52,211,153,.28); color:#a7f3d0; border-radius:12px; padding:10px 12px; margin-top:12px; font-size:13px; font-weight:800; }
+.dp-action-card { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:13px; }
+.dp-priority { display:inline-flex; align-items:center; border-radius:999px; padding:3px 8px; font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.06em; }
+.dp-priority--critical { background:rgba(216,35,42,.22); color:#ff8d98; }
+.dp-priority--high { background:rgba(245,158,11,.18); color:#fbbf24; }
+.dp-priority--medium { background:rgba(59,130,246,.16); color:#93c5fd; }
+.dp-priority--low { background:rgba(148,163,184,.14); color:#cbd5e1; }
+.dp-player-status-list { display:grid; gap:7px; }
+.dp-player-status-row { display:flex; align-items:center; justify-content:space-between; gap:12px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; }
+.dp-player-status-metrics { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; color:rgba(255,255,255,.62); font-size:11px; font-weight:850; }
+.dp-player-status-metrics span { background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.075); border-radius:999px; padding:3px 7px; }
+.dp-gap-row { display:flex; align-items:center; justify-content:space-between; gap:10px; color:rgba(255,255,255,.62); font-size:12px; border-top:1px solid rgba(255,255,255,.06); padding-top:6px; }
 .dp-section { font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.06em; color:#fff; margin-bottom:12px; }
 .dp-field { display:flex; flex-direction:column; gap:5px; }
 .dp-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,.45); font-weight:700; }

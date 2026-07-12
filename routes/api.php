@@ -31,11 +31,13 @@ use App\Http\Controllers\Api\Planner\AcknowledgeDailyPlanUpdate;
 use App\Http\Controllers\Api\Planner\GetDailyPlans;
 use App\Http\Controllers\Api\Planner\SaveDailyPlan;
 use App\Http\Controllers\Api\Planner\DeleteDailyPlan;
+use App\Http\Controllers\Api\Planner\GetDailyPlanCommandCenter;
 use App\Http\Controllers\Api\Planner\GetMyWorkouts;
 use App\Http\Controllers\Api\Planner\GetMyWorkout;
 use App\Http\Controllers\Api\Planner\GetDailyPlanAcknowledgements;
 use App\Http\Controllers\Api\Planner\GetDailyPlanReminderPreview;
 use App\Http\Controllers\Api\Planner\GetDailyPlanUpdateStatus;
+use App\Http\Controllers\Api\Planner\GetTeamPlannerCommandCenter;
 use App\Http\Controllers\Api\Planner\MarkDailyPlanUpdateSeen;
 use App\Http\Controllers\Api\Planner\SaveWorkoutProgress;
 use App\Http\Controllers\Api\Planner\SendDailyPlanReminder;
@@ -281,6 +283,8 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/daily-plans/{dailyPlanId}/revisions/compare', [IntelligenceController::class, 'compareDailyPlanRevisions']);
         Route::get('/daily-plans/{dailyPlanId}/revisions/{revisionId}', [IntelligenceController::class, 'showDailyPlanRevision']);
         Route::get('/daily-plans/{dailyPlanId}/revisions', [IntelligenceController::class, 'listDailyPlanRevisions']);
+        Route::get('/daily-plans/{dailyPlanId}/command-center', GetDailyPlanCommandCenter::class);
+        Route::get('/teams/{teamId}/planner-command-center', GetTeamPlannerCommandCenter::class);
         Route::get('/teams/{teamId}/daily-plan-update-suggestions', [IntelligenceController::class, 'teamDailyPlanUpdateSuggestions']);
 
         // Custom drills / lifts — saved per coach; `library` is the shared,
