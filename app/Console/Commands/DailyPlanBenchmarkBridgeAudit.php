@@ -59,6 +59,8 @@ class DailyPlanBenchmarkBridgeAudit extends Command
                     $item['id'] ?? '-',
                     count($matches),
                 ));
+                $this->line('  Metric values found: '.$this->wrap($row['metric_values'] ?? []));
+                $this->line('  Submitted payload preview: '.$this->wrap($row['submitted_payload_preview'] ?? []));
 
                 foreach ($matches as $match) {
                     if (! is_array($match)) {

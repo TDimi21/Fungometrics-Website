@@ -3844,6 +3844,12 @@ const priorityTop10Rows = computed(() => {
 	                        <p class="mt-2 text-[10px] uppercase tracking-wider text-white/45">
 	                          {{ taskTypeLabel(task.task_type) }} · Submitted {{ task.submitted_at ? formatDate(task.submitted_at) : '—' }}
 	                        </p>
+	                        <p v-if="task.submitted_payload?.source === 'daily_plan_progress'" class="mt-1 text-[10px] font-black uppercase tracking-wider text-cyan-100">
+	                          Submitted from Daily Plan
+	                        </p>
+	                        <p v-if="task.submitted_payload?.note" class="mt-2 rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-300">
+	                          Note: {{ task.submitted_payload.note }}
+	                        </p>
 	                        <div v-if="submittedValueRows(task).length" class="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
 	                          <p
 	                            v-for="value in submittedValueRows(task)"

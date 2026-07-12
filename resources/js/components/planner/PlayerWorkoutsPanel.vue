@@ -11,59 +11,88 @@ const loading = ref(false)
 const saving = ref(false)
 const offline = ref(false)
 const expandedInstructions = ref(new Set())
+const saveNotice = ref('')
 
-const metricLabels = {
-  average_exit_velocity: 'Average EV',
-  max_exit_velocity: 'Max EV',
-  hard_hit_percentage: 'Hard-Hit %',
-  line_drive_percentage: 'Line-Drive %',
-  hitter_swing_miss_percentage: 'Swing/Miss %',
-  average_fastball_velocity: 'Avg Fastball',
-  max_fastball_velocity: 'Max Fastball',
-  strike_percentage: 'Strike %',
-  long_toss_max_distance: 'Long Toss Distance',
-  weighted_ball_5oz_velocity: '5 oz Velocity',
-  bench_press: 'Bench Press',
-  squat: 'Squat',
-  deadlift: 'Deadlift',
-  pull_ups: 'Pull-Ups',
-  pushups: 'Pushups',
-  forty_yard_dash: '40-Yard Dash',
-  sixty_yard_dash: '60-Yard Dash',
-  broad_jump: 'Broad Jump',
-  vertical_jump: 'Vertical Jump',
-  mobility_score: 'Mobility Score',
-  shoulder_mobility_score: 'Shoulder Mobility',
-  hip_mobility_score: 'Hip Mobility',
-  t_spine_mobility_score: 'T-Spine Mobility',
-  player_context: 'Roster Profile',
+const metricDefinitions = {
+  average_exit_velocity: { label: 'Average EV', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
+  max_exit_velocity: { label: 'Max EV', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
+  hard_hit_percentage: { label: 'Hard-Hit %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100 },
+  line_drive_percentage: { label: 'Line-Drive %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100 },
+  hitter_swing_miss_percentage: { label: 'Swing/Miss %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100 },
+  average_fastball_velocity: { label: 'Avg Fastball', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
+  max_fastball_velocity: { label: 'Max Fastball', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
+  strike_percentage: { label: 'Strike %', unit: '%', type: 'number', step: '0.1', min: 0, max: 100 },
+  long_toss_max_distance: { label: 'Long Toss Distance', unit: 'ft', type: 'number', step: '1', min: 0.1 },
+  weighted_ball_5oz_velocity: { label: '5 oz Velocity', unit: 'mph', type: 'number', step: '0.1', min: 0.1 },
+  bench_press: { label: 'Bench Press', unit: 'lb', type: 'number', step: '1', min: 0 },
+  squat: { label: 'Squat', unit: 'lb', type: 'number', step: '1', min: 0 },
+  deadlift: { label: 'Deadlift', unit: 'lb', type: 'number', step: '1', min: 0 },
+  pull_ups: { label: 'Pull-Ups', unit: 'reps', type: 'number', step: '1', min: 0 },
+  pushups: { label: 'Pushups', unit: 'reps', type: 'number', step: '1', min: 0 },
+  forty_yard_dash: { label: '40-Yard Dash', unit: 'sec', type: 'number', step: '0.01', min: 0.01 },
+  sixty_yard_dash: { label: '60-Yard Dash', unit: 'sec', type: 'number', step: '0.01', min: 0.01 },
+  broad_jump: { label: 'Broad Jump', unit: 'in', type: 'number', step: '0.5', min: 0.1 },
+  vertical_jump: { label: 'Vertical Jump', unit: 'in', type: 'number', step: '0.5', min: 0.1 },
+  mobility_score: { label: 'Mobility Score', unit: '/100', type: 'number', step: '1', min: 0, max: 100 },
+  shoulder_mobility_score: { label: 'Shoulder Mobility', unit: '/100', type: 'number', step: '1', min: 0, max: 100 },
+  hip_mobility_score: { label: 'Hip Mobility', unit: '/100', type: 'number', step: '1', min: 0, max: 100 },
+  t_spine_mobility_score: { label: 'T-Spine Mobility', unit: '/100', type: 'number', step: '1', min: 0, max: 100 },
+  dob: { label: 'Date of Birth', type: 'date' },
+  position: { label: 'Position', type: 'text' },
+  height: { label: 'Height', type: 'text' },
+  weight: { label: 'Weight', unit: 'lb', type: 'number', step: '1', min: 0 },
+  throws: { label: 'Throws', type: 'select', options: ['R', 'L'] },
+  bats: { label: 'Bats', type: 'select', options: ['R', 'L', 'S'] },
+  level: { label: 'Level', type: 'text' },
 }
 
 const asArray = (value) => (Array.isArray(value) ? value : [])
 const cleanText = (value) => String(value ?? '').trim()
 const normalizeToken = (value) => cleanText(value).toLowerCase().replace(/\s+/g, '_')
+const normalizeMetricKey = (value) => cleanText(value).toLowerCase().replace(/[\s-]+/g, '_')
 const humanizeMetric = (value) => {
-  const key = cleanText(value)
+  const key = normalizeMetricKey(value)
   if (!key) return ''
-  return metricLabels[key] || key
+  return metricDefinitions[key]?.label || key
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-const itemMetrics = (item = {}) => {
+const fieldKeyFromMetric = (metric) => {
+  if (typeof metric === 'object' && metric) {
+    return normalizeMetricKey(metric.metric_key || metric.key || metric.name || metric.display_name)
+  }
+
+  return normalizeMetricKey(metric)
+}
+
+const expandMetricKey = (key) => {
+  if (key === 'player_context' || key === 'roster_profile') {
+    return ['dob', 'position', 'height', 'weight', 'throws', 'bats', 'level']
+  }
+
+  return key ? [key] : []
+}
+
+const itemMetricKeys = (item = {}) => {
   const values = [
     ...asArray(item.relatedMetrics),
     ...asArray(item.related_metrics),
     ...asArray(item.metrics_to_collect),
     ...asArray(item.metricsToCollect),
     ...asArray(item.metrics),
+    ...asArray(item.required_fields),
   ]
 
   return [...new Set(values
-    .map((metric) => typeof metric === 'object' ? (metric.metric_key || metric.key || metric.display_name || metric.name) : metric)
-    .map(humanizeMetric)
+    .map(fieldKeyFromMetric)
+    .flatMap(expandMetricKey)
     .filter(Boolean))]
 }
+
+const itemMetrics = (item = {}) => itemMetricKeys(item).map(humanizeMetric)
+const metricDefinition = (key) => metricDefinitions[key] || { label: humanizeMetric(key), type: 'text' }
+const metricEntryFields = (item = {}) => itemMetricKeys(item).map((key) => ({ key, ...metricDefinition(key) }))
 
 const isBenchmarkItem = (item = {}) => {
   const source = normalizeToken(item.source)
@@ -78,7 +107,8 @@ const isBenchmarkItem = (item = {}) => {
   ].includes(source)
     || tags.some((tag) => ['benchmark-generated', 'benchmark_generated', 'coach_action_practice_plan', 'benchmark_collection_plan'].includes(tag))
     || categoryGroup === 'fmtrx_benchmark'
-    || itemMetrics(item).length > 0
+    || itemMetricKeys(item).length > 0
+    || !!item.benchmark_task_type
 }
 
 const hasBenchmarkItems = (bucket = {}) => asArray(bucket.items).some((item) => isBenchmarkItem(item))
@@ -274,8 +304,10 @@ const progressItemMetadata = (item = {}, bucket = {}) => {
     'metric_values',
     'metricValues',
     'actuals',
+    'results',
     'values',
     'submitted_values',
+    'required_fields',
     'benchmark_task_id',
     'benchmark_task_type',
     'benchmark_task_temporary_key',
@@ -285,6 +317,8 @@ const progressItemMetadata = (item = {}, bucket = {}) => {
     'coachCue',
     'coach_cue',
     'note',
+    'completion_note',
+    'player_note',
     'instructions',
   ]
 
@@ -300,15 +334,128 @@ const progressItemMetadata = (item = {}, bucket = {}) => {
   return payload
 }
 
+const valueFromItem = (item = {}, key) => {
+  const sources = [item.metric_values, item.actuals, item.results, item.values, item.submitted_values]
+  for (const source of sources) {
+    if (source && typeof source === 'object' && source[key] !== undefined && source[key] !== null) {
+      return source[key]
+    }
+  }
+
+  return ''
+}
+
+const metricInputValue = (itemId, key) => valueFromItem(current.value?.items?.[itemId] || {}, key)
+
+const parseMetricInput = (key, rawValue) => {
+  const def = metricDefinition(key)
+  if (rawValue === '') return ''
+  if (def.type === 'number') {
+    const parsed = Number(rawValue)
+    return Number.isFinite(parsed) ? parsed : rawValue
+  }
+
+  return rawValue
+}
+
+const cleanMetricValues = (values = {}) => Object.fromEntries(
+  Object.entries(values || {}).filter(([, value]) => value !== '' && value !== null && value !== undefined)
+)
+
+const updateMetricValue = (itemId, key, rawValue) => {
+  const item = current.value.items[itemId] || {}
+  const value = parseMetricInput(key, rawValue)
+  const metricValues = { ...(item.metric_values || {}) }
+  const actuals = { ...(item.actuals || {}) }
+
+  if (value === '') {
+    delete metricValues[key]
+    delete actuals[key]
+  } else {
+    metricValues[key] = value
+    actuals[key] = value
+  }
+
+  current.value.items[itemId] = {
+    ...item,
+    metric_values: metricValues,
+    actuals,
+    submitted_values: cleanMetricValues(metricValues),
+  }
+}
+
+const metricWarnings = (itemId, item = {}) => {
+  const progress = current.value?.items?.[itemId] || {}
+  const warnings = []
+
+  metricEntryFields(item).forEach((field) => {
+    const value = valueFromItem(progress, field.key)
+    if (value === '' || value === null || value === undefined) return
+
+    if (field.type === 'number') {
+      const numeric = Number(value)
+      if (!Number.isFinite(numeric)) {
+        warnings.push(`${field.label} should be a number.`)
+        return
+      }
+      if (field.min !== undefined && numeric < Number(field.min)) warnings.push(`${field.label} should be ${field.min} or higher.`)
+      if (field.max !== undefined && numeric > Number(field.max)) warnings.push(`${field.label} should be ${field.max} or lower.`)
+    }
+  })
+
+  return warnings
+}
+
+const missingMetricCount = (itemId, item = {}) => {
+  const progress = current.value?.items?.[itemId] || {}
+  return metricEntryFields(item)
+    .filter((field) => valueFromItem(progress, field.key) === '' || valueFromItem(progress, field.key) === null || valueFromItem(progress, field.key) === undefined)
+    .length
+}
+
+const hasMetricValues = (itemId) => Object.keys(cleanMetricValues(current.value?.items?.[itemId]?.metric_values || {})).length > 0
+
+const bridgeSaveMessage = (bridge) => {
+  if (!bridge) return 'Workout saved.'
+  if (Number(bridge.tasks_pending_review || 0) > 0) return 'Results submitted for coach review.'
+
+  const warnings = asArray(bridge.warnings).join(' ').toLowerCase()
+  if (Number(bridge.tasks_updated || 0) > 0 && warnings.includes('no metric values')) {
+    return 'Workout marked complete. Add measured values when available.'
+  }
+  if (Number(bridge.tasks_updated || 0) > 0) return 'Benchmark task updated.'
+
+  return 'Workout saved.'
+}
+
 const open = (w) => {
+  saveNotice.value = ''
   const items = {}
   const prog = w.progress?.items || {}
   ;(w.buckets || []).forEach((b) => (b.items || []).forEach((it) => {
     const saved = prog[it.id] || {}
+    const metadata = progressItemMetadata(it, b)
+    const metricValues = cleanMetricValues({
+      ...(metadata.metric_values || {}),
+      ...(metadata.actuals || {}),
+      ...(metadata.results || {}),
+      ...(metadata.values || {}),
+      ...(metadata.submitted_values || {}),
+      ...(saved.metric_values || {}),
+      ...(saved.actuals || {}),
+      ...(saved.results || {}),
+      ...(saved.values || {}),
+      ...(saved.submitted_values || {}),
+    })
+
     items[it.id] = {
-      ...progressItemMetadata(it, b),
+      ...metadata,
       ...saved,
       id: it.id,
+      metric_values: metricValues,
+      actuals: metricValues,
+      submitted_values: cleanMetricValues(metricValues),
+      completion_note: saved.completion_note || saved.player_note || '',
       done: !!saved.done,
       completed: !!saved.completed || !!saved.done,
       completed_at: saved.completed_at || null,
@@ -326,6 +473,7 @@ const toggleItem = (id) => {
     done,
     completed: done,
     completed_at: done ? (item.completed_at || new Date().toISOString()) : null,
+    submitted_at: done ? new Date().toISOString() : null,
   }
 }
 
@@ -335,11 +483,12 @@ const done = computed(() => current.value ? Object.values(current.value.items).f
 const finish = async () => {
   saving.value = true
   try {
-    await axiosPost(`player/daily-plans/${current.value.plan.id}/progress`, {
+    const res = await axiosPost(`player/daily-plans/${current.value.plan.id}/progress`, {
       items: current.value.items,
       started_at: current.value.startedAt,
       completed_at: new Date().toISOString(),
     })
+    saveNotice.value = bridgeSaveMessage(res?.data?.benchmark_completion_bridge)
     await load()
     current.value = null
   } catch {
@@ -352,6 +501,8 @@ const finish = async () => {
 
 <template>
   <div>
+    <div v-if="saveNotice" class="pw-save-notice">{{ saveNotice }}</div>
+
     <!-- ══ LIST ══ -->
     <template v-if="!current">
       <div v-if="loading" class="pw-empty">Loading…</div>
@@ -430,6 +581,82 @@ const finish = async () => {
                 <span class="pw-metrics-label">Metrics:</span>
                 <span v-for="metric in itemMetrics(it)" :key="`${it.id}-${metric}`" class="pw-metric-chip">{{ metric }}</span>
               </div>
+              <div
+                v-if="metricEntryFields(it).length"
+                class="pw-results"
+                @click.stop
+              >
+                <div class="pw-results-head">
+                  <span>Record Results</span>
+                  <small v-if="hasMetricValues(it.id)">Saved in progress</small>
+                  <small v-else>Optional until measured</small>
+                </div>
+                <div class="pw-result-grid">
+                  <label
+                    v-for="field in metricEntryFields(it)"
+                    :key="`${it.id}-${field.key}`"
+                    class="pw-result-field"
+                  >
+                    <span>
+                      {{ field.label }}
+                      <small v-if="field.unit">{{ field.unit }}</small>
+                    </span>
+                    <select
+                      v-if="field.type === 'select'"
+                      :value="metricInputValue(it.id, field.key)"
+                      @click.stop
+                      @change="updateMetricValue(it.id, field.key, $event.target.value)"
+                    >
+                      <option value="">Select</option>
+                      <option
+                        v-for="option in field.options || []"
+                        :key="`${field.key}-${option}`"
+                        :value="option"
+                      >
+                        {{ option }}
+                      </option>
+                    </select>
+                    <input
+                      v-else
+                      :type="field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'"
+                      :value="metricInputValue(it.id, field.key)"
+                      :step="field.step || undefined"
+                      :min="field.min ?? undefined"
+                      :max="field.max ?? undefined"
+                      @click.stop
+                      @input="updateMetricValue(it.id, field.key, $event.target.value)"
+                    />
+                  </label>
+                </div>
+                <label class="pw-result-note">
+                  <span>Notes</span>
+                  <textarea
+                    v-model="current.items[it.id].completion_note"
+                    rows="2"
+                    placeholder="Add context for coach review"
+                    @click.stop
+                  />
+                </label>
+                <p
+                  v-for="warning in metricWarnings(it.id, it)"
+                  :key="`${it.id}-${warning}`"
+                  class="pw-result-warning"
+                >
+                  {{ warning }}
+                </p>
+                <p
+                  v-if="!metricWarnings(it.id, it).length && current.items[it.id]?.done && missingMetricCount(it.id, it) > 0"
+                  class="pw-result-warning"
+                >
+                  Some benchmark values are missing. You can still mark the workout complete, but coach review may ask for corrections.
+                </p>
+                <p
+                  v-else-if="!metricWarnings(it.id, it).length && hasMetricValues(it.id)"
+                  class="pw-result-ok"
+                >
+                  Results will be submitted for coach review when this item is completed.
+                </p>
+              </div>
               <ul class="pw-instructions">
                 <li v-for="row in instructionRows(it, bucket)" :key="`${it.id}-${row}`">{{ row }}</li>
               </ul>
@@ -461,6 +688,7 @@ const finish = async () => {
 </template>
 
 <style scoped>
+.pw-save-notice { margin-bottom: 12px; border: 1px solid rgba(52,211,153,.24); background: rgba(16,185,129,.12); color: #d1fae5; border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 900; }
 .pw-empty { border: 1px dashed rgba(255,255,255,.14); border-radius: 16px; padding: 30px 20px; text-align: center; color: rgba(255,255,255,.5); font-size: 14px; }
 .pw-card { display: block; width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 16px; cursor: pointer; transition: border-color .12s, background .12s; }
 .pw-card:hover { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.06); }
@@ -493,6 +721,19 @@ const finish = async () => {
 .pw-metrics { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:9px; }
 .pw-metrics-label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.72); }
 .pw-metric-chip { display:inline-flex; align-items:center; border-radius:999px; border:1px solid rgba(56,189,248,.22); background:rgba(14,165,233,.12); color:#bae6fd; font-size:11px; font-weight:800; padding:3px 8px; }
+.pw-results { margin-top: 10px; border: 1px solid rgba(255,255,255,.1); background: rgba(5,11,31,.52); border-radius: 12px; padding: 10px; cursor: default; }
+.pw-results-head { display:flex; align-items:center; justify-content:space-between; gap:10px; color:#fff; font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.06em; }
+.pw-results-head small { color:rgba(255,255,255,.42); font-size:10px; letter-spacing:.03em; text-transform:none; white-space:nowrap; }
+.pw-result-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-top:9px; }
+.pw-result-field { display:block; min-width:0; }
+.pw-result-field span, .pw-result-note span { display:flex; align-items:center; justify-content:space-between; gap:8px; color:rgba(255,255,255,.62); font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; }
+.pw-result-field small { color:rgba(255,255,255,.35); font-size:10px; font-weight:800; text-transform:none; letter-spacing:0; }
+.pw-result-field input, .pw-result-field select, .pw-result-note textarea { width:100%; margin-top:5px; border:1px solid rgba(255,255,255,.12); background:#091129; color:#fff; border-radius:8px; padding:9px 10px; font-size:13px; font-weight:800; outline:none; }
+.pw-result-field input:focus, .pw-result-field select:focus, .pw-result-note textarea:focus { border-color:rgba(125,166,245,.72); box-shadow:0 0 0 2px rgba(59,130,246,.18); }
+.pw-result-note { display:block; margin-top:9px; }
+.pw-result-note textarea { min-height:58px; resize:vertical; font-weight:700; line-height:1.35; }
+.pw-result-warning { margin:8px 0 0; border:1px solid rgba(251,191,36,.22); background:rgba(251,191,36,.1); color:#fde68a; border-radius:8px; padding:7px 9px; font-size:12px; font-weight:800; line-height:1.35; }
+.pw-result-ok { margin:8px 0 0; color:#bbf7d0; font-size:12px; font-weight:800; line-height:1.35; }
 .pw-instructions { margin:9px 0 0; padding-left:18px; color:rgba(255,255,255,.68); font-size:12.5px; line-height:1.45; }
 .pw-instructions li { margin-top:3px; }
 .pw-more { margin-top:7px; border:0; background:transparent; color:#7ca6f5; font-size:12px; font-weight:900; padding:0; cursor:pointer; }
@@ -501,4 +742,8 @@ const finish = async () => {
 .pw-finish { width: 100%; margin-top: 8px; background: #22c55e; border: none; color: #06210f; font-weight: 900; font-size: 15px; padding: 14px; border-radius: 12px; cursor: pointer; }
 .pw-finish:hover { background: #2dd46a; }
 .pw-finish:disabled { opacity: .6; cursor: default; }
+@media (max-width: 520px) {
+  .pw-result-grid { grid-template-columns: 1fr; }
+  .pw-results-head { align-items:flex-start; flex-direction:column; }
+}
 </style>

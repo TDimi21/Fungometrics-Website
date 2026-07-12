@@ -184,15 +184,19 @@ class DailyPlanBenchmarkCompletionBridge
         }
 
         $submittedValues = $this->submittedValues($item);
+        $submittedPayload = $this->submittedPayload($dailyPlanId, $playerId, $item, $userId, $submittedValues);
         $payload = [
             'completed_by_user_id' => $userId,
             'source' => 'daily_plan_progress',
             'daily_plan_id' => $dailyPlanId,
             'daily_plan_item_id' => $item['id'] ?? null,
+            'daily_plan_item_key' => $item['item_key'] ?? $item['id'] ?? null,
             'daily_plan_item_name' => $item['name'] ?? null,
             'task_type' => (string) $task->task_type,
+            'metric_values' => $submittedValues,
             'submitted_values' => $submittedValues,
-            'note' => $this->nullableString($item['note'] ?? $item['completion_note'] ?? null),
+            'submitted_payload' => $submittedPayload,
+            'note' => $this->completionNote($item),
             'metric_keys' => $this->metricKeys($item),
             'item_payload' => $this->safeItemPayload($item),
             'completed_at' => $item['completed_at'] ?? now()->toIso8601String(),
@@ -215,15 +219,7 @@ class DailyPlanBenchmarkCompletionBridge
         if (empty($submittedValues)) {
             $result['warnings'][] = 'No metric values were submitted for '.$this->itemName($item).'.';
         } else {
-            $review = $this->taskReviewService->recordCompletionSubmission((string) $task->id, $userId, [
-                'completed_by_user_id' => $userId,
-                'source' => 'daily_plan_progress',
-                'daily_plan_id' => $dailyPlanId,
-                'daily_plan_item_id' => $item['id'] ?? null,
-                'submitted_values' => $submittedValues,
-                'note' => $payload['note'],
-                'metric_keys' => $payload['metric_keys'],
-            ]);
+            $review = $this->taskReviewService->recordCompletionSubmission((string) $task->id, $userId, $submittedPayload);
 
             if (($review['requires_review'] ?? false) === true) {
                 $result['tasks_pending_review']++;
@@ -372,8 +368,11 @@ class DailyPlanBenchmarkCompletionBridge
             $item = $this->mergeItemPayload($planItems[$itemId] ?? [], $progressItem, $itemId);
             $completed[] = $item;
             if ($this->isBenchmarkItem($item)) {
+                $submittedValues = $this->submittedValues($item);
                 $benchmark[] = [
                     'item' => $item,
+                    'metric_values' => $submittedValues,
+                    'submitted_payload_preview' => $this->submittedPayload($dailyPlanId, $playerId, $item, $playerId, $submittedValues),
                     'matches' => $plan ? array_map(
                         fn (BenchmarkCollectionTask $task): array => $this->taskPersistence->serializeTask($task) ?? [],
                         $this->findMatchingBenchmarkTasks((string) $plan->team_id, $playerId, $item)
@@ -536,7 +535,7 @@ class DailyPlanBenchmarkCompletionBridge
     private function submittedValues(array $item): array
     {
         $values = [];
-        foreach (['metric_values', 'metricValues', 'actuals', 'values', 'submitted_values'] as $key) {
+        foreach (['metric_values', 'metricValues', 'actuals', 'results', 'values', 'submitted_values'] as $key) {
             if (is_array($item[$key] ?? null)) {
                 $values = array_replace($values, $item[$key]);
             }
@@ -569,11 +568,51 @@ class DailyPlanBenchmarkCompletionBridge
             'completed',
             'completed_at',
             'note',
+            'completion_note',
+            'player_note',
             'metric_values',
             'metricValues',
             'actuals',
+            'results',
             'values',
+            'submitted_values',
+            'submitted_at',
+            'item_key',
+            'required_fields',
         ]));
+    }
+
+    private function submittedPayload(string $dailyPlanId, string $playerId, array $item, ?string $userId, array $submittedValues): array
+    {
+        $relatedMetrics = $this->metricKeys($item);
+
+        return [
+            'source' => 'daily_plan_progress',
+            'daily_plan_id' => $dailyPlanId,
+            'daily_plan_item_id' => $item['id'] ?? null,
+            'daily_plan_item_key' => $item['item_key'] ?? $item['id'] ?? null,
+            'daily_plan_item_name' => $item['name'] ?? null,
+            'player_id' => $playerId,
+            'submitted_by_user_id' => $userId,
+            'submitted_at' => now()->toIso8601String(),
+            'metric_values' => $submittedValues,
+            'submitted_values' => $submittedValues,
+            'actuals' => $submittedValues,
+            'note' => $this->completionNote($item),
+            'related_metrics' => $relatedMetrics,
+            'metric_keys' => $relatedMetrics,
+        ];
+    }
+
+    private function completionNote(array $item): ?string
+    {
+        return $this->nullableString(
+            $item['completion_note']
+                ?? $item['player_note']
+                ?? $item['result_note']
+                ?? $item['note']
+                ?? null
+        );
     }
 
     private function refreshAfterCompletion(string $taskId): array
