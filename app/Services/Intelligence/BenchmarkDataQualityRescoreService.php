@@ -70,6 +70,7 @@ class BenchmarkDataQualityRescoreService
             $actionRerank = $this->coachActionReRankingService->rerankAfterBenchmarkRefresh($teamId, $before, $after, [
                 'days' => $days,
                 'rescore_changes' => $changes,
+                'include_practice_plan_update_suggestions' => true,
             ]);
         } catch (Throwable $exception) {
             $warnings[] = 'Benchmark data was re-scored, but coach action ranking will update on next dashboard load.';

@@ -12,6 +12,7 @@ class CoachActionReRankingService
         private readonly DecisionEngine $decisionEngine,
         private readonly BenchmarkCollectionPlanner $benchmarkCollectionPlanner,
         private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
+        private readonly PracticePlanUpdateSuggestionService $practicePlanUpdateSuggestionService,
     ) {
     }
 
@@ -63,6 +64,7 @@ class CoachActionReRankingService
             ...$this->changesFromRescore($options['rescore_changes'] ?? [], $beforeRanking, $afterRanking),
         ];
         $actionChanges = $this->uniqueChanges($actionChanges);
+        $practicePlanUpdateSuggestions = $this->safePracticePlanUpdateSuggestions($teamId, $days, $afterRanking, $options);
 
         $warnings = array_values(array_filter([
             ...$warnings,
@@ -84,6 +86,7 @@ class CoachActionReRankingService
             'removed_actions' => $comparison['removed_actions'] ?? [],
             'new_actions' => $comparison['new_actions'] ?? [],
             'updated_practice_plan' => $afterRanking['updated_practice_plan'] ?? [],
+            'practice_plan_update_suggestions' => $practicePlanUpdateSuggestions,
             'coach_summary' => $this->buildCoachActionChangeSummary([
                 ...$beforeRanking,
                 'action_changes' => [],
@@ -103,6 +106,7 @@ class CoachActionReRankingService
                 'practice_plan_before' => $beforeRanking['updated_practice_plan']['plan_title'] ?? null,
                 'practice_plan_after' => $afterRanking['updated_practice_plan']['plan_title'] ?? null,
                 'change_count' => count($actionChanges),
+                'practice_plan_update_suggestions_available' => ($practicePlanUpdateSuggestions['suggestion_status'] ?? 'none') !== 'none',
             ],
         ];
     }
@@ -483,6 +487,71 @@ class CoachActionReRankingService
                 'action_count' => 0,
             ],
         ];
+    }
+
+    private function safePracticePlanUpdateSuggestions(string $teamId, int $days, array $afterRanking, array $options): array
+    {
+        $include = (bool) ($options['include_practice_plan_update_suggestions'] ?? false);
+        $dailyPlanId = trim((string) ($options['daily_plan_id'] ?? ''));
+
+        if ($dailyPlanId === '' && ! $include) {
+            return [
+                'generated_at' => now()->toIso8601String(),
+                'team_id' => $teamId,
+                'daily_plan_id' => null,
+                'suggestion_status' => 'none',
+                'current_plan' => [],
+                'latest_suggested_plan' => [],
+                'focus_change' => [
+                    'changed' => false,
+                    'current_focus' => null,
+                    'latest_focus' => null,
+                    'reason' => 'No saved daily plan was provided for comparison.',
+                ],
+                'suggestions' => [],
+                'summary' => 'No saved daily plan found to compare.',
+                'requires_coach_review' => true,
+                'warnings' => [],
+                'evidence' => [
+                    'days' => $days,
+                    'source' => 'coach_action_rerank',
+                ],
+            ];
+        }
+
+        try {
+            $suggestionOptions = [
+                'days' => $days,
+                'latest_suggested_plan' => $afterRanking['updated_practice_plan'] ?? [],
+            ];
+
+            return $dailyPlanId !== ''
+                ? $this->practicePlanUpdateSuggestionService->suggestUpdatesForDailyPlan($dailyPlanId, $suggestionOptions)
+                : $this->practicePlanUpdateSuggestionService->suggestUpdatesForTeam($teamId, $days, $suggestionOptions);
+        } catch (Throwable $exception) {
+            return [
+                'generated_at' => now()->toIso8601String(),
+                'team_id' => $teamId,
+                'daily_plan_id' => $dailyPlanId !== '' ? $dailyPlanId : null,
+                'suggestion_status' => 'failed',
+                'current_plan' => [],
+                'latest_suggested_plan' => [],
+                'focus_change' => [
+                    'changed' => false,
+                    'current_focus' => null,
+                    'latest_focus' => null,
+                    'reason' => 'Practice plan update suggestions could not be generated.',
+                ],
+                'suggestions' => [],
+                'summary' => 'Practice plan update suggestions could not be generated.',
+                'requires_coach_review' => true,
+                'warnings' => [$exception->getMessage()],
+                'evidence' => [
+                    'days' => $days,
+                    'exception' => class_basename($exception),
+                ],
+            ];
+        }
     }
 
     private function actionMap(array $actions): array

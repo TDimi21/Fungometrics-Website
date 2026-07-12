@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BenchmarkCollectionTask;
 use App\Models\CoachTeam;
+use App\Models\DailyPlan;
 use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
@@ -22,6 +23,7 @@ use App\Services\Intelligence\BenchmarkTrustedDataPromotionService;
 use App\Services\Intelligence\CoachActionPracticePlanner;
 use App\Services\Intelligence\DecisionEngine;
 use App\Services\Intelligence\PlayerIntelligenceService;
+use App\Services\Intelligence\PracticePlanUpdateSuggestionService;
 use App\Services\Intelligence\TeamIntelligenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,6 +46,7 @@ class IntelligenceController extends Controller
         private readonly BenchmarkDataQualityRescoreService $benchmarkDataQualityRescoreService,
         private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
         private readonly BenchmarkPracticePlanDailyPlannerAdapter $coachActionDailyPlannerAdapter,
+        private readonly PracticePlanUpdateSuggestionService $practicePlanUpdateSuggestionService,
     ) {
     }
 
@@ -101,6 +104,19 @@ class IntelligenceController extends Controller
             ]);
 
             $snapshot['coach_action_practice_plan'] = null;
+        }
+
+        try {
+            $snapshot['practice_plan_update_suggestions'] = $this->practicePlanUpdateSuggestionService->suggestUpdatesForTeam($teamId, $days, [
+                'latest_suggested_plan' => is_array($snapshot['coach_action_practice_plan'] ?? null) ? $snapshot['coach_action_practice_plan'] : [],
+            ]);
+        } catch (\Throwable $exception) {
+            Log::warning('IntelligenceController practice plan update suggestions unavailable: '.$exception->getMessage(), [
+                'team_id' => $teamId,
+                'days' => $days,
+            ]);
+
+            $snapshot['practice_plan_update_suggestions'] = null;
         }
 
         $snapshot['benchmark_refresh_status'] = $this->benchmarkRefreshService->buildRefreshStatus($teamId, null, $days);
@@ -204,6 +220,62 @@ class IntelligenceController extends Controller
                 'warnings' => [$exception->getMessage()],
             ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
         }
+    }
+
+    public function dailyPlanUpdateSuggestions(Request $request, string $dailyPlanId): JsonResponse
+    {
+        $plan = DailyPlan::query()->find($dailyPlanId);
+        if (! $plan) {
+            return $this->notFound('Daily plan not found');
+        }
+
+        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+            return $this->forbidden('You do not have access to this daily plan');
+        }
+
+        return response()->json($this->practicePlanUpdateSuggestionService->suggestUpdatesForDailyPlan($dailyPlanId, [
+            'days' => $this->days($request),
+        ]));
+    }
+
+    public function teamDailyPlanUpdateSuggestions(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        return response()->json($this->practicePlanUpdateSuggestionService->suggestUpdatesForTeam($teamId, $this->days($request)));
+    }
+
+    public function applyDailyPlanUpdateSuggestions(Request $request, string $dailyPlanId): JsonResponse
+    {
+        $plan = DailyPlan::query()->find($dailyPlanId);
+        if (! $plan) {
+            return $this->notFound('Daily plan not found');
+        }
+
+        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+            return $this->forbidden('You do not have access to this daily plan');
+        }
+
+        $validated = $request->validate([
+            'suggestion_ids' => ['nullable', 'array'],
+            'suggestion_ids.*' => ['string'],
+            'republish' => ['nullable', 'boolean'],
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+        ]);
+
+        $result = $this->practicePlanUpdateSuggestionService->applyApprovedSuggestions(
+            $dailyPlanId,
+            $validated['suggestion_ids'] ?? [],
+            (string) $request->user()?->id,
+            [
+                'days' => $this->days($request),
+                'republish' => (bool) ($validated['republish'] ?? false),
+            ],
+        );
+
+        return response()->json($result, ($result['ok'] ?? false) ? HttpCodes::HTTP_OK : HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     public function saveBenchmarkDrafts(Request $request, string $teamId): JsonResponse

@@ -47,6 +47,10 @@ const coachPracticePlanSaveLoading = ref('')
 const coachPracticePlanSaveError = ref('')
 const coachPracticePlanSaveMessage = ref('')
 const savedCoachPracticeDailyPlan = ref(null)
+const practicePlanSuggestionActionLoading = ref('')
+const practicePlanSuggestionActionError = ref('')
+const practicePlanSuggestionActionMessage = ref('')
+const selectedPracticePlanSuggestionIds = ref([])
 
 const selectedMetric = ref('average_fastball_velocity')
 const selectedRange = ref('30d')
@@ -130,6 +134,9 @@ const loadTeamCommandCenter = async () => {
   coachPracticePlanSaveError.value = ''
   coachPracticePlanSaveMessage.value = ''
   savedCoachPracticeDailyPlan.value = null
+  practicePlanSuggestionActionError.value = ''
+  practicePlanSuggestionActionMessage.value = ''
+  selectedPracticePlanSuggestionIds.value = []
 
   const teamId = resolveTeamId.value
   if (!teamId) {
@@ -1935,6 +1942,66 @@ const recentCoachNewActions = computed(() =>
   asArray(recentCoachActionRerank.value?.new_actions).slice(0, 4)
 )
 
+const practicePlanUpdateSuggestions = computed(() => {
+  const fromRerank = recentCoachActionRerank.value?.practice_plan_update_suggestions
+  if (fromRerank && typeof fromRerank === 'object') return fromRerank
+
+  const fromPromotionRefresh = selectedPromotionPreview.value?.refresh?.practice_plan_update_suggestions
+  if (fromPromotionRefresh && typeof fromPromotionRefresh === 'object') return fromPromotionRefresh
+
+  const fromPromotion = selectedPromotionPreview.value?.practice_plan_update_suggestions
+  if (fromPromotion && typeof fromPromotion === 'object') return fromPromotion
+
+  const fromSaved = savedCoachPracticeDailyPlan.value?.update_suggestions
+  if (fromSaved && typeof fromSaved === 'object') return fromSaved
+
+  const fromTeam = teamIntelligence.value?.practice_plan_update_suggestions
+  return fromTeam && typeof fromTeam === 'object' ? fromTeam : null
+})
+
+const practicePlanSuggestionCards = computed(() =>
+  asArray(practicePlanUpdateSuggestions.value?.suggestions).slice(0, 8)
+)
+
+const practicePlanSuggestionFocusChange = computed(() =>
+  practicePlanUpdateSuggestions.value?.focus_change && typeof practicePlanUpdateSuggestions.value.focus_change === 'object'
+    ? practicePlanUpdateSuggestions.value.focus_change
+    : {}
+)
+
+const practicePlanSuggestionDailyPlanId = computed(() =>
+  practicePlanUpdateSuggestions.value?.daily_plan_id
+    || savedCoachPracticeDailyPlan.value?.id
+    || savedCoachPracticeDailyPlan.value?.saved_daily_plan_id
+    || null
+)
+
+const practicePlanSuggestionsRequireRepublish = computed(() =>
+  practicePlanSuggestionCards.value.some((suggestion) => Boolean(suggestion?.requires_republish))
+)
+
+const practicePlanSuggestionSelectedCount = computed(() =>
+  selectedPracticePlanSuggestionIds.value.length
+)
+
+const practicePlanSuggestionsCanApply = computed(() =>
+  Boolean(practicePlanSuggestionDailyPlanId.value && practicePlanSuggestionSelectedCount.value && !practicePlanSuggestionActionLoading.value)
+)
+
+const suggestionMetricLabels = (suggestion) =>
+  asArray(suggestion?.affected_metrics)
+    .map((metric) => coachFriendlyMetricLabel(metric))
+    .filter(Boolean)
+    .slice(0, 5)
+    .join(', ')
+
+const suggestionPlayerNames = (suggestion) =>
+  asArray(suggestion?.affected_players)
+    .map((player) => player?.player_name || player?.name)
+    .filter(Boolean)
+    .slice(0, 5)
+    .join(', ')
+
 const benchmarkRescoreSummary = computed(() =>
   recentBenchmarkRescore.value?.improvement_summary && typeof recentBenchmarkRescore.value.improvement_summary === 'object'
     ? recentBenchmarkRescore.value.improvement_summary
@@ -1943,6 +2010,8 @@ const benchmarkRescoreSummary = computed(() =>
 
 const rescoreStatusClass = (status) => ({
   completed: 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100',
+  available: 'border-cyan-300/30 bg-cyan-500/15 text-cyan-100',
+  none: 'border-slate-300/20 bg-white/5 text-slate-200',
   partial: 'border-amber-300/30 bg-amber-500/15 text-amber-100',
   skipped: 'border-slate-300/20 bg-white/5 text-slate-200',
   failed: 'border-red-300/30 bg-red-500/15 text-red-100',
@@ -2077,6 +2146,7 @@ const applyReviewRefreshPayload = (refresh) => {
     benchmark_collection_plan: refresh.collection_plan || teamIntelligence.value?.benchmark_collection_plan || null,
     coach_action_practice_plan: refresh.coach_action_practice_plan || teamIntelligence.value?.coach_action_practice_plan || null,
     action_rerank: refresh.action_rerank || teamIntelligence.value?.action_rerank || null,
+    practice_plan_update_suggestions: refresh.practice_plan_update_suggestions || teamIntelligence.value?.practice_plan_update_suggestions || null,
     benchmark_refresh_status: {
       status: refresh.refresh_status || 'unknown',
       last_refreshed_at: refresh.refreshed_at || null,
@@ -2224,10 +2294,96 @@ const saveCoachPracticePlanToDailyPlanner = async (mode = 'draft') => {
     coachPracticePlanSaveMessage.value = publish
       ? `Published to Daily Planner and assigned to ${fmtCount(payload.assigned_player_count, '0')} player(s).`
       : `Saved Daily Planner draft ${payload.saved_daily_plan_id || ''}`.trim()
+
+    const dailyPlanId = payload.saved_daily_plan_id || payload.daily_plan?.id || payload.id
+    if (dailyPlanId) {
+      await refreshPracticePlanUpdateSuggestions(dailyPlanId, true)
+    }
   } catch (error) {
     coachPracticePlanSaveError.value = error?.response?.data?.message || 'Could not save the suggested plan to Daily Planner.'
   } finally {
     coachPracticePlanSaveLoading.value = ''
+  }
+}
+
+const refreshPracticePlanUpdateSuggestions = async (dailyPlanId = null, silent = false) => {
+  const teamId = resolveTeamId.value
+  const planId = dailyPlanId || practicePlanSuggestionDailyPlanId.value
+  if (!teamId && !planId) return
+
+  if (!silent) {
+    practicePlanSuggestionActionLoading.value = 'refresh'
+    practicePlanSuggestionActionError.value = ''
+    practicePlanSuggestionActionMessage.value = ''
+  }
+
+  try {
+    const response = planId
+      ? await axiosGet(`coach/daily-plans/${planId}/update-suggestions`, { days: 365 })
+      : await axiosGet(`coach/teams/${teamId}/daily-plan-update-suggestions`, { days: 365 })
+    const payload = responsePayload(response)
+    teamIntelligence.value = {
+      ...(teamIntelligence.value || {}),
+      practice_plan_update_suggestions: payload,
+    }
+    selectedPracticePlanSuggestionIds.value = []
+    if (!silent) {
+      practicePlanSuggestionActionMessage.value = payload.summary || 'Practice plan suggestions refreshed.'
+    }
+  } catch (error) {
+    if (!silent) {
+      practicePlanSuggestionActionError.value = error?.response?.data?.message || 'Could not refresh practice plan suggestions.'
+    }
+  } finally {
+    if (!silent) {
+      practicePlanSuggestionActionLoading.value = ''
+    }
+  }
+}
+
+const togglePracticePlanSuggestion = (suggestionId) => {
+  const id = String(suggestionId || '')
+  if (!id) return
+
+  selectedPracticePlanSuggestionIds.value = selectedPracticePlanSuggestionIds.value.includes(id)
+    ? selectedPracticePlanSuggestionIds.value.filter((selectedId) => selectedId !== id)
+    : [...selectedPracticePlanSuggestionIds.value, id]
+}
+
+const applySelectedPracticePlanSuggestions = async () => {
+  const planId = practicePlanSuggestionDailyPlanId.value
+  if (!planId || !selectedPracticePlanSuggestionIds.value.length || practicePlanSuggestionActionLoading.value) return
+
+  practicePlanSuggestionActionLoading.value = 'apply'
+  practicePlanSuggestionActionError.value = ''
+  practicePlanSuggestionActionMessage.value = ''
+  try {
+    const response = await axiosPost(`coach/daily-plans/${planId}/apply-update-suggestions`, {
+      days: 365,
+      suggestion_ids: selectedPracticePlanSuggestionIds.value,
+      republish: practicePlanSuggestionsRequireRepublish.value,
+    })
+    const payload = responsePayload(response)
+    if (payload.daily_plan) {
+      savedCoachPracticeDailyPlan.value = payload.daily_plan
+    }
+    teamIntelligence.value = {
+      ...(teamIntelligence.value || {}),
+      practice_plan_update_suggestions: payload.post_apply_preview || teamIntelligence.value?.practice_plan_update_suggestions || null,
+    }
+    selectedPracticePlanSuggestionIds.value = []
+    practicePlanSuggestionActionMessage.value = payload.message || `Applied ${fmtCount(payload.evidence?.applied_count, '0')} suggestion(s).`
+  } catch (error) {
+    const payload = error?.response?.data || {}
+    if (payload.preview) {
+      teamIntelligence.value = {
+        ...(teamIntelligence.value || {}),
+        practice_plan_update_suggestions: payload.preview,
+      }
+    }
+    practicePlanSuggestionActionError.value = payload.message || 'Could not apply selected practice plan suggestions.'
+  } finally {
+    practicePlanSuggestionActionLoading.value = ''
   }
 }
 
@@ -2246,6 +2402,9 @@ const refreshBenchmarkIntelligence = async () => {
       benchmark_profile: payload.team_benchmark_profile || teamIntelligence.value?.benchmark_profile || null,
       decision_brief: payload.decision_brief || teamIntelligence.value?.decision_brief || null,
       benchmark_collection_plan: payload.collection_plan || teamIntelligence.value?.benchmark_collection_plan || null,
+      coach_action_practice_plan: payload.coach_action_practice_plan || teamIntelligence.value?.coach_action_practice_plan || null,
+      action_rerank: payload.action_rerank || teamIntelligence.value?.action_rerank || null,
+      practice_plan_update_suggestions: payload.practice_plan_update_suggestions || teamIntelligence.value?.practice_plan_update_suggestions || null,
       benchmark_refresh_status: {
         status: payload.refresh_status || 'unknown',
         last_refreshed_at: payload.refreshed_at || null,
@@ -3309,6 +3468,123 @@ const priorityTop10Rows = computed(() => {
                 >
                   {{ fmtCount(coachActionPracticePlan?.estimated_total_minutes, '0') }} Min
                 </span>
+              </div>
+
+              <div class="mt-3 rounded-md border border-cyan-300/20 bg-cyan-500/10 p-3">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p class="text-[10px] uppercase tracking-widest text-cyan-100/80">Practice Plan Update Suggestions</p>
+                    <p class="mt-1 text-sm text-slate-200">
+                      {{ practicePlanUpdateSuggestions?.summary || 'Practice plan suggestions will appear after benchmark data is approved.' }}
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider"
+                      :class="rescoreStatusClass(practicePlanUpdateSuggestions?.suggestion_status)"
+                    >
+                      {{ humanizeKey(practicePlanUpdateSuggestions?.suggestion_status, 'Not Available') }}
+                    </span>
+                    <button
+                      type="button"
+                      class="rounded border border-cyan-300/30 bg-cyan-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-cyan-100 transition hover:bg-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                      :disabled="practicePlanSuggestionActionLoading === 'refresh'"
+                      @click="refreshPracticePlanUpdateSuggestions()"
+                    >
+                      {{ practicePlanSuggestionActionLoading === 'refresh' ? 'Refreshing...' : 'Refresh' }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="practicePlanUpdateSuggestions" class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                    <span class="block text-[10px] uppercase tracking-wider text-white/35">Focus Change</span>
+                    <span class="font-black text-white">
+                      {{ practicePlanSuggestionFocusChange.current_focus || '—' }}
+                      →
+                      {{ practicePlanSuggestionFocusChange.latest_focus || '—' }}
+                    </span>
+                  </p>
+                  <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                    <span class="block text-[10px] uppercase tracking-wider text-white/35">Suggestions</span>
+                    <span class="font-black text-white">{{ fmtCount(practicePlanSuggestionCards.length, '0') }}</span>
+                  </p>
+                  <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                    <span class="block text-[10px] uppercase tracking-wider text-white/35">Saved Plan</span>
+                    <span class="font-black text-white">{{ practicePlanUpdateSuggestions.current_plan?.name || practicePlanSuggestionDailyPlanId || 'Not Saved' }}</span>
+                  </p>
+                </div>
+
+                <p v-if="practicePlanUpdateSuggestions && !practicePlanSuggestionCards.length" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                  {{ practicePlanUpdateSuggestions.summary || 'Your daily plan is up to date.' }}
+                </p>
+
+                <div v-if="practicePlanSuggestionCards.length" class="mt-3 space-y-2">
+                  <div
+                    v-for="suggestion in practicePlanSuggestionCards"
+                    :key="`plan-update-suggestion-${suggestion.suggestion_id}`"
+                    class="rounded-lg border border-white/10 bg-slate-950/40 p-3"
+                  >
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <label class="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
+                        <input
+                          type="checkbox"
+                          class="mt-1 h-4 w-4 rounded border-white/20 bg-slate-950 text-red-500"
+                          :checked="selectedPracticePlanSuggestionIds.includes(suggestion.suggestion_id)"
+                          @change="togglePracticePlanSuggestion(suggestion.suggestion_id)"
+                        />
+                        <span class="min-w-0">
+                          <span class="block text-[10px] uppercase tracking-widest text-white/35">
+                            {{ humanizeKey(suggestion.type, 'Suggestion') }}
+                            <span v-if="suggestion.estimated_minutes_delta"> · {{ suggestion.estimated_minutes_delta > 0 ? '+' : '' }}{{ fmtCount(suggestion.estimated_minutes_delta, '0') }} min</span>
+                          </span>
+                          <span class="mt-1 block text-sm font-black text-white">{{ suggestion.title }}</span>
+                          <span class="mt-1 block text-xs text-slate-300">{{ suggestion.why }}</span>
+                        </span>
+                      </label>
+                      <span
+                        class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                        :class="coachActionPriorityClass(suggestion.priority)"
+                      >
+                        {{ humanizeKey(suggestion.priority, 'Low') }}
+                      </span>
+                    </div>
+                    <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+                      <p v-if="suggestionPlayerNames(suggestion)" class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-[10px] text-slate-300">
+                        <span class="font-black text-white">Players:</span> {{ suggestionPlayerNames(suggestion) }}
+                      </p>
+                      <p v-if="suggestionMetricLabels(suggestion)" class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-[10px] text-slate-300">
+                        <span class="font-black text-white">Metrics:</span> {{ suggestionMetricLabels(suggestion) }}
+                      </p>
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-[10px] text-slate-300">
+                        <span class="font-black text-white">Review:</span>
+                        {{ suggestion.requires_republish ? 'Republish required' : 'Draft update' }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap items-center justify-between gap-2 rounded border border-white/10 bg-slate-950/35 px-3 py-2">
+                    <p class="text-xs text-slate-300">
+                      {{ fmtCount(practicePlanSuggestionSelectedCount, '0') }} selected.
+                      <span v-if="practicePlanSuggestionsRequireRepublish">Published plans require republish approval.</span>
+                    </p>
+                    <button
+                      type="button"
+                      class="rounded-md border border-red-300/40 bg-red-500 px-3 py-2 text-xs font-black uppercase tracking-wider text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-45"
+                      :disabled="!practicePlanSuggestionsCanApply"
+                      @click="applySelectedPracticePlanSuggestions"
+                    >
+                      {{ practicePlanSuggestionActionLoading === 'apply' ? 'Applying...' : practicePlanSuggestionsRequireRepublish ? 'Apply + Republish' : 'Apply Selected' }}
+                    </button>
+                  </div>
+                </div>
+
+                <p v-if="practicePlanSuggestionActionMessage" class="mt-2 rounded border border-emerald-300/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                  {{ practicePlanSuggestionActionMessage }}
+                </p>
+                <p v-if="practicePlanSuggestionActionError" class="mt-2 rounded border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                  {{ practicePlanSuggestionActionError }}
+                </p>
               </div>
 
               <p v-if="!coachActionPracticePlan" class="mt-3 rounded-md border border-white/10 bg-slate-950/35 p-3 text-sm text-slate-300">

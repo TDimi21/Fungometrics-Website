@@ -749,9 +749,39 @@ class BenchmarkTrustedDataPromotionService
                 'estimated_total_minutes' => $rerank['updated_practice_plan']['estimated_total_minutes'] ?? null,
                 'practice_blocks' => array_slice(is_array($rerank['updated_practice_plan']['practice_blocks'] ?? null) ? $rerank['updated_practice_plan']['practice_blocks'] : [], 0, 6),
             ] : [],
+            'practice_plan_update_suggestions' => $this->compactPracticePlanUpdateSuggestions(
+                is_array($rerank['practice_plan_update_suggestions'] ?? null) ? $rerank['practice_plan_update_suggestions'] : []
+            ),
             'coach_summary' => $rerank['coach_summary'] ?? null,
             'warnings' => $rerank['warnings'] ?? [],
             'evidence' => $rerank['evidence'] ?? [],
+        ];
+    }
+
+    private function compactPracticePlanUpdateSuggestions(array $suggestions): array
+    {
+        if (empty($suggestions)) {
+            return [];
+        }
+
+        return [
+            'generated_at' => $suggestions['generated_at'] ?? now()->toIso8601String(),
+            'team_id' => $suggestions['team_id'] ?? null,
+            'daily_plan_id' => $suggestions['daily_plan_id'] ?? null,
+            'suggestion_status' => $suggestions['suggestion_status'] ?? null,
+            'current_plan' => $suggestions['current_plan'] ?? [],
+            'latest_suggested_plan' => is_array($suggestions['latest_suggested_plan'] ?? null) ? [
+                'plan_title' => $suggestions['latest_suggested_plan']['plan_title'] ?? null,
+                'priority_focus' => $suggestions['latest_suggested_plan']['priority_focus'] ?? null,
+                'estimated_total_minutes' => $suggestions['latest_suggested_plan']['estimated_total_minutes'] ?? null,
+                'block_count' => $suggestions['latest_suggested_plan']['block_count'] ?? null,
+            ] : [],
+            'focus_change' => $suggestions['focus_change'] ?? [],
+            'suggestions' => array_slice(is_array($suggestions['suggestions'] ?? null) ? $suggestions['suggestions'] : [], 0, 8),
+            'summary' => $suggestions['summary'] ?? null,
+            'requires_coach_review' => $suggestions['requires_coach_review'] ?? true,
+            'warnings' => $suggestions['warnings'] ?? [],
+            'evidence' => $suggestions['evidence'] ?? [],
         ];
     }
 

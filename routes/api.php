@@ -254,6 +254,9 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/daily-plans', GetDailyPlans::class);
         Route::post('/daily-plans', SaveDailyPlan::class);
         Route::delete('/daily-plans/{id}', DeleteDailyPlan::class);
+        Route::get('/daily-plans/{dailyPlanId}/update-suggestions', [IntelligenceController::class, 'dailyPlanUpdateSuggestions']);
+        Route::post('/daily-plans/{dailyPlanId}/apply-update-suggestions', [IntelligenceController::class, 'applyDailyPlanUpdateSuggestions']);
+        Route::get('/teams/{teamId}/daily-plan-update-suggestions', [IntelligenceController::class, 'teamDailyPlanUpdateSuggestions']);
 
         // Custom drills / lifts — saved per coach; `library` is the shared,
         // browse-other-coaches' community view (public drills).
@@ -291,6 +294,7 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
         Route::get('/teams/{teamId}/benchmark-tasks', [IntelligenceController::class, 'listBenchmarkTasks']);
         Route::post('/teams/{teamId}/benchmark-tasks/generate', [IntelligenceController::class, 'generateBenchmarkTasks']);
         Route::post('/teams/{teamId}/coach-action-practice-plan/daily-plan', [IntelligenceController::class, 'saveCoachActionPracticePlanToDailyPlanner']);
+        Route::get('/teams/{teamId}/daily-plan-update-suggestions', [IntelligenceController::class, 'teamDailyPlanUpdateSuggestions']);
         Route::post('/teams/{teamId}/benchmark-tasks/save-drafts', [IntelligenceController::class, 'saveBenchmarkDrafts']);
         Route::post('/teams/{teamId}/benchmark-tasks/assign', [IntelligenceController::class, 'assignBenchmarkTasks']);
         Route::post('/teams/{teamId}/refresh-benchmarks', [IntelligenceController::class, 'refreshTeamBenchmarks']);

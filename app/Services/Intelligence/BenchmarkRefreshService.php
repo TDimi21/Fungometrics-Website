@@ -17,6 +17,7 @@ class BenchmarkRefreshService
         private readonly BenchmarkCollectionPlanner $benchmarkCollectionPlanner,
         private readonly DecisionEngine $decisionEngine,
         private readonly CoachActionReRankingService $coachActionReRankingService,
+        private readonly PracticePlanUpdateSuggestionService $practicePlanUpdateSuggestionService,
     ) {
     }
 
@@ -72,10 +73,12 @@ class BenchmarkRefreshService
             $decisionBrief = $teamRefresh['decision_brief'] ?? [];
             $collectionPlan = $teamRefresh['collection_plan'] ?? [];
             $actionRerank = $this->safeActionRerank($teamId, $decisionBrief, $collectionPlan, $days);
+            $practicePlanUpdateSuggestions = $this->safePracticePlanUpdateSuggestions($teamId, $days, $actionRerank['updated_practice_plan'] ?? []);
             $warnings = array_values(array_filter([
                 ...($playerRefresh['warnings'] ?? []),
                 ...($teamRefresh['warnings'] ?? []),
                 ...($actionRerank['warnings'] ?? []),
+                ...($practicePlanUpdateSuggestions['warnings'] ?? []),
             ]));
 
             return [
@@ -91,6 +94,7 @@ class BenchmarkRefreshService
                 'collection_plan' => $collectionPlan,
                 'coach_action_practice_plan' => $actionRerank['updated_practice_plan'] ?? [],
                 'action_rerank' => $actionRerank,
+                'practice_plan_update_suggestions' => $practicePlanUpdateSuggestions,
                 'changed_signals' => $this->changedSignals($task, $playerProfile, $teamProfile, $collectionPlan),
                 'warnings' => $warnings,
                 'evidence' => [
@@ -120,6 +124,7 @@ class BenchmarkRefreshService
                 'collection_plan' => [],
                 'coach_action_practice_plan' => [],
                 'action_rerank' => [],
+                'practice_plan_update_suggestions' => [],
                 'changed_signals' => [],
                 'warnings' => [$exception->getMessage()],
                 'evidence' => [
@@ -206,9 +211,11 @@ class BenchmarkRefreshService
         }
 
         $actionRerank = $this->safeActionRerank($teamId, $decisionBrief, $collectionPlan, $days);
+        $practicePlanUpdateSuggestions = $this->safePracticePlanUpdateSuggestions($teamId, $days, $actionRerank['updated_practice_plan'] ?? []);
         $warnings = array_values(array_filter([
             ...$warnings,
             ...($actionRerank['warnings'] ?? []),
+            ...($practicePlanUpdateSuggestions['warnings'] ?? []),
         ]));
 
         return [
@@ -221,6 +228,7 @@ class BenchmarkRefreshService
             'collection_plan' => $collectionPlan,
             'coach_action_practice_plan' => $actionRerank['updated_practice_plan'] ?? [],
             'action_rerank' => $actionRerank,
+            'practice_plan_update_suggestions' => $practicePlanUpdateSuggestions,
             'changed_signals' => $this->teamChangedSignals($teamProfile, $collectionPlan),
             'warnings' => $warnings,
             'evidence' => [
@@ -306,6 +314,38 @@ class BenchmarkRefreshService
                 'updated_practice_plan' => [],
                 'coach_summary' => 'Coach action ranking will update on next dashboard load.',
                 'warnings' => [$exception->getMessage()],
+            ];
+        }
+    }
+
+    private function safePracticePlanUpdateSuggestions(string $teamId, int $days, array $latestSuggestedPlan = []): array
+    {
+        try {
+            return $this->practicePlanUpdateSuggestionService->suggestUpdatesForTeam($teamId, $days, [
+                'latest_suggested_plan' => $latestSuggestedPlan,
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'generated_at' => now()->toIso8601String(),
+                'team_id' => $teamId,
+                'daily_plan_id' => null,
+                'suggestion_status' => 'failed',
+                'current_plan' => [],
+                'latest_suggested_plan' => [],
+                'focus_change' => [
+                    'changed' => false,
+                    'current_focus' => null,
+                    'latest_focus' => null,
+                    'reason' => 'Practice plan update suggestions could not be generated.',
+                ],
+                'suggestions' => [],
+                'summary' => 'Practice plan update suggestions could not be generated.',
+                'requires_coach_review' => true,
+                'warnings' => [$exception->getMessage()],
+                'evidence' => [
+                    'days' => $days,
+                    'exception' => class_basename($exception),
+                ],
             ];
         }
     }
