@@ -327,7 +327,7 @@ class DailyPlanPlayerUpdateService
     private function humanizedMetrics(array $metrics): array
     {
         return collect($metrics)
-            ->map(fn ($metric): string => $this->humanize($metric))
+            ->map(fn ($metric) => $this->humanize($metric))
             ->filter()
             ->unique()
             ->values()

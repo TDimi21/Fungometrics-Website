@@ -273,7 +273,11 @@ const load = async () => {
     const res = await axiosGet('player/daily-plans')
     const rows = res?.data?.data
     if (!Array.isArray(rows)) throw new Error('bad response')
-    workouts.value = rows.map((r) => ({ ...planFromApi(r), progress: r.progress || null }))
+    workouts.value = rows.map((r) => ({
+      ...planFromApi(r),
+      progress: r.progress || null,
+      update_status: r.update_status || null,
+    }))
     offline.value = false
   } catch {
     offline.value = true
@@ -428,6 +432,42 @@ const bridgeSaveMessage = (bridge) => {
   return 'Workout saved.'
 }
 
+const planUpdateStatus = computed(() => current.value?.plan?.update_status || null)
+const showPlanUpdateBanner = computed(() => Boolean(planUpdateStatus.value?.has_update))
+const updateStatusRows = (key) => asArray(planUpdateStatus.value?.[key]).slice(0, 4)
+const updateBlockText = (block = {}) => {
+  const parts = [
+    cleanText(block.title),
+    cleanText(block.bucket),
+    block.duration_minutes ? `${block.duration_minutes} min` : '',
+  ].filter(Boolean)
+
+  return parts.join(' · ') || cleanText(block.message) || 'Plan block'
+}
+
+const markPlanUpdateSeen = async () => {
+  const status = planUpdateStatus.value
+  const planId = current.value?.plan?.id
+  if (!status || !planId) return
+
+  try {
+    const res = await axiosPost(`player/daily-plans/${planId}/mark-update-seen`, {
+      revision_id: status.latest_revision_id || null,
+    })
+    const nextStatus = res?.data?.data || res?.data || {
+      ...status,
+      has_update: false,
+      seen: true,
+    }
+    current.value.plan.update_status = nextStatus
+    workouts.value = workouts.value.map((workout) => (
+      workout.id === planId ? { ...workout, update_status: nextStatus } : workout
+    ))
+  } catch {
+    alert('Could not mark this update as seen — check your connection and try again.')
+  }
+}
+
 const open = (w) => {
   saveNotice.value = ''
   const items = {}
@@ -516,7 +556,8 @@ const finish = async () => {
               <div class="font-extrabold text-white truncate">{{ w.name || 'Workout' }}</div>
               <div class="text-white/45 text-xs mt-0.5">{{ fmtDate(w.date) }} · {{ w.phase || '—' }}</div>
             </div>
-            <span v-if="isDone(w)" class="pw-badge pw-badge--done">Completed</span>
+            <span v-if="w.update_status?.has_update" class="pw-badge pw-badge--updated">Updated</span>
+            <span v-else-if="isDone(w)" class="pw-badge pw-badge--done">Completed</span>
             <span v-else class="pw-badge">{{ itemCount(w) }} items</span>
           </div>
           <div class="mt-3 flex flex-wrap gap-1.5">
@@ -536,6 +577,39 @@ const finish = async () => {
       <div class="mb-4">
         <div class="text-xl font-black text-white">{{ current.plan.name || 'Workout' }}</div>
         <div class="text-white/45 text-sm">{{ fmtDate(current.plan.date) }} · {{ current.plan.phase || '—' }}</div>
+      </div>
+
+      <div v-if="showPlanUpdateBanner" class="pw-update-banner">
+        <div class="pw-update-head">
+          <div>
+            <div class="pw-update-eyebrow">Coach Update</div>
+            <div class="pw-update-title">{{ planUpdateStatus.update_title || 'Plan Updated' }}</div>
+          </div>
+          <button type="button" class="pw-update-dismiss" @click.stop="markPlanUpdateSeen">Got it</button>
+        </div>
+        <p class="pw-update-message">
+          {{ planUpdateStatus.update_message || 'Your coach updated this plan. Your completed progress was preserved.' }}
+        </p>
+        <div class="pw-update-summary">
+          <span v-if="planUpdateStatus.change_summary?.added_count">+{{ planUpdateStatus.change_summary.added_count }} added</span>
+          <span v-if="planUpdateStatus.change_summary?.updated_count">{{ planUpdateStatus.change_summary.updated_count }} updated</span>
+          <span v-if="planUpdateStatus.change_summary?.removed_or_moved_count">{{ planUpdateStatus.change_summary.removed_or_moved_count }} moved/removed</span>
+          <span v-if="planUpdateStatus.progress_preserved">Progress preserved</span>
+        </div>
+        <ul
+          v-if="updateStatusRows('added_blocks').length || updateStatusRows('updated_blocks').length || updateStatusRows('removed_or_moved_blocks').length"
+          class="pw-update-list"
+        >
+          <li v-for="block in updateStatusRows('added_blocks')" :key="`added-${block.title}`">
+            Added: {{ updateBlockText(block) }}
+          </li>
+          <li v-for="block in updateStatusRows('updated_blocks')" :key="`updated-${block.title}`">
+            Updated: {{ updateBlockText(block) }}
+          </li>
+          <li v-for="block in updateStatusRows('removed_or_moved_blocks')" :key="`moved-${block.title}`">
+            Changed: {{ updateBlockText(block) }}
+          </li>
+        </ul>
       </div>
 
       <div v-for="bucket in current.plan.buckets" :key="bucket.type" class="pw-bucket">
@@ -694,9 +768,21 @@ const finish = async () => {
 .pw-card:hover { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.06); }
 .pw-badge { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 3px 8px; border-radius: 6px; white-space: nowrap; color: rgba(255,255,255,.6); background: rgba(255,255,255,.08); }
 .pw-badge--done { color: #43d089; background: rgba(52,211,153,.16); }
+.pw-badge--updated { color: #fde68a; background: rgba(251,191,36,.16); border: 1px solid rgba(251,191,36,.24); }
 .pw-chip { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.7); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); padding: 3px 10px; border-radius: 999px; }
 .pw-link { background: none; border: none; color: #7ca6f5; font-weight: 800; font-size: 14px; cursor: pointer; }
 .pw-link:hover { text-decoration: underline; }
+.pw-update-banner { margin: 0 0 14px; border: 1px solid rgba(251,191,36,.28); border-radius: 16px; padding: 14px; background: linear-gradient(135deg, rgba(251,191,36,.15), rgba(59,130,246,.08)); box-shadow: 0 12px 30px rgba(0,0,0,.18); }
+.pw-update-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.pw-update-eyebrow { color:#fde68a; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; }
+.pw-update-title { color:#fff; font-size:16px; font-weight:950; margin-top:2px; }
+.pw-update-dismiss { border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.08); color:#fff; border-radius:10px; padding:8px 11px; font-size:12px; font-weight:900; cursor:pointer; white-space:nowrap; }
+.pw-update-dismiss:hover { background:rgba(255,255,255,.13); }
+.pw-update-message { color:rgba(255,255,255,.78); font-size:13px; line-height:1.45; margin:8px 0 0; }
+.pw-update-summary { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.pw-update-summary span { border:1px solid rgba(255,255,255,.12); background:rgba(5,11,31,.42); color:rgba(255,255,255,.72); border-radius:999px; padding:4px 8px; font-size:11px; font-weight:900; }
+.pw-update-list { margin:10px 0 0; padding-left:18px; color:rgba(255,255,255,.68); font-size:12px; line-height:1.45; }
+.pw-update-list li { margin-top:3px; }
 .pw-bucket { border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 14px; margin-bottom: 12px; background: rgba(255,255,255,.03); }
 .pw-bucket-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
 .pw-bucket-title { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: #fff; }

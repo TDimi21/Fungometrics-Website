@@ -39,6 +39,8 @@ use App\Http\Controllers\Api\Planner\GetCustomDrills;
 use App\Http\Controllers\Api\Planner\DeleteCustomDrill;
 use App\Http\Controllers\Api\Planner\GetDrillLibrary;
 use App\Http\Controllers\Api\Planner\GetWorkoutCompletions;
+use App\Http\Controllers\Api\Planner\GetDailyPlanProgress;
+use App\Http\Controllers\Api\Planner\SaveCoachWorkoutReview;
 // Player sub-groups — reusable assign presets, shared app↔web
 use App\Http\Controllers\Api\Coach\GetPlayerGroups;
 use App\Http\Controllers\Api\Coach\SavePlayerGroup;
@@ -256,6 +258,9 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/daily-plans', GetDailyPlans::class);
         Route::post('/daily-plans', SaveDailyPlan::class);
         Route::delete('/daily-plans/{id}', DeleteDailyPlan::class);
+        // Coach reviews player results: all players' progress for a plan, + per-player review.
+        Route::get('/daily-plans/{id}/progress', GetDailyPlanProgress::class);
+        Route::post('/daily-plans/{planId}/players/{playerId}/review', SaveCoachWorkoutReview::class);
         Route::get('/daily-plans/{dailyPlanId}/update-suggestions', [IntelligenceController::class, 'dailyPlanUpdateSuggestions']);
         Route::post('/daily-plans/{dailyPlanId}/apply-update-suggestions', [IntelligenceController::class, 'applyDailyPlanUpdateSuggestions']);
         Route::get('/daily-plans/{dailyPlanId}/republish-review', [IntelligenceController::class, 'dailyPlanRepublishReview']);

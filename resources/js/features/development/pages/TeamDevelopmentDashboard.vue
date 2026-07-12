@@ -2533,9 +2533,12 @@ const applyDailyPlanRepublishReview = async (republish = false) => {
     dailyPlanRepublishReview.value = payload.editable_changes ? payload : null
     dailyPlanRepublishPreview.value = payload.preview_plan || null
     selectedPracticePlanSuggestionIds.value = []
-    dailyPlanRepublishReviewMessage.value = payload.message || (republish
+    const baseMessage = payload.message || (republish
       ? 'Plan republished. Existing player progress was preserved.'
       : 'Changes saved as a new revision.')
+    dailyPlanRepublishReviewMessage.value = republish
+      ? `${baseMessage} Players will see an update banner.`
+      : baseMessage
   } catch (error) {
     const payload = error?.response?.data || {}
     if (payload.editable_changes) {

@@ -25,6 +25,7 @@ class DailyPlanProgress extends Model
         'readiness',
         'items',
         'reflection',
+        'coach_review',
         'started_at',
         'completed_at',
     ];
@@ -33,6 +34,7 @@ class DailyPlanProgress extends Model
         'readiness'    => 'array',
         'items'        => 'array',
         'reflection'   => 'array',
+        'coach_review' => 'array',
         'started_at'   => 'datetime',
         'completed_at' => 'datetime',
     ];
