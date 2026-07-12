@@ -48,7 +48,7 @@ class CoachPlannerCommandCenterService
             ], $options);
             $payload['next_actions'] = $this->buildNextActions($payload);
 
-            return $payload;
+            return $this->withOperationalSummaries($payload);
         }
 
         return $this->buildForDailyPlan((string) $plan->id, $options);
@@ -67,7 +67,7 @@ class CoachPlannerCommandCenterService
             ], $options);
             $payload['next_actions'] = $this->buildNextActions($payload);
 
-            return $payload;
+            return $this->withOperationalSummaries($payload);
         }
 
         $teamId = (string) $plan->team_id;
@@ -113,7 +113,7 @@ class CoachPlannerCommandCenterService
         ];
         $payload['next_actions'] = $this->buildNextActions($payload);
 
-        return $payload;
+        return $this->withOperationalSummaries($payload);
     }
 
     public function buildPlayerRows(string $dailyPlanId, array $options = []): array
@@ -544,6 +544,7 @@ class CoachPlannerCommandCenterService
             ],
             'trusted_data_summary' => [
                 'trusted_values_added' => 0,
+                'awaiting_promotion_count' => 0,
                 'players_improved' => 0,
                 'metrics_improved' => [],
                 'last_promotion_at' => null,
@@ -975,24 +976,24 @@ class CoachPlannerCommandCenterService
 
     private function playerNextAction(bool $acknowledged, bool $started, bool $completed, array $taskCounts): ?string
     {
-        if (! $acknowledged) {
-            return 'Acknowledge updated plan';
-        }
-
-        if ((int) ($taskCounts['pending_review'] ?? 0) > 0) {
-            return 'Coach review needed';
-        }
-
         if ((int) ($taskCounts['correction_requested'] ?? 0) > 0) {
             return 'Correction requested';
         }
 
+        if ((int) ($taskCounts['pending_review'] ?? 0) > 0) {
+            return 'Submitted values need review';
+        }
+
+        if (! $acknowledged) {
+            return 'Needs reminder';
+        }
+
         if (! $started) {
-            return 'Start workout';
+            return 'Needs to start';
         }
 
         if (! $completed) {
-            return 'Finish remaining work';
+            return 'Needs to finish workout';
         }
 
         return 'Complete';
@@ -1187,6 +1188,165 @@ class CoachPlannerCommandCenterService
             'updated_command_center' => $updated,
             'warnings' => array_values(array_unique(array_filter(array_map('strval', $warnings)))),
         ];
+    }
+
+    private function withOperationalSummaries(array $payload): array
+    {
+        $payload['primary_next_action'] = $this->primaryNextAction($payload);
+        $payload['operating_header'] = $this->operatingHeader($payload);
+        $payload['status_cards'] = $this->statusCards($payload);
+        $payload['section_visibility'] = $this->sectionVisibility($payload);
+
+        return $payload;
+    }
+
+    private function primaryNextAction(array $payload): ?array
+    {
+        $actions = Arr::wrap($payload['next_actions'] ?? []);
+
+        return is_array($actions[0] ?? null) ? $actions[0] : null;
+    }
+
+    private function operatingHeader(array $payload): array
+    {
+        $plan = Arr::wrap($payload['plan_status'] ?? []);
+        $summary = Arr::wrap($payload['player_status_summary'] ?? []);
+        $review = Arr::wrap($payload['review_queue_summary'] ?? []);
+        $primary = $this->primaryNextAction($payload);
+        $status = (string) ($plan['status'] ?? 'unknown');
+        $dailyPlanId = $payload['daily_plan_id'] ?? null;
+
+        return [
+            'daily_plan_id' => $dailyPlanId,
+            'title' => $plan['title'] ?? null,
+            'display_title' => $plan['title'] ?? ($dailyPlanId ? 'Untitled Daily Plan' : 'No active Daily Plan'),
+            'status' => $status,
+            'status_label' => $this->statusLabel($status),
+            'status_tone' => $this->statusTone($status),
+            'scheduled_for' => $plan['scheduled_for'] ?? null,
+            'published_at' => $plan['published_at'] ?? null,
+            'published_state' => $this->publishedStateLabel($plan),
+            'assigned_count' => (int) ($summary['assigned_count'] ?? 0),
+            'acknowledged_count' => (int) ($summary['acknowledged_count'] ?? 0),
+            'completed_count' => (int) ($summary['completed_count'] ?? 0),
+            'started_count' => (int) ($summary['started_count'] ?? 0),
+            'completion_percentage' => (float) ($summary['completion_percentage'] ?? 0),
+            'acknowledgement_percentage' => (float) ($summary['acknowledgement_percentage'] ?? 0),
+            'pending_review_count' => (int) ($review['pending_review_count'] ?? $summary['pending_review_count'] ?? 0),
+            'next_action_title' => $primary['title'] ?? null,
+            'next_action_text' => $primary['why'] ?? ($dailyPlanId ? 'Plan looks current.' : 'No daily plan is active for today.'),
+            'next_action_button_label' => $primary['button_label'] ?? null,
+            'latest_revision_number' => $plan['latest_revision_number'] ?? null,
+            'latest_revision_at' => $plan['latest_revision_at'] ?? null,
+            'revision_note' => ($plan['latest_revision_number'] ?? null) !== null
+                ? 'Player progress was preserved.'
+                : null,
+            'benchmark_generated' => (bool) ($plan['benchmark_generated'] ?? false),
+            'block_count' => (int) ($plan['block_count'] ?? 0),
+            'estimated_total_minutes' => $plan['estimated_total_minutes'] ?? null,
+            'empty_state' => $dailyPlanId
+                ? null
+                : 'No daily plan is active for today. Generate one from FMTRX Intelligence or create one manually.',
+        ];
+    }
+
+    private function statusCards(array $payload): array
+    {
+        $plan = Arr::wrap($payload['plan_status'] ?? []);
+        $summary = Arr::wrap($payload['player_status_summary'] ?? []);
+        $benchmark = Arr::wrap($payload['benchmark_workflow_summary'] ?? []);
+        $review = Arr::wrap($payload['review_queue_summary'] ?? []);
+
+        return [
+            [
+                'key' => 'plan_status',
+                'label' => 'Today\'s Plan',
+                'value' => $this->statusLabel((string) ($plan['status'] ?? 'unknown')),
+                'detail' => ($plan['block_count'] ?? 0).' blocks · '.($plan['estimated_total_minutes'] ?? '—').' min',
+                'tone' => $this->statusTone((string) ($plan['status'] ?? 'unknown')),
+            ],
+            [
+                'key' => 'acknowledgements',
+                'label' => 'Acknowledged',
+                'value' => ((int) ($summary['acknowledged_count'] ?? 0)).' / '.((int) ($summary['assigned_count'] ?? 0)),
+                'detail' => ((float) ($summary['acknowledgement_percentage'] ?? 0)).'% acknowledged',
+                'tone' => ((int) ($summary['not_acknowledged_count'] ?? 0)) > 0 ? 'warning' : 'good',
+            ],
+            [
+                'key' => 'completion',
+                'label' => 'Completed',
+                'value' => ((int) ($summary['completed_count'] ?? 0)).' / '.((int) ($summary['assigned_count'] ?? 0)),
+                'detail' => ((float) ($summary['completion_percentage'] ?? 0)).'% completion',
+                'tone' => ((float) ($summary['completion_percentage'] ?? 0)) >= 100 ? 'good' : 'neutral',
+            ],
+            [
+                'key' => 'review',
+                'label' => 'Review Needed',
+                'value' => (string) ((int) ($review['pending_review_count'] ?? 0)),
+                'detail' => ((int) ($benchmark['submitted_metric_count'] ?? 0)).' submitted metric(s)',
+                'tone' => ((int) ($review['pending_review_count'] ?? 0)) > 0 ? 'danger' : 'good',
+            ],
+        ];
+    }
+
+    private function sectionVisibility(array $payload): array
+    {
+        $plan = Arr::wrap($payload['plan_status'] ?? []);
+        $summary = Arr::wrap($payload['player_status_summary'] ?? []);
+        $review = Arr::wrap($payload['review_queue_summary'] ?? []);
+        $trusted = Arr::wrap($payload['trusted_data_summary'] ?? []);
+        $gaps = Arr::wrap($payload['remaining_benchmark_gaps'] ?? []);
+
+        return [
+            'has_plan' => ! empty($payload['daily_plan_id']),
+            'has_assigned_players' => (int) ($summary['assigned_count'] ?? 0) > 0,
+            'has_benchmark_blocks' => (bool) ($plan['benchmark_generated'] ?? false),
+            'has_pending_reviews' => (int) ($review['pending_review_count'] ?? 0) > 0,
+            'has_revision_history' => ($plan['latest_revision_number'] ?? null) !== null,
+            'has_remaining_gaps' => ! empty($gaps),
+            'has_trusted_data' => (int) ($trusted['trusted_values_added'] ?? 0) > 0 || (int) ($trusted['awaiting_promotion_count'] ?? 0) > 0,
+            'show_review_shortcut' => (int) ($review['pending_review_count'] ?? 0) > 0,
+            'show_reminder_shortcut' => (int) ($summary['not_acknowledged_count'] ?? 0) > 0,
+            'show_revision_note' => ($plan['latest_revision_number'] ?? null) !== null,
+            'show_draft_notice' => ($plan['status'] ?? null) === 'draft',
+        ];
+    }
+
+    private function statusLabel(string $status): string
+    {
+        return match ($status) {
+            'draft' => 'Draft',
+            'published', 'sent' => 'Published',
+            'in_progress' => 'In Progress',
+            'completed' => 'Completed',
+            'dismissed' => 'Dismissed',
+            default => 'Unknown',
+        };
+    }
+
+    private function statusTone(string $status): string
+    {
+        return match ($status) {
+            'draft' => 'warning',
+            'published', 'sent' => 'good',
+            'in_progress' => 'info',
+            'completed' => 'complete',
+            'dismissed' => 'muted',
+            default => 'neutral',
+        };
+    }
+
+    private function publishedStateLabel(array $plan): string
+    {
+        if (($plan['status'] ?? null) === 'draft') {
+            return 'Draft - players cannot see it yet';
+        }
+
+        if (! empty($plan['published_at'])) {
+            return 'Visible to assigned players';
+        }
+
+        return ! empty($plan['daily_plan_id']) ? 'Saved' : 'Not saved';
     }
 
     private function teamPlan(string $teamId, ?string $dailyPlanId): ?DailyPlan

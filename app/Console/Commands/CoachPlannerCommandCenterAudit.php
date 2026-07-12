@@ -33,6 +33,36 @@ class CoachPlannerCommandCenterAudit extends Command
         $this->line('Daily Plan ID: '.($payload['daily_plan_id'] ?? 'none'));
         $this->line('');
 
+        $header = $payload['operating_header'] ?? [];
+        $primary = $payload['primary_next_action'] ?? [];
+        $this->line('OPERATING HEADER');
+        $this->line('----------------');
+        $this->line('Today\'s plan: '.($header['display_title'] ?? 'No active Daily Plan'));
+        $this->line('Status: '.($header['status_label'] ?? 'Unknown'));
+        $this->line('Scheduled: '.($header['scheduled_for'] ?? 'none'));
+        $this->line('Published state: '.($header['published_state'] ?? 'none'));
+        $this->line('Assigned: '.((int) ($header['assigned_count'] ?? 0)));
+        $this->line('Acknowledged: '.((int) ($header['acknowledged_count'] ?? 0)).' / '.((int) ($header['assigned_count'] ?? 0)));
+        $this->line('Completed: '.((int) ($header['completed_count'] ?? 0)).' / '.((int) ($header['assigned_count'] ?? 0)));
+        $this->line('Pending review: '.((int) ($header['pending_review_count'] ?? 0)));
+        $this->line('Revision: '.($header['latest_revision_number'] ?? 'none'));
+        if (! empty($header['revision_note'])) {
+            $this->line('Revision note: '.$header['revision_note']);
+        }
+        if (! empty($header['empty_state'])) {
+            $this->line('Empty state: '.$header['empty_state']);
+        }
+        $this->line('');
+
+        $this->line('PRIMARY NEXT ACTION');
+        $this->line('-------------------');
+        $this->line('Title: '.($primary['title'] ?? 'none'));
+        $this->line('Why: '.($primary['why'] ?? 'none'));
+        $this->line('Button: '.($primary['button_label'] ?? 'guidance only'));
+        $this->line('Type: '.($primary['action_type'] ?? 'none'));
+        $this->line('Enabled: '.((bool) ($primary['enabled'] ?? false) ? 'YES' : 'NO'));
+        $this->line('');
+
         $plan = $payload['plan_status'] ?? [];
         $this->line('PLAN STATUS');
         $this->line('-----------');
