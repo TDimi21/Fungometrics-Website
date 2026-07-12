@@ -16,6 +16,9 @@ const expandedInstructions = ref(new Set())
 const saveNotice = ref('')
 const completionSummaries = ref({})
 const completionSummaryLoading = ref(false)
+const weeklyPlan = ref(null)
+const weeklyPlansError = ref('')
+const weeklyActionLoading = ref('')
 
 const metricDefinitions = {
   average_exit_velocity: { label: 'Average EV', unit: 'mph', type: 'number', step: '0.1', min: 0.1, placeholder: '82.4' },
@@ -286,26 +289,43 @@ const fmtDateTime = (iso) => {
   try { return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return '' }
 }
 const oneDecimal = (value) => Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '0.0'
+const todayISO = () => new Date().toISOString().slice(0, 10)
+
+const normalizeWorkout = (r = {}) => ({
+  ...planFromApi(r),
+  estimatedMinutes: r.estimated_minutes ?? r.estimatedMinutes ?? null,
+  updatedAt: r.updated_at ?? r.updatedAt ?? null,
+  republishedAt: r.republished_at ?? r.republishedAt ?? null,
+  assignedBy: r.assigned_by_name ?? r.assignedBy ?? r.created_by_name ?? r.coach_name ?? null,
+  progress: r.progress || null,
+  update_status: r.update_status || null,
+})
 
 const load = async () => {
   loading.value = true
+  weeklyPlansError.value = ''
+  let weeklyOk = false
+  let flatOk = false
+
+  try {
+    const weeklyRes = await axiosGet('player/weekly-plans')
+    weeklyPlan.value = weeklyRes?.data?.data || null
+    weeklyOk = true
+  } catch {
+    weeklyPlan.value = null
+    weeklyPlansError.value = 'Could not load weekly plans. Try again.'
+  }
+
   try {
     const res = await axiosGet('player/daily-plans')
     const rows = res?.data?.data
     if (!Array.isArray(rows)) throw new Error('bad response')
-    workouts.value = rows.map((r) => ({
-      ...planFromApi(r),
-      estimatedMinutes: r.estimated_minutes ?? r.estimatedMinutes ?? null,
-      updatedAt: r.updated_at ?? r.updatedAt ?? null,
-      republishedAt: r.republished_at ?? r.republishedAt ?? null,
-      assignedBy: r.assigned_by_name ?? r.assignedBy ?? r.created_by_name ?? r.coach_name ?? null,
-      progress: r.progress || null,
-      update_status: r.update_status || null,
-    }))
-    offline.value = false
+    workouts.value = rows.map(normalizeWorkout)
+    flatOk = true
   } catch {
-    offline.value = true
+    workouts.value = []
   } finally {
+    offline.value = !weeklyOk && !flatOk
     loading.value = false
   }
 }
@@ -565,6 +585,40 @@ const completedMinutes = computed(() => {
   }, 0)
   return fromItems || Math.round(planMinutes.value * (progressPercent.value / 100))
 })
+const weeklyDays = computed(() => asArray(weeklyPlan.value?.days))
+const weeklySummary = computed(() => weeklyPlan.value?.weekly_summary || {})
+const weeklyNextAction = computed(() => weeklyPlan.value?.next_action || {})
+const hasWeeklyPlans = computed(() => weeklyDays.value.length > 0)
+const isTodayCard = (day = {}) => day.scheduled_for === todayISO()
+const weeklyStatusLabel = (status) => ({
+  updated: 'Updated',
+  completed: 'Completed',
+  in_progress: 'In Progress',
+  not_started: 'Not Started',
+  unknown: 'Unknown',
+}[status] || 'Unknown')
+const weeklyStatusTone = (day = {}) => {
+  if (day.update_status?.has_update || day.status === 'updated') return 'updated'
+  if (day.status === 'completed') return 'done'
+  if (day.status === 'in_progress') return 'progress'
+  return 'muted'
+}
+const weeklyCardButtonLabel = (day = {}) => {
+  if (day.status === 'completed') return 'View Summary'
+  if (day.status === 'in_progress') return 'Continue Workout'
+  if (isTodayCard(day)) return 'Start Workout'
+  return 'Preview'
+}
+const weeklyPlanTitle = computed(() => weeklyPlan.value?.week_label ? `This Week · ${weeklyPlan.value.week_label}` : 'This Week')
+const weeklyProgressText = (day = {}) => `${Number(day.completed_items || 0)} of ${Number(day.total_items || 0)} complete`
+const weeklyPrimaryLine = (day = {}) => {
+  const parts = [
+    day.primary_focus,
+    day.estimated_total_minutes ? `${day.estimated_total_minutes} min` : '',
+    day.benchmark_generated ? 'FMTRX Benchmark Plan' : '',
+  ].filter(Boolean)
+  return parts.join(' · ')
+}
 const submittedReviewCount = computed(() => currentPairs.value.filter(({ item }) => itemStatus(item.id, item).tone === 'review').length)
 const approvedReviewCount = computed(() => currentPairs.value.filter(({ item }) => itemStatus(item.id, item).tone === 'approved').length)
 const correctionReviewCount = computed(() => currentPairs.value.filter(({ item }) => ['correction', 'rejected'].includes(itemStatus(item.id, item).tone)).length)
@@ -668,8 +722,27 @@ const acknowledgePlanUpdate = async () => {
       workout.id === planId ? { ...workout, update_status: nextStatus } : workout
     ))
     saveNotice.value = payload.message || 'Plan update acknowledged.'
+    await load()
   } catch {
     alert('Could not acknowledge update. Try again.')
+  }
+}
+
+const acknowledgeWeeklyUpdate = async (day = {}) => {
+  const planId = day.daily_plan_id
+  if (!planId) return
+
+  weeklyActionLoading.value = planId
+  try {
+    await axiosPost(`player/daily-plans/${planId}/acknowledge-update`, {
+      revision_id: day.update_status?.latest_revision_id || null,
+    })
+    saveNotice.value = 'Plan update acknowledged.'
+    await load()
+  } catch {
+    alert('Could not acknowledge update. Try again.')
+  } finally {
+    weeklyActionLoading.value = ''
   }
 }
 
@@ -709,6 +782,30 @@ const open = (w) => {
   expandedInstructions.value = new Set()
   current.value = { plan: w, items, startedAt: w.progress?.started_at || new Date().toISOString() }
   fetchCompletionSummary(w.id)
+}
+
+const openWeeklyDay = async (day = {}) => {
+  const planId = day.daily_plan_id
+  if (!planId) return
+
+  const cached = workouts.value.find((workout) => workout.id === planId)
+  if (cached) {
+    open(cached)
+    return
+  }
+
+  weeklyActionLoading.value = planId
+  try {
+    const res = await axiosGet(`player/daily-plans/${planId}`)
+    const workout = normalizeWorkout(res?.data?.data || {})
+    if (!workout.id) throw new Error('bad response')
+    workouts.value = [workout, ...workouts.value.filter((row) => row.id !== workout.id)]
+    open(workout)
+  } catch {
+    alert('Could not open this workout. Try again.')
+  } finally {
+    weeklyActionLoading.value = ''
+  }
 }
 const back = () => { current.value = null }
 const toggleItem = (id) => {
@@ -753,39 +850,148 @@ const finish = async () => {
     <!-- ══ LIST ══ -->
     <template v-if="!current">
       <div v-if="loading" class="pw-empty">
-        <strong>Loading today’s workout…</strong>
-        <span>FMTRX is checking your assigned daily plans.</span>
+        <strong>Loading your weekly plans…</strong>
+        <span>FMTRX is checking your assigned Daily Planner workouts.</span>
       </div>
-      <div v-else-if="offline" class="pw-empty">Couldn't load your workouts. Check your connection.</div>
-      <div v-else-if="workouts.length === 0" class="pw-empty">
-        <strong>No workout assigned yet.</strong>
-        <span>Your coach’s plans will show up here when they are published.</span>
+      <div v-else-if="offline" class="pw-empty">
+        <strong>Could not load weekly plans.</strong>
+        <span>Check your connection and try again.</span>
       </div>
-
-      <div v-else class="grid gap-3 sm:grid-cols-2">
-        <button v-for="w in workouts" :key="w.id" class="pw-card" @click="open(w)">
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0 text-left">
-              <div class="font-extrabold text-white truncate">{{ w.name || 'Workout' }}</div>
-              <div class="text-white/45 text-xs mt-0.5">{{ fmtDate(w.date) }} · {{ w.phase || '—' }}</div>
+      <template v-else>
+        <section class="pw-weekly">
+          <div class="pw-weekly-head">
+            <div>
+              <div class="pw-weekly-eyebrow">Assigned Weekly Plans</div>
+              <h3>{{ weeklyPlanTitle }}</h3>
             </div>
-            <span
-              class="pw-badge"
-              :class="{ 'pw-badge--updated': w.update_status?.has_update, 'pw-badge--done': isDone(w) }"
-            >
-              {{ planStatusLabel(w) }}
+            <span v-if="weeklyPlan?.generated_at" class="pw-weekly-range">
+              Updated {{ fmtDateTime(weeklyPlan.generated_at) }}
             </span>
           </div>
-          <div class="pw-card-summary">
-            <span>{{ itemCount(w) }} item{{ itemCount(w) === 1 ? '' : 's' }}</span>
-            <span v-if="w.estimatedMinutes">{{ w.estimatedMinutes }} min</span>
-            <span v-if="bucketItems(w).some(({ item }) => isBenchmarkItem(item))">Benchmark blocks</span>
+
+          <div v-if="weeklyPlansError" class="pw-weekly-error">{{ weeklyPlansError }}</div>
+
+          <div class="pw-weekly-summary">
+            <div>
+              <strong>{{ weeklySummary.assigned_plan_count || 0 }}</strong>
+              <span>Assigned</span>
+            </div>
+            <div>
+              <strong>{{ weeklySummary.completed_plan_count || 0 }}</strong>
+              <span>Completed</span>
+            </div>
+            <div>
+              <strong>{{ weeklySummary.in_progress_plan_count || 0 }}</strong>
+              <span>In Progress</span>
+            </div>
+            <div>
+              <strong>{{ weeklySummary.benchmark_plan_count || 0 }}</strong>
+              <span>Benchmark</span>
+            </div>
+            <div>
+              <strong>{{ weeklySummary.pending_review_count || 0 }}</strong>
+              <span>Review</span>
+            </div>
           </div>
-          <div class="mt-3 flex flex-wrap gap-1.5">
-            <span v-for="b in w.buckets" :key="b.type" class="pw-chip">{{ bucketTitle(b.type) }}</span>
+
+          <div class="pw-weekly-next">
+            <span>Next Action</span>
+            <p>{{ weeklyNextAction.message || 'Select a plan to view the workout.' }}</p>
           </div>
-        </button>
-      </div>
+
+          <div v-if="!hasWeeklyPlans" class="pw-empty pw-empty--compact">
+            <strong>No workouts assigned this week.</strong>
+            <span>Your coach has not published this week’s plans yet.</span>
+          </div>
+          <div v-else class="pw-weekly-days">
+            <article
+              v-for="day in weeklyDays"
+              :key="day.daily_plan_id"
+              class="pw-day-card"
+              :class="{ 'pw-day-card--today': isTodayCard(day), 'pw-day-card--updated': day.update_status?.has_update }"
+            >
+              <div class="pw-day-main">
+                <div class="pw-day-date">
+                  <span>{{ isTodayCard(day) ? 'Today' : day.day_label }}</span>
+                  <small>{{ fmtDate(day.scheduled_for) }}</small>
+                </div>
+                <div class="pw-day-copy">
+                  <div class="pw-day-title">{{ day.title || 'Daily Plan' }}</div>
+                  <div v-if="weeklyPrimaryLine(day)" class="pw-day-meta">{{ weeklyPrimaryLine(day) }}</div>
+                  <div class="pw-day-progress">
+                    <span>{{ weeklyProgressText(day) }}</span>
+                    <span v-if="day.completion_percentage">{{ oneDecimal(day.completion_percentage) }}%</span>
+                    <span v-if="day.pending_review_count">{{ day.pending_review_count }} waiting for coach review</span>
+                    <span v-if="day.approved_result_count">{{ day.approved_result_count }} approved</span>
+                  </div>
+                  <div v-if="day.blocks_preview?.length" class="pw-day-blocks">
+                    <span
+                      v-for="block in day.blocks_preview.slice(0, 4)"
+                      :key="`${day.daily_plan_id}-${block.title}-${block.category}`"
+                    >
+                      {{ block.title }}
+                    </span>
+                  </div>
+                  <p v-if="day.update_status?.has_update" class="pw-day-update">
+                    Your coach changed this workout. Tap Got it before starting.
+                  </p>
+                  <p v-else-if="day.next_step" class="pw-day-next">{{ day.next_step }}</p>
+                </div>
+              </div>
+              <div class="pw-day-actions">
+                <span class="pw-status-pill" :class="`pw-status-pill--${weeklyStatusTone(day)}`">
+                  {{ weeklyStatusLabel(day.status) }}
+                </span>
+                <button
+                  v-if="day.update_status?.has_update"
+                  type="button"
+                  class="pw-day-ack"
+                  :disabled="weeklyActionLoading === day.daily_plan_id"
+                  @click.stop="acknowledgeWeeklyUpdate(day)"
+                >
+                  {{ weeklyActionLoading === day.daily_plan_id ? 'Saving…' : 'Got It' }}
+                </button>
+                <button
+                  type="button"
+                  class="pw-day-open"
+                  :disabled="weeklyActionLoading === day.daily_plan_id"
+                  @click="openWeeklyDay(day)"
+                >
+                  {{ weeklyCardButtonLabel(day) }}
+                </button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="!hasWeeklyPlans && workouts.length" class="pw-fallback">
+          <div class="pw-fallback-title">Other Assigned Workouts</div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <button v-for="w in workouts" :key="w.id" class="pw-card" @click="open(w)">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 text-left">
+                  <div class="font-extrabold text-white truncate">{{ w.name || 'Workout' }}</div>
+                  <div class="text-white/45 text-xs mt-0.5">{{ fmtDate(w.date) }} · {{ w.phase || '—' }}</div>
+                </div>
+                <span
+                  class="pw-badge"
+                  :class="{ 'pw-badge--updated': w.update_status?.has_update, 'pw-badge--done': isDone(w) }"
+                >
+                  {{ planStatusLabel(w) }}
+                </span>
+              </div>
+              <div class="pw-card-summary">
+                <span>{{ itemCount(w) }} item{{ itemCount(w) === 1 ? '' : 's' }}</span>
+                <span v-if="w.estimatedMinutes">{{ w.estimatedMinutes }} min</span>
+                <span v-if="bucketItems(w).some(({ item }) => isBenchmarkItem(item))">Benchmark blocks</span>
+              </div>
+              <div class="mt-3 flex flex-wrap gap-1.5">
+                <span v-for="b in w.buckets" :key="b.type" class="pw-chip">{{ bucketTitle(b.type) }}</span>
+              </div>
+            </button>
+          </div>
+        </section>
+      </template>
     </template>
 
     <!-- ══ DO A WORKOUT ══ -->
@@ -1171,8 +1377,47 @@ const finish = async () => {
 <style scoped>
 .pw-save-notice { margin-bottom: 12px; border: 1px solid rgba(52,211,153,.24); background: rgba(16,185,129,.12); color: #d1fae5; border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 900; }
 .pw-empty { border: 1px dashed rgba(255,255,255,.14); border-radius: 16px; padding: 30px 20px; text-align: center; color: rgba(255,255,255,.5); font-size: 14px; display:flex; flex-direction:column; align-items:center; gap:5px; }
+.pw-empty--compact { padding: 20px 14px; margin-top: 12px; }
 .pw-empty strong { color:#fff; font-size:15px; font-weight:950; }
 .pw-empty span { max-width:420px; line-height:1.45; }
+.pw-weekly { border:1px solid rgba(255,255,255,.12); border-radius:18px; background:linear-gradient(145deg, rgba(255,255,255,.065), rgba(255,255,255,.025)); padding:16px; box-shadow:0 18px 34px rgba(0,0,0,.16); }
+.pw-weekly-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.pw-weekly-eyebrow { color:#ff335d; font-size:10.5px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; }
+.pw-weekly h3 { color:#fff; font-size:22px; line-height:1.1; font-weight:1000; margin:3px 0 0; }
+.pw-weekly-range { flex:none; color:rgba(255,255,255,.45); border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.045); border-radius:999px; padding:5px 9px; font-size:11px; font-weight:850; }
+.pw-weekly-error { margin-top:10px; border:1px solid rgba(251,191,36,.22); background:rgba(251,191,36,.09); color:#fde68a; border-radius:10px; padding:8px 10px; font-size:12px; font-weight:850; }
+.pw-weekly-summary { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:8px; margin-top:14px; }
+.pw-weekly-summary div { min-width:0; border:1px solid rgba(255,255,255,.09); background:rgba(5,11,31,.42); border-radius:12px; padding:10px; }
+.pw-weekly-summary strong { display:block; color:#fff; font-size:19px; line-height:1; font-weight:1000; }
+.pw-weekly-summary span { display:block; color:rgba(255,255,255,.52); font-size:10px; font-weight:950; text-transform:uppercase; letter-spacing:.05em; margin-top:5px; }
+.pw-weekly-next { margin-top:12px; border:1px solid rgba(56,189,248,.18); background:rgba(14,165,233,.085); border-radius:12px; padding:10px 12px; }
+.pw-weekly-next span { display:block; color:#bae6fd; font-size:10.5px; font-weight:950; text-transform:uppercase; letter-spacing:.07em; }
+.pw-weekly-next p { margin:4px 0 0; color:rgba(255,255,255,.84); font-size:13px; font-weight:850; line-height:1.4; }
+.pw-weekly-days { display:grid; gap:10px; margin-top:12px; }
+.pw-day-card { border:1px solid rgba(255,255,255,.1); background:rgba(5,11,31,.42); border-radius:14px; padding:12px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.pw-day-card--today { border-color:rgba(255,45,85,.38); background:linear-gradient(135deg, rgba(255,45,85,.13), rgba(5,11,31,.45)); }
+.pw-day-card--updated { border-color:rgba(251,191,36,.32); background:linear-gradient(135deg, rgba(251,191,36,.12), rgba(5,11,31,.45)); }
+.pw-day-main { min-width:0; display:flex; align-items:flex-start; gap:12px; flex:1; }
+.pw-day-date { flex:none; width:82px; border:1px solid rgba(255,255,255,.1); border-radius:12px; background:rgba(255,255,255,.045); padding:9px 8px; text-align:center; }
+.pw-day-date span { display:block; color:#fff; font-size:13px; font-weight:1000; line-height:1.05; }
+.pw-day-date small { display:block; color:rgba(255,255,255,.48); font-size:10px; font-weight:850; margin-top:4px; }
+.pw-day-copy { min-width:0; flex:1; }
+.pw-day-title { color:#fff; font-size:16px; line-height:1.18; font-weight:1000; overflow-wrap:anywhere; }
+.pw-day-meta { color:rgba(255,255,255,.58); font-size:12px; line-height:1.35; font-weight:800; margin-top:4px; }
+.pw-day-progress { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+.pw-day-progress span { color:rgba(255,255,255,.64); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.09); border-radius:999px; padding:3px 8px; font-size:11px; font-weight:850; }
+.pw-day-blocks { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+.pw-day-blocks span { color:#bae6fd; background:rgba(14,165,233,.11); border:1px solid rgba(56,189,248,.2); border-radius:999px; padding:3px 8px; font-size:10.5px; font-weight:850; }
+.pw-day-update, .pw-day-next { margin:8px 0 0; color:rgba(255,255,255,.7); font-size:12px; line-height:1.38; font-weight:800; }
+.pw-day-update { color:#fde68a; }
+.pw-day-actions { flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:136px; }
+.pw-day-open, .pw-day-ack { width:100%; border:0; border-radius:10px; padding:9px 11px; font-size:12px; font-weight:950; cursor:pointer; }
+.pw-day-open { background:#ff2d55; color:#fff; }
+.pw-day-open:hover { background:#ff4668; }
+.pw-day-ack { background:rgba(251,191,36,.16); color:#fde68a; border:1px solid rgba(251,191,36,.28); }
+.pw-day-open:disabled, .pw-day-ack:disabled { opacity:.62; cursor:default; }
+.pw-fallback { margin-top:14px; }
+.pw-fallback-title { color:rgba(255,255,255,.55); font-size:11px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; margin:0 0 8px 2px; }
 .pw-card { display: block; width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 16px; cursor: pointer; transition: border-color .12s, background .12s; }
 .pw-card:hover { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.06); }
 .pw-card-summary { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
@@ -1256,6 +1501,7 @@ const finish = async () => {
 .pw-status-pill--done { color:#bbf7d0; border-color:rgba(52,211,153,.22); background:rgba(52,211,153,.1); }
 .pw-status-pill--review { color:#fde68a; border-color:rgba(251,191,36,.25); background:rgba(251,191,36,.12); }
 .pw-status-pill--approved { color:#bbf7d0; border-color:rgba(52,211,153,.28); background:rgba(52,211,153,.14); }
+.pw-status-pill--updated { color:#fde68a; border-color:rgba(251,191,36,.28); background:rgba(251,191,36,.13); }
 .pw-status-pill--correction, .pw-status-pill--rejected { color:#fecaca; border-color:rgba(248,113,113,.28); background:rgba(239,68,68,.13); }
 .pw-item-name { display: block; color: #fff; font-size: 15px; font-weight: 700; }
 .pw-item--done .pw-item-name { text-decoration: line-through; color: rgba(255,255,255,.45); }
@@ -1303,6 +1549,14 @@ const finish = async () => {
 .pw-finish:hover { background: #2dd46a; }
 .pw-finish:disabled { opacity: .6; cursor: default; }
 @media (max-width: 520px) {
+  .pw-weekly { padding:14px; }
+  .pw-weekly-head { flex-direction:column; }
+  .pw-weekly-range { align-self:flex-start; }
+  .pw-weekly-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .pw-day-card { flex-direction:column; }
+  .pw-day-main { width:100%; }
+  .pw-day-date { width:72px; }
+  .pw-day-actions { width:100%; align-items:stretch; }
   .pw-workout-hero { padding:14px; }
   .pw-hero-top { flex-direction:column; }
   .pw-hero-status { align-self:flex-start; }
