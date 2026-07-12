@@ -294,6 +294,7 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
         Route::post('/teams/{teamId}/benchmark-tasks/save-drafts', [IntelligenceController::class, 'saveBenchmarkDrafts']);
         Route::post('/teams/{teamId}/benchmark-tasks/assign', [IntelligenceController::class, 'assignBenchmarkTasks']);
         Route::post('/teams/{teamId}/refresh-benchmarks', [IntelligenceController::class, 'refreshTeamBenchmarks']);
+        Route::post('/teams/{teamId}/rescore-benchmark-data-quality', [IntelligenceController::class, 'rescoreBenchmarkDataQuality']);
         Route::get('/teams/{teamId}/benchmark-task-reviews', [IntelligenceController::class, 'listBenchmarkTaskReviews']);
         Route::get('/teams/{teamId}/benchmark-task-promotions', [IntelligenceController::class, 'listBenchmarkTaskPromotions']);
         Route::post('/teams/{teamId}/promote-approved-benchmark-tasks', [IntelligenceController::class, 'promoteApprovedBenchmarkTasks']);

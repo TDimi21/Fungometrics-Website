@@ -27,6 +27,7 @@ class BenchmarkTrustedDataPromotionService
         private readonly BenchmarkTaskPersistenceService $taskPersistence,
         private readonly BenchmarkRefreshService $benchmarkRefreshService,
         private readonly PopulationValueGuardrail $guardrail,
+        private readonly BenchmarkDataQualityRescoreService $benchmarkDataQualityRescoreService,
     ) {
     }
 
@@ -72,6 +73,7 @@ class BenchmarkTrustedDataPromotionService
                     'existing_promoted_at' => $task->promoted_at?->toIso8601String() ?? $payloadPromotion['promoted_at'] ?? null,
                 ],
                 'refresh' => $task->promotion_result['refresh'] ?? $payloadPromotion['refresh'] ?? [],
+                'rescore' => $task->promotion_result['rescore'] ?? $payloadPromotion['rescore'] ?? [],
             ]);
         }
 
@@ -88,6 +90,8 @@ class BenchmarkTrustedDataPromotionService
             ]);
         }
 
+        $beforeRescoreState = $this->captureRescoreBeforeState($task, $options);
+
         $result = $this->buildPromotionResult($task, [
             ...$options,
             'write' => true,
@@ -101,6 +105,7 @@ class BenchmarkTrustedDataPromotionService
         ], true)) {
             $this->storePromotionResult($task->fresh() ?? $task, $result, $reviewedByUserId);
             $result = $this->attachRefresh($taskId, $result, $options);
+            $result = $this->attachRescore($taskId, $task->fresh() ?? $task, $result, $beforeRescoreState, $options);
         }
 
         $this->storePromotionResult($task->fresh() ?? $task, $result, $reviewedByUserId);
@@ -586,8 +591,72 @@ class BenchmarkTrustedDataPromotionService
         return $result;
     }
 
+    private function captureRescoreBeforeState(BenchmarkCollectionTask $task, array $options): array
+    {
+        $teamId = $this->nullableString($task->team_id);
+        $playerId = $this->nullableString($task->assigned_to_player_id);
+
+        if (! $teamId) {
+            return [
+                'warnings' => ['Before data quality state was skipped because the task is missing a team_id.'],
+            ];
+        }
+
+        try {
+            return $this->benchmarkDataQualityRescoreService->buildCurrentState(
+                $teamId,
+                $playerId,
+                $this->days($options['days'] ?? 365),
+            );
+        } catch (Throwable $exception) {
+            return [
+                'warnings' => ['Before data quality state unavailable: '.$exception->getMessage()],
+            ];
+        }
+    }
+
+    private function attachRescore(string $taskId, BenchmarkCollectionTask $task, array $result, array $before, array $options): array
+    {
+        $teamId = $this->nullableString($task->team_id);
+        $playerId = $this->nullableString($task->assigned_to_player_id);
+
+        if (! $teamId) {
+            $result['rescore'] = [
+                'task_id' => $taskId,
+                'team_id' => null,
+                'player_id' => $playerId,
+                'rescore_status' => 'skipped',
+                'warnings' => ['Benchmark data quality re-score skipped because the task is missing a team_id.'],
+            ];
+
+            return $result;
+        }
+
+        try {
+            $result['rescore'] = $this->benchmarkDataQualityRescoreService->rescoreAfterPromotion($teamId, $playerId, [
+                'days' => $this->days($options['days'] ?? 365),
+                'before' => $before,
+                'promotion' => $result,
+                'trusted_payload' => $result['trusted_payload'] ?? [],
+            ]);
+        } catch (Throwable $exception) {
+            $result['warnings'][] = 'Trusted data was promoted, but benchmark re-score will update on next dashboard load.';
+            $result['rescore'] = [
+                'task_id' => $taskId,
+                'team_id' => $teamId,
+                'player_id' => $playerId,
+                'rescore_status' => 'failed',
+                'warnings' => [$exception->getMessage()],
+            ];
+            $result['promotion_status'] = BenchmarkCollectionTask::PROMOTION_PARTIAL;
+        }
+
+        return $result;
+    }
+
     private function storePromotionResult(BenchmarkCollectionTask $task, array $result, ?string $promotedByUserId): void
     {
+        $storedResult = $this->persistablePromotionResult($result);
         $wasPromoted = in_array($result['promotion_status'] ?? null, [
             BenchmarkCollectionTask::PROMOTION_PROMOTED,
             BenchmarkCollectionTask::PROMOTION_PARTIAL,
@@ -603,7 +672,8 @@ class BenchmarkTrustedDataPromotionService
             'target_record_id' => $result['target_record_id'] ?? null,
             'trusted_payload' => $result['trusted_payload'] ?? [],
             'warnings' => $result['warnings'] ?? [],
-            'refresh' => $result['refresh'] ?? [],
+            'refresh' => $storedResult['refresh'] ?? [],
+            'rescore' => $storedResult['rescore'] ?? [],
         ];
         $task->payload = $payload;
 
@@ -620,10 +690,37 @@ class BenchmarkTrustedDataPromotionService
             $task->promotion_mode = $result['promotion_mode'] ?? null;
         }
         if ($this->taskHasColumn('promotion_result')) {
-            $task->promotion_result = $result;
+            $task->promotion_result = $storedResult;
         }
 
         $task->save();
+    }
+
+    private function persistablePromotionResult(array $result): array
+    {
+        $stored = $result;
+
+        if (is_array($stored['rescore'] ?? null)) {
+            $stored['rescore'] = $this->compactRescore($stored['rescore']);
+        }
+
+        return $stored;
+    }
+
+    private function compactRescore(array $rescore): array
+    {
+        return [
+            'generated_at' => $rescore['generated_at'] ?? now()->toIso8601String(),
+            'team_id' => $rescore['team_id'] ?? null,
+            'player_id' => $rescore['player_id'] ?? null,
+            'rescore_status' => $rescore['rescore_status'] ?? null,
+            'improvement_summary' => $rescore['improvement_summary'] ?? [],
+            'changes' => array_slice(is_array($rescore['changes'] ?? null) ? $rescore['changes'] : [], 0, 12),
+            'remaining_gaps' => array_slice(is_array($rescore['remaining_gaps'] ?? null) ? $rescore['remaining_gaps'] : [], 0, 12),
+            'next_recommended_actions' => array_slice(is_array($rescore['next_recommended_actions'] ?? null) ? $rescore['next_recommended_actions'] : [], 0, 6),
+            'warnings' => $rescore['warnings'] ?? [],
+            'evidence' => $rescore['evidence'] ?? [],
+        ];
     }
 
     private function eligibilityWarnings(BenchmarkCollectionTask $task): array
@@ -694,6 +791,7 @@ class BenchmarkTrustedDataPromotionService
                 ...$overrideEvidence,
             ],
             'refresh' => [],
+            'rescore' => [],
             ...$overrides,
         ];
     }

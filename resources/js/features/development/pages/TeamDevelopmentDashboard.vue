@@ -1885,6 +1885,42 @@ const promotedBenchmarkTasks = computed(() =>
   asArray(benchmarkTaskPromotionStatus.value?.promoted_tasks).slice(0, 6)
 )
 
+const recentBenchmarkRescore = computed(() => {
+  const selected = selectedPromotionPreview.value?.rescore
+  if (selected && typeof selected === 'object') return selected
+
+  const promoted = promotedBenchmarkTasks.value
+    .map((task) => task?.promotion_result?.rescore || task?.payload?.promotion?.rescore)
+    .find((rescore) => rescore && typeof rescore === 'object')
+
+  return promoted || teamIntelligence.value?.benchmark_data_quality_rescore || null
+})
+
+const recentBenchmarkChanges = computed(() =>
+  asArray(recentBenchmarkRescore.value?.changes).slice(0, 6)
+)
+
+const recentBenchmarkRemainingGaps = computed(() =>
+  asArray(recentBenchmarkRescore.value?.remaining_gaps).slice(0, 4)
+)
+
+const recentBenchmarkNextActions = computed(() =>
+  asArray(recentBenchmarkRescore.value?.next_recommended_actions).slice(0, 3)
+)
+
+const benchmarkRescoreSummary = computed(() =>
+  recentBenchmarkRescore.value?.improvement_summary && typeof recentBenchmarkRescore.value.improvement_summary === 'object'
+    ? recentBenchmarkRescore.value.improvement_summary
+    : {}
+)
+
+const rescoreStatusClass = (status) => ({
+  completed: 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100',
+  partial: 'border-amber-300/30 bg-amber-500/15 text-amber-100',
+  skipped: 'border-slate-300/20 bg-white/5 text-slate-200',
+  failed: 'border-red-300/30 bg-red-500/15 text-red-100',
+}[status] || 'border-white/10 bg-white/5 text-slate-300')
+
 const manualPromotionReviewTasks = computed(() =>
   [
     ...asArray(benchmarkTaskPromotionStatus.value?.manual_review_tasks),
@@ -3641,6 +3677,111 @@ const priorityTop10Rows = computed(() => {
                   </div>
                 </div>
 
+                <div class="mt-3 rounded-md border border-emerald-300/20 bg-emerald-500/10 p-3">
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p class="text-[10px] uppercase tracking-widest text-emerald-100/80">Recent Benchmark Improvements</p>
+                      <p class="mt-1 text-sm text-slate-200">
+                        Approved daily plan values appear here after coach review and trusted promotion.
+                      </p>
+                    </div>
+                    <span
+                      v-if="recentBenchmarkRescore"
+                      class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider"
+                      :class="rescoreStatusClass(recentBenchmarkRescore.rescore_status)"
+                    >
+                      {{ humanizeKey(recentBenchmarkRescore.rescore_status, 'Not Available') }}
+                    </span>
+                  </div>
+
+                  <p v-if="!recentBenchmarkRescore" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                    No recent benchmark improvements yet. Approved daily plan values will appear here after review.
+                  </p>
+
+                  <template v-else>
+                    <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                        <span class="block text-[10px] uppercase tracking-wider text-white/35">Metrics</span>
+                        <span class="font-black text-white">
+                          {{ fmtCount(benchmarkRescoreSummary.benchmark_metric_count_before, '—') }}
+                          →
+                          {{ fmtCount(benchmarkRescoreSummary.benchmark_metric_count_after, '—') }}
+                        </span>
+                      </p>
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                        <span class="block text-[10px] uppercase tracking-wider text-white/35">Coverage</span>
+                        <span class="font-black text-white">
+                          {{ fmtScore(benchmarkRescoreSummary.completion_percentage_before) }}%
+                          →
+                          {{ fmtScore(benchmarkRescoreSummary.completion_percentage_after) }}%
+                        </span>
+                      </p>
+                      <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                        <span class="block text-[10px] uppercase tracking-wider text-white/35">Confidence</span>
+                        <span class="font-black text-white">
+                          {{ humanizeKey(benchmarkRescoreSummary.benchmark_confidence_before, '—') }}
+                          →
+                          {{ humanizeKey(benchmarkRescoreSummary.benchmark_confidence_after, '—') }}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div v-if="recentBenchmarkChanges.length" class="mt-3 space-y-2">
+                      <div
+                        v-for="change in recentBenchmarkChanges"
+                        :key="`${change.type || 'change'}-${change.player_id || 'team'}-${change.metric_key || change.message}`"
+                        class="rounded border border-emerald-300/15 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100"
+                      >
+                        <p class="font-semibold text-white">{{ change.message || humanizeKey(change.type, 'Benchmark data updated.') }}</p>
+                        <p v-if="change.display_name || change.player_name" class="mt-1 text-emerald-100/75">
+                          <span v-if="change.player_name">{{ change.player_name }}</span>
+                          <span v-if="change.player_name && change.display_name"> · </span>
+                          <span v-if="change.display_name">{{ change.display_name }}</span>
+                          <span v-if="change.after !== undefined && change.after !== null"> · now {{ change.after }}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <p v-else class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                      Benchmark re-score ran, but no new improvement messages were returned yet.
+                    </p>
+
+                    <div v-if="recentBenchmarkRemainingGaps.length || recentBenchmarkNextActions.length" class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                      <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+                        <p class="text-[10px] uppercase tracking-widest text-white/40">Still Needed</p>
+                        <div class="mt-2 space-y-1">
+                          <p
+                            v-for="gap in recentBenchmarkRemainingGaps"
+                            :key="`rescore-gap-${gap.metric_key || gap.display_name}`"
+                            class="text-xs text-slate-300"
+                          >
+                            {{ coachFriendlyMetricLabel(gap) }} · {{ missingRowCount(gap) }}
+                          </p>
+                          <p v-if="!recentBenchmarkRemainingGaps.length" class="text-xs text-slate-400">No remaining gaps were returned.</p>
+                        </div>
+                      </div>
+
+                      <div class="rounded border border-white/10 bg-slate-950/35 p-3">
+                        <p class="text-[10px] uppercase tracking-widest text-white/40">Next Recommended Action</p>
+                        <div class="mt-2 space-y-1">
+                          <p
+                            v-for="action in recentBenchmarkNextActions"
+                            :key="`rescore-action-${action.title}`"
+                            class="text-xs text-slate-300"
+                          >
+                            <span class="font-black text-white">{{ action.title }}</span>
+                            <span v-if="action.priority"> · {{ humanizeKey(action.priority) }}</span>
+                          </p>
+                          <p v-if="!recentBenchmarkNextActions.length" class="text-xs text-slate-400">No next action was returned.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p v-if="asArray(recentBenchmarkRescore.warnings).length" class="mt-3 rounded border border-amber-300/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                      {{ asArray(recentBenchmarkRescore.warnings).join(' ') }}
+                    </p>
+                  </template>
+                </div>
+
               </template>
             </div>
 
@@ -4064,7 +4205,7 @@ const priorityTop10Rows = computed(() => {
 	                        <p v-if="promotionResultCoachMessage(selectedPromotionPreview)" class="mt-2 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-2 text-xs text-emerald-100">
 	                          {{ promotionResultCoachMessage(selectedPromotionPreview) }}
 	                        </p>
-	                        <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+	                        <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-4">
 	                          <p class="rounded border border-white/10 bg-white/5 px-2 py-1">
 	                            <span class="block text-[10px] uppercase tracking-wider text-white/35">Target</span>
 	                            <span class="font-black text-white">{{ selectedPromotionPreview.target_table || 'Trusted Payload' }}</span>
@@ -4077,6 +4218,14 @@ const priorityTop10Rows = computed(() => {
 	                            <span class="block text-[10px] uppercase tracking-wider text-white/35">Refresh</span>
 	                            <span class="font-black text-white">{{ humanizeKey(selectedPromotionPreview.refresh?.refresh_status, '—') }}</span>
 	                          </p>
+	                          <p class="rounded border border-white/10 bg-white/5 px-2 py-1">
+	                            <span class="block text-[10px] uppercase tracking-wider text-white/35">Rescore</span>
+	                            <span class="font-black text-white">{{ humanizeKey(selectedPromotionPreview.rescore?.rescore_status, '—') }}</span>
+	                          </p>
+	                        </div>
+	                        <div v-if="asArray(selectedPromotionPreview.rescore?.changes).length" class="mt-2 rounded border border-emerald-300/20 bg-emerald-500/10 px-2 py-2 text-xs text-emerald-100">
+	                          <p class="font-black text-white">Benchmark Data Updated</p>
+	                          <p class="mt-1">{{ selectedPromotionPreview.rescore.changes[0]?.message || 'Collection plan updated from trusted benchmark data.' }}</p>
 	                        </div>
 	                        <div v-if="asArray(selectedPromotionPreview.promoted_fields).length" class="mt-2 flex flex-wrap gap-1">
 	                          <span

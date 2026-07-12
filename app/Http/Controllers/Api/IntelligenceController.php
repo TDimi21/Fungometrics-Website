@@ -11,6 +11,7 @@ use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Intelligence\BenchmarkCollectionPlanner;
+use App\Services\Intelligence\BenchmarkDataQualityRescoreService;
 use App\Services\Intelligence\BenchmarkPracticePlanDailyPlannerAdapter;
 use App\Services\Intelligence\BenchmarkRefreshService;
 use App\Services\Intelligence\BenchmarkTaskAssignmentService;
@@ -40,6 +41,7 @@ class IntelligenceController extends Controller
         private readonly BenchmarkRefreshService $benchmarkRefreshService,
         private readonly BenchmarkTaskReviewService $benchmarkTaskReviewService,
         private readonly BenchmarkTrustedDataPromotionService $benchmarkTrustedDataPromotionService,
+        private readonly BenchmarkDataQualityRescoreService $benchmarkDataQualityRescoreService,
         private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
         private readonly BenchmarkPracticePlanDailyPlannerAdapter $coachActionDailyPlannerAdapter,
     ) {
@@ -631,6 +633,24 @@ class IntelligenceController extends Controller
         }
 
         return response()->json($this->benchmarkRefreshService->refreshTeamBenchmarks($teamId, $this->days($request)));
+    }
+
+    public function rescoreBenchmarkDataQuality(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        $validated = $request->validate([
+            'player_id' => ['nullable', 'string'],
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+        ]);
+
+        return response()->json($this->benchmarkDataQualityRescoreService->rescoreAfterPromotion(
+            $teamId,
+            $validated['player_id'] ?? null,
+            ['days' => $this->days($request)],
+        ));
     }
 
     private function days(Request $request): int
