@@ -333,10 +333,32 @@ class BenchmarkTaskReviewService
     public function reviewTaskPayload(BenchmarkCollectionTask $task): array
     {
         $serialized = $this->taskPersistence->serializeTask($task) ?? [];
+        $submittedPayload = is_array($serialized['submitted_payload'] ?? null)
+            ? $serialized['submitted_payload']
+            : [];
+        $submittedMetricValues = $this->submittedMetricValues($submittedPayload);
+        $dailyPlanItemTitle = $this->nullableString(
+            $submittedPayload['daily_plan_item_title']
+                ?? $submittedPayload['daily_plan_item_name']
+                ?? null
+        );
 
         return [
             ...$serialized,
-            'submitted_values_summary' => $this->submittedValuesSummary($serialized['submitted_payload'] ?? []),
+            'task_id' => $serialized['id'] ?? null,
+            'player_id' => $serialized['assigned_to_player_id'] ?? null,
+            'player_name' => $serialized['assigned_to_player_name'] ?? null,
+            'submitted_source' => $this->nullableString($submittedPayload['source'] ?? null),
+            'daily_plan_id' => $this->nullableString($submittedPayload['daily_plan_id'] ?? null),
+            'daily_plan_item_key' => $this->nullableString(
+                $submittedPayload['daily_plan_item_key']
+                    ?? $submittedPayload['daily_plan_item_id']
+                    ?? null
+            ),
+            'daily_plan_item_title' => $dailyPlanItemTitle,
+            'submitted_metric_values' => $submittedMetricValues,
+            'submitted_note' => $this->nullableString($submittedPayload['note'] ?? null),
+            'submitted_values_summary' => $this->submittedValuesSummary($submittedPayload),
             'review_state_label' => $this->reviewStateLabel($serialized['review_status'] ?? null),
         ];
     }
@@ -361,13 +383,16 @@ class BenchmarkTaskReviewService
 
     private function submittedValuesSummary(array $payload): array
     {
-        $values = $payload['submitted_values'] ?? $payload['values'] ?? $payload;
+        $values = $this->submittedMetricValues($payload);
         if (! is_array($values)) {
             return [];
         }
 
         return collect($values)
-            ->filter(fn ($value, $key): bool => is_string($key) && ! in_array($key, ['manual_confirm', 'source', 'payload'], true))
+            ->filter(fn ($value, $key): bool => is_string($key)
+                && ! in_array($key, ['manual_confirm', 'source', 'payload'], true)
+                && $value !== null
+                && $value !== '')
             ->map(fn ($value, $key): array => [
                 'key' => (string) $key,
                 'label' => $this->headline((string) $key),
@@ -375,6 +400,19 @@ class BenchmarkTaskReviewService
             ])
             ->values()
             ->all();
+    }
+
+    private function submittedMetricValues(array $payload): array
+    {
+        foreach (['metric_values', 'submitted_values', 'actuals', 'values', 'results'] as $key) {
+            if (is_array($payload[$key] ?? null)) {
+                return collect($payload[$key])
+                    ->filter(fn ($value): bool => $value !== null && $value !== '')
+                    ->all();
+            }
+        }
+
+        return [];
     }
 
     private function reviewStateLabel(?string $status): string

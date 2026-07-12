@@ -192,6 +192,7 @@ class DailyPlanBenchmarkCompletionBridge
             'daily_plan_item_id' => $item['id'] ?? null,
             'daily_plan_item_key' => $item['item_key'] ?? $item['id'] ?? null,
             'daily_plan_item_name' => $item['name'] ?? null,
+            'daily_plan_item_title' => $item['name'] ?? null,
             'task_type' => (string) $task->task_type,
             'metric_values' => $submittedValues,
             'submitted_values' => $submittedValues,
@@ -592,6 +593,7 @@ class DailyPlanBenchmarkCompletionBridge
             'daily_plan_item_id' => $item['id'] ?? null,
             'daily_plan_item_key' => $item['item_key'] ?? $item['id'] ?? null,
             'daily_plan_item_name' => $item['name'] ?? null,
+            'daily_plan_item_title' => $item['name'] ?? null,
             'player_id' => $playerId,
             'submitted_by_user_id' => $userId,
             'submitted_at' => now()->toIso8601String(),
@@ -601,6 +603,7 @@ class DailyPlanBenchmarkCompletionBridge
             'note' => $this->completionNote($item),
             'related_metrics' => $relatedMetrics,
             'metric_keys' => $relatedMetrics,
+            'metrics_to_collect' => $relatedMetrics,
         ];
     }
 

@@ -1940,8 +1940,43 @@ const reviewStateClass = (status) => ({
   not_required: 'border-white/10 bg-white/5 text-white/55',
 }[status] || 'border-white/10 bg-white/5 text-white/55')
 
-const submittedValueRows = (task) =>
-  asArray(task?.submitted_values_summary).slice(0, 6)
+const reviewTaskPlayerName = (task) =>
+  safeText(task?.player_name || task?.assigned_to_player_name || task?.assigned_to_player_id, 'Player')
+
+const reviewTaskTitle = (task) =>
+  safeText(task?.title || taskTypeLabel(task?.task_type), 'Benchmark Task')
+
+const reviewTaskDailyPlanTitle = (task) =>
+  safeText(task?.daily_plan_item_title || task?.submitted_payload?.daily_plan_item_title || task?.submitted_payload?.daily_plan_item_name, '')
+
+const reviewTaskSourceLabel = (task) => {
+  const source = task?.submitted_source || task?.submitted_payload?.source
+  if (source === 'daily_plan_progress') return 'Submitted from Daily Plan'
+  if (source === 'coach_dashboard') return 'Submitted from Coach Dashboard'
+  return humanizeKey(source, 'Submitted Metric Values')
+}
+
+const submittedValueRows = (task) => {
+  const values = task?.submitted_metric_values
+    || task?.submitted_payload?.metric_values
+    || task?.submitted_payload?.submitted_values
+    || task?.submitted_payload?.actuals
+
+  if (values && typeof values === 'object' && !Array.isArray(values)) {
+    return Object.entries(values)
+      .filter(([key, value]) => key && value !== null && value !== '')
+      .map(([key, value]) => ({
+        key,
+        label: humanizeKey(key, 'Value'),
+        value: Array.isArray(value) || (value && typeof value === 'object')
+          ? JSON.stringify(value)
+          : value,
+      }))
+      .slice(0, 6)
+  }
+
+  return asArray(task?.submitted_values_summary).slice(0, 6)
+}
 
 const refreshBenchmarkTaskReviews = async () => {
   const teamId = resolveTeamId.value
@@ -3807,8 +3842,8 @@ const priorityTop10Rows = computed(() => {
 	                  <div class="mt-3 rounded-md border border-amber-300/20 bg-amber-500/10 p-3">
 	                    <div class="flex flex-wrap items-start justify-between gap-3">
 	                      <div>
-	                        <p class="text-[10px] uppercase tracking-widest text-amber-100/80">Benchmark Task Review Queue</p>
-	                        <h5 class="mt-1 text-base font-semibold text-white">Coach Approval</h5>
+	                        <p class="text-[10px] uppercase tracking-widest text-amber-100/80">Daily Plan Metric Review</p>
+	                        <h5 class="mt-1 text-base font-semibold text-white">Coach Approval Queue</h5>
 	                      </div>
 	                      <span class="rounded-full border border-amber-300/30 bg-amber-500/15 px-3 py-1 text-xs uppercase tracking-wider text-amber-100">
 	                        {{ fmtCount(pendingBenchmarkReviewCount, '0') }} Pending
@@ -3834,8 +3869,8 @@ const priorityTop10Rows = computed(() => {
 	                      >
 	                        <div class="flex flex-wrap items-start justify-between gap-2">
 	                          <div>
-	                            <p class="font-black text-white">{{ task.assigned_to_player_name || 'Player' }}</p>
-	                            <p class="mt-1 text-slate-100">{{ task.title || taskTypeLabel(task.task_type) }}</p>
+	                            <p class="font-black text-white">{{ reviewTaskPlayerName(task) }}</p>
+	                            <p class="mt-1 text-slate-100">{{ reviewTaskTitle(task) }}</p>
 	                          </div>
 	                          <span class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider" :class="reviewStateClass(task.review_status)">
 	                            {{ reviewStateLabel(task.review_status) }}
@@ -3844,11 +3879,14 @@ const priorityTop10Rows = computed(() => {
 	                        <p class="mt-2 text-[10px] uppercase tracking-wider text-white/45">
 	                          {{ taskTypeLabel(task.task_type) }} · Submitted {{ task.submitted_at ? formatDate(task.submitted_at) : '—' }}
 	                        </p>
-	                        <p v-if="task.submitted_payload?.source === 'daily_plan_progress'" class="mt-1 text-[10px] font-black uppercase tracking-wider text-cyan-100">
-	                          Submitted from Daily Plan
+	                        <p class="mt-1 text-[10px] font-black uppercase tracking-wider text-cyan-100">
+	                          {{ reviewTaskSourceLabel(task) }}
 	                        </p>
-	                        <p v-if="task.submitted_payload?.note" class="mt-2 rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-300">
-	                          Note: {{ task.submitted_payload.note }}
+	                        <p v-if="reviewTaskDailyPlanTitle(task)" class="mt-2 rounded border border-cyan-300/20 bg-cyan-500/10 px-2 py-1 text-cyan-50">
+	                          Daily plan item: {{ reviewTaskDailyPlanTitle(task) }}
+	                        </p>
+	                        <p v-if="task.submitted_note || task.submitted_payload?.note" class="mt-2 rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-300">
+	                          Note: {{ task.submitted_note || task.submitted_payload?.note }}
 	                        </p>
 	                        <div v-if="submittedValueRows(task).length" class="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
 	                          <p
@@ -3893,7 +3931,7 @@ const priorityTop10Rows = computed(() => {
 	                    </div>
 
 	                    <p v-else class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
-	                      No benchmark tasks are waiting for coach review.
+	                      No daily plan metric submissions are waiting for coach review.
 	                    </p>
 	                  </div>
 
