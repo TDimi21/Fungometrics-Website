@@ -90,6 +90,22 @@ class BenchmarkDataQualityRescoreAudit extends Command
             $row['why'] ?? '-',
         ));
 
+        $rerank = is_array($result['action_rerank'] ?? null) ? $result['action_rerank'] : [];
+        $this->section('COACH ACTION RERANK');
+        $this->kv('Rerank status', $rerank['rerank_status'] ?? '-');
+        $this->kv('Primary focus', $this->beforeAfter($rerank, 'primary_focus_before', 'primary_focus_after'));
+        $this->kv('Data collection priority', $this->beforeAfter($rerank, 'data_collection_priority_before', 'data_collection_priority_after'));
+        $this->kv('Practice plan title', $rerank['updated_practice_plan']['plan_title'] ?? '-');
+        $this->kv('Coach summary', $rerank['coach_summary'] ?? '-');
+
+        $this->printRows(array_slice($rerank['top_actions_after'] ?? [], 0, 5), fn (array $row): string => sprintf(
+            '#%s %s | %s | %s',
+            $row['rank'] ?? '-',
+            $row['title'] ?? 'Coach Action',
+            $row['priority'] ?? '-',
+            $row['reason_for_rank'] ?? '-',
+        ));
+
         $this->section('WARNINGS');
         $this->printList($result['warnings'] ?? []);
 

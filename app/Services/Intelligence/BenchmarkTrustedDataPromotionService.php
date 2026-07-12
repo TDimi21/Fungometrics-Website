@@ -718,8 +718,40 @@ class BenchmarkTrustedDataPromotionService
             'changes' => array_slice(is_array($rescore['changes'] ?? null) ? $rescore['changes'] : [], 0, 12),
             'remaining_gaps' => array_slice(is_array($rescore['remaining_gaps'] ?? null) ? $rescore['remaining_gaps'] : [], 0, 12),
             'next_recommended_actions' => array_slice(is_array($rescore['next_recommended_actions'] ?? null) ? $rescore['next_recommended_actions'] : [], 0, 6),
+            'action_rerank' => $this->compactActionRerank(is_array($rescore['action_rerank'] ?? null) ? $rescore['action_rerank'] : []),
             'warnings' => $rescore['warnings'] ?? [],
             'evidence' => $rescore['evidence'] ?? [],
+        ];
+    }
+
+    private function compactActionRerank(array $rerank): array
+    {
+        if (empty($rerank)) {
+            return [];
+        }
+
+        return [
+            'generated_at' => $rerank['generated_at'] ?? now()->toIso8601String(),
+            'team_id' => $rerank['team_id'] ?? null,
+            'rerank_status' => $rerank['rerank_status'] ?? null,
+            'primary_focus_before' => $rerank['primary_focus_before'] ?? null,
+            'primary_focus_after' => $rerank['primary_focus_after'] ?? null,
+            'data_collection_priority_before' => $rerank['data_collection_priority_before'] ?? null,
+            'data_collection_priority_after' => $rerank['data_collection_priority_after'] ?? null,
+            'top_actions_before' => array_slice(is_array($rerank['top_actions_before'] ?? null) ? $rerank['top_actions_before'] : [], 0, 5),
+            'top_actions_after' => array_slice(is_array($rerank['top_actions_after'] ?? null) ? $rerank['top_actions_after'] : [], 0, 5),
+            'action_changes' => array_slice(is_array($rerank['action_changes'] ?? null) ? $rerank['action_changes'] : [], 0, 12),
+            'removed_actions' => array_slice(is_array($rerank['removed_actions'] ?? null) ? $rerank['removed_actions'] : [], 0, 8),
+            'new_actions' => array_slice(is_array($rerank['new_actions'] ?? null) ? $rerank['new_actions'] : [], 0, 8),
+            'updated_practice_plan' => is_array($rerank['updated_practice_plan'] ?? null) ? [
+                'plan_title' => $rerank['updated_practice_plan']['plan_title'] ?? null,
+                'priority_focus' => $rerank['updated_practice_plan']['priority_focus'] ?? null,
+                'estimated_total_minutes' => $rerank['updated_practice_plan']['estimated_total_minutes'] ?? null,
+                'practice_blocks' => array_slice(is_array($rerank['updated_practice_plan']['practice_blocks'] ?? null) ? $rerank['updated_practice_plan']['practice_blocks'] : [], 0, 6),
+            ] : [],
+            'coach_summary' => $rerank['coach_summary'] ?? null,
+            'warnings' => $rerank['warnings'] ?? [],
+            'evidence' => $rerank['evidence'] ?? [],
         ];
     }
 

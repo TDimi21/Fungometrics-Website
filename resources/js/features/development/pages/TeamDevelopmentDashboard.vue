@@ -1908,6 +1908,33 @@ const recentBenchmarkNextActions = computed(() =>
   asArray(recentBenchmarkRescore.value?.next_recommended_actions).slice(0, 3)
 )
 
+const recentCoachActionRerank = computed(() => {
+  const fromRescore = recentBenchmarkRescore.value?.action_rerank
+  if (fromRescore && typeof fromRescore === 'object') return fromRescore
+
+  const fromPromotion = selectedPromotionPreview.value?.action_rerank
+  if (fromPromotion && typeof fromPromotion === 'object') return fromPromotion
+
+  const fromTeam = teamIntelligence.value?.action_rerank
+  return fromTeam && typeof fromTeam === 'object' ? fromTeam : null
+})
+
+const recentCoachActionChanges = computed(() =>
+  asArray(recentCoachActionRerank.value?.action_changes).slice(0, 6)
+)
+
+const recentCoachTopActions = computed(() =>
+  asArray(recentCoachActionRerank.value?.top_actions_after).slice(0, 3)
+)
+
+const recentCoachRemovedActions = computed(() =>
+  asArray(recentCoachActionRerank.value?.removed_actions).slice(0, 4)
+)
+
+const recentCoachNewActions = computed(() =>
+  asArray(recentCoachActionRerank.value?.new_actions).slice(0, 4)
+)
+
 const benchmarkRescoreSummary = computed(() =>
   recentBenchmarkRescore.value?.improvement_summary && typeof recentBenchmarkRescore.value.improvement_summary === 'object'
     ? recentBenchmarkRescore.value.improvement_summary
@@ -2048,6 +2075,8 @@ const applyReviewRefreshPayload = (refresh) => {
     benchmark_profile: refresh.team_benchmark_profile || teamIntelligence.value?.benchmark_profile || null,
     decision_brief: refresh.decision_brief || teamIntelligence.value?.decision_brief || null,
     benchmark_collection_plan: refresh.collection_plan || teamIntelligence.value?.benchmark_collection_plan || null,
+    coach_action_practice_plan: refresh.coach_action_practice_plan || teamIntelligence.value?.coach_action_practice_plan || null,
+    action_rerank: refresh.action_rerank || teamIntelligence.value?.action_rerank || null,
     benchmark_refresh_status: {
       status: refresh.refresh_status || 'unknown',
       last_refreshed_at: refresh.refreshed_at || null,
@@ -3106,7 +3135,100 @@ const priorityTop10Rows = computed(() => {
                 FMTRX will recommend coach actions after more roster profiles and benchmark baselines are collected.
               </p>
 
-              <div v-else class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
+              <div class="mt-3 rounded-md border border-sky-300/20 bg-sky-500/10 p-3">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p class="text-[10px] uppercase tracking-widest text-sky-100/80">Coach Actions Updated</p>
+                    <p class="mt-1 text-sm text-slate-200">
+                      {{ recentCoachActionRerank?.coach_summary || 'Coach actions will update after benchmark data is approved.' }}
+                    </p>
+                  </div>
+                  <span
+                    v-if="recentCoachActionRerank"
+                    class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider"
+                    :class="rescoreStatusClass(recentCoachActionRerank.rerank_status)"
+                  >
+                    {{ humanizeKey(recentCoachActionRerank.rerank_status, 'Current') }}
+                  </span>
+                </div>
+
+                <template v-if="recentCoachActionRerank">
+                  <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                      <span class="block text-[10px] uppercase tracking-wider text-white/35">Primary Focus</span>
+                      <span class="font-black text-white">
+                        {{ recentCoachActionRerank.primary_focus_before || '—' }}
+                        →
+                        {{ recentCoachActionRerank.primary_focus_after || '—' }}
+                      </span>
+                    </p>
+                    <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                      <span class="block text-[10px] uppercase tracking-wider text-white/35">Data Priority</span>
+                      <span class="font-black text-white">
+                        {{ humanizeKey(recentCoachActionRerank.data_collection_priority_before, '—') }}
+                        →
+                        {{ humanizeKey(recentCoachActionRerank.data_collection_priority_after, '—') }}
+                      </span>
+                    </p>
+                    <p class="rounded border border-white/10 bg-slate-950/35 px-2 py-1 text-xs text-slate-300">
+                      <span class="block text-[10px] uppercase tracking-wider text-white/35">Practice Plan</span>
+                      <span class="font-black text-white">{{ recentCoachActionRerank.updated_practice_plan?.plan_title || '—' }}</span>
+                    </p>
+                  </div>
+
+                  <div v-if="recentCoachActionChanges.length" class="mt-3 space-y-2">
+                    <p
+                      v-for="change in recentCoachActionChanges"
+                      :key="`coach-action-change-${change.type}-${change.title || change.message}`"
+                      class="rounded border border-sky-300/15 bg-sky-500/10 px-3 py-2 text-xs text-sky-100"
+                    >
+                      {{ change.message || humanizeKey(change.type, 'Coach action updated.') }}
+                    </p>
+                  </div>
+                  <p v-else class="mt-3 rounded border border-white/10 bg-slate-950/35 px-3 py-2 text-xs text-slate-300">
+                    No coach action changes yet.
+                  </p>
+
+                  <div v-if="recentCoachTopActions.length" class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <div
+                      v-for="action in recentCoachTopActions"
+                      :key="`rerank-top-${action.rank}-${action.title}`"
+                      class="rounded border border-white/10 bg-slate-950/35 p-2 text-xs text-slate-300"
+                    >
+                      <p class="text-[10px] uppercase tracking-wider text-white/35">#{{ action.rank || '—' }} Top Action</p>
+                      <p class="mt-1 font-black text-white">{{ action.title }}</p>
+                      <p class="mt-1 text-sky-100">{{ action.reason_for_rank || action.why }}</p>
+                    </div>
+                  </div>
+
+                  <div v-if="recentCoachNewActions.length || recentCoachRemovedActions.length" class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    <div class="rounded border border-emerald-300/15 bg-emerald-500/10 p-3">
+                      <p class="text-[10px] uppercase tracking-widest text-emerald-100/80">Added Actions</p>
+                      <p
+                        v-for="action in recentCoachNewActions"
+                        :key="`new-action-${action.title}`"
+                        class="mt-1 text-xs text-emerald-100"
+                      >
+                        {{ action.title }}
+                      </p>
+                      <p v-if="!recentCoachNewActions.length" class="mt-1 text-xs text-slate-400">No new actions were added.</p>
+                    </div>
+                    <div class="rounded border border-amber-300/15 bg-amber-500/10 p-3">
+                      <p class="text-[10px] uppercase tracking-widest text-amber-100/80">Removed / Lowered Actions</p>
+                      <p
+                        v-for="action in recentCoachRemovedActions"
+                        :key="`removed-action-${action.title}`"
+                        class="mt-1 text-xs text-amber-100"
+                      >
+                        {{ action.title }}
+                      </p>
+                      <p v-if="!recentCoachRemovedActions.length" class="mt-1 text-xs text-slate-400">No actions were removed.</p>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
+              <div v-if="coachActionCards.length" class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
                 <div
                   v-for="(action, idx) in coachActionCards"
                   :key="`coach-action-${action.title}`"

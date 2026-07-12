@@ -16,6 +16,7 @@ class BenchmarkRefreshService
         private readonly TeamBenchmarkProfileService $teamBenchmarkProfileService,
         private readonly BenchmarkCollectionPlanner $benchmarkCollectionPlanner,
         private readonly DecisionEngine $decisionEngine,
+        private readonly CoachActionReRankingService $coachActionReRankingService,
     ) {
     }
 
@@ -70,9 +71,11 @@ class BenchmarkRefreshService
             $teamProfile = $teamRefresh['team_benchmark_profile'] ?? [];
             $decisionBrief = $teamRefresh['decision_brief'] ?? [];
             $collectionPlan = $teamRefresh['collection_plan'] ?? [];
+            $actionRerank = $this->safeActionRerank($teamId, $decisionBrief, $collectionPlan, $days);
             $warnings = array_values(array_filter([
                 ...($playerRefresh['warnings'] ?? []),
                 ...($teamRefresh['warnings'] ?? []),
+                ...($actionRerank['warnings'] ?? []),
             ]));
 
             return [
@@ -86,6 +89,8 @@ class BenchmarkRefreshService
                 'data_quality_report' => $this->dataQualityReport($teamProfile),
                 'decision_brief' => $decisionBrief,
                 'collection_plan' => $collectionPlan,
+                'coach_action_practice_plan' => $actionRerank['updated_practice_plan'] ?? [],
+                'action_rerank' => $actionRerank,
                 'changed_signals' => $this->changedSignals($task, $playerProfile, $teamProfile, $collectionPlan),
                 'warnings' => $warnings,
                 'evidence' => [
@@ -113,6 +118,8 @@ class BenchmarkRefreshService
                 'data_quality_report' => [],
                 'decision_brief' => [],
                 'collection_plan' => [],
+                'coach_action_practice_plan' => [],
+                'action_rerank' => [],
                 'changed_signals' => [],
                 'warnings' => [$exception->getMessage()],
                 'evidence' => [
@@ -198,6 +205,12 @@ class BenchmarkRefreshService
             $warnings[] = 'Benchmark collection plan unavailable: '.$exception->getMessage();
         }
 
+        $actionRerank = $this->safeActionRerank($teamId, $decisionBrief, $collectionPlan, $days);
+        $warnings = array_values(array_filter([
+            ...$warnings,
+            ...($actionRerank['warnings'] ?? []),
+        ]));
+
         return [
             'team_id' => $teamId,
             'refreshed_at' => now()->toIso8601String(),
@@ -206,6 +219,8 @@ class BenchmarkRefreshService
             'data_quality_report' => $this->dataQualityReport($teamProfile),
             'decision_brief' => $decisionBrief,
             'collection_plan' => $collectionPlan,
+            'coach_action_practice_plan' => $actionRerank['updated_practice_plan'] ?? [],
+            'action_rerank' => $actionRerank,
             'changed_signals' => $this->teamChangedSignals($teamProfile, $collectionPlan),
             'warnings' => $warnings,
             'evidence' => [
@@ -271,6 +286,28 @@ class BenchmarkRefreshService
             'missing_metric_count' => count($teamProfile['missing_metrics'] ?? []),
             'team_gap_count' => count($teamProfile['team_gaps'] ?? []),
         ];
+    }
+
+    private function safeActionRerank(string $teamId, array $decisionBrief, array $collectionPlan, int $days): array
+    {
+        try {
+            return $this->coachActionReRankingService->rerankAfterBenchmarkRefresh($teamId, [], [
+                'decision_brief' => $decisionBrief,
+                'collection_plan' => $collectionPlan,
+            ], [
+                'days' => $days,
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'generated_at' => now()->toIso8601String(),
+                'team_id' => $teamId,
+                'rerank_status' => 'failed',
+                'top_actions_after' => [],
+                'updated_practice_plan' => [],
+                'coach_summary' => 'Coach action ranking will update on next dashboard load.',
+                'warnings' => [$exception->getMessage()],
+            ];
+        }
     }
 
     private function changedSignals(BenchmarkCollectionTask $task, array $playerProfile, array $teamProfile, array $collectionPlan): array

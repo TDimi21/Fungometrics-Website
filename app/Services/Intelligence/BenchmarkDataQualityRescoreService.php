@@ -13,6 +13,8 @@ class BenchmarkDataQualityRescoreService
         private readonly TeamBenchmarkProfileService $teamBenchmarkProfileService,
         private readonly DecisionEngine $decisionEngine,
         private readonly BenchmarkCollectionPlanner $benchmarkCollectionPlanner,
+        private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
+        private readonly CoachActionReRankingService $coachActionReRankingService,
     ) {
     }
 
@@ -62,6 +64,33 @@ class BenchmarkDataQualityRescoreService
             ...($playerComparison['changes'] ?? []),
             ...$promotionChanges,
         ]);
+        $actionRerank = [];
+
+        try {
+            $actionRerank = $this->coachActionReRankingService->rerankAfterBenchmarkRefresh($teamId, $before, $after, [
+                'days' => $days,
+                'rescore_changes' => $changes,
+            ]);
+        } catch (Throwable $exception) {
+            $warnings[] = 'Benchmark data was re-scored, but coach action ranking will update on next dashboard load.';
+            $actionRerank = [
+                'generated_at' => now()->toIso8601String(),
+                'team_id' => $teamId,
+                'rerank_status' => 'failed',
+                'primary_focus_before' => $this->stateSummaryFromState($before)['decision_focus'] ?? null,
+                'primary_focus_after' => $this->stateSummaryFromState($after)['decision_focus'] ?? null,
+                'data_collection_priority_before' => $this->stateSummaryFromState($before)['collection_priority'] ?? null,
+                'data_collection_priority_after' => $this->stateSummaryFromState($after)['collection_priority'] ?? null,
+                'top_actions_before' => [],
+                'top_actions_after' => [],
+                'action_changes' => [],
+                'removed_actions' => [],
+                'new_actions' => [],
+                'updated_practice_plan' => [],
+                'coach_summary' => 'Benchmark data was re-scored, but coach action ranking will update on next dashboard load.',
+                'warnings' => [$exception->getMessage()],
+            ];
+        }
 
         return [
             'generated_at' => now()->toIso8601String(),
@@ -74,6 +103,7 @@ class BenchmarkDataQualityRescoreService
             'improvement_summary' => $this->buildImprovementSummary($before, $after),
             'remaining_gaps' => $this->remainingGaps($after),
             'next_recommended_actions' => $this->nextRecommendedActions($after),
+            'action_rerank' => $actionRerank,
             'warnings' => $warnings,
             'evidence' => [
                 'days' => $days,
@@ -93,6 +123,7 @@ class BenchmarkDataQualityRescoreService
         $teamProfile = [];
         $decisionBrief = [];
         $collectionPlan = [];
+        $coachActionPracticePlan = [];
         $playerSnapshot = [];
         $playerProfile = [];
 
@@ -116,6 +147,12 @@ class BenchmarkDataQualityRescoreService
             $warnings[] = 'Benchmark collection plan unavailable: '.$exception->getMessage();
         }
 
+        try {
+            $coachActionPracticePlan = $this->coachActionPracticePlanner->buildPracticePlanFromCoachActions($teamId, $days);
+        } catch (Throwable $exception) {
+            $warnings[] = 'Coach action practice plan unavailable: '.$exception->getMessage();
+        }
+
         if ($playerId) {
             try {
                 $playerSnapshot = $this->playerIntelligenceService->build($teamId, $playerId, $days);
@@ -136,6 +173,7 @@ class BenchmarkDataQualityRescoreService
             'player_snapshot' => $playerSnapshot,
             'decision_brief' => $decisionBrief,
             'collection_plan' => $collectionPlan,
+            'coach_action_practice_plan' => $coachActionPracticePlan,
             'summary' => $this->stateSummary($teamProfile, $decisionBrief, $collectionPlan),
             'warnings' => $warnings,
         ];
