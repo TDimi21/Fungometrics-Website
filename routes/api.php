@@ -57,6 +57,7 @@ use App\Http\Controllers\Api\Planner\SendDailyPlanReminder;
 use App\Http\Controllers\Api\Planner\SaveCustomDrill;
 use App\Http\Controllers\Api\Planner\WeeklyPlanPublishController;
 use App\Http\Controllers\Api\Planner\WeeklyReportNotesController;
+use App\Http\Controllers\Api\Planner\CommunicationRhythmController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryPrepController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryAnalyticsController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryHistoryController;
@@ -311,6 +312,7 @@ Route::prefix('coach')->group(function (): void {
         Route::post('/teams/{teamId}/planner-command-center/action', RunPlannerCommandCenterAction::class);
         Route::get('/teams/{teamId}/weekly-planner-rollup', GetWeeklyPlannerRollup::class);
         Route::get('/teams/{teamId}/weekly-team-report', GetCoachWeeklyTeamReport::class);
+        Route::get('/teams/{teamId}/communication-rhythm', [CommunicationRhythmController::class, 'team']);
         Route::get('/teams/{teamId}/weekly-report/export', GetCoachWeeklyReportExport::class);
         Route::get('/weekly-report-templates', [GetWeeklyReportTemplates::class, 'index']);
         Route::get('/teams/{teamId}/weekly-report/template-preview', [GetWeeklyReportTemplates::class, 'preview']);

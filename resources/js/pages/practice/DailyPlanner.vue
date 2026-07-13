@@ -74,6 +74,9 @@ const weeklyReportDeliveryHistoryMessage = ref('')
 const weeklyReportDeliveryAnalytics = ref(null)
 const weeklyReportDeliveryAnalyticsLoading = ref(false)
 const weeklyReportDeliveryAnalyticsMessage = ref('')
+const communicationRhythm = ref(null)
+const communicationRhythmLoading = ref(false)
+const communicationRhythmMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const weeklyReportNotes = ref([])
 const weeklyReportNotesLoading = ref(false)
@@ -188,6 +191,7 @@ const loadCommandCenter = async () => {
     resetWeeklyReportDeliveryReview()
     weeklyReportDeliveryHistory.value = null
     weeklyReportDeliveryAnalytics.value = null
+    communicationRhythm.value = null
     selectedWeeklyReportDelivery.value = null
     weeklyReportNotes.value = []
     resetWeeklyReportNoteForm()
@@ -465,10 +469,31 @@ const loadWeeklyReportDeliveryAnalytics = async () => {
     weeklyReportDeliveryAnalyticsLoading.value = false
   }
 }
+const loadCommunicationRhythm = async () => {
+  communicationRhythmMessage.value = ''
+  if (!activeTeamId.value) {
+    communicationRhythm.value = null
+    return null
+  }
+
+  communicationRhythmLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/communication-rhythm`, { weeks: 8 })
+    communicationRhythm.value = res?.data?.data || null
+    return communicationRhythm.value
+  } catch {
+    communicationRhythm.value = null
+    communicationRhythmMessage.value = 'Communication rhythm is not available yet.'
+    return null
+  } finally {
+    communicationRhythmLoading.value = false
+  }
+}
 const refreshWeeklyReportDeliveryInsights = async () => {
   await Promise.all([
     loadWeeklyReportDeliveryHistory(),
     loadWeeklyReportDeliveryAnalytics(),
+    loadCommunicationRhythm(),
   ])
 }
 const openWeeklyReportDeliveryDetail = async (delivery) => {
@@ -678,6 +703,20 @@ const weeklyReportDeliveryAudienceUsage = computed(() => Array.isArray(weeklyRep
 const weeklyReportDeliveryChannelUsage = computed(() => Array.isArray(weeklyReportDeliveryAnalytics.value?.channel_usage) ? weeklyReportDeliveryAnalytics.value.channel_usage : [])
 const weeklyReportDeliveryActions = computed(() => Array.isArray(weeklyReportDeliveryAnalytics.value?.recommended_actions) ? weeklyReportDeliveryAnalytics.value.recommended_actions : [])
 const weeklyReportDeliverySafety = computed(() => weeklyReportDeliveryAnalytics.value?.privacy_safety_summary || {})
+const communicationRhythmScore = computed(() => communicationRhythm.value?.rhythm_score || {})
+const communicationRhythmRows = computed(() => Array.isArray(communicationRhythm.value?.weekly_rows) ? communicationRhythm.value.weekly_rows : [])
+const communicationRhythmAudienceSummary = computed(() => communicationRhythm.value?.audience_summary || {})
+const communicationRhythmTemplateSummary = computed(() => Array.isArray(communicationRhythm.value?.template_summary) ? communicationRhythm.value.template_summary : [])
+const communicationRhythmHealth = computed(() => communicationRhythm.value?.delivery_health_summary || {})
+const communicationRhythmMissedWeeks = computed(() => Array.isArray(communicationRhythm.value?.missed_weeks) ? communicationRhythm.value.missed_weeks : [])
+const communicationRhythmStreaks = computed(() => communicationRhythm.value?.streaks || {})
+const communicationRhythmActions = computed(() => Array.isArray(communicationRhythm.value?.recommended_actions) ? communicationRhythm.value.recommended_actions : [])
+const communicationAudienceRows = computed(() => [
+  { key: 'parents', label: 'Parent Updates', data: communicationRhythmAudienceSummary.value.parents || {} },
+  { key: 'staff', label: 'Staff Reports', data: communicationRhythmAudienceSummary.value.staff || {} },
+  { key: 'players', label: 'Player Summaries', data: communicationRhythmAudienceSummary.value.players || {} },
+  { key: 'coach', label: 'Coach/Internal', data: communicationRhythmAudienceSummary.value.coach || {} },
+])
 const weeklyTeamReportCards = computed(() => [
   {
     label: 'Team Completion',
@@ -797,6 +836,20 @@ const deliveryStatusTone = (status) => ({
   blocked: 'warning',
   unsupported: 'warning',
   failed: 'warning',
+}[status] || 'muted')
+const communicationStatusTone = (status) => ({
+  complete: 'good',
+  partial: 'info',
+  missed: 'warning',
+  blocked: 'warning',
+  copy_only: 'info',
+  excellent: 'good',
+  good: 'good',
+  inconsistent: 'warning',
+  needs_attention: 'warning',
+  no_activity: 'muted',
+  consistent: 'good',
+  not_reached: 'muted',
 }[status] || 'muted')
 const noteTypeLabel = (value) => weeklyReportNoteTypes.find((type) => type.value === value)?.label || human(value)
 const noteTypeHint = (value) => weeklyReportNoteTypes.find((type) => type.value === value)?.hint || ''
@@ -1163,6 +1216,14 @@ const sendWeeklyReportDeliveryDraft = async () => {
     return null
   } finally {
     weeklyReportDeliveryLoading.value = ''
+  }
+}
+const applyCommunicationRhythmAction = async (action) => {
+  if (action?.template_key) weeklyReportTemplateKey.value = action.template_key
+  if (action?.audience) weeklyReportExportAudience.value = action.audience
+  weeklyReportDeliveryMessage.value = action?.action || 'Communication rhythm action selected.'
+  if (weeklyTeamReport.value && action?.template_key) {
+    await loadWeeklyReportDeliveryPreview()
   }
 }
 const createWeeklyReportDeliveryDraft = async () => {
@@ -2146,6 +2207,113 @@ const del = async (p) => {
                             Delivery analytics will appear after a weekly report is prepared, copied, or sent.
                           </div>
                           <p v-if="weeklyReportDeliveryAnalyticsMessage" class="dp-command-message">{{ weeklyReportDeliveryAnalyticsMessage }}</p>
+                        </div>
+
+                        <div class="dp-communication-rhythm">
+                          <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div class="dp-command-label">Communication Rhythm</div>
+                              <p class="dp-command-sub">Weekly update consistency by audience, template, and delivery status.</p>
+                            </div>
+                            <span class="dp-status" :class="statusBadgeClass(communicationStatusTone(communicationRhythmScore.label))">
+                              {{ communicationRhythm ? human(communicationRhythmScore.label) : 'No Data Yet' }}
+                            </span>
+                          </div>
+
+                          <div v-if="communicationRhythm" class="dp-completion-grid mt-3">
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Rhythm Score</div>
+                              <div class="dp-command-value">{{ oneDecimal(communicationRhythmScore.score_0_100) }}</div>
+                              <div class="dp-command-sub">{{ communicationRhythmScore.weeks_with_any_report || 0 }} of {{ communicationRhythm.weeks_analyzed || 0 }} weeks had updates</div>
+                            </div>
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Consistency</div>
+                              <div class="dp-command-value">{{ oneDecimal(communicationRhythmScore.consistency_percentage) }}%</div>
+                              <div class="dp-command-sub">{{ communicationRhythmStreaks.current_any_report_streak || 0 }} week current streak</div>
+                            </div>
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Parent Updates</div>
+                              <div class="dp-command-value">{{ communicationRhythmScore.weeks_with_parent_update || 0 }}/{{ communicationRhythm.weeks_analyzed || 0 }}</div>
+                              <div class="dp-command-sub">{{ oneDecimal(communicationRhythmScore.parent_update_percentage) }}% of weeks</div>
+                            </div>
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Delivery Health</div>
+                              <div class="dp-command-value">{{ communicationRhythmHealth.sent_count || 0 }}</div>
+                              <div class="dp-command-sub">{{ communicationRhythmHealth.copy_only_count || 0 }} copy-only · {{ communicationRhythmHealth.blocked_count || 0 }} blocked</div>
+                            </div>
+                          </div>
+
+                          <div v-if="communicationRhythm" class="dp-communication-grid">
+                            <div class="dp-weekly-panel dp-communication-panel--wide">
+                              <div class="dp-command-label">Weekly Rhythm Timeline</div>
+                              <div v-if="communicationRhythmRows.length" class="dp-rhythm-timeline">
+                                <div v-for="row in communicationRhythmRows" :key="`rhythm-week-${row.week_start_date}`" class="dp-rhythm-row">
+                                  <div>
+                                    <strong>{{ row.week_label }}</strong>
+                                    <span>{{ row.sent_count || 0 }} sent · {{ row.copy_only_count || 0 }} copy-only · {{ row.blocked_count || 0 }} blocked</span>
+                                    <small v-if="row.recommended_action">{{ row.recommended_action }}</small>
+                                  </div>
+                                  <div class="dp-rhythm-pills">
+                                    <span class="dp-status" :class="statusBadgeClass(communicationStatusTone(row.status_label))">{{ human(row.status_label) }}</span>
+                                    <span class="dp-rhythm-pill" :class="{ 'dp-rhythm-pill--on': row.has_parent_update }">Parents</span>
+                                    <span class="dp-rhythm-pill" :class="{ 'dp-rhythm-pill--on': row.has_staff_report }">Staff</span>
+                                    <span class="dp-rhythm-pill" :class="{ 'dp-rhythm-pill--on': row.has_player_summary }">Players</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-2">No reports found for this date range.</div>
+                            </div>
+
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Audience Summary</div>
+                              <div class="dp-delivery-analytics-list">
+                                <div v-for="row in communicationAudienceRows" :key="`rhythm-audience-${row.key}`" class="dp-delivery-analytics-row">
+                                  <span>{{ row.label }}<small> · {{ human(row.data.status) }}</small></span>
+                                  <strong>{{ row.data.weeks_reached || 0 }} weeks</strong>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Template Usage</div>
+                              <div v-if="communicationRhythmTemplateSummary.length" class="dp-delivery-analytics-list">
+                                <div v-for="row in communicationRhythmTemplateSummary.slice(0, 5)" :key="`rhythm-template-${row.template_key}`" class="dp-delivery-analytics-row">
+                                  <span>{{ row.display_name || human(row.template_key) }}<small> · {{ row.weeks_used || 0 }} weeks</small></span>
+                                  <strong>{{ row.total_uses || 0 }} uses</strong>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-2">No template usage yet.</div>
+                            </div>
+
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Missed Weeks</div>
+                              <div v-if="communicationRhythmMissedWeeks.length" class="dp-delivery-analytics-list">
+                                <div v-for="row in communicationRhythmMissedWeeks.slice(0, 5)" :key="`missed-rhythm-${row.week_start_date}`" class="dp-delivery-analytics-action">
+                                  <strong>{{ row.week_label }}</strong>
+                                  <small>Missing: {{ (row.missed_audiences || []).map(human).join(', ') || 'Weekly Update' }}</small>
+                                  <small>{{ row.recommended_action }}</small>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-2">No missed weeks in this window.</div>
+                            </div>
+
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Recommended Actions</div>
+                              <div v-if="communicationRhythmActions.length" class="dp-delivery-analytics-list">
+                                <div v-for="action in communicationRhythmActions.slice(0, 5)" :key="`rhythm-action-${action.id}`" class="dp-delivery-analytics-action">
+                                  <span class="dp-status" :class="statusBadgeClass(action.priority === 'high' || action.priority === 'critical' ? 'warning' : action.priority === 'medium' ? 'info' : 'muted')">{{ human(action.priority) }}</span>
+                                  <strong>{{ action.title }}</strong>
+                                  <small>{{ action.action }}</small>
+                                  <button v-if="action.template_key" class="dp-link mt-1" @click="applyCommunicationRhythmAction(action)">Use This Template</button>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-2">No communication actions are recommended yet.</div>
+                            </div>
+                          </div>
+                          <div v-else class="dp-empty dp-empty--sm mt-3">
+                            No communication history yet. Create and share a weekly report to start building communication rhythm.
+                          </div>
+                          <p v-if="communicationRhythmMessage" class="dp-command-message">{{ communicationRhythmMessage }}</p>
                         </div>
 
                         <div v-if="weeklyReportDeliveries.length" class="dp-delivery-history-list">
@@ -3148,6 +3316,18 @@ const del = async (p) => {
 .dp-delivery-analytics-action { display:grid; gap:6px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:9px 10px; }
 .dp-delivery-analytics-action strong { color:#fff; font-size:13px; font-weight:950; overflow-wrap:anywhere; }
 .dp-delivery-analytics-action small { color:rgba(255,255,255,.55); font-size:11.5px; line-height:1.4; overflow-wrap:anywhere; }
+.dp-communication-rhythm { display:grid; gap:12px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); border-radius:14px; padding:12px; }
+.dp-communication-grid { display:grid; grid-template-columns:1fr; gap:10px; }
+@media (min-width:940px){ .dp-communication-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .dp-communication-panel--wide { grid-column:1 / -1; } }
+.dp-rhythm-timeline { display:grid; gap:8px; margin-top:10px; }
+.dp-rhythm-row { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; }
+@media (min-width:860px){ .dp-rhythm-row { flex-direction:row; align-items:center; } }
+.dp-rhythm-row strong { display:block; color:#fff; font-size:13px; font-weight:950; overflow-wrap:anywhere; }
+.dp-rhythm-row span:not(.dp-status):not(.dp-rhythm-pill) { display:block; color:rgba(255,255,255,.58); font-size:11.5px; margin-top:3px; overflow-wrap:anywhere; }
+.dp-rhythm-row small { display:block; color:rgba(255,255,255,.42); font-size:11px; margin-top:4px; overflow-wrap:anywhere; }
+.dp-rhythm-pills { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.dp-rhythm-pill { border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04); color:rgba(255,255,255,.45); border-radius:999px; padding:4px 8px; font-size:10.5px; font-weight:900; text-transform:uppercase; }
+.dp-rhythm-pill--on { border-color:rgba(52,211,153,.45); background:rgba(52,211,153,.12); color:#d1fae5; }
 .dp-delivery-history-list { display:grid; gap:8px; margin-top:10px; }
 .dp-delivery-history-row { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; width:100%; text-align:left; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.035); border-radius:12px; padding:10px 12px; color:inherit; }
 .dp-delivery-history-row:hover { border-color:rgba(255,255,255,.2); background:rgba(255,255,255,.055); }
