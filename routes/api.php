@@ -65,6 +65,7 @@ use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryReviewController;
 use App\Http\Controllers\Api\Planner\SeasonDevelopmentArchiveController;
 use App\Http\Controllers\Api\Planner\SeasonArchiveExportController;
 use App\Http\Controllers\Api\Planner\SeasonArchiveDeliveryPrepController;
+use App\Http\Controllers\Api\Planner\SeasonArchiveDeliveryReviewController;
 use App\Http\Controllers\Api\Planner\GetCustomDrills;
 use App\Http\Controllers\Api\Planner\DeleteCustomDrill;
 use App\Http\Controllers\Api\Planner\GetDrillLibrary;
@@ -320,6 +321,9 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams/{teamId}/season-archive/export', [SeasonArchiveExportController::class, 'team']);
         Route::get('/teams/{teamId}/season-archive/delivery-preview', [SeasonArchiveDeliveryPrepController::class, 'preview']);
         Route::post('/teams/{teamId}/season-archive/create-delivery-draft', [SeasonArchiveDeliveryPrepController::class, 'createDraft']);
+        Route::post('/teams/{teamId}/season-archive/delivery-review', [SeasonArchiveDeliveryReviewController::class, 'review']);
+        Route::post('/teams/{teamId}/season-archive/update-delivery-draft', [SeasonArchiveDeliveryReviewController::class, 'updateDraft']);
+        Route::post('/teams/{teamId}/season-archive/send-delivery-draft', [SeasonArchiveDeliveryReviewController::class, 'sendDraft']);
         Route::get('/teams/{teamId}/weekly-report/export', GetCoachWeeklyReportExport::class);
         Route::get('/weekly-report-templates', [GetWeeklyReportTemplates::class, 'index']);
         Route::get('/teams/{teamId}/weekly-report/template-preview', [GetWeeklyReportTemplates::class, 'preview']);

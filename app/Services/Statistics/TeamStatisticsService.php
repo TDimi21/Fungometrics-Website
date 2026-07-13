@@ -353,4 +353,24 @@ final class TeamStatisticsService
             ->toArray();
     }
 
+    /**
+     * Bullpen pitches — every team pitch that has a location (pitch_mark) and/or a
+     * velocity (miles_per_hour), for the catcher's-view heat / velocity map. Carries
+     * strike flag and pitch type so the panel can filter and show strike %.
+     */
+    public function getBullpenPitchData(): array
+    {
+        return $this->pitching
+            ->filter(fn ($r) => ((int) ($r->pitch_mark ?? 0)) > 0
+                || (is_numeric($r->miles_per_hour) && (float) $r->miles_per_hour > 0))
+            ->map(fn ($r) => [
+                'pitch_mark' => (int) ($r->pitch_mark ?? 0),
+                'velocity'   => is_numeric($r->miles_per_hour) ? (float) $r->miles_per_hour : 0,
+                'is_strike'  => (bool) $r->is_strike,
+                'pitch_type' => $r->type_throw ?? $r->intended_pitch_type ?? null,
+            ])
+            ->values()
+            ->toArray();
+    }
+
 }

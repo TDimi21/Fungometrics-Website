@@ -8,6 +8,7 @@ import { useTeamStore } from "../../store/team";
 import { IndicatorChart } from '@/components/dashboard'
 import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
+import BullpenLocationPanel from '@/components/dashboard/BullpenLocationPanel.vue'
 import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
 import PitchHeatmapChart from '@/components/dashboard/PitchHeatmapChart.vue'
 import PitchTypeStatsCard from '@/components/dashboard/PitchTypeStatsCard.vue'
@@ -546,7 +547,7 @@ const switchTop10Tab = (val) => {
 const {
   ballStrike, isloading, directional,
   typeHitsBatting, pitchThrows, pitchVelocityAverage,
-  typeHitsPitching, launchAngleAverage, contactSpray, cageSpray,
+  typeHitsPitching, launchAngleAverage, contactSpray, cageSpray, bullpenPitches,
   getStaticChartData, loadOnMounted,
 } = useChart()
 const { barChartOptions, radiaChartOptions } = useChartOptions()
@@ -733,8 +734,8 @@ watch(scoredPerfRows, (rows) => {
   }
 }, { immediate: true })
 const selectedPerfRow = computed(() => perfRows.value.find((r) => r.key === selectedPerfKey.value) || null)
-// Disciplines that get the batting velocity spray field (all swing-based).
-const showSprayFor = computed(() => ['batting', 'ev', 'cage'].includes(selectedPerfKey.value))
+// Disciplines that get a field / location visualization in the right panel.
+const showSprayFor = computed(() => ['batting', 'ev', 'cage', 'bullpen'].includes(selectedPerfKey.value))
 // All team swings (strikes + balls) with velocity + field_mark, for the velocity field.
 const allSwingBalls = computed(() => {
   const cs = contactSpray.value || {}
@@ -2698,11 +2699,13 @@ watch(
                   <button class="text-[10px] font-black uppercase tracking-widest text-sky-300 hover:text-sky-200 shrink-0" @click="openBreakdown(selectedPerfRow)">Full breakdown →</button>
                 </div>
 
-                <!-- Field spray chart for swing-based disciplines (ported from the app) -->
+                <!-- Field / location visualization per discipline (ported from the app) -->
                 <div v-if="showSprayFor" class="mb-4">
+                  <!-- Bullpen: catcher's-view heat / velocity map of pitch locations -->
+                  <BullpenLocationPanel v-if="selectedPerfKey === 'bullpen'" :pitches="bullpenPitches" />
                   <!-- Cage: real spray chart of results (dots + trajectory) from cage data -->
                   <VelocitySprayField
-                    v-if="selectedPerfKey === 'cage'"
+                    v-else-if="selectedPerfKey === 'cage'"
                     :balls="cageSpray" mode="spray" :use-field-mark="false"
                   />
                   <!-- Batting / Exit Velocity: velocity heatmap from batting swings -->

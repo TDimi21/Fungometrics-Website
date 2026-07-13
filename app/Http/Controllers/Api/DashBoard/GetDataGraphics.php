@@ -38,6 +38,7 @@ class GetDataGraphics extends Controller
                     'swing_miss_take_percents'     => $dataGraphs->pitchThrowResult(),
                     'contact_spray'                => $dataGraphs->getContactSprayData(),
                     'cage_spray'                   => $dataGraphs->getCageSprayData(),
+                    'bullpen_pitches'              => $dataGraphs->getBullpenPitchData(),
                 ];
             });
 

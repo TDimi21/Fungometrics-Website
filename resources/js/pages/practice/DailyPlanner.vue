@@ -100,6 +100,11 @@ const seasonArchiveDeliveryFormat = ref('text')
 const seasonArchiveDeliveryPreview = ref(null)
 const seasonArchiveDeliveryLoading = ref('')
 const seasonArchiveDeliveryMessage = ref('')
+const seasonArchiveDeliveryReview = ref(null)
+const seasonArchiveDraftSubject = ref('')
+const seasonArchiveDraftMessage = ref('')
+const seasonArchiveConfirmSend = ref(false)
+const seasonArchiveSendResult = ref(null)
 const selectedWeeklyReportDelivery = ref(null)
 const weeklyReportNotes = ref([])
 const weeklyReportNotesLoading = ref(false)
@@ -202,6 +207,13 @@ const resetWeeklyReportDeliveryReview = () => {
   weeklyReportConfirmSend.value = false
   weeklyReportSendResult.value = null
 }
+const resetSeasonArchiveDeliveryReview = () => {
+  seasonArchiveDeliveryReview.value = null
+  seasonArchiveDraftSubject.value = ''
+  seasonArchiveDraftMessage.value = ''
+  seasonArchiveConfirmSend.value = false
+  seasonArchiveSendResult.value = null
+}
 const weeklyReportDeliveryBasePayload = () => ({
   days: 7,
   audience: weeklyReportExportAudience.value,
@@ -242,6 +254,7 @@ const loadCommandCenter = async () => {
     seasonArchivePreviewOpen.value = false
     seasonArchiveDeliveryPreview.value = null
     seasonArchiveDeliveryMessage.value = ''
+    resetSeasonArchiveDeliveryReview()
     selectedWeeklyReportDelivery.value = null
     weeklyReportNotes.value = []
     resetWeeklyReportNoteForm()
@@ -690,7 +703,7 @@ const loadCustomDrills = async () => {
   } catch { customDrills.value = [] }
 }
 onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); loadSeasonDevelopmentArchive(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); selectedWeeklyReportDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); loadSeasonDevelopmentArchive(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); loadSeasonDevelopmentArchive(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -854,6 +867,20 @@ const seasonArchiveDeliverySummary = computed(() => seasonArchiveDeliveryPreview
   unsafe_recipient_count: 0,
   recipient_types: {},
 })
+const seasonArchiveReviewWarnings = computed(() => [
+  ...(seasonArchiveDeliveryReview.value?.privacy_warnings || []),
+  ...(seasonArchiveDeliveryReview.value?.delivery_warnings || []),
+])
+const seasonArchiveReviewBlockers = computed(() => Array.isArray(seasonArchiveDeliveryReview.value?.send_blockers) ? seasonArchiveDeliveryReview.value.send_blockers : [])
+const seasonArchiveReviewRecipients = computed(() => Array.isArray(seasonArchiveDeliveryReview.value?.recipients) ? seasonArchiveDeliveryReview.value.recipients : [])
+const seasonArchiveReviewSummary = computed(() => seasonArchiveDeliveryReview.value?.recipient_summary || {
+  total_recipients: 0,
+  safe_recipients: 0,
+  missing_contact_count: 0,
+  unsafe_recipient_count: 0,
+  recipient_types: {},
+})
+const seasonArchiveCanSend = computed(() => Boolean(seasonArchiveDeliveryReview.value?.can_send && seasonArchiveConfirmSend.value && !seasonArchiveReviewBlockers.value.length))
 const seasonArchiveCards = computed(() => [
   {
     label: 'Plans Published',
@@ -1084,6 +1111,12 @@ watch(seasonArchiveDeliveryAudience, () => {
   }
   seasonArchiveDeliveryPreview.value = null
   seasonArchiveDeliveryMessage.value = ''
+  resetSeasonArchiveDeliveryReview()
+})
+watch([seasonArchiveDeliveryTemplate, seasonArchiveDeliveryChannel, seasonArchiveDeliveryFormat], () => {
+  seasonArchiveDeliveryPreview.value = null
+  seasonArchiveDeliveryMessage.value = ''
+  resetSeasonArchiveDeliveryReview()
 })
 const resetWeeklyReportNoteForm = () => {
   weeklyReportNoteEditingId.value = ''
@@ -1576,6 +1609,7 @@ const loadSeasonArchiveDeliveryPreview = async () => {
 
   seasonArchiveDeliveryLoading.value = 'preview'
   try {
+    resetSeasonArchiveDeliveryReview()
     const res = await axiosGet(`coach/teams/${activeTeamId.value}/season-archive/delivery-preview`, seasonArchiveDeliveryPayload())
     seasonArchiveDeliveryPreview.value = res?.data?.data || null
     seasonArchiveDeliveryMessage.value = seasonArchiveDeliveryWarnings.value[0] || 'Season archive delivery preview is ready.'
@@ -1590,7 +1624,7 @@ const loadSeasonArchiveDeliveryPreview = async () => {
 }
 const copySeasonArchiveDeliverySubject = async () => {
   const payload = seasonArchiveDeliveryPreview.value || await loadSeasonArchiveDeliveryPreview()
-  const subject = payload?.subject || ''
+  const subject = seasonArchiveDraftSubject.value || payload?.subject || ''
   if (!subject) {
     seasonArchiveDeliveryMessage.value = 'No delivery subject to copy.'
     return
@@ -1606,7 +1640,7 @@ const copySeasonArchiveDeliverySubject = async () => {
 }
 const copySeasonArchiveDeliveryMessage = async () => {
   const payload = seasonArchiveDeliveryPreview.value || await loadSeasonArchiveDeliveryPreview()
-  const text = payload?.message_text || payload?.message_html || ''
+  const text = seasonArchiveDraftMessage.value || payload?.message_text || payload?.message_html || ''
   if (!text) {
     seasonArchiveDeliveryMessage.value = 'No delivery message to copy.'
     return
@@ -1633,12 +1667,100 @@ const createSeasonArchiveDeliveryDraft = async () => {
 
   seasonArchiveDeliveryLoading.value = 'draft'
   try {
+    resetSeasonArchiveDeliveryReview()
     const res = await axiosPost(`coach/teams/${activeTeamId.value}/season-archive/create-delivery-draft`, seasonArchiveDeliveryPayload())
     seasonArchiveDeliveryPreview.value = res?.data?.data || null
     seasonArchiveDeliveryMessage.value = seasonArchiveDeliveryPreview.value?.draft?.message || seasonArchiveDeliveryWarnings.value[0] || 'Season delivery draft payload prepared.'
     return seasonArchiveDeliveryPreview.value
   } catch {
     seasonArchiveDeliveryMessage.value = 'Could not prepare a season delivery draft.'
+    return null
+  } finally {
+    seasonArchiveDeliveryLoading.value = ''
+  }
+}
+const applySeasonArchiveDeliveryReview = (payload, message = 'Season packet draft is ready for review.') => {
+  seasonArchiveDeliveryReview.value = payload || null
+  seasonArchiveDraftSubject.value = payload?.subject || ''
+  seasonArchiveDraftMessage.value = payload?.message_text || payload?.message_html || ''
+  seasonArchiveConfirmSend.value = false
+  seasonArchiveSendResult.value = null
+  seasonArchiveDeliveryMessage.value = payload?.send_blockers?.[0] || payload?.delivery_warnings?.[0] || message
+}
+const loadSeasonArchiveDeliveryReview = async () => {
+  seasonArchiveDeliveryMessage.value = ''
+  seasonArchiveSendResult.value = null
+  if (!activeTeamId.value) {
+    seasonArchiveDeliveryMessage.value = 'No team selected.'
+    return null
+  }
+  if (!seasonDevelopmentArchive.value) {
+    seasonArchiveDeliveryMessage.value = 'Build a season archive before reviewing delivery.'
+    return null
+  }
+
+  seasonArchiveDeliveryLoading.value = 'review'
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/season-archive/delivery-review`, seasonArchiveDeliveryPayload())
+    const payload = res?.data?.data || null
+    seasonArchiveDeliveryPreview.value = payload
+    applySeasonArchiveDeliveryReview(payload)
+    return payload
+  } catch {
+    resetSeasonArchiveDeliveryReview()
+    seasonArchiveDeliveryMessage.value = 'Could not review the season packet draft.'
+    return null
+  } finally {
+    seasonArchiveDeliveryLoading.value = ''
+  }
+}
+const recheckSeasonArchiveDeliveryDraft = async () => {
+  seasonArchiveDeliveryMessage.value = ''
+  seasonArchiveSendResult.value = null
+  if (!activeTeamId.value) {
+    seasonArchiveDeliveryMessage.value = 'No team selected.'
+    return null
+  }
+
+  seasonArchiveDeliveryLoading.value = 'recheck'
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/season-archive/update-delivery-draft`, {
+      ...seasonArchiveDeliveryPayload(),
+      subject: seasonArchiveDraftSubject.value,
+      message_text: seasonArchiveDraftMessage.value,
+    })
+    const payload = res?.data?.data || null
+    seasonArchiveDeliveryPreview.value = payload
+    applySeasonArchiveDeliveryReview(payload, 'Season packet draft rechecked.')
+    return payload
+  } catch {
+    seasonArchiveDeliveryMessage.value = 'Could not recheck the season packet draft.'
+    return null
+  } finally {
+    seasonArchiveDeliveryLoading.value = ''
+  }
+}
+const sendSeasonArchiveDeliveryDraft = async () => {
+  seasonArchiveDeliveryMessage.value = ''
+  seasonArchiveSendResult.value = null
+  if (!seasonArchiveCanSend.value) {
+    seasonArchiveDeliveryMessage.value = seasonArchiveReviewBlockers.value[0] || 'Review the season packet and confirm before sending.'
+    return null
+  }
+
+  seasonArchiveDeliveryLoading.value = 'send'
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/season-archive/send-delivery-draft`, {
+      ...seasonArchiveDeliveryPayload(),
+      subject: seasonArchiveDraftSubject.value,
+      message_text: seasonArchiveDraftMessage.value,
+      confirm_send: true,
+    })
+    seasonArchiveSendResult.value = res?.data?.data || null
+    seasonArchiveDeliveryMessage.value = seasonArchiveSendResult.value?.warnings?.[0] || `Season packet delivery ${human(seasonArchiveSendResult.value?.send_status || 'checked')}.`
+    return seasonArchiveSendResult.value
+  } catch {
+    seasonArchiveDeliveryMessage.value = 'Could not complete the season packet send check.'
     return null
   } finally {
     seasonArchiveDeliveryLoading.value = ''
@@ -2799,6 +2921,9 @@ const del = async (p) => {
                                 <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="Boolean(seasonArchiveDeliveryLoading)" @click="loadSeasonArchiveDeliveryPreview">
                                   {{ seasonArchiveDeliveryLoading === 'preview' ? 'Preparing…' : 'Preview Delivery' }}
                                 </button>
+                                <button class="dp-btn dp-btn--small" :disabled="Boolean(seasonArchiveDeliveryLoading)" @click="loadSeasonArchiveDeliveryReview">
+                                  {{ seasonArchiveDeliveryLoading === 'review' ? 'Reviewing…' : 'Review Draft' }}
+                                </button>
                                 <button class="dp-btn dp-btn--small" :disabled="!seasonArchiveDeliveryPreview?.subject" @click="copySeasonArchiveDeliverySubject">Copy Subject</button>
                                 <button class="dp-btn dp-btn--small" :disabled="!seasonArchiveDeliveryPreview?.message_text && !seasonArchiveDeliveryPreview?.message_html" @click="copySeasonArchiveDeliveryMessage">Copy Message</button>
                                 <button v-if="seasonArchiveDeliveryDraftSupported" class="dp-btn dp-btn--small" :disabled="Boolean(seasonArchiveDeliveryLoading)" @click="createSeasonArchiveDeliveryDraft">
@@ -2861,7 +2986,108 @@ const del = async (p) => {
                                   <pre class="dp-delivery-message">{{ seasonArchiveDeliveryPreview.message_text || seasonArchiveDeliveryPreview.message_html || 'No message returned for this delivery request.' }}</pre>
                                 </div>
                               </div>
-                              <div v-else class="dp-empty dp-empty--sm mt-3">Preview delivery before copying a season packet message.</div>
+
+                              <div class="dp-delivery-review">
+                                <div class="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <div class="dp-command-label">Season Packet Delivery Review</div>
+                                    <p class="dp-command-sub">Review, edit, and recheck this season packet before any send attempt. FMTRX never sends from preview.</p>
+                                  </div>
+                                  <span class="dp-status" :class="statusBadgeClass(seasonArchiveDeliveryReview?.can_send ? 'good' : 'warning')">
+                                    {{ seasonArchiveDeliveryReview?.can_send ? 'Send Ready' : 'Needs Review' }}
+                                  </span>
+                                </div>
+
+                                <div v-if="seasonArchiveDeliveryReview" class="dp-delivery-review-body">
+                                  <div class="dp-completion-grid">
+                                    <div class="dp-command-card">
+                                      <div class="dp-command-label">Recipients</div>
+                                      <div class="dp-command-value">{{ seasonArchiveReviewSummary.total_recipients || 0 }}</div>
+                                      <div class="dp-command-sub">{{ seasonArchiveReviewSummary.safe_recipients || 0 }} safe · {{ seasonArchiveReviewSummary.missing_contact_count || 0 }} missing contact</div>
+                                    </div>
+                                    <div class="dp-command-card">
+                                      <div class="dp-command-label">Channel</div>
+                                      <div class="dp-command-value">{{ human(seasonArchiveDeliveryReview.channel || seasonArchiveDeliveryChannel) }}</div>
+                                      <div class="dp-command-sub">{{ seasonArchiveDeliveryReview.format?.toUpperCase?.() || seasonArchiveDeliveryFormat.toUpperCase() }}</div>
+                                    </div>
+                                    <div class="dp-command-card">
+                                      <div class="dp-command-label">Status</div>
+                                      <div class="dp-command-value">{{ human(seasonArchiveDeliveryReview.delivery_status || 'review_ready') }}</div>
+                                      <div class="dp-command-sub">{{ seasonArchiveDeliveryReview.requires_confirmation ? 'Confirmation required' : 'No confirmation required' }}</div>
+                                    </div>
+                                    <div class="dp-command-card">
+                                      <div class="dp-command-label">Unsafe</div>
+                                      <div class="dp-command-value">{{ seasonArchiveReviewSummary.unsafe_recipient_count || 0 }}</div>
+                                      <div class="dp-command-sub">Blocked or missing contact</div>
+                                    </div>
+                                  </div>
+
+                                  <div v-if="seasonArchiveReviewWarnings.length || seasonArchiveReviewBlockers.length" class="dp-delivery-warnings">
+                                    <div v-for="blocker in seasonArchiveReviewBlockers" :key="`season-review-blocker-${blocker}`" class="dp-calendar-warning dp-calendar-warning--danger">{{ blocker }}</div>
+                                    <div v-for="warning in seasonArchiveReviewWarnings" :key="`season-review-warning-${warning}`" class="dp-calendar-warning">{{ warning }}</div>
+                                  </div>
+
+                                  <div class="dp-delivery-editor">
+                                    <label class="dp-export-field dp-export-field--full">
+                                      <span>Subject</span>
+                                      <input v-model="seasonArchiveDraftSubject" class="dp-input" type="text" placeholder="Season packet subject" />
+                                    </label>
+                                    <label class="dp-export-field dp-export-field--full">
+                                      <span>Message</span>
+                                      <textarea v-model="seasonArchiveDraftMessage" class="dp-input dp-delivery-textarea" rows="10" placeholder="Season packet message"></textarea>
+                                    </label>
+                                  </div>
+
+                                  <div class="dp-delivery-message-grid">
+                                    <div class="dp-weekly-panel">
+                                      <div class="dp-command-label">Recipient Check</div>
+                                      <div v-if="seasonArchiveReviewRecipients.length" class="dp-delivery-recipient-list">
+                                        <div v-for="recipient in seasonArchiveReviewRecipients.slice(0, 8)" :key="`season-review-${recipient.recipient_type}-${recipient.recipient_id || recipient.email || recipient.name}`" class="dp-delivery-recipient">
+                                          <div>
+                                            <strong>{{ recipient.name || recipient.email || human(recipient.recipient_type) }}</strong>
+                                            <span>{{ human(recipient.recipient_type) }} · {{ recipient.email || 'missing contact' }}</span>
+                                          </div>
+                                          <span class="dp-status" :class="statusBadgeClass(recipient.safe_to_send ? 'good' : 'warning')">{{ recipient.safe_to_send ? 'Safe' : 'Review' }}</span>
+                                        </div>
+                                        <div v-if="seasonArchiveReviewRecipients.length > 8" class="dp-command-sub">+{{ seasonArchiveReviewRecipients.length - 8 }} more recipients</div>
+                                      </div>
+                                      <div v-else class="dp-empty dp-empty--sm">No safe recipients available.</div>
+                                    </div>
+                                    <div class="dp-weekly-panel">
+                                      <div class="dp-command-label">Send Readiness</div>
+                                      <p class="dp-command-sub" v-if="seasonArchiveDeliveryReview.preview?.copy_only || seasonArchiveDeliveryReview.delivery_status === 'copy_only'">Copy-only delivery. Nothing will be sent by FMTRX.</p>
+                                      <p class="dp-command-sub" v-else-if="seasonArchiveDeliveryReview.preview?.channel_supported === false">Sending is not configured for this channel. Copy the message instead.</p>
+                                      <p class="dp-command-sub" v-else-if="seasonArchiveReviewBlockers.length">Resolve every blocker before sending.</p>
+                                      <p class="dp-command-sub" v-else>Draft passed current safety checks.</p>
+
+                                      <label class="dp-confirm-row">
+                                        <input v-model="seasonArchiveConfirmSend" type="checkbox" :disabled="!seasonArchiveDeliveryReview?.can_send" />
+                                        <span>I reviewed this season packet and confirm it is safe to send to the selected audience.</span>
+                                      </label>
+
+                                      <div class="dp-export-actions">
+                                        <button class="dp-btn dp-btn--small" :disabled="Boolean(seasonArchiveDeliveryLoading)" @click="recheckSeasonArchiveDeliveryDraft">
+                                          {{ seasonArchiveDeliveryLoading === 'recheck' ? 'Checking…' : 'Recheck Draft' }}
+                                        </button>
+                                        <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="!seasonArchiveCanSend || Boolean(seasonArchiveDeliveryLoading)" @click="sendSeasonArchiveDeliveryDraft">
+                                          {{ seasonArchiveDeliveryLoading === 'send' ? 'Sending…' : 'Send Confirmed Draft' }}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div v-if="seasonArchiveSendResult" class="dp-send-result">
+                                    <div class="dp-command-label">Send Result</div>
+                                    <div class="dp-command-value">{{ human(seasonArchiveSendResult.send_status || 'checked') }}</div>
+                                    <p class="dp-command-sub">{{ seasonArchiveSendResult.sent_count || 0 }} sent · {{ seasonArchiveSendResult.skipped_count || 0 }} skipped · {{ seasonArchiveSendResult.failed_count || 0 }} failed</p>
+                                    <ul v-if="seasonArchiveSendResult.warnings?.length" class="dp-report-list dp-report-list--compact">
+                                      <li v-for="warning in seasonArchiveSendResult.warnings" :key="`season-send-warning-${warning}`">{{ warning }}</li>
+                                    </ul>
+                                  </div>
+                                </div>
+                                <div v-else class="dp-empty dp-empty--sm mt-3">Prepare a season packet delivery draft first.</div>
+                              </div>
+                              <div v-if="!seasonArchiveDeliveryPreview" class="dp-empty dp-empty--sm mt-3">Preview delivery before copying a season packet message.</div>
                               <p v-if="seasonArchiveDeliveryMessage" class="dp-command-message">{{ seasonArchiveDeliveryMessage }}</p>
                             </div>
 
