@@ -57,6 +57,7 @@ use App\Http\Controllers\Api\Planner\SendDailyPlanReminder;
 use App\Http\Controllers\Api\Planner\SaveCustomDrill;
 use App\Http\Controllers\Api\Planner\WeeklyPlanPublishController;
 use App\Http\Controllers\Api\Planner\WeeklyReportNotesController;
+use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryPrepController;
 use App\Http\Controllers\Api\Planner\GetCustomDrills;
 use App\Http\Controllers\Api\Planner\DeleteCustomDrill;
 use App\Http\Controllers\Api\Planner\GetDrillLibrary;
@@ -310,6 +311,8 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams/{teamId}/weekly-report/export', GetCoachWeeklyReportExport::class);
         Route::get('/weekly-report-templates', [GetWeeklyReportTemplates::class, 'index']);
         Route::get('/teams/{teamId}/weekly-report/template-preview', [GetWeeklyReportTemplates::class, 'preview']);
+        Route::get('/teams/{teamId}/weekly-report/delivery-preview', [WeeklyReportDeliveryPrepController::class, 'preview']);
+        Route::post('/teams/{teamId}/weekly-report/create-delivery-draft', [WeeklyReportDeliveryPrepController::class, 'createDraft']);
         Route::get('/teams/{teamId}/weekly-report-notes', [WeeklyReportNotesController::class, 'index']);
         Route::post('/teams/{teamId}/weekly-report-notes', [WeeklyReportNotesController::class, 'store']);
         Route::put('/weekly-report-notes/{noteId}', [WeeklyReportNotesController::class, 'update']);

@@ -58,6 +58,11 @@ const weeklyReportExportLoading = ref('')
 const weeklyReportExportMessage = ref('')
 const weeklyReportPreviewHtml = ref('')
 const weeklyReportPreviewOpen = ref(false)
+const weeklyReportDeliveryChannel = ref('copy')
+const weeklyReportDeliveryFormat = ref('text')
+const weeklyReportDeliveryPreview = ref(null)
+const weeklyReportDeliveryLoading = ref('')
+const weeklyReportDeliveryMessage = ref('')
 const weeklyReportNotes = ref([])
 const weeklyReportNotesLoading = ref(false)
 const weeklyReportNotesMessage = ref('')
@@ -122,6 +127,16 @@ const weeklyReportAudienceOptions = [
   { value: 'players', label: 'Players' },
   { value: 'parents', label: 'Parents' },
 ]
+const weeklyReportDeliveryChannelOptions = [
+  { value: 'copy', label: 'Copy', supported: true },
+  { value: 'email', label: 'Email Draft', supported: false },
+  { value: 'message', label: 'Message Draft', supported: false },
+  { value: 'announcement', label: 'Announcement Draft', supported: false },
+]
+const weeklyReportDeliveryFormatOptions = [
+  { value: 'text', label: 'Text' },
+  { value: 'html', label: 'HTML' },
+]
 
 // ── data ─────────────────────────────────────────────────────────────────────
 const loadPlans = async () => {
@@ -142,6 +157,8 @@ const loadCommandCenter = async () => {
     weeklyTeamReport.value = null
     weeklyReportPreviewHtml.value = ''
     weeklyReportPreviewOpen.value = false
+    weeklyReportDeliveryPreview.value = null
+    weeklyReportDeliveryMessage.value = ''
     weeklyReportNotes.value = []
     resetWeeklyReportNoteForm()
     nextWeekDraft.value = null
@@ -348,6 +365,41 @@ const loadWeeklyReportExport = async (format = weeklyReportExportFormat.value) =
     weeklyReportExportLoading.value = ''
   }
 }
+const loadWeeklyReportDeliveryPreview = async () => {
+  weeklyReportDeliveryMessage.value = ''
+  if (!activeTeamId.value) {
+    weeklyReportDeliveryMessage.value = 'No team selected.'
+    return null
+  }
+  if (!weeklyTeamReport.value) {
+    weeklyReportDeliveryMessage.value = 'Generate a weekly report before preparing delivery.'
+    return null
+  }
+
+  weeklyReportDeliveryLoading.value = 'preview'
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/weekly-report/delivery-preview`, {
+      days: 7,
+      audience: weeklyReportExportAudience.value,
+      template: weeklyReportTemplateKey.value,
+      channel: weeklyReportDeliveryChannel.value,
+      format: weeklyReportDeliveryFormat.value,
+    })
+    weeklyReportDeliveryPreview.value = res?.data?.data || null
+    const warnings = [
+      ...(weeklyReportDeliveryPreview.value?.privacy_warnings || []),
+      ...(weeklyReportDeliveryPreview.value?.delivery_warnings || []),
+    ]
+    weeklyReportDeliveryMessage.value = warnings[0] || 'Delivery preview is ready.'
+    return weeklyReportDeliveryPreview.value
+  } catch {
+    weeklyReportDeliveryPreview.value = null
+    weeklyReportDeliveryMessage.value = 'Delivery prep is not available right now.'
+    return null
+  } finally {
+    weeklyReportDeliveryLoading.value = ''
+  }
+}
 const loadCompletionSummary = async (dailyPlanId = commandCenter.value?.daily_plan_id) => {
   completionSummaryError.value = ''
   if (!dailyPlanId) {
@@ -395,7 +447,7 @@ const loadCustomDrills = async () => {
   } catch { customDrills.value = [] }
 }
 onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -484,6 +536,20 @@ const weeklyTeamRemainingMetrics = computed(() => Array.isArray(weeklyTeamBenchm
 const selectedWeeklyReportTemplate = computed(() => weeklyReportTemplates.value.find((template) => template.template_key === weeklyReportTemplateKey.value) || null)
 const weeklyReportTemplateSections = computed(() => Array.isArray(selectedWeeklyReportTemplate.value?.sections) ? selectedWeeklyReportTemplate.value.sections : [])
 const weeklyReportTemplateRules = computed(() => Array.isArray(selectedWeeklyReportTemplate.value?.copy_rules) ? selectedWeeklyReportTemplate.value.copy_rules : [])
+const selectedWeeklyReportDeliveryChannel = computed(() => weeklyReportDeliveryChannelOptions.find((channel) => channel.value === weeklyReportDeliveryChannel.value) || weeklyReportDeliveryChannelOptions[0])
+const weeklyReportDeliveryDraftSupported = computed(() => Boolean(selectedWeeklyReportDeliveryChannel.value?.supported && weeklyReportDeliveryChannel.value !== 'copy'))
+const weeklyReportDeliveryWarnings = computed(() => [
+  ...(weeklyReportDeliveryPreview.value?.privacy_warnings || []),
+  ...(weeklyReportDeliveryPreview.value?.delivery_warnings || []),
+])
+const weeklyReportDeliveryRecipients = computed(() => Array.isArray(weeklyReportDeliveryPreview.value?.recipients) ? weeklyReportDeliveryPreview.value.recipients : [])
+const weeklyReportDeliverySummary = computed(() => weeklyReportDeliveryPreview.value?.recipient_summary || {
+  total_recipients: 0,
+  safe_recipients: 0,
+  missing_contact_count: 0,
+  unsafe_recipient_count: 0,
+  recipient_types: {},
+})
 const weeklyTeamReportCards = computed(() => [
   {
     label: 'Team Completion',
@@ -601,6 +667,7 @@ const applyWeeklyReportTemplate = () => {
   if (!template) return
   if (template.template_key === 'short_text_summary') {
     weeklyReportExportFormat.value = 'text'
+    weeklyReportDeliveryFormat.value = 'text'
     return
   }
   const audience = template.audience === 'internal' ? 'coach' : template.audience
@@ -610,6 +677,12 @@ const applyWeeklyReportTemplate = () => {
 }
 watch(weeklyReportTemplateKey, () => {
   applyWeeklyReportTemplate()
+  weeklyReportDeliveryPreview.value = null
+  weeklyReportDeliveryMessage.value = ''
+})
+watch([weeklyReportExportAudience, weeklyReportDeliveryChannel, weeklyReportDeliveryFormat], () => {
+  weeklyReportDeliveryPreview.value = null
+  weeklyReportDeliveryMessage.value = ''
 })
 const resetWeeklyReportNoteForm = () => {
   weeklyReportNoteEditingId.value = ''
@@ -823,6 +896,62 @@ const copyWeeklyReportSummary = async () => {
   } catch {
     fallbackCopyText(text)
     weeklyReportExportMessage.value = 'Copied weekly report.'
+  }
+}
+const copyTextToClipboard = async (text, successMessage = 'Copied.') => {
+  if (!text) return false
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      fallbackCopyText(text)
+    }
+    weeklyReportDeliveryMessage.value = successMessage
+    return true
+  } catch {
+    fallbackCopyText(text)
+    weeklyReportDeliveryMessage.value = successMessage
+    return true
+  }
+}
+const copyWeeklyReportDeliverySubject = async () => {
+  const payload = weeklyReportDeliveryPreview.value || await loadWeeklyReportDeliveryPreview()
+  if (!payload?.subject) {
+    weeklyReportDeliveryMessage.value = 'No delivery subject to copy.'
+    return
+  }
+  await copyTextToClipboard(payload.subject, 'Copied delivery subject.')
+}
+const copyWeeklyReportDeliveryMessage = async () => {
+  const payload = weeklyReportDeliveryPreview.value || await loadWeeklyReportDeliveryPreview()
+  const text = payload?.message_text || ''
+  if (!text) {
+    weeklyReportDeliveryMessage.value = 'No delivery message to copy.'
+    return
+  }
+  await copyTextToClipboard(text, 'Copied delivery message.')
+}
+const createWeeklyReportDeliveryDraft = async () => {
+  weeklyReportDeliveryMessage.value = ''
+  if (!activeTeamId.value) {
+    weeklyReportDeliveryMessage.value = 'No team selected.'
+    return
+  }
+  weeklyReportDeliveryLoading.value = 'draft'
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/weekly-report/create-delivery-draft`, {
+      days: 7,
+      audience: weeklyReportExportAudience.value,
+      template: weeklyReportTemplateKey.value,
+      channel: weeklyReportDeliveryChannel.value,
+      format: weeklyReportDeliveryFormat.value,
+    })
+    weeklyReportDeliveryPreview.value = res?.data?.data || null
+    weeklyReportDeliveryMessage.value = weeklyReportDeliveryPreview.value?.draft?.message || 'Draft payload prepared.'
+  } catch {
+    weeklyReportDeliveryMessage.value = 'Could not create a delivery draft.'
+  } finally {
+    weeklyReportDeliveryLoading.value = ''
   }
 }
 const previewWeeklyReportHtml = async () => {
@@ -1472,6 +1601,102 @@ const del = async (p) => {
                   </div>
                   <p class="dp-command-sub mt-2">PDF export is not configured yet. Use Copy Summary or Printable HTML.</p>
                   <p v-if="weeklyReportExportMessage" class="dp-command-message">{{ weeklyReportExportMessage }}</p>
+
+                  <div class="dp-report-delivery mt-3">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div class="dp-command-label">Delivery Prep</div>
+                        <p class="dp-command-sub">Prepare a copy-ready message. Nothing is sent automatically.</p>
+                      </div>
+                      <div class="dp-export-controls">
+                        <label class="dp-export-field">
+                          <span>Channel</span>
+                          <select v-model="weeklyReportDeliveryChannel" class="dp-input dp-input--compact">
+                            <option v-for="channel in weeklyReportDeliveryChannelOptions" :key="channel.value" :value="channel.value" :disabled="!channel.supported">
+                              {{ channel.label }}{{ channel.supported ? '' : ' (not configured)' }}
+                            </option>
+                          </select>
+                        </label>
+                        <label class="dp-export-field">
+                          <span>Delivery Format</span>
+                          <select v-model="weeklyReportDeliveryFormat" class="dp-input dp-input--compact">
+                            <option v-for="option in weeklyReportDeliveryFormatOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div v-if="!weeklyTeamReport" class="dp-empty dp-empty--sm mt-3">Generate a weekly report before preparing delivery.</div>
+                    <template v-else>
+                      <div class="dp-export-actions">
+                        <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="Boolean(weeklyReportDeliveryLoading)" @click="loadWeeklyReportDeliveryPreview">
+                          {{ weeklyReportDeliveryLoading === 'preview' ? 'Preparing…' : 'Preview Delivery' }}
+                        </button>
+                        <button class="dp-btn dp-btn--small" :disabled="!weeklyReportDeliveryPreview?.subject" @click="copyWeeklyReportDeliverySubject">Copy Subject</button>
+                        <button class="dp-btn dp-btn--small" :disabled="!weeklyReportDeliveryPreview?.message_text" @click="copyWeeklyReportDeliveryMessage">Copy Message</button>
+                        <button v-if="weeklyReportDeliveryDraftSupported" class="dp-btn dp-btn--small" :disabled="Boolean(weeklyReportDeliveryLoading)" @click="createWeeklyReportDeliveryDraft">
+                          {{ weeklyReportDeliveryLoading === 'draft' ? 'Preparing Draft…' : 'Create Draft' }}
+                        </button>
+                        <span v-else class="dp-command-sub">Draft delivery is not configured yet. Use copy mode.</span>
+                      </div>
+
+                      <div v-if="weeklyReportDeliveryPreview" class="dp-delivery-preview">
+                        <div class="dp-completion-grid">
+                          <div class="dp-command-card">
+                            <div class="dp-command-label">Recipients</div>
+                            <div class="dp-command-value">{{ weeklyReportDeliverySummary.total_recipients || 0 }}</div>
+                            <div class="dp-command-sub">{{ weeklyReportDeliverySummary.safe_recipients || 0 }} safe · {{ weeklyReportDeliverySummary.missing_contact_count || 0 }} missing contact</div>
+                          </div>
+                          <div class="dp-command-card">
+                            <div class="dp-command-label">Unsafe</div>
+                            <div class="dp-command-value">{{ weeklyReportDeliverySummary.unsafe_recipient_count || 0 }}</div>
+                            <div class="dp-command-sub">Blocked or missing contact</div>
+                          </div>
+                          <div class="dp-command-card">
+                            <div class="dp-command-label">Status</div>
+                            <div class="dp-command-value">{{ human(weeklyReportDeliveryPreview.delivery_status || 'prepared') }}</div>
+                            <div class="dp-command-sub">Coach approval required</div>
+                          </div>
+                          <div class="dp-command-card">
+                            <div class="dp-command-label">Channel</div>
+                            <div class="dp-command-value">{{ human(weeklyReportDeliveryPreview.channel || weeklyReportDeliveryChannel) }}</div>
+                            <div class="dp-command-sub">{{ weeklyReportDeliveryPreview.format?.toUpperCase?.() || weeklyReportDeliveryFormat.toUpperCase() }}</div>
+                          </div>
+                        </div>
+
+                        <div v-if="weeklyReportDeliveryWarnings.length" class="dp-delivery-warnings">
+                          <div v-for="warning in weeklyReportDeliveryWarnings" :key="`delivery-warning-${warning}`" class="dp-calendar-warning">{{ warning }}</div>
+                        </div>
+
+                        <div class="dp-delivery-message-grid">
+                          <div class="dp-weekly-panel">
+                            <div class="dp-command-label">Subject</div>
+                            <div class="dp-delivery-subject">{{ weeklyReportDeliveryPreview.subject || 'No subject generated yet.' }}</div>
+                          </div>
+                          <div class="dp-weekly-panel">
+                            <div class="dp-command-label">Recipient Preview</div>
+                            <div v-if="weeklyReportDeliveryRecipients.length" class="dp-delivery-recipient-list">
+                              <div v-for="recipient in weeklyReportDeliveryRecipients.slice(0, 8)" :key="`${recipient.recipient_type}-${recipient.recipient_id || recipient.email || recipient.name}`" class="dp-delivery-recipient">
+                                <div>
+                                  <strong>{{ recipient.name || recipient.email || human(recipient.recipient_type) }}</strong>
+                                  <span>{{ human(recipient.recipient_type) }} · {{ recipient.email || 'missing contact' }}</span>
+                                </div>
+                                <span class="dp-status" :class="statusBadgeClass(recipient.safe_to_send ? 'good' : 'warning')">{{ recipient.safe_to_send ? 'Safe' : 'Review' }}</span>
+                              </div>
+                              <div v-if="weeklyReportDeliveryRecipients.length > 8" class="dp-command-sub">+{{ weeklyReportDeliveryRecipients.length - 8 }} more recipients</div>
+                            </div>
+                            <div v-else class="dp-empty dp-empty--sm">No recipients found for this audience.</div>
+                          </div>
+                        </div>
+
+                        <div class="dp-weekly-panel mt-3">
+                          <div class="dp-command-label">Message Preview</div>
+                          <pre class="dp-delivery-message">{{ weeklyReportDeliveryPreview.message_text || 'No message returned for this delivery request.' }}</pre>
+                        </div>
+                      </div>
+                    </template>
+                    <p v-if="weeklyReportDeliveryMessage" class="dp-command-message">{{ weeklyReportDeliveryMessage }}</p>
+                  </div>
 
                   <div class="dp-report-notes mt-3">
                     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -2384,6 +2609,18 @@ const del = async (p) => {
 .dp-report-template-preview { margin-top:12px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); border-radius:12px; padding:10px 12px; }
 .dp-report-template-main { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:8px; }
 @media (min-width:760px){ .dp-report-template-main { flex-direction:row; align-items:center; } }
+.dp-report-delivery { border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
+.dp-delivery-preview { display:grid; gap:12px; margin-top:12px; }
+.dp-delivery-warnings { display:grid; gap:7px; }
+.dp-delivery-message-grid { display:grid; grid-template-columns:1fr; gap:10px; }
+@media (min-width:860px){ .dp-delivery-message-grid { grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); } }
+.dp-delivery-subject { color:#fff; font-weight:950; line-height:1.25; margin-top:7px; overflow-wrap:anywhere; }
+.dp-delivery-recipient-list { display:grid; gap:7px; margin-top:8px; }
+.dp-delivery-recipient { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:8px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:8px 10px; min-width:0; }
+@media (min-width:720px){ .dp-delivery-recipient { flex-direction:row; align-items:center; } }
+.dp-delivery-recipient strong { display:block; color:#fff; font-size:12.5px; overflow-wrap:anywhere; }
+.dp-delivery-recipient span:not(.dp-status) { display:block; color:rgba(255,255,255,.5); font-size:11.5px; margin-top:2px; overflow-wrap:anywhere; }
+.dp-delivery-message { margin:9px 0 0; white-space:pre-wrap; word-break:break-word; max-height:280px; overflow:auto; background:rgba(3,7,18,.6); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:11px; color:rgba(255,255,255,.72); font-size:12px; line-height:1.45; }
 .dp-report-notes { border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
 .dp-report-note-warnings { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
 .dp-report-note-warnings span { border:1px solid rgba(245,158,11,.24); background:rgba(245,158,11,.075); color:#fcd34d; border-radius:999px; padding:5px 8px; font-size:10.5px; font-weight:900; }

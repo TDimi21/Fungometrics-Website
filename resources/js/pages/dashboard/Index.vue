@@ -7,6 +7,7 @@ import { usePlayerStore } from "../../store/players";
 import { useTeamStore } from "../../store/team";
 import { IndicatorChart } from '@/components/dashboard'
 import DashboardSprayChart from '@/components/dashboard/DashboardSprayChart.vue'
+import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
 import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
 import PitchHeatmapChart from '@/components/dashboard/PitchHeatmapChart.vue'
 import PitchTypeStatsCard from '@/components/dashboard/PitchTypeStatsCard.vue'
@@ -412,6 +413,26 @@ const visibleDevBoard = computed(() => {
 })
 
 const devBoardHasMore = computed(() => devBoard.value.length > devBoardDisplayLimit)
+
+// ── Development Card carousel (scroll through players one card at a time) ──────
+const devCarousel = ref(null)
+const devCardIndex = ref(0)
+const devScrollToIndex = (i) => {
+  const el = devCarousel.value
+  if (!el) return
+  const clamped = Math.max(0, Math.min(i, devBoard.value.length - 1))
+  const card = el.children?.[clamped]
+  if (card) el.scrollTo({ left: card.offsetLeft - el.offsetLeft, behavior: 'smooth' })
+}
+const devPrev = () => devScrollToIndex(devCardIndex.value - 1)
+const devNext = () => devScrollToIndex(devCardIndex.value + 1)
+const onDevScroll = () => {
+  const el = devCarousel.value
+  if (!el || !el.children.length) return
+  // The card whose left edge is closest to the container's left is the active one.
+  const cardW = el.children[0].getBoundingClientRect().width + 12 // width + gap
+  devCardIndex.value = Math.round(el.scrollLeft / cardW)
+}
 
 const statusConfig = {
   hot:        { label: '🔥 Hot',         color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/30' },
@@ -2533,128 +2554,41 @@ watch(
                 </div>
               </div>
 
-              <!-- Column headers -->
-              <div class="hidden md:grid grid-cols-[1fr_80px_60px_60px_auto] gap-2 px-3 mb-1">
-                <span class="text-white/25 text-[10px] uppercase tracking-widest">Player</span>
-                <span class="text-white/25 text-[10px] uppercase tracking-widest text-center">Status</span>
-                <span class="text-white/25 text-[10px] uppercase tracking-widest text-right">Score</span>
-                <span class="text-white/25 text-[10px] uppercase tracking-widest text-right">Trend</span>
-                <span class="text-white/25 text-[10px] uppercase tracking-widest text-right">Sessions (30d)</span>
-              </div>
-
-              <div class="flex flex-col gap-1.5">
+              <!-- Development Card carousel — one polished card per player, swipe/scroll through -->
+              <div class="relative">
                 <div
-                  v-for="player in visibleDevBoard" :key="player.id"
-                  class="rounded-xl border transition cursor-pointer"
-                  :class="[statusConfig[player.status]?.border ?? 'border-white/10',
-                           statusConfig[player.status]?.bg ?? 'bg-white/5',
-                           devBoardExpanded === player.id ? 'border-opacity-60' : 'hover:border-opacity-50']"
-                  @click="devBoardExpanded = devBoardExpanded === player.id ? null : player.id"
+                  ref="devCarousel"
+                  class="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1 dc-scroll"
+                  @scroll.passive="onDevScroll"
                 >
-                  <!-- Main row -->
-                  <div class="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_90px_70px_60px_auto] items-center gap-2 px-4 py-3">
-                    <!-- Name + jersey -->
-                    <div class="flex items-center gap-2 min-w-0">
-                      <div class="w-8 h-8 rounded-full overflow-hidden ring-1 ring-white/15 bg-white/10 shrink-0 flex items-center justify-center">
-                        <img
-                          v-if="player.picture"
-                          :src="player.picture"
-                          :alt="player.name"
-                          class="w-full h-full object-cover"
-                        />
-                        <span v-else class="text-[10px] font-black text-white/55">
-                          {{ devBoardPlayerInitials(player) }}
-                        </span>
-                      </div>
-                      <span class="text-white/30 text-xs font-bold w-7 text-center shrink-0">#{{ player.jersey ?? '—' }}</span>
-                      <button
-                        class="text-sm font-black text-sky-300 hover:text-sky-200 truncate text-left"
-                        @click.stop="openSharedPlayerDevelopmentProfile(player)"
-                      >{{ player.name }}</button>
-                    </div>
-                    <!-- Status badge -->
-                    <div class="flex justify-center">
-                      <span class="text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap"
-                        :class="[statusConfig[player.status]?.color ?? 'text-white/40',
-                                 statusConfig[player.status]?.bg ?? 'bg-white/5']">
-                        {{ statusConfig[player.status]?.label ?? player.status }}
-                      </span>
-                    </div>
-                    <!-- Score -->
-                    <div class="flex justify-end">
-                      <span class="text-sm font-black px-2.5 py-0.5 rounded-full"
-                        :style="player.scores?.overall != null ? { backgroundColor: scoreColor(player.scores.overall) + '22', color: scoreColor(player.scores.overall) } : {}">
-                        {{ player.scores?.overall != null ? Math.round(player.scores.overall) : '—' }}
-                      </span>
-                    </div>
-                    <!-- Trend -->
-                    <div class="flex justify-end">
-                      <span class="text-lg" :class="trendColor(player.trend)">{{ trendIcon(player.trend) }}</span>
-                    </div>
-                    <!-- Session coverage pills -->
-                    <div class="flex gap-1 justify-end flex-wrap col-span-2 md:col-span-1 mt-1 md:mt-0">
-                      <span
-                        v-for="st in sessionTypes" :key="st.key"
-                        class="text-[10px] font-black px-1.5 py-0.5 rounded border whitespace-nowrap"
-                        :class="(player.coverage?.[st.key] ?? 0) > 0
-                          ? 'text-white/70 bg-white/10 border-white/20'
-                          : 'text-white/15 bg-transparent border-white/5'"
-                      >{{ st.label }} {{ player.coverage?.[st.key] ?? 0 }}</span>
-                    </div>
-                  </div>
-
-                  <!-- Expanded detail row -->
-                  <div v-if="devBoardExpanded === player.id" class="border-t border-white/10 px-4 py-3">
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div v-if="player.scores?.batting != null" class="text-center">
-                        <div class="text-[10px] text-white/30 uppercase tracking-widest mb-1">Batting FPS</div>
-                        <div class="text-xl font-black" :style="{ color: scoreColor(player.scores.batting) }">{{ Math.round(player.scores.batting) }}</div>
-                        <div class="text-[10px] text-white/30 mt-0.5">
-                          prev: {{ player.prev_scores?.batting != null ? Math.round(player.prev_scores.batting) : '—' }}
-                        </div>
-                      </div>
-                      <div v-if="player.scores?.bullpen != null" class="text-center">
-                        <div class="text-[10px] text-white/30 uppercase tracking-widest mb-1">Bullpen BPS</div>
-                        <div class="text-xl font-black" :style="{ color: scoreColor(player.scores.bullpen) }">{{ Math.round(player.scores.bullpen) }}</div>
-                        <div class="text-[10px] text-white/30 mt-0.5">
-                          prev: {{ player.prev_scores?.bullpen != null ? Math.round(player.prev_scores.bullpen) : '—' }}
-                        </div>
-                      </div>
-                      <div v-if="player.scores?.cage != null" class="text-center">
-                        <div class="text-[10px] text-white/30 uppercase tracking-widest mb-1">Cage FCS</div>
-                        <div class="text-xl font-black" :style="{ color: scoreColor(player.scores.cage) }">{{ Math.round(player.scores.cage) }}</div>
-                        <div class="text-[10px] text-white/30 mt-0.5">
-                          prev: {{ player.prev_scores?.cage != null ? Math.round(player.prev_scores.cage) : '—' }}
-                        </div>
-                      </div>
-                      <div v-if="player.scores?.ev != null" class="text-center">
-                        <div class="text-[10px] text-white/30 uppercase tracking-widest mb-1">Exit Velo EVS</div>
-                        <div class="text-xl font-black" :style="{ color: scoreColor(player.scores.ev) }">{{ Math.round(player.scores.ev) }}</div>
-                        <div class="text-[10px] text-white/30 mt-0.5">
-                          prev: {{ player.prev_scores?.ev != null ? Math.round(player.prev_scores.ev) : '—' }}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                      <div class="text-[10px] uppercase tracking-widest text-white/35 mb-1.5">Weight Room Standing</div>
-                      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
-                        <div class="text-white/70">Wt: <span class="text-white font-bold">{{ player.fitness?.body_weight ?? '—' }}</span> <span class="text-[#FCA5A5]">{{ player.fitness_rank?.body_weight?.rank ? `#${player.fitness_rank.body_weight.rank}/${player.fitness_rank.body_weight.total}` : '—' }}</span></div>
-                        <div class="text-white/70">Bench: <span class="text-white font-bold">{{ player.fitness?.bench_press ?? '—' }}</span> <span class="text-[#FCA5A5]">{{ player.fitness_rank?.bench_press?.rank ? `#${player.fitness_rank.bench_press.rank}/${player.fitness_rank.bench_press.total}` : '—' }}</span></div>
-                        <div class="text-white/70">FSQ: <span class="text-white font-bold">{{ player.fitness?.front_squat ?? '—' }}</span> <span class="text-[#FCA5A5]">{{ player.fitness_rank?.front_squat?.rank ? `#${player.fitness_rank.front_squat.rank}/${player.fitness_rank.front_squat.total}` : '—' }}</span></div>
-                        <div class="text-white/70">PC: <span class="text-white font-bold">{{ player.fitness?.power_clean ?? '—' }}</span> <span class="text-[#FCA5A5]">{{ player.fitness_rank?.power_clean?.rank ? `#${player.fitness_rank.power_clean.rank}/${player.fitness_rank.power_clean.total}` : '—' }}</span></div>
-                      </div>
-                    </div>
+                  <div
+                    v-for="player in devBoard" :key="player.id"
+                    class="snap-center shrink-0 w-full cursor-pointer"
+                    @click="openSharedPlayerDevelopmentProfile(player)"
+                  >
+                    <DevelopmentCard :player="player" :team="team" />
                   </div>
                 </div>
 
-                <div v-if="devBoardHasMore" class="pt-2 flex justify-center">
+                <!-- pager: prev · dots · next · counter -->
+                <div v-if="devBoard.length > 1" class="flex items-center justify-center gap-3 mt-3">
                   <button
-                    class="px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all border border-white/20 text-white/70 hover:text-white hover:border-white/40"
-                    @click="devBoardShowAll = !devBoardShowAll; if (!devBoardShowAll) devBoardExpanded = null"
-                  >
-                    {{ devBoardShowAll ? 'Show First 5' : `Show All (${devBoard.length})` }}
-                  </button>
+                    class="w-7 h-7 rounded-full border border-white/15 text-white/60 hover:text-white hover:border-white/40 text-lg font-black leading-none disabled:opacity-25 disabled:cursor-default transition"
+                    :disabled="devCardIndex <= 0" aria-label="Previous player" @click="devPrev"
+                  >‹</button>
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      v-for="(p, i) in devBoard" :key="p.id"
+                      class="h-1.5 rounded-full transition-all"
+                      :class="i === devCardIndex ? 'w-5 bg-white/85' : 'w-1.5 bg-white/25 hover:bg-white/45'"
+                      :aria-label="`Go to player ${i + 1}`" @click="devScrollToIndex(i)"
+                    ></button>
+                  </div>
+                  <button
+                    class="w-7 h-7 rounded-full border border-white/15 text-white/60 hover:text-white hover:border-white/40 text-lg font-black leading-none disabled:opacity-25 disabled:cursor-default transition"
+                    :disabled="devCardIndex >= devBoard.length - 1" aria-label="Next player" @click="devNext"
+                  >›</button>
+                  <span class="text-white/40 text-xs font-bold tabular-nums ml-1">{{ devCardIndex + 1 }} / {{ devBoard.length }}</span>
                 </div>
               </div>
             </div>
@@ -3621,6 +3555,9 @@ watch(
 </template>
 
 <style scoped>
+/* Development Card carousel — clean scroll-snap, hidden scrollbar */
+.dc-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-padding: 0 4px; }
+.dc-scroll::-webkit-scrollbar { display: none; }
 .sheet-enter-active, .sheet-leave-active { transition: opacity 0.25s ease; }
 .sheet-enter-active > div, .sheet-leave-active > div { transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
 .sheet-enter-from { opacity: 0; }
