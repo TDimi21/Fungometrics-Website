@@ -724,6 +724,61 @@ const perfRows = computed(() => [
   },
 ])
 
+// ── Performance Review: left = scored disciplines, right = stat detail ─────────
+const selectedPerfKey = ref('batting')
+const scoredPerfRows = computed(() => perfRows.value.filter((r) => r.score !== null))
+watch(scoredPerfRows, (rows) => {
+  if (rows.length && !rows.some((r) => r.key === selectedPerfKey.value)) {
+    selectedPerfKey.value = rows[0].key
+  }
+}, { immediate: true })
+const selectedPerfRow = computed(() => perfRows.value.find((r) => r.key === selectedPerfKey.value) || null)
+// Disciplines that get the batting field spray (all swing-based / exit-velocity).
+const showSprayFor = computed(() => ['batting', 'ev', 'cage'].includes(selectedPerfKey.value))
+const selectedPerfStats = computed(() => {
+  const k = selectedPerfKey.value
+  const all = perfDetail.value
+  const d = all[k] || {}
+  const f = (v, s = '') => (v == null || v === '' ? '—' : `${v}${s}`)
+  switch (k) {
+    case 'batting': return [
+      { label: 'Avg EV', value: f(d.avgEV, ' mph'), color: '#37D67A' },
+      { label: 'Max EV', value: f(d.topEV, ' mph'), color: '#3B82F6' },
+      { label: 'Hard Hit %', value: f(all.ev?.hhPct, '%'), color: '#F59E0B' },
+      { label: 'Barrel %', value: '—', color: '#A855F7', hint: 'needs backend' },
+    ]
+    case 'ev': return [
+      { label: 'Avg EV', value: f(d.avgEV, ' mph'), color: '#37D67A' },
+      { label: 'Top EV', value: f(d.topEV, ' mph'), color: '#3B82F6' },
+      { label: 'Hard Hit %', value: f(d.hhPct, '%'), color: '#F59E0B' },
+      { label: 'Swings', value: f(d.total), color: '#94A3B8' },
+    ]
+    case 'cage': return [
+      { label: 'Avg EV', value: f(d.avgEV, ' mph'), color: '#37D67A' },
+      { label: 'Max EV', value: f(d.maxEV, ' mph'), color: '#3B82F6' },
+      { label: 'Sweet Spot %', value: f(d.sweetSpotPct, '%'), color: '#F59E0B' },
+      { label: 'Swings', value: f(d.total), color: '#94A3B8' },
+    ]
+    case 'bullpen': return [
+      { label: 'Avg Velo', value: f(d.avgVelo, ' mph'), color: '#37D67A' },
+      { label: 'Top Velo', value: f(d.topVelo, ' mph'), color: '#3B82F6' },
+      { label: 'Strike %', value: f(d.strikeRate != null ? Number(d.strikeRate).toFixed(1) : null, '%'), color: '#F59E0B' },
+      { label: 'Pitches', value: f(d.total), color: '#94A3B8' },
+    ]
+    case 'lt': return [
+      { label: 'Avg Max Dist', value: f(d.avgMaxDist, ' ft'), color: '#37D67A' },
+      { label: 'Zero-Hop %', value: f(d.zeroHopRate, '%'), color: '#3B82F6' },
+      { label: 'Throws', value: f(d.total), color: '#94A3B8' },
+    ]
+    case 'wb': return [
+      { label: 'Avg Velo', value: f(d.avgVelo, ' mph'), color: '#37D67A' },
+      { label: 'Top Velo', value: f(d.topVelo, ' mph'), color: '#3B82F6' },
+      { label: 'Throws', value: f(d.total), color: '#94A3B8' },
+    ]
+    default: return []
+  }
+})
+
 /** 3-level colour for component sub-scores (same as app's inline logic) */
 function compScoreColor(s) {
   if (s === null || s === undefined || isNaN(Number(s))) return '#64748B'
@@ -2613,58 +2668,69 @@ watch(
             </div>
           </div>
 
-          <!-- Performance Overview — real FMTRX scores from backend -->
+          <!-- Performance Review — scored disciplines (left) + stat detail (right) -->
           <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
-            <div class="flex items-center justify-between mb-1">
-              <h2 class="text-base font-black uppercase tracking-widest text-white">Performance Overview</h2>
-              <span class="text-white/30 text-xs">Last 10 sessions</span>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-base font-black uppercase tracking-widest text-white">Performance Review</h2>
+              <span class="text-white/30 text-xs">Last 10 sessions · FMTRX score</span>
             </div>
-            <p class="text-white/25 text-[11px] mb-4">FMTRX score 0–100 · same algorithm as the app</p>
 
             <!-- Loading skeleton -->
             <div v-if="perfLoading" class="flex flex-col gap-3">
-              <div v-for="i in 6" :key="i" class="flex items-center gap-3 px-2 py-2 animate-pulse">
-                <div class="w-32 h-3 bg-white/10 rounded-full"></div>
-                <div class="flex-1 h-2 bg-white/10 rounded-full"></div>
-                <div class="w-10 h-3 bg-white/10 rounded-full"></div>
-              </div>
+              <div v-for="i in 6" :key="i" class="h-7 rounded-lg bg-white/5 animate-pulse"></div>
             </div>
 
-            <!-- Score rows -->
-            <div v-else class="flex flex-col gap-1">
-              <div
-                v-for="row in perfRows" :key="row.key"
-                class="group flex flex-col px-2 py-2 rounded-xl hover:bg-white/5 transition cursor-pointer"
-                @click="openBreakdown(row)"
-              >
-                <div class="flex items-center gap-3">
-                  <div class="w-32 shrink-0 flex items-center gap-1.5">
+            <div v-else-if="!scoredPerfRows.length" class="text-white/25 text-sm text-center py-10">
+              No scored disciplines yet — scores appear here once sessions are logged.
+            </div>
+
+            <div v-else class="grid gap-5 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+              <!-- LEFT: discipline scores (only scored ones) -->
+              <div class="flex flex-col gap-1.5">
+                <button
+                  v-for="row in scoredPerfRows" :key="row.key"
+                  class="text-left px-3 py-2.5 rounded-xl border transition"
+                  :class="selectedPerfKey === row.key ? 'border-white/25 bg-white/[0.07]' : 'border-transparent hover:bg-white/[0.04]'"
+                  @click="selectedPerfKey = row.key"
+                >
+                  <div class="flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: row.dot }"></span>
-                    <span class="text-sm font-bold text-white/80">{{ row.label }}</span>
-                    <span class="text-[10px] font-black text-white/30 ml-0.5">{{ row.abbr }}</span>
-                    <svg v-if="row.score" class="w-3 h-3 text-white/25 group-hover:text-white/60 transition ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
+                    <span class="text-sm font-bold text-white/85">{{ row.label }}</span>
+                    <span class="text-[10px] font-black text-white/30">{{ row.abbr }}</span>
+                    <span class="ml-auto text-sm font-black tabular-nums" :style="{ color: scoreColor(row.score) }">{{ row.score }}</span>
                   </div>
-                  <div class="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      class="h-full rounded-full transition-all duration-700"
-                      :style="{
-                        width: row.score ? Math.min(row.score, 100) + '%' : '0%',
-                        backgroundColor: scoreColor(row.score),
-                      }"
-                    ></div>
+                  <div class="mt-1.5 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-700" :style="{ width: Math.min(row.score, 100) + '%', backgroundColor: scoreColor(row.score) }"></div>
                   </div>
-                  <div class="w-16 text-right shrink-0">
-                    <span v-if="row.score !== null" class="text-sm font-black tabular-nums" :style="{ color: scoreColor(row.score) }">{{ row.score }}</span>
-                    <span v-else class="text-sm font-black text-white/20">--</span>
+                </button>
+              </div>
+
+              <!-- RIGHT: stat detail for the selected discipline -->
+              <div class="rounded-xl border border-white/10 bg-white/[0.03] p-4 min-w-0">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: selectedPerfRow?.dot }"></span>
+                    <span class="text-sm font-black uppercase tracking-wide text-white truncate">{{ selectedPerfRow?.label }} <span class="text-white/35">{{ selectedPerfRow?.abbr }}</span></span>
+                    <span class="ml-1 text-sm font-black tabular-nums" :style="{ color: scoreColor(selectedPerfRow?.score) }">{{ selectedPerfRow?.score }}</span>
                   </div>
+                  <button class="text-[10px] font-black uppercase tracking-widest text-sky-300 hover:text-sky-200 shrink-0" @click="openBreakdown(selectedPerfRow)">Full breakdown →</button>
                 </div>
-                <div v-if="row.detail" class="mt-0.5 pl-[34px] text-[10px] text-white/30 truncate">
-                  {{ row.detail }}
-                  <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-black" :style="{ backgroundColor: scoreColor(row.score) + '22', color: scoreColor(row.score) }">
-                    {{ scoreGrade(row.score) }}
-                  </span>
+
+                <!-- Swing-spray field for exit-velocity disciplines -->
+                <div v-if="showSprayFor" class="mb-4">
+                  <DashboardSprayChart :contactSpray="contactSpray" :ballStrike="ballStrike" />
+                </div>
+                <div v-else class="mb-4 rounded-lg border border-dashed border-white/10 py-10 text-center text-white/25 text-xs">
+                  {{ selectedPerfRow?.label }} visualization coming next — key stats below.
+                </div>
+
+                <!-- Key stat tiles -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div v-for="s in selectedPerfStats" :key="s.label" class="rounded-lg bg-white/[0.04] border border-white/5 px-3 py-2.5 text-center">
+                    <div class="text-[9px] font-black uppercase tracking-wider text-white/35 mb-1">{{ s.label }}</div>
+                    <div class="text-lg font-black tabular-nums leading-tight" :style="{ color: s.color }">{{ s.value }}</div>
+                    <div v-if="s.hint" class="text-[8px] text-white/25 mt-0.5">{{ s.hint }}</div>
+                  </div>
                 </div>
               </div>
             </div>
