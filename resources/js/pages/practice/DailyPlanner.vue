@@ -120,6 +120,9 @@ const developmentProgramHealthMessage = ref('')
 const developmentHealthTrend = ref(null)
 const developmentHealthTrendLoading = ref(false)
 const developmentHealthTrendMessage = ref('')
+const developmentHealthAlerts = ref(null)
+const developmentHealthAlertsLoading = ref(false)
+const developmentHealthAlertsMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const selectedSeasonArchiveDelivery = ref(null)
 const weeklyReportNotes = ref([])
@@ -275,6 +278,7 @@ const loadCommandCenter = async () => {
     seasonArchiveDeliveryAnalytics.value = null
     developmentProgramHealth.value = null
     developmentHealthTrend.value = null
+    developmentHealthAlerts.value = null
     selectedWeeklyReportDelivery.value = null
     selectedSeasonArchiveDelivery.value = null
     weeklyReportNotes.value = []
@@ -752,6 +756,30 @@ const loadDevelopmentHealthTrend = async () => {
     return null
   } finally {
     developmentHealthTrendLoading.value = false
+  }
+}
+const loadDevelopmentHealthAlerts = async () => {
+  developmentHealthAlertsMessage.value = ''
+  if (!activeTeamId.value) {
+    developmentHealthAlerts.value = null
+    return null
+  }
+
+  developmentHealthAlertsLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/development-health-alerts`, {
+      days: 30,
+      weeks: 8,
+      severity_threshold: 'medium',
+    })
+    developmentHealthAlerts.value = res?.data?.data || null
+    return developmentHealthAlerts.value
+  } catch {
+    developmentHealthAlerts.value = null
+    developmentHealthAlertsMessage.value = 'Health alerts are not available yet.'
+    return null
+  } finally {
+    developmentHealthAlertsLoading.value = false
   }
 }
 const refreshSeasonArchiveDeliveryInsights = async () => {

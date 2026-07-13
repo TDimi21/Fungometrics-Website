@@ -12,8 +12,11 @@ use App\Models\Concerns\PitchThrowTypes;
 use App\Models\Concerns\SidesFieldPosition;
 use App\Models\LiveABPracticeResult;
 use App\Models\LongTossPractice;
+use App\Models\PlayerTeam;
+use App\Models\Practice;
 use App\Models\TeamsLiveAB;
 use App\Models\WeightBallPractice;
+use App\Services\ResultTrainingService;
 use App\Utils\Helper;
 
 final class TeamStatisticsService
@@ -37,8 +40,15 @@ final class TeamStatisticsService
             ->all();
         $this->cage = CagePracticeResult::where('team_id', '=', $this->id)->get();
         $this->liveAB = LiveABPracticeResult::whereIn('practice_id', $liveAbPractices)->get();
-        $this->longToss = LongTossPractice::where('team_id', '=', $this->id)->get();
-        $this->weightBall = WeightBallPractice::where('team_id', '=', $this->id)->get();
+
+        // Long toss / weighted ball RESULT rows frequently have team_id = NULL (they
+        // link to a Practice that carries the team) — querying by team_id alone came
+        // back empty even when data existed. Use the SAME resolver the performance
+        // overview uses (team_id → team practices → all team practices fallback), so
+        // the charts see exactly the data the score tiles do.
+        $playerIds = PlayerTeam::where('team_id', $this->id)->whereNotNull('user_id')->pluck('user_id')->all();
+        $this->longToss = ResultTrainingService::getLongTossResultsLastSessions((string) $this->id, $playerIds, 10);
+        $this->weightBall = ResultTrainingService::getWeightBallResultsLastSessions((string) $this->id, $playerIds, 10);
     }
 
     /**
