@@ -48,6 +48,12 @@ const weeklyRollupError = ref('')
 const weeklyTeamReport = ref(null)
 const weeklyTeamReportLoading = ref(false)
 const weeklyTeamReportError = ref('')
+const weeklyReportExportAudience = ref('coach')
+const weeklyReportExportFormat = ref('text')
+const weeklyReportExportLoading = ref('')
+const weeklyReportExportMessage = ref('')
+const weeklyReportPreviewHtml = ref('')
+const weeklyReportPreviewOpen = ref(false)
 const nextWeekDraft = ref(null)
 const nextWeekDraftLoading = ref(false)
 const nextWeekDraftError = ref('')
@@ -95,6 +101,8 @@ const loadCommandCenter = async () => {
     completionSummary.value = null
     weeklyRollup.value = null
     weeklyTeamReport.value = null
+    weeklyReportPreviewHtml.value = ''
+    weeklyReportPreviewOpen.value = false
     nextWeekDraft.value = null
     nextWeekCalendarDraft.value = null
     weeklyDraftPlans.value = null
@@ -230,6 +238,32 @@ const loadWeeklyTeamReport = async () => {
     return null
   } finally {
     weeklyTeamReportLoading.value = false
+  }
+}
+const loadWeeklyReportExport = async (format = weeklyReportExportFormat.value) => {
+  weeklyReportExportMessage.value = ''
+  if (!activeTeamId.value) {
+    weeklyReportExportMessage.value = 'No team selected.'
+    return null
+  }
+
+  weeklyReportExportLoading.value = format
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/weekly-report/export`, {
+      days: 7,
+      format,
+      audience: weeklyReportExportAudience.value,
+      include_player_rows: true,
+      include_benchmark_details: true,
+      include_pending_reviews: true,
+      include_next_week_priorities: true,
+    })
+    return res?.data?.data || null
+  } catch {
+    weeklyReportExportMessage.value = 'Export is not available right now.'
+    return null
+  } finally {
+    weeklyReportExportLoading.value = ''
   }
 }
 const loadCompletionSummary = async (dailyPlanId = commandCenter.value?.daily_plan_id) => {
@@ -387,6 +421,13 @@ const weeklyTeamReportCards = computed(() => [
     detail: `${weeklyTeamMissed.value.missed_items_count || 0} missed items`,
   },
 ])
+const weeklyReportAudienceWarning = computed(() => {
+  const warnings = {
+    parents: 'Parent version hides private player review details.',
+    players: "Player version hides other players' private details.",
+  }
+  return warnings[weeklyReportExportAudience.value] || ''
+})
 const nextWeekPriorities = computed(() => Array.isArray(nextWeekDraft.value?.priority_focuses) ? nextWeekDraft.value.priority_focuses : [])
 const nextWeekDays = computed(() => Array.isArray(nextWeekDraft.value?.suggested_plan_days) ? nextWeekDraft.value.suggested_plan_days : [])
 const nextWeekAssignments = computed(() => Array.isArray(nextWeekDraft.value?.player_assignments) ? nextWeekDraft.value.player_assignments : [])
@@ -567,6 +608,77 @@ const handleActionResult = async (result, action) => {
     commandActionMessage.value += ` ${result.warnings[0]}`
   }
   if (action?.action_type === 'publish_plan') await loadPlans()
+}
+const fallbackCopyText = (text) => {
+  const area = document.createElement('textarea')
+  area.value = text
+  area.setAttribute('readonly', 'readonly')
+  area.style.position = 'fixed'
+  area.style.left = '-9999px'
+  document.body.appendChild(area)
+  area.select()
+  document.execCommand('copy')
+  area.remove()
+}
+const copyWeeklyReportSummary = async () => {
+  const exportPayload = await loadWeeklyReportExport('text')
+  const text = exportPayload?.share_text || ''
+  if (!text) {
+    weeklyReportExportMessage.value = 'No report data to export.'
+    return
+  }
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      fallbackCopyText(text)
+    }
+    weeklyReportExportMessage.value = exportPayload?.warnings?.[0] || 'Copied weekly report.'
+  } catch {
+    fallbackCopyText(text)
+    weeklyReportExportMessage.value = 'Copied weekly report.'
+  }
+}
+const previewWeeklyReportHtml = async () => {
+  const exportPayload = await loadWeeklyReportExport('html')
+  if (!exportPayload?.html) {
+    weeklyReportExportMessage.value = 'No report data to export.'
+    return
+  }
+  weeklyReportPreviewHtml.value = exportPayload.html
+  weeklyReportPreviewOpen.value = true
+  weeklyReportExportMessage.value = exportPayload?.warnings?.[0] || 'Printable report preview is ready.'
+}
+const requestWeeklyReportPdf = async () => {
+  const exportPayload = await loadWeeklyReportExport('pdf')
+  weeklyReportExportMessage.value = exportPayload?.warnings?.[0] || exportPayload?.pdf?.warnings?.[0] || 'PDF export is not configured yet. Use Copy Summary.'
+}
+const runWeeklyReportSelectedExport = async () => {
+  if (weeklyReportExportFormat.value === 'html') {
+    await previewWeeklyReportHtml()
+    return
+  }
+  if (weeklyReportExportFormat.value === 'pdf') {
+    await requestWeeklyReportPdf()
+    return
+  }
+  await copyWeeklyReportSummary()
+}
+const printWeeklyReportPreview = () => {
+  if (!weeklyReportPreviewHtml.value) return
+  const win = window.open('', '_blank', 'noopener,noreferrer')
+  if (!win) {
+    weeklyReportExportMessage.value = 'Popup blocked. Use the browser print option from the preview.'
+    return
+  }
+  win.document.open()
+  win.document.write(weeklyReportPreviewHtml.value)
+  win.document.close()
+  setTimeout(() => {
+    win.focus()
+    win.print()
+  }, 250)
 }
 const previewNextWeekDay = (day) => {
   nextWeekPreviewDay.value = day
@@ -1102,6 +1214,49 @@ const del = async (p) => {
                     <div class="dp-command-value">{{ card.value }}</div>
                     <div class="dp-command-sub">{{ card.detail }}</div>
                   </div>
+                </div>
+
+                <div class="dp-weekly-panel mt-3">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div class="dp-command-label">Export / Share</div>
+                      <p class="dp-command-sub">Create a safe weekly summary for coaches, staff, players, or parents.</p>
+                    </div>
+                    <div class="dp-export-controls">
+                      <label class="dp-export-field">
+                        <span>Audience</span>
+                        <select v-model="weeklyReportExportAudience" class="dp-input dp-input--compact">
+                          <option value="coach">Coach</option>
+                          <option value="staff">Staff</option>
+                          <option value="players">Players</option>
+                          <option value="parents">Parents</option>
+                        </select>
+                      </label>
+                      <label class="dp-export-field">
+                        <span>Format</span>
+                        <select v-model="weeklyReportExportFormat" class="dp-input dp-input--compact">
+                          <option value="summary">Summary</option>
+                          <option value="text">Copy Text</option>
+                          <option value="html">Printable HTML</option>
+                          <option value="pdf">PDF</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                  <div v-if="weeklyReportAudienceWarning" class="dp-calendar-warning mt-3">{{ weeklyReportAudienceWarning }}</div>
+                  <div class="dp-export-actions">
+                    <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="Boolean(weeklyReportExportLoading)" @click="copyWeeklyReportSummary">
+                      {{ weeklyReportExportLoading === 'text' ? 'Copying…' : 'Copy Summary' }}
+                    </button>
+                    <button class="dp-btn dp-btn--small" :disabled="Boolean(weeklyReportExportLoading)" @click="previewWeeklyReportHtml">
+                      {{ weeklyReportExportLoading === 'html' ? 'Loading…' : 'Preview Printable Report' }}
+                    </button>
+                    <button class="dp-btn dp-btn--small" :disabled="Boolean(weeklyReportExportLoading)" @click="runWeeklyReportSelectedExport">
+                      {{ weeklyReportExportLoading ? 'Exporting…' : 'Run Selected Export' }}
+                    </button>
+                  </div>
+                  <p class="dp-command-sub mt-2">PDF export is not configured yet. Use Copy Summary or Printable HTML.</p>
+                  <p v-if="weeklyReportExportMessage" class="dp-command-message">{{ weeklyReportExportMessage }}</p>
                 </div>
 
                 <div class="dp-weekly-panel mt-3">
@@ -1810,6 +1965,23 @@ const del = async (p) => {
       </template>
     </div>
 
+    <!-- ══ WEEKLY REPORT PREVIEW MODAL ══ -->
+    <div v-if="weeklyReportPreviewOpen" class="dp-modal" @click.self="weeklyReportPreviewOpen = false">
+      <div class="dp-modal-card dp-modal-card--report">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div>
+            <div class="font-black text-lg">Printable Weekly Report</div>
+            <div class="dp-command-sub">Audience: {{ human(weeklyReportExportAudience) }}</div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button class="dp-btn dp-btn--small" @click="printWeeklyReportPreview">Print / Save PDF</button>
+            <button class="dp-x" @click="weeklyReportPreviewOpen = false">×</button>
+          </div>
+        </div>
+        <iframe class="dp-report-frame" :srcdoc="weeklyReportPreviewHtml" title="FMTRX weekly report preview"></iframe>
+      </div>
+    </div>
+
     <!-- ══ DRILL PICKER MODAL ══ -->
     <div v-if="picker" class="dp-modal" @click.self="closePicker">
       <div class="dp-modal-card">
@@ -1904,6 +2076,12 @@ const del = async (p) => {
 @media (min-width:820px){ .dp-report-player-row { flex-direction:row; align-items:center; } }
 .dp-report-metrics { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
 .dp-report-metrics span { background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.075); border-radius:999px; padding:4px 8px; color:rgba(255,255,255,.64); font-size:11px; font-weight:850; }
+.dp-export-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; justify-content:flex-start; }
+@media (min-width:760px){ .dp-export-controls { justify-content:flex-end; } }
+.dp-export-field { display:flex; flex-direction:column; gap:4px; }
+.dp-export-field span { color:rgba(255,255,255,.48); text-transform:uppercase; letter-spacing:.07em; font-size:10px; font-weight:900; }
+.dp-export-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.dp-report-frame { width:100%; min-height:70vh; border:1px solid rgba(255,255,255,.12); border-radius:12px; background:#fff; }
 .dp-next-week-days { display:grid; gap:12px; margin-top:12px; }
 .dp-next-week-day { background:rgba(9,14,29,.62); border:1px solid rgba(255,255,255,.1); border-radius:15px; padding:14px; min-width:0; }
 .dp-next-week-actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-start; }
@@ -2026,6 +2204,7 @@ const del = async (p) => {
 /* drill picker modal */
 .dp-modal { position:fixed; inset:0; background:rgba(3,7,18,.72); display:flex; align-items:flex-end; justify-content:center; z-index:60; padding:0; }
 .dp-modal-card { width:100%; max-width:620px; background:#0f1830; border:1px solid rgba(255,255,255,.12); border-radius:18px 18px 0 0; padding:18px; max-height:85vh; display:flex; flex-direction:column; }
+.dp-modal-card--report { max-width:1040px; height:92vh; }
 @media (min-width:640px){ .dp-modal { align-items:center; padding:20px; } .dp-modal-card { border-radius:18px; } }
 .dp-cat { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.7); font-size:12px; font-weight:700; padding:5px 11px; border-radius:999px; cursor:pointer; }
 .dp-cat--on { background:#d8232a; border-color:#d8232a; color:#fff; }
