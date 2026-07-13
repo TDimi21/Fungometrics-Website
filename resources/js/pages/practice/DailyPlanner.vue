@@ -117,6 +117,9 @@ const seasonCommunicationRhythmMessage = ref('')
 const developmentProgramHealth = ref(null)
 const developmentProgramHealthLoading = ref(false)
 const developmentProgramHealthMessage = ref('')
+const developmentHealthTrend = ref(null)
+const developmentHealthTrendLoading = ref(false)
+const developmentHealthTrendMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const selectedSeasonArchiveDelivery = ref(null)
 const weeklyReportNotes = ref([])
@@ -271,6 +274,7 @@ const loadCommandCenter = async () => {
     seasonArchiveDeliveryHistory.value = null
     seasonArchiveDeliveryAnalytics.value = null
     developmentProgramHealth.value = null
+    developmentHealthTrend.value = null
     selectedWeeklyReportDelivery.value = null
     selectedSeasonArchiveDelivery.value = null
     weeklyReportNotes.value = []
@@ -725,6 +729,31 @@ const loadDevelopmentProgramHealth = async () => {
     developmentProgramHealthLoading.value = false
   }
 }
+const loadDevelopmentHealthTrend = async () => {
+  developmentHealthTrendMessage.value = ''
+  if (!activeTeamId.value) {
+    developmentHealthTrend.value = null
+    return null
+  }
+
+  developmentHealthTrendLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/development-health-trendline`, {
+      weeks: 8,
+      period: 'week',
+      include_components: true,
+      include_recommendations: true,
+    })
+    developmentHealthTrend.value = res?.data?.data || null
+    return developmentHealthTrend.value
+  } catch {
+    developmentHealthTrend.value = null
+    developmentHealthTrendMessage.value = 'Development health trendline is not available yet.'
+    return null
+  } finally {
+    developmentHealthTrendLoading.value = false
+  }
+}
 const refreshSeasonArchiveDeliveryInsights = async () => {
   await Promise.all([
     loadSeasonArchiveDeliveryHistory(),
@@ -846,8 +875,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -1153,6 +1182,28 @@ const developmentHealthStrengths = computed(() => Array.isArray(developmentProgr
 const developmentHealthRisks = computed(() => Array.isArray(developmentProgramHealth.value?.risks) ? developmentProgramHealth.value.risks : [])
 const developmentHealthTrends = computed(() => Array.isArray(developmentProgramHealth.value?.trend_signals) ? developmentProgramHealth.value.trend_signals : [])
 const developmentHealthWarnings = computed(() => Array.isArray(developmentProgramHealth.value?.warnings) ? developmentProgramHealth.value.warnings : [])
+const trendStatusTone = (direction) => ({
+  improving: 'good',
+  declining: 'warning',
+  stable: 'info',
+  no_data: 'muted',
+}[direction] || 'muted')
+const signedDelta = (value) => {
+  if (!Number.isFinite(Number(value))) return '—'
+  const number = Number(value)
+  return `${number > 0 ? '+' : ''}${number.toFixed(1)}`
+}
+const developmentTrendOverall = computed(() => developmentHealthTrend.value?.overall_trend || {})
+const developmentTrendPeriodRows = computed(() => Array.isArray(developmentHealthTrend.value?.period_scores) ? developmentHealthTrend.value.period_scores : [])
+const developmentTrendComponents = computed(() => Object.entries(developmentHealthTrend.value?.component_trends || {}).map(([key, trend]) => ({
+  key,
+  display_name: trend?.display_name || human(key),
+  ...(trend || {}),
+})))
+const developmentTrendImprovements = computed(() => Array.isArray(developmentHealthTrend.value?.biggest_improvements) ? developmentHealthTrend.value.biggest_improvements : [])
+const developmentTrendDeclines = computed(() => Array.isArray(developmentHealthTrend.value?.biggest_declines) ? developmentHealthTrend.value.biggest_declines : [])
+const developmentTrendRecommendations = computed(() => Array.isArray(developmentHealthTrend.value?.trend_recommendations) ? developmentHealthTrend.value.trend_recommendations : [])
+const developmentTrendWarnings = computed(() => Array.isArray(developmentHealthTrend.value?.warnings) ? developmentHealthTrend.value.warnings : [])
 const seasonRhythmActionTemplateMap = {
   create_staff_packet: { template: 'staff_review_packet', audience: 'staff' },
   create_parent_summary: { template: 'parent_safe_season_summary', audience: 'parents' },
@@ -2555,6 +2606,139 @@ const del = async (p) => {
                 Program health will appear after plans, player progress, and benchmark data are collected.
               </div>
               <p v-if="developmentProgramHealthMessage" class="dp-command-message">{{ developmentProgramHealthMessage }}</p>
+            </div>
+
+            <div class="dp-command-block">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div>
+                  <div class="dp-section mb-0">Development Health Trendline</div>
+                  <p class="dp-command-sub">Week-by-week movement for the operating health score and each development workflow.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="dp-status" :class="statusBadgeClass(trendStatusTone(developmentTrendOverall.trend_direction))">
+                    {{ developmentHealthTrend ? human(developmentTrendOverall.trend_direction) : 'No Data Yet' }}
+                  </span>
+                  <button class="dp-link" :disabled="developmentHealthTrendLoading" @click="loadDevelopmentHealthTrend">
+                    {{ developmentHealthTrendLoading ? 'Refreshing…' : 'Refresh Trend' }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="developmentHealthTrendLoading && !developmentHealthTrend" class="dp-command-loading">Building development health trendline…</div>
+              <div v-else-if="developmentHealthTrend">
+                <div class="dp-weekly-header">
+                  <div>
+                    <div class="dp-command-label">{{ developmentHealthTrend.start_date }} to {{ developmentHealthTrend.end_date }}</div>
+                    <p class="dp-empty-copy">{{ developmentTrendOverall.summary || 'More weeks are needed to show a trend.' }}</p>
+                  </div>
+                  <div class="text-right">
+                    <div class="dp-command-value">{{ developmentTrendOverall.current_score == null ? '—' : oneDecimal(developmentTrendOverall.current_score) }}</div>
+                    <div class="dp-command-sub">
+                      Last: {{ developmentTrendOverall.previous_score == null ? '—' : oneDecimal(developmentTrendOverall.previous_score) }}
+                      · {{ signedDelta(developmentTrendOverall.score_delta_vs_previous) }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dp-completion-grid mt-3">
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Current Score</div>
+                    <div class="dp-command-value">{{ developmentTrendOverall.current_score == null ? '—' : oneDecimal(developmentTrendOverall.current_score) }}</div>
+                    <div class="dp-command-sub">{{ human(developmentTrendOverall.trend_direction || 'no_data') }}</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Previous Week</div>
+                    <div class="dp-command-value">{{ developmentTrendOverall.previous_score == null ? '—' : oneDecimal(developmentTrendOverall.previous_score) }}</div>
+                    <div class="dp-command-sub">Week-over-week comparison</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Delta</div>
+                    <div class="dp-command-value">{{ signedDelta(developmentTrendOverall.score_delta_vs_previous) }}</div>
+                    <div class="dp-command-sub">Current vs previous period</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Since Start</div>
+                    <div class="dp-command-value">{{ signedDelta(developmentTrendOverall.score_delta_vs_start) }}</div>
+                    <div class="dp-command-sub">{{ developmentHealthTrend.period_count || 0 }} periods analyzed</div>
+                  </div>
+                </div>
+
+                <div v-if="developmentTrendPeriodRows.length" class="dp-weekly-panel mt-3">
+                  <div class="dp-command-label">Weekly Timeline</div>
+                  <div class="dp-rhythm-timeline mt-2">
+                    <div v-for="period in developmentTrendPeriodRows" :key="`health-trend-period-${period.period_index}`" class="dp-rhythm-row">
+                      <div>
+                        <strong>{{ period.period_label }}</strong>
+                        <span>{{ period.overall_score_0_100 == null ? 'No score' : oneDecimal(period.overall_score_0_100) }} · {{ human(period.overall_label) }}</span>
+                        <small>Strength: {{ period.top_strength || '—' }} · Risk: {{ period.top_risk || '—' }}</small>
+                      </div>
+                      <div class="dp-rhythm-pills">
+                        <span class="dp-status" :class="statusBadgeClass(healthStatusTone(period.overall_label))">{{ human(period.overall_label) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-3">No development health data found for this date range.</div>
+
+                <div v-if="developmentTrendComponents.length" class="dp-completion-grid mt-3">
+                  <div v-for="component in developmentTrendComponents" :key="`health-trend-component-${component.key}`" class="dp-command-card">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="dp-command-label">{{ component.display_name }}</div>
+                      <span class="dp-status" :class="statusBadgeClass(trendStatusTone(component.trend_direction))">{{ human(component.trend_direction) }}</span>
+                    </div>
+                    <div class="dp-command-value">{{ component.current_score == null ? '—' : oneDecimal(component.current_score) }}</div>
+                    <div class="dp-command-sub">Previous: {{ component.previous_score == null ? '—' : oneDecimal(component.previous_score) }} · {{ signedDelta(component.delta) }}</div>
+                    <div class="dp-command-sub">{{ component.summary }}</div>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-3">More weeks are needed to show component trends.</div>
+
+                <div class="dp-weekly-columns mt-3">
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Biggest Improvements</div>
+                    <div v-if="developmentTrendImprovements.length" class="dp-delivery-analytics-list">
+                      <div v-for="move in developmentTrendImprovements" :key="`trend-improvement-${move.component}`" class="dp-delivery-analytics-row">
+                        <span>{{ move.display_name }}</span>
+                        <strong>{{ signedDelta(move.delta) }}</strong>
+                      </div>
+                    </div>
+                    <div v-else class="dp-empty dp-empty--sm mt-2">No component improvements surfaced yet.</div>
+                  </div>
+
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Biggest Declines</div>
+                    <div v-if="developmentTrendDeclines.length" class="dp-delivery-analytics-list">
+                      <div v-for="move in developmentTrendDeclines" :key="`trend-decline-${move.component}`" class="dp-delivery-analytics-row">
+                        <span>{{ move.display_name }}</span>
+                        <strong>{{ signedDelta(move.delta) }}</strong>
+                      </div>
+                    </div>
+                    <div v-else class="dp-empty dp-empty--sm mt-2">No component declines surfaced yet.</div>
+                  </div>
+
+                  <div class="dp-weekly-panel dp-communication-panel--wide">
+                    <div class="dp-command-label">Trend Recommendations</div>
+                    <div v-if="developmentTrendRecommendations.length" class="dp-weekly-recommendations mt-2">
+                      <div v-for="recommendation in developmentTrendRecommendations.slice(0, 5)" :key="`trend-rec-${recommendation.title}`" class="dp-action-card">
+                        <span class="dp-priority" :class="priorityClass(recommendation.priority)">{{ human(recommendation.priority) }}</span>
+                        <div class="font-extrabold mt-2">{{ recommendation.title }}</div>
+                        <p class="text-white/55 text-xs mt-2">{{ recommendation.why }}</p>
+                        <p class="text-white/35 text-xs mt-1">{{ recommendation.action }}</p>
+                      </div>
+                    </div>
+                    <div v-else class="dp-empty dp-empty--sm mt-2">Trendline is not available yet.</div>
+                  </div>
+                </div>
+
+                <div v-if="developmentTrendWarnings.length" class="dp-command-alert mt-3">
+                  <div class="font-bold mb-1">Trendline warnings</div>
+                  <div v-for="warning in developmentTrendWarnings.slice(0, 4)" :key="`health-trend-warning-${warning}`">{{ warning }}</div>
+                </div>
+              </div>
+              <div v-else class="dp-empty dp-empty--sm">
+                More weeks are needed to show a trend.
+              </div>
+              <p v-if="developmentHealthTrendMessage" class="dp-command-message">{{ developmentHealthTrendMessage }}</p>
             </div>
 
             <div class="dp-command-block">

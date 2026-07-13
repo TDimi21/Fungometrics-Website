@@ -108,12 +108,14 @@ class DevelopmentProgramHealthService
             'Weekly planner rollup',
         );
 
-        $benchmarkProfile = $this->safe(
-            fn (): array => $this->teamBenchmarkProfileService->build($teamId, $benchmarkDays),
-            [],
-            $warnings,
-            'Team benchmark profile',
-        );
+        $benchmarkProfile = is_array($options['benchmark_profile'] ?? null)
+            ? $options['benchmark_profile']
+            : $this->safe(
+                fn (): array => $this->teamBenchmarkProfileService->build($teamId, $benchmarkDays),
+                [],
+                $warnings,
+                'Team benchmark profile',
+            );
 
         $decisionBrief = [];
         if ($this->bool($options['include_decision_brief'] ?? false)) {
@@ -125,12 +127,14 @@ class DevelopmentProgramHealthService
             );
         }
 
-        $collectionPlan = $this->safe(
-            fn (): array => $this->benchmarkCollectionPlanner->buildTeamCollectionPlanFromData($teamId, $benchmarkDays, $benchmarkProfile, $decisionBrief ?: null),
-            [],
-            $warnings,
-            'Benchmark collection plan',
-        );
+        $collectionPlan = is_array($options['collection_plan'] ?? null)
+            ? $options['collection_plan']
+            : $this->safe(
+                fn (): array => $this->benchmarkCollectionPlanner->buildTeamCollectionPlanFromData($teamId, $benchmarkDays, $benchmarkProfile, $decisionBrief ?: null),
+                [],
+                $warnings,
+                'Benchmark collection plan',
+            );
 
         $weeklyCommunication = [];
         $weeklyDelivery = [];
