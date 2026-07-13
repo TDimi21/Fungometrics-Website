@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import Layout from "../../layout/Layout.vue"
 import { useUserStore } from "../../store/user";
@@ -424,8 +424,6 @@ const devScrollToIndex = (i) => {
   const card = el.children?.[clamped]
   if (card) el.scrollTo({ left: card.offsetLeft - el.offsetLeft, behavior: 'smooth' })
 }
-const devPrev = () => devScrollToIndex(devCardIndex.value - 1)
-const devNext = () => devScrollToIndex(devCardIndex.value + 1)
 const onDevScroll = () => {
   const el = devCarousel.value
   if (!el || !el.children.length) return
@@ -433,6 +431,27 @@ const onDevScroll = () => {
   const cardW = el.children[0].getBoundingClientRect().width + 12 // width + gap
   devCardIndex.value = Math.round(el.scrollLeft / cardW)
 }
+
+// Auto-advance one card every 3s; pause on hover and after any manual navigation.
+let devAutoTimer = null
+const stopDevAutoplay = () => { if (devAutoTimer) { clearInterval(devAutoTimer); devAutoTimer = null } }
+const startDevAutoplay = () => {
+  stopDevAutoplay()
+  if (devBoard.value.length <= 1) return
+  devAutoTimer = setInterval(() => {
+    const next = devCardIndex.value + 1
+    devScrollToIndex(next >= devBoard.value.length ? 0 : next) // loop back to the first
+  }, 3000)
+}
+// Manual controls reposition and reset the timer so it doesn't jump right after a tap.
+const devPrev = () => { devScrollToIndex(devCardIndex.value - 1); startDevAutoplay() }
+const devNext = () => { devScrollToIndex(devCardIndex.value + 1); startDevAutoplay() }
+const devGoTo = (i) => { devScrollToIndex(i); startDevAutoplay() }
+
+watch(() => devBoard.value.length, (n) => {
+  if (n > 1) nextTick(() => startDevAutoplay()); else stopDevAutoplay()
+}, { immediate: true })
+onBeforeUnmount(stopDevAutoplay)
 
 const statusConfig = {
   hot:        { label: '🔥 Hot',         color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/30' },
@@ -2554,16 +2573,16 @@ watch(
                 </div>
               </div>
 
-              <!-- Development Card carousel — one polished card per player, swipe/scroll through -->
-              <div class="relative">
+              <!-- Development Card carousel — one card wide, auto-advances every 3s (pauses on hover) -->
+              <div class="relative" @mouseenter="stopDevAutoplay" @mouseleave="startDevAutoplay">
                 <div
                   ref="devCarousel"
-                  class="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1 dc-scroll"
+                  class="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 w-full max-w-[420px] mx-auto dc-scroll"
                   @scroll.passive="onDevScroll"
                 >
                   <div
                     v-for="player in devBoard" :key="player.id"
-                    class="snap-start shrink-0 w-[420px] max-w-[86vw] cursor-pointer"
+                    class="snap-start shrink-0 w-full cursor-pointer"
                     @click="openSharedPlayerDevelopmentProfile(player)"
                   >
                     <DevelopmentCard :player="player" :team="team" />
@@ -2581,7 +2600,7 @@ watch(
                       v-for="(p, i) in devBoard" :key="p.id"
                       class="h-1.5 rounded-full transition-all"
                       :class="i === devCardIndex ? 'w-5 bg-white/85' : 'w-1.5 bg-white/25 hover:bg-white/45'"
-                      :aria-label="`Go to player ${i + 1}`" @click="devScrollToIndex(i)"
+                      :aria-label="`Go to player ${i + 1}`" @click="devGoTo(i)"
                     ></button>
                   </div>
                   <button
