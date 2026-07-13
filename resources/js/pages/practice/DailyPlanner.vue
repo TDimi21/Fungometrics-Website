@@ -93,6 +93,13 @@ const seasonArchiveExportMessage = ref('')
 const seasonArchiveExportPayload = ref(null)
 const seasonArchivePreviewHtml = ref('')
 const seasonArchivePreviewOpen = ref(false)
+const seasonArchiveDeliveryTemplate = ref('staff_review_packet')
+const seasonArchiveDeliveryAudience = ref('staff')
+const seasonArchiveDeliveryChannel = ref('copy')
+const seasonArchiveDeliveryFormat = ref('text')
+const seasonArchiveDeliveryPreview = ref(null)
+const seasonArchiveDeliveryLoading = ref('')
+const seasonArchiveDeliveryMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const weeklyReportNotes = ref([])
 const weeklyReportNotesLoading = ref(false)
@@ -171,6 +178,13 @@ const seasonArchiveFormatOptions = [
   { value: 'html', label: 'Printable HTML' },
   { value: 'pdf', label: 'PDF' },
 ]
+const seasonArchiveDeliveryTemplateOptions = [
+  { value: 'staff_review_packet', label: 'Staff Review Packet', audiences: ['coach', 'staff'] },
+  { value: 'director_packet', label: 'Director Packet', audiences: ['coach', 'staff', 'director'] },
+  { value: 'parent_safe_season_summary', label: 'Parent-Safe Season Summary', audiences: ['parents'] },
+  { value: 'player_development_summary', label: 'Player Development Summary', audiences: ['players'] },
+  { value: 'internal_qa_packet', label: 'Internal QA Packet', audiences: ['coach', 'staff', 'director'] },
+]
 const weeklyReportDeliveryChannelOptions = [
   { value: 'copy', label: 'Copy', supported: true },
   { value: 'email', label: 'Email Draft', supported: false },
@@ -226,6 +240,8 @@ const loadCommandCenter = async () => {
     seasonArchiveExportMessage.value = ''
     seasonArchivePreviewHtml.value = ''
     seasonArchivePreviewOpen.value = false
+    seasonArchiveDeliveryPreview.value = null
+    seasonArchiveDeliveryMessage.value = ''
     selectedWeeklyReportDelivery.value = null
     weeklyReportNotes.value = []
     resetWeeklyReportNoteForm()
@@ -824,6 +840,20 @@ const seasonArchivePlayers = computed(() => Array.isArray(seasonDevelopmentArchi
 const seasonArchiveHighlights = computed(() => Array.isArray(seasonDevelopmentArchive.value?.season_highlights) ? seasonDevelopmentArchive.value.season_highlights : [])
 const seasonArchiveConcerns = computed(() => Array.isArray(seasonDevelopmentArchive.value?.season_concerns) ? seasonDevelopmentArchive.value.season_concerns : [])
 const seasonArchiveNextSteps = computed(() => Array.isArray(seasonDevelopmentArchive.value?.recommended_next_steps) ? seasonDevelopmentArchive.value.recommended_next_steps : [])
+const selectedSeasonArchiveDeliveryChannel = computed(() => weeklyReportDeliveryChannelOptions.find((channel) => channel.value === seasonArchiveDeliveryChannel.value) || weeklyReportDeliveryChannelOptions[0])
+const seasonArchiveDeliveryDraftSupported = computed(() => Boolean(selectedSeasonArchiveDeliveryChannel.value?.supported && seasonArchiveDeliveryChannel.value !== 'copy'))
+const seasonArchiveDeliveryWarnings = computed(() => [
+  ...(seasonArchiveDeliveryPreview.value?.privacy_warnings || []),
+  ...(seasonArchiveDeliveryPreview.value?.delivery_warnings || []),
+])
+const seasonArchiveDeliveryRecipients = computed(() => Array.isArray(seasonArchiveDeliveryPreview.value?.recipients) ? seasonArchiveDeliveryPreview.value.recipients : [])
+const seasonArchiveDeliverySummary = computed(() => seasonArchiveDeliveryPreview.value?.recipient_summary || {
+  total_recipients: 0,
+  safe_recipients: 0,
+  missing_contact_count: 0,
+  unsafe_recipient_count: 0,
+  recipient_types: {},
+})
 const seasonArchiveCards = computed(() => [
   {
     label: 'Plans Published',
@@ -892,6 +922,14 @@ const seasonArchiveAudienceWarning = computed(() => {
   if (seasonArchiveExportAudience.value === 'parents') return 'Parent version hides private player details, staff notes, internal QA, and raw benchmark payloads.'
   if (seasonArchiveExportAudience.value === 'players') return "Player version hides other players' private details, staff notes, internal QA, and raw benchmark payloads."
   if (seasonArchiveExportAudience.value === 'director') return 'Director version hides raw payloads and private system identifiers.'
+  return ''
+})
+const seasonArchiveDeliveryTemplateDisabled = (option) => !option.audiences.includes(seasonArchiveDeliveryAudience.value)
+const seasonArchiveDeliveryAudienceWarning = computed(() => {
+  if (seasonArchiveDeliveryAudience.value === 'parents') return 'Parent version hides private player details.'
+  if (seasonArchiveDeliveryAudience.value === 'players') return "Player version hides other players' details."
+  if (seasonArchiveDeliveryTemplate.value === 'internal_qa_packet') return 'Internal QA packets are coach/staff/director only.'
+  if (seasonArchiveDeliveryChannel.value !== 'copy') return 'No delivery draft system found. Copy the message manually.'
   return ''
 })
 const weeklyReportVisibleNotes = computed(() => weeklyReportNotes.value.filter((note) => {
@@ -1034,6 +1072,18 @@ watch(seasonArchiveExportAudience, () => {
   }
   seasonArchiveExportPayload.value = null
   seasonArchiveExportMessage.value = ''
+})
+watch(seasonArchiveDeliveryAudience, () => {
+  if (seasonArchiveDeliveryAudience.value === 'parents') seasonArchiveDeliveryTemplate.value = 'parent_safe_season_summary'
+  if (seasonArchiveDeliveryAudience.value === 'players') seasonArchiveDeliveryTemplate.value = 'player_development_summary'
+  if (seasonArchiveDeliveryAudience.value === 'director' && ['parent_safe_season_summary', 'player_development_summary'].includes(seasonArchiveDeliveryTemplate.value)) {
+    seasonArchiveDeliveryTemplate.value = 'director_packet'
+  }
+  if (['coach', 'staff'].includes(seasonArchiveDeliveryAudience.value) && ['parent_safe_season_summary', 'player_development_summary'].includes(seasonArchiveDeliveryTemplate.value)) {
+    seasonArchiveDeliveryTemplate.value = 'staff_review_packet'
+  }
+  seasonArchiveDeliveryPreview.value = null
+  seasonArchiveDeliveryMessage.value = ''
 })
 const resetWeeklyReportNoteForm = () => {
   weeklyReportNoteEditingId.value = ''
@@ -1504,6 +1554,95 @@ const printSeasonArchivePreview = () => {
     win.focus()
     win.print()
   }, 250)
+}
+const seasonArchiveDeliveryPayload = () => ({
+  ...seasonArchiveExportParams(seasonArchiveDeliveryFormat.value === 'html' ? 'html' : 'text'),
+  template: seasonArchiveDeliveryTemplate.value,
+  audience: seasonArchiveDeliveryAudience.value,
+  channel: seasonArchiveDeliveryChannel.value,
+  format: seasonArchiveDeliveryFormat.value,
+  include_player_rows: ['parents', 'players'].includes(seasonArchiveDeliveryAudience.value) ? false : seasonArchiveIncludePlayerRows.value,
+})
+const loadSeasonArchiveDeliveryPreview = async () => {
+  seasonArchiveDeliveryMessage.value = ''
+  if (!activeTeamId.value) {
+    seasonArchiveDeliveryMessage.value = 'No team selected.'
+    return null
+  }
+  if (!seasonDevelopmentArchive.value) {
+    seasonArchiveDeliveryMessage.value = 'Build a season archive before preparing delivery.'
+    return null
+  }
+
+  seasonArchiveDeliveryLoading.value = 'preview'
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/season-archive/delivery-preview`, seasonArchiveDeliveryPayload())
+    seasonArchiveDeliveryPreview.value = res?.data?.data || null
+    seasonArchiveDeliveryMessage.value = seasonArchiveDeliveryWarnings.value[0] || 'Season archive delivery preview is ready.'
+    return seasonArchiveDeliveryPreview.value
+  } catch {
+    seasonArchiveDeliveryPreview.value = null
+    seasonArchiveDeliveryMessage.value = 'Season archive delivery prep is not available right now.'
+    return null
+  } finally {
+    seasonArchiveDeliveryLoading.value = ''
+  }
+}
+const copySeasonArchiveDeliverySubject = async () => {
+  const payload = seasonArchiveDeliveryPreview.value || await loadSeasonArchiveDeliveryPreview()
+  const subject = payload?.subject || ''
+  if (!subject) {
+    seasonArchiveDeliveryMessage.value = 'No delivery subject to copy.'
+    return
+  }
+  try {
+    if (navigator?.clipboard?.writeText) await navigator.clipboard.writeText(subject)
+    else fallbackCopyText(subject)
+    seasonArchiveDeliveryMessage.value = 'Copied season packet subject.'
+  } catch {
+    fallbackCopyText(subject)
+    seasonArchiveDeliveryMessage.value = 'Copied season packet subject.'
+  }
+}
+const copySeasonArchiveDeliveryMessage = async () => {
+  const payload = seasonArchiveDeliveryPreview.value || await loadSeasonArchiveDeliveryPreview()
+  const text = payload?.message_text || payload?.message_html || ''
+  if (!text) {
+    seasonArchiveDeliveryMessage.value = 'No delivery message to copy.'
+    return
+  }
+  try {
+    if (navigator?.clipboard?.writeText) await navigator.clipboard.writeText(text)
+    else fallbackCopyText(text)
+    seasonArchiveDeliveryMessage.value = 'Copied season packet message.'
+  } catch {
+    fallbackCopyText(text)
+    seasonArchiveDeliveryMessage.value = 'Copied season packet message.'
+  }
+}
+const createSeasonArchiveDeliveryDraft = async () => {
+  seasonArchiveDeliveryMessage.value = ''
+  if (!activeTeamId.value) {
+    seasonArchiveDeliveryMessage.value = 'No team selected.'
+    return null
+  }
+  if (!seasonDevelopmentArchive.value) {
+    seasonArchiveDeliveryMessage.value = 'Build a season archive before preparing delivery.'
+    return null
+  }
+
+  seasonArchiveDeliveryLoading.value = 'draft'
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/season-archive/create-delivery-draft`, seasonArchiveDeliveryPayload())
+    seasonArchiveDeliveryPreview.value = res?.data?.data || null
+    seasonArchiveDeliveryMessage.value = seasonArchiveDeliveryPreview.value?.draft?.message || seasonArchiveDeliveryWarnings.value[0] || 'Season delivery draft payload prepared.'
+    return seasonArchiveDeliveryPreview.value
+  } catch {
+    seasonArchiveDeliveryMessage.value = 'Could not prepare a season delivery draft.'
+    return null
+  } finally {
+    seasonArchiveDeliveryLoading.value = ''
+  }
 }
 const previewNextWeekDay = (day) => {
   nextWeekPreviewDay.value = day
@@ -2610,6 +2749,120 @@ const del = async (p) => {
                               </div>
                               <p class="dp-command-sub mt-2">PDF export is not configured yet. Use Copy Text or Printable HTML.</p>
                               <p v-if="seasonArchiveExportMessage" class="dp-command-message">{{ seasonArchiveExportMessage }}</p>
+                            </div>
+
+                            <div class="dp-weekly-panel dp-season-summary-panel">
+                              <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <div class="dp-command-label">Season Archive Delivery Prep</div>
+                                  <p class="dp-command-sub">Prepare a copy-ready season packet message. Nothing is sent automatically.</p>
+                                </div>
+                                <div class="dp-export-controls">
+                                  <label class="dp-export-field dp-export-field--wide">
+                                    <span>Template</span>
+                                    <select v-model="seasonArchiveDeliveryTemplate" class="dp-input dp-input--compact">
+                                      <option
+                                        v-for="option in seasonArchiveDeliveryTemplateOptions"
+                                        :key="`season-delivery-template-${option.value}`"
+                                        :value="option.value"
+                                        :disabled="seasonArchiveDeliveryTemplateDisabled(option)"
+                                      >
+                                        {{ option.label }}{{ seasonArchiveDeliveryTemplateDisabled(option) ? ' (not for audience)' : '' }}
+                                      </option>
+                                    </select>
+                                  </label>
+                                  <label class="dp-export-field">
+                                    <span>Audience</span>
+                                    <select v-model="seasonArchiveDeliveryAudience" class="dp-input dp-input--compact">
+                                      <option v-for="option in seasonArchiveAudienceOptions" :key="`season-delivery-audience-${option.value}`" :value="option.value">{{ option.label }}</option>
+                                    </select>
+                                  </label>
+                                  <label class="dp-export-field">
+                                    <span>Channel</span>
+                                    <select v-model="seasonArchiveDeliveryChannel" class="dp-input dp-input--compact">
+                                      <option v-for="channel in weeklyReportDeliveryChannelOptions" :key="`season-delivery-channel-${channel.value}`" :value="channel.value" :disabled="!channel.supported">
+                                        {{ channel.label }}{{ channel.supported ? '' : ' (not configured)' }}
+                                      </option>
+                                    </select>
+                                  </label>
+                                  <label class="dp-export-field">
+                                    <span>Format</span>
+                                    <select v-model="seasonArchiveDeliveryFormat" class="dp-input dp-input--compact">
+                                      <option v-for="option in weeklyReportDeliveryFormatOptions" :key="`season-delivery-format-${option.value}`" :value="option.value">{{ option.label }}</option>
+                                    </select>
+                                  </label>
+                                </div>
+                              </div>
+
+                              <div v-if="seasonArchiveDeliveryAudienceWarning" class="dp-calendar-warning mt-3">{{ seasonArchiveDeliveryAudienceWarning }}</div>
+                              <div class="dp-export-actions">
+                                <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="Boolean(seasonArchiveDeliveryLoading)" @click="loadSeasonArchiveDeliveryPreview">
+                                  {{ seasonArchiveDeliveryLoading === 'preview' ? 'Preparing…' : 'Preview Delivery' }}
+                                </button>
+                                <button class="dp-btn dp-btn--small" :disabled="!seasonArchiveDeliveryPreview?.subject" @click="copySeasonArchiveDeliverySubject">Copy Subject</button>
+                                <button class="dp-btn dp-btn--small" :disabled="!seasonArchiveDeliveryPreview?.message_text && !seasonArchiveDeliveryPreview?.message_html" @click="copySeasonArchiveDeliveryMessage">Copy Message</button>
+                                <button v-if="seasonArchiveDeliveryDraftSupported" class="dp-btn dp-btn--small" :disabled="Boolean(seasonArchiveDeliveryLoading)" @click="createSeasonArchiveDeliveryDraft">
+                                  {{ seasonArchiveDeliveryLoading === 'draft' ? 'Preparing Draft…' : 'Create Draft' }}
+                                </button>
+                                <span v-else class="dp-command-sub">Draft delivery is not configured yet. Use copy mode.</span>
+                              </div>
+
+                              <div v-if="seasonArchiveDeliveryPreview" class="dp-delivery-preview">
+                                <div class="dp-completion-grid">
+                                  <div class="dp-command-card">
+                                    <div class="dp-command-label">Recipients</div>
+                                    <div class="dp-command-value">{{ seasonArchiveDeliverySummary.total_recipients || 0 }}</div>
+                                    <div class="dp-command-sub">{{ seasonArchiveDeliverySummary.safe_recipients || 0 }} safe · {{ seasonArchiveDeliverySummary.missing_contact_count || 0 }} missing contact</div>
+                                  </div>
+                                  <div class="dp-command-card">
+                                    <div class="dp-command-label">Unsafe</div>
+                                    <div class="dp-command-value">{{ seasonArchiveDeliverySummary.unsafe_recipient_count || 0 }}</div>
+                                    <div class="dp-command-sub">Blocked or missing contact</div>
+                                  </div>
+                                  <div class="dp-command-card">
+                                    <div class="dp-command-label">Status</div>
+                                    <div class="dp-command-value">{{ human(seasonArchiveDeliveryPreview.delivery_status || 'prepared') }}</div>
+                                    <div class="dp-command-sub">Coach approval required</div>
+                                  </div>
+                                  <div class="dp-command-card">
+                                    <div class="dp-command-label">Channel</div>
+                                    <div class="dp-command-value">{{ human(seasonArchiveDeliveryPreview.channel || seasonArchiveDeliveryChannel) }}</div>
+                                    <div class="dp-command-sub">{{ seasonArchiveDeliveryPreview.format?.toUpperCase?.() || seasonArchiveDeliveryFormat.toUpperCase() }}</div>
+                                  </div>
+                                </div>
+
+                                <div v-if="seasonArchiveDeliveryWarnings.length" class="dp-delivery-warnings">
+                                  <div v-for="warning in seasonArchiveDeliveryWarnings" :key="`season-delivery-warning-${warning}`" class="dp-calendar-warning">{{ warning }}</div>
+                                </div>
+
+                                <div class="dp-delivery-message-grid">
+                                  <div class="dp-weekly-panel">
+                                    <div class="dp-command-label">Subject</div>
+                                    <div class="dp-delivery-subject">{{ seasonArchiveDeliveryPreview.subject || 'No subject generated yet.' }}</div>
+                                  </div>
+                                  <div class="dp-weekly-panel">
+                                    <div class="dp-command-label">Recipient Preview</div>
+                                    <div v-if="seasonArchiveDeliveryRecipients.length" class="dp-delivery-recipient-list">
+                                      <div v-for="recipient in seasonArchiveDeliveryRecipients.slice(0, 8)" :key="`season-${recipient.recipient_type}-${recipient.recipient_id || recipient.email || recipient.name}`" class="dp-delivery-recipient">
+                                        <div>
+                                          <strong>{{ recipient.name || recipient.email || human(recipient.recipient_type) }}</strong>
+                                          <span>{{ human(recipient.recipient_type) }} · {{ recipient.email || 'missing contact' }}</span>
+                                        </div>
+                                        <span class="dp-status" :class="statusBadgeClass(recipient.safe_to_send ? 'good' : 'warning')">{{ recipient.safe_to_send ? 'Safe' : 'Review' }}</span>
+                                      </div>
+                                      <div v-if="seasonArchiveDeliveryRecipients.length > 8" class="dp-command-sub">+{{ seasonArchiveDeliveryRecipients.length - 8 }} more recipients</div>
+                                    </div>
+                                    <div v-else class="dp-empty dp-empty--sm">No recipients found for this audience.</div>
+                                  </div>
+                                </div>
+
+                                <div class="dp-weekly-panel mt-3">
+                                  <div class="dp-command-label">Message Preview</div>
+                                  <pre class="dp-delivery-message">{{ seasonArchiveDeliveryPreview.message_text || seasonArchiveDeliveryPreview.message_html || 'No message returned for this delivery request.' }}</pre>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-3">Preview delivery before copying a season packet message.</div>
+                              <p v-if="seasonArchiveDeliveryMessage" class="dp-command-message">{{ seasonArchiveDeliveryMessage }}</p>
                             </div>
 
                             <div class="dp-season-grid">

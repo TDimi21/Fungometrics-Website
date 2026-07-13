@@ -37,6 +37,7 @@ class GetDataGraphics extends Controller
                     'launch_angle_average_velocity'=> $dataGraphs->launchAngleAverageVelocityData(),
                     'swing_miss_take_percents'     => $dataGraphs->pitchThrowResult(),
                     'contact_spray'                => $dataGraphs->getContactSprayData(),
+                    'cage_spray'                   => $dataGraphs->getCageSprayData(),
                 ];
             });
 

@@ -546,7 +546,7 @@ const switchTop10Tab = (val) => {
 const {
   ballStrike, isloading, directional,
   typeHitsBatting, pitchThrows, pitchVelocityAverage,
-  typeHitsPitching, launchAngleAverage, contactSpray,
+  typeHitsPitching, launchAngleAverage, contactSpray, cageSpray,
   getStaticChartData, loadOnMounted,
 } = useChart()
 const { barChartOptions, radiaChartOptions } = useChartOptions()
@@ -2698,9 +2698,15 @@ watch(
                   <button class="text-[10px] font-black uppercase tracking-widest text-sky-300 hover:text-sky-200 shrink-0" @click="openBreakdown(selectedPerfRow)">Full breakdown →</button>
                 </div>
 
-                <!-- Velocity spray field for swing-based disciplines (ported from the app) -->
+                <!-- Field spray chart for swing-based disciplines (ported from the app) -->
                 <div v-if="showSprayFor" class="mb-4">
-                  <VelocitySprayField :balls="allSwingBalls" />
+                  <!-- Cage: real spray chart of results (dots + trajectory) from cage data -->
+                  <VelocitySprayField
+                    v-if="selectedPerfKey === 'cage'"
+                    :balls="cageSpray" mode="spray" :use-field-mark="false"
+                  />
+                  <!-- Batting / Exit Velocity: velocity heatmap from batting swings -->
+                  <VelocitySprayField v-else :balls="allSwingBalls" mode="heatmap" />
                 </div>
                 <div v-else class="mb-4 rounded-lg border border-dashed border-white/10 py-10 text-center text-white/25 text-xs">
                   {{ selectedPerfRow?.label }} visualization coming next — key stats below.

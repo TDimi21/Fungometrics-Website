@@ -332,4 +332,25 @@ final class TeamStatisticsService
         ];
     }
 
+    /**
+     * Cage spray — every cage swing that has a real spray angle, with its true
+     * distance, exit velocity, launch angle and trajectory. Unlike batting (which
+     * only taps a field grid), cage records real physics, so this powers a true
+     * spray chart with trajectory lines.
+     */
+    public function getCageSprayData(): array
+    {
+        return $this->cage
+            ->filter(fn ($r) => is_numeric($r->spray_angle) && (float) $r->spray_angle >= -90 && (float) $r->spray_angle <= 90)
+            ->map(fn ($r) => [
+                'spray_angle'     => (float) $r->spray_angle,
+                'distance_travel' => is_numeric($r->distance_travel) ? (float) $r->distance_travel : 0,
+                'launch_angle'    => is_numeric($r->launch_angle) ? (float) $r->launch_angle : null,
+                'velocity'        => is_numeric($r->launch_angle_velocity) ? (float) $r->launch_angle_velocity : 0,
+                'trajectory'      => $r->type_of_hit ?? null,
+            ])
+            ->values()
+            ->toArray();
+    }
+
 }
