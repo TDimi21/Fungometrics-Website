@@ -15,6 +15,7 @@ class CoachWeeklyReportExportService
 
     public function __construct(
         private readonly CoachWeeklyTeamReportService $reportService,
+        private readonly WeeklyReportNotesService $notesService,
     ) {
     }
 
@@ -33,6 +34,11 @@ class CoachWeeklyReportExportService
             'include_next_week_priorities' => $options['include_next_week_priorities'] ?? true,
         ]);
         $report['team_name'] = $this->teamName($teamId);
+        $report = $this->notesService->mergeNotesIntoReport(
+            $report,
+            $this->notesService->buildNotesForExport($teamId, $audience, $options),
+            $audience,
+        );
 
         $filteredReport = $this->buildAudienceFilteredReport($report, $audience, $options);
         $shareText = in_array($format, ['summary', 'text', 'pdf'], true)
@@ -100,6 +106,7 @@ class CoachWeeklyReportExportService
 
         $this->appendList($lines, 'Wins', Arr::wrap($summary['wins'] ?? []), 'No weekly wins are available yet.');
         $this->appendList($lines, $audience === 'parents' ? 'Needs Attention' : 'Concerns', Arr::wrap($summary['concerns'] ?? []), 'No urgent weekly blockers are surfaced.');
+        $this->appendReportNotesText($lines, Arr::wrap($report['report_notes']['sections'] ?? []));
 
         if (in_array($audience, ['coach', 'staff'], true)) {
             $this->appendPlayerRows($lines, Arr::wrap($report['player_rows'] ?? []));
@@ -186,6 +193,8 @@ class CoachWeeklyReportExportService
     '.$this->statCard('Benchmarks Submitted', $benchmark['submitted_metric_count'] ?? 0, ($benchmark['approved_metric_count'] ?? 0).' approved').'
     '.$this->statCard('Trusted Values', $trusted['trusted_values_added'] ?? 0, 'added to intelligence').'
   </div>
+
+  '.$this->htmlReportNotes(Arr::wrap($report['report_notes']['sections'] ?? [])).'
 
   '.$this->htmlPlayerTable($playerRows, in_array($audience, ['coach', 'staff'], true)).'
 
@@ -397,6 +406,32 @@ class CoachWeeklyReportExportService
         }
     }
 
+    private function appendReportNotesText(array &$lines, array $sections): void
+    {
+        if (empty($sections)) {
+            return;
+        }
+
+        foreach ($sections as $section) {
+            if (! is_array($section) || empty($section['items'])) {
+                continue;
+            }
+
+            $lines[] = '';
+            $lines[] = $this->text($section['title'] ?? 'Report Notes').':';
+            foreach (array_slice(Arr::wrap($section['items']), 0, 8) as $note) {
+                if (! is_array($note)) {
+                    continue;
+                }
+                $title = $this->text($note['title'] ?? '');
+                $body = $this->text($note['body'] ?? '');
+                $player = $this->text($note['player_name'] ?? '');
+                $prefix = $player !== '-' ? $player.': ' : '';
+                $lines[] = '- '.$prefix.($title !== '-' ? $title.' - ' : '').$body;
+            }
+        }
+    }
+
     private function htmlList(string $title, array $items, string $empty): string
     {
         $rows = empty($items)
@@ -404,6 +439,39 @@ class CoachWeeklyReportExportService
             : collect($items)->take(8)->map(fn ($item): string => '<li>'.$this->esc($item).'</li>')->implode('');
 
         return '<section><h2>'.$this->esc($title).'</h2><ul>'.$rows.'</ul></section>';
+    }
+
+    private function htmlReportNotes(array $sections): string
+    {
+        if (empty($sections)) {
+            return '';
+        }
+
+        $html = collect($sections)
+            ->filter(fn ($section): bool => is_array($section) && ! empty($section['items']))
+            ->map(function (array $section): string {
+                $items = collect(Arr::wrap($section['items']))
+                    ->take(8)
+                    ->map(function ($note): string {
+                        if (! is_array($note)) {
+                            return '';
+                        }
+                        $title = $this->text($note['title'] ?? '');
+                        $body = $this->text($note['body'] ?? '');
+                        $player = $this->text($note['player_name'] ?? '');
+                        $heading = trim(($player !== '-' ? $player.' · ' : '').($title !== '-' ? $title : ''));
+
+                        return '<li>'.($heading !== '' ? '<strong>'.$this->esc($heading).'</strong><br>' : '').$this->esc($body).'</li>';
+                    })
+                    ->filter()
+                    ->implode('');
+
+                return '<section><h2>'.$this->esc($section['title'] ?? 'Report Notes').'</h2><ul>'.$items.'</ul></section>';
+            })
+            ->filter()
+            ->implode('');
+
+        return $html !== '' ? '<div class="section-grid">'.$html.'</div>' : '';
     }
 
     private function htmlPlayerTable(array $rows, bool $show): string

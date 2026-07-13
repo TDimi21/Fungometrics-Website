@@ -39,6 +39,7 @@ class GetCoachWeeklyReportExport extends Controller
                 'include_pending_reviews' => $request->query('include_pending_reviews', true),
                 'include_next_week_priorities' => $request->query('include_next_week_priorities', true),
                 'include_private_notes' => $request->query('include_private_notes', false),
+                'current_user_id' => (string) $request->user()->id,
             ]),
         ], HttpCodes::HTTP_OK);
     }

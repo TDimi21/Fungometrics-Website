@@ -15,7 +15,7 @@ import {
 } from '@/features/planner/dailyPlanner.js'
 import CoachWorkoutPlayers from '@/components/planner/CoachWorkoutPlayers.vue'
 
-const { axiosGet, axiosPost, axiosDelete } = useAxiosAuth()
+const { axiosGet, axiosPost, axiosPut, axiosDelete } = useAxiosAuth()
 const teamStore = useTeamStore()
 const { team } = storeToRefs(teamStore)
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
@@ -54,6 +54,18 @@ const weeklyReportExportLoading = ref('')
 const weeklyReportExportMessage = ref('')
 const weeklyReportPreviewHtml = ref('')
 const weeklyReportPreviewOpen = ref(false)
+const weeklyReportNotes = ref([])
+const weeklyReportNotesLoading = ref(false)
+const weeklyReportNotesMessage = ref('')
+const weeklyReportNoteEditingId = ref('')
+const weeklyReportNoteForm = ref({
+  note_type: 'coach_comment',
+  audience: 'coach',
+  visibility: 'staff',
+  title: '',
+  body: '',
+  player_id: '',
+})
 const nextWeekDraft = ref(null)
 const nextWeekDraftLoading = ref(false)
 const nextWeekDraftError = ref('')
@@ -84,6 +96,29 @@ const pickerQuery = ref('')
 const customName = ref('')
 const customDrills = ref([])      // coach's saved custom drills/lifts (merge into library)
 
+const weeklyReportNoteTypes = [
+  { value: 'staff_note', label: 'Staff Note', hint: 'Coach and staff exports only.' },
+  { value: 'coach_comment', label: 'Coach Comment', hint: 'Coach and staff exports only.' },
+  { value: 'parent_summary', label: 'Parent Summary', hint: 'Parent-safe export note.' },
+  { value: 'player_message', label: 'Player Message', hint: 'Player-safe export note.' },
+  { value: 'next_week_emphasis', label: 'Next Week Emphasis', hint: 'Safe when visibility matches the audience.' },
+  { value: 'player_follow_up', label: 'Player Follow-Up', hint: 'Coach and staff exports only.' },
+  { value: 'internal_context', label: 'Internal Context', hint: 'Coach and staff exports only.' },
+]
+const weeklyReportVisibilityOptions = [
+  { value: 'staff', label: 'Staff' },
+  { value: 'coach', label: 'Coach' },
+  { value: 'parents', label: 'Parents' },
+  { value: 'players', label: 'Players' },
+  { value: 'private', label: 'Private' },
+]
+const weeklyReportAudienceOptions = [
+  { value: 'coach', label: 'Coach' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'players', label: 'Players' },
+  { value: 'parents', label: 'Parents' },
+]
+
 // ── data ─────────────────────────────────────────────────────────────────────
 const loadPlans = async () => {
   loading.value = true
@@ -103,6 +138,8 @@ const loadCommandCenter = async () => {
     weeklyTeamReport.value = null
     weeklyReportPreviewHtml.value = ''
     weeklyReportPreviewOpen.value = false
+    weeklyReportNotes.value = []
+    resetWeeklyReportNoteForm()
     nextWeekDraft.value = null
     nextWeekCalendarDraft.value = null
     weeklyDraftPlans.value = null
@@ -240,6 +277,27 @@ const loadWeeklyTeamReport = async () => {
     weeklyTeamReportLoading.value = false
   }
 }
+const loadWeeklyReportNotes = async () => {
+  weeklyReportNotesMessage.value = ''
+  if (!activeTeamId.value) {
+    weeklyReportNotes.value = []
+    return []
+  }
+
+  weeklyReportNotesLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/weekly-report-notes`, { days: 7 })
+    const rows = res?.data?.data?.notes
+    weeklyReportNotes.value = Array.isArray(rows) ? rows : []
+    return weeklyReportNotes.value
+  } catch {
+    weeklyReportNotes.value = []
+    weeklyReportNotesMessage.value = 'Report notes are not available right now.'
+    return []
+  } finally {
+    weeklyReportNotesLoading.value = false
+  }
+}
 const loadWeeklyReportExport = async (format = weeklyReportExportFormat.value) => {
   weeklyReportExportMessage.value = ''
   if (!activeTeamId.value) {
@@ -312,8 +370,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -428,6 +486,22 @@ const weeklyReportAudienceWarning = computed(() => {
   }
   return warnings[weeklyReportExportAudience.value] || ''
 })
+const weeklyReportVisibleNotes = computed(() => weeklyReportNotes.value.filter((note) => {
+  if (weeklyReportExportAudience.value === 'coach') return true
+  if (weeklyReportExportAudience.value === 'staff') return !['private'].includes(note.visibility)
+  if (weeklyReportExportAudience.value === 'parents') return ['parent_summary', 'next_week_emphasis'].includes(note.note_type) && note.visibility === 'parents'
+  if (weeklyReportExportAudience.value === 'players') return ['player_message', 'next_week_emphasis'].includes(note.note_type) && note.visibility === 'players'
+  return false
+}))
+const weeklyReportNotesByType = computed(() => {
+  const groups = {}
+  weeklyReportNotes.value.forEach((note) => {
+    const key = note.note_type || 'coach_comment'
+    groups[key] = groups[key] || []
+    groups[key].push(note)
+  })
+  return groups
+})
 const nextWeekPriorities = computed(() => Array.isArray(nextWeekDraft.value?.priority_focuses) ? nextWeekDraft.value.priority_focuses : [])
 const nextWeekDays = computed(() => Array.isArray(nextWeekDraft.value?.suggested_plan_days) ? nextWeekDraft.value.suggested_plan_days : [])
 const nextWeekAssignments = computed(() => Array.isArray(nextWeekDraft.value?.player_assignments) ? nextWeekDraft.value.player_assignments : [])
@@ -492,6 +566,74 @@ const statusCardClass = (tone) => ({
   info: 'dp-status-card--info',
   complete: 'dp-status-card--complete',
 }[tone] || 'dp-status-card--neutral')
+const noteTypeLabel = (value) => weeklyReportNoteTypes.find((type) => type.value === value)?.label || human(value)
+const noteTypeHint = (value) => weeklyReportNoteTypes.find((type) => type.value === value)?.hint || ''
+const resetWeeklyReportNoteForm = () => {
+  weeklyReportNoteEditingId.value = ''
+  weeklyReportNoteForm.value = {
+    note_type: 'coach_comment',
+    audience: 'coach',
+    visibility: 'staff',
+    title: '',
+    body: '',
+    player_id: '',
+  }
+}
+const editWeeklyReportNote = (note) => {
+  weeklyReportNoteEditingId.value = String(note?.id || '')
+  weeklyReportNoteForm.value = {
+    note_type: note?.note_type || 'coach_comment',
+    audience: note?.audience || 'coach',
+    visibility: note?.visibility || 'staff',
+    title: note?.title || '',
+    body: note?.body || '',
+    player_id: note?.player_id || '',
+  }
+}
+const saveWeeklyReportNote = async () => {
+  weeklyReportNotesMessage.value = ''
+  if (!activeTeamId.value) {
+    weeklyReportNotesMessage.value = 'No team selected.'
+    return
+  }
+  if (!weeklyReportNoteForm.value.body.trim()) {
+    weeklyReportNotesMessage.value = 'Add note text before saving.'
+    return
+  }
+
+  const payload = {
+    ...weeklyReportNoteForm.value,
+    player_id: weeklyReportNoteForm.value.player_id || null,
+    days: 7,
+  }
+
+  try {
+    if (weeklyReportNoteEditingId.value) {
+      await axiosPut(`coach/weekly-report-notes/${weeklyReportNoteEditingId.value}`, payload)
+      weeklyReportNotesMessage.value = 'Report note updated.'
+    } else {
+      await axiosPost(`coach/teams/${activeTeamId.value}/weekly-report-notes`, payload)
+      weeklyReportNotesMessage.value = 'Report note saved.'
+    }
+    resetWeeklyReportNoteForm()
+    await loadWeeklyReportNotes()
+  } catch {
+    weeklyReportNotesMessage.value = 'Could not save that report note.'
+  }
+}
+const deleteWeeklyReportNote = async (note) => {
+  const id = String(note?.id || '')
+  if (!id || !confirm('Delete this report note?')) return
+  weeklyReportNotesMessage.value = ''
+  try {
+    await axiosDelete('coach/weekly-report-notes/', id)
+    weeklyReportNotesMessage.value = 'Report note deleted.'
+    if (weeklyReportNoteEditingId.value === id) resetWeeklyReportNoteForm()
+    await loadWeeklyReportNotes()
+  } catch {
+    weeklyReportNotesMessage.value = 'Could not delete that report note.'
+  }
+}
 const actionKey = (action) => action?.action_id || action?.action_type || ''
 const openReviewQueue = async () => {
   showReviewQueue.value = true
@@ -1257,6 +1399,88 @@ const del = async (p) => {
                   </div>
                   <p class="dp-command-sub mt-2">PDF export is not configured yet. Use Copy Summary or Printable HTML.</p>
                   <p v-if="weeklyReportExportMessage" class="dp-command-message">{{ weeklyReportExportMessage }}</p>
+
+                  <div class="dp-report-notes mt-3">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div class="dp-command-label">Report Notes</div>
+                        <p class="dp-command-sub">Add coach context before sharing this report.</p>
+                      </div>
+                      <button class="dp-btn dp-btn--small" :disabled="Boolean(weeklyReportExportLoading)" @click="previewWeeklyReportHtml">Include in Export Preview</button>
+                    </div>
+                    <div class="dp-report-note-warnings">
+                      <span>Staff notes will not appear in parent or player exports.</span>
+                      <span>Parent/player versions hide private player review details.</span>
+                    </div>
+
+                    <div class="dp-report-note-form">
+                      <label class="dp-export-field">
+                        <span>Type</span>
+                        <select v-model="weeklyReportNoteForm.note_type" class="dp-input dp-input--compact">
+                          <option v-for="option in weeklyReportNoteTypes" :key="option.value" :value="option.value">{{ option.label }}</option>
+                        </select>
+                      </label>
+                      <label class="dp-export-field">
+                        <span>Audience</span>
+                        <select v-model="weeklyReportNoteForm.audience" class="dp-input dp-input--compact">
+                          <option v-for="option in weeklyReportAudienceOptions" :key="`note-audience-${option.value}`" :value="option.value">{{ option.label }}</option>
+                        </select>
+                      </label>
+                      <label class="dp-export-field">
+                        <span>Visibility</span>
+                        <select v-model="weeklyReportNoteForm.visibility" class="dp-input dp-input--compact">
+                          <option v-for="option in weeklyReportVisibilityOptions" :key="`note-visibility-${option.value}`" :value="option.value">{{ option.label }}</option>
+                        </select>
+                      </label>
+                      <label class="dp-export-field">
+                        <span>Player</span>
+                        <select v-model="weeklyReportNoteForm.player_id" class="dp-input dp-input--compact">
+                          <option value="">Team-wide</option>
+                          <option v-for="player in teamPlayers" :key="`note-player-${player.id}`" :value="player.id">{{ player.name }}</option>
+                        </select>
+                      </label>
+                      <label class="dp-export-field dp-export-field--wide">
+                        <span>Title</span>
+                        <input v-model="weeklyReportNoteForm.title" class="dp-input" placeholder="Optional title" />
+                      </label>
+                      <label class="dp-export-field dp-export-field--full">
+                        <span>Body</span>
+                        <textarea v-model="weeklyReportNoteForm.body" class="dp-input" rows="3" placeholder="Write the note exactly as it should appear for the selected audience…"></textarea>
+                      </label>
+                      <div class="dp-report-note-actions">
+                        <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="weeklyReportNotesLoading" @click="saveWeeklyReportNote">
+                          {{ weeklyReportNoteEditingId ? 'Save Note' : 'Add Note' }}
+                        </button>
+                        <button v-if="weeklyReportNoteEditingId" class="dp-btn dp-btn--small" @click="resetWeeklyReportNoteForm">Cancel Edit</button>
+                        <span class="dp-command-sub">{{ noteTypeHint(weeklyReportNoteForm.note_type) }}</span>
+                      </div>
+                    </div>
+
+                    <div v-if="weeklyReportNotesMessage" class="dp-command-message">{{ weeklyReportNotesMessage }}</div>
+                    <div v-if="weeklyReportNotesLoading" class="dp-command-loading mt-3">Loading report notes…</div>
+                    <div v-else-if="!weeklyReportNotes.length" class="dp-empty dp-empty--sm mt-3">
+                      No report notes added yet. Add coach context before sharing this report.
+                    </div>
+                    <div v-else class="dp-report-note-list">
+                      <div class="dp-command-sub">
+                        {{ weeklyReportVisibleNotes.length }} note{{ weeklyReportVisibleNotes.length === 1 ? '' : 's' }} visible in the current {{ human(weeklyReportExportAudience) }} export.
+                      </div>
+                      <div v-for="type in weeklyReportNoteTypes" :key="`note-group-${type.value}`" v-show="weeklyReportNotesByType[type.value]?.length" class="dp-report-note-group">
+                        <div class="dp-command-label">{{ type.label }}</div>
+                        <div v-for="note in weeklyReportNotesByType[type.value]" :key="note.id" class="dp-report-note-row">
+                          <div class="min-w-0">
+                            <div class="font-extrabold truncate">{{ note.title || type.label }}</div>
+                            <div class="dp-command-sub">{{ human(note.visibility) }} · {{ human(note.audience) }}<span v-if="note.player_name"> · {{ note.player_name }}</span></div>
+                            <p>{{ note.body }}</p>
+                          </div>
+                          <div class="dp-report-note-row-actions">
+                            <button class="dp-link" @click="editWeeklyReportNote(note)">Edit</button>
+                            <button class="dp-link dp-link--danger" @click="deleteWeeklyReportNote(note)">Delete</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="dp-weekly-panel mt-3">
@@ -2081,6 +2305,20 @@ const del = async (p) => {
 .dp-export-field { display:flex; flex-direction:column; gap:4px; }
 .dp-export-field span { color:rgba(255,255,255,.48); text-transform:uppercase; letter-spacing:.07em; font-size:10px; font-weight:900; }
 .dp-export-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.dp-export-field--wide { min-width:220px; flex:1; }
+.dp-export-field--full { grid-column:1 / -1; }
+.dp-report-notes { border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
+.dp-report-note-warnings { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+.dp-report-note-warnings span { border:1px solid rgba(245,158,11,.24); background:rgba(245,158,11,.075); color:#fcd34d; border-radius:999px; padding:5px 8px; font-size:10.5px; font-weight:900; }
+.dp-report-note-form { display:grid; grid-template-columns:1fr; gap:8px; margin-top:12px; }
+@media (min-width:760px){ .dp-report-note-form { grid-template-columns:repeat(4, minmax(0,1fr)); } }
+.dp-report-note-actions { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.dp-report-note-list { display:grid; gap:10px; margin-top:12px; }
+.dp-report-note-group { display:grid; gap:7px; }
+.dp-report-note-row { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; }
+@media (min-width:760px){ .dp-report-note-row { flex-direction:row; align-items:flex-start; } }
+.dp-report-note-row p { color:rgba(255,255,255,.66); font-size:12.5px; line-height:1.45; margin-top:6px; overflow-wrap:anywhere; }
+.dp-report-note-row-actions { display:flex; flex-wrap:wrap; gap:10px; flex:none; }
 .dp-report-frame { width:100%; min-height:70vh; border:1px solid rgba(255,255,255,.12); border-radius:12px; background:#fff; }
 .dp-next-week-days { display:grid; gap:12px; margin-top:12px; }
 .dp-next-week-day { background:rgba(9,14,29,.62); border:1px solid rgba(255,255,255,.1); border-radius:15px; padding:14px; min-width:0; }
