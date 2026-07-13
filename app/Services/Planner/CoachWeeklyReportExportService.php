@@ -16,31 +16,54 @@ class CoachWeeklyReportExportService
     public function __construct(
         private readonly CoachWeeklyTeamReportService $reportService,
         private readonly WeeklyReportNotesService $notesService,
+        private readonly WeeklyReportTemplateService $templateService,
     ) {
     }
 
     public function buildExport(string $teamId, array $options = []): array
     {
         $format = $this->optionIn((string) ($options['format'] ?? 'summary'), self::FORMATS, 'summary');
-        $audience = $this->optionIn((string) ($options['audience'] ?? 'coach'), self::AUDIENCES, 'coach');
+        $requestedAudience = $this->optionIn((string) ($options['audience'] ?? 'coach'), self::AUDIENCES, 'coach');
+        $template = $this->templateService->resolveTemplate($options['template'] ?? $options['template_key'] ?? null, $requestedAudience);
+        $audience = $this->templateService->effectiveAudience($template, $requestedAudience);
         $warnings = [];
 
         $report = $this->reportService->buildTeamReport($teamId, [
             'start_date' => $options['start_date'] ?? null,
             'end_date' => $options['end_date'] ?? null,
             'days' => $options['days'] ?? 7,
-            'include_player_rows' => $options['include_player_rows'] ?? true,
-            'include_benchmark_details' => $options['include_benchmark_details'] ?? true,
-            'include_next_week_priorities' => $options['include_next_week_priorities'] ?? true,
+            'include_player_rows' => $template['include_player_rows'] ?? true,
+            'include_benchmark_details' => $template['include_benchmark_details'] ?? true,
+            'include_next_week_priorities' => $template['include_next_week_priorities'] ?? true,
         ]);
         $report['team_name'] = $this->teamName($teamId);
+        $notesOptions = [
+            ...$options,
+            'audience' => $audience,
+            'include_private_notes' => $this->bool($options['include_private_notes'] ?? false)
+                && (bool) ($template['include_private_notes'] ?? false),
+        ];
+        $notes = $this->templateService->filterNotesForTemplate(
+            $this->notesService->buildNotesForExport($teamId, $audience, $notesOptions),
+            $template,
+        );
         $report = $this->notesService->mergeNotesIntoReport(
             $report,
-            $this->notesService->buildNotesForExport($teamId, $audience, $options),
+            $notes,
             $audience,
         );
+        $report = $this->templateService->applyTemplate($report, (string) $template['template_key'], [
+            ...$options,
+            'audience' => $audience,
+        ]);
 
-        $filteredReport = $this->buildAudienceFilteredReport($report, $audience, $options);
+        $filteredReport = $this->buildAudienceFilteredReport($report, $audience, [
+            ...$options,
+            'include_pending_reviews' => $template['include_pending_reviews'] ?? ($options['include_pending_reviews'] ?? true),
+            'include_player_rows' => $template['include_player_rows'] ?? ($options['include_player_rows'] ?? true),
+            'include_benchmark_details' => $template['include_benchmark_details'] ?? ($options['include_benchmark_details'] ?? true),
+            'include_next_week_priorities' => $template['include_next_week_priorities'] ?? ($options['include_next_week_priorities'] ?? true),
+        ]);
         $shareText = in_array($format, ['summary', 'text', 'pdf'], true)
             ? $this->buildShareText($filteredReport, ['audience' => $audience, ...$options])
             : null;
@@ -58,12 +81,17 @@ class CoachWeeklyReportExportService
         foreach ($this->audienceWarnings($audience) as $warning) {
             $warnings[] = $warning;
         }
+        foreach ($this->templateService->templateWarnings($template) as $warning) {
+            $warnings[] = $warning;
+        }
 
         return [
             'generated_at' => now()->toIso8601String(),
             'team_id' => $teamId,
             'format' => $format,
             'audience' => $audience,
+            'requested_audience' => $requestedAudience,
+            'template' => $template,
             'report' => $filteredReport,
             'share_text' => $shareText,
             'html' => $html,
@@ -78,6 +106,153 @@ class CoachWeeklyReportExportService
     public function buildShareText(array $report, array $options = []): string
     {
         $audience = $this->optionIn((string) ($options['audience'] ?? 'coach'), self::AUDIENCES, 'coach');
+        $template = Arr::wrap($report['report_template'] ?? []);
+        $templateKey = (string) ($template['template_key'] ?? WeeklyReportTemplateService::DEFAULT_TEMPLATE);
+
+        return match ($templateKey) {
+            'parent_update' => $this->buildParentUpdateText($report, $template),
+            'player_development_summary' => $this->buildPlayerDevelopmentText($report, $template),
+            'internal_benchmark_qa' => $this->buildInternalQaText($report, $template),
+            'short_text_summary' => $this->buildShortSummaryText($report, $template, $audience),
+            'staff_report' => $this->buildStaffReportText($report, $template),
+            default => $this->buildDetailedCoachReportText($report, $template, $audience),
+        };
+    }
+
+    public function buildStaffReportText(array $report, array $template): string
+    {
+        return $this->buildDetailedCoachReportText($report, $template, 'staff');
+    }
+
+    public function buildParentUpdateText(array $report, array $template): string
+    {
+        $summary = Arr::wrap($report['executive_summary'] ?? []);
+        $team = Arr::wrap($report['team_completion'] ?? []);
+        $lines = [
+            'FMTRX Parent Update',
+            'Team: '.$this->text($report['team_name'] ?? 'Team'),
+            'Week: '.$this->text($report['week_label'] ?? '-'),
+            '',
+            $this->text($summary['headline'] ?? 'Weekly development update'),
+            $this->text($summary['summary_text'] ?? 'This week focused on development habits and completing quality work.'),
+            '',
+            'Weekly Snapshot',
+            '- Team completion: '.$this->percent($team['team_completion_percentage'] ?? 0),
+            '- Plans assigned: '.$this->text($team['plans_assigned'] ?? 0),
+        ];
+
+        $this->appendList($lines, 'Team Wins', array_slice(Arr::wrap($summary['wins'] ?? []), 0, 3), 'No weekly wins are available yet.');
+        $this->appendReportNotesText($lines, Arr::wrap($report['report_notes']['sections'] ?? []));
+        $this->appendList($lines, 'Next Week Focus', collect(Arr::wrap($report['next_week_priorities'] ?? []))
+            ->map(fn (array $row): string => $this->text($row['title'] ?? 'Priority').($row['why'] ?? null ? ' - '.$this->text($row['why']) : ''))
+            ->take(3)
+            ->all(), 'Next week focus will be shared after coach review.');
+
+        $lines[] = '';
+        $lines[] = 'Generated by FMTRX. Parent updates hide private player review details.';
+
+        return trim(implode("\n", array_filter($lines, fn ($line): bool => $line !== null)));
+    }
+
+    public function buildPlayerDevelopmentText(array $report, array $template): string
+    {
+        $summary = Arr::wrap($report['executive_summary'] ?? []);
+        $team = Arr::wrap($report['team_completion'] ?? []);
+        $benchmark = Arr::wrap($report['benchmark_submission_summary'] ?? []);
+        $trusted = Arr::wrap($report['trusted_data_summary'] ?? []);
+        $lines = [
+            'FMTRX Player Development Summary',
+            'Week: '.$this->text($report['week_label'] ?? '-'),
+            '',
+            $this->text($summary['headline'] ?? 'Keep building your week.'),
+            $this->text($summary['summary_text'] ?? 'This summary focuses on completed work, submitted results, and what to attack next.'),
+            '',
+            'Your Team Snapshot',
+            '- Team completion: '.$this->percent($team['team_completion_percentage'] ?? 0),
+            '- Submitted benchmark values: '.$this->text($benchmark['submitted_metric_count'] ?? 0),
+            '- Approved values: '.$this->text($benchmark['approved_metric_count'] ?? 0),
+            '- Trusted values added: '.$this->text($trusted['trusted_values_added'] ?? 0),
+        ];
+
+        $this->appendReportNotesText($lines, Arr::wrap($report['report_notes']['sections'] ?? []));
+        $this->appendList($lines, 'Next Week Focus', collect(Arr::wrap($report['next_week_priorities'] ?? []))
+            ->map(fn (array $row): string => $this->text($row['title'] ?? 'Priority'))
+            ->take(3)
+            ->all(), 'Your next focus will appear after coach review.');
+
+        $lines[] = '';
+        $lines[] = 'Generated by FMTRX. Player summaries hide staff notes and other-player private details.';
+
+        return trim(implode("\n", array_filter($lines, fn ($line): bool => $line !== null)));
+    }
+
+    public function buildInternalQaText(array $report, array $template): string
+    {
+        $benchmark = Arr::wrap($report['benchmark_submission_summary'] ?? []);
+        $review = Arr::wrap($report['review_summary'] ?? []);
+        $trusted = Arr::wrap($report['trusted_data_summary'] ?? []);
+        $intelligence = Arr::wrap($report['current_team_intelligence'] ?? []);
+        $lines = [
+            'FMTRX Internal Benchmark QA',
+            'Team: '.$this->text($report['team_name'] ?? 'Team'),
+            'Week: '.$this->text($report['week_label'] ?? '-'),
+            '',
+            'Benchmark Submissions',
+            '- Submitted values: '.$this->text($benchmark['submitted_metric_count'] ?? 0),
+            '- Approved values: '.$this->text($benchmark['approved_metric_count'] ?? 0),
+            '- Pending review: '.$this->text($benchmark['pending_review_count'] ?? 0),
+            '- Rejected: '.$this->text($benchmark['rejected_count'] ?? 0),
+            '- Correction requested: '.$this->text($benchmark['correction_requested_count'] ?? 0),
+            '',
+            'Trusted Data',
+            '- Trusted values promoted: '.$this->text($benchmark['trusted_values_promoted'] ?? 0),
+            '- Trusted values added: '.$this->text($trusted['trusted_values_added'] ?? 0),
+            '- Team confidence after: '.$this->text($trusted['team_confidence_after'] ?? '-'),
+            '',
+            'Review Queue',
+            '- Pending reviews: '.$this->text($review['pending_review_count'] ?? 0),
+            '- Oldest pending: '.$this->text($review['oldest_pending_at'] ?? '-'),
+        ];
+
+        $this->appendList($lines, 'Missing Metrics', collect(Arr::wrap($benchmark['top_remaining_missing_metrics'] ?? []))
+            ->map(fn (array $row): string => $this->text($row['display_name'] ?? $row['metric_key'] ?? 'Metric').': '.$this->text($row['missing_count'] ?? 0).' missing')
+            ->take(8)
+            ->all(), 'No missing metrics surfaced.');
+        $this->appendList($lines, 'Source / Trust Context', [
+            'Benchmark confidence: '.$this->text($intelligence['benchmark_profile']['benchmark_confidence'] ?? $intelligence['benchmark_confidence'] ?? '-'),
+            'Decision focus: '.$this->text($intelligence['decision_brief']['primary_focus']['title'] ?? $intelligence['primary_focus']['title'] ?? '-'),
+        ], 'No source mix context is available yet.');
+        $this->appendReportNotesText($lines, Arr::wrap($report['report_notes']['sections'] ?? []));
+
+        $lines[] = '';
+        $lines[] = 'Generated by FMTRX. Internal QA is coach/staff only.';
+
+        return trim(implode("\n", array_filter($lines, fn ($line): bool => $line !== null)));
+    }
+
+    public function buildShortSummaryText(array $report, array $template, string $audience = 'coach'): string
+    {
+        $summary = Arr::wrap($report['executive_summary'] ?? []);
+        $lines = [
+            'FMTRX Weekly Summary',
+            $this->text($report['week_label'] ?? '-'),
+            '',
+            $this->text($summary['headline'] ?? 'Weekly summary'),
+        ];
+
+        $this->appendList($lines, 'Wins', array_slice(Arr::wrap($summary['wins'] ?? []), 0, 3), 'No weekly wins are available yet.');
+        $this->appendList($lines, 'Needs Attention', array_slice(Arr::wrap($summary['concerns'] ?? []), 0, 3), 'No urgent blockers are surfaced.');
+        $this->appendList($lines, 'Next Week Focus', collect(Arr::wrap($report['next_week_priorities'] ?? []))
+            ->map(fn (array $row): string => $this->text($row['title'] ?? 'Priority'))
+            ->take(3)
+            ->all(), 'No next-week priorities are available yet.');
+        $this->appendReportNotesText($lines, Arr::wrap($report['report_notes']['sections'] ?? []));
+
+        return trim(implode("\n", array_filter($lines, fn ($line): bool => $line !== null)));
+    }
+
+    private function buildDetailedCoachReportText(array $report, array $template = [], string $audience = 'coach'): string
+    {
         $summary = Arr::wrap($report['executive_summary'] ?? []);
         $team = Arr::wrap($report['team_completion'] ?? []);
         $benchmark = Arr::wrap($report['benchmark_submission_summary'] ?? []);

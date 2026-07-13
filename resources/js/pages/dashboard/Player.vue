@@ -40,6 +40,7 @@ const cageStatRows = ref([])
 const trainingSessions = ref([])
 const trainingStats = ref(null)
 const playerFitnessLatest = ref(null)
+const playerFitnessRows = ref([])   // all fitness rows (newest-first) so lift/speed maxes coalesce across days
 const benchmarkTasks = ref([])
 const benchmarkTasksLoading = ref(false)
 const benchmarkTaskActionLoading = ref('')
@@ -795,14 +796,24 @@ const schoolTeamText = computed(() => {
   return parts.length ? parts.join(' · ') : '—'
 })
 
+// Latest recorded value for a lift/speed metric. Rows are newest-first, so we scan
+// them in order and return the first REAL value — skipping 0/blank, which for a 1RM
+// or a dash time means "not recorded that day" rather than an actual result. This is
+// why a player who logged a bench max last week (but only EV today) still shows it.
 const metricValue = (...keys) => {
-  const fit = playerFitnessLatest.value || {}
-  for (const key of keys) {
-    const v = fit?.[key]
-    if (v == null) continue
-    const s = String(v).trim()
-    if (!s || s === 'null' || s === 'undefined') continue
-    return s
+  const rows = playerFitnessRows.value.length
+    ? playerFitnessRows.value
+    : (playerFitnessLatest.value ? [playerFitnessLatest.value] : [])
+  for (const row of rows) {
+    for (const key of keys) {
+      const v = row?.[key]
+      if (v == null) continue
+      const s = String(v).trim()
+      if (!s || s === 'null' || s === 'undefined') continue
+      const n = Number(s)
+      if (Number.isFinite(n) && n === 0) continue // 0 = not recorded for a lift/dash
+      return s
+    }
   }
   return '-'
 }
@@ -2020,6 +2031,7 @@ const loadData = async () => {
 
     const fit = fitnessRes?.data?.data
     const fitnessRows = Array.isArray(fit) ? fit : (fit ? [fit] : [])
+    playerFitnessRows.value = fitnessRows
     playerFitnessLatest.value = fitnessRows[0] || null
     maybeOpenSleepCheckin(fitnessRows)
   } finally {

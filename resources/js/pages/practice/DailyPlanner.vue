@@ -50,6 +50,10 @@ const weeklyTeamReportLoading = ref(false)
 const weeklyTeamReportError = ref('')
 const weeklyReportExportAudience = ref('coach')
 const weeklyReportExportFormat = ref('text')
+const weeklyReportTemplateKey = ref('detailed_coach_report')
+const weeklyReportTemplates = ref([])
+const weeklyReportTemplatesLoading = ref(false)
+const weeklyReportTemplatesError = ref('')
 const weeklyReportExportLoading = ref('')
 const weeklyReportExportMessage = ref('')
 const weeklyReportPreviewHtml = ref('')
@@ -298,6 +302,25 @@ const loadWeeklyReportNotes = async () => {
     weeklyReportNotesLoading.value = false
   }
 }
+const loadWeeklyReportTemplates = async () => {
+  weeklyReportTemplatesError.value = ''
+  weeklyReportTemplatesLoading.value = true
+  try {
+    const res = await axiosGet('coach/weekly-report-templates')
+    const rows = res?.data?.data?.templates
+    weeklyReportTemplates.value = Array.isArray(rows) ? rows : []
+    if (!weeklyReportTemplates.value.some((template) => template.template_key === weeklyReportTemplateKey.value) && weeklyReportTemplates.value[0]?.template_key) {
+      weeklyReportTemplateKey.value = weeklyReportTemplates.value[0].template_key
+    }
+    return weeklyReportTemplates.value
+  } catch {
+    weeklyReportTemplates.value = []
+    weeklyReportTemplatesError.value = 'No report templates available.'
+    return []
+  } finally {
+    weeklyReportTemplatesLoading.value = false
+  }
+}
 const loadWeeklyReportExport = async (format = weeklyReportExportFormat.value) => {
   weeklyReportExportMessage.value = ''
   if (!activeTeamId.value) {
@@ -311,6 +334,7 @@ const loadWeeklyReportExport = async (format = weeklyReportExportFormat.value) =
       days: 7,
       format,
       audience: weeklyReportExportAudience.value,
+      template: weeklyReportTemplateKey.value,
       include_player_rows: true,
       include_benchmark_details: true,
       include_pending_reviews: true,
@@ -370,7 +394,7 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
@@ -457,6 +481,9 @@ const weeklyTeamFollowUps = computed(() => Array.isArray(weeklyTeamReport.value?
 const weeklyTeamPriorities = computed(() => Array.isArray(weeklyTeamReport.value?.next_week_priorities) ? weeklyTeamReport.value.next_week_priorities : [])
 const weeklyTeamCollectedMetrics = computed(() => Array.isArray(weeklyTeamBenchmark.value?.top_collected_metrics) ? weeklyTeamBenchmark.value.top_collected_metrics : [])
 const weeklyTeamRemainingMetrics = computed(() => Array.isArray(weeklyTeamBenchmark.value?.top_remaining_missing_metrics) ? weeklyTeamBenchmark.value.top_remaining_missing_metrics : [])
+const selectedWeeklyReportTemplate = computed(() => weeklyReportTemplates.value.find((template) => template.template_key === weeklyReportTemplateKey.value) || null)
+const weeklyReportTemplateSections = computed(() => Array.isArray(selectedWeeklyReportTemplate.value?.sections) ? selectedWeeklyReportTemplate.value.sections : [])
+const weeklyReportTemplateRules = computed(() => Array.isArray(selectedWeeklyReportTemplate.value?.copy_rules) ? selectedWeeklyReportTemplate.value.copy_rules : [])
 const weeklyTeamReportCards = computed(() => [
   {
     label: 'Team Completion',
@@ -484,6 +511,7 @@ const weeklyReportAudienceWarning = computed(() => {
     parents: 'Parent version hides private player review details.',
     players: "Player version hides other players' private details.",
   }
+  if (selectedWeeklyReportTemplate.value?.template_key === 'internal_benchmark_qa') return 'Internal QA is coach/staff only.'
   return warnings[weeklyReportExportAudience.value] || ''
 })
 const weeklyReportVisibleNotes = computed(() => weeklyReportNotes.value.filter((note) => {
@@ -568,6 +596,21 @@ const statusCardClass = (tone) => ({
 }[tone] || 'dp-status-card--neutral')
 const noteTypeLabel = (value) => weeklyReportNoteTypes.find((type) => type.value === value)?.label || human(value)
 const noteTypeHint = (value) => weeklyReportNoteTypes.find((type) => type.value === value)?.hint || ''
+const applyWeeklyReportTemplate = () => {
+  const template = selectedWeeklyReportTemplate.value
+  if (!template) return
+  if (template.template_key === 'short_text_summary') {
+    weeklyReportExportFormat.value = 'text'
+    return
+  }
+  const audience = template.audience === 'internal' ? 'coach' : template.audience
+  if (['coach', 'staff', 'players', 'parents'].includes(audience)) {
+    weeklyReportExportAudience.value = audience
+  }
+}
+watch(weeklyReportTemplateKey, () => {
+  applyWeeklyReportTemplate()
+})
 const resetWeeklyReportNoteForm = () => {
   weeklyReportNoteEditingId.value = ''
   weeklyReportNoteForm.value = {
@@ -1365,6 +1408,13 @@ const del = async (p) => {
                       <p class="dp-command-sub">Create a safe weekly summary for coaches, staff, players, or parents.</p>
                     </div>
                     <div class="dp-export-controls">
+                      <label class="dp-export-field dp-export-field--wide">
+                        <span>Template</span>
+                        <select v-model="weeklyReportTemplateKey" class="dp-input dp-input--compact">
+                          <option v-if="!weeklyReportTemplates.length" value="detailed_coach_report">Detailed Coach Report</option>
+                          <option v-for="template in weeklyReportTemplates" :key="template.template_key" :value="template.template_key">{{ template.display_name }}</option>
+                        </select>
+                      </label>
                       <label class="dp-export-field">
                         <span>Audience</span>
                         <select v-model="weeklyReportExportAudience" class="dp-input dp-input--compact">
@@ -1384,6 +1434,29 @@ const del = async (p) => {
                         </select>
                       </label>
                     </div>
+                  </div>
+                  <div class="dp-report-template-preview">
+                    <div v-if="weeklyReportTemplatesLoading" class="dp-command-sub">Loading report templates…</div>
+                    <div v-else-if="weeklyReportTemplatesError" class="dp-calendar-warning">{{ weeklyReportTemplatesError }}</div>
+                    <template v-else-if="selectedWeeklyReportTemplate">
+                      <div class="dp-report-template-main">
+                        <div>
+                          <div class="dp-command-label">{{ selectedWeeklyReportTemplate.display_name }}</div>
+                          <p class="dp-command-sub">{{ selectedWeeklyReportTemplate.description }}</p>
+                        </div>
+                        <span class="dp-status" :class="statusBadgeClass(selectedWeeklyReportTemplate.template_key === 'internal_benchmark_qa' ? 'warning' : selectedWeeklyReportTemplate.audience === 'parents' || selectedWeeklyReportTemplate.audience === 'players' ? 'info' : 'neutral')">
+                          {{ human(selectedWeeklyReportTemplate.tone) }}
+                        </span>
+                      </div>
+                      <div class="dp-command-mini">
+                        <span v-for="section in weeklyReportTemplateSections.slice(0, 7)" :key="`template-section-${section}`">{{ human(section) }}</span>
+                        <span v-if="weeklyReportTemplateSections.length > 7">+{{ weeklyReportTemplateSections.length - 7 }} sections</span>
+                      </div>
+                      <ul v-if="weeklyReportTemplateRules.length" class="dp-report-list dp-report-list--compact">
+                        <li v-for="rule in weeklyReportTemplateRules.slice(0, 3)" :key="`template-rule-${rule}`">{{ rule }}</li>
+                      </ul>
+                    </template>
+                    <div v-else class="dp-empty dp-empty--sm">No report templates available.</div>
                   </div>
                   <div v-if="weeklyReportAudienceWarning" class="dp-calendar-warning mt-3">{{ weeklyReportAudienceWarning }}</div>
                   <div class="dp-export-actions">
@@ -2294,6 +2367,7 @@ const del = async (p) => {
 .dp-weekly-panel--highlight { border-color:rgba(216,35,42,.26); background:rgba(216,35,42,.065); }
 .dp-report-list { margin:8px 0 0; padding-left:17px; color:rgba(255,255,255,.68); font-size:12.5px; line-height:1.45; }
 .dp-report-list li { margin-top:3px; }
+.dp-report-list--compact { font-size:11.5px; color:rgba(255,255,255,.52); }
 .dp-report-next-action { color:#fff; font-size:14px; line-height:1.35; font-weight:900; margin-top:8px; overflow-wrap:anywhere; }
 .dp-report-player-list { display:grid; gap:7px; margin-top:10px; }
 .dp-report-player-row { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; }
@@ -2307,6 +2381,9 @@ const del = async (p) => {
 .dp-export-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 .dp-export-field--wide { min-width:220px; flex:1; }
 .dp-export-field--full { grid-column:1 / -1; }
+.dp-report-template-preview { margin-top:12px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); border-radius:12px; padding:10px 12px; }
+.dp-report-template-main { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:8px; }
+@media (min-width:760px){ .dp-report-template-main { flex-direction:row; align-items:center; } }
 .dp-report-notes { border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
 .dp-report-note-warnings { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
 .dp-report-note-warnings span { border:1px solid rgba(245,158,11,.24); background:rgba(245,158,11,.075); color:#fcd34d; border-radius:999px; padding:5px 8px; font-size:10.5px; font-weight:900; }

@@ -7,38 +7,47 @@ namespace App\Http\Controllers\Api\Planner;
 use App\Http\Controllers\Controller;
 use App\Models\CoachTeam;
 use App\Services\Planner\CoachWeeklyReportExportService;
+use App\Services\Planner\WeeklyReportTemplateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
-class GetCoachWeeklyReportExport extends Controller
+class GetWeeklyReportTemplates extends Controller
 {
-    public function __invoke(string $teamId, Request $request, CoachWeeklyReportExportService $service): JsonResponse
+    public function index(WeeklyReportTemplateService $service): JsonResponse
+    {
+        return response()->json([
+            'code' => 'WRT-L',
+            'message' => 'weekly report templates',
+            'status' => 'success',
+            'data' => [
+                'templates' => $service->listTemplates(),
+            ],
+        ], HttpCodes::HTTP_OK);
+    }
+
+    public function preview(string $teamId, Request $request, CoachWeeklyReportExportService $exportService): JsonResponse
     {
         if (! $this->canAccessTeam($request, $teamId)) {
             return response()->json([
-                'code' => 'CWRE-F',
-                'message' => 'not allowed to export weekly report for this team',
+                'code' => 'WRT-F',
+                'message' => 'not allowed to preview weekly report template for this team',
                 'status' => 'error',
                 'data' => [],
             ], HttpCodes::HTTP_FORBIDDEN);
         }
 
         return response()->json([
-            'code' => 'CWRE',
-            'message' => 'coach weekly report export',
+            'code' => 'WRT-P',
+            'message' => 'weekly report template preview',
             'status' => 'success',
-            'data' => $service->buildExport($teamId, [
+            'data' => $exportService->buildExport($teamId, [
                 'start_date' => $request->query('start_date'),
                 'end_date' => $request->query('end_date'),
                 'days' => $this->days($request),
-                'format' => $request->query('format', 'summary'),
+                'format' => $request->query('format', 'text'),
                 'audience' => $request->query('audience', 'coach'),
                 'template' => $request->query('template'),
-                'include_player_rows' => $request->query('include_player_rows', true),
-                'include_benchmark_details' => $request->query('include_benchmark_details', true),
-                'include_pending_reviews' => $request->query('include_pending_reviews', true),
-                'include_next_week_priorities' => $request->query('include_next_week_priorities', true),
                 'include_private_notes' => $request->query('include_private_notes', false),
                 'current_user_id' => (string) $request->user()->id,
             ]),

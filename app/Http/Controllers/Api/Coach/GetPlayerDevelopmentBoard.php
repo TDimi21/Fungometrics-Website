@@ -62,12 +62,33 @@ class GetPlayerDevelopmentBoard extends Controller
                     ->keyBy('id');
 
                 // ── Latest fitness snapshot per player + team standings ──────
+                // Coalesce across ALL of a player's rows: for each lift/weight metric
+                // take the most recent NON-ZERO value (a stored 0 means "not recorded
+                // that day"), so a bench max logged last week still counts even if
+                // today's entry only had exit velocity. Mirrors the app's coalesceMaxes.
+                $coalesceMetrics = ['body_weight', 'bench_press', 'front_squat', 'back_squat', 'power_clean', 'dead_lift'];
                 $latestFitness = PlayerFitness::whereIn('user_id', $playerIds)
                     ->orderByDesc('fitness_date')
                     ->orderByDesc('created_at')
                     ->get()
-                    ->unique('user_id')
-                    ->keyBy('user_id');
+                    ->groupBy('user_id')
+                    ->map(function ($rows) use ($coalesceMetrics) {
+                        $snap = $rows->first(); // newest row — base for non-lift fields
+                        if (! $snap) {
+                            return null;
+                        }
+                        foreach ($coalesceMetrics as $metric) {
+                            foreach ($rows as $row) {
+                                $value = $row->{$metric} ?? null;
+                                if ($value !== null && (float) $value > 0) {
+                                    $snap->{$metric} = $value;
+                                    break;
+                                }
+                            }
+                        }
+                        return $snap;
+                    })
+                    ->filter();
 
                 $latestAssessments = PlayerAssessment::whereIn('user_id', $playerIds)
                     ->where(function ($query) use ($teamId) {
@@ -373,12 +394,14 @@ class GetPlayerDevelopmentBoard extends Controller
                             'total'        => $totalSessions,
                         ],
                         'fitness' => [
-                            'body_weight' => $fitness?->body_weight,
-                            'bench_press' => $fitness?->bench_press,
-                            'front_squat' => $fitness?->front_squat,
-                            'back_squat'  => $fitness?->back_squat,
-                            'power_clean' => $fitness?->power_clean,
-                            'dead_lift'   => $fitness?->dead_lift,
+                            // `?: null` so a genuinely-unrecorded lift (0) shows as "—"
+                            // rather than a fake 0; real values come from the coalesced snapshot.
+                            'body_weight' => $fitness?->body_weight ?: null,
+                            'bench_press' => $fitness?->bench_press ?: null,
+                            'front_squat' => $fitness?->front_squat ?: null,
+                            'back_squat'  => $fitness?->back_squat ?: null,
+                            'power_clean' => $fitness?->power_clean ?: null,
+                            'dead_lift'   => $fitness?->dead_lift ?: null,
                             'pull_ups'    => $fitness?->pull_ups,
                             'push_ups'    => $fitness?->push_ups,
                             'yd_40_dash'  => $fitness?->yd_40_dash,

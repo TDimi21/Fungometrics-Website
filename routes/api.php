@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\Planner\GetNextWeekPlanDraft;
 use App\Http\Controllers\Api\Planner\GetCoachWeeklyReportExport;
 use App\Http\Controllers\Api\Planner\GetCoachWeeklyTeamReport;
 use App\Http\Controllers\Api\Planner\GetWeeklyPlannerRollup;
+use App\Http\Controllers\Api\Planner\GetWeeklyReportTemplates;
 use App\Http\Controllers\Api\Planner\MarkDailyPlanUpdateSeen;
 use App\Http\Controllers\Api\Planner\GetPlayerDailyPlanCompletionSummary;
 use App\Http\Controllers\Api\Planner\RunPlannerCommandCenterAction;
@@ -307,6 +308,8 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams/{teamId}/weekly-planner-rollup', GetWeeklyPlannerRollup::class);
         Route::get('/teams/{teamId}/weekly-team-report', GetCoachWeeklyTeamReport::class);
         Route::get('/teams/{teamId}/weekly-report/export', GetCoachWeeklyReportExport::class);
+        Route::get('/weekly-report-templates', [GetWeeklyReportTemplates::class, 'index']);
+        Route::get('/teams/{teamId}/weekly-report/template-preview', [GetWeeklyReportTemplates::class, 'preview']);
         Route::get('/teams/{teamId}/weekly-report-notes', [WeeklyReportNotesController::class, 'index']);
         Route::post('/teams/{teamId}/weekly-report-notes', [WeeklyReportNotesController::class, 'store']);
         Route::put('/weekly-report-notes/{noteId}', [WeeklyReportNotesController::class, 'update']);
