@@ -57,7 +57,9 @@ class GetTeamPlannerCommandCenter extends Controller
                 'code' => 'PLC-EMPTY',
                 'message' => 'coach planner command center unavailable',
                 'status' => 'success',
-                'data' => null,
+                'data' => $service->buildUnavailableForTeam($teamId, [$e->getMessage()], [
+                    'days' => $this->days($request),
+                ]),
             ], HttpCodes::HTTP_OK);
         }
 

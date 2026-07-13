@@ -936,6 +936,7 @@ const commandTrusted = computed(() => commandCenter.value?.trusted_data_summary 
 const commandRows = computed(() => Array.isArray(commandCenter.value?.player_rows) ? commandCenter.value.player_rows : [])
 const commandActions = computed(() => Array.isArray(commandCenter.value?.next_actions) ? commandCenter.value.next_actions : [])
 const commandGaps = computed(() => Array.isArray(commandCenter.value?.remaining_benchmark_gaps) ? commandCenter.value.remaining_benchmark_gaps : [])
+const commandEvidence = computed(() => commandCenter.value?.evidence || {})
 const pendingReviewTasks = computed(() => Array.isArray(commandReview.value?.tasks_pending_review) ? commandReview.value.tasks_pending_review : [])
 const commandHeader = computed(() => commandCenter.value?.operating_header || {})
 const primaryAction = computed(() => commandCenter.value?.primary_next_action || commandActions.value[0] || null)
@@ -4832,7 +4833,8 @@ const del = async (p) => {
               <div class="dp-command-card">
                 <div class="dp-command-label">Benchmark Intelligence Connection</div>
                 <div class="dp-command-value">{{ commandGaps.length }} tracked</div>
-                <div v-if="!commandVisibility.has_benchmark_blocks" class="dp-command-sub">This plan does not include FMTRX benchmark collection blocks.</div>
+                <div v-if="commandEvidence.benchmark_gaps_loaded === false" class="dp-command-sub">Baseline gaps are handled in Benchmark Intelligence so Planner Operations can load quickly.</div>
+                <div v-else-if="!commandVisibility.has_benchmark_blocks" class="dp-command-sub">This plan does not include FMTRX benchmark collection blocks.</div>
                 <div v-else-if="!commandGaps.length" class="dp-command-sub">No missing benchmark baselines surfaced for this plan.</div>
                 <div v-else class="mt-3 space-y-1">
                   <div v-for="gap in commandGaps.slice(0, 5)" :key="`${gap.display_name}-${gap.category}`" class="dp-gap-row">

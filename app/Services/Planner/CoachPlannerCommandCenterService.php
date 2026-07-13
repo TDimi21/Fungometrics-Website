@@ -54,6 +54,21 @@ class CoachPlannerCommandCenterService
         return $this->buildForDailyPlan((string) $plan->id, $options);
     }
 
+    public function buildUnavailableForTeam(string $teamId, array $warnings = [], array $options = []): array
+    {
+        $payload = $this->emptyPayload($teamId, null, [
+            'Planner command center could not build all operational summaries.',
+            ...$warnings,
+        ], [
+            ...$options,
+            'include_benchmark_gaps' => false,
+            'include_update_suggestions' => false,
+        ]);
+        $payload['next_actions'] = $this->buildNextActions($payload);
+
+        return $this->withOperationalSummaries($payload);
+    }
+
     public function buildForDailyPlan(string $dailyPlanId, array $options = []): array
     {
         $plan = DailyPlan::query()
@@ -90,11 +105,13 @@ class CoachPlannerCommandCenterService
             'tasks_by_player' => $taskRowsByPlayer,
         ]);
         $playerSummary = $this->playerStatusSummary($playerRows);
-        $planStatus = $this->planStatus($plan, $playerSummary, $warnings, (int) ($options['days'] ?? 365));
+        $planStatus = $this->planStatus($plan, $playerSummary, $warnings, (int) ($options['days'] ?? 365), $options);
         $benchmarkWorkflow = $this->benchmarkWorkflowSummary($teamId, $taskRows['tasks']);
         $reviewQueue = $this->reviewQueueSummary($teamId, $taskRows['tasks']);
         $trustedData = $this->trustedDataSummary($teamId, $taskRows['tasks']);
-        $remainingGaps = $this->remainingBenchmarkGaps($teamId, (int) ($options['days'] ?? 365), $warnings);
+        $remainingGaps = $this->shouldIncludeBenchmarkGaps($options)
+            ? $this->remainingBenchmarkGaps($teamId, (int) ($options['days'] ?? 365), $warnings)
+            : [];
 
         $payload = [
             'generated_at' => now()->toIso8601String(),
@@ -111,6 +128,8 @@ class CoachPlannerCommandCenterService
             'warnings' => array_values(array_unique(array_filter($warnings))),
             'evidence' => $evidence,
         ];
+        $payload['evidence']['benchmark_gaps_loaded'] = $this->shouldIncludeBenchmarkGaps($options);
+        $payload['evidence']['update_suggestions_loaded'] = $this->shouldIncludeUpdateSuggestions($options);
         $payload['next_actions'] = $this->buildNextActions($payload);
 
         return $this->withOperationalSummaries($payload);
@@ -550,12 +569,16 @@ class CoachPlannerCommandCenterService
                 'last_promotion_at' => null,
                 'last_refresh_at' => null,
             ],
-            'remaining_benchmark_gaps' => $teamId !== '' ? $this->remainingBenchmarkGaps($teamId, (int) ($options['days'] ?? 365), $warnings) : [],
+            'remaining_benchmark_gaps' => $teamId !== '' && $this->shouldIncludeBenchmarkGaps($options)
+                ? $this->remainingBenchmarkGaps($teamId, (int) ($options['days'] ?? 365), $warnings)
+                : [],
             'next_actions' => [],
             'warnings' => array_values(array_unique(array_filter($warnings))),
             'evidence' => [
                 'daily_plan_loaded' => false,
                 'days' => (int) ($options['days'] ?? 365),
+                'benchmark_gaps_loaded' => $teamId !== '' && $this->shouldIncludeBenchmarkGaps($options),
+                'update_suggestions_loaded' => false,
             ],
         ];
     }
@@ -573,14 +596,16 @@ class CoachPlannerCommandCenterService
             ->first();
     }
 
-    private function planStatus(DailyPlan $plan, array $playerSummary, array &$warnings, int $days): array
+    private function planStatus(DailyPlan $plan, array $playerSummary, array &$warnings, int $days, array $options = []): array
     {
         $latestRevision = $plan->revisions
             ->sortByDesc('revision_number')
             ->first();
-        $suggestions = $this->safe(fn (): array => $this->practicePlanUpdateSuggestionService->suggestUpdatesForDailyPlan((string) $plan->id, [
-            'days' => $days,
-        ]), []);
+        $suggestions = $this->shouldIncludeUpdateSuggestions($options)
+            ? $this->safe(fn (): array => $this->practicePlanUpdateSuggestionService->suggestUpdatesForDailyPlan((string) $plan->id, [
+                'days' => $days,
+            ]), [])
+            : [];
         if (! empty($suggestions['warnings'])) {
             $warnings = [...$warnings, ...Arr::wrap($suggestions['warnings'])];
         }
@@ -1169,6 +1194,29 @@ class CoachPlannerCommandCenterService
             'medium' => 2,
             default => 3,
         };
+    }
+
+    private function shouldIncludeBenchmarkGaps(array $options): bool
+    {
+        return $this->boolOption($options['include_benchmark_gaps'] ?? $options['includeBenchmarkGaps'] ?? false);
+    }
+
+    private function shouldIncludeUpdateSuggestions(array $options): bool
+    {
+        return $this->boolOption($options['include_update_suggestions'] ?? $options['includeUpdateSuggestions'] ?? false);
+    }
+
+    private function boolOption(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            return in_array(strtolower($value), ['1', 'true', 'yes', 'on'], true);
+        }
+
+        return (bool) $value;
     }
 
     private function actionResult(string $teamId, ?string $dailyPlanId, string $actionType, string $status, string $message, array $result, array $warnings, int $days, bool $includeUpdatedCommandCenter = true): array
