@@ -80,6 +80,19 @@ const communicationRhythmMessage = ref('')
 const seasonDevelopmentArchive = ref(null)
 const seasonDevelopmentArchiveLoading = ref(false)
 const seasonDevelopmentArchiveMessage = ref('')
+const seasonArchiveExportAudience = ref('staff')
+const seasonArchiveExportFormat = ref('text')
+const seasonArchiveIncludeTimeline = ref(true)
+const seasonArchiveIncludeBenchmark = ref(true)
+const seasonArchiveIncludePlanner = ref(true)
+const seasonArchiveIncludeCommunication = ref(true)
+const seasonArchiveIncludePlayerRows = ref(true)
+const seasonArchiveIncludeNextSteps = ref(true)
+const seasonArchiveExportLoading = ref('')
+const seasonArchiveExportMessage = ref('')
+const seasonArchiveExportPayload = ref(null)
+const seasonArchivePreviewHtml = ref('')
+const seasonArchivePreviewOpen = ref(false)
 const selectedWeeklyReportDelivery = ref(null)
 const weeklyReportNotes = ref([])
 const weeklyReportNotesLoading = ref(false)
@@ -145,6 +158,19 @@ const weeklyReportAudienceOptions = [
   { value: 'players', label: 'Players' },
   { value: 'parents', label: 'Parents' },
 ]
+const seasonArchiveAudienceOptions = [
+  { value: 'coach', label: 'Coach' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'director', label: 'Director' },
+  { value: 'players', label: 'Players' },
+  { value: 'parents', label: 'Parents' },
+]
+const seasonArchiveFormatOptions = [
+  { value: 'summary', label: 'Summary' },
+  { value: 'text', label: 'Copy Text' },
+  { value: 'html', label: 'Printable HTML' },
+  { value: 'pdf', label: 'PDF' },
+]
 const weeklyReportDeliveryChannelOptions = [
   { value: 'copy', label: 'Copy', supported: true },
   { value: 'email', label: 'Email Draft', supported: false },
@@ -196,6 +222,10 @@ const loadCommandCenter = async () => {
     weeklyReportDeliveryAnalytics.value = null
     communicationRhythm.value = null
     seasonDevelopmentArchive.value = null
+    seasonArchiveExportPayload.value = null
+    seasonArchiveExportMessage.value = ''
+    seasonArchivePreviewHtml.value = ''
+    seasonArchivePreviewOpen.value = false
     selectedWeeklyReportDelivery.value = null
     weeklyReportNotes.value = []
     resetWeeklyReportNoteForm()
@@ -520,6 +550,42 @@ const loadSeasonDevelopmentArchive = async () => {
     seasonDevelopmentArchiveLoading.value = false
   }
 }
+const seasonArchiveExportParams = (format = seasonArchiveExportFormat.value) => {
+  const publicAudience = ['parents', 'players'].includes(seasonArchiveExportAudience.value)
+  return {
+    weeks: 12,
+    format,
+    audience: seasonArchiveExportAudience.value,
+    include_weekly_timeline: seasonArchiveIncludeTimeline.value,
+    include_benchmark_progress: seasonArchiveIncludeBenchmark.value,
+    include_planner_progress: seasonArchiveIncludePlanner.value,
+    include_communication_summary: seasonArchiveIncludeCommunication.value,
+    include_player_rows: publicAudience ? false : seasonArchiveIncludePlayerRows.value,
+    include_next_steps: seasonArchiveIncludeNextSteps.value,
+    include_private_notes: false,
+    include_internal_qa: false,
+  }
+}
+const loadSeasonArchiveExport = async (format = seasonArchiveExportFormat.value) => {
+  seasonArchiveExportMessage.value = ''
+  if (!activeTeamId.value) {
+    seasonArchiveExportMessage.value = 'No team selected.'
+    return null
+  }
+
+  seasonArchiveExportLoading.value = format
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/season-archive/export`, seasonArchiveExportParams(format))
+    seasonArchiveExportPayload.value = res?.data?.data || null
+    return seasonArchiveExportPayload.value
+  } catch {
+    seasonArchiveExportPayload.value = null
+    seasonArchiveExportMessage.value = 'Season review packet export is not available right now.'
+    return null
+  } finally {
+    seasonArchiveExportLoading.value = ''
+  }
+}
 const refreshWeeklyReportDeliveryInsights = async () => {
   await Promise.all([
     loadWeeklyReportDeliveryHistory(),
@@ -820,6 +886,14 @@ const weeklyReportAudienceWarning = computed(() => {
   if (selectedWeeklyReportTemplate.value?.template_key === 'internal_benchmark_qa') return 'Internal QA is coach/staff only.'
   return warnings[weeklyReportExportAudience.value] || ''
 })
+const seasonArchivePublicAudience = computed(() => ['parents', 'players'].includes(seasonArchiveExportAudience.value))
+const seasonArchiveAudienceWarning = computed(() => {
+  if (seasonArchiveExportFormat.value === 'pdf') return 'PDF export is not configured yet. Use Copy Text or Printable HTML.'
+  if (seasonArchiveExportAudience.value === 'parents') return 'Parent version hides private player details, staff notes, internal QA, and raw benchmark payloads.'
+  if (seasonArchiveExportAudience.value === 'players') return "Player version hides other players' private details, staff notes, internal QA, and raw benchmark payloads."
+  if (seasonArchiveExportAudience.value === 'director') return 'Director version hides raw payloads and private system identifiers.'
+  return ''
+})
 const weeklyReportVisibleNotes = computed(() => weeklyReportNotes.value.filter((note) => {
   if (weeklyReportExportAudience.value === 'coach') return true
   if (weeklyReportExportAudience.value === 'staff') return !['private'].includes(note.visibility)
@@ -953,6 +1027,13 @@ watch([weeklyReportExportAudience, weeklyReportDeliveryChannel, weeklyReportDeli
   weeklyReportDeliveryPreview.value = null
   weeklyReportDeliveryMessage.value = ''
   resetWeeklyReportDeliveryReview()
+})
+watch(seasonArchiveExportAudience, () => {
+  if (seasonArchivePublicAudience.value) {
+    seasonArchiveIncludePlayerRows.value = false
+  }
+  seasonArchiveExportPayload.value = null
+  seasonArchiveExportMessage.value = ''
 })
 const resetWeeklyReportNoteForm = () => {
   weeklyReportNoteEditingId.value = ''
@@ -1358,6 +1439,66 @@ const printWeeklyReportPreview = () => {
   }
   win.document.open()
   win.document.write(weeklyReportPreviewHtml.value)
+  win.document.close()
+  setTimeout(() => {
+    win.focus()
+    win.print()
+  }, 250)
+}
+const copySeasonArchiveText = async () => {
+  const exportPayload = await loadSeasonArchiveExport('text')
+  const text = exportPayload?.share_text || ''
+  if (!text) {
+    seasonArchiveExportMessage.value = 'No season packet data to export.'
+    return
+  }
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      fallbackCopyText(text)
+    }
+    seasonArchiveExportMessage.value = exportPayload?.warnings?.[0] || 'Copied season review packet.'
+  } catch {
+    fallbackCopyText(text)
+    seasonArchiveExportMessage.value = 'Copied season review packet.'
+  }
+}
+const previewSeasonArchiveHtml = async () => {
+  const exportPayload = await loadSeasonArchiveExport('html')
+  if (!exportPayload?.html) {
+    seasonArchiveExportMessage.value = 'No season packet data to export.'
+    return
+  }
+  seasonArchivePreviewHtml.value = exportPayload.html
+  seasonArchivePreviewOpen.value = true
+  seasonArchiveExportMessage.value = exportPayload?.warnings?.[0] || 'Printable season packet preview is ready.'
+}
+const requestSeasonArchivePdf = async () => {
+  const exportPayload = await loadSeasonArchiveExport('pdf')
+  seasonArchiveExportMessage.value = exportPayload?.warnings?.[0] || exportPayload?.pdf?.warnings?.[0] || 'PDF export is not configured yet. Use Copy Text or Printable HTML.'
+}
+const runSeasonArchiveSelectedExport = async () => {
+  if (seasonArchiveExportFormat.value === 'html') {
+    await previewSeasonArchiveHtml()
+    return
+  }
+  if (seasonArchiveExportFormat.value === 'pdf') {
+    await requestSeasonArchivePdf()
+    return
+  }
+  await copySeasonArchiveText()
+}
+const printSeasonArchivePreview = () => {
+  if (!seasonArchivePreviewHtml.value) return
+  const win = window.open('', '_blank', 'noopener,noreferrer')
+  if (!win) {
+    seasonArchiveExportMessage.value = 'Popup blocked. Use the browser print option from the preview.'
+    return
+  }
+  win.document.open()
+  win.document.write(seasonArchivePreviewHtml.value)
   win.document.close()
   setTimeout(() => {
     win.focus()
@@ -2424,6 +2565,53 @@ const del = async (p) => {
                               </div>
                             </div>
 
+                            <div class="dp-weekly-panel dp-season-summary-panel">
+                              <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <div class="dp-command-label">Export Season Review Packet</div>
+                                  <p class="dp-command-sub">Create a safe season packet for coaches, staff, directors, players, or parents.</p>
+                                </div>
+                                <div class="dp-export-controls">
+                                  <label class="dp-export-field">
+                                    <span>Audience</span>
+                                    <select v-model="seasonArchiveExportAudience" class="dp-input dp-input--compact">
+                                      <option v-for="option in seasonArchiveAudienceOptions" :key="`season-audience-${option.value}`" :value="option.value">{{ option.label }}</option>
+                                    </select>
+                                  </label>
+                                  <label class="dp-export-field">
+                                    <span>Format</span>
+                                    <select v-model="seasonArchiveExportFormat" class="dp-input dp-input--compact">
+                                      <option v-for="option in seasonArchiveFormatOptions" :key="`season-format-${option.value}`" :value="option.value">{{ option.label }}</option>
+                                    </select>
+                                  </label>
+                                </div>
+                              </div>
+
+                              <div class="dp-season-export-toggles">
+                                <label><input v-model="seasonArchiveIncludeTimeline" type="checkbox" /> Weekly Timeline</label>
+                                <label><input v-model="seasonArchiveIncludeBenchmark" type="checkbox" /> Benchmark Progress</label>
+                                <label><input v-model="seasonArchiveIncludePlanner" type="checkbox" /> Planner Progress</label>
+                                <label><input v-model="seasonArchiveIncludeCommunication" type="checkbox" /> Communication Summary</label>
+                                <label v-if="!seasonArchivePublicAudience"><input v-model="seasonArchiveIncludePlayerRows" type="checkbox" /> Player Rows</label>
+                                <label><input v-model="seasonArchiveIncludeNextSteps" type="checkbox" /> Next Steps</label>
+                              </div>
+
+                              <div v-if="seasonArchiveAudienceWarning" class="dp-calendar-warning mt-3">{{ seasonArchiveAudienceWarning }}</div>
+                              <div class="dp-export-actions">
+                                <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="Boolean(seasonArchiveExportLoading)" @click="copySeasonArchiveText">
+                                  {{ seasonArchiveExportLoading === 'text' ? 'Copying…' : 'Copy Text' }}
+                                </button>
+                                <button class="dp-btn dp-btn--small" :disabled="Boolean(seasonArchiveExportLoading)" @click="previewSeasonArchiveHtml">
+                                  {{ seasonArchiveExportLoading === 'html' ? 'Loading…' : 'Preview Printable HTML' }}
+                                </button>
+                                <button class="dp-btn dp-btn--small" :disabled="Boolean(seasonArchiveExportLoading)" @click="runSeasonArchiveSelectedExport">
+                                  {{ seasonArchiveExportLoading ? 'Exporting…' : 'Run Selected Export' }}
+                                </button>
+                              </div>
+                              <p class="dp-command-sub mt-2">PDF export is not configured yet. Use Copy Text or Printable HTML.</p>
+                              <p v-if="seasonArchiveExportMessage" class="dp-command-message">{{ seasonArchiveExportMessage }}</p>
+                            </div>
+
                             <div class="dp-season-grid">
                               <div class="dp-weekly-panel dp-season-panel--wide">
                                 <div class="dp-command-label">Season Timeline</div>
@@ -3448,6 +3636,23 @@ const del = async (p) => {
       </div>
     </div>
 
+    <!-- ══ SEASON REVIEW PACKET PREVIEW MODAL ══ -->
+    <div v-if="seasonArchivePreviewOpen" class="dp-modal" @click.self="seasonArchivePreviewOpen = false">
+      <div class="dp-modal-card dp-modal-card--report">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div>
+            <div class="font-black text-lg">Printable Season Review Packet</div>
+            <div class="dp-command-sub">Audience: {{ human(seasonArchiveExportAudience) }}</div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button class="dp-btn dp-btn--small" @click="printSeasonArchivePreview">Print / Save PDF</button>
+            <button class="dp-x" @click="seasonArchivePreviewOpen = false">×</button>
+          </div>
+        </div>
+        <iframe class="dp-report-frame" :srcdoc="seasonArchivePreviewHtml" title="FMTRX season review packet preview"></iframe>
+      </div>
+    </div>
+
     <!-- ══ DRILL PICKER MODAL ══ -->
     <div v-if="picker" class="dp-modal" @click.self="closePicker">
       <div class="dp-modal-card">
@@ -3550,6 +3755,9 @@ const del = async (p) => {
 .dp-export-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 .dp-export-field--wide { min-width:220px; flex:1; }
 .dp-export-field--full { grid-column:1 / -1; }
+.dp-season-export-toggles { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.dp-season-export-toggles label { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); border-radius:999px; padding:7px 10px; color:rgba(255,255,255,.74); font-size:11.5px; font-weight:850; }
+.dp-season-export-toggles input { accent-color:#ff2d4d; }
 .dp-report-template-preview { margin-top:12px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); border-radius:12px; padding:10px 12px; }
 .dp-report-template-main { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:8px; }
 @media (min-width:760px){ .dp-report-template-main { flex-direction:row; align-items:center; } }

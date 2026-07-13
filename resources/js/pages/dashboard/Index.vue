@@ -2502,6 +2502,7 @@ watch(
     setTimeout(() => {
       fetchPerformanceOverview()
       fetchDevBoard()
+      getStaticChartData().catch(e => console.warn('getStaticChartData error:', e?.message ?? e)) // contact_spray → velocity field
       fetchTeamInsight().catch(e => console.warn('fetchTeamInsight error:', e?.message ?? e))
       ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards preload error:', e?.message ?? e))
     }, 800)
