@@ -71,6 +71,9 @@ const weeklyReportSendResult = ref(null)
 const weeklyReportDeliveryHistory = ref(null)
 const weeklyReportDeliveryHistoryLoading = ref(false)
 const weeklyReportDeliveryHistoryMessage = ref('')
+const weeklyReportDeliveryAnalytics = ref(null)
+const weeklyReportDeliveryAnalyticsLoading = ref(false)
+const weeklyReportDeliveryAnalyticsMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const weeklyReportNotes = ref([])
 const weeklyReportNotesLoading = ref(false)
@@ -184,6 +187,7 @@ const loadCommandCenter = async () => {
     weeklyReportDeliveryMessage.value = ''
     resetWeeklyReportDeliveryReview()
     weeklyReportDeliveryHistory.value = null
+    weeklyReportDeliveryAnalytics.value = null
     selectedWeeklyReportDelivery.value = null
     weeklyReportNotes.value = []
     resetWeeklyReportNoteForm()
@@ -441,6 +445,32 @@ const loadWeeklyReportDeliveryHistory = async () => {
     weeklyReportDeliveryHistoryLoading.value = false
   }
 }
+const loadWeeklyReportDeliveryAnalytics = async () => {
+  weeklyReportDeliveryAnalyticsMessage.value = ''
+  if (!activeTeamId.value) {
+    weeklyReportDeliveryAnalytics.value = null
+    return null
+  }
+
+  weeklyReportDeliveryAnalyticsLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/weekly-report/delivery-analytics`, { days: 30 })
+    weeklyReportDeliveryAnalytics.value = res?.data?.data || null
+    return weeklyReportDeliveryAnalytics.value
+  } catch {
+    weeklyReportDeliveryAnalytics.value = null
+    weeklyReportDeliveryAnalyticsMessage.value = 'Delivery analytics are not available yet.'
+    return null
+  } finally {
+    weeklyReportDeliveryAnalyticsLoading.value = false
+  }
+}
+const refreshWeeklyReportDeliveryInsights = async () => {
+  await Promise.all([
+    loadWeeklyReportDeliveryHistory(),
+    loadWeeklyReportDeliveryAnalytics(),
+  ])
+}
 const openWeeklyReportDeliveryDetail = async (delivery) => {
   selectedWeeklyReportDelivery.value = delivery || null
   const id = delivery?.delivery_id
@@ -468,7 +498,7 @@ const recordWeeklyReportCopyAction = async () => {
         },
       }
     }
-    await loadWeeklyReportDeliveryHistory()
+    await refreshWeeklyReportDeliveryInsights()
     return delivery
   } catch {
     weeklyReportDeliveryHistoryMessage.value = 'Copied, but the copy action could not be recorded.'
@@ -521,8 +551,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); loadWeeklyReportDeliveryHistory(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); selectedWeeklyReportDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportDeliveryHistory(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); selectedWeeklyReportDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -641,6 +671,13 @@ const weeklyReportReviewSummary = computed(() => weeklyReportDeliveryReview.valu
 const weeklyReportCanSend = computed(() => Boolean(weeklyReportDeliveryReview.value?.can_send && weeklyReportConfirmSend.value && !weeklyReportReviewBlockers.value.length))
 const weeklyReportDeliveryHistorySummary = computed(() => weeklyReportDeliveryHistory.value?.summary || {})
 const weeklyReportDeliveries = computed(() => Array.isArray(weeklyReportDeliveryHistory.value?.deliveries) ? weeklyReportDeliveryHistory.value.deliveries : [])
+const weeklyReportDeliveryAnalyticsSummary = computed(() => weeklyReportDeliveryAnalytics.value?.summary || {})
+const weeklyReportDeliveryHealth = computed(() => weeklyReportDeliveryAnalytics.value?.delivery_health || {})
+const weeklyReportDeliveryTemplateUsage = computed(() => Array.isArray(weeklyReportDeliveryAnalytics.value?.template_usage) ? weeklyReportDeliveryAnalytics.value.template_usage : [])
+const weeklyReportDeliveryAudienceUsage = computed(() => Array.isArray(weeklyReportDeliveryAnalytics.value?.audience_usage) ? weeklyReportDeliveryAnalytics.value.audience_usage : [])
+const weeklyReportDeliveryChannelUsage = computed(() => Array.isArray(weeklyReportDeliveryAnalytics.value?.channel_usage) ? weeklyReportDeliveryAnalytics.value.channel_usage : [])
+const weeklyReportDeliveryActions = computed(() => Array.isArray(weeklyReportDeliveryAnalytics.value?.recommended_actions) ? weeklyReportDeliveryAnalytics.value.recommended_actions : [])
+const weeklyReportDeliverySafety = computed(() => weeklyReportDeliveryAnalytics.value?.privacy_safety_summary || {})
 const weeklyTeamReportCards = computed(() => [
   {
     label: 'Team Completion',
@@ -1066,7 +1103,7 @@ const loadWeeklyReportDeliveryReview = async () => {
     const res = await axiosPost(`coach/teams/${activeTeamId.value}/weekly-report/delivery-review`, weeklyReportDeliveryBasePayload())
     const payload = res?.data?.data || null
     applyWeeklyReportDeliveryReview(payload)
-    await loadWeeklyReportDeliveryHistory()
+    await refreshWeeklyReportDeliveryInsights()
     return payload
   } catch {
     resetWeeklyReportDeliveryReview()
@@ -1119,7 +1156,7 @@ const sendWeeklyReportDeliveryDraft = async () => {
     })
     weeklyReportSendResult.value = res?.data?.data || null
     weeklyReportDeliveryMessage.value = weeklyReportSendResult.value?.warnings?.[0] || `Delivery ${human(weeklyReportSendResult.value?.send_status || 'checked')}.`
-    await loadWeeklyReportDeliveryHistory()
+    await refreshWeeklyReportDeliveryInsights()
     return weeklyReportSendResult.value
   } catch {
     weeklyReportDeliveryMessage.value = 'Could not complete the send check.'
@@ -1142,7 +1179,7 @@ const createWeeklyReportDeliveryDraft = async () => {
     })
     weeklyReportDeliveryPreview.value = res?.data?.data || null
     weeklyReportDeliveryMessage.value = weeklyReportDeliveryPreview.value?.draft?.message || 'Draft payload prepared.'
-    await loadWeeklyReportDeliveryHistory()
+    await refreshWeeklyReportDeliveryInsights()
   } catch {
     weeklyReportDeliveryMessage.value = 'Could not create a delivery draft.'
   } finally {
@@ -2000,8 +2037,8 @@ const del = async (p) => {
                             <div class="dp-command-label">Delivery History</div>
                             <p class="dp-command-sub">Recent weekly report delivery attempts, copy actions, blocked sends, and unsupported channels.</p>
                           </div>
-                          <button class="dp-btn dp-btn--small" :disabled="weeklyReportDeliveryHistoryLoading" @click="loadWeeklyReportDeliveryHistory">
-                            {{ weeklyReportDeliveryHistoryLoading ? 'Loading…' : 'Refresh History' }}
+                          <button class="dp-btn dp-btn--small" :disabled="weeklyReportDeliveryHistoryLoading || weeklyReportDeliveryAnalyticsLoading" @click="refreshWeeklyReportDeliveryInsights">
+                            {{ weeklyReportDeliveryHistoryLoading || weeklyReportDeliveryAnalyticsLoading ? 'Loading…' : 'Refresh History' }}
                           </button>
                         </div>
 
@@ -2026,6 +2063,89 @@ const del = async (p) => {
                             <div class="dp-command-value">{{ weeklyReportDeliveryHistorySummary.blocked_count || 0 }}</div>
                             <div class="dp-command-sub">{{ weeklyReportDeliveryHistorySummary.unsupported_count || 0 }} unsupported</div>
                           </div>
+                        </div>
+
+                        <div class="dp-delivery-analytics">
+                          <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div class="dp-command-label">Delivery Analytics</div>
+                              <p class="dp-command-sub">Read-only delivery health, template usage, audience usage, and recommended next actions.</p>
+                            </div>
+                            <span class="dp-status" :class="statusBadgeClass(weeklyReportDeliveryHealth.privacy_block_count ? 'warning' : 'info')">
+                              {{ weeklyReportDeliveryAnalytics ? 'Last 30 Days' : 'No Data Yet' }}
+                            </span>
+                          </div>
+
+                          <div v-if="weeklyReportDeliveryAnalytics" class="dp-completion-grid mt-3">
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Success Rate</div>
+                              <div class="dp-command-value">{{ oneDecimal(weeklyReportDeliveryHealth.delivery_success_rate) }}%</div>
+                              <div class="dp-command-sub">{{ weeklyReportDeliveryAnalyticsSummary.sent_or_partial_count || 0 }} sent or partial</div>
+                            </div>
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Recipients</div>
+                              <div class="dp-command-value">{{ weeklyReportDeliveryAnalyticsSummary.recipients_targeted || 0 }}</div>
+                              <div class="dp-command-sub">{{ weeklyReportDeliveryAnalyticsSummary.recipients_sent || 0 }} confirmed sent</div>
+                            </div>
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Privacy Blocks</div>
+                              <div class="dp-command-value">{{ weeklyReportDeliveryHealth.privacy_block_count || 0 }}</div>
+                              <div class="dp-command-sub">{{ weeklyReportDeliverySafety.private_note_leak_prevented_count || 0 }} protected</div>
+                            </div>
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Contact Warnings</div>
+                              <div class="dp-command-value">{{ weeklyReportDeliveryHealth.missing_contact_warning_count || 0 }}</div>
+                              <div class="dp-command-sub">{{ weeklyReportDeliveryHealth.unsafe_recipient_count || 0 }} unsafe recipients</div>
+                            </div>
+                          </div>
+
+                          <div v-if="weeklyReportDeliveryAnalytics" class="dp-delivery-analytics-grid">
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Template Usage</div>
+                              <div v-if="weeklyReportDeliveryTemplateUsage.length" class="dp-delivery-analytics-list">
+                                <div v-for="row in weeklyReportDeliveryTemplateUsage.slice(0, 5)" :key="`template-analytics-${row.template_key}`" class="dp-delivery-analytics-row">
+                                  <span>{{ row.display_name || human(row.template_key) }}</span>
+                                  <strong>{{ row.count || 0 }} · {{ oneDecimal(row.percent) }}%</strong>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-2">No template usage yet.</div>
+                            </div>
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Audience Usage</div>
+                              <div v-if="weeklyReportDeliveryAudienceUsage.length" class="dp-delivery-analytics-list">
+                                <div v-for="row in weeklyReportDeliveryAudienceUsage.slice(0, 5)" :key="`audience-analytics-${row.audience}`" class="dp-delivery-analytics-row">
+                                  <span>{{ row.display_name || human(row.audience) }}</span>
+                                  <strong>{{ row.count || 0 }} · {{ row.recipient_count || 0 }} recipients</strong>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-2">No audience usage yet.</div>
+                            </div>
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Channel Usage</div>
+                              <div v-if="weeklyReportDeliveryChannelUsage.length" class="dp-delivery-analytics-list">
+                                <div v-for="row in weeklyReportDeliveryChannelUsage.slice(0, 5)" :key="`channel-analytics-${row.channel}`" class="dp-delivery-analytics-row">
+                                  <span>{{ row.display_name || human(row.channel) }}</span>
+                                  <strong>{{ row.count || 0 }} · {{ oneDecimal(row.percent) }}%</strong>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-2">No channel usage yet.</div>
+                            </div>
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Recommended Actions</div>
+                              <div v-if="weeklyReportDeliveryActions.length" class="dp-delivery-analytics-list">
+                                <div v-for="action in weeklyReportDeliveryActions.slice(0, 4)" :key="`delivery-action-${action.id}`" class="dp-delivery-analytics-action">
+                                  <span class="dp-status" :class="statusBadgeClass(action.priority === 'high' ? 'warning' : action.priority === 'medium' ? 'info' : 'muted')">{{ human(action.priority) }}</span>
+                                  <strong>{{ action.title }}</strong>
+                                  <small>{{ action.action }}</small>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-2">No delivery actions are recommended yet.</div>
+                            </div>
+                          </div>
+                          <div v-else class="dp-empty dp-empty--sm mt-3">
+                            Delivery analytics will appear after a weekly report is prepared, copied, or sent.
+                          </div>
+                          <p v-if="weeklyReportDeliveryAnalyticsMessage" class="dp-command-message">{{ weeklyReportDeliveryAnalyticsMessage }}</p>
                         </div>
 
                         <div v-if="weeklyReportDeliveries.length" class="dp-delivery-history-list">
@@ -3018,6 +3138,16 @@ const del = async (p) => {
 .dp-delivery-review { display:grid; gap:12px; margin-top:12px; border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
 .dp-delivery-review-body { display:grid; gap:12px; }
 .dp-delivery-history { display:grid; gap:12px; margin-top:12px; border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
+.dp-delivery-analytics { display:grid; gap:12px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); border-radius:14px; padding:12px; }
+.dp-delivery-analytics-grid { display:grid; grid-template-columns:1fr; gap:10px; }
+@media (min-width:880px){ .dp-delivery-analytics-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.dp-delivery-analytics-list { display:grid; gap:8px; margin-top:10px; }
+.dp-delivery-analytics-row { display:flex; align-items:center; justify-content:space-between; gap:10px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:8px 10px; min-width:0; }
+.dp-delivery-analytics-row span { color:rgba(255,255,255,.72); font-size:12px; font-weight:850; overflow-wrap:anywhere; }
+.dp-delivery-analytics-row strong { color:#fff; font-size:12px; white-space:nowrap; }
+.dp-delivery-analytics-action { display:grid; gap:6px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:9px 10px; }
+.dp-delivery-analytics-action strong { color:#fff; font-size:13px; font-weight:950; overflow-wrap:anywhere; }
+.dp-delivery-analytics-action small { color:rgba(255,255,255,.55); font-size:11.5px; line-height:1.4; overflow-wrap:anywhere; }
 .dp-delivery-history-list { display:grid; gap:8px; margin-top:10px; }
 .dp-delivery-history-row { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; width:100%; text-align:left; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.035); border-radius:12px; padding:10px 12px; color:inherit; }
 .dp-delivery-history-row:hover { border-color:rgba(255,255,255,.2); background:rgba(255,255,255,.055); }
