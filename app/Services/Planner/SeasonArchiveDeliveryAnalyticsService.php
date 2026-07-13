@@ -9,12 +9,15 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 
-class WeeklyReportDeliveryAnalyticsService
+class SeasonArchiveDeliveryAnalyticsService
 {
-    public function __construct(
-        private readonly WeeklyReportTemplateService $templateService,
-    ) {
-    }
+    private const TEMPLATE_LABELS = [
+        'staff_review_packet' => 'Staff Review Packet',
+        'director_packet' => 'Director Packet',
+        'parent_safe_season_summary' => 'Parent-Safe Season Summary',
+        'player_development_summary' => 'Player Development Summary',
+        'internal_qa_packet' => 'Internal QA Packet',
+    ];
 
     /**
      * @return array<string, mixed>
@@ -39,25 +42,16 @@ class WeeklyReportDeliveryAnalyticsService
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    public function buildGlobalAnalytics(array $options = []): array
-    {
-        return $this->buildAnalytics('global', $options);
-    }
-
-    /**
      * @param array<int, mixed> $deliveries
      * @return array<int, array<string, mixed>>
      */
     public function buildTemplateUsageSummary(array $deliveries): array
     {
         $rows = $this->normalizeDeliveries($deliveries);
-        $total = max(1, count($rows));
 
         return collect($rows)
             ->groupBy(fn (array $delivery): string => (string) ($delivery['template_key'] ?: 'unknown'))
-            ->map(function ($items, string $templateKey) use ($total): array {
+            ->map(function ($items, string $templateKey): array {
                 $records = $items->values();
                 $statusCounts = $this->statusCounts($records->all());
 
@@ -65,10 +59,9 @@ class WeeklyReportDeliveryAnalyticsService
                     'template_key' => $templateKey,
                     'display_name' => $this->templateDisplayName($templateKey),
                     'count' => $records->count(),
-                    'percent' => $this->percent($records->count(), $total),
                     'sent_count' => (int) (($statusCounts['sent'] ?? 0) + ($statusCounts['partial'] ?? 0)),
                     'blocked_count' => (int) (($statusCounts['blocked'] ?? 0) + ($statusCounts['unsupported'] ?? 0)),
-                    'copy_only_count' => (int) ($statusCounts['copy_only'] ?? 0),
+                    'last_used_at' => $records->max('created_at'),
                     'status_counts' => $statusCounts,
                 ];
             })
@@ -84,23 +77,22 @@ class WeeklyReportDeliveryAnalyticsService
     public function buildAudienceUsageSummary(array $deliveries): array
     {
         $rows = $this->normalizeDeliveries($deliveries);
-        $total = max(1, count($rows));
 
         return collect($rows)
             ->groupBy(fn (array $delivery): string => (string) ($delivery['audience'] ?: 'unknown'))
-            ->map(function ($items, string $audience) use ($total): array {
+            ->map(function ($items, string $audience): array {
                 $records = $items->values();
+                $statusCounts = $this->statusCounts($records->all());
 
                 return [
                     'audience' => $audience,
                     'display_name' => $this->humanLabel($audience),
                     'count' => $records->count(),
-                    'percent' => $this->percent($records->count(), $total),
+                    'sent_count' => (int) (($statusCounts['sent'] ?? 0) + ($statusCounts['partial'] ?? 0)),
+                    'blocked_count' => (int) (($statusCounts['blocked'] ?? 0) + ($statusCounts['unsupported'] ?? 0)),
                     'recipient_count' => $records->sum(fn (array $delivery): int => $this->recipientCount($delivery)),
-                    'safe_recipient_count' => $records->sum(fn (array $delivery): int => $this->safeRecipientCount($delivery)),
-                    'missing_contact_count' => $records->sum(fn (array $delivery): int => $this->missingContactCount($delivery)),
-                    'unsafe_recipient_count' => $records->sum(fn (array $delivery): int => $this->unsafeRecipientCount($delivery)),
-                    'blocked_count' => $records->filter(fn (array $delivery): bool => in_array((string) $delivery['delivery_status'], ['blocked', 'unsupported'], true))->count(),
+                    'last_used_at' => $records->max('created_at'),
+                    'status_counts' => $statusCounts,
                 ];
             })
             ->sortByDesc('count')
@@ -119,25 +111,20 @@ class WeeklyReportDeliveryAnalyticsService
         $statusCounts = $this->statusCounts($rows);
         $sentOrPartial = (int) (($statusCounts['sent'] ?? 0) + ($statusCounts['partial'] ?? 0));
         $blockedOrUnsupported = (int) (($statusCounts['blocked'] ?? 0) + ($statusCounts['unsupported'] ?? 0));
-        $failed = (int) ($statusCounts['failed'] ?? 0);
         $copyOnly = (int) ($statusCounts['copy_only'] ?? 0);
-        $recipientTotal = array_sum(array_map(fn (array $delivery): int => $this->recipientCount($delivery), $rows));
+        $failed = (int) ($statusCounts['failed'] ?? 0);
 
         return [
-            'total_deliveries' => $total,
-            'delivery_success_rate' => $this->percent($sentOrPartial, $total),
-            'blocked_rate' => $this->percent($blockedOrUnsupported, $total),
-            'failed_rate' => $this->percent($failed, $total),
+            'send_success_rate' => $this->percent($sentOrPartial, $total),
+            'block_rate' => $this->percent($blockedOrUnsupported, $total),
+            'unsupported_rate' => $this->percent((int) ($statusCounts['unsupported'] ?? 0), $total),
             'copy_only_rate' => $this->percent($copyOnly, $total),
+            'failed_rate' => $this->percent($failed, $total),
             'privacy_block_count' => $this->privacyBlockCount($rows),
             'missing_contact_warning_count' => $this->missingContactWarningCount($rows),
             'unsafe_recipient_count' => array_sum(array_map(fn (array $delivery): int => $this->unsafeRecipientCount($delivery), $rows)),
-            'total_recipients_targeted' => $recipientTotal,
+            'total_recipients_attempted' => array_sum(array_map(fn (array $delivery): int => $this->recipientCount($delivery), $rows)),
             'total_recipients_sent' => array_sum(array_map(fn (array $delivery): int => $this->sentRecipientCount($delivery), $rows)),
-            'average_recipients_per_delivery' => $total > 0 ? round($recipientTotal / $total, 1) : 0.0,
-            'last_delivery_at' => $rows[0]['created_at'] ?? null,
-            'last_successful_delivery_at' => collect($rows)
-                ->first(fn (array $delivery): bool => in_array((string) $delivery['delivery_status'], ['sent', 'partial'], true))['sent_at'] ?? null,
         ];
     }
 
@@ -147,99 +134,80 @@ class WeeklyReportDeliveryAnalyticsService
      */
     public function buildRecommendedActions(array $analytics): array
     {
-        $health = Arr::wrap($analytics['delivery_health'] ?? []);
         $summary = Arr::wrap($analytics['summary'] ?? []);
+        $health = Arr::wrap($analytics['delivery_health'] ?? []);
         $privacy = Arr::wrap($analytics['privacy_safety_summary'] ?? []);
         $actions = [];
 
-        if ((int) ($summary['total_deliveries'] ?? 0) === 0) {
+        if ((int) ($summary['total_delivery_records'] ?? 0) === 0) {
             $actions[] = $this->action(
-                'prepare_first_weekly_report',
+                'prepare_season_review_packet',
                 'medium',
-                'Prepare a Weekly Report',
-                'No weekly report deliveries were recorded in this window.',
-                'Generate a weekly team report, review the audience, and prepare the copy-safe version.',
-                ['total_deliveries' => 0],
+                'Prepare Season Review Packet',
+                'Season archives help staff review development progress and plan the next training block.',
+                'Generate a Staff Review Packet from the Season Development Archive.',
+                'prepare_staff_packet',
             );
         }
 
-        if ((int) ($health['privacy_block_count'] ?? 0) > 0) {
+        if ((int) ($privacy['parent_safe_packets_prepared'] ?? 0) === 0 && (int) ($summary['total_delivery_records'] ?? 0) > 0) {
             $actions[] = $this->action(
-                'review_privacy_blocks',
+                'create_parent_safe_season_summary',
+                'medium',
+                'Create Parent-Safe Season Summary',
+                'Parent-safe summaries communicate development progress without exposing private player review details.',
+                'Use the Parent-Safe Season Summary template.',
+                'prepare_parent_summary',
+            );
+        }
+
+        if ((int) ($summary['copy_only_count'] ?? 0) > max(1, (int) ($summary['sent_count'] ?? 0))) {
+            $actions[] = $this->action(
+                'configure_season_packet_delivery',
+                'low',
+                'Configure Season Packet Delivery',
+                'Season packets are being prepared but not sent through FMTRX.',
+                'Use copy/share for now or configure a supported delivery channel.',
+                'configure_delivery',
+            );
+        }
+
+        if ((int) ($health['missing_contact_warning_count'] ?? 0) > 0 || (int) ($health['unsafe_recipient_count'] ?? 0) > 0) {
+            $actions[] = $this->action(
+                'update_recipient_contacts',
+                'medium',
+                'Update Recipient Contacts',
+                'Some season packets could not include all intended recipients.',
+                'Add missing staff, player, or parent contacts.',
+                'configure_contacts',
+            );
+        }
+
+        if ((int) ($health['privacy_block_count'] ?? 0) > 0 || (int) ($summary['blocked_count'] ?? 0) > 0) {
+            $actions[] = $this->action(
+                'review_audience_safety',
                 'high',
-                'Review Blocked Reports',
-                'FMTRX blocked report sharing because the selected audience or template could expose private content.',
-                'Use parent/player-safe templates for external audiences and keep staff/internal templates inside the staff workflow.',
-                ['privacy_block_count' => (int) $health['privacy_block_count']],
+                'Review Audience Safety',
+                'Some packets were blocked because the selected template did not match the audience.',
+                'Use parent-safe templates for parents and staff/director packets for internal review.',
+                'review_blocked_packets',
             );
         }
 
-        if ((int) ($health['missing_contact_warning_count'] ?? 0) > 0) {
+        if ((int) ($summary['sent_count'] ?? 0) > 0 || (int) ($summary['partial_count'] ?? 0) > 0) {
             $actions[] = $this->action(
-                'update_report_contacts',
-                'medium',
-                'Clean Up Contact Info',
-                'Some report recipients were missing contact information or were not safe to send.',
-                'Update parent/player contact records before using direct delivery channels.',
-                [
-                    'missing_contact_warning_count' => (int) $health['missing_contact_warning_count'],
-                    'unsafe_recipient_count' => (int) ($health['unsafe_recipient_count'] ?? 0),
-                ],
-            );
-        }
-
-        if ((int) ($summary['unsupported_count'] ?? 0) > 0) {
-            $actions[] = $this->action(
-                'configure_delivery_channel',
-                'medium',
-                'Configure Delivery Channel',
-                'At least one requested delivery channel was not configured.',
-                'Use copy-only delivery for now or configure the channel before sending from FMTRX.',
-                ['unsupported_count' => (int) $summary['unsupported_count']],
-            );
-        }
-
-        if ((int) ($summary['failed_count'] ?? 0) > 0) {
-            $actions[] = $this->action(
-                'inspect_failed_delivery',
-                'medium',
-                'Inspect Failed Delivery',
-                'A delivery attempt failed after it passed the report preparation step.',
-                'Review the failed send result and retry with copy-only if the channel is unreliable.',
-                ['failed_count' => (int) $summary['failed_count']],
-            );
-        }
-
-        if ((int) ($summary['copy_only_count'] ?? 0) > (int) ($summary['sent_count'] ?? 0) && (int) ($summary['copy_only_count'] ?? 0) > 2) {
-            $actions[] = $this->action(
-                'standardize_weekly_report_delivery',
+                'keep_season_review_rhythm',
                 'low',
-                'Standardize Weekly Sharing',
-                'Most weekly reports are being copied manually.',
-                'Keep copy-only for sensitive audiences, but consider a configured delivery channel for staff-safe reports.',
-                [
-                    'copy_only_count' => (int) $summary['copy_only_count'],
-                    'sent_count' => (int) $summary['sent_count'],
-                ],
-            );
-        }
-
-        if (! empty($privacy['parent_safe_reports_prepared']) || ! empty($privacy['player_safe_reports_prepared'])) {
-            $actions[] = $this->action(
-                'keep_safe_report_rhythm',
-                'low',
-                'Keep the Weekly Report Rhythm',
-                'Parent/player-safe reports are being prepared without exposing internal review details.',
-                'Continue using safe templates and check delivery history after each weekly report cycle.',
-                [
-                    'parent_safe_reports_prepared' => (int) ($privacy['parent_safe_reports_prepared'] ?? 0),
-                    'player_safe_reports_prepared' => (int) ($privacy['player_safe_reports_prepared'] ?? 0),
-                ],
+                'Keep Season Review Rhythm',
+                'Season development summaries are being shared consistently.',
+                'Continue sending season packets at the end of each development block.',
+                'none',
             );
         }
 
         return collect($actions)
-            ->sortBy(fn (array $action): int => ['high' => 0, 'medium' => 1, 'low' => 2][$action['priority']] ?? 3)
+            ->unique('title')
+            ->sortBy(fn (array $action): int => ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3][$action['priority']] ?? 4)
             ->values()
             ->all();
     }
@@ -270,8 +238,12 @@ class WeeklyReportDeliveryAnalyticsService
             ->all();
 
         $statusCounts = $this->statusCounts($deliveries);
+        $templateUsage = $this->buildTemplateUsageSummary($deliveries);
+        $audienceUsage = $this->buildAudienceUsageSummary($deliveries);
+        $channelUsage = $this->buildChannelUsageSummary($deliveries);
         $health = $this->buildDeliveryHealthSummary($deliveries);
-        $summary = $this->buildSummary($deliveries, $statusCounts, $health);
+        $summary = $this->buildSummary($deliveries, $statusCounts, $templateUsage, $audienceUsage, $channelUsage, $health);
+
         $payload = [
             'generated_at' => now()->toIso8601String(),
             'scope' => $scope,
@@ -281,9 +253,9 @@ class WeeklyReportDeliveryAnalyticsService
             'end_date' => $endDate->toDateString(),
             'summary' => $summary,
             'status_counts' => $statusCounts,
-            'template_usage' => $this->buildTemplateUsageSummary($deliveries),
-            'audience_usage' => $this->buildAudienceUsageSummary($deliveries),
-            'channel_usage' => $this->buildChannelUsageSummary($deliveries),
+            'template_usage' => $templateUsage,
+            'audience_usage' => $audienceUsage,
+            'channel_usage' => $channelUsage,
             'delivery_health' => $health,
             'privacy_safety_summary' => $this->buildPrivacySafetySummary($deliveries),
             'recent_deliveries' => array_slice($deliveries, 0, 10),
@@ -298,11 +270,10 @@ class WeeklyReportDeliveryAnalyticsService
     private function baseQuery(array $options, CarbonImmutable $startDate, CarbonImmutable $endDate): Builder
     {
         $query = WeeklyReportDelivery::query()
+            ->with(['createdBy.profile', 'sentBy.profile'])
+            ->where('source', 'season_archive')
             ->whereDate('created_at', '>=', $startDate->toDateString())
-            ->whereDate('created_at', '<=', $endDate->toDateString())
-            ->where(function (Builder $builder): void {
-                $builder->whereNull('source')->orWhere('source', 'weekly_report');
-            });
+            ->whereDate('created_at', '<=', $endDate->toDateString());
 
         foreach (['audience', 'channel', 'delivery_status'] as $field) {
             $optionKey = $field === 'delivery_status' ? 'status' : $field;
@@ -315,6 +286,9 @@ class WeeklyReportDeliveryAnalyticsService
         }
         if (! empty($options['template_key'])) {
             $query->where('template_key', (string) $options['template_key']);
+        }
+        if (! empty($options['archive_type'])) {
+            $query->where('archive_type', (string) $options['archive_type']);
         }
 
         return $query;
@@ -330,7 +304,7 @@ class WeeklyReportDeliveryAnalyticsService
             : CarbonImmutable::now()->endOfDay();
         $start = ! empty($options['start_date'])
             ? CarbonImmutable::parse((string) $options['start_date'])->startOfDay()
-            : $end->subDays(max(1, min(365, (int) ($options['days'] ?? 30))) - 1)->startOfDay();
+            : $end->subDays(max(1, min(365, (int) ($options['days'] ?? 365))) - 1)->startOfDay();
 
         if ($start->greaterThan($end)) {
             return [$end->startOfDay(), $start->endOfDay()];
@@ -341,14 +315,18 @@ class WeeklyReportDeliveryAnalyticsService
 
     /**
      * @param array<int, array<string, mixed>> $deliveries
+     * @param array<int, array<string, mixed>> $templateUsage
+     * @param array<int, array<string, mixed>> $audienceUsage
+     * @param array<int, array<string, mixed>> $channelUsage
      * @return array<string, mixed>
      */
-    private function buildSummary(array $deliveries, array $statusCounts, array $health): array
+    private function buildSummary(array $deliveries, array $statusCounts, array $templateUsage, array $audienceUsage, array $channelUsage, array $health): array
     {
-        $total = count($deliveries);
+        $sentPackets = (int) (($statusCounts['sent'] ?? 0) + ($statusCounts['partial'] ?? 0));
 
         return [
-            'total_deliveries' => $total,
+            'total_delivery_records' => count($deliveries),
+            'total_deliveries' => count($deliveries),
             'prepared_count' => (int) ($statusCounts['prepared'] ?? 0),
             'copy_only_count' => (int) ($statusCounts['copy_only'] ?? 0),
             'draft_created_count' => (int) ($statusCounts['draft_created'] ?? 0),
@@ -357,12 +335,13 @@ class WeeklyReportDeliveryAnalyticsService
             'blocked_count' => (int) ($statusCounts['blocked'] ?? 0),
             'unsupported_count' => (int) ($statusCounts['unsupported'] ?? 0),
             'failed_count' => (int) ($statusCounts['failed'] ?? 0),
-            'sent_or_partial_count' => (int) (($statusCounts['sent'] ?? 0) + ($statusCounts['partial'] ?? 0)),
-            'recipients_targeted' => (int) ($health['total_recipients_targeted'] ?? 0),
-            'recipients_sent' => (int) ($health['total_recipients_sent'] ?? 0),
+            'total_recipients_attempted' => (int) ($health['total_recipients_attempted'] ?? 0),
+            'total_recipients_sent' => (int) ($health['total_recipients_sent'] ?? 0),
+            'average_recipients_per_sent_packet' => $sentPackets > 0 ? round(((int) ($health['total_recipients_sent'] ?? 0)) / $sentPackets, 1) : null,
             'last_delivery_at' => $deliveries[0]['created_at'] ?? null,
-            'last_successful_delivery_at' => $health['last_successful_delivery_at'] ?? null,
-            'delivery_success_rate' => $health['delivery_success_rate'] ?? 0.0,
+            'most_used_template' => $templateUsage[0]['display_name'] ?? null,
+            'most_used_audience' => $audienceUsage[0]['display_name'] ?? null,
+            'most_used_channel' => $channelUsage[0]['display_name'] ?? null,
         ];
     }
 
@@ -372,21 +351,21 @@ class WeeklyReportDeliveryAnalyticsService
      */
     private function buildChannelUsageSummary(array $deliveries): array
     {
-        $total = max(1, count($deliveries));
-
         return collect($deliveries)
             ->groupBy(fn (array $delivery): string => (string) ($delivery['channel'] ?: 'unknown'))
-            ->map(function ($items, string $channel) use ($total): array {
+            ->map(function ($items, string $channel): array {
                 $records = $items->values();
+                $statusCounts = $this->statusCounts($records->all());
 
                 return [
                     'channel' => $channel,
                     'display_name' => $this->humanLabel($channel),
                     'count' => $records->count(),
-                    'percent' => $this->percent($records->count(), $total),
-                    'sent_count' => $records->filter(fn (array $delivery): bool => in_array((string) $delivery['delivery_status'], ['sent', 'partial'], true))->count(),
-                    'blocked_count' => $records->filter(fn (array $delivery): bool => in_array((string) $delivery['delivery_status'], ['blocked', 'unsupported'], true))->count(),
-                    'failed_count' => $records->filter(fn (array $delivery): bool => (string) $delivery['delivery_status'] === 'failed')->count(),
+                    'sent_count' => (int) (($statusCounts['sent'] ?? 0) + ($statusCounts['partial'] ?? 0)),
+                    'blocked_count' => (int) (($statusCounts['blocked'] ?? 0) + ($statusCounts['unsupported'] ?? 0)),
+                    'failed_count' => (int) ($statusCounts['failed'] ?? 0),
+                    'last_used_at' => $records->max('created_at'),
+                    'status_counts' => $statusCounts,
                 ];
             })
             ->sortByDesc('count')
@@ -400,25 +379,43 @@ class WeeklyReportDeliveryAnalyticsService
      */
     private function buildPrivacySafetySummary(array $deliveries): array
     {
-        return [
-            'blocked_internal_to_parent_or_player' => collect($deliveries)
-                ->filter(fn (array $delivery): bool => $this->isExternalAudience($delivery) && $this->mentions($delivery, ['internal', 'private']) && $this->isBlocked($delivery))
+        $summary = [
+            'blocked_internal_qa_to_parent_or_player' => collect($deliveries)
+                ->filter(fn (array $delivery): bool => $this->isBlocked($delivery) && $this->isExternalAudience($delivery) && (string) ($delivery['template_key'] ?? '') === 'internal_qa_packet')
                 ->count(),
-            'blocked_staff_report_to_parent_or_player' => collect($deliveries)
-                ->filter(fn (array $delivery): bool => $this->isExternalAudience($delivery) && $this->isStaffTemplate($delivery) && $this->isBlocked($delivery))
+            'blocked_staff_packet_to_parent_or_player' => collect($deliveries)
+                ->filter(fn (array $delivery): bool => $this->isBlocked($delivery) && $this->isExternalAudience($delivery) && (string) ($delivery['template_key'] ?? '') === 'staff_review_packet')
+                ->count(),
+            'blocked_director_packet_to_parent_or_player' => collect($deliveries)
+                ->filter(fn (array $delivery): bool => $this->isBlocked($delivery) && $this->isExternalAudience($delivery) && (string) ($delivery['template_key'] ?? '') === 'director_packet')
                 ->count(),
             'blocked_unsafe_recipients' => collect($deliveries)
-                ->filter(fn (array $delivery): bool => $this->isBlocked($delivery) && ($this->unsafeRecipientCount($delivery) > 0 || $this->mentions($delivery, ['unsafe recipient', 'no safe recipients', 'missing contact'])))
+                ->filter(fn (array $delivery): bool => $this->isBlocked($delivery) && ($this->unsafeRecipientCount($delivery) > 0 || $this->missingContactCount($delivery) > 0))
                 ->count(),
-            'parent_safe_reports_prepared' => collect($deliveries)
-                ->filter(fn (array $delivery): bool => (string) $delivery['audience'] === 'parents' && (string) $delivery['template_key'] === 'parent_update' && ! $this->isBlocked($delivery))
+            'parent_safe_packets_prepared' => collect($deliveries)
+                ->filter(fn (array $delivery): bool => (string) ($delivery['template_key'] ?? '') === 'parent_safe_season_summary' && ! $this->isBlocked($delivery))
                 ->count(),
-            'player_safe_reports_prepared' => collect($deliveries)
-                ->filter(fn (array $delivery): bool => (string) $delivery['audience'] === 'players' && (string) $delivery['template_key'] === 'player_development_summary' && ! $this->isBlocked($delivery))
+            'player_safe_packets_prepared' => collect($deliveries)
+                ->filter(fn (array $delivery): bool => (string) ($delivery['template_key'] ?? '') === 'player_development_summary' && ! $this->isBlocked($delivery))
                 ->count(),
             'private_note_leak_prevented_count' => collect($deliveries)
-                ->filter(fn (array $delivery): bool => $this->isBlocked($delivery) && $this->mentions($delivery, ['private', 'staff', 'internal']))
+                ->filter(fn (array $delivery): bool => $this->isBlocked($delivery) && $this->containsAny($delivery['warning_text'] ?? [], ['private', 'staff', 'internal']))
                 ->count(),
+        ];
+        $warnings = [];
+        if ($summary['blocked_internal_qa_to_parent_or_player'] > 0) {
+            $warnings[] = 'Internal QA packet attempts were blocked for parent/player audiences.';
+        }
+        if ($summary['blocked_staff_packet_to_parent_or_player'] > 0 || $summary['blocked_director_packet_to_parent_or_player'] > 0) {
+            $warnings[] = 'Internal season archive packets were blocked from external audiences.';
+        }
+        if ($summary['blocked_unsafe_recipients'] > 0) {
+            $warnings[] = 'Some season packets had unsafe or missing-contact recipients.';
+        }
+
+        return [
+            ...$summary,
+            'warnings' => $warnings,
         ];
     }
 
@@ -429,14 +426,14 @@ class WeeklyReportDeliveryAnalyticsService
     private function buildWarnings(array $deliveries, array $health): array
     {
         $warnings = [];
-        if (count($deliveries) === 0) {
-            $warnings[] = 'No weekly report deliveries were found in the selected window.';
+        if (empty($deliveries)) {
+            $warnings[] = 'No season packet delivery history was found in the selected window.';
         }
         if ((int) ($health['privacy_block_count'] ?? 0) > 0) {
-            $warnings[] = 'Some report deliveries were blocked by privacy checks.';
+            $warnings[] = 'Some season packet delivery attempts were blocked by safety checks.';
         }
         if ((int) ($health['missing_contact_warning_count'] ?? 0) > 0) {
-            $warnings[] = 'Some report deliveries had missing contact or unsafe recipient warnings.';
+            $warnings[] = 'Some season packets had missing contact or unsafe recipient warnings.';
         }
 
         return array_values(array_unique($warnings));
@@ -461,22 +458,30 @@ class WeeklyReportDeliveryAnalyticsService
     {
         $recipientSummary = Arr::wrap($delivery->recipient_summary);
         $sendResult = Arr::wrap($delivery->send_result);
+        $templateKey = (string) ($delivery->archive_type ?: $delivery->template_key ?: '');
+        $warningText = [
+            ...Arr::wrap($delivery->privacy_warnings),
+            ...Arr::wrap($delivery->delivery_warnings),
+            ...Arr::wrap($delivery->send_blockers),
+        ];
 
         return [
             'delivery_id' => (string) $delivery->id,
             'team_id' => (string) $delivery->team_id,
-            'source' => (string) ($delivery->source ?: 'weekly_report'),
-            'template_key' => (string) ($delivery->template_key ?? ''),
-            'template_display_name' => $this->templateDisplayName((string) ($delivery->template_key ?? '')),
+            'source' => 'season_archive',
+            'template_key' => $templateKey,
+            'archive_type' => $templateKey,
+            'template_display_name' => $this->templateDisplayName($templateKey),
             'audience' => (string) ($delivery->audience ?? ''),
             'channel' => (string) ($delivery->channel ?? ''),
             'format' => (string) ($delivery->format ?? ''),
             'delivery_status' => (string) ($delivery->delivery_status ?? 'prepared'),
+            'subject' => $delivery->subject,
             'recipient_summary' => $recipientSummary,
             'privacy_warning_count' => count(Arr::wrap($delivery->privacy_warnings)),
             'delivery_warning_count' => count(Arr::wrap($delivery->delivery_warnings)),
             'send_blocker_count' => count(Arr::wrap($delivery->send_blockers)),
-            'warning_count' => count(Arr::wrap($delivery->privacy_warnings)) + count(Arr::wrap($delivery->delivery_warnings)) + count(Arr::wrap($delivery->send_blockers)),
+            'warning_count' => count($warningText),
             'send_result' => [
                 'send_status' => $sendResult['send_status'] ?? null,
                 'sent_count' => (int) ($sendResult['sent_count'] ?? 0),
@@ -485,6 +490,10 @@ class WeeklyReportDeliveryAnalyticsService
             ],
             'created_by_user_id' => $delivery->created_by_user_id,
             'sent_by_user_id' => $delivery->sent_by_user_id,
+            'created_by_name' => $this->userName($delivery->createdBy),
+            'sent_by_name' => $this->userName($delivery->sentBy),
+            'season_start_date' => $delivery->season_start_date?->toDateString(),
+            'season_end_date' => $delivery->season_end_date?->toDateString(),
             'created_at' => $delivery->created_at?->toIso8601String(),
             'sent_at' => $delivery->sent_at?->toIso8601String(),
             'copied_at' => $delivery->copied_at?->toIso8601String(),
@@ -496,7 +505,12 @@ class WeeklyReportDeliveryAnalyticsService
                 ?: $delivery->blocked_at?->toIso8601String()
                 ?: $delivery->failed_at?->toIso8601String()
                 ?: $delivery->created_at?->toIso8601String(),
-            'privacy_flags' => $this->privacyFlags($delivery),
+            'privacy_flags' => [
+                'has_privacy_warning' => $this->containsAny($warningText, ['private', 'staff', 'internal']),
+                'has_missing_contact_warning' => $this->containsAny($warningText, ['missing contact', 'missing email', 'no safe recipients', 'unsafe recipient']),
+                'has_delivery_blocker' => count(Arr::wrap($delivery->send_blockers)) > 0,
+            ],
+            'warning_text' => $warningText,
         ];
     }
 
@@ -520,28 +534,19 @@ class WeeklyReportDeliveryAnalyticsService
 
     private function templateDisplayName(string $templateKey): string
     {
-        $template = collect($this->templateService->listTemplates())
-            ->first(fn (array $template): bool => (string) ($template['template_key'] ?? '') === $templateKey);
-
-        return (string) ($template['display_name'] ?? $this->humanLabel($templateKey ?: 'unknown'));
+        return self::TEMPLATE_LABELS[$templateKey] ?? $this->humanLabel($templateKey ?: 'unknown');
     }
 
-    private function privacyFlags(WeeklyReportDelivery $delivery): array
+    private function userName(mixed $user): ?string
     {
-        $warnings = [
-            ...Arr::wrap($delivery->privacy_warnings),
-            ...Arr::wrap($delivery->delivery_warnings),
-            ...Arr::wrap($delivery->send_blockers),
-        ];
+        if (! $user) {
+            return null;
+        }
 
-        return [
-            'has_privacy_warning' => $this->containsAny($warnings, ['private', 'staff', 'internal']),
-            'has_private_content_warning' => $this->containsAny($warnings, ['private']),
-            'has_staff_content_warning' => $this->containsAny($warnings, ['staff']),
-            'has_internal_content_warning' => $this->containsAny($warnings, ['internal']),
-            'has_missing_contact_warning' => $this->containsAny($warnings, ['missing contact', 'missing email', 'no safe recipients', 'unsafe recipient']),
-            'has_delivery_blocker' => count(Arr::wrap($delivery->send_blockers)) > 0,
-        ];
+        $profile = $user->profile ?? null;
+        $name = trim((string) ($profile?->first_name ?? '').' '.(string) ($profile?->last_name ?? ''));
+
+        return $name !== '' ? $name : ($user->email ?? null);
     }
 
     /**
@@ -550,7 +555,7 @@ class WeeklyReportDeliveryAnalyticsService
     private function privacyBlockCount(array $deliveries): int
     {
         return collect($deliveries)
-            ->filter(fn (array $delivery): bool => $this->isBlocked($delivery) && ($delivery['privacy_flags']['has_privacy_warning'] ?? false))
+            ->filter(fn (array $delivery): bool => $this->isBlocked($delivery) && (bool) ($delivery['privacy_flags']['has_privacy_warning'] ?? false))
             ->count();
     }
 
@@ -567,11 +572,6 @@ class WeeklyReportDeliveryAnalyticsService
     private function recipientCount(array $delivery): int
     {
         return (int) (($delivery['recipient_summary']['total_recipients'] ?? 0) ?: 0);
-    }
-
-    private function safeRecipientCount(array $delivery): int
-    {
-        return (int) (($delivery['recipient_summary']['safe_recipients'] ?? 0) ?: 0);
     }
 
     private function missingContactCount(array $delivery): int
@@ -599,31 +599,9 @@ class WeeklyReportDeliveryAnalyticsService
         return in_array((string) ($delivery['audience'] ?? ''), ['parents', 'players'], true);
     }
 
-    private function isStaffTemplate(array $delivery): bool
-    {
-        return in_array((string) ($delivery['template_key'] ?? ''), ['staff_report', 'detailed_coach_report', 'internal_benchmark_qa'], true);
-    }
-
-    private function mentions(array $delivery, array $needles): bool
-    {
-        $text = strtolower(json_encode([
-            $delivery['template_key'] ?? '',
-            $delivery['delivery_status'] ?? '',
-            $delivery['privacy_flags'] ?? [],
-        ], JSON_UNESCAPED_SLASHES) ?: '');
-
-        foreach ($needles as $needle) {
-            if (str_contains($text, strtolower((string) $needle))) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private function containsAny(array $values, array $needles): bool
     {
-        $text = strtolower(implode(' ', array_map(fn (mixed $value): string => is_scalar($value) ? (string) $value : json_encode($value), $values)));
+        $text = strtolower(implode(' ', array_map(fn (mixed $value): string => is_scalar($value) ? (string) $value : json_encode($value, JSON_UNESCAPED_SLASHES), $values)));
         foreach ($needles as $needle) {
             if (str_contains($text, strtolower((string) $needle))) {
                 return true;
@@ -646,7 +624,7 @@ class WeeklyReportDeliveryAnalyticsService
     /**
      * @return array<string, mixed>
      */
-    private function action(string $id, string $priority, string $title, string $why, string $action, array $evidence): array
+    private function action(string $id, string $priority, string $title, string $why, string $action, string $actionType): array
     {
         return [
             'id' => $id,
@@ -654,7 +632,7 @@ class WeeklyReportDeliveryAnalyticsService
             'title' => $title,
             'why' => $why,
             'action' => $action,
-            'evidence' => $evidence,
+            'action_type' => $actionType,
         ];
     }
 }

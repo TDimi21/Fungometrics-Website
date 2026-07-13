@@ -4,8 +4,7 @@
 // between the average-velocity grid and the density heatmap. Reuses the existing
 // session panels; fed by team pitches that have a location and/or a velocity.
 import { ref, computed } from 'vue'
-import SessionVelocityGridPanel from '@/components/statistics/session/SessionVelocityGridPanel.vue'
-import SessionHeatmapPanel from '@/components/statistics/session/SessionHeatmapPanel.vue'
+import BullpenZoneMap from '@/components/dashboard/BullpenZoneMap.vue'
 
 const props = defineProps({
   pitches: { type: Array, default: () => [] }, // { pitch_mark, velocity, is_strike, pitch_type }
@@ -43,14 +42,7 @@ const strikePct = computed(() => {
     </div>
 
     <div class="blp-fieldwrap">
-      <SessionVelocityGridPanel
-        v-if="view === 'grid'"
-        :rows="filteredPitches" :base-grid="60" :grid-size="5" mark-mode="pitch" background="catcher"
-      />
-      <SessionHeatmapPanel
-        v-else
-        :rows="filteredPitches" :base-grid="60" :grid-size="5" mark-mode="pitch" background="catcher"
-      />
+      <BullpenZoneMap :pitches="filteredPitches" :mode="view === 'grid' ? 'grid' : 'heatmap'" />
       <div v-if="!filteredPitches.length" class="blp-empty">No pitches with a location or velocity yet</div>
     </div>
 

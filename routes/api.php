@@ -64,6 +64,8 @@ use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryHistoryController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryReviewController;
 use App\Http\Controllers\Api\Planner\SeasonDevelopmentArchiveController;
 use App\Http\Controllers\Api\Planner\SeasonArchiveExportController;
+use App\Http\Controllers\Api\Planner\SeasonArchiveDeliveryAnalyticsController;
+use App\Http\Controllers\Api\Planner\SeasonArchiveDeliveryHistoryController;
 use App\Http\Controllers\Api\Planner\SeasonArchiveDeliveryPrepController;
 use App\Http\Controllers\Api\Planner\SeasonArchiveDeliveryReviewController;
 use App\Http\Controllers\Api\Planner\GetCustomDrills;
@@ -324,6 +326,10 @@ Route::prefix('coach')->group(function (): void {
         Route::post('/teams/{teamId}/season-archive/delivery-review', [SeasonArchiveDeliveryReviewController::class, 'review']);
         Route::post('/teams/{teamId}/season-archive/update-delivery-draft', [SeasonArchiveDeliveryReviewController::class, 'updateDraft']);
         Route::post('/teams/{teamId}/season-archive/send-delivery-draft', [SeasonArchiveDeliveryReviewController::class, 'sendDraft']);
+        Route::get('/teams/{teamId}/season-archive/delivery-analytics', [SeasonArchiveDeliveryAnalyticsController::class, 'team']);
+        Route::get('/teams/{teamId}/season-archive/deliveries', [SeasonArchiveDeliveryHistoryController::class, 'index']);
+        Route::get('/season-archive-deliveries/{deliveryId}', [SeasonArchiveDeliveryHistoryController::class, 'show']);
+        Route::post('/season-archive-deliveries/{deliveryId}/record-copy', [SeasonArchiveDeliveryHistoryController::class, 'recordCopy']);
         Route::get('/teams/{teamId}/weekly-report/export', GetCoachWeeklyReportExport::class);
         Route::get('/weekly-report-templates', [GetWeeklyReportTemplates::class, 'index']);
         Route::get('/teams/{teamId}/weekly-report/template-preview', [GetWeeklyReportTemplates::class, 'preview']);
@@ -472,9 +478,11 @@ Route::middleware(['auth:sanctum'])->prefix('sessions')->group(function (): void
 Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): void {
     Route::get('/{practice}/batting', GetBattingPracticeResults::class);
     Route::get('/{practice}/bullpen', GetBullpenPracticeResults::class);
-    Route::middleware('plan:long_toss_sessions')->get('/{practice}/longtoss', GetLongTossPracticeResult::class);
-    Route::middleware('plan:weighted_ball_sessions')->get('/{practice}/weightball', GetWeightBallPracticeResult::class);
-    Route::middleware('plan:exit_velocity_sessions')->get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
+    // Viewing stats you already recorded is ungated (matches batting/bullpen/cage);
+    // the paywall stays on CREATING these advanced session types (the POST routes).
+    Route::get('/{practice}/longtoss', GetLongTossPracticeResult::class);
+    Route::get('/{practice}/weightball', GetWeightBallPracticeResult::class);
+    Route::get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
     Route::get('/{practice}/cage', GetCagePracticeResults::class);
     // Players see their own Live AB ball-by-ball too (was coach-only). Still
     // tier-gated by plan:liveab_sessions (Player Pro / Coach Pro).

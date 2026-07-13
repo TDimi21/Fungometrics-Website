@@ -12,7 +12,7 @@ class SeasonArchiveDeliveryReviewService
 
     public function __construct(
         private readonly SeasonArchiveDeliveryPrepService $prepService,
-        private readonly WeeklyReportDeliveryHistoryService $historyService,
+        private readonly SeasonArchiveDeliveryHistoryService $historyService,
     ) {
     }
 
@@ -332,6 +332,7 @@ class SeasonArchiveDeliveryReviewService
             'end_date' => $prepared['season_end_date'] ?? null,
             'weeks' => $prepared['weeks'] ?? ($options['weeks'] ?? 12),
             'source' => 'season_archive',
+            'archive_type' => (string) ($prepared['template'] ?? ''),
             'delivery_status' => $this->statusFromValidation($prepared, $validation, false),
             'can_send' => (bool) ($validation['can_send'] ?? false),
             'requires_confirmation' => true,

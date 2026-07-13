@@ -44,10 +44,22 @@ const velColor = (v, min, max, alpha = 0.72) => {
   return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`
 }
 
+// Cage records no trajectory code — only launch angle — so classify it the same
+// way the app does (PF ≥45°, FB ≥25°, LD ≥8°, else GB). Batting already has a code.
+const trajOf = (b) => {
+  const t = String(b.trajectory ?? b.type_of_hit ?? '').toUpperCase()
+  if (t) return t
+  const la = Number(b.launch_angle)
+  if (!Number.isFinite(la)) return ''
+  if (la >= 45) return 'PF'
+  if (la >= 25) return 'FB'
+  if (la >= 8) return 'LD'
+  return 'GB'
+}
 const filteredBalls = computed(() => {
   const all = Array.isArray(props.balls) ? props.balls : []
   if (filter.value === 'ALL') return all
-  return all.filter((b) => String(b.trajectory ?? b.type_of_hit ?? '').toUpperCase() === filter.value)
+  return all.filter((b) => trajOf(b) === filter.value)
 })
 // Normalize to { spray_angle, distance_travel, velocity, launch_angle, trajectory }.
 const plottedBalls = computed(() => (props.useFieldMark

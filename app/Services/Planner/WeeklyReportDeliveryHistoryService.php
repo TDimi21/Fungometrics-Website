@@ -175,6 +175,8 @@ class WeeklyReportDeliveryHistoryService
         return [
             'team_id' => $teamId,
             'total_deliveries' => $deliveries->count(),
+            'prepared_count' => (int) ($counts['prepared'] ?? 0),
+            'draft_created_count' => (int) ($counts['draft_created'] ?? 0),
             'sent_count' => (int) ($counts['sent'] ?? 0),
             'partial_count' => (int) ($counts['partial'] ?? 0),
             'copy_only_count' => (int) ($counts['copy_only'] ?? 0),
@@ -207,6 +209,14 @@ class WeeklyReportDeliveryHistoryService
             ->with(['createdBy.profile', 'sentBy.profile'])
             ->where('team_id', $teamId);
 
+        if (! empty($filters['source'])) {
+            $query->where('source', (string) $filters['source']);
+        } else {
+            $query->where(function (Builder $builder): void {
+                $builder->whereNull('source')->orWhere('source', 'weekly_report');
+            });
+        }
+
         $days = (int) ($filters['days'] ?? 30);
         if (! empty($filters['start_date'])) {
             $query->whereDate('created_at', '>=', CarbonImmutable::parse((string) $filters['start_date'])->toDateString());
@@ -226,6 +236,9 @@ class WeeklyReportDeliveryHistoryService
         }
         if (! empty($filters['status'])) {
             $query->where('delivery_status', (string) $filters['status']);
+        }
+        if (! empty($filters['archive_type'])) {
+            $query->where('archive_type', (string) $filters['archive_type']);
         }
 
         return $query;
@@ -249,8 +262,12 @@ class WeeklyReportDeliveryHistoryService
         return [
             'team_id' => (string) ($draft['team_id'] ?? ''),
             'created_by_user_id' => $userId,
+            'source' => (string) ($draft['source'] ?? 'weekly_report'),
+            'archive_type' => $draft['archive_type'] ?? $draft['template'] ?? $draft['template_key'] ?? null,
             'week_start_date' => $weekStart,
             'week_end_date' => $weekEnd,
+            'season_start_date' => $this->dateOrNull($draft['season_start_date'] ?? null),
+            'season_end_date' => $this->dateOrNull($draft['season_end_date'] ?? null),
             'template_key' => (string) ($draft['template'] ?? $draft['template_key'] ?? ''),
             'audience' => (string) ($draft['audience'] ?? 'coach'),
             'channel' => (string) ($draft['channel'] ?? 'copy'),
@@ -322,6 +339,7 @@ class WeeklyReportDeliveryHistoryService
         return [
             'generated_at' => $payload['generated_at'] ?? null,
             'team_id' => $payload['team_id'] ?? null,
+            'source' => $payload['source'] ?? null,
             'format' => $payload['format'] ?? null,
             'audience' => $payload['audience'] ?? null,
             'template_key' => $payload['template']['template_key'] ?? $payload['template_key'] ?? null,
@@ -337,6 +355,8 @@ class WeeklyReportDeliveryHistoryService
         return [
             'generated_at' => $draft['generated_at'] ?? null,
             'team_id' => $draft['team_id'] ?? null,
+            'source' => $draft['source'] ?? null,
+            'archive_type' => $draft['archive_type'] ?? null,
             'audience' => $draft['audience'] ?? null,
             'template' => $draft['template'] ?? $draft['template_key'] ?? null,
             'channel' => $draft['channel'] ?? null,
@@ -402,6 +422,8 @@ class WeeklyReportDeliveryHistoryService
         $payload = [
             'delivery_id' => (string) $delivery->id,
             'team_id' => (string) $delivery->team_id,
+            'source' => $delivery->source ?: 'weekly_report',
+            'archive_type' => $delivery->archive_type,
             'template_key' => $delivery->template_key,
             'audience' => $delivery->audience,
             'channel' => $delivery->channel,
@@ -414,6 +436,8 @@ class WeeklyReportDeliveryHistoryService
             'send_blockers' => Arr::wrap($delivery->send_blockers),
             'copied_at' => $delivery->copied_at?->toIso8601String(),
             'draft_created_at' => $delivery->draft_created_at?->toIso8601String(),
+            'season_start_date' => $delivery->season_start_date?->toDateString(),
+            'season_end_date' => $delivery->season_end_date?->toDateString(),
             'sent_at' => $sentAt,
             'failed_at' => $delivery->failed_at?->toIso8601String(),
             'blocked_at' => $delivery->blocked_at?->toIso8601String(),
@@ -460,6 +484,13 @@ class WeeklyReportDeliveryHistoryService
             'failed' => 'Weekly report delivery failed.',
             default => 'Weekly report delivery was prepared.',
         };
+    }
+
+    private function dateOrNull(mixed $value): ?string
+    {
+        $text = $this->cleanText($value);
+
+        return $text ? CarbonImmutable::parse($text)->toDateString() : null;
     }
 
     private function containsPrivateWarning(array $warnings): bool
