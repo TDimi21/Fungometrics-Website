@@ -478,11 +478,9 @@ Route::middleware(['auth:sanctum'])->prefix('sessions')->group(function (): void
 Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): void {
     Route::get('/{practice}/batting', GetBattingPracticeResults::class);
     Route::get('/{practice}/bullpen', GetBullpenPracticeResults::class);
-    // Viewing stats you already recorded is ungated (matches batting/bullpen/cage);
-    // the paywall stays on CREATING these advanced session types (the POST routes).
-    Route::get('/{practice}/longtoss', GetLongTossPracticeResult::class);
-    Route::get('/{practice}/weightball', GetWeightBallPracticeResult::class);
-    Route::get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
+    Route::middleware('plan:long_toss_sessions')->get('/{practice}/longtoss', GetLongTossPracticeResult::class);
+    Route::middleware('plan:weighted_ball_sessions')->get('/{practice}/weightball', GetWeightBallPracticeResult::class);
+    Route::middleware('plan:exit_velocity_sessions')->get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
     Route::get('/{practice}/cage', GetCagePracticeResults::class);
     // Players see their own Live AB ball-by-ball too (was coach-only). Still
     // tier-gated by plan:liveab_sessions (Player Pro / Coach Pro).
