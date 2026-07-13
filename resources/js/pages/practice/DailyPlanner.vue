@@ -63,6 +63,11 @@ const weeklyReportDeliveryFormat = ref('text')
 const weeklyReportDeliveryPreview = ref(null)
 const weeklyReportDeliveryLoading = ref('')
 const weeklyReportDeliveryMessage = ref('')
+const weeklyReportDeliveryReview = ref(null)
+const weeklyReportDraftSubject = ref('')
+const weeklyReportDraftMessage = ref('')
+const weeklyReportConfirmSend = ref(false)
+const weeklyReportSendResult = ref(null)
 const weeklyReportNotes = ref([])
 const weeklyReportNotesLoading = ref(false)
 const weeklyReportNotesMessage = ref('')
@@ -137,6 +142,20 @@ const weeklyReportDeliveryFormatOptions = [
   { value: 'text', label: 'Text' },
   { value: 'html', label: 'HTML' },
 ]
+const resetWeeklyReportDeliveryReview = () => {
+  weeklyReportDeliveryReview.value = null
+  weeklyReportDraftSubject.value = ''
+  weeklyReportDraftMessage.value = ''
+  weeklyReportConfirmSend.value = false
+  weeklyReportSendResult.value = null
+}
+const weeklyReportDeliveryBasePayload = () => ({
+  days: 7,
+  audience: weeklyReportExportAudience.value,
+  template: weeklyReportTemplateKey.value,
+  channel: weeklyReportDeliveryChannel.value,
+  format: weeklyReportDeliveryFormat.value,
+})
 
 // ── data ─────────────────────────────────────────────────────────────────────
 const loadPlans = async () => {
@@ -159,6 +178,7 @@ const loadCommandCenter = async () => {
     weeklyReportPreviewOpen.value = false
     weeklyReportDeliveryPreview.value = null
     weeklyReportDeliveryMessage.value = ''
+    resetWeeklyReportDeliveryReview()
     weeklyReportNotes.value = []
     resetWeeklyReportNoteForm()
     nextWeekDraft.value = null
@@ -377,14 +397,9 @@ const loadWeeklyReportDeliveryPreview = async () => {
   }
 
   weeklyReportDeliveryLoading.value = 'preview'
+  resetWeeklyReportDeliveryReview()
   try {
-    const res = await axiosGet(`coach/teams/${activeTeamId.value}/weekly-report/delivery-preview`, {
-      days: 7,
-      audience: weeklyReportExportAudience.value,
-      template: weeklyReportTemplateKey.value,
-      channel: weeklyReportDeliveryChannel.value,
-      format: weeklyReportDeliveryFormat.value,
-    })
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/weekly-report/delivery-preview`, weeklyReportDeliveryBasePayload())
     weeklyReportDeliveryPreview.value = res?.data?.data || null
     const warnings = [
       ...(weeklyReportDeliveryPreview.value?.privacy_warnings || []),
@@ -447,7 +462,7 @@ const loadCustomDrills = async () => {
   } catch { customDrills.value = [] }
 }
 onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -550,6 +565,20 @@ const weeklyReportDeliverySummary = computed(() => weeklyReportDeliveryPreview.v
   unsafe_recipient_count: 0,
   recipient_types: {},
 })
+const weeklyReportReviewWarnings = computed(() => [
+  ...(weeklyReportDeliveryReview.value?.privacy_warnings || []),
+  ...(weeklyReportDeliveryReview.value?.delivery_warnings || []),
+])
+const weeklyReportReviewBlockers = computed(() => Array.isArray(weeklyReportDeliveryReview.value?.send_blockers) ? weeklyReportDeliveryReview.value.send_blockers : [])
+const weeklyReportReviewRecipients = computed(() => Array.isArray(weeklyReportDeliveryReview.value?.recipients) ? weeklyReportDeliveryReview.value.recipients : [])
+const weeklyReportReviewSummary = computed(() => weeklyReportDeliveryReview.value?.recipient_summary || {
+  total_recipients: 0,
+  safe_recipients: 0,
+  missing_contact_count: 0,
+  unsafe_recipient_count: 0,
+  recipient_types: {},
+})
+const weeklyReportCanSend = computed(() => Boolean(weeklyReportDeliveryReview.value?.can_send && weeklyReportConfirmSend.value && !weeklyReportReviewBlockers.value.length))
 const weeklyTeamReportCards = computed(() => [
   {
     label: 'Team Completion',
@@ -679,10 +708,12 @@ watch(weeklyReportTemplateKey, () => {
   applyWeeklyReportTemplate()
   weeklyReportDeliveryPreview.value = null
   weeklyReportDeliveryMessage.value = ''
+  resetWeeklyReportDeliveryReview()
 })
 watch([weeklyReportExportAudience, weeklyReportDeliveryChannel, weeklyReportDeliveryFormat], () => {
   weeklyReportDeliveryPreview.value = null
   weeklyReportDeliveryMessage.value = ''
+  resetWeeklyReportDeliveryReview()
 })
 const resetWeeklyReportNoteForm = () => {
   weeklyReportNoteEditingId.value = ''
@@ -916,20 +947,106 @@ const copyTextToClipboard = async (text, successMessage = 'Copied.') => {
 }
 const copyWeeklyReportDeliverySubject = async () => {
   const payload = weeklyReportDeliveryPreview.value || await loadWeeklyReportDeliveryPreview()
-  if (!payload?.subject) {
+  const subject = weeklyReportDraftSubject.value || payload?.subject || ''
+  if (!subject) {
     weeklyReportDeliveryMessage.value = 'No delivery subject to copy.'
     return
   }
-  await copyTextToClipboard(payload.subject, 'Copied delivery subject.')
+  await copyTextToClipboard(subject, 'Copied delivery subject.')
 }
 const copyWeeklyReportDeliveryMessage = async () => {
   const payload = weeklyReportDeliveryPreview.value || await loadWeeklyReportDeliveryPreview()
-  const text = payload?.message_text || ''
+  const text = weeklyReportDraftMessage.value || payload?.message_text || ''
   if (!text) {
     weeklyReportDeliveryMessage.value = 'No delivery message to copy.'
     return
   }
   await copyTextToClipboard(text, 'Copied delivery message.')
+}
+const applyWeeklyReportDeliveryReview = (payload, message = 'Delivery draft is ready for review.') => {
+  weeklyReportDeliveryReview.value = payload || null
+  weeklyReportDraftSubject.value = payload?.subject || ''
+  weeklyReportDraftMessage.value = payload?.message_text || ''
+  weeklyReportConfirmSend.value = false
+  weeklyReportSendResult.value = null
+  weeklyReportDeliveryMessage.value = payload?.send_blockers?.[0] || payload?.delivery_warnings?.[0] || message
+}
+const loadWeeklyReportDeliveryReview = async () => {
+  weeklyReportDeliveryMessage.value = ''
+  weeklyReportSendResult.value = null
+  if (!activeTeamId.value) {
+    weeklyReportDeliveryMessage.value = 'No team selected.'
+    return null
+  }
+  if (!weeklyTeamReport.value) {
+    weeklyReportDeliveryMessage.value = 'Generate a weekly report before reviewing delivery.'
+    return null
+  }
+
+  weeklyReportDeliveryLoading.value = 'review'
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/weekly-report/delivery-review`, weeklyReportDeliveryBasePayload())
+    const payload = res?.data?.data || null
+    applyWeeklyReportDeliveryReview(payload)
+    return payload
+  } catch {
+    resetWeeklyReportDeliveryReview()
+    weeklyReportDeliveryMessage.value = 'Could not review the delivery draft.'
+    return null
+  } finally {
+    weeklyReportDeliveryLoading.value = ''
+  }
+}
+const recheckWeeklyReportDeliveryDraft = async () => {
+  weeklyReportDeliveryMessage.value = ''
+  weeklyReportSendResult.value = null
+  if (!activeTeamId.value) {
+    weeklyReportDeliveryMessage.value = 'No team selected.'
+    return null
+  }
+
+  weeklyReportDeliveryLoading.value = 'recheck'
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/weekly-report/update-delivery-draft`, {
+      ...weeklyReportDeliveryBasePayload(),
+      subject: weeklyReportDraftSubject.value,
+      message_text: weeklyReportDraftMessage.value,
+    })
+    const payload = res?.data?.data || null
+    applyWeeklyReportDeliveryReview(payload, 'Delivery draft rechecked.')
+    return payload
+  } catch {
+    weeklyReportDeliveryMessage.value = 'Could not recheck the delivery draft.'
+    return null
+  } finally {
+    weeklyReportDeliveryLoading.value = ''
+  }
+}
+const sendWeeklyReportDeliveryDraft = async () => {
+  weeklyReportDeliveryMessage.value = ''
+  weeklyReportSendResult.value = null
+  if (!weeklyReportCanSend.value) {
+    weeklyReportDeliveryMessage.value = weeklyReportReviewBlockers.value[0] || 'Review the draft and confirm before sending.'
+    return null
+  }
+
+  weeklyReportDeliveryLoading.value = 'send'
+  try {
+    const res = await axiosPost(`coach/teams/${activeTeamId.value}/weekly-report/send-delivery-draft`, {
+      ...weeklyReportDeliveryBasePayload(),
+      subject: weeklyReportDraftSubject.value,
+      message_text: weeklyReportDraftMessage.value,
+      confirm_send: true,
+    })
+    weeklyReportSendResult.value = res?.data?.data || null
+    weeklyReportDeliveryMessage.value = weeklyReportSendResult.value?.warnings?.[0] || `Delivery ${human(weeklyReportSendResult.value?.send_status || 'checked')}.`
+    return weeklyReportSendResult.value
+  } catch {
+    weeklyReportDeliveryMessage.value = 'Could not complete the send check.'
+    return null
+  } finally {
+    weeklyReportDeliveryLoading.value = ''
+  }
 }
 const createWeeklyReportDeliveryDraft = async () => {
   weeklyReportDeliveryMessage.value = ''
@@ -938,13 +1055,10 @@ const createWeeklyReportDeliveryDraft = async () => {
     return
   }
   weeklyReportDeliveryLoading.value = 'draft'
+  resetWeeklyReportDeliveryReview()
   try {
     const res = await axiosPost(`coach/teams/${activeTeamId.value}/weekly-report/create-delivery-draft`, {
-      days: 7,
-      audience: weeklyReportExportAudience.value,
-      template: weeklyReportTemplateKey.value,
-      channel: weeklyReportDeliveryChannel.value,
-      format: weeklyReportDeliveryFormat.value,
+      ...weeklyReportDeliveryBasePayload(),
     })
     weeklyReportDeliveryPreview.value = res?.data?.data || null
     weeklyReportDeliveryMessage.value = weeklyReportDeliveryPreview.value?.draft?.message || 'Draft payload prepared.'
@@ -1632,8 +1746,11 @@ const del = async (p) => {
                         <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="Boolean(weeklyReportDeliveryLoading)" @click="loadWeeklyReportDeliveryPreview">
                           {{ weeklyReportDeliveryLoading === 'preview' ? 'Preparing…' : 'Preview Delivery' }}
                         </button>
-                        <button class="dp-btn dp-btn--small" :disabled="!weeklyReportDeliveryPreview?.subject" @click="copyWeeklyReportDeliverySubject">Copy Subject</button>
-                        <button class="dp-btn dp-btn--small" :disabled="!weeklyReportDeliveryPreview?.message_text" @click="copyWeeklyReportDeliveryMessage">Copy Message</button>
+                        <button class="dp-btn dp-btn--small" :disabled="Boolean(weeklyReportDeliveryLoading)" @click="loadWeeklyReportDeliveryReview">
+                          {{ weeklyReportDeliveryLoading === 'review' ? 'Reviewing…' : 'Review Draft' }}
+                        </button>
+                        <button class="dp-btn dp-btn--small" :disabled="!weeklyReportDeliveryPreview?.subject && !weeklyReportDraftSubject" @click="copyWeeklyReportDeliverySubject">Copy Subject</button>
+                        <button class="dp-btn dp-btn--small" :disabled="!weeklyReportDeliveryPreview?.message_text && !weeklyReportDraftMessage" @click="copyWeeklyReportDeliveryMessage">Copy Message</button>
                         <button v-if="weeklyReportDeliveryDraftSupported" class="dp-btn dp-btn--small" :disabled="Boolean(weeklyReportDeliveryLoading)" @click="createWeeklyReportDeliveryDraft">
                           {{ weeklyReportDeliveryLoading === 'draft' ? 'Preparing Draft…' : 'Create Draft' }}
                         </button>
@@ -1693,6 +1810,107 @@ const del = async (p) => {
                           <div class="dp-command-label">Message Preview</div>
                           <pre class="dp-delivery-message">{{ weeklyReportDeliveryPreview.message_text || 'No message returned for this delivery request.' }}</pre>
                         </div>
+                      </div>
+
+                      <div class="dp-delivery-review">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div class="dp-command-label">Delivery Draft Review</div>
+                            <p class="dp-command-sub">Review, edit, and confirm before sending. FMTRX will not send unless this draft passes every safety check.</p>
+                          </div>
+                          <span class="dp-status" :class="statusBadgeClass(weeklyReportDeliveryReview?.can_send ? 'good' : 'warning')">
+                            {{ weeklyReportDeliveryReview?.can_send ? 'Send Ready' : 'Needs Review' }}
+                          </span>
+                        </div>
+
+                        <div v-if="weeklyReportDeliveryReview" class="dp-delivery-review-body">
+                          <div class="dp-completion-grid">
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Recipients</div>
+                              <div class="dp-command-value">{{ weeklyReportReviewSummary.total_recipients || 0 }}</div>
+                              <div class="dp-command-sub">{{ weeklyReportReviewSummary.safe_recipients || 0 }} safe · {{ weeklyReportReviewSummary.missing_contact_count || 0 }} missing contact</div>
+                            </div>
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Channel</div>
+                              <div class="dp-command-value">{{ human(weeklyReportDeliveryReview.channel || weeklyReportDeliveryChannel) }}</div>
+                              <div class="dp-command-sub">{{ weeklyReportDeliveryReview.format?.toUpperCase?.() || weeklyReportDeliveryFormat.toUpperCase() }}</div>
+                            </div>
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Status</div>
+                              <div class="dp-command-value">{{ human(weeklyReportDeliveryReview.delivery_status || 'review_ready') }}</div>
+                              <div class="dp-command-sub">{{ weeklyReportDeliveryReview.requires_confirmation ? 'Confirmation required' : 'No confirmation required' }}</div>
+                            </div>
+                            <div class="dp-command-card">
+                              <div class="dp-command-label">Unsafe</div>
+                              <div class="dp-command-value">{{ weeklyReportReviewSummary.unsafe_recipient_count || 0 }}</div>
+                              <div class="dp-command-sub">Blocked or missing contact</div>
+                            </div>
+                          </div>
+
+                          <div v-if="weeklyReportReviewWarnings.length || weeklyReportReviewBlockers.length" class="dp-delivery-warnings">
+                            <div v-for="blocker in weeklyReportReviewBlockers" :key="`review-blocker-${blocker}`" class="dp-calendar-warning dp-calendar-warning--danger">{{ blocker }}</div>
+                            <div v-for="warning in weeklyReportReviewWarnings" :key="`review-warning-${warning}`" class="dp-calendar-warning">{{ warning }}</div>
+                          </div>
+
+                          <div class="dp-delivery-editor">
+                            <label class="dp-export-field dp-export-field--full">
+                              <span>Subject</span>
+                              <input v-model="weeklyReportDraftSubject" class="dp-input" type="text" placeholder="Delivery subject" />
+                            </label>
+                            <label class="dp-export-field dp-export-field--full">
+                              <span>Message</span>
+                              <textarea v-model="weeklyReportDraftMessage" class="dp-input dp-delivery-textarea" rows="10" placeholder="Delivery message"></textarea>
+                            </label>
+                          </div>
+
+                          <div class="dp-delivery-message-grid">
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Recipient Check</div>
+                              <div v-if="weeklyReportReviewRecipients.length" class="dp-delivery-recipient-list">
+                                <div v-for="recipient in weeklyReportReviewRecipients.slice(0, 8)" :key="`review-${recipient.recipient_type}-${recipient.recipient_id || recipient.email || recipient.name}`" class="dp-delivery-recipient">
+                                  <div>
+                                    <strong>{{ recipient.name || recipient.email || human(recipient.recipient_type) }}</strong>
+                                    <span>{{ human(recipient.recipient_type) }} · {{ recipient.email || 'missing contact' }}</span>
+                                  </div>
+                                  <span class="dp-status" :class="statusBadgeClass(recipient.safe_to_send ? 'good' : 'warning')">{{ recipient.safe_to_send ? 'Safe' : 'Review' }}</span>
+                                </div>
+                                <div v-if="weeklyReportReviewRecipients.length > 8" class="dp-command-sub">+{{ weeklyReportReviewRecipients.length - 8 }} more recipients</div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm">No recipients found for this audience.</div>
+                            </div>
+                            <div class="dp-weekly-panel">
+                              <div class="dp-command-label">Send Readiness</div>
+                              <p class="dp-command-sub" v-if="weeklyReportDeliveryReview.copy_only || weeklyReportDeliveryReview.delivery_status === 'copy_only'">Copy-only delivery. Nothing will be sent by FMTRX.</p>
+                              <p class="dp-command-sub" v-else-if="weeklyReportDeliveryReview.preview?.channel_supported === false">Sending is not configured for this channel. Copy the message instead.</p>
+                              <p class="dp-command-sub" v-else-if="weeklyReportReviewBlockers.length">Resolve every blocker before sending.</p>
+                              <p class="dp-command-sub" v-else>Draft passed current safety checks.</p>
+
+                              <label class="dp-confirm-row">
+                                <input v-model="weeklyReportConfirmSend" type="checkbox" :disabled="!weeklyReportDeliveryReview?.can_send" />
+                                <span>I reviewed this report and confirm it is safe to send to the selected audience.</span>
+                              </label>
+
+                              <div class="dp-export-actions">
+                                <button class="dp-btn dp-btn--small" :disabled="Boolean(weeklyReportDeliveryLoading)" @click="recheckWeeklyReportDeliveryDraft">
+                                  {{ weeklyReportDeliveryLoading === 'recheck' ? 'Checking…' : 'Recheck Draft' }}
+                                </button>
+                                <button class="dp-btn dp-btn--primary dp-btn--small" :disabled="!weeklyReportCanSend || Boolean(weeklyReportDeliveryLoading)" @click="sendWeeklyReportDeliveryDraft">
+                                  {{ weeklyReportDeliveryLoading === 'send' ? 'Sending…' : 'Send Confirmed Draft' }}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div v-if="weeklyReportSendResult" class="dp-send-result">
+                            <div class="dp-command-label">Send Result</div>
+                            <div class="dp-command-value">{{ human(weeklyReportSendResult.send_status || 'checked') }}</div>
+                            <p class="dp-command-sub">{{ weeklyReportSendResult.sent_count || 0 }} sent · {{ weeklyReportSendResult.skipped_count || 0 }} skipped · {{ weeklyReportSendResult.failed_count || 0 }} failed</p>
+                            <ul v-if="weeklyReportSendResult.warnings?.length" class="dp-report-list dp-report-list--compact">
+                              <li v-for="warning in weeklyReportSendResult.warnings" :key="`send-warning-${warning}`">{{ warning }}</li>
+                            </ul>
+                          </div>
+                        </div>
+                        <div v-else class="dp-empty dp-empty--sm mt-3">Prepare a delivery draft review before sending.</div>
                       </div>
                     </template>
                     <p v-if="weeklyReportDeliveryMessage" class="dp-command-message">{{ weeklyReportDeliveryMessage }}</p>
@@ -2611,9 +2829,12 @@ const del = async (p) => {
 @media (min-width:760px){ .dp-report-template-main { flex-direction:row; align-items:center; } }
 .dp-report-delivery { border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
 .dp-delivery-preview { display:grid; gap:12px; margin-top:12px; }
+.dp-delivery-review { display:grid; gap:12px; margin-top:12px; border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
+.dp-delivery-review-body { display:grid; gap:12px; }
 .dp-delivery-warnings { display:grid; gap:7px; }
 .dp-delivery-message-grid { display:grid; grid-template-columns:1fr; gap:10px; }
 @media (min-width:860px){ .dp-delivery-message-grid { grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); } }
+.dp-delivery-editor { display:grid; grid-template-columns:1fr; gap:10px; }
 .dp-delivery-subject { color:#fff; font-weight:950; line-height:1.25; margin-top:7px; overflow-wrap:anywhere; }
 .dp-delivery-recipient-list { display:grid; gap:7px; margin-top:8px; }
 .dp-delivery-recipient { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:8px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:8px 10px; min-width:0; }
@@ -2621,6 +2842,10 @@ const del = async (p) => {
 .dp-delivery-recipient strong { display:block; color:#fff; font-size:12.5px; overflow-wrap:anywhere; }
 .dp-delivery-recipient span:not(.dp-status) { display:block; color:rgba(255,255,255,.5); font-size:11.5px; margin-top:2px; overflow-wrap:anywhere; }
 .dp-delivery-message { margin:9px 0 0; white-space:pre-wrap; word-break:break-word; max-height:280px; overflow:auto; background:rgba(3,7,18,.6); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:11px; color:rgba(255,255,255,.72); font-size:12px; line-height:1.45; }
+.dp-delivery-textarea { min-height:220px; resize:vertical; line-height:1.45; }
+.dp-confirm-row { display:flex; align-items:flex-start; gap:9px; margin-top:12px; color:rgba(255,255,255,.72); font-size:12.5px; line-height:1.4; }
+.dp-confirm-row input { margin-top:2px; accent-color:#ff304f; flex:none; }
+.dp-send-result { border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.035); border-radius:12px; padding:11px; }
 .dp-report-notes { border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
 .dp-report-note-warnings { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
 .dp-report-note-warnings span { border:1px solid rgba(245,158,11,.24); background:rgba(245,158,11,.075); color:#fcd34d; border-radius:999px; padding:5px 8px; font-size:10.5px; font-weight:900; }
