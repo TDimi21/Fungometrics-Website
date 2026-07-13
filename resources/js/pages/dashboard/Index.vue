@@ -2669,7 +2669,7 @@ watch(
           </div>
 
           <!-- Performance Review — scored disciplines (left) + stat detail (right) -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl xl:col-span-2">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-base font-black uppercase tracking-widest text-white">Performance Review</h2>
               <span class="text-white/30 text-xs">Last 10 sessions · FMTRX score</span>
@@ -2737,7 +2737,7 @@ watch(
           </div>
 
           <!-- ── Player Cards ── -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-4 shadow-xl flex flex-col min-h-0">
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-4 shadow-xl flex flex-col min-h-0 xl:col-span-3">
             <div class="flex items-center justify-between mb-3 shrink-0">
               <h2 class="text-sm font-black uppercase tracking-widest text-white">Roster</h2>
               <button
@@ -2756,8 +2756,8 @@ watch(
               No players yet
             </div>
 
-            <!-- Card list: full height when stacked (mobile/tablet), capped + scrollable only in the wide 3-column desktop layout. -->
-            <div v-else class="flex flex-col gap-3 pr-1 max-h-none xl:max-h-[480px] xl:overflow-y-auto" style="scrollbar-width: thin; scrollbar-color: rgba(192,0,0,0.3) transparent;">
+            <!-- Card grid — tiles across the full-width row so cards keep their proportions. -->
+            <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
               <div
                 v-for="p in devBoard" :key="p.id"
                 class="relative rounded-2xl overflow-hidden cursor-pointer group"
