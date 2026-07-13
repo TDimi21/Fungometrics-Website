@@ -2563,7 +2563,7 @@ watch(
                 >
                   <div
                     v-for="player in devBoard" :key="player.id"
-                    class="snap-center shrink-0 w-full cursor-pointer"
+                    class="snap-start shrink-0 w-[420px] max-w-[86vw] cursor-pointer"
                     @click="openSharedPlayerDevelopmentProfile(player)"
                   >
                     <DevelopmentCard :player="player" :team="team" />
