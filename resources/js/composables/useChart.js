@@ -27,6 +27,8 @@ const useChart = () => {
   const contactSpray = ref({ strikes: [], balls: [] })
   const cageSpray = ref([]) // real cage swings (spray/distance/velocity/launch) for the spray chart
   const bullpenPitches = ref([]) // team pitches with location and/or velocity for the heat/velo map
+  const longTossCurve = ref([])  // team distance-by-throw for the long toss chart
+  const weightedBallCurve = ref([]) // team velocity-by-weight for the weighted ball chart
   const seriesDinamicChart = ref([])
   const optionsPlayer = ref()
   const monthsShow = ref([])
@@ -54,6 +56,8 @@ const useChart = () => {
       contactSpray.value = data.data.contact_spray ?? { strikes: [], balls: [] }
       cageSpray.value = Array.isArray(data.data.cage_spray) ? data.data.cage_spray : []
       bullpenPitches.value = Array.isArray(data.data.bullpen_pitches) ? data.data.bullpen_pitches : []
+      longTossCurve.value = Array.isArray(data.data.long_toss_curve) ? data.data.long_toss_curve : []
+      weightedBallCurve.value = Array.isArray(data.data.weighted_ball_curve) ? data.data.weighted_ball_curve : []
     } catch (error) {
       console.warn('getStaticChartData error:', error?.message ?? error)
     } finally {
@@ -268,6 +272,8 @@ const useChart = () => {
     contactSpray,
     cageSpray,
     bullpenPitches,
+    longTossCurve,
+    weightedBallCurve,
     seriesDinamicChart,
     monthsShow,
 

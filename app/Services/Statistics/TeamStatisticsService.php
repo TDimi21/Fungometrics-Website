@@ -11,7 +11,9 @@ use App\Models\Concerns\BattingTrajectory;
 use App\Models\Concerns\PitchThrowTypes;
 use App\Models\Concerns\SidesFieldPosition;
 use App\Models\LiveABPracticeResult;
+use App\Models\LongTossPractice;
 use App\Models\TeamsLiveAB;
+use App\Models\WeightBallPractice;
 use App\Utils\Helper;
 
 final class TeamStatisticsService
@@ -22,6 +24,8 @@ final class TeamStatisticsService
     public $pitching;
     public $pitchingAB;
     public $cage;
+    public $longToss;
+    public $weightBall;
 
     public function __construct(private $id)
     {
@@ -33,6 +37,50 @@ final class TeamStatisticsService
             ->all();
         $this->cage = CagePracticeResult::where('team_id', '=', $this->id)->get();
         $this->liveAB = LiveABPracticeResult::whereIn('practice_id', $liveAbPractices)->get();
+        $this->longToss = LongTossPractice::where('team_id', '=', $this->id)->get();
+        $this->weightBall = WeightBallPractice::where('team_id', '=', $this->id)->get();
+    }
+
+    /**
+     * Long toss "distance by throw" — team-average distance and hops at each throw
+     * index (shows the fatigue curve). Powers the Long Toss line chart.
+     */
+    public function getLongTossCurve(): array
+    {
+        $rows = $this->longToss->filter(fn ($r) => is_numeric($r->distance) && (float) $r->distance > 0);
+        if ($rows->isEmpty()) {
+            return [];
+        }
+        return $rows->groupBy(fn ($r) => (int) ($r->sort ?? 0))
+            ->map(fn ($group, $idx) => [
+                'throw'    => (int) $idx + 1,
+                'distance' => round($group->avg(fn ($r) => (float) $r->distance), 1),
+                'hop'      => round($group->avg(fn ($r) => (float) ($r->hop ?? 0)), 1),
+            ])
+            ->sortBy('throw')
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Weighted-ball velocity curve — team average + top velocity per ball weight
+     * (oz). Powers the Weighted Ball line chart.
+     */
+    public function getWeightedBallCurve(): array
+    {
+        $rows = $this->weightBall->filter(fn ($r) => is_numeric($r->velocity) && (float) $r->velocity > 0 && is_numeric($r->weight));
+        if ($rows->isEmpty()) {
+            return [];
+        }
+        return $rows->groupBy(fn ($r) => (int) $r->weight)
+            ->map(fn ($group, $weight) => [
+                'weight' => (int) $weight,
+                'avg'    => round($group->avg(fn ($r) => (float) $r->velocity), 1),
+                'top'    => round($group->max(fn ($r) => (float) $r->velocity), 1),
+            ])
+            ->sortBy('weight')
+            ->values()
+            ->toArray();
     }
 
     public function getBallsStrikeData(): array

@@ -39,6 +39,8 @@ class GetDataGraphics extends Controller
                     'contact_spray'                => $dataGraphs->getContactSprayData(),
                     'cage_spray'                   => $dataGraphs->getCageSprayData(),
                     'bullpen_pitches'              => $dataGraphs->getBullpenPitchData(),
+                    'long_toss_curve'              => $dataGraphs->getLongTossCurve(),
+                    'weighted_ball_curve'          => $dataGraphs->getWeightedBallCurve(),
                 ];
             });
 

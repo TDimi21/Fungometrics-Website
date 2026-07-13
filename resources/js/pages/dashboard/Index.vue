@@ -9,6 +9,7 @@ import { IndicatorChart } from '@/components/dashboard'
 import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
 import BullpenLocationPanel from '@/components/dashboard/BullpenLocationPanel.vue'
+import TrainingLineChart from '@/components/dashboard/TrainingLineChart.vue'
 import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
 import PitchHeatmapChart from '@/components/dashboard/PitchHeatmapChart.vue'
 import PitchTypeStatsCard from '@/components/dashboard/PitchTypeStatsCard.vue'
@@ -548,6 +549,7 @@ const {
   ballStrike, isloading, directional,
   typeHitsBatting, pitchThrows, pitchVelocityAverage,
   typeHitsPitching, launchAngleAverage, contactSpray, cageSpray, bullpenPitches,
+  longTossCurve, weightedBallCurve,
   getStaticChartData, loadOnMounted,
 } = useChart()
 const { barChartOptions, radiaChartOptions } = useChartOptions()
@@ -734,8 +736,8 @@ watch(scoredPerfRows, (rows) => {
   }
 }, { immediate: true })
 const selectedPerfRow = computed(() => perfRows.value.find((r) => r.key === selectedPerfKey.value) || null)
-// Disciplines that get a field / location visualization in the right panel.
-const showSprayFor = computed(() => ['batting', 'ev', 'cage', 'bullpen'].includes(selectedPerfKey.value))
+// Disciplines that get a chart / field visualization in the right panel.
+const showSprayFor = computed(() => ['batting', 'ev', 'cage', 'bullpen', 'lt', 'wb'].includes(selectedPerfKey.value))
 // All team swings (strikes + balls) with velocity + field_mark, for the velocity field.
 const allSwingBalls = computed(() => {
   const cs = contactSpray.value || {}
@@ -2703,6 +2705,10 @@ watch(
                 <div v-if="showSprayFor" class="mb-4">
                   <!-- Bullpen: catcher's-view heat / velocity map of pitch locations -->
                   <BullpenLocationPanel v-if="selectedPerfKey === 'bullpen'" :pitches="bullpenPitches" />
+                  <!-- Long Toss: distance-by-throw line chart (dots colored by hops) -->
+                  <TrainingLineChart v-else-if="selectedPerfKey === 'lt'" mode="longtoss" :points="longTossCurve" />
+                  <!-- Weighted Ball: velocity curve (avg + top) by ball weight -->
+                  <TrainingLineChart v-else-if="selectedPerfKey === 'wb'" mode="weightedball" :points="weightedBallCurve" />
                   <!-- Cage: real spray chart of results (dots + trajectory) from cage data -->
                   <VelocitySprayField
                     v-else-if="selectedPerfKey === 'cage'"

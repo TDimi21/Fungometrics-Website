@@ -111,6 +111,9 @@ const seasonArchiveDeliveryHistoryMessage = ref('')
 const seasonArchiveDeliveryAnalytics = ref(null)
 const seasonArchiveDeliveryAnalyticsLoading = ref(false)
 const seasonArchiveDeliveryAnalyticsMessage = ref('')
+const seasonCommunicationRhythm = ref(null)
+const seasonCommunicationRhythmLoading = ref(false)
+const seasonCommunicationRhythmMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const selectedSeasonArchiveDelivery = ref(null)
 const weeklyReportNotes = ref([])
@@ -672,10 +675,31 @@ const loadSeasonArchiveDeliveryAnalytics = async () => {
     seasonArchiveDeliveryAnalyticsLoading.value = false
   }
 }
+const loadSeasonCommunicationRhythm = async () => {
+  seasonCommunicationRhythmMessage.value = ''
+  if (!activeTeamId.value) {
+    seasonCommunicationRhythm.value = null
+    return null
+  }
+
+  seasonCommunicationRhythmLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/season-communication-rhythm`, { months: 6 })
+    seasonCommunicationRhythm.value = res?.data?.data || null
+    return seasonCommunicationRhythm.value
+  } catch {
+    seasonCommunicationRhythm.value = null
+    seasonCommunicationRhythmMessage.value = 'Season communication rhythm is not available yet.'
+    return null
+  } finally {
+    seasonCommunicationRhythmLoading.value = false
+  }
+}
 const refreshSeasonArchiveDeliveryInsights = async () => {
   await Promise.all([
     loadSeasonArchiveDeliveryHistory(),
     loadSeasonArchiveDeliveryAnalytics(),
+    loadSeasonCommunicationRhythm(),
   ])
 }
 const openWeeklyReportDeliveryDetail = async (delivery) => {
@@ -1024,6 +1048,77 @@ const seasonArchiveDeliveryAnalyticsCards = computed(() => [
     detail: `${seasonArchiveDeliveryHealth.value.unsafe_recipient_count || 0} unsafe recipients`,
   },
 ])
+const seasonRhythmScore = computed(() => seasonCommunicationRhythm.value?.rhythm_score || {})
+const seasonRhythmRows = computed(() => Array.isArray(seasonCommunicationRhythm.value?.season_rows) ? seasonCommunicationRhythm.value.season_rows : [])
+const seasonRhythmAudienceRows = computed(() => Object.entries(seasonCommunicationRhythm.value?.audience_summary || {}).map(([audience, row]) => ({
+  audience,
+  ...(row || {}),
+})))
+const seasonRhythmTemplateRows = computed(() => Array.isArray(seasonCommunicationRhythm.value?.template_summary) ? seasonCommunicationRhythm.value.template_summary : [])
+const seasonRhythmHealth = computed(() => seasonCommunicationRhythm.value?.delivery_health_summary || {})
+const seasonRhythmActions = computed(() => Array.isArray(seasonCommunicationRhythm.value?.recommended_actions) ? seasonCommunicationRhythm.value.recommended_actions : [])
+const seasonRhythmStreaks = computed(() => seasonCommunicationRhythm.value?.streaks || {})
+const seasonRhythmMonths = computed(() => seasonCommunicationRhythm.value?.months_analyzed || seasonRhythmRows.value.length || 0)
+const seasonRhythmCards = computed(() => [
+  {
+    label: 'Rhythm Score',
+    value: seasonRhythmScore.value.score_0_100 == null ? '—' : oneDecimal(seasonRhythmScore.value.score_0_100),
+    detail: human(seasonRhythmScore.value.label || 'no_activity'),
+  },
+  {
+    label: 'Period Activity',
+    value: `${seasonRhythmScore.value.periods_with_any_packet || 0}/${seasonRhythmMonths.value || 0}`,
+    detail: `${oneDecimal(seasonRhythmScore.value.communication_percentage)}% with a season packet`,
+  },
+  {
+    label: 'Parent-Safe',
+    value: `${seasonRhythmScore.value.periods_with_parent_summary || 0}/${seasonRhythmMonths.value || 0}`,
+    detail: `${oneDecimal(seasonRhythmScore.value.parent_summary_percentage)}% parent summary rhythm`,
+  },
+  {
+    label: 'Staff Packets',
+    value: `${seasonRhythmScore.value.periods_with_staff_packet || 0}/${seasonRhythmMonths.value || 0}`,
+    detail: `${oneDecimal(seasonRhythmScore.value.staff_packet_percentage)}% staff review rhythm`,
+  },
+])
+const seasonRhythmHealthCards = computed(() => [
+  {
+    label: 'Delivery Records',
+    value: seasonRhythmHealth.value.total_records || 0,
+    detail: `${seasonRhythmHealth.value.sent_count || 0} sent · ${seasonRhythmHealth.value.draft_created_count || 0} drafts`,
+  },
+  {
+    label: 'Copy-Only Rate',
+    value: `${oneDecimal(seasonRhythmHealth.value.copy_only_rate)}%`,
+    detail: `${seasonRhythmHealth.value.copy_only_count || 0} copy-only packets`,
+  },
+  {
+    label: 'Blocked/Unsupported',
+    value: (seasonRhythmHealth.value.blocked_count || 0) + (seasonRhythmHealth.value.unsupported_count || 0),
+    detail: `${seasonRhythmHealth.value.failed_count || 0} failed`,
+  },
+  {
+    label: 'Contact Warnings',
+    value: seasonRhythmHealth.value.missing_contact_warning_count || 0,
+    detail: `${seasonRhythmHealth.value.unsafe_recipient_count || 0} unsafe recipients`,
+  },
+])
+const seasonRhythmActionTemplateMap = {
+  create_staff_packet: { template: 'staff_review_packet', audience: 'staff' },
+  create_parent_summary: { template: 'parent_safe_season_summary', audience: 'parents' },
+  create_player_summary: { template: 'player_development_summary', audience: 'players' },
+  create_director_packet: { template: 'director_packet', audience: 'director' },
+}
+const canApplySeasonRhythmAction = (action) => Boolean(seasonRhythmActionTemplateMap[action?.action_type])
+const applySeasonRhythmAction = async (action) => {
+  const target = seasonRhythmActionTemplateMap[action?.action_type]
+  if (!target) return
+  seasonArchiveDeliveryTemplate.value = target.template
+  seasonArchiveDeliveryAudience.value = target.audience
+  seasonArchiveDeliveryChannel.value = 'copy'
+  seasonArchiveDeliveryFormat.value = 'text'
+  await loadSeasonArchiveDeliveryPreview()
+}
 const seasonArchiveCards = computed(() => [
   {
     label: 'Plans Published',
@@ -1201,6 +1296,8 @@ const communicationStatusTone = (status) => ({
   missed: 'warning',
   needs_review: 'warning',
   blocked: 'warning',
+  unsupported: 'warning',
+  failed: 'warning',
   copy_only: 'info',
   excellent: 'good',
   good: 'good',
@@ -3413,6 +3510,125 @@ const del = async (p) => {
                               </div>
                               <div v-else class="dp-empty dp-empty--sm mt-3">No season packet analytics available for this date range.</div>
                               <p v-if="seasonArchiveDeliveryAnalyticsMessage" class="dp-command-message">{{ seasonArchiveDeliveryAnalyticsMessage }}</p>
+                            </div>
+
+                            <div class="dp-weekly-panel dp-season-summary-panel">
+                              <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <div class="dp-command-label">Season Communication Rhythm</div>
+                                  <p class="dp-command-sub">Shows whether season archive packets are being prepared and shared consistently across staff, parents, players, and internal review.</p>
+                                </div>
+                                <span class="dp-status" :class="statusBadgeClass(communicationStatusTone(seasonRhythmScore.label))">
+                                  {{ human(seasonRhythmScore.label || 'no_activity') }}
+                                </span>
+                              </div>
+
+                              <div v-if="seasonCommunicationRhythm" class="dp-delivery-analytics mt-3">
+                                <div class="dp-completion-grid">
+                                  <div v-for="card in seasonRhythmCards" :key="`season-rhythm-card-${card.label}`" class="dp-command-card">
+                                    <div class="dp-command-label">{{ card.label }}</div>
+                                    <div class="dp-command-value">{{ card.value }}</div>
+                                    <div class="dp-command-sub">{{ card.detail }}</div>
+                                  </div>
+                                </div>
+
+                                <div class="dp-delivery-analytics-grid">
+                                  <div class="dp-season-panel--wide">
+                                    <div class="dp-command-label">Period Timeline</div>
+                                    <div v-if="seasonRhythmRows.length" class="dp-rhythm-timeline">
+                                      <div v-for="row in seasonRhythmRows" :key="`season-comm-row-${row.period_start_date}`" class="dp-rhythm-row">
+                                        <div>
+                                          <strong>{{ row.period_label }}</strong>
+                                          <span>{{ row.recommended_action || 'Season communication activity recorded.' }}</span>
+                                          <small>Templates: {{ row.templates_used?.length ? row.templates_used.map(human).join(', ') : '—' }}</small>
+                                        </div>
+                                        <div class="dp-rhythm-pills">
+                                          <span class="dp-status" :class="statusBadgeClass(communicationStatusTone(row.status_label))">{{ human(row.status_label) }}</span>
+                                          <span class="dp-rhythm-pill" :class="{ 'dp-rhythm-pill--on': row.has_staff_review_packet }">Staff</span>
+                                          <span class="dp-rhythm-pill" :class="{ 'dp-rhythm-pill--on': row.has_parent_safe_summary }">Parents</span>
+                                          <span class="dp-rhythm-pill" :class="{ 'dp-rhythm-pill--on': row.has_player_development_summary }">Players</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div v-else class="dp-empty dp-empty--sm mt-2">No season communication history yet.</div>
+                                  </div>
+
+                                  <div>
+                                    <div class="dp-command-label">Audience Summary</div>
+                                    <div v-if="seasonRhythmAudienceRows.length" class="dp-delivery-analytics-list">
+                                      <div v-for="row in seasonRhythmAudienceRows" :key="`season-rhythm-audience-${row.audience}`" class="dp-delivery-analytics-row">
+                                        <span>{{ human(row.audience) }}</span>
+                                        <strong>{{ row.periods_reached || 0 }}/{{ seasonRhythmMonths || 0 }}</strong>
+                                      </div>
+                                    </div>
+                                    <div v-else class="dp-empty dp-empty--sm mt-2">No audience rhythm available yet.</div>
+                                  </div>
+
+                                  <div>
+                                    <div class="dp-command-label">Template Usage</div>
+                                    <div v-if="seasonRhythmTemplateRows.length" class="dp-delivery-analytics-list">
+                                      <div v-for="row in seasonRhythmTemplateRows.slice(0, 5)" :key="`season-rhythm-template-${row.template_key}`" class="dp-delivery-analytics-row">
+                                        <span>{{ row.display_name || human(row.template_key) }}</span>
+                                        <strong>{{ row.total_uses || 0 }}</strong>
+                                      </div>
+                                    </div>
+                                    <div v-else class="dp-empty dp-empty--sm mt-2">No season template rhythm yet.</div>
+                                  </div>
+
+                                  <div>
+                                    <div class="dp-command-label">Delivery Health</div>
+                                    <div class="dp-delivery-analytics-list">
+                                      <div v-for="card in seasonRhythmHealthCards" :key="`season-rhythm-health-${card.label}`" class="dp-delivery-analytics-row">
+                                        <span>{{ card.label }}</span>
+                                        <strong>{{ card.value }}</strong>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div class="dp-command-label">Streaks</div>
+                                    <div class="dp-delivery-analytics-list">
+                                      <div class="dp-delivery-analytics-row">
+                                        <span>Current packet streak</span>
+                                        <strong>{{ seasonRhythmStreaks.current_any_packet_streak || 0 }}</strong>
+                                      </div>
+                                      <div class="dp-delivery-analytics-row">
+                                        <span>Current parent streak</span>
+                                        <strong>{{ seasonRhythmStreaks.current_parent_summary_streak || 0 }}</strong>
+                                      </div>
+                                      <div class="dp-delivery-analytics-row">
+                                        <span>Longest packet streak</span>
+                                        <strong>{{ seasonRhythmStreaks.longest_any_packet_streak || 0 }}</strong>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div class="dp-season-panel--wide">
+                                    <div class="dp-command-label">Recommended Actions</div>
+                                    <div v-if="seasonRhythmActions.length" class="dp-delivery-analytics-list">
+                                      <div v-for="action in seasonRhythmActions.slice(0, 5)" :key="`season-rhythm-action-${action.id}`" class="dp-delivery-analytics-action">
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                          <strong>{{ action.title }}</strong>
+                                          <span class="dp-status" :class="statusBadgeClass(action.priority === 'high' || action.priority === 'critical' ? 'warning' : action.priority === 'medium' ? 'info' : 'muted')">{{ human(action.priority) }}</span>
+                                        </div>
+                                        <small>{{ action.why }}</small>
+                                        <small>{{ action.action }}</small>
+                                        <button
+                                          v-if="canApplySeasonRhythmAction(action)"
+                                          class="dp-btn dp-btn--small mt-2"
+                                          :disabled="Boolean(seasonArchiveDeliveryLoading)"
+                                          @click="applySeasonRhythmAction(action)"
+                                        >
+                                          Prepare Preview
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div v-else class="dp-empty dp-empty--sm mt-2">No season communication action needed yet.</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div v-else class="dp-empty dp-empty--sm mt-3">No season communication history yet.</div>
+                              <p v-if="seasonCommunicationRhythmMessage" class="dp-command-message">{{ seasonCommunicationRhythmMessage }}</p>
                             </div>
 
                             <div class="dp-season-grid">
