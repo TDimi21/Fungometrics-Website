@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\Planner\GetDailyPlanCompletionSummary;
 use App\Http\Controllers\Api\Planner\GetTeamPlannerCommandCenter;
 use App\Http\Controllers\Api\Planner\GetNextWeekCalendarDraft;
 use App\Http\Controllers\Api\Planner\GetNextWeekPlanDraft;
+use App\Http\Controllers\Api\Planner\GetCoachWeeklyTeamReport;
 use App\Http\Controllers\Api\Planner\GetWeeklyPlannerRollup;
 use App\Http\Controllers\Api\Planner\MarkDailyPlanUpdateSeen;
 use App\Http\Controllers\Api\Planner\GetPlayerDailyPlanCompletionSummary;
@@ -302,6 +303,7 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams/{teamId}/planner-command-center', GetTeamPlannerCommandCenter::class);
         Route::post('/teams/{teamId}/planner-command-center/action', RunPlannerCommandCenterAction::class);
         Route::get('/teams/{teamId}/weekly-planner-rollup', GetWeeklyPlannerRollup::class);
+        Route::get('/teams/{teamId}/weekly-team-report', GetCoachWeeklyTeamReport::class);
         Route::get('/teams/{teamId}/next-week-plan-draft', GetNextWeekPlanDraft::class);
         Route::post('/teams/{teamId}/next-week-plan-draft/save-day', SaveNextWeekPlanDraftDay::class);
         Route::get('/teams/{teamId}/next-week-calendar-draft', GetNextWeekCalendarDraft::class);

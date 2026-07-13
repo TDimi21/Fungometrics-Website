@@ -1,0 +1,65 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Api\Planner;
+
+use App\Http\Controllers\Controller;
+use App\Models\CoachTeam;
+use App\Services\Planner\CoachWeeklyTeamReportService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response as HttpCodes;
+
+class GetCoachWeeklyTeamReport extends Controller
+{
+    public function __invoke(string $teamId, Request $request, CoachWeeklyTeamReportService $service): JsonResponse
+    {
+        if (! $this->canAccessTeam($request, $teamId)) {
+            return response()->json([
+                'code' => 'CWTR-F',
+                'message' => 'not allowed to view weekly team report for this team',
+                'status' => 'error',
+                'data' => [],
+            ], HttpCodes::HTTP_FORBIDDEN);
+        }
+
+        return response()->json([
+            'code' => 'CWTR',
+            'message' => 'coach weekly team report',
+            'status' => 'success',
+            'data' => $service->buildTeamReport($teamId, [
+                'start_date' => $request->query('start_date'),
+                'end_date' => $request->query('end_date'),
+                'days' => $this->days($request),
+                'include_player_rows' => $request->query('include_player_rows', true),
+                'include_benchmark_details' => $request->query('include_benchmark_details', true),
+                'include_next_week_priorities' => $request->query('include_next_week_priorities', true),
+            ]),
+        ], HttpCodes::HTTP_OK);
+    }
+
+    private function canAccessTeam(Request $request, string $teamId): bool
+    {
+        $user = $request->user();
+        if (! $user) {
+            return false;
+        }
+
+        if (in_array((string) ($user->type ?? ''), ['admin', 'super_admin'], true)) {
+            return true;
+        }
+
+        return CoachTeam::query()
+            ->where('team_id', $teamId)
+            ->where('coach_id', (string) $user->id)
+            ->exists();
+    }
+
+    private function days(Request $request): int
+    {
+        $days = (int) $request->query('days', 7);
+
+        return max(1, min(365, $days));
+    }
+}

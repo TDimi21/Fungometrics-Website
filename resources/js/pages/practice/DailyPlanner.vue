@@ -13,6 +13,7 @@ import { PRESCRIPTION_TYPES, makeSet, renumber, setSummary } from '@/features/pl
 import {
   blankPlan, estimateMinutes, planToApi, planFromApi, groupFromApi, bucketTitle, uid,
 } from '@/features/planner/dailyPlanner.js'
+import CoachWorkoutPlayers from '@/components/planner/CoachWorkoutPlayers.vue'
 
 const { axiosGet, axiosPost, axiosDelete } = useAxiosAuth()
 const teamStore = useTeamStore()
@@ -23,6 +24,7 @@ const plans = ref([])
 const groups = ref([])
 const teamPlayers = ref([])
 const editing = ref(null)
+const viewingPlayers = ref(null)   // a published plan being reviewed in the View Players flow
 const loading = ref(false)
 const saving = ref(false)
 const offline = ref(false)
@@ -43,6 +45,9 @@ const completionSummaryError = ref('')
 const weeklyRollup = ref(null)
 const weeklyRollupLoading = ref(false)
 const weeklyRollupError = ref('')
+const weeklyTeamReport = ref(null)
+const weeklyTeamReportLoading = ref(false)
+const weeklyTeamReportError = ref('')
 const nextWeekDraft = ref(null)
 const nextWeekDraftLoading = ref(false)
 const nextWeekDraftError = ref('')
@@ -89,6 +94,7 @@ const loadCommandCenter = async () => {
     commandCenter.value = null
     completionSummary.value = null
     weeklyRollup.value = null
+    weeklyTeamReport.value = null
     nextWeekDraft.value = null
     nextWeekCalendarDraft.value = null
     weeklyDraftPlans.value = null
@@ -201,6 +207,31 @@ const loadWeeklyRollup = async () => {
     weeklyRollupLoading.value = false
   }
 }
+const loadWeeklyTeamReport = async () => {
+  weeklyTeamReportError.value = ''
+  if (!activeTeamId.value) {
+    weeklyTeamReport.value = null
+    return null
+  }
+
+  weeklyTeamReportLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/weekly-team-report`, {
+      days: 7,
+      include_player_rows: true,
+      include_benchmark_details: true,
+      include_next_week_priorities: true,
+    })
+    weeklyTeamReport.value = res?.data?.data || null
+    return weeklyTeamReport.value
+  } catch {
+    weeklyTeamReport.value = null
+    weeklyTeamReportError.value = 'Weekly team report is not available yet.'
+    return null
+  } finally {
+    weeklyTeamReportLoading.value = false
+  }
+}
 const loadCompletionSummary = async (dailyPlanId = commandCenter.value?.daily_plan_id) => {
   completionSummaryError.value = ''
   if (!dailyPlanId) {
@@ -247,12 +278,23 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
 const editPlan = (p) => { editing.value = JSON.parse(JSON.stringify(p)) }
+// Open the app-style "View Players" review flow for a published plan.
+const viewPlayers = (p) => { viewingPlayers.value = JSON.parse(JSON.stringify(p)) }
+// Clone a plan into the builder as a fresh draft.
+const duplicatePlan = (p) => {
+  const copy = JSON.parse(JSON.stringify(p))
+  copy.id = undefined
+  copy.name = `${p.name || 'Workout'} (copy)`
+  copy.status = 'draft'
+  copy.publishedAt = null
+  editing.value = copy
+}
 const cancelEdit = () => { editing.value = null }
 
 const itemCount = (p) => (p.buckets || []).reduce((n, b) => n + (b.items || []).length, 0)
@@ -312,6 +354,39 @@ const weeklyTrustedSummary = computed(() => weeklyRollup.value?.trusted_data_sum
 const weeklyRecommendations = computed(() => Array.isArray(weeklyRollup.value?.next_week_recommendations) ? weeklyRollup.value.next_week_recommendations : [])
 const weeklyFollowUps = computed(() => Array.isArray(weeklyPlayerSummary.value?.players_needing_follow_up) ? weeklyPlayerSummary.value.players_needing_follow_up : [])
 const weeklyMissingMetrics = computed(() => Array.isArray(weeklyBenchmarkSummary.value?.top_missing_metrics_remaining) ? weeklyBenchmarkSummary.value.top_missing_metrics_remaining : [])
+const weeklyTeamExecutive = computed(() => weeklyTeamReport.value?.executive_summary || {})
+const weeklyTeamCompletion = computed(() => weeklyTeamReport.value?.team_completion || {})
+const weeklyTeamBenchmark = computed(() => weeklyTeamReport.value?.benchmark_submission_summary || {})
+const weeklyTeamReview = computed(() => weeklyTeamReport.value?.review_summary || {})
+const weeklyTeamTrusted = computed(() => weeklyTeamReport.value?.trusted_data_summary || {})
+const weeklyTeamMissed = computed(() => weeklyTeamReport.value?.missed_work_summary || {})
+const weeklyTeamPlayers = computed(() => Array.isArray(weeklyTeamReport.value?.player_rows) ? weeklyTeamReport.value.player_rows : [])
+const weeklyTeamFollowUps = computed(() => Array.isArray(weeklyTeamReport.value?.coach_follow_ups) ? weeklyTeamReport.value.coach_follow_ups : [])
+const weeklyTeamPriorities = computed(() => Array.isArray(weeklyTeamReport.value?.next_week_priorities) ? weeklyTeamReport.value.next_week_priorities : [])
+const weeklyTeamCollectedMetrics = computed(() => Array.isArray(weeklyTeamBenchmark.value?.top_collected_metrics) ? weeklyTeamBenchmark.value.top_collected_metrics : [])
+const weeklyTeamRemainingMetrics = computed(() => Array.isArray(weeklyTeamBenchmark.value?.top_remaining_missing_metrics) ? weeklyTeamBenchmark.value.top_remaining_missing_metrics : [])
+const weeklyTeamReportCards = computed(() => [
+  {
+    label: 'Team Completion',
+    value: `${oneDecimal(weeklyTeamCompletion.value.team_completion_percentage)}%`,
+    detail: `${weeklyTeamCompletion.value.completed_assignments || 0}/${weeklyTeamCompletion.value.total_assignments || 0} assignments complete`,
+  },
+  {
+    label: 'Benchmark Review',
+    value: weeklyTeamBenchmark.value.submitted_metric_count || 0,
+    detail: `${weeklyTeamBenchmark.value.approved_metric_count || 0} approved · ${weeklyTeamReview.value.pending_review_count || 0} pending`,
+  },
+  {
+    label: 'Trusted Values',
+    value: weeklyTeamTrusted.value.trusted_values_added || 0,
+    detail: `${weeklyTeamTrusted.value.players_improved || 0} players updated`,
+  },
+  {
+    label: 'Missed Work',
+    value: weeklyTeamMissed.value.players_with_missed_work || 0,
+    detail: `${weeklyTeamMissed.value.missed_items_count || 0} missed items`,
+  },
+])
 const nextWeekPriorities = computed(() => Array.isArray(nextWeekDraft.value?.priority_focuses) ? nextWeekDraft.value.priority_focuses : [])
 const nextWeekDays = computed(() => Array.isArray(nextWeekDraft.value?.suggested_plan_days) ? nextWeekDraft.value.suggested_plan_days : [])
 const nextWeekAssignments = computed(() => Array.isArray(nextWeekDraft.value?.player_assignments) ? nextWeekDraft.value.player_assignments : [])
@@ -479,6 +554,7 @@ const handleActionResult = async (result, action) => {
     await loadCommandCenter()
   }
   await loadWeeklyRollup()
+  await loadWeeklyTeamReport()
   await loadNextWeekDraft()
   await loadNextWeekCalendarDraft()
   await loadWeeklyDraftPlans()
@@ -514,6 +590,7 @@ const saveNextWeekDayAsDraft = async (day) => {
     nextWeekDraftMessage.value = `Saved ${day.title || 'suggested day'} as a Daily Planner draft.`
     await loadPlans()
     await loadWeeklyDraftPlans()
+    await loadWeeklyTeamReport()
     if (savedNextWeekDailyPlan.value?.daily_plan) {
       editing.value = planFromApi(savedNextWeekDailyPlan.value.daily_plan)
     }
@@ -593,6 +670,7 @@ const saveCalendarDraftDays = async (daysToSave = selectedCalendarDays.value) =>
     await loadPlans()
     await loadNextWeekCalendarDraft()
     await loadWeeklyDraftPlans()
+    await loadWeeklyTeamReport()
   } catch {
     nextWeekCalendarMessage.value = 'Could not save selected days.'
   } finally {
@@ -644,6 +722,7 @@ const publishWeeklyDraftPlan = async (plan, assignAll = false) => {
     await loadPlans()
     await loadWeeklyDraftPlans()
     await loadNextWeekCalendarDraft()
+    await loadWeeklyTeamReport()
   } catch {
     weeklyPublishMessage.value = 'Could not publish that weekly draft plan.'
   } finally {
@@ -675,6 +754,7 @@ const publishSelectedWeeklyDraftPlans = async (assignAll = false) => {
     await loadPlans()
     await loadWeeklyDraftPlans()
     await loadNextWeekCalendarDraft()
+    await loadWeeklyTeamReport()
   } catch {
     weeklyPublishMessage.value = 'Could not publish selected weekly draft plans.'
   } finally {
@@ -783,8 +863,11 @@ const del = async (p) => {
   <div class="min-h-screen bg-[#060b14] text-white">
     <div class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
 
+      <!-- ══ VIEW PLAYERS (per-player progress + review) ══ -->
+      <CoachWorkoutPlayers v-if="viewingPlayers" :plan="viewingPlayers" @back="viewingPlayers = null" />
+
       <!-- ══ LIST ══ -->
-      <template v-if="!editing">
+      <template v-else-if="!editing">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
             <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Workout Plans</h1>
@@ -960,6 +1043,152 @@ const del = async (p) => {
                   </div>
                   <div v-else class="dp-command-sub">No next-week recommendations are available yet.</div>
                 </div>
+              </template>
+            </div>
+
+            <div class="dp-command-block">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div>
+                  <div class="dp-section mb-0">Coach Weekly Team Report</div>
+                  <p class="dp-command-sub">Completion, benchmark submissions, coach review, trusted data, and next-week priorities.</p>
+                </div>
+                <div class="dp-calendar-controls">
+                  <button v-if="weeklyTeamReview.pending_review_count" class="dp-btn dp-btn--small" @click="openReviewQueue">Review Pending Submissions</button>
+                  <button class="dp-btn dp-btn--small" @click="loadNextWeekDraft">Generate Next Week Draft</button>
+                  <button class="dp-btn dp-btn--small" @click="loadNextWeekCalendarDraft">Open Weekly Calendar Draft</button>
+                  <button class="dp-link" :disabled="weeklyTeamReportLoading" @click="loadWeeklyTeamReport">{{ weeklyTeamReportLoading ? 'Refreshing…' : 'Refresh Report' }}</button>
+                </div>
+              </div>
+
+              <div v-if="weeklyTeamReportLoading && !weeklyTeamReport" class="dp-command-loading">Building weekly team report…</div>
+              <div v-else-if="weeklyTeamReportError" class="dp-empty dp-empty--sm">{{ weeklyTeamReportError }}</div>
+              <div v-else-if="!weeklyTeamReport" class="dp-empty dp-empty--sm">Weekly team report is not available yet.</div>
+              <template v-else>
+                <div class="dp-weekly-header">
+                  <div>
+                    <div class="dp-command-label">{{ weeklyTeamReport.week_label || 'Current Week' }}</div>
+                    <div class="dp-report-headline">{{ weeklyTeamExecutive.headline || 'No daily plans were assigned this week.' }}</div>
+                    <p class="dp-empty-copy">{{ weeklyTeamExecutive.summary_text || 'No player completion data is available yet.' }}</p>
+                  </div>
+                  <span class="dp-status" :class="statusBadgeClass(weeklyTeamReport.report_status === 'complete' ? 'complete' : weeklyTeamReport.report_status === 'partial' ? 'warning' : weeklyTeamReport.report_status === 'failed' ? 'warning' : 'muted')">
+                    {{ human(weeklyTeamReport.report_status || 'empty') }}
+                  </span>
+                </div>
+
+                <div class="dp-report-summary-grid">
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Wins</div>
+                    <ul v-if="weeklyTeamExecutive.wins?.length" class="dp-report-list">
+                      <li v-for="win in weeklyTeamExecutive.wins.slice(0, 4)" :key="`win-${win}`">{{ win }}</li>
+                    </ul>
+                    <p v-else class="dp-command-sub">No weekly wins are available yet.</p>
+                  </div>
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Concerns</div>
+                    <ul v-if="weeklyTeamExecutive.concerns?.length" class="dp-report-list">
+                      <li v-for="concern in weeklyTeamExecutive.concerns.slice(0, 4)" :key="`concern-${concern}`">{{ concern }}</li>
+                    </ul>
+                    <p v-else class="dp-command-sub">No urgent weekly blockers are surfaced.</p>
+                  </div>
+                  <div class="dp-weekly-panel dp-weekly-panel--highlight">
+                    <div class="dp-command-label">Next Best Action</div>
+                    <div class="dp-report-next-action">{{ weeklyTeamExecutive.next_best_action || 'Generate the next week plan when ready.' }}</div>
+                  </div>
+                </div>
+
+                <div class="dp-completion-grid mt-3">
+                  <div v-for="card in weeklyTeamReportCards" :key="`team-report-${card.label}`" class="dp-command-card">
+                    <div class="dp-command-label">{{ card.label }}</div>
+                    <div class="dp-command-value">{{ card.value }}</div>
+                    <div class="dp-command-sub">{{ card.detail }}</div>
+                  </div>
+                </div>
+
+                <div class="dp-weekly-panel mt-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="dp-command-label">Player Report Rows</div>
+                    <span class="dp-command-sub">{{ weeklyTeamPlayers.length }} player{{ weeklyTeamPlayers.length === 1 ? '' : 's' }}</span>
+                  </div>
+                  <div v-if="weeklyTeamPlayers.length" class="dp-report-player-list">
+                    <div v-for="row in weeklyTeamPlayers" :key="`weekly-report-player-${row.player_id || row.player_name}`" class="dp-report-player-row">
+                      <div class="min-w-0">
+                        <div class="font-bold truncate">{{ row.player_name || 'Player' }}</div>
+                        <div class="text-white/40 text-xs">{{ row.next_needed_action || 'No action needed' }}</div>
+                      </div>
+                      <div class="dp-player-status-metrics">
+                        <span>{{ oneDecimal(row.completion_percentage) }}%</span>
+                        <span>{{ row.plans_completed || 0 }}/{{ row.plans_assigned || 0 }} plans</span>
+                        <span>{{ row.benchmark_values_submitted || 0 }} submitted</span>
+                        <span>{{ row.pending_review_count || 0 }} review</span>
+                        <span>{{ row.approved_count || 0 }} approved</span>
+                        <span>{{ row.correction_requested_count || 0 }} correction</span>
+                        <span>{{ human(row.status_label) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="dp-empty dp-empty--sm mt-2">No player completion data is available yet.</div>
+                </div>
+
+                <div class="dp-weekly-columns">
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Benchmark Submission Summary</div>
+                    <div class="dp-report-metrics">
+                      <span>{{ weeklyTeamBenchmark.submitted_metric_count || 0 }} submitted</span>
+                      <span>{{ weeklyTeamBenchmark.approved_metric_count || 0 }} approved</span>
+                      <span>{{ weeklyTeamBenchmark.pending_review_count || 0 }} pending</span>
+                      <span>{{ weeklyTeamBenchmark.trusted_values_promoted || 0 }} trusted</span>
+                    </div>
+                    <div v-if="weeklyTeamCollectedMetrics.length" class="dp-weekly-list">
+                      <div v-for="metric in weeklyTeamCollectedMetrics.slice(0, 5)" :key="`collected-${metric.metric_key}`" class="dp-gap-row">
+                        <span>{{ metric.display_name || metricLabel(metric.metric_key) }}</span>
+                        <span>{{ metric.submitted_count || 0 }} submitted</span>
+                      </div>
+                    </div>
+                    <div v-else class="dp-command-sub">No benchmark values were submitted this week.</div>
+                  </div>
+
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Remaining Missing Metrics</div>
+                    <div v-if="weeklyTeamRemainingMetrics.length" class="dp-weekly-list">
+                      <div v-for="metric in weeklyTeamRemainingMetrics.slice(0, 6)" :key="`remaining-${metric.metric_key || metric.display_name}`" class="dp-gap-row">
+                        <span>{{ metric.display_name || metricLabel(metric.metric_key) }}</span>
+                        <span>{{ metric.missing_count || 0 }} missing</span>
+                      </div>
+                    </div>
+                    <div v-else class="dp-command-sub">No benchmark gaps are surfaced for this report.</div>
+                  </div>
+                </div>
+
+                <div class="dp-weekly-columns">
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Coach Follow-Ups</div>
+                    <div v-if="weeklyTeamFollowUps.length" class="dp-weekly-recommendations dp-weekly-recommendations--single">
+                      <div v-for="followUp in weeklyTeamFollowUps.slice(0, 6)" :key="`follow-up-${followUp.title}`" class="dp-action-card">
+                        <span class="dp-priority" :class="priorityClass(followUp.priority)">{{ human(followUp.priority) }}</span>
+                        <div class="font-extrabold mt-2">{{ followUp.title }}</div>
+                        <p class="text-white/55 text-xs mt-2">{{ followUp.why }}</p>
+                        <p class="text-white/35 text-xs mt-1">{{ followUp.recommended_action }}</p>
+                        <p v-if="followUp.players?.length" class="text-white/35 text-xs mt-1">Players: {{ followUp.players.slice(0, 4).map((player) => player.player_name).join(', ') }}</p>
+                      </div>
+                    </div>
+                    <div v-else class="dp-command-sub">No coach follow-ups are surfaced yet.</div>
+                  </div>
+
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Next Week Priorities</div>
+                    <div v-if="weeklyTeamPriorities.length" class="dp-weekly-recommendations dp-weekly-recommendations--single">
+                      <div v-for="priority in weeklyTeamPriorities.slice(0, 5)" :key="`team-report-priority-${priority.rank}-${priority.title}`" class="dp-action-card">
+                        <span class="dp-priority" :class="priorityClass(priority.priority)">{{ human(priority.priority) }}</span>
+                        <div class="font-extrabold mt-2">#{{ priority.rank }} {{ priority.title }}</div>
+                        <p class="text-white/55 text-xs mt-2">{{ priority.why }}</p>
+                        <p v-if="priority.suggested_block" class="text-white/35 text-xs mt-1">{{ priority.suggested_block }} · {{ priority.estimated_minutes || 0 }} min</p>
+                      </div>
+                    </div>
+                    <div v-else class="dp-command-sub">No next-week priorities are available yet.</div>
+                  </div>
+                </div>
+
+                <div v-if="weeklyTeamReport.warnings?.length" class="dp-calendar-warning mt-3">{{ weeklyTeamReport.warnings[0] }}</div>
               </template>
             </div>
 
@@ -1436,8 +1665,8 @@ const del = async (p) => {
           <div class="sm:col-span-2 xl:col-span-3">
             <div class="dp-section mb-2">Saved Plans</div>
           </div>
-          <div v-for="p in plans" :key="p.id" class="dp-card" @click="editPlan(p)">
-            <div class="flex items-start justify-between gap-2">
+          <div v-for="p in plans" :key="p.id" class="dp-card dp-card--static">
+            <div class="flex items-start justify-between gap-2 cursor-pointer" @click="p.status === 'published' ? viewPlayers(p) : editPlan(p)">
               <div class="min-w-0">
                 <div class="font-extrabold truncate">{{ p.name || 'Untitled plan' }}</div>
                 <div class="text-white/40 text-xs mt-0.5">{{ fmtDate(p.date) }} · {{ p.phase || '—' }}</div>
@@ -1450,8 +1679,11 @@ const del = async (p) => {
               <span>{{ estimateMinutes(p) }} min</span>
               <span>{{ p.assignedPlayerIds.length }} assigned</span>
             </div>
-            <div class="mt-3 pt-3 border-t border-white/10 flex justify-end">
-              <button class="dp-link dp-link--danger" @click.stop="del(p)">Delete</button>
+            <div class="mt-3 pt-3 border-t border-white/10 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <button v-if="p.status === 'published'" class="dp-link" @click.stop="viewPlayers(p)">View Players</button>
+              <button class="dp-link" @click.stop="editPlan(p)">Edit Workout</button>
+              <button class="dp-link" @click.stop="duplicatePlan(p)">Duplicate</button>
+              <button class="dp-link dp-link--danger ml-auto" @click.stop="del(p)">Delete</button>
             </div>
           </div>
         </div>
@@ -1659,6 +1891,19 @@ const del = async (p) => {
 .dp-weekly-list { display:grid; gap:6px; margin-top:8px; }
 .dp-weekly-recommendations { display:grid; gap:8px; margin-top:9px; }
 @media (min-width:900px){ .dp-weekly-recommendations { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+.dp-weekly-recommendations--single { grid-template-columns:1fr; }
+.dp-report-headline { color:#fff; font-size:18px; line-height:1.2; font-weight:950; margin-top:5px; overflow-wrap:anywhere; }
+.dp-report-summary-grid { display:grid; grid-template-columns:1fr; gap:10px; margin-top:10px; }
+@media (min-width:900px){ .dp-report-summary-grid { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+.dp-weekly-panel--highlight { border-color:rgba(216,35,42,.26); background:rgba(216,35,42,.065); }
+.dp-report-list { margin:8px 0 0; padding-left:17px; color:rgba(255,255,255,.68); font-size:12.5px; line-height:1.45; }
+.dp-report-list li { margin-top:3px; }
+.dp-report-next-action { color:#fff; font-size:14px; line-height:1.35; font-weight:900; margin-top:8px; overflow-wrap:anywhere; }
+.dp-report-player-list { display:grid; gap:7px; margin-top:10px; }
+.dp-report-player-row { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; }
+@media (min-width:820px){ .dp-report-player-row { flex-direction:row; align-items:center; } }
+.dp-report-metrics { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+.dp-report-metrics span { background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.075); border-radius:999px; padding:4px 8px; color:rgba(255,255,255,.64); font-size:11px; font-weight:850; }
 .dp-next-week-days { display:grid; gap:12px; margin-top:12px; }
 .dp-next-week-day { background:rgba(9,14,29,.62); border:1px solid rgba(255,255,255,.1); border-radius:15px; padding:14px; min-width:0; }
 .dp-next-week-actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-start; }
@@ -1766,6 +2011,7 @@ const del = async (p) => {
 .dp-add-drill { width:100%; margin-top:4px; background:rgba(33,96,196,.14); border:1px dashed rgba(124,166,245,.5); color:#9fc0ff; font-weight:800; font-size:13px; padding:11px; border-radius:10px; cursor:pointer; }
 .dp-add-drill:hover { background:rgba(33,96,196,.22); }
 .dp-card { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:16px; cursor:pointer; }
+.dp-card--static { cursor:default; }
 .dp-card:hover { border-color:rgba(255,255,255,.22); background:rgba(255,255,255,.06); }
 .dp-badge { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:3px 8px; border-radius:6px; white-space:nowrap; }
 .dp-badge--pub { color:#43d089; background:rgba(52,211,153,.15); }

@@ -66,3 +66,19 @@ export const groupFromApi = (r = {}) => ({
   name: r.name ?? '',
   memberIds: Array.isArray(r.member_ids) ? r.member_ids.map(String) : [],
 })
+
+// Map a player's progress record (snake-case backend model) to the camelCase shape
+// the workoutProgress helpers expect. Null-safe: a null/absent record → null.
+export const progressFromApi = (pr, planId) => {
+  if (!pr || typeof pr !== 'object') return null
+  return {
+    planId: pr.plan_id ?? planId,
+    readiness: pr.readiness || {},
+    items: pr.items || {},
+    reflection: pr.reflection || {},
+    completionSummary: pr.completion_summary || pr.completionSummary || undefined,
+    coachReview: pr.coach_review || pr.coachReview || undefined,
+    startedAt: pr.started_at ?? pr.startedAt ?? null,
+    completedAt: pr.completed_at ?? pr.completedAt ?? null,
+  }
+}
