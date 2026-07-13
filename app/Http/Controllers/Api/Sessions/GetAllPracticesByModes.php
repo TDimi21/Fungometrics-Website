@@ -25,10 +25,15 @@ class GetAllPracticesByModes extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         try {
+            // Only training-mode sessions (EV / WB / LT). Without this filter the query
+            // returned the 10 most-recent practices of ALL types, and the client filtered
+            // for training modes — so training sessions vanished once newer batting/cage
+            // sessions pushed them off page 1. Filtering server-side keeps pagination correct.
+            $trainingModes = ['EV', 'WB', 'LT'];
             if ($request->team) {
-                $practices = Practice::where('team_id', $request->team)->orderBy('updated_at', 'desc')->paginate(10);
+                $practices = Practice::where('team_id', $request->team)->whereIn('modes', $trainingModes)->orderBy('updated_at', 'desc')->paginate(10);
             } else {
-                $practices = Practice::where('user_id', Auth::id())->orderBy('updated_at', 'desc')->paginate(10);
+                $practices = Practice::where('user_id', Auth::id())->whereIn('modes', $trainingModes)->orderBy('updated_at', 'desc')->paginate(10);
             }
 
             if (0 === count($practices)) {

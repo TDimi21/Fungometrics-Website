@@ -114,6 +114,9 @@ const seasonArchiveDeliveryAnalyticsMessage = ref('')
 const seasonCommunicationRhythm = ref(null)
 const seasonCommunicationRhythmLoading = ref(false)
 const seasonCommunicationRhythmMessage = ref('')
+const developmentProgramHealth = ref(null)
+const developmentProgramHealthLoading = ref(false)
+const developmentProgramHealthMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const selectedSeasonArchiveDelivery = ref(null)
 const weeklyReportNotes = ref([])
@@ -267,6 +270,7 @@ const loadCommandCenter = async () => {
     resetSeasonArchiveDeliveryReview()
     seasonArchiveDeliveryHistory.value = null
     seasonArchiveDeliveryAnalytics.value = null
+    developmentProgramHealth.value = null
     selectedWeeklyReportDelivery.value = null
     selectedSeasonArchiveDelivery.value = null
     weeklyReportNotes.value = []
@@ -695,6 +699,32 @@ const loadSeasonCommunicationRhythm = async () => {
     seasonCommunicationRhythmLoading.value = false
   }
 }
+const loadDevelopmentProgramHealth = async () => {
+  developmentProgramHealthMessage.value = ''
+  if (!activeTeamId.value) {
+    developmentProgramHealth.value = null
+    return null
+  }
+
+  developmentProgramHealthLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/development-program-health`, {
+      days: 30,
+      include_weekly_reports: true,
+      include_season_archive: true,
+      include_population_learning: false,
+      include_decision_brief: false,
+    })
+    developmentProgramHealth.value = res?.data?.data || null
+    return developmentProgramHealth.value
+  } catch {
+    developmentProgramHealth.value = null
+    developmentProgramHealthMessage.value = 'Development program health is not available yet.'
+    return null
+  } finally {
+    developmentProgramHealthLoading.value = false
+  }
+}
 const refreshSeasonArchiveDeliveryInsights = async () => {
   await Promise.all([
     loadSeasonArchiveDeliveryHistory(),
@@ -816,8 +846,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -1103,6 +1133,26 @@ const seasonRhythmHealthCards = computed(() => [
     detail: `${seasonRhythmHealth.value.unsafe_recipient_count || 0} unsafe recipients`,
   },
 ])
+const healthStatusTone = (label) => ({
+  elite: 'good',
+  strong: 'good',
+  stable: 'info',
+  needs_attention: 'warning',
+  at_risk: 'warning',
+  no_data: 'muted',
+}[label] || 'muted')
+const developmentHealthSummary = computed(() => developmentProgramHealth.value?.summary || {})
+const developmentHealthComponents = computed(() => developmentProgramHealth.value?.score_components || {})
+const developmentHealthComponentRows = computed(() => Object.entries(developmentHealthComponents.value).map(([key, component]) => ({
+  key,
+  ...(component || {}),
+  displayLabel: human(key),
+})))
+const developmentHealthActions = computed(() => Array.isArray(developmentProgramHealth.value?.highest_leverage_actions) ? developmentProgramHealth.value.highest_leverage_actions : [])
+const developmentHealthStrengths = computed(() => Array.isArray(developmentProgramHealth.value?.strengths) ? developmentProgramHealth.value.strengths : [])
+const developmentHealthRisks = computed(() => Array.isArray(developmentProgramHealth.value?.risks) ? developmentProgramHealth.value.risks : [])
+const developmentHealthTrends = computed(() => Array.isArray(developmentProgramHealth.value?.trend_signals) ? developmentProgramHealth.value.trend_signals : [])
+const developmentHealthWarnings = computed(() => Array.isArray(developmentProgramHealth.value?.warnings) ? developmentProgramHealth.value.warnings : [])
 const seasonRhythmActionTemplateMap = {
   create_staff_packet: { template: 'staff_review_packet', audience: 'staff' },
   create_parent_summary: { template: 'parent_safe_season_summary', audience: 'parents' },
@@ -2381,6 +2431,130 @@ const del = async (p) => {
                 <div class="dp-command-value">{{ card.value }}</div>
                 <div class="dp-command-sub">{{ card.detail }}</div>
               </div>
+            </div>
+
+            <div class="dp-command-block">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div>
+                  <div class="dp-section mb-0">Development Program Health</div>
+                  <p class="dp-command-sub">Coach-facing operating score for planning, completion, benchmark coverage, review flow, trusted data, and communication rhythm.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="dp-status" :class="statusBadgeClass(healthStatusTone(developmentProgramHealth?.overall_label))">
+                    {{ developmentProgramHealth ? human(developmentProgramHealth.overall_label) : 'No Data Yet' }}
+                  </span>
+                  <button class="dp-link" :disabled="developmentProgramHealthLoading" @click="loadDevelopmentProgramHealth">
+                    {{ developmentProgramHealthLoading ? 'Refreshing…' : 'Refresh Health' }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="developmentProgramHealthLoading && !developmentProgramHealth" class="dp-command-loading">Building development program health…</div>
+              <div v-else-if="developmentProgramHealth">
+                <div class="dp-weekly-header">
+                  <div>
+                    <div class="dp-command-label">{{ developmentProgramHealth.start_date }} to {{ developmentProgramHealth.end_date }}</div>
+                    <p class="dp-empty-copy">{{ developmentHealthSummary.summary_text || 'Program health will appear after plans, player progress, and benchmark data are collected.' }}</p>
+                  </div>
+                  <div class="text-right">
+                    <div class="dp-command-value">{{ developmentProgramHealth.overall_score_0_100 == null ? '—' : oneDecimal(developmentProgramHealth.overall_score_0_100) }}</div>
+                    <div class="dp-command-sub">{{ developmentHealthSummary.headline || human(developmentProgramHealth.overall_label) }}</div>
+                  </div>
+                </div>
+
+                <div class="dp-completion-grid mt-3">
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Primary Strength</div>
+                    <div class="dp-command-value">{{ developmentHealthSummary.primary_strength || '—' }}</div>
+                    <div class="dp-command-sub">Best operating signal</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Primary Risk</div>
+                    <div class="dp-command-value">{{ developmentHealthSummary.primary_risk || '—' }}</div>
+                    <div class="dp-command-sub">Needs attention first</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Next Best Action</div>
+                    <div class="dp-command-value">{{ developmentHealthSummary.next_best_action || 'Keep collecting operating data' }}</div>
+                    <div class="dp-command-sub">Highest leverage coach move</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Available Components</div>
+                    <div class="dp-command-value">{{ developmentProgramHealth.evidence?.available_component_count || 0 }}/6</div>
+                    <div class="dp-command-sub">Unavailable components are removed from the score denominator.</div>
+                  </div>
+                </div>
+
+                <div v-if="developmentHealthComponentRows.length" class="dp-completion-grid mt-3">
+                  <div v-for="component in developmentHealthComponentRows" :key="`health-component-${component.key}`" class="dp-command-card">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="dp-command-label">{{ component.displayLabel }}</div>
+                      <span class="dp-status" :class="statusBadgeClass(healthStatusTone(component.label))">{{ human(component.label || 'no_data') }}</span>
+                    </div>
+                    <div class="dp-command-value">{{ component.score_0_100 == null ? '—' : oneDecimal(component.score_0_100) }}</div>
+                    <div class="dp-command-sub">{{ component.headline || 'No operating signal yet.' }}</div>
+                    <div class="dp-command-sub">{{ component.why_it_matters }}</div>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-3">Some components are unavailable because the team has not used that workflow yet.</div>
+
+                <div class="dp-weekly-columns mt-3">
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Highest Leverage Actions</div>
+                    <div v-if="developmentHealthActions.length" class="dp-delivery-analytics-list">
+                      <div v-for="action in developmentHealthActions.slice(0, 5)" :key="`health-action-${action.source_component}-${action.title}`" class="dp-delivery-analytics-action">
+                        <span class="dp-status" :class="statusBadgeClass(action.priority === 'critical' || action.priority === 'high' ? 'warning' : action.priority === 'medium' ? 'info' : 'muted')">{{ human(action.priority) }}</span>
+                        <strong>{{ action.title }}</strong>
+                        <small>{{ action.action }}</small>
+                      </div>
+                    </div>
+                    <div v-else class="dp-empty dp-empty--sm mt-2">No operating actions are available yet.</div>
+                  </div>
+
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Strengths</div>
+                    <div v-if="developmentHealthStrengths.length" class="dp-delivery-analytics-list">
+                      <div v-for="strength in developmentHealthStrengths.slice(0, 4)" :key="`health-strength-${strength.component}`" class="dp-delivery-analytics-row">
+                        <span>{{ strength.title }}</span>
+                        <strong>{{ strength.score_0_100 == null ? '—' : oneDecimal(strength.score_0_100) }}</strong>
+                      </div>
+                    </div>
+                    <div v-else class="dp-empty dp-empty--sm mt-2">No clear program strengths yet.</div>
+                  </div>
+
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Risks</div>
+                    <div v-if="developmentHealthRisks.length" class="dp-delivery-analytics-list">
+                      <div v-for="risk in developmentHealthRisks.slice(0, 4)" :key="`health-risk-${risk.component}-${risk.title}`" class="dp-delivery-analytics-action">
+                        <strong>{{ risk.title }}</strong>
+                        <small>{{ risk.risk }}</small>
+                      </div>
+                    </div>
+                    <div v-else class="dp-empty dp-empty--sm mt-2">No program health risks are surfaced.</div>
+                  </div>
+
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Trend Signals</div>
+                    <div v-if="developmentHealthTrends.length" class="dp-delivery-analytics-list">
+                      <div v-for="trend in developmentHealthTrends.slice(0, 4)" :key="`health-trend-${trend.label}`" class="dp-delivery-analytics-action">
+                        <span class="dp-status" :class="statusBadgeClass(trend.type === 'improving' ? 'good' : trend.type === 'declining' ? 'warning' : 'muted')">{{ human(trend.type) }}</span>
+                        <strong>{{ trend.label }}</strong>
+                        <small>{{ trend.message }}</small>
+                      </div>
+                    </div>
+                    <div v-else class="dp-empty dp-empty--sm mt-2">No trend signals are available yet.</div>
+                  </div>
+                </div>
+
+                <div v-if="developmentHealthWarnings.length" class="dp-command-alert mt-3">
+                  <div class="font-bold mb-1">Health input warnings</div>
+                  <div v-for="warning in developmentHealthWarnings.slice(0, 3)" :key="`health-warning-${warning}`">{{ warning }}</div>
+                </div>
+              </div>
+              <div v-else class="dp-empty dp-empty--sm">
+                Program health will appear after plans, player progress, and benchmark data are collected.
+              </div>
+              <p v-if="developmentProgramHealthMessage" class="dp-command-message">{{ developmentProgramHealthMessage }}</p>
             </div>
 
             <div class="dp-command-block">

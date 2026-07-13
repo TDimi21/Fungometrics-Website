@@ -63,6 +63,7 @@ use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryAnalyticsController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryHistoryController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryReviewController;
 use App\Http\Controllers\Api\Planner\SeasonCommunicationRhythmController;
+use App\Http\Controllers\Api\Planner\DevelopmentProgramHealthController;
 use App\Http\Controllers\Api\Planner\SeasonDevelopmentArchiveController;
 use App\Http\Controllers\Api\Planner\SeasonArchiveExportController;
 use App\Http\Controllers\Api\Planner\SeasonArchiveDeliveryAnalyticsController;
@@ -321,6 +322,7 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams/{teamId}/weekly-team-report', GetCoachWeeklyTeamReport::class);
         Route::get('/teams/{teamId}/communication-rhythm', [CommunicationRhythmController::class, 'team']);
         Route::get('/teams/{teamId}/season-communication-rhythm', [SeasonCommunicationRhythmController::class, 'team']);
+        Route::get('/teams/{teamId}/development-program-health', [DevelopmentProgramHealthController::class, 'team']);
         Route::get('/teams/{teamId}/season-development-archive', [SeasonDevelopmentArchiveController::class, 'team']);
         Route::get('/teams/{teamId}/season-archive/export', [SeasonArchiveExportController::class, 'team']);
         Route::get('/teams/{teamId}/season-archive/delivery-preview', [SeasonArchiveDeliveryPrepController::class, 'preview']);
