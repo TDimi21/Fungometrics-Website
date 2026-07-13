@@ -12,6 +12,7 @@ class WeeklyReportDeliveryReviewService
 
     public function __construct(
         private readonly WeeklyReportDeliveryPrepService $prepService,
+        private readonly WeeklyReportDeliveryHistoryService $historyService,
     ) {
     }
 
@@ -21,7 +22,19 @@ class WeeklyReportDeliveryReviewService
     public function buildDraftReview(string $teamId, array $options = []): array
     {
         $prepared = $this->prepService->prepareDelivery($teamId, $options);
-        $review = $this->reviewFromPrepared($prepared, $options);
+        $review = $this->reviewFromPrepared([
+            ...$prepared,
+            'start_date' => $options['start_date'] ?? null,
+            'end_date' => $options['end_date'] ?? null,
+            'days' => $options['days'] ?? 7,
+        ], $options);
+
+        if ((bool) ($options['record_history'] ?? false)) {
+            $review['delivery_history'] = $this->historyService->recordPrepared(
+                $review,
+                $this->cleanText($options['current_user_id'] ?? null),
+            );
+        }
 
         return $review;
     }
@@ -124,8 +137,7 @@ class WeeklyReportDeliveryReviewService
         $validation = $this->validateDraftForSending($review, [
             'confirm_send' => false,
         ]);
-
-        return [
+        $updated = [
             ...$review,
             'delivery_status' => $this->statusFromValidation($review, $validation, false),
             'can_send' => false,
@@ -144,6 +156,12 @@ class WeeklyReportDeliveryReviewService
                 ],
             ],
         ];
+
+        if ((bool) ($draftPayload['record_history'] ?? false)) {
+            $updated['delivery_history'] = $this->historyService->recordPrepared($updated, $userId);
+        }
+
+        return $updated;
     }
 
     /**
@@ -162,11 +180,11 @@ class WeeklyReportDeliveryReviewService
         ]);
 
         if (! (bool) ($options['confirm_send'] ?? $draftPayload['confirm_send'] ?? false)) {
-            return $this->buildSendResult([
+            return $this->sendResultWithHistory($review, [
                 'send_status' => 'blocked',
                 'warnings' => ['Coach confirmation is required before sending.'],
                 'evidence' => ['send endpoint called without confirm_send=true'],
-            ], $review);
+            ], $sentByUserId);
         }
 
         $blockers = $this->actionableBlockers($validation['send_blockers'] ?? []);
@@ -176,42 +194,42 @@ class WeeklyReportDeliveryReviewService
             ->all();
 
         if (($validation['copy_only'] ?? false) === true) {
-            return $this->buildSendResult([
+            return $this->sendResultWithHistory($review, [
                 'send_status' => 'unsupported',
                 'warnings' => ['Copy-only delivery. Nothing was sent by FMTRX.'],
                 'evidence' => ['selected channel was copy'],
-            ], $review);
+            ], $sentByUserId);
         }
 
         if ($privacyOrContentBlockers !== []) {
-            return $this->buildSendResult([
+            return $this->sendResultWithHistory($review, [
                 'send_status' => 'blocked',
                 'warnings' => $this->displayBlockers($privacyOrContentBlockers),
                 'evidence' => ['privacy and content validation blocked sending before channel support was considered'],
-            ], $review);
+            ], $sentByUserId);
         }
 
         if (($validation['channel_supported'] ?? false) === false) {
-            return $this->buildSendResult([
+            return $this->sendResultWithHistory($review, [
                 'send_status' => 'unsupported',
                 'warnings' => ['No supported delivery sender found. Use Copy Message.'],
                 'evidence' => ['no existing weekly report sender was found for this channel'],
-            ], $review);
+            ], $sentByUserId);
         }
 
         if (! (bool) ($validation['can_send'] ?? false)) {
-            return $this->buildSendResult([
+            return $this->sendResultWithHistory($review, [
                 'send_status' => 'blocked',
                 'warnings' => $this->displayBlockers($validation['send_blockers'] ?? []),
                 'evidence' => ['privacy and recipient validation blocked sending'],
-            ], $review);
+            ], $sentByUserId);
         }
 
-        return $this->buildSendResult([
+        return $this->sendResultWithHistory($review, [
             'send_status' => 'unsupported',
             'warnings' => ['No sender implementation is wired for weekly reports. Nothing was sent.'],
             'evidence' => ['send path is intentionally disabled until a supported sender exists'],
-        ], $review);
+        ], $sentByUserId);
     }
 
     /**
@@ -247,6 +265,29 @@ class WeeklyReportDeliveryReviewService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function sendResultWithHistory(array $review, array $sendAttempt, ?string $sentByUserId): array
+    {
+        $result = $this->buildSendResult($sendAttempt, $review);
+        $history = $result['send_status'] === 'blocked'
+            ? $this->historyService->recordBlockedAttempt([
+                ...$review,
+                'send_blockers' => $result['warnings'] ?? [],
+            ], Arr::wrap($result['warnings'] ?? []), $sentByUserId)
+            : $this->historyService->recordSendAttempt($review, $result, $sentByUserId);
+
+        return [
+            ...$result,
+            'delivery_history' => [
+                'delivery_id' => $history['delivery_id'] ?? null,
+                'delivery_status' => $history['delivery_status'] ?? $result['send_status'],
+                'recorded' => (bool) ($history['recorded'] ?? false),
+            ],
+        ];
+    }
+
     private function reviewFromPrepared(array $prepared, array $options = []): array
     {
         $validation = $this->validateDraftForSending($prepared, [
@@ -260,6 +301,10 @@ class WeeklyReportDeliveryReviewService
             'audience' => (string) ($prepared['audience'] ?? 'coach'),
             'template' => (string) ($prepared['template'] ?? ''),
             'channel' => (string) ($prepared['channel'] ?? 'copy'),
+            'format' => (string) ($prepared['format'] ?? 'text'),
+            'start_date' => $prepared['start_date'] ?? null,
+            'end_date' => $prepared['end_date'] ?? null,
+            'days' => $prepared['days'] ?? ($options['days'] ?? 7),
             'delivery_status' => $this->statusFromValidation($prepared, $validation, false),
             'can_send' => false,
             'requires_confirmation' => true,

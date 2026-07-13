@@ -58,6 +58,7 @@ use App\Http\Controllers\Api\Planner\SaveCustomDrill;
 use App\Http\Controllers\Api\Planner\WeeklyPlanPublishController;
 use App\Http\Controllers\Api\Planner\WeeklyReportNotesController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryPrepController;
+use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryHistoryController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryReviewController;
 use App\Http\Controllers\Api\Planner\GetCustomDrills;
 use App\Http\Controllers\Api\Planner\DeleteCustomDrill;
@@ -317,6 +318,9 @@ Route::prefix('coach')->group(function (): void {
         Route::post('/teams/{teamId}/weekly-report/delivery-review', [WeeklyReportDeliveryReviewController::class, 'review']);
         Route::post('/teams/{teamId}/weekly-report/update-delivery-draft', [WeeklyReportDeliveryReviewController::class, 'updateDraft']);
         Route::post('/teams/{teamId}/weekly-report/send-delivery-draft', [WeeklyReportDeliveryReviewController::class, 'sendDraft']);
+        Route::get('/teams/{teamId}/weekly-report/deliveries', [WeeklyReportDeliveryHistoryController::class, 'index']);
+        Route::get('/weekly-report-deliveries/{deliveryId}', [WeeklyReportDeliveryHistoryController::class, 'show']);
+        Route::post('/weekly-report-deliveries/{deliveryId}/record-copy', [WeeklyReportDeliveryHistoryController::class, 'recordCopy']);
         Route::get('/teams/{teamId}/weekly-report-notes', [WeeklyReportNotesController::class, 'index']);
         Route::post('/teams/{teamId}/weekly-report-notes', [WeeklyReportNotesController::class, 'store']);
         Route::put('/weekly-report-notes/{noteId}', [WeeklyReportNotesController::class, 'update']);

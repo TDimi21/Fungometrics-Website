@@ -24,7 +24,11 @@ class WeeklyReportDeliveryReviewController extends Controller
             'code' => 'WRDR-R',
             'message' => 'weekly report delivery draft review',
             'status' => 'success',
-            'data' => $service->buildDraftReview($teamId, $this->payload($request)),
+            'data' => $service->buildDraftReview($teamId, [
+                ...$this->payload($request),
+                'record_history' => true,
+                'current_user_id' => (string) $request->user()->id,
+            ]),
         ], HttpCodes::HTTP_OK);
     }
 

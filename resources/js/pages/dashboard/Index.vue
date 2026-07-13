@@ -791,107 +791,83 @@ function compScoreColor(s) {
 // Breakdown modal state
 const breakdownModal = ref({ visible: false, title: '', subtitle: '', score: null, components: [] })
 
-function openBreakdown(row) {
-  if (!row.score) return
-  const d = perfDetail.value[row.key]
-  let components = []
-
-  if (row.key === 'batting' && d) {
-    components = [
+// Pure builder — same component breakdown used by the modal AND the inline view.
+function buildBreakdown(key) {
+  const d = perfDetail.value[key]
+  if (!d) return null
+  if (key === 'batting') return {
+    title: 'Batting Score', subtitle: `${d.total ?? '—'} swings analyzed`,
+    components: [
       { dotColor: '#2ECC71', label: 'Contact Quality',    weight: '30%', score: d.contactScore, detail: `Avg across ${d.total ?? '—'} swings` },
       { dotColor: '#3B82F6', label: 'Exit Velocity',      weight: '25%', score: d.evScore,      detail: `Avg ${d.avgEV ?? '—'} mph · Top ${d.topEV ?? '—'} mph` },
       { dotColor: '#F59E0B', label: 'Launch Profile',     weight: '20%', score: d.launchScore,  detail: 'LD=100, FB=80, PF=60, GB=50' },
       { dotColor: '#A855F7', label: 'Competitive Swings', weight: '15%', score: d.compScore,    detail: `${d.compScore != null ? Number(d.compScore).toFixed(1) : '—'} score` },
       { dotColor: '#EF4444', label: 'Miss Control',       weight: '10%', score: d.missScore,    detail: `${d.missScore != null ? Number(d.missScore).toFixed(1) : '—'} score` },
-    ]
-    breakdownModal.value = {
-      visible: true,
-      title: 'Batting Score',
-      subtitle: `${d.total ?? '—'} swings analyzed`,
-      score: row.score,
-      components,
-    }
-  } else if (row.key === 'bullpen' && d) {
+    ],
+  }
+  if (key === 'bullpen') {
     const strikes = (d.strikeRate != null && d.total) ? Math.round(d.strikeRate / 100 * d.total) : null
-    const eliteDetail = d.eliteThrowerRate != null
-      ? ` · Elite-for-age ${Number(d.eliteThrowerRate).toFixed(1)}%`
-      : ''
-    components = [
-      { emoji: '🎯', label: 'Strike Rate',        weight: '35%', score: d.strikeRate, detail: strikes != null ? `${strikes}/${d.total} strikes (${Number(d.strikeRate).toFixed(1)}%)` : `${Number(d.strikeRate ?? 0).toFixed(1)}% strike rate` },
-      { emoji: '⚾', label: 'First-Pitch Strike', weight: '15%', score: d.fpScore,    detail: `${Number(d.fpScore ?? 0).toFixed(1)}% first-pitch strikes` },
-      { emoji: '📊', label: 'Velocity',           weight: '30%', score: d.veloScore,  detail: `Avg ${d.avgVelo ?? '—'} mph · Top ${d.topVelo ?? '—'} mph${eliteDetail}` },
-      { emoji: '💪', label: 'Pitch Mix',          weight: '20%', score: d.mixScore,   detail: `${d.typesUsed ?? '—'} off-speed types used` },
-    ]
-    breakdownModal.value = {
-      visible: true,
-      title: 'Bullpen Score',
-      subtitle: `${d.total ?? '—'} pitches analyzed`,
-      score: row.score,
-      components,
+    const eliteDetail = d.eliteThrowerRate != null ? ` · Elite-for-age ${Number(d.eliteThrowerRate).toFixed(1)}%` : ''
+    return {
+      title: 'Bullpen Score', subtitle: `${d.total ?? '—'} pitches analyzed`,
+      components: [
+        { emoji: '🎯', label: 'Strike Rate',        weight: '35%', score: d.strikeRate, detail: strikes != null ? `${strikes}/${d.total} strikes (${Number(d.strikeRate).toFixed(1)}%)` : `${Number(d.strikeRate ?? 0).toFixed(1)}% strike rate` },
+        { emoji: '⚾', label: 'First-Pitch Strike', weight: '15%', score: d.fpScore,    detail: `${Number(d.fpScore ?? 0).toFixed(1)}% first-pitch strikes` },
+        { emoji: '📊', label: 'Velocity',           weight: '30%', score: d.veloScore,  detail: `Avg ${d.avgVelo ?? '—'} mph · Top ${d.topVelo ?? '—'} mph${eliteDetail}` },
+        { emoji: '💪', label: 'Pitch Mix',          weight: '20%', score: d.mixScore,   detail: `${d.typesUsed ?? '—'} off-speed types used` },
+      ],
     }
-  } else if (row.key === 'cage' && d) {
-    components = [
+  }
+  if (key === 'cage') return {
+    title: 'Cage Score', subtitle: `${d.total ?? '—'} swings · Reliability ${d.reliability != null ? (d.reliability * 100).toFixed(0) : '—'}%`,
+    components: [
       { emoji: '💥', label: 'Power Score',   weight: '45%', score: d.powerScore,    detail: `AvgEV ${d.avgEV ?? '—'} mph · Max ${d.maxEV ?? '—'} mph · Avg dist ${d.avgDist ?? '—'} ft` },
       { emoji: '📐', label: 'Launch Profile', weight: '40%', score: d.launchScore,   detail: `Sweet spot ${d.sweetSpotPct ?? '—'}% · LD ${d.ldPct ?? '—'}%` },
       { emoji: '🎯', label: 'Approach',       weight: '15%', score: d.approachScore, detail: `Pull ${d.pullPct ?? '—'}% · Middle ${d.middlePct ?? '—'}% · Oppo ${d.oppoPct ?? '—'}%` },
-    ]
-    breakdownModal.value = {
-      visible: true,
-      title: 'Cage Score',
-      subtitle: `${d.total ?? '—'} swings · Reliability ${d.reliability != null ? (d.reliability * 100).toFixed(0) : '—'}%`,
-      score: row.score,
-      components,
+    ],
+  }
+  if (key === 'ev') {
+    const thresholdHint = d.avgHardHitThreshold != null ? `≥${d.avgHardHitThreshold} mph hard-hit` : 'age-adjusted hard-hit'
+    return {
+      title: 'Exit Velocity Score', subtitle: `${d.total ?? '—'} swings analyzed`,
+      components: [
+        { emoji: '🔥', label: 'EV Power',    weight: '60%', score: d.evPowerScore,   detail: `Avg ${d.avgEV ?? '—'} mph · Top ${d.topEV ?? '—'} mph` },
+        { emoji: '📊', label: 'Trajectory',  weight: '25%', score: d.trajectoryScore, detail: `LD ${d.ldPct ?? '—'}% · FB ${d.fbPct ?? '—'}% · GB ${d.gbPct ?? '—'}%` },
+        { emoji: '💪', label: 'Hard Hit',    weight: '15%', score: d.hardHitScore,    detail: `${d.hardHitCount ?? '—'} hard-hit balls (${d.hhPct ?? '—'}% ${thresholdHint})` },
+      ],
     }
-  } else if (row.key === 'ev' && d) {
-    const thresholdHint = d.avgHardHitThreshold != null
-      ? `≥${d.avgHardHitThreshold} mph hard-hit`
-      : 'age-adjusted hard-hit'
-    components = [
-      { emoji: '🔥', label: 'EV Power',    weight: '60%', score: d.evPowerScore,   detail: `Avg ${d.avgEV ?? '—'} mph · Top ${d.topEV ?? '—'} mph` },
-      { emoji: '📊', label: 'Trajectory',  weight: '25%', score: d.trajectoryScore, detail: `LD ${d.ldPct ?? '—'}% · FB ${d.fbPct ?? '—'}% · GB ${d.gbPct ?? '—'}%` },
-      { emoji: '💪', label: 'Hard Hit',    weight: '15%', score: d.hardHitScore,    detail: `${d.hardHitCount ?? '—'} hard-hit balls (${d.hhPct ?? '—'}% ${thresholdHint})` },
-    ]
-    breakdownModal.value = {
-      visible: true,
-      title: 'Exit Velocity Score',
-      subtitle: `${d.total ?? '—'} swings analyzed`,
-      score: row.score,
-      components,
-    }
-  } else if (row.key === 'lt' && d) {
-    components = [
+  }
+  if (key === 'lt') return {
+    title: 'Long Toss Score', subtitle: `${d.total ?? '—'} throws · ${d.totalPlayers ?? '—'} players`,
+    components: [
       { emoji: '📏', label: 'Extension',   weight: '25 pts', score: d.extensionScore,   detail: `No-hop ${d.avgPeakNoHopDist ?? d.avgMaxDist ?? '—'} ft · Est. peak ${d.avgEstimatedPeakVelo ?? '—'} mph` },
       { emoji: '🏹', label: 'Carry',       weight: '25 pts', score: d.carryScore,       detail: `Intensity ${d.avgIntensityPct ?? '—'}% · Zero-hop ${d.zeroHopRate ?? '—'}%` },
       { emoji: '🎯', label: 'Consistency', weight: '20 pts', score: d.consistencyScore, detail: `CV of distances per player` },
       { emoji: '📈', label: 'Progression', weight: '20 pts', score: d.progressionScore, detail: `Oldest vs newest session distance trend` },
       { emoji: '📅', label: 'Availability', weight: '10 pts', score: d.availabilityScore, detail: `${d.sessionCount ?? '—'} sessions (target 8)` },
-    ]
-    breakdownModal.value = {
-      visible: true,
-      title: 'Long Toss Score',
-      subtitle: `${d.total ?? '—'} throws · ${d.totalPlayers ?? '—'} players`,
-      score: row.score,
-      components,
-    }
-  } else if (row.key === 'wb' && d) {
-    components = [
+    ],
+  }
+  if (key === 'wb') return {
+    title: 'Weighted Ball Score', subtitle: `${d.total ?? '—'} throws · ${d.totalPlayers ?? '—'} players`,
+    components: [
       { emoji: '💨', label: 'Velocity',        weight: '30 pts', score: d.velocityScore,        detail: `Avg ${d.avgVelo ?? '—'} mph · Top ${d.topVelo ?? '—'} mph` },
       { emoji: '⚾', label: 'Ball Progression', weight: '20 pts', score: d.ballProgressionScore, detail: `${d.uniqueWeightsUsed?.length ?? '—'} different weights used` },
       { emoji: '🎯', label: 'Consistency',      weight: '20 pts', score: d.consistencyScore,     detail: `Velocity consistency per player` },
       { emoji: '📈', label: 'Progress',         weight: '20 pts', score: d.progressScore,        detail: `${d.progressPct != null ? (d.progressPct > 0 ? '+' : '') + d.progressPct : '—'}% velocity trend` },
       { emoji: '📅', label: 'Availability',     weight: '10 pts', score: d.availabilityScore,    detail: `${d.sessionCount ?? '—'} sessions (target 8)` },
-    ]
-    breakdownModal.value = {
-      visible: true,
-      title: 'Weighted Ball Score',
-      subtitle: `${d.total ?? '—'} throws · ${d.totalPlayers ?? '—'} players`,
-      score: row.score,
-      components,
-    }
-  } else {
-    // For rows without data yet, navigate instead
-    router.push(row.route)
+    ],
   }
+  return null
+}
+
+// Inline breakdown for the currently-selected discipline (shown on the same screen).
+const selectedBreakdown = computed(() => buildBreakdown(selectedPerfKey.value))
+
+function openBreakdown(row) {
+  if (!row || !row.score) return
+  const b = buildBreakdown(row.key)
+  if (b) breakdownModal.value = { visible: true, ...b, score: row.score }
+  else router.push(row.route) // no data yet — navigate instead
 }
 
 function closeBreakdown() {
@@ -2730,6 +2706,30 @@ watch(
                     <div class="text-[9px] font-black uppercase tracking-wider text-white/35 mb-1">{{ s.label }}</div>
                     <div class="text-lg font-black tabular-nums leading-tight" :style="{ color: s.color }">{{ s.value }}</div>
                     <div v-if="s.hint" class="text-[8px] text-white/25 mt-0.5">{{ s.hint }}</div>
+                  </div>
+                </div>
+
+                <!-- Inline score breakdown — updates as you select a discipline -->
+                <div v-if="selectedBreakdown" class="mt-4 pt-4 border-t border-white/10">
+                  <div class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2.5">
+                    Score Breakdown <span class="text-white/25 font-bold normal-case tracking-normal">· {{ selectedBreakdown.subtitle }}</span>
+                  </div>
+                  <div class="flex flex-col gap-2.5">
+                    <div v-for="c in selectedBreakdown.components" :key="c.label">
+                      <div class="flex items-center gap-3">
+                        <div class="w-44 shrink-0 flex items-center gap-1.5 min-w-0">
+                          <span v-if="c.dotColor" class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: c.dotColor }"></span>
+                          <span v-else class="text-xs shrink-0">{{ c.emoji }}</span>
+                          <span class="text-xs font-bold text-white/80 truncate">{{ c.label }}</span>
+                          <span class="text-[9px] font-black text-white/25 shrink-0">{{ c.weight }}</span>
+                        </div>
+                        <div class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-500" :style="{ width: Math.min(Number(c.score) || 0, 100) + '%', backgroundColor: compScoreColor(c.score) }"></div>
+                        </div>
+                        <span class="w-9 text-right text-xs font-black tabular-nums shrink-0" :style="{ color: compScoreColor(c.score) }">{{ c.score != null ? Math.round(Number(c.score)) : '—' }}</span>
+                      </div>
+                      <div v-if="c.detail" class="pl-0.5 mt-0.5 text-[10px] text-white/30 truncate">{{ c.detail }}</div>
+                    </div>
                   </div>
                 </div>
               </div>

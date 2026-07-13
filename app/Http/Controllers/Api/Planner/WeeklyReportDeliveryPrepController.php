@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Planner;
 
 use App\Http\Controllers\Controller;
 use App\Models\CoachTeam;
+use App\Services\Planner\WeeklyReportDeliveryHistoryService;
 use App\Services\Planner\WeeklyReportDeliveryPrepService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,7 +50,7 @@ class WeeklyReportDeliveryPrepController extends Controller
         ], HttpCodes::HTTP_OK);
     }
 
-    public function createDraft(string $teamId, Request $request, WeeklyReportDeliveryPrepService $service): JsonResponse
+    public function createDraft(string $teamId, Request $request, WeeklyReportDeliveryPrepService $service, WeeklyReportDeliveryHistoryService $historyService): JsonResponse
     {
         if (! $this->canAccessTeam($request, $teamId)) {
             return response()->json([
@@ -80,15 +81,18 @@ class WeeklyReportDeliveryPrepController extends Controller
             'message_overrides.message_html' => ['nullable', 'string'],
         ]);
 
+        $draft = $service->createDraftDelivery($teamId, [
+            ...$payload,
+            'days' => max(1, min(365, (int) ($payload['days'] ?? 7))),
+            'include_private_notes' => false,
+        ], (string) $request->user()->id);
+        $draft['delivery_history'] = $historyService->recordDraftCreated($draft, (string) $request->user()->id);
+
         return response()->json([
             'code' => 'WRD-D',
             'message' => 'weekly report delivery draft prepared',
             'status' => 'success',
-            'data' => $service->createDraftDelivery($teamId, [
-                ...$payload,
-                'days' => max(1, min(365, (int) ($payload['days'] ?? 7))),
-                'include_private_notes' => false,
-            ], (string) $request->user()->id),
+            'data' => $draft,
         ], HttpCodes::HTTP_OK);
     }
 
