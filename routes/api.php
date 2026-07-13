@@ -62,6 +62,7 @@ use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryPrepController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryAnalyticsController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryHistoryController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryReviewController;
+use App\Http\Controllers\Api\Planner\SeasonDevelopmentArchiveController;
 use App\Http\Controllers\Api\Planner\GetCustomDrills;
 use App\Http\Controllers\Api\Planner\DeleteCustomDrill;
 use App\Http\Controllers\Api\Planner\GetDrillLibrary;
@@ -313,6 +314,7 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams/{teamId}/weekly-planner-rollup', GetWeeklyPlannerRollup::class);
         Route::get('/teams/{teamId}/weekly-team-report', GetCoachWeeklyTeamReport::class);
         Route::get('/teams/{teamId}/communication-rhythm', [CommunicationRhythmController::class, 'team']);
+        Route::get('/teams/{teamId}/season-development-archive', [SeasonDevelopmentArchiveController::class, 'team']);
         Route::get('/teams/{teamId}/weekly-report/export', GetCoachWeeklyReportExport::class);
         Route::get('/weekly-report-templates', [GetWeeklyReportTemplates::class, 'index']);
         Route::get('/teams/{teamId}/weekly-report/template-preview', [GetWeeklyReportTemplates::class, 'preview']);

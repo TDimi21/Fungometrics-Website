@@ -77,6 +77,9 @@ const weeklyReportDeliveryAnalyticsMessage = ref('')
 const communicationRhythm = ref(null)
 const communicationRhythmLoading = ref(false)
 const communicationRhythmMessage = ref('')
+const seasonDevelopmentArchive = ref(null)
+const seasonDevelopmentArchiveLoading = ref(false)
+const seasonDevelopmentArchiveMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const weeklyReportNotes = ref([])
 const weeklyReportNotesLoading = ref(false)
@@ -192,6 +195,7 @@ const loadCommandCenter = async () => {
     weeklyReportDeliveryHistory.value = null
     weeklyReportDeliveryAnalytics.value = null
     communicationRhythm.value = null
+    seasonDevelopmentArchive.value = null
     selectedWeeklyReportDelivery.value = null
     weeklyReportNotes.value = []
     resetWeeklyReportNoteForm()
@@ -489,6 +493,33 @@ const loadCommunicationRhythm = async () => {
     communicationRhythmLoading.value = false
   }
 }
+const loadSeasonDevelopmentArchive = async () => {
+  seasonDevelopmentArchiveMessage.value = ''
+  if (!activeTeamId.value) {
+    seasonDevelopmentArchive.value = null
+    return null
+  }
+
+  seasonDevelopmentArchiveLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/season-development-archive`, {
+      weeks: 12,
+      include_player_rows: true,
+      include_benchmark_progress: true,
+      include_report_delivery: true,
+      include_communication_rhythm: true,
+      include_weekly_reports: true,
+    })
+    seasonDevelopmentArchive.value = res?.data?.data || null
+    return seasonDevelopmentArchive.value
+  } catch {
+    seasonDevelopmentArchive.value = null
+    seasonDevelopmentArchiveMessage.value = 'Season development archive is not available yet.'
+    return null
+  } finally {
+    seasonDevelopmentArchiveLoading.value = false
+  }
+}
 const refreshWeeklyReportDeliveryInsights = async () => {
   await Promise.all([
     loadWeeklyReportDeliveryHistory(),
@@ -576,8 +607,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); selectedWeeklyReportDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); loadSeasonDevelopmentArchive(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); selectedWeeklyReportDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); loadSeasonDevelopmentArchive(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -717,6 +748,48 @@ const communicationAudienceRows = computed(() => [
   { key: 'players', label: 'Player Summaries', data: communicationRhythmAudienceSummary.value.players || {} },
   { key: 'coach', label: 'Coach/Internal', data: communicationRhythmAudienceSummary.value.coach || {} },
 ])
+const seasonArchiveSummary = computed(() => seasonDevelopmentArchive.value?.executive_summary || {})
+const seasonArchiveTotals = computed(() => seasonDevelopmentArchive.value?.season_totals || {})
+const seasonArchiveTimeline = computed(() => Array.isArray(seasonDevelopmentArchive.value?.weekly_timeline) ? seasonDevelopmentArchive.value.weekly_timeline : [])
+const seasonArchiveBenchmark = computed(() => seasonDevelopmentArchive.value?.benchmark_progress || {})
+const seasonArchivePlanner = computed(() => seasonDevelopmentArchive.value?.planner_progress || {})
+const seasonArchiveCommunication = computed(() => seasonDevelopmentArchive.value?.communication_summary || {})
+const seasonArchivePlayers = computed(() => Array.isArray(seasonDevelopmentArchive.value?.player_development_summary) ? seasonDevelopmentArchive.value.player_development_summary : [])
+const seasonArchiveHighlights = computed(() => Array.isArray(seasonDevelopmentArchive.value?.season_highlights) ? seasonDevelopmentArchive.value.season_highlights : [])
+const seasonArchiveConcerns = computed(() => Array.isArray(seasonDevelopmentArchive.value?.season_concerns) ? seasonDevelopmentArchive.value.season_concerns : [])
+const seasonArchiveNextSteps = computed(() => Array.isArray(seasonDevelopmentArchive.value?.recommended_next_steps) ? seasonDevelopmentArchive.value.recommended_next_steps : [])
+const seasonArchiveCards = computed(() => [
+  {
+    label: 'Plans Published',
+    value: seasonArchiveTotals.value.daily_plans_published || 0,
+    detail: `${seasonArchiveTotals.value.daily_plans_created || 0} created`,
+  },
+  {
+    label: 'Completion',
+    value: `${oneDecimal(seasonArchiveTotals.value.average_completion_percentage)}%`,
+    detail: `${seasonArchiveTotals.value.completed_workouts || 0}/${seasonArchiveTotals.value.assigned_workouts || 0} workouts complete`,
+  },
+  {
+    label: 'Trusted Values',
+    value: seasonArchiveTotals.value.trusted_values_promoted || 0,
+    detail: `${seasonArchiveTotals.value.benchmark_values_approved || 0} approved`,
+  },
+  {
+    label: 'Reports Shared',
+    value: seasonArchiveTotals.value.reports_sent_or_copied || 0,
+    detail: `${seasonArchiveTotals.value.reports_created || 0} created`,
+  },
+  {
+    label: 'Rhythm Score',
+    value: seasonArchiveTotals.value.communication_rhythm_score == null ? '—' : oneDecimal(seasonArchiveTotals.value.communication_rhythm_score),
+    detail: human(seasonArchiveCommunication.value.communication_rhythm_label),
+  },
+])
+const seasonArchiveMetricNames = (rows) => (Array.isArray(rows) ? rows : [])
+  .slice(0, 3)
+  .map((row) => row.display_name || metricLabels[row.metric_key] || human(row.metric_key))
+  .filter(Boolean)
+  .join(', ')
 const weeklyTeamReportCards = computed(() => [
   {
     label: 'Team Completion',
@@ -838,9 +911,13 @@ const deliveryStatusTone = (status) => ({
   failed: 'warning',
 }[status] || 'muted')
 const communicationStatusTone = (status) => ({
+  strong: 'good',
+  solid: 'info',
   complete: 'good',
   partial: 'info',
+  incomplete: 'warning',
   missed: 'warning',
+  needs_review: 'warning',
   blocked: 'warning',
   copy_only: 'info',
   excellent: 'good',
@@ -2316,6 +2393,181 @@ const del = async (p) => {
                           <p v-if="communicationRhythmMessage" class="dp-command-message">{{ communicationRhythmMessage }}</p>
                         </div>
 
+                        <div class="dp-season-archive">
+                          <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div class="dp-command-label">Season Development Archive</div>
+                              <p class="dp-command-sub">Season-long timeline of planner execution, benchmark progress, trusted data, and communication rhythm.</p>
+                            </div>
+                            <div class="dp-season-archive-actions">
+                              <span class="dp-status" :class="statusBadgeClass(communicationStatusTone(seasonDevelopmentArchive?.archive_status))">
+                                {{ seasonDevelopmentArchive ? human(seasonDevelopmentArchive.archive_status) : 'No Data Yet' }}
+                              </span>
+                              <button class="dp-link" :disabled="seasonDevelopmentArchiveLoading" @click="loadSeasonDevelopmentArchive">
+                                {{ seasonDevelopmentArchiveLoading ? 'Refreshing…' : 'Refresh Archive' }}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div v-if="seasonDevelopmentArchive" class="dp-season-archive-body">
+                            <div class="dp-weekly-panel dp-season-summary-panel">
+                              <div class="dp-command-label">Season Summary</div>
+                              <div class="dp-report-headline">{{ seasonArchiveSummary.headline || 'No season archive data found yet.' }}</div>
+                              <p class="dp-command-sub mt-1">{{ seasonArchiveSummary.summary_text || 'Assign plans and create weekly reports to build the season archive.' }}</p>
+                              <p v-if="seasonArchiveSummary.season_story" class="dp-season-story">{{ seasonArchiveSummary.season_story }}</p>
+                              <div class="dp-completion-grid mt-3">
+                                <div v-for="card in seasonArchiveCards" :key="`season-card-${card.label}`" class="dp-command-card">
+                                  <div class="dp-command-label">{{ card.label }}</div>
+                                  <div class="dp-command-value">{{ card.value }}</div>
+                                  <div class="dp-command-sub">{{ card.detail }}</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="dp-season-grid">
+                              <div class="dp-weekly-panel dp-season-panel--wide">
+                                <div class="dp-command-label">Season Timeline</div>
+                                <div v-if="seasonArchiveTimeline.length" class="dp-rhythm-timeline">
+                                  <div v-for="row in seasonArchiveTimeline" :key="`season-week-${row.week_start_date}`" class="dp-rhythm-row">
+                                    <div>
+                                      <strong>{{ row.week_label }}</strong>
+                                      <span>{{ row.headline }}</span>
+                                      <small v-if="row.primary_focus">Focus: {{ row.primary_focus }}</small>
+                                      <small v-if="seasonArchiveMetricNames(row.top_remaining_gaps)">Remaining gaps: {{ seasonArchiveMetricNames(row.top_remaining_gaps) }}</small>
+                                    </div>
+                                    <div class="dp-rhythm-pills">
+                                      <span class="dp-status" :class="statusBadgeClass(communicationStatusTone(row.status_label))">{{ human(row.status_label) }}</span>
+                                      <span class="dp-rhythm-pill" :class="{ 'dp-rhythm-pill--on': (row.plans_published || 0) > 0 }">{{ row.plans_published || 0 }} plans</span>
+                                      <span class="dp-rhythm-pill" :class="{ 'dp-rhythm-pill--on': (row.benchmark_values_approved || 0) > 0 }">{{ row.benchmark_values_approved || 0 }} approved</span>
+                                      <span class="dp-rhythm-pill" :class="{ 'dp-rhythm-pill--on': (row.reports_shared || 0) > 0 }">{{ row.reports_shared || 0 }} shared</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div v-else class="dp-empty dp-empty--sm mt-2">No season archive data found yet.</div>
+                              </div>
+
+                              <div class="dp-weekly-panel">
+                                <div class="dp-command-label">Benchmark Progress</div>
+                                <div class="dp-delivery-analytics-list">
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Current Confidence</span>
+                                    <strong>{{ human(seasonArchiveBenchmark.current_benchmark_confidence) }}</strong>
+                                  </div>
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Trusted Values Added</span>
+                                    <strong>{{ seasonArchiveBenchmark.trusted_values_added || 0 }}</strong>
+                                  </div>
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Players With Trusted Data</span>
+                                    <strong>{{ (seasonArchiveBenchmark.players_with_new_trusted_data || []).length || 0 }}</strong>
+                                  </div>
+                                </div>
+                                <div v-if="(seasonArchiveBenchmark.top_collected_metrics || []).length" class="dp-report-metrics">
+                                  <span v-for="metric in seasonArchiveBenchmark.top_collected_metrics.slice(0, 5)" :key="`season-collected-${metric.metric_key}`">
+                                    {{ metric.display_name || human(metric.metric_key) }}
+                                  </span>
+                                </div>
+                                <div v-else class="dp-empty dp-empty--sm mt-2">No benchmark progress recorded in this date range.</div>
+                              </div>
+
+                              <div class="dp-weekly-panel">
+                                <div class="dp-command-label">Planner Progress</div>
+                                <div class="dp-delivery-analytics-list">
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Plans Created / Published</span>
+                                    <strong>{{ seasonArchivePlanner.plans_created || 0 }} / {{ seasonArchivePlanner.plans_published || 0 }}</strong>
+                                  </div>
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Completion</span>
+                                    <strong>{{ oneDecimal(seasonArchivePlanner.completion_percentage) }}%</strong>
+                                  </div>
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Players Needing Follow-Up</span>
+                                    <strong>{{ seasonArchivePlanner.players_needing_follow_up_count || 0 }}</strong>
+                                  </div>
+                                </div>
+                                <div v-if="(seasonArchivePlanner.most_common_plan_focuses || []).length" class="dp-delivery-analytics-list">
+                                  <div v-for="focus in seasonArchivePlanner.most_common_plan_focuses.slice(0, 4)" :key="`season-focus-${focus.focus}`" class="dp-delivery-analytics-action">
+                                    <strong>{{ focus.focus }}</strong>
+                                    <small>{{ focus.week_count || 0 }} week(s)</small>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div class="dp-weekly-panel">
+                                <div class="dp-command-label">Communication Summary</div>
+                                <div class="dp-delivery-analytics-list">
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Parent Updates</span>
+                                    <strong>{{ seasonArchiveCommunication.parent_updates || 0 }}</strong>
+                                  </div>
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Staff Reports</span>
+                                    <strong>{{ seasonArchiveCommunication.staff_reports || 0 }}</strong>
+                                  </div>
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Copy-Only / Blocked</span>
+                                    <strong>{{ seasonArchiveCommunication.copy_only_count || 0 }} / {{ seasonArchiveCommunication.blocked_count || 0 }}</strong>
+                                  </div>
+                                  <div class="dp-delivery-analytics-row">
+                                    <span>Rhythm Score</span>
+                                    <strong>{{ seasonArchiveCommunication.communication_rhythm_score == null ? '—' : oneDecimal(seasonArchiveCommunication.communication_rhythm_score) }}</strong>
+                                  </div>
+                                </div>
+                                <div v-if="!(seasonArchiveCommunication.reports_created || 0)" class="dp-empty dp-empty--sm mt-2">No communication history recorded in this date range.</div>
+                              </div>
+
+                              <div class="dp-weekly-panel">
+                                <div class="dp-command-label">Season Highlights</div>
+                                <ul v-if="seasonArchiveHighlights.length" class="dp-report-list">
+                                  <li v-for="item in seasonArchiveHighlights.slice(0, 5)" :key="`season-highlight-${item}`">{{ item }}</li>
+                                </ul>
+                                <div v-else class="dp-empty dp-empty--sm mt-2">No season highlights are available yet.</div>
+                              </div>
+
+                              <div class="dp-weekly-panel">
+                                <div class="dp-command-label">Season Concerns</div>
+                                <ul v-if="seasonArchiveConcerns.length" class="dp-report-list">
+                                  <li v-for="item in seasonArchiveConcerns.slice(0, 5)" :key="`season-concern-${item}`">{{ item }}</li>
+                                </ul>
+                                <div v-else class="dp-empty dp-empty--sm mt-2">No urgent season concerns are surfaced.</div>
+                              </div>
+
+                              <div class="dp-weekly-panel dp-season-panel--wide">
+                                <div class="dp-command-label">Player Development Summary</div>
+                                <div v-if="seasonArchivePlayers.length" class="dp-report-player-list">
+                                  <div v-for="player in seasonArchivePlayers.slice(0, 10)" :key="`season-player-${player.player_id}`" class="dp-report-player-row">
+                                    <div>
+                                      <strong>{{ player.player_name }}</strong>
+                                      <span>{{ oneDecimal(player.completion_percentage) }}% completion · {{ player.benchmark_values_approved || 0 }} approved benchmark values</span>
+                                      <small v-if="player.next_recommended_action">{{ player.next_recommended_action }}</small>
+                                    </div>
+                                    <div class="dp-report-metrics" v-if="(player.trusted_metrics_added || []).length">
+                                      <span v-for="metric in player.trusted_metrics_added.slice(0, 4)" :key="`season-player-metric-${player.player_id}-${metric}`">{{ metricLabels[metric] || human(metric) }}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div v-else class="dp-empty dp-empty--sm mt-2">Assign player plans and collect benchmark values to build player development summaries.</div>
+                              </div>
+
+                              <div class="dp-weekly-panel dp-season-panel--wide">
+                                <div class="dp-command-label">Recommended Next Steps</div>
+                                <div v-if="seasonArchiveNextSteps.length" class="dp-delivery-analytics-list">
+                                  <div v-for="step in seasonArchiveNextSteps.slice(0, 6)" :key="`season-step-${step}`" class="dp-delivery-analytics-action">
+                                    <strong>{{ step }}</strong>
+                                  </div>
+                                </div>
+                                <div v-else class="dp-empty dp-empty--sm mt-2">No season next steps are available yet.</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div v-else class="dp-empty dp-empty--sm mt-3">
+                            Assign plans and create weekly reports to build the season archive.
+                          </div>
+                          <p v-if="seasonDevelopmentArchiveMessage" class="dp-command-message">{{ seasonDevelopmentArchiveMessage }}</p>
+                        </div>
+
                         <div v-if="weeklyReportDeliveries.length" class="dp-delivery-history-list">
                           <button
                             v-for="delivery in weeklyReportDeliveries.slice(0, 8)"
@@ -3319,6 +3571,13 @@ const del = async (p) => {
 .dp-communication-rhythm { display:grid; gap:12px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); border-radius:14px; padding:12px; }
 .dp-communication-grid { display:grid; grid-template-columns:1fr; gap:10px; }
 @media (min-width:940px){ .dp-communication-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .dp-communication-panel--wide { grid-column:1 / -1; } }
+.dp-season-archive { display:grid; gap:12px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); border-radius:14px; padding:12px; }
+.dp-season-archive-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:8px; }
+.dp-season-archive-body { display:grid; gap:12px; }
+.dp-season-summary-panel { background:linear-gradient(135deg, rgba(216,35,42,.075), rgba(53,90,170,.06)); }
+.dp-season-grid { display:grid; grid-template-columns:1fr; gap:10px; }
+@media (min-width:940px){ .dp-season-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .dp-season-panel--wide { grid-column:1 / -1; } }
+.dp-season-story { color:rgba(255,255,255,.7); font-size:12.5px; line-height:1.45; margin-top:8px; overflow-wrap:anywhere; }
 .dp-rhythm-timeline { display:grid; gap:8px; margin-top:10px; }
 .dp-rhythm-row { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; }
 @media (min-width:860px){ .dp-rhythm-row { flex-direction:row; align-items:center; } }

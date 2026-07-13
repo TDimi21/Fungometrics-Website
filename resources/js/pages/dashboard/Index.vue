@@ -6,8 +6,8 @@ import { useUserStore } from "../../store/user";
 import { usePlayerStore } from "../../store/players";
 import { useTeamStore } from "../../store/team";
 import { IndicatorChart } from '@/components/dashboard'
-import DashboardSprayChart from '@/components/dashboard/DashboardSprayChart.vue'
 import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
+import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
 import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
 import PitchHeatmapChart from '@/components/dashboard/PitchHeatmapChart.vue'
 import PitchTypeStatsCard from '@/components/dashboard/PitchTypeStatsCard.vue'
@@ -733,8 +733,13 @@ watch(scoredPerfRows, (rows) => {
   }
 }, { immediate: true })
 const selectedPerfRow = computed(() => perfRows.value.find((r) => r.key === selectedPerfKey.value) || null)
-// Disciplines that get the batting field spray (all swing-based / exit-velocity).
+// Disciplines that get the batting velocity spray field (all swing-based).
 const showSprayFor = computed(() => ['batting', 'ev', 'cage'].includes(selectedPerfKey.value))
+// All team swings (strikes + balls) with velocity + field_mark, for the velocity field.
+const allSwingBalls = computed(() => {
+  const cs = contactSpray.value || {}
+  return [...(Array.isArray(cs.strikes) ? cs.strikes : []), ...(Array.isArray(cs.balls) ? cs.balls : [])]
+})
 const selectedPerfStats = computed(() => {
   const k = selectedPerfKey.value
   const all = perfDetail.value
@@ -2692,9 +2697,9 @@ watch(
                   <button class="text-[10px] font-black uppercase tracking-widest text-sky-300 hover:text-sky-200 shrink-0" @click="openBreakdown(selectedPerfRow)">Full breakdown →</button>
                 </div>
 
-                <!-- Swing-spray field for exit-velocity disciplines -->
+                <!-- Velocity spray field for swing-based disciplines (ported from the app) -->
                 <div v-if="showSprayFor" class="mb-4">
-                  <DashboardSprayChart :contactSpray="contactSpray" :ballStrike="ballStrike" />
+                  <VelocitySprayField :balls="allSwingBalls" />
                 </div>
                 <div v-else class="mb-4 rounded-lg border border-dashed border-white/10 py-10 text-center text-white/25 text-xs">
                   {{ selectedPerfRow?.label }} visualization coming next — key stats below.

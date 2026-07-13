@@ -317,6 +317,7 @@ final class TeamStatisticsService
             'point'      => (int)($r->field_mark ?? 0),
             'feature'    => $r->quality_of_contact ?? 'MF',
             'trajectory' => $r->type_of_hit ?? null,
+            'velocity'   => (int)($r->velocity ?? 0), // exit velocity — powers the velocity spray field
             'player'     => $r->profile
                 ? trim(($r->profile->first_name ?? '') . ' ' . ($r->profile->last_name ?? ''))
                 : 'Unknown',
