@@ -25,6 +25,8 @@ class BullpenResultEditRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'practice_id' => ['nullable', 'string'],
+            'pitcher_id' => ['nullable', 'string'],
             'pitch_side' => ['nullable', 'required'],
             'pitch_mark' => ['nullable', 'integer'],
             'is_strike' => ['nullable', 'boolean'],
@@ -32,6 +34,7 @@ class BullpenResultEditRequest extends FormRequest
             'type_throw' => ['required', 'string'],
             'trajectory' => ['nullable', 'string'],
             'is_in_match' => ['nullable', 'boolean'],
+            'zone' => ['nullable', 'string'],
             'intended_location' => ['nullable', 'integer'],
             'intended_pitch_type' => ['nullable', 'string'],
         ];

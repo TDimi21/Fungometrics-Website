@@ -304,8 +304,14 @@ const ltHopChart = computed(() => {
     { key: 2, label: '2 Hop', color: '#F59E0B' },
     { key: 3, label: '3 Hop', color: '#EF4444' },
   ].map((c) => {
-    const vals = rows.filter((r) => (r.hop ?? -1) === c.key).map((r) => r.distance).filter((v) => v !== null && v > 0)
-    return { ...c, avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null, count: vals.length }
+    const inHop = rows.filter((r) => Number(r.hop ?? 0) === c.key) // no hop value → 0 hops
+    const vals = inHop.map((r) => r.distance).filter((v) => v !== null && v > 0)
+    return {
+      ...c,
+      avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null,
+      count: vals.length, // throws that had a usable distance
+      throws: inHop.length, // all throws in this hop bucket (even if distance is missing)
+    }
   })
   return withBars(cats)
 })
@@ -315,9 +321,12 @@ const playerChart = computed(() => (modeKey.value === 'EV' ? evTrajectoryChart.v
 // Long Toss chart as an X/Y line: x = hop count (0,1,2,3), y = avg distance.
 const LT_HOP_KEYS = ['value']
 const ltHopCurvePoints = computed(() =>
-  ltHopChart.value.map((c) => ({ label: String(c.key), value: c.avg, color: c.color, count: c.count })),
+  ltHopChart.value.map((c) => ({ label: String(c.key), value: c.avg, color: c.color, count: c.count, throws: c.throws })),
 )
-const ltChartHasData = computed(() => ltHopChart.value.some((c) => c.avg != null))
+const ltTotalThrows = computed(() => ltHopChart.value.reduce((sum, c) => sum + c.throws, 0))
+// Render the axis whenever there are any throws (so hop counts are visible even if
+// distances weren't recorded); only fully empty when no throws exist at all.
+const ltChartHasData = computed(() => ltTotalThrows.value > 0)
 
 const groupRowsByPlayer = computed(() => {
   const map = new Map()
@@ -943,7 +952,7 @@ const metricCards = computed(() => {
           <section v-if="modeKey === 'EV' || modeKey === 'LT'" class="training-chart-card">
             <h4 class="training-chart-title">
               {{ modeKey === 'EV' ? 'Avg Exit Velocity by Trajectory' : 'Avg Distance by Hop' }}
-              <span>{{ selectedPlayerId ? (playerSummaries.find((p) => p.id === selectedPlayerId)?.name || '') : 'Team' }}</span>
+              <span>{{ selectedPlayerId ? (playerSummaries.find((p) => p.id === selectedPlayerId)?.name || '') : 'Team' }}<template v-if="modeKey === 'LT'"> · {{ ltTotalThrows }} throws</template></span>
             </h4>
 
             <!-- EV: vertical bars -->
@@ -976,7 +985,8 @@ const metricCards = computed(() => {
                   <polyline v-if="chartHasData(ltHopCurvePoints, LT_HOP_KEYS)" :points="chartPolyline(ltHopCurvePoints, 'value', LT_HOP_KEYS, 480, 240)" fill="none" stroke="#37D67A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
                   <!-- x labels (hops) + points (avg distance) -->
                   <g v-for="(point, index) in ltHopCurvePoints" :key="`lt-hop-${point.label}`">
-                    <text :x="chartX(index, ltHopCurvePoints.length, 480)" y="232" fill="rgba(255,255,255,0.75)" font-size="13" font-weight="900" text-anchor="middle">{{ point.label }}</text>
+                    <text :x="chartX(index, ltHopCurvePoints.length, 480)" y="230" fill="rgba(255,255,255,0.78)" font-size="13" font-weight="900" text-anchor="middle">{{ point.label }}</text>
+                    <text :x="chartX(index, ltHopCurvePoints.length, 480)" y="240" fill="rgba(255,255,255,0.4)" font-size="8.5" font-weight="700" text-anchor="middle">{{ point.throws }} thr</text>
                     <template v-if="point.value !== null">
                       <circle :cx="chartX(index, ltHopCurvePoints.length, 480)" :cy="chartY(point.value, ltHopCurvePoints, LT_HOP_KEYS, 240)" r="5.5" :fill="point.color" stroke="#0b1322" stroke-width="1.5" />
                       <text :x="chartX(index, ltHopCurvePoints.length, 480)" :y="chartY(point.value, ltHopCurvePoints, LT_HOP_KEYS, 240) - 11" fill="#fff" font-size="11" font-weight="800" text-anchor="middle">{{ formatNumber(point.value) }}</text>

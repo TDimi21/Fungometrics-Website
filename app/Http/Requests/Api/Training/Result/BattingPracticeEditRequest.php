@@ -25,6 +25,8 @@ class BattingPracticeEditRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'practice_id' => ['nullable', 'string'],
+            'batter_id' => ['nullable', 'string'],
             'is_contact' => ['nullable', 'boolean'],
             'pitch_location' => ['nullable', 'string'],
             'quality_of_contact' => ['nullable', 'string'],
@@ -34,6 +36,7 @@ class BattingPracticeEditRequest extends FormRequest
             'field_direction' => ['nullable', 'string'],
             'velocity' => ['nullable', 'integer'],
             'sort' => ['nullable', 'integer'],
+            'zone' => ['nullable', 'string'],
         ];
     }
 
