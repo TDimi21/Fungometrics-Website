@@ -18,7 +18,20 @@ const KNOWN = ['FB', 'CB', 'CH', 'SL']
 const filter = ref('ALL')
 const view = ref('heatmap') // 'heatmap' | 'grid'
 
-const typeOf = (p) => String(p.pitch_type ?? p.type_throw ?? p.intended_pitch_type ?? '').toUpperCase()
+// Normalize the pitch type to a canonical code (matches SessionHeatmapPanel). The
+// data stores curveball as CV / CURVEBALL / CURVE (not CB) and sometimes as a numeric
+// id — without this, curveball fell through to "Other".
+const idToType = (v) => { const id = Number(v); if (id === 1) return 'FB'; if (id === 2) return 'CH'; if (id === 3) return 'SL'; if (id === 4) return 'CB'; return null }
+const typeOf = (p) => {
+  const raw = String(p?.type_throw ?? p?.type_of_throw ?? p?.pitch_type ?? p?.intended_pitch_type ?? p?.pitch_name ?? p?.type ?? '').trim().toUpperCase()
+  if (!raw) return idToType(p?.type_of_throw_id ?? p?.type_id ?? 0) ?? 'OTHER'
+  if (['FB', 'FASTBALL'].includes(raw)) return 'FB'
+  if (['CB', 'CV', 'CURVEBALL', 'CURVE'].includes(raw)) return 'CB'
+  if (['CH', 'CHANGEUP', 'CHANGE-UP'].includes(raw)) return 'CH'
+  if (['SL', 'SLIDER'].includes(raw)) return 'SL'
+  if (/^\d+$/.test(raw)) return idToType(raw) ?? 'OTHER'
+  return 'OTHER'
+}
 
 const filteredPitches = computed(() => {
   const all = Array.isArray(props.pitches) ? props.pitches : []

@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { planFromApi, bucketTitle } from '@/features/planner/dailyPlanner.js'
 import { coalesceMaxes, setSummary, oneRMFieldForExercise } from '@/features/planner/lib/strengthLoad.js'
+import { formatMetricName, formatReviewStatus } from '@/utils/fmtrxLabels.js'
 
 const { axiosGet, axiosPost } = useAxiosAuth()
 
@@ -62,9 +63,9 @@ const normalizeMetricKey = (value) => cleanText(value).toLowerCase().replace(/[\
 const humanizeMetric = (value) => {
   const key = normalizeMetricKey(value)
   if (!key) return ''
-  return metricDefinitions[key]?.label || key
+  return metricDefinitions[key]?.label || formatMetricName(key, key
     .replace(/_/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\b\w/g, (letter) => letter.toUpperCase()))
 }
 
 const fieldKeyFromMetric = (metric) => {
@@ -516,10 +517,10 @@ const itemStatus = (itemId, item = {}) => {
   const progress = current.value?.items?.[itemId] || {}
   const review = reviewStatusFor(itemId, item)
 
-  if (review === 'pending_review') return { label: 'Submitted for Coach Review', tone: 'review' }
-  if (review === 'approved') return { label: 'Approved', tone: 'approved' }
-  if (review === 'correction_requested') return { label: 'Correction Requested', tone: 'correction' }
-  if (review === 'rejected') return { label: 'Needs Coach Follow-Up', tone: 'rejected' }
+  if (review === 'pending_review') return { label: formatReviewStatus('pending_review'), tone: 'review' }
+  if (review === 'approved') return { label: formatReviewStatus('approved'), tone: 'approved' }
+  if (review === 'correction_requested') return { label: formatReviewStatus('correction_requested'), tone: 'correction' }
+  if (review === 'rejected') return { label: formatReviewStatus('rejected'), tone: 'rejected' }
   if (progress.done && isBenchmarkItem(item) && progress.submitted_at && hasMetricValues(itemId)) {
     return { label: 'Submitted for Coach Review', tone: 'review' }
   }
@@ -535,7 +536,7 @@ const itemStatusMessage = (itemId, item = {}) => {
   const message = cleanText(progress.correction_message || progress.rejection_reason || progress.review_notes)
 
   if (review === 'approved') return message || 'Your results were approved.'
-  if (review === 'correction_requested') return message || 'Coach requested a correction.'
+  if (review === 'correction_requested') return message || 'Your coach requested a correction.'
   if (review === 'rejected') return message || 'Your coach did not approve this submission yet.'
   if (review === 'pending_review' || (progress.done && isBenchmarkItem(item) && progress.submitted_at && hasMetricValues(itemId))) {
     return 'Your submitted results are waiting for coach review.'
@@ -698,7 +699,7 @@ const summaryStatusLabel = (status) => ({
   completed: 'Complete',
   submitted_for_review: 'Submitted for Coach Review',
   approved: 'Approved',
-  needs_correction: 'Correction Requested',
+  needs_correction: 'Needs Correction',
 }[status] || humanizeMetric(status || 'Summary'))
 const summaryStatusTone = (status) => ({
   completed: 'done',
@@ -727,7 +728,7 @@ const bridgeSaveMessage = (bridge) => {
   if (Number(bridge.tasks_updated || 0) > 0 && warnings.includes('no metric values')) {
     return 'Workout marked complete. Add measured values when available.'
   }
-  if (Number(bridge.tasks_updated || 0) > 0) return 'Benchmark task updated.'
+  if (Number(bridge.tasks_updated || 0) > 0) return 'Benchmark result updated.'
 
   return 'Workout saved.'
 }
@@ -896,7 +897,7 @@ const finish = async () => {
     <template v-if="!current">
       <div v-if="loading" class="pw-empty">
         <strong>Loading your weekly plans…</strong>
-        <span>FMTRX is checking your assigned Daily Planner workouts.</span>
+        <span>FMTRX is loading your Player Workouts.</span>
       </div>
       <div v-else-if="offline" class="pw-empty">
         <strong>Could not load weekly plans.</strong>
@@ -931,7 +932,7 @@ const finish = async () => {
             </div>
             <div>
               <strong>{{ weeklySummary.benchmark_plan_count || 0 }}</strong>
-              <span>Benchmark</span>
+              <span>FMTRX Benchmark</span>
             </div>
             <div>
               <strong>{{ weeklySummary.pending_review_count || 0 }}</strong>
@@ -1131,7 +1132,7 @@ const finish = async () => {
               <div class="pw-card-summary">
                 <span>{{ itemCount(w) }} item{{ itemCount(w) === 1 ? '' : 's' }}</span>
                 <span v-if="w.estimatedMinutes">{{ w.estimatedMinutes }} min</span>
-                <span v-if="bucketItems(w).some(({ item }) => isBenchmarkItem(item))">Benchmark blocks</span>
+                <span v-if="bucketItems(w).some(({ item }) => isBenchmarkItem(item))">Benchmark Baselines</span>
               </div>
               <div class="mt-3 flex flex-wrap gap-1.5">
                 <span v-for="b in w.buckets" :key="b.type" class="pw-chip">{{ bucketTitle(b.type) }}</span>
@@ -1313,7 +1314,7 @@ const finish = async () => {
             </p>
           </div>
           <div v-if="asArray(completionSummary.corrections_requested).length" class="pw-summary-review-card pw-summary-review-card--correction">
-            <div class="pw-summary-label">Correction Requested</div>
+            <div class="pw-summary-label">Needs Correction</div>
             <p
               v-for="task in asArray(completionSummary.corrections_requested).slice(0, 3)"
               :key="`correction-${task.task_id || task.id || task.title}`"
@@ -1348,7 +1349,7 @@ const finish = async () => {
       <div v-for="bucket in current.plan.buckets" :key="bucket.type" class="pw-bucket">
         <div class="pw-bucket-head">
           <div class="pw-bucket-title">{{ bucketTitle(bucket.type) }}</div>
-          <span v-if="hasBenchmarkItems(bucket)" class="pw-benchmark-bucket">Benchmark</span>
+          <span v-if="hasBenchmarkItems(bucket)" class="pw-benchmark-bucket">FMTRX Benchmark</span>
         </div>
         <p v-if="bucket.note" class="pw-bucket-note">{{ bucket.note }}</p>
 

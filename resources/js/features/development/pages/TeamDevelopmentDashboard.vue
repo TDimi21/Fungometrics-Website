@@ -16,6 +16,14 @@ import {
   riskLevel,
   rankToPercentile,
 } from '../lib/teamDevelopmentCommandCenter'
+import {
+  comparisonGroupExplanation,
+  formatBenchmarkSource,
+  formatComparisonGroup,
+  formatLabel,
+  formatMetricName,
+  formatReviewStatus,
+} from '@/utils/fmtrxLabels.js'
 
 const router = useRouter()
 const { axiosGet, axiosPost } = useAxiosAuth()
@@ -321,7 +329,7 @@ const readableLabelOverrides = {
   composite: 'Research + FMTRX Blend',
   composite_benchmark: 'Research + FMTRX Blend',
   insufficient: 'Not Enough Data',
-  research_only: 'Research Only',
+  research_only: 'Research Benchmark',
   composite_enabled: 'Research + FMTRX Blend',
   population_enabled: 'Population Ready',
   needs_review: 'Needs Review',
@@ -330,7 +338,7 @@ const readableLabelOverrides = {
   player_context: 'Roster Profile',
   player_benchmark_metrics: 'Benchmark Baseline',
   coach_edit: 'Coach Edit',
-  benchmark_intelligence: 'FMTRX Intelligence',
+  benchmark_intelligence: 'Benchmark Intelligence',
   practice_plan_update_suggestion: 'Suggested Update',
   manual_revision: 'Manual Revision',
   suggestions_applied: 'Suggestions Applied',
@@ -353,9 +361,7 @@ const humanizeKey = (value, fallback = 'Needs Data') => {
   if (!text) return fallback
   if (readableLabelOverrides[text]) return readableLabelOverrides[text]
 
-  return text
-    .replaceAll('_', ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  return formatLabel(text, fallback)
 }
 
 const benchmarkProfile = computed(() => {
@@ -427,7 +433,7 @@ const confidenceLabelOverrides = {
   high: 'Strong Sample',
 }
 
-const sourceLabel = (source) => sourceLabelOverrides[String(source ?? '').trim()] || humanizeKey(source, 'Research Benchmark')
+const sourceLabel = (source) => sourceLabelOverrides[String(source ?? '').trim()] || formatBenchmarkSource(source, 'Research Benchmark')
 const confidenceLabel = (confidence) => confidenceLabelOverrides[String(confidence ?? '').trim()] || humanizeKey(confidence, 'Not Enough Data')
 
 const sourceMixPercent = (sourceMix, percentKey, shareKey) => {
@@ -632,8 +638,8 @@ const bucketKeyValue = (metric) => {
     || null
 }
 
-const bucketLabel = (level) => bucketLabelOverrides[String(level ?? '').trim()] || 'Comparison group details are not available yet.'
-const bucketExplanation = (level) => bucketExplanations[String(level ?? '').trim()] || 'Comparison group details are not available yet.'
+const bucketLabel = (level) => bucketLabelOverrides[String(level ?? '').trim()] || formatComparisonGroup(level, 'Comparison group details are not available yet.')
+const bucketExplanation = (level) => bucketExplanations[String(level ?? '').trim()] || comparisonGroupExplanation(level)
 
 const metricAttemptedBuckets = (metric) => {
   const detail = metricPopulationDetail(metric)
@@ -713,7 +719,7 @@ const metricSourceStatusText = (metric) => {
 
 const trustStatusDefinitions = {
   research_only: {
-    label: 'Research Only',
+    label: 'Research Benchmark',
     meaning: 'FMTRX population data is not used in this score yet. Research standards remain active.',
     badge: 'border-sky-300/30 bg-sky-500/15 text-sky-100',
   },
@@ -723,7 +729,7 @@ const trustStatusDefinitions = {
     badge: 'border-emerald-300/35 bg-emerald-500/15 text-emerald-100',
   },
   population_enabled: {
-    label: 'Population Ready',
+    label: 'FMTRX Population',
     meaning: 'This metric has enough trusted FMTRX data to support population-based comparison.',
     badge: 'border-purple-300/35 bg-purple-500/15 text-purple-100',
   },
@@ -1235,7 +1241,7 @@ const coachFriendlyMetricLabel = (metric) => {
   if (coachFriendlyMetricLabels[key]) return coachFriendlyMetricLabels[key]
   return typeof metric === 'object' && metric?.display_name
     ? metric.display_name
-    : humanizeKey(key || metric?.title || metric?.category, 'Missing data')
+    : formatMetricName(key || metric?.title || metric?.category, 'Missing data')
 }
 
 const missingRowTitle = (row) => coachFriendlyMetricLabel(row)
@@ -1814,7 +1820,7 @@ const taskTypeLabel = (type) => ({
   strength_baseline: 'Strength Baseline',
   athletic_testing: 'Athletic Testing',
   mobility_screen: 'Mobility Screen',
-}[type] || humanizeKey(type, 'Benchmark Task'))
+}[type] || humanizeKey(type, 'Benchmark Baseline'))
 
 const savedBenchmarkTaskRows = computed(() => asArray(savedBenchmarkTasks.value).slice(0, 20))
 
@@ -2230,12 +2236,12 @@ const promotionTargetLabel = (task) => {
 }
 
 const reviewStateLabel = (status) => ({
-  not_required: 'No Review Required',
-  pending_review: 'Pending Coach Review',
+  not_required: 'No Review Needed',
+  pending_review: 'Waiting for Coach Review',
   approved: 'Approved',
   rejected: 'Rejected',
-  correction_requested: 'Correction Requested',
-}[status] || humanizeKey(status, 'Not Submitted'))
+  correction_requested: 'Needs Correction',
+}[status] || formatReviewStatus(status, 'Not Submitted'))
 
 const reviewStateClass = (status) => ({
   pending_review: 'border-amber-300/30 bg-amber-500/15 text-amber-100',
@@ -2249,7 +2255,7 @@ const reviewTaskPlayerName = (task) =>
   safeText(task?.player_name || task?.assigned_to_player_name || task?.assigned_to_player_id, 'Player')
 
 const reviewTaskTitle = (task) =>
-  safeText(task?.title || taskTypeLabel(task?.task_type), 'Benchmark Task')
+  safeText(task?.title || taskTypeLabel(task?.task_type), 'Benchmark Baseline')
 
 const reviewTaskDailyPlanTitle = (task) =>
   safeText(task?.daily_plan_item_title || task?.submitted_payload?.daily_plan_item_title || task?.submitted_payload?.daily_plan_item_name, '')
@@ -2329,7 +2335,7 @@ const reviewBenchmarkTask = async (task, action) => {
 
   let payload = { days: 365 }
   if (action === 'reject') {
-    const reason = window.prompt('Why is this benchmark task being rejected?')
+    const reason = window.prompt('Why is this benchmark result being rejected?')
     if (!String(reason || '').trim()) return
     payload = { reason: String(reason).trim() }
   }
@@ -2360,7 +2366,7 @@ const reviewBenchmarkTask = async (task, action) => {
         ? 'Benchmark task rejected and returned to the player.'
         : 'Correction request sent to the player.'
   } catch (error) {
-    benchmarkReviewActionError.value = error?.response?.data?.message || `Could not ${humanizeKey(action)} benchmark task.`
+    benchmarkReviewActionError.value = error?.response?.data?.message || `Could not ${humanizeKey(action)} benchmark result.`
   } finally {
     benchmarkReviewActionLoading.value = ''
   }
@@ -2403,7 +2409,7 @@ const promoteBenchmarkTask = async (task) => {
     ])
     benchmarkPromotionActionMessage.value = `Promotion ${promotionStatusLabel(result.promotion_status).toLowerCase()}.`
   } catch (error) {
-    benchmarkPromotionActionError.value = error?.response?.data?.message || 'Could not promote approved benchmark task.'
+    benchmarkPromotionActionError.value = error?.response?.data?.message || 'Could not promote approved benchmark result.'
   } finally {
     benchmarkPromotionActionLoading.value = ''
   }
@@ -2427,7 +2433,7 @@ const promoteAllApprovedBenchmarkTasks = async () => {
     ])
     benchmarkPromotionActionMessage.value = `Promoted ${fmtCount(result.promoted_count, '0')} approved tasks. ${fmtCount(result.skipped_count, '0')} skipped.`
   } catch (error) {
-    benchmarkPromotionActionError.value = error?.response?.data?.message || 'Could not promote approved benchmark tasks.'
+    benchmarkPromotionActionError.value = error?.response?.data?.message || 'Could not promote approved benchmark results.'
   } finally {
     benchmarkPromotionActionLoading.value = ''
   }
@@ -2868,9 +2874,9 @@ const generateBenchmarkDraftTasks = async () => {
       ...(teamIntelligence.value || {}),
       benchmark_task_assignments: payload,
     }
-    benchmarkTaskActionMessage.value = `Generated ${fmtCount(payload.task_count, '0')} draft task previews.`
+    benchmarkTaskActionMessage.value = `Generated ${fmtCount(payload.task_count, '0')} draft baseline previews.`
   } catch {
-    benchmarkTaskActionError.value = 'Could not generate benchmark task previews.'
+    benchmarkTaskActionError.value = 'Could not generate benchmark baseline previews.'
   } finally {
     benchmarkTaskActionLoading.value = ''
   }
@@ -2894,7 +2900,7 @@ const saveBenchmarkDraftTasks = async () => {
       : (Array.isArray(payload.tasks) ? payload.tasks : savedBenchmarkTasks.value)
     benchmarkTaskActionMessage.value = `Saved drafts: ${fmtCount(payload.created_count, '0')} created, ${fmtCount(payload.updated_count, '0')} updated, ${fmtCount(payload.skipped_count, '0')} skipped.`
   } catch {
-    benchmarkTaskActionError.value = 'Could not save benchmark draft tasks.'
+    benchmarkTaskActionError.value = 'Could not save benchmark draft baselines.'
   } finally {
     benchmarkTaskActionLoading.value = ''
   }
@@ -2915,9 +2921,9 @@ const assignBenchmarkDraftTasks = async () => {
     savedBenchmarkTasks.value = Array.isArray(payload.saved_tasks)
       ? payload.saved_tasks
       : (Array.isArray(payload.tasks) ? payload.tasks : savedBenchmarkTasks.value)
-    benchmarkTaskActionMessage.value = `Assigned ${fmtCount(payload.assigned_count, '0')} task(s). ${fmtCount(payload.skipped_count, '0')} skipped.`
+    benchmarkTaskActionMessage.value = `Assigned ${fmtCount(payload.assigned_count, '0')} baseline(s). ${fmtCount(payload.skipped_count, '0')} skipped.`
   } catch {
-    benchmarkTaskActionError.value = 'Could not assign benchmark tasks.'
+    benchmarkTaskActionError.value = 'Could not assign benchmark baselines.'
   } finally {
     benchmarkTaskActionLoading.value = ''
   }
@@ -4555,7 +4561,7 @@ const priorityTop10Rows = computed(() => {
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
 	                  <p class="text-[10px] uppercase tracking-widest text-cyan-200/80">Benchmark Source Mix</p>
-	                  <h4 class="mt-1 text-lg font-semibold text-white">Research + FMTRX Population Learning</h4>
+                  <h4 class="mt-1 text-lg font-semibold text-white">Benchmark Source</h4>
 	                  <p class="mt-1 text-xs text-slate-300">
 	                    This shows how much of the benchmark system is powered by research standards, FMTRX player data, or a blend of both.
 	                  </p>
@@ -4577,7 +4583,7 @@ const priorityTop10Rows = computed(() => {
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
                     <p class="text-[10px] uppercase tracking-wider text-white/35">Research</p>
                     <p class="text-xl font-black text-white">{{ fmtValue(benchmarkSourceMix.researchPercent, '%') }}</p>
-                    <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.researchCount, '0') }} research-only metrics</p>
+                    <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.researchCount, '0') }} research benchmark metrics</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
 	                    <p class="text-[10px] uppercase tracking-wider text-white/35">FMTRX Player Data</p>
@@ -4590,7 +4596,7 @@ const priorityTop10Rows = computed(() => {
                     <p class="mt-1 text-[10px] text-slate-300">{{ fmtCount(benchmarkSourceMix.compositeCount, '0') }} blended metrics</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
-	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Group</p>
+	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Group Size</p>
 	                    <p class="text-xl font-black text-white">{{ fmtCount(benchmarkSourceMix.averageBucketCount, '0') }}</p>
 	                    <p class="mt-1 text-[10px] text-slate-300">trusted sample size</p>
                   </div>
@@ -4631,9 +4637,9 @@ const priorityTop10Rows = computed(() => {
                       <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-3">
                         <p>Research: <span class="font-semibold text-white">{{ metricResearchPercentile(metric) }}</span></p>
 	                        <p>FMTRX Data: <span class="font-semibold text-white">{{ metricPopulationPercentile(metric) }}</span></p>
-	                        <p>Group: <span class="font-semibold text-white">{{ metricPopulationBucketCount(metric) }} players</span></p>
+	                        <p>Comparison: <span class="font-semibold text-white">{{ metricPopulationBucketCount(metric) }} players</span></p>
 	                        <p>Trust: <span class="font-semibold text-white">{{ metricPopulationConfidence(metric) }}</span></p>
-	                        <p>Used: <span class="font-semibold text-white">{{ metricPopulationUsable(metric) }}</span></p>
+	                        <p>FMTRX Active: <span class="font-semibold text-white">{{ metricPopulationUsable(metric) }}</span></p>
                         <p>Blend: <span class="font-semibold text-white">Research {{ metricSourceWeight(metric, 'research_weight') }} / FMTRX {{ metricSourceWeight(metric, 'population_weight') }}</span></p>
                       </div>
                       <p class="mt-2 text-[10px] text-slate-400">{{ metricSourceStatusText(metric) }}</p>
@@ -4650,7 +4656,7 @@ const priorityTop10Rows = computed(() => {
               <div class="flex flex-wrap items-start justify-between gap-3">
 	                <div>
 	                  <p class="text-[10px] uppercase tracking-widest text-emerald-200/80">Benchmark Trust Summary</p>
-	                  <h4 class="mt-1 text-lg font-semibold text-white">Benchmark Trust by Metric</h4>
+	                  <h4 class="mt-1 text-lg font-semibold text-white">Trusted Benchmark Data</h4>
 	                  <p class="mt-1 text-xs text-slate-300">
 	                    These badges show which metrics are ready for FMTRX population learning and which still use research standards.
 	                  </p>
@@ -4705,7 +4711,7 @@ const priorityTop10Rows = computed(() => {
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
 	                  <p class="text-[10px] uppercase tracking-widest text-indigo-200/80">Benchmark Comparison Quality</p>
-	                  <h4 class="mt-1 text-lg font-semibold text-white">FMTRX Peer Group Trust</h4>
+	                  <h4 class="mt-1 text-lg font-semibold text-white">Comparison Group Quality</h4>
 	                  <p class="mt-1 text-xs text-slate-300">
 	                    This shows whether FMTRX found a strong peer group or had to use a broader comparison group.
 	                  </p>
@@ -4749,7 +4755,7 @@ const priorityTop10Rows = computed(() => {
                     <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.counts.none, '0') }}</p>
                   </div>
                   <div class="rounded-md border border-white/10 bg-slate-950/35 p-2">
-	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Group</p>
+	                    <p class="text-[10px] uppercase tracking-wider text-white/35">Avg Group Size</p>
                     <p class="text-xl font-black text-white">{{ fmtCount(populationBucketQualitySummary.averageBucketCount, '0') }}</p>
                   </div>
                 </div>
@@ -4782,7 +4788,7 @@ const priorityTop10Rows = computed(() => {
                     </div>
 
                     <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
-                      <p>Group: <span class="font-semibold text-white">{{ fmtCount(metric.bucketCount, '0') }}</span></p>
+                      <p>Comparison: <span class="font-semibold text-white">{{ fmtCount(metric.bucketCount, '0') }}</span></p>
                       <p>Trust: <span class="font-semibold text-white">{{ confidenceLabel(metric.bucketConfidence) }}</span></p>
                       <p>Research: <span class="font-semibold text-white">{{ metricResearchPercentile(metric) }}</span></p>
                       <p>FMTRX Data: <span class="font-semibold text-white">{{ metricPopulationPercentile(metric) }}</span></p>
@@ -5217,8 +5223,8 @@ const priorityTop10Rows = computed(() => {
                 <div class="mt-3 rounded-md border border-sky-300/20 bg-sky-500/10 p-3">
                   <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p class="text-[10px] uppercase tracking-widest text-sky-200/80">Assignable Benchmark Tasks</p>
-                      <h5 class="mt-1 text-base font-semibold text-white">Draft Player Tasks</h5>
+                      <p class="text-[10px] uppercase tracking-widest text-sky-200/80">Assignable Benchmark Baselines</p>
+                      <h5 class="mt-1 text-base font-semibold text-white">Draft Player Baselines</h5>
                     </div>
                     <span
                       class="rounded-full border px-3 py-1 text-xs uppercase tracking-wider"
@@ -5229,7 +5235,7 @@ const priorityTop10Rows = computed(() => {
                   </div>
 
                   <p v-if="!benchmarkTaskAssignments" class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
-                    Assignable benchmark tasks are not available yet.
+                    Assignable benchmark baselines are not available yet.
                   </p>
 
                   <div class="mt-3 flex flex-wrap gap-2">
@@ -5460,7 +5466,7 @@ const priorityTop10Rows = computed(() => {
 	                      </div>
 
 	                      <p v-else class="mt-3 rounded border border-white/10 bg-slate-950/35 px-2 py-2 text-xs text-slate-300">
-	                        No approved benchmark tasks awaiting promotion.
+	                        No approved benchmark results awaiting promotion.
 	                      </p>
 
 	                      <div
@@ -5484,7 +5490,7 @@ const priorityTop10Rows = computed(() => {
 	                        <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-4">
 	                          <p class="rounded border border-white/10 bg-white/5 px-2 py-1">
 	                            <span class="block text-[10px] uppercase tracking-wider text-white/35">Target</span>
-	                            <span class="font-black text-white">{{ selectedPromotionPreview.target_table || 'Trusted Payload' }}</span>
+	                            <span class="font-black text-white">{{ selectedPromotionPreview.target_table || 'Trusted Benchmark Evidence' }}</span>
 	                          </p>
 	                          <p class="rounded border border-white/10 bg-white/5 px-2 py-1">
 	                            <span class="block text-[10px] uppercase tracking-wider text-white/35">Fields</span>
@@ -5738,7 +5744,7 @@ const priorityTop10Rows = computed(() => {
                         </p>
                       </div>
                     </div>
-                    <p v-else class="mt-2 text-xs text-slate-300">No saved benchmark tasks yet.</p>
+                    <p v-else class="mt-2 text-xs text-slate-300">No saved benchmark baseline tasks yet.</p>
                     <p class="mt-3 text-[10px] uppercase tracking-wider text-slate-400">
                       No notifications are sent yet. This only saves and assigns task records.
                     </p>
@@ -6223,9 +6229,9 @@ const priorityTop10Rows = computed(() => {
                       <p>FMTRX Data Share: <span class="font-black text-white">{{ selectedMetricDetail.populationWeight }}</span></p>
                       <p>Research Percentile: <span class="font-black text-white">{{ selectedMetricDetail.researchPercentile }}</span></p>
                       <p>FMTRX Percentile: <span class="font-black text-white">{{ selectedMetricDetail.populationPercentile }}</span></p>
-                      <p>Comparison Group Count: <span class="font-black text-white">{{ selectedMetricDetail.populationBucketCount }}</span></p>
+                      <p>Comparison Group Size: <span class="font-black text-white">{{ selectedMetricDetail.populationBucketCount }}</span></p>
                       <p>FMTRX Trust: <span class="font-black text-white">{{ selectedMetricDetail.populationConfidence }}</span></p>
-                      <p>FMTRX Data Used: <span class="font-black text-white">{{ selectedMetricDetail.populationUsable }}</span></p>
+                      <p>FMTRX Player Data Active: <span class="font-black text-white">{{ selectedMetricDetail.populationUsable }}</span></p>
                     </div>
                     <p class="mt-3 rounded border border-white/10 bg-slate-950/35 p-2 text-xs text-cyan-100">
                       {{ selectedMetricSourceExplanation }}

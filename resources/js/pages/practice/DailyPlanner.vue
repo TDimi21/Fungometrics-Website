@@ -14,6 +14,7 @@ import {
   blankPlan, estimateMinutes, planToApi, planFromApi, groupFromApi, bucketTitle, uid,
 } from '@/features/planner/dailyPlanner.js'
 import CoachWorkoutPlayers from '@/components/planner/CoachWorkoutPlayers.vue'
+import { formatDeliveryStatus, formatLabel, formatMetricName, formatPlanStatus } from '@/utils/fmtrxLabels.js'
 
 const { axiosGet, axiosPost, axiosPut, axiosDelete } = useAxiosAuth()
 const teamStore = useTeamStore()
@@ -995,7 +996,7 @@ const prettyDateTime = (value) => {
   try { return new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return value }
 }
 const oneDecimal = (value) => Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '0.0'
-const human = (value) => String(value || '—').replace(/[_-]/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
+const human = (value) => formatLabel(value, '—')
 const metricLabels = {
   average_exit_velocity: 'Average EV',
   max_exit_velocity: 'Max EV',
@@ -1012,7 +1013,7 @@ const metricLabels = {
   deadlift: 'Deadlift',
   mobility_score: 'Mobility Score',
 }
-const metricLabel = (value) => metricLabels[value] || human(value)
+const metricLabel = (value) => metricLabels[value] || formatMetricName(value, human(value))
 const workloadLabel = (value) => ({
   light: 'Light Day',
   moderate: 'Moderate Day',
@@ -1488,9 +1489,9 @@ const weeklyReportAudienceWarning = computed(() => {
 const seasonArchivePublicAudience = computed(() => ['parents', 'players'].includes(seasonArchiveExportAudience.value))
 const seasonArchiveAudienceWarning = computed(() => {
   if (seasonArchiveExportFormat.value === 'pdf') return 'PDF export is not configured yet. Use Copy Text or Printable HTML.'
-  if (seasonArchiveExportAudience.value === 'parents') return 'Parent version hides private player details, staff notes, internal QA, and raw benchmark payloads.'
-  if (seasonArchiveExportAudience.value === 'players') return "Player version hides other players' private details, staff notes, internal QA, and raw benchmark payloads."
-  if (seasonArchiveExportAudience.value === 'director') return 'Director version hides raw payloads and private system identifiers.'
+  if (seasonArchiveExportAudience.value === 'parents') return 'Parent version hides private player details, staff notes, internal QA, and private benchmark details.'
+  if (seasonArchiveExportAudience.value === 'players') return "Player version hides other players' private details, staff notes, internal QA, and private benchmark details."
+  if (seasonArchiveExportAudience.value === 'director') return 'Director version hides private system identifiers and internal data details.'
   return ''
 })
 const seasonArchiveDeliveryTemplateDisabled = (option) => !option.audiences.includes(seasonArchiveDeliveryAudience.value)
@@ -1746,22 +1747,24 @@ const actionButtonDisabled = (action) => commandActionLoading.value !== '' || ac
 const operatingActionDisabled = (action) => operatingHomeActionLoading.value !== '' || action?.enabled === false
 const actionConfirmText = (action, payload = {}) => {
   const count = payload.task_ids?.length || action?.payload?.player_ids?.length || 0
-  if (action?.action_type === 'send_reminder') return `Send reminder to ${count || commandSummary.value.not_acknowledged_count || 0} players who have not acknowledged?`
-  if (action?.action_type === 'approve_values') return 'Approve selected benchmark submissions?'
-  if (action?.action_type === 'request_corrections') return 'Request corrections for selected benchmark submissions?'
+  if (action?.action_type === 'send_reminder') return `Send a reminder to ${count || commandSummary.value.not_acknowledged_count || 0} players who have not acknowledged?`
+  if (action?.action_type === 'approve_values') return 'Approve selected submitted benchmark values?'
+  if (action?.action_type === 'request_corrections') return 'Send a correction request for selected benchmark values?'
   if (action?.action_type === 'promote_trusted_data') return 'Promote approved values to trusted benchmark data?'
-  if (action?.action_type === 'publish_plan') return 'Publish this Daily Plan?'
-  return `Run "${action?.title || 'this action'}"?`
+  if (action?.action_type === 'publish_plan') return 'Publish this plan so assigned players can see it?'
+  if (action?.action_type === 'refresh_intelligence') return 'Refresh FMTRX intelligence using the latest trusted data?'
+  return `Continue with "${action?.title || 'this action'}"?`
 }
 const operatingActionConfirmText = (action) => {
-  if (action?.action_type === 'publish_plan') return 'Publish this Daily Plan? Players can see it after publish and assignment.'
-  if (action?.action_type === 'assign_plan') return 'Assign this plan to the selected players? Existing player progress will be preserved.'
-  if (action?.action_type === 'approve_selected_values') return 'Approve selected benchmark submissions?'
-  if (action?.action_type === 'request_corrections') return 'Request corrections for selected benchmark submissions?'
+  if (action?.action_type === 'publish_plan') return 'Publish this plan so assigned players can see it?'
+  if (action?.action_type === 'assign_plan') return 'Assign this plan to selected players? Existing player progress will be preserved.'
+  if (action?.action_type === 'approve_selected_values') return 'Approve selected submitted benchmark values?'
+  if (action?.action_type === 'request_corrections') return 'Send a correction request for selected benchmark values?'
   if (action?.action_type === 'promote_trusted_data') return 'Promote approved benchmark values into trusted data? Pending and rejected values will not be promoted.'
-  if (action?.action_type === 'send_reminder') return 'Prepare the player reminder? Nothing will send unless the existing reminder workflow supports it.'
-  if (action?.action_type === 'save_suggested_plan_draft') return 'Save the generated suggestion as a draft Daily Plan? It will not publish.'
-  return `Run "${action?.title || 'this action'}"?`
+  if (action?.action_type === 'send_reminder') return 'Send a reminder to players who have not acknowledged?'
+  if (action?.action_type === 'save_suggested_plan_draft') return 'Save this FMTRX Suggested Plan as a Draft Plan? Players cannot see drafts.'
+  if (action?.action_type === 'refresh_intelligence') return 'Refresh FMTRX intelligence using the latest trusted data?'
+  return `Continue with "${action?.title || 'this action'}"?`
 }
 const runOperatingHomeAction = async (action) => {
   if (!action) return
@@ -1816,7 +1819,7 @@ const runOperatingHomeAction = async (action) => {
       operatingHomeActionMessage.value += ` ${data.warnings[0]}`
     }
   } catch {
-    operatingHomeActionMessage.value = 'Could not complete that Operating Home action.'
+    operatingHomeActionMessage.value = 'Could not complete that FMTRX Operating System action.'
   } finally {
     operatingHomeActionLoading.value = ''
   }
@@ -1963,7 +1966,7 @@ const openDevelopmentAlertSection = async (section) => {
     return
   }
   if (section === 'population_learning_qa') {
-    developmentHealthAlertActionMessage.value = 'Open the population learning admin QA tools to review guardrail exclusions and trusted payload quality.'
+    developmentHealthAlertActionMessage.value = 'Open Population Learning QA to review data quality checks and trusted benchmark evidence.'
     return
   }
   await nextTick()
@@ -2242,7 +2245,7 @@ const createWeeklyReportDeliveryDraft = async () => {
       ...weeklyReportDeliveryBasePayload(),
     })
     weeklyReportDeliveryPreview.value = res?.data?.data || null
-    weeklyReportDeliveryMessage.value = weeklyReportDeliveryPreview.value?.draft?.message || 'Draft payload prepared.'
+    weeklyReportDeliveryMessage.value = weeklyReportDeliveryPreview.value?.draft?.message || 'Draft prepared.'
     await refreshWeeklyReportDeliveryInsights()
   } catch {
     weeklyReportDeliveryMessage.value = 'Could not create a delivery draft.'
@@ -2436,7 +2439,7 @@ const createSeasonArchiveDeliveryDraft = async () => {
     resetSeasonArchiveDeliveryReview()
     const res = await axiosPost(`coach/teams/${activeTeamId.value}/season-archive/create-delivery-draft`, seasonArchiveDeliveryPayload())
     seasonArchiveDeliveryPreview.value = res?.data?.data || null
-    seasonArchiveDeliveryMessage.value = seasonArchiveDeliveryPreview.value?.draft?.message || seasonArchiveDeliveryWarnings.value[0] || 'Season delivery draft payload prepared.'
+    seasonArchiveDeliveryMessage.value = seasonArchiveDeliveryPreview.value?.draft?.message || seasonArchiveDeliveryWarnings.value[0] || 'Season packet draft prepared.'
     return seasonArchiveDeliveryPreview.value
   } catch {
     seasonArchiveDeliveryMessage.value = 'Could not prepare a season delivery draft.'
@@ -2836,8 +2839,8 @@ const del = async (p) => {
       <template v-else-if="!editing">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
-            <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Workout Plans</h1>
-            <p class="text-white/40 text-sm mt-0.5">Build a player's day from buckets and the drill library, then publish it to their app.</p>
+            <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Daily Planner</h1>
+            <p class="text-white/40 text-sm mt-0.5">Build the day, save drafts, publish plans, and manage Player Workouts.</p>
           </div>
           <button class="dp-btn dp-btn--primary" @click="newPlan">+ New Plan</button>
         </div>
@@ -2846,8 +2849,8 @@ const del = async (p) => {
           <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
               <div class="dp-command-eyebrow">FMTRX Operating System</div>
-              <h2 class="text-xl font-black tracking-wide">{{ operatingSummary.headline || 'Coach Operating Home' }}</h2>
-              <p class="text-white/45 text-sm mt-1">{{ operatingSummary.summary_text || 'One read-only view for today’s plan, team health, alerts, benchmark data, reviews, and communication rhythm.' }}</p>
+              <h2 class="text-xl font-black tracking-wide">{{ operatingSummary.headline || 'FMTRX Operating System' }}</h2>
+              <p class="text-white/45 text-sm mt-1">{{ operatingSummary.summary_text || 'Start here for today’s plan, Development Health, Benchmark Intelligence, reviews, reports, and Communication Rhythm.' }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="dp-status" :class="statusBadgeClass(operatingHome?.home_status === 'ready' ? 'complete' : operatingHome?.home_status === 'partial' ? 'warning' : 'muted')">
@@ -2946,7 +2949,7 @@ const del = async (p) => {
                     <div class="font-extrabold mt-2">{{ action.title }}</div>
                     <p class="text-white/55 text-xs mt-2">{{ action.why }}</p>
                   </button>
-                  <div v-if="operatingNextActionStack.length > 3" class="dp-command-sub">Top 3 shown. Open Planner Operations for the full stack.</div>
+                  <div v-if="operatingNextActionStack.length > 3" class="dp-command-sub">Top 3 shown. Open Daily Planner Operations for the full stack.</div>
                 </div>
                 <div v-else class="dp-empty dp-empty--sm">No operating actions are waiting.</div>
               </details>
@@ -2974,14 +2977,14 @@ const del = async (p) => {
 
               <details class="dp-mobile-collapse">
                 <summary>
-                  <span>Benchmark Data</span>
+                  <span>Benchmark Intelligence</span>
                   <strong>{{ human(operatingBenchmark.data_collection_priority || 'low') }}</strong>
                 </summary>
                 <div class="dp-mobile-collapse-body">
                   <div class="dp-command-sub">Players with data: {{ operatingBenchmark.players_with_benchmark_data || 0 }} of {{ operatingBenchmarkPlayerTotal || '—' }}</div>
                   <div class="dp-command-sub">Weakest category: {{ operatingBenchmark.weakest_category || 'More data needed' }}</div>
                   <div class="dp-command-sub">Weakest metric: {{ operatingBenchmark.weakest_metric || 'Benchmark data will appear after baselines are collected.' }}</div>
-                  <button class="dp-btn dp-btn--small mt-2" @click="openOperatingHomeTarget('benchmark_intelligence')">View Benchmark Data</button>
+                  <button class="dp-btn dp-btn--small mt-2" @click="openOperatingHomeTarget('benchmark_intelligence')">View Benchmark Intelligence</button>
                 </div>
               </details>
 
@@ -3033,7 +3036,7 @@ const del = async (p) => {
                   <span>{{ operatingTodayPlan.completed_count || 0 }} completed</span>
                   <span>{{ operatingTodayPlan.completion_percentage == null ? '—' : `${oneDecimal(operatingTodayPlan.completion_percentage)}%` }} complete</span>
                   <span>{{ operatingTodayPlan.pending_review_count || 0 }} reviews</span>
-                  <span>{{ operatingTodayPlan.benchmark_generated ? 'FMTRX generated' : 'Manual or missing' }}</span>
+                  <span>{{ operatingTodayPlan.benchmark_generated ? 'FMTRX Suggested Plan' : 'Manual Plan' }}</span>
                 </div>
               </div>
               <div class="dp-primary-action">
@@ -3049,7 +3052,7 @@ const del = async (p) => {
                   >
                     {{ operatingHomeActionLoading === actionKey(operatingPrimaryAction) ? 'Working…' : operatingPrimaryAction.button_label }}
                   </button>
-                  <button class="dp-btn" @click="openOperatingHomeTarget('coach_command_center')">Open Planner Operations</button>
+                  <button class="dp-btn" @click="openOperatingHomeTarget('coach_command_center')">Open Daily Planner Operations</button>
                 </div>
                 <p class="dp-command-sub mt-2">Preview only. FMTRX will not publish, approve, send, or trust data from this card.</p>
               </div>
@@ -3067,7 +3070,7 @@ const del = async (p) => {
                 <div class="dp-command-sub">{{ operatingAlerts.highest_priority_alert?.title || 'No active alerts.' }}</div>
               </div>
               <div class="dp-command-card">
-                <div class="dp-command-label">Benchmark</div>
+                <div class="dp-command-label">Benchmark Intelligence</div>
                 <div class="dp-command-value">{{ operatingBenchmark.players_with_benchmark_data ?? '—' }}/{{ (Number(operatingBenchmark.players_with_benchmark_data || 0) + Number(operatingBenchmark.players_without_benchmark_data || 0)) || '—' }}</div>
                 <div class="dp-command-sub">{{ human(operatingBenchmark.data_collection_priority || 'low') }} data priority · {{ operatingBenchmark.weakest_metric || 'No weakest metric yet' }}</div>
               </div>
@@ -3151,7 +3154,7 @@ const del = async (p) => {
         <section class="dp-command mb-5" data-dp-section="coach_command_center">
           <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
-              <div class="dp-command-eyebrow">Coach Planner Command Center</div>
+              <div class="dp-command-eyebrow">Coach Command Center</div>
               <h2 class="text-xl font-black tracking-wide">Daily Planner Operations</h2>
               <p class="text-white/45 text-sm mt-1">Today’s plan, player progress, benchmark review, and the next best coach action.</p>
             </div>
@@ -3181,7 +3184,7 @@ const del = async (p) => {
                   <span>{{ commandHeader.acknowledged_count || 0 }} acknowledged</span>
                   <span>{{ commandHeader.completed_count || 0 }} completed</span>
                   <span>{{ commandHeader.pending_review_count || 0 }} review needed</span>
-                  <span>{{ commandHeader.benchmark_generated ? 'FMTRX generated' : 'Manual plan' }}</span>
+                  <span>{{ commandHeader.benchmark_generated ? 'FMTRX Suggested Plan' : 'Manual Plan' }}</span>
                 </div>
               </div>
               <div class="dp-primary-action">
@@ -3214,7 +3217,7 @@ const del = async (p) => {
             <div class="dp-command-block" data-dp-section="development_program_health">
               <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div>
-                  <div class="dp-section mb-0">Development Program Health</div>
+                  <div class="dp-section mb-0">Development Health</div>
                   <p class="dp-command-sub">Coach-facing operating score for planning, completion, benchmark coverage, review flow, trusted data, and communication rhythm.</p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -3909,7 +3912,7 @@ const del = async (p) => {
                         <div class="dp-delivery-message-grid">
                           <div class="dp-weekly-panel">
                             <div class="dp-command-label">Subject</div>
-                            <div class="dp-delivery-subject">{{ weeklyReportDeliveryPreview.subject || 'No subject generated yet.' }}</div>
+                            <div class="dp-delivery-subject">{{ weeklyReportDeliveryPreview.subject || 'No subject prepared yet.' }}</div>
                           </div>
                           <div class="dp-weekly-panel">
                             <div class="dp-command-label">Recipient Preview</div>
@@ -4426,7 +4429,7 @@ const del = async (p) => {
                                 <div class="dp-delivery-message-grid">
                                   <div class="dp-weekly-panel">
                                     <div class="dp-command-label">Subject</div>
-                                    <div class="dp-delivery-subject">{{ seasonArchiveDeliveryPreview.subject || 'No subject generated yet.' }}</div>
+                                    <div class="dp-delivery-subject">{{ seasonArchiveDeliveryPreview.subject || 'No subject prepared yet.' }}</div>
                                   </div>
                                   <div class="dp-weekly-panel">
                                     <div class="dp-command-label">Recipient Preview</div>
@@ -4589,7 +4592,7 @@ const del = async (p) => {
                                     </small>
                                   </div>
                                   <div class="dp-delivery-history-meta">
-                                    <span class="dp-status" :class="statusBadgeClass(deliveryStatusTone(delivery.delivery_status))">{{ human(delivery.delivery_status) }}</span>
+                                    <span class="dp-status" :class="statusBadgeClass(deliveryStatusTone(delivery.delivery_status))">{{ formatDeliveryStatus(delivery.delivery_status) }}</span>
                                     <small>{{ prettyDateTime(delivery.sent_at || delivery.copied_at || delivery.blocked_at || delivery.created_at) }}</small>
                                   </div>
                                 </button>
@@ -4637,7 +4640,7 @@ const del = async (p) => {
                                   <div v-for="warning in selectedSeasonArchiveDelivery.privacy_warnings || []" :key="`season-detail-privacy-${warning}`" class="dp-calendar-warning">{{ warning }}</div>
                                   <div v-for="warning in selectedSeasonArchiveDelivery.delivery_warnings || []" :key="`season-detail-delivery-${warning}`" class="dp-calendar-warning">{{ warning }}</div>
                                 </div>
-                                <p class="dp-command-sub mt-3">Packet body and raw archive payload are hidden from delivery history.</p>
+                                <p class="dp-command-sub mt-3">Packet body and private archive details are hidden from delivery history.</p>
                               </div>
                             </div>
 
@@ -5008,7 +5011,7 @@ const del = async (p) => {
                               </small>
                             </div>
                             <div class="dp-delivery-history-meta">
-                              <span class="dp-status" :class="statusBadgeClass(deliveryStatusTone(delivery.delivery_status))">{{ human(delivery.delivery_status) }}</span>
+                              <span class="dp-status" :class="statusBadgeClass(deliveryStatusTone(delivery.delivery_status))">{{ formatDeliveryStatus(delivery.delivery_status) }}</span>
                               <small>{{ delivery.sent_at || delivery.copied_at || delivery.blocked_at || delivery.created_at || '-' }}</small>
                             </div>
                           </button>
@@ -5251,7 +5254,7 @@ const del = async (p) => {
                     <div class="dp-command-label">Starts {{ nextWeekDraft.next_week_start_date || '—' }}</div>
                     <p class="dp-empty-copy">
                       <span v-if="nextWeekDraft.generation_status === 'empty'">Complete or assign plans this week to generate next week’s draft.</span>
-                      <span v-else>FMTRX built this draft from weekly completion, benchmark collection, review status, trusted data, and current team intelligence.</span>
+                      <span v-else>FMTRX built this draft from weekly completion, benchmark collection, coach review flow, trusted data, and current team intelligence.</span>
                     </p>
                   </div>
                   <span class="dp-status" :class="statusBadgeClass(nextWeekDraft.generation_status === 'complete' ? 'complete' : nextWeekDraft.generation_status === 'partial' ? 'warning' : 'muted')">
@@ -5356,7 +5359,7 @@ const del = async (p) => {
               <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div>
                   <div class="dp-section mb-0">Next Week Calendar Draft</div>
-                  <p class="dp-command-sub">Review the generated week by day, then save selected days as Daily Planner drafts.</p>
+                  <p class="dp-command-sub">Review the suggested week by day, then save selected days as Draft Plans.</p>
                 </div>
                 <div class="dp-calendar-controls">
                   <input v-model="nextWeekCalendarStart" class="dp-input dp-input--compact" type="date" aria-label="Next week start date" />
@@ -5458,7 +5461,7 @@ const del = async (p) => {
                     </div>
                   </div>
                 </div>
-                <div v-else class="dp-empty dp-empty--sm mt-3">No suggested days were generated.</div>
+                <div v-else class="dp-empty dp-empty--sm mt-3">No suggested days yet.</div>
 
                 <div v-if="previewCalendarDay" class="dp-weekly-panel mt-3">
                   <div class="flex flex-wrap items-start justify-between gap-2">
@@ -5630,19 +5633,19 @@ const del = async (p) => {
             <p v-if="commandActionMessage" class="dp-command-message">{{ commandActionMessage }}</p>
 
             <div v-if="generatedPlanPreview" class="dp-command-block">
-              <div class="dp-section mb-2">Generated Plan Preview</div>
+              <div class="dp-section mb-2">FMTRX Suggested Plan</div>
               <div class="dp-command-card" data-dp-section="benchmark_intelligence">
                 <div class="dp-command-label">Preview Only</div>
-                <div class="dp-command-value">{{ generatedPlanPreview.name || 'Suggested Daily Plan' }}</div>
+                <div class="dp-command-value">{{ generatedPlanPreview.name || 'FMTRX Suggested Plan' }}</div>
                 <div class="dp-command-sub">{{ generatedPlanPreview.primary_goal || 'No primary goal' }} · {{ generatedPlanPreview.estimated_minutes || 0 }} min · {{ generatedPlanPreview.buckets?.length || 0 }} blocks</div>
-                <p class="text-white/45 text-xs mt-3">Nothing was published. Open the Daily Planner to review, edit, assign, and publish this plan.</p>
+                <p class="text-white/45 text-xs mt-3">FMTRX suggested this as a recommendation. Save it as a Draft Plan before publishing to players.</p>
               </div>
             </div>
 
             <div class="dp-command-block">
               <div class="dp-section mb-2">Player Plan Progress</div>
               <div v-if="!commandRows.length && commandVisibility.has_plan" class="dp-empty dp-empty--sm">No players are assigned to this plan yet.</div>
-              <div v-else-if="!commandRows.length" class="dp-empty dp-empty--sm">No active Daily Plan is available for player progress yet.</div>
+              <div v-else-if="!commandRows.length" class="dp-empty dp-empty--sm">No active Published Plan is available for player progress yet.</div>
               <div v-else class="dp-player-status-list">
                 <div v-for="row in commandRows" :key="row.player_id" class="dp-player-status-row">
                   <div class="min-w-0">
@@ -5717,7 +5720,7 @@ const del = async (p) => {
                 <div class="font-extrabold truncate">{{ p.name || 'Untitled plan' }}</div>
                 <div class="text-white/40 text-xs mt-0.5">{{ fmtDate(p.date) }} · {{ p.phase || '—' }}</div>
               </div>
-              <span class="dp-badge" :class="p.status === 'published' ? 'dp-badge--pub' : 'dp-badge--draft'">{{ p.status === 'published' ? 'Published' : 'Draft' }}</span>
+              <span class="dp-badge" :class="p.status === 'published' ? 'dp-badge--pub' : 'dp-badge--draft'">{{ formatPlanStatus(p.status) }}</span>
             </div>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-white/50">
               <span>{{ p.buckets.length }} bucket{{ p.buckets.length === 1 ? '' : 's' }}</span>
