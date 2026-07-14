@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Training\Result;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Training\Result\CageRequest;
 use App\Models\CagePracticeResult;
+use App\Models\Practice;
 use App\Services\CreateServiceData;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +29,24 @@ class SaveCageResultPractice extends Controller
             $count = CagePracticeResult::where('practice_id', '=', $request->practice_id)
                 ->count();
             $data = $request->validated();
+
+            // Every cage swing must carry its team + user linkage regardless of
+            // which cage mode (regular / game / practice) scored it. The app only
+            // sends team_id when a team happens to be loaded, so backfill it from
+            // the session's practice — otherwise team-level cage stats silently
+            // drop swings saved with a null team_id (different totals per screen).
+            if (empty($data['team_id']) || empty($data['user_id'])) {
+                $practice = Practice::query()->find($data['practice_id']);
+                if ($practice) {
+                    if (empty($data['team_id']) && ! empty($practice->team_id)) {
+                        $data['team_id'] = (string) $practice->team_id;
+                    }
+                    if (empty($data['user_id']) && ! empty($practice->user_id)) {
+                        $data['user_id'] = (string) $practice->user_id;
+                    }
+                }
+            }
+
             $data['sort']= $count++;
             $result = (new CreateServiceData(new CagePracticeResult()))->handle($data);
             DB::commit();
