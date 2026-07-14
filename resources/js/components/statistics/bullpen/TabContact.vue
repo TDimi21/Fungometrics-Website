@@ -1,278 +1,513 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { PrintCatcherBullpen } from '@/components/shared'
-import { useTeamStore } from "@/store/team";
+import { computed, ref, watch } from 'vue'
+import BullpenZoneMap from '@/components/dashboard/BullpenZoneMap.vue'
+import { useTeamStore } from '@/store/team'
 
 const props = defineProps({
   breakdownData: {
     type: Object,
     required: false,
-    default: {}
+    default: () => ({}),
+  },
+  ballData: {
+    type: [Object, Array],
+    required: false,
+    default: () => [],
+  },
+})
+
+const { team } = useTeamStore()
+
+const CONTACT_FILTERS = [
+  { label: 'ALL', key: 'ALL' },
+  { label: 'GROUND BALL', key: 'GB' },
+  { label: 'LINE DRIVE', key: 'LD' },
+  { label: 'FLY BALL', key: 'FB' },
+  { label: 'FOUL', key: 'F' },
+  { label: 'SWING / MISS', key: 'SM' },
+  { label: 'TAKE', key: 'TK' },
+]
+
+const PITCH_TYPES = [
+  { label: 'FB', key: 'FB', tone: 'red' },
+  { label: 'CH', key: 'CH', tone: 'blue' },
+  { label: 'CV', key: 'CB', tone: 'navy' },
+  { label: 'SL', key: 'SL', tone: 'gold' },
+  { label: 'OTH', key: 'OTHER', tone: 'slate' },
+]
+
+const activeFilter = ref('ALL')
+const activePlayerId = ref('team')
+
+const rowsFrom = (value) => {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'object') return []
+  return Object.values(value).flatMap((entry) => {
+    if (Array.isArray(entry)) return entry
+    if (entry && typeof entry === 'object') return [entry]
+    return []
+  })
+}
+
+const normalizePitchType = (row) => {
+  const raw = String(row?.type_throw ?? row?.type_of_throw ?? row?.pitch_type ?? row?.pitch_name ?? '')
+    .trim()
+    .toUpperCase()
+
+  if (raw) {
+    if (['FB', 'FASTBALL', 'FAST BALL'].includes(raw)) return 'FB'
+    if (['CH', 'CHANGEUP', 'CHANGE-UP', 'CHANGE UP'].includes(raw)) return 'CH'
+    if (['CB', 'CV', 'CURVEBALL', 'CURVE BALL', 'CURVE'].includes(raw)) return 'CB'
+    if (['SL', 'SLIDER'].includes(raw)) return 'SL'
+    return 'OTHER'
   }
+
+  const id = Number(row?.type_of_throw_id ?? row?.type_id ?? row?.pitch_type_id ?? 0)
+  if (id === 1) return 'FB'
+  if (id === 2) return 'CH'
+  if (id === 3) return 'SL'
+  if (id === 4) return 'CB'
+  return 'OTHER'
+}
+
+const normalizeContactType = (row) => {
+  const id = Number(row?.quality_of_throw_id ?? row?.trajectory_id ?? row?.type_of_hit_id ?? NaN)
+  if (Number.isFinite(id)) {
+    if (id === 1) return 'GB'
+    if (id === 2) return 'LD'
+    if (id === 3) return 'FB'
+    if (id === 4) return 'F'
+    if (id === 5) return 'SM'
+    if (id === 6) return 'TK'
+  }
+
+  const raw = String(row?.trajectory ?? row?.type_of_hit ?? row?.contact ?? row?.result ?? '')
+    .trim()
+    .toUpperCase()
+
+  if (!raw) return 'TK'
+  if (raw.includes('GROUND') || raw === 'GB') return 'GB'
+  if (raw.includes('LINE') || raw === 'LD') return 'LD'
+  if (raw.includes('FLY') || raw === 'FB') return 'FB'
+  if (raw.includes('FOUL') || raw === 'F') return 'F'
+  if (raw === 'SM' || raw === 'S/M' || raw.includes('SWING') && raw.includes('MISS') || raw.includes('WHIFF')) return 'SM'
+  if (raw.includes('TAKE') || raw === 'TK') return 'TK'
+  return raw
+}
+
+const playerIdFromRow = (row) => {
+  const id = row?.pitcher_id ?? row?.player_id ?? row?.user_id ?? row?.profile?.id ?? row?.player?.id
+  return id === null || id === undefined || id === '' ? null : String(id)
+}
+
+const playerNameFromRow = (row, fallback = 'Player') => {
+  const explicit = row?.player_name || row?.pitcher_name || row?.name
+  if (explicit) return String(explicit)
+
+  const profile = row?.profile || row?.player || row?.pitcher || {}
+  const first = profile?.first_name || profile?.name?.first || ''
+  const last = profile?.last_name || profile?.name?.last || ''
+  const full = `${first} ${last}`.trim()
+  return full || fallback
+}
+
+const allRows = computed(() => {
+  const direct = rowsFrom(props.ballData)
+  return direct.length ? direct : rowsFrom(props.breakdownData)
 })
 
-const { team } = useTeamStore();
-
-const tableHeadings = ref([
-  "other", "sl", "cv", "ch", "fb", "total", "player"
-])
-const buttonsGroup = ref([
-  { text: 'Ground ball', typeHit: 'GB' },
-  { text: 'Line drive', typeHit: 'LD' },
-  { text: 'Fly ball', typeHit: 'FB' },
-  { text: 'Foul', typeHit: 'F' },
-  { text: 'Swing / Miss', typeHit: 'SM' },
-  { text: 'Take', typeHit: 'TK' }
-])
-
-const currentIndex = ref(0)
-let coordinates = ref([])
-const activeRow = ref('1')
-const teamTotalSwings = ref(0)
-
-const getPercentByPitch = (allLocation, typeThrow) => {
-  return allLocation.filter(item => item.type_throw?.includes(typeThrow)).length
-}
-
-const getPercentByAllPitch = (allContact, trajectory) => {
-  let counter = 0
-  Object.values(allContact).forEach(contact => {
-    contact.forEach(item => {
-      if (item.type_throw?.includes(trajectory)) {
-        counter++
+const playerRows = computed(() => {
+  const groupedEntries = Object.entries(props.breakdownData || {})
+    .map(([id, value]) => {
+      const rows = rowsFrom(value)
+      return {
+        id: String(id),
+        name: playerNameFromRow(rows[0], `Player ${String(id).slice(0, 6)}`),
+        rows,
       }
     })
-  })
+    .filter((entry) => entry.rows.length > 0)
 
-  return counter
+  if (groupedEntries.length) return groupedEntries
+
+  const grouped = new Map()
+  allRows.value.forEach((row) => {
+    const id = playerIdFromRow(row)
+    if (!id) return
+    if (!grouped.has(id)) {
+      grouped.set(id, {
+        id,
+        name: playerNameFromRow(row, `Player ${id.slice(0, 6)}`),
+        rows: [],
+      })
+    }
+    grouped.get(id).rows.push(row)
+  })
+  return [...grouped.values()]
+})
+
+const activeBaseRows = computed(() => {
+  if (activePlayerId.value === 'team') return allRows.value
+  return playerRows.value.find((player) => player.id === activePlayerId.value)?.rows || []
+})
+
+const filteredRows = computed(() => {
+  if (activeFilter.value === 'ALL') return activeBaseRows.value
+  return activeBaseRows.value.filter((row) => normalizeContactType(row) === activeFilter.value)
+})
+
+const whiffPercent = computed(() => {
+  if (!filteredRows.value.length) return '0.0'
+  const whiffs = filteredRows.value.filter((row) => normalizeContactType(row) === 'SM').length
+  return ((whiffs / filteredRows.value.length) * 100).toFixed(1)
+})
+
+const countFor = (rows, pitchType) => {
+  const scopedRows = activeFilter.value === 'ALL'
+    ? rows
+    : rows.filter((row) => normalizeContactType(row) === activeFilter.value)
+  return scopedRows.filter((row) => normalizePitchType(row) === pitchType).length
 }
 
-const filterByTrajectory = (index, type) => {
-  coordinates.value = []
-  currentIndex.value = index
+const tableRows = computed(() => {
+  const rows = [
+    {
+      id: 'team',
+      name: team?.name || 'Team Total',
+      rows: allRows.value,
+      isTeam: true,
+    },
+    ...playerRows.value,
+  ]
 
-  Object.values(props.breakdownData).forEach(player => {
-    player.forEach( track => {
-      if (activeRow.value == 1) {
-        if(track.trajectory === type){
-          // coordinates.value.push(track.pitch_mark)
-          coordinates.value.push({point: track.pitch_mark, feature: track.type_throw})
-        } else if(type === 'All') {
-          // coordinates.value.push(track.pitch_mark)
-          coordinates.value.push({point: track.pitch_mark, feature: track.type_throw})
-        }
-      }
-
-      if (activeRow.value == track.pitcher_id) {
-        if(track.trajectory === type){
-          // coordinates.value.push(track.pitch_mark)
-          coordinates.value.push({point: track.pitch_mark, feature: track.type_throw})
-        } else if(type === 'All') {
-          // coordinates.value.push(track.pitch_mark)
-          coordinates.value.push({point: track.pitch_mark, feature: track.type_throw})
-        }
-      }
-    })
-  })
-}
-
-const filterPointsByRowTable = (player, id) => {
-  coordinates.value = []
-  activeRow.value = id
-  player.forEach(element => {
-    // coordinates.value.push(element.pitch_mark)
-    coordinates.value.push({point: element.pitch_mark, feature: element.type_throw})
-  })
-}
-
-const filterPointsByFirstRowTable = () => {
-  coordinates.value = []
-  activeRow.value = '1'
-  teamTotalSwings.value = 0
-  
-  Object.values(props.breakdownData).forEach(item => {
-    teamTotalSwings.value += item.length
-    
-    item.forEach(location => {
-      // coordinates.value.push(location.pitch_mark)
-      coordinates.value.push({point: location.pitch_mark, feature: location.type_throw})
-    })
-  })
-}
-
-
-onMounted(() => {
-  Object.values(props.breakdownData).forEach(item => {
-    teamTotalSwings.value += item.length
-    
-    item.forEach(location => {
-      // coordinates.value.push(location.pitch_mark)
-      coordinates.value.push({point: location.pitch_mark, feature: location.type_throw})
-    })
+  return rows.map((entry) => {
+    const values = Object.fromEntries(PITCH_TYPES.map((type) => [type.key, countFor(entry.rows, type.key)]))
+    const total = Object.values(values).reduce((sum, value) => sum + value, 0)
+    return { ...entry, values, total }
   })
 })
 
+const activeSubject = computed(() => {
+  if (activePlayerId.value === 'team') return team?.name || 'Team Total'
+  return playerRows.value.find((player) => player.id === activePlayerId.value)?.name || 'Player'
+})
+
+const setActivePlayer = (id) => {
+  activePlayerId.value = id
+}
+
+watch(
+  () => props.breakdownData,
+  () => {
+    if (activePlayerId.value !== 'team' && !playerRows.value.some((player) => player.id === activePlayerId.value)) {
+      activePlayerId.value = 'team'
+    }
+  },
+  { deep: true },
+)
 </script>
+
 <template>
-  <section class="mt-5">
-    <div class="grid grid-cols-3 bg-fungo-lightblue divide-x divide-[#000] text-center py-2">
-      <div class="col-span-2">
-        <p>Pitch Heat Map</p>
-      </div>
+  <section class="bullpen-panel">
+    <div class="bullpen-header">
       <div>
-        directional breakdown
+        <p class="bullpen-eyebrow">Pitch Heat Map</p>
+        <h3 class="bullpen-title">Contact</h3>
+        <p class="bullpen-subtitle">{{ activeSubject }} · {{ filteredRows.length }} pitches shown</p>
+      </div>
+      <div class="bullpen-metric">
+        <span>{{ whiffPercent }}%</span>
+        <small>Whiff %</small>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-7 lg:gap-x-8 mt-10 gap-y-8">
-      <div class="grid lg:grid-cols-1 bg-white rounded-[10px] h-min button-group px-7 py-9 gap-y-3">
-        <p class="text-fungo-red">Select</p>
+    <div class="bullpen-grid">
+      <aside class="filter-card">
+        <p class="filter-label">Select Result</p>
         <button
-          v-for="(button, index) in buttonsGroup"
-          :key="index"
-          class="rounded-[5px] border border-fungo-darkblue py-1"
-          @click="filterByTrajectory(index, button.typeHit)"
-          :class="{'bg-fungo-red text-white border-fungo-red' : currentIndex === index}"
+          v-for="filter in CONTACT_FILTERS"
+          :key="filter.key"
+          type="button"
+          class="filter-button"
+          :class="{ active: activeFilter === filter.key }"
+          @click="activeFilter = filter.key"
         >
-          {{ button.text }}
+          {{ filter.label }}
         </button>
+      </aside>
+
+      <div class="zone-card">
+        <BullpenZoneMap :pitches="filteredRows" mode="heatmap" />
       </div>
-      <div class="col-span-3 lg:col-span-1 xl:col-span-3 px-5">
-        <PrintCatcherBullpen :ballCoordinates="coordinates" typeOfCondition="bullpenColor"/>
-      </div>
 
-      <div class="pitch-table col-span-3 px-5 py-4">
-        <table class="w-full space-y-6 text-fungo-darkblue">
+      <div class="table-card">
+        <div class="table-title-row">
+          <div>
+            <p class="bullpen-eyebrow">Contact Breakdown</p>
+            <h4>Pitch Type Results</h4>
+          </div>
+          <span>{{ activeFilter === 'ALL' ? 'All results' : CONTACT_FILTERS.find((f) => f.key === activeFilter)?.label }}</span>
+        </div>
 
-          <thead class="bg-fungo-lightblue">
-            <tr class="bg-white pb-4">
-              <th class="ball-header orange"></th>
-              <th class="ball-header middle"></th>
-              <th class="ball-header left"></th>
-              <th class="ball-header purple"></th>
-              <th class="ball-header right"></th>
-            </tr>
-            <tr>
-              <th class="bg-white h-[10px]"></th>
-            </tr>
-            <tr class="divide-x divide-[#000]">
-              <th v-for="(heading, index) in tableHeadings" :key="index"
-                class="py-3 px-2 font-fungo-500 uppercase w-min">
-                {{ heading }}
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr
-              class="bg-white even:bg-fungo-gray4 relative cursor-pointer"
-              :class=" {'active-row text-white opacity-60' : activeRow == '1' } "
-              @click="filterPointsByFirstRowTable"
-            >
-              <td >
-                {{ getPercentByAllPitch(props.breakdownData, 'OTHER') }}
-              </td>
-              <td>
-                {{ getPercentByAllPitch(props.breakdownData, 'SL') }}
-              </td>
-              <td>
-                {{ getPercentByAllPitch(props.breakdownData, 'CB') }}
-              </td>
-              <td>
-                {{ getPercentByAllPitch(props.breakdownData, 'CH') }}
-              </td>
-              <td>
-                {{ getPercentByAllPitch(props.breakdownData, 'FB') }}
-              </td>
-              <td>
-                {{ teamTotalSwings }}
-              </td>
-              <td>
-                {{ team.name }}
-              </td>
-            </tr>
-            <tr
-              v-for="(item, id) in props.breakdownData"
-              :key="id"
-              class="bg-white even:bg-fungo-gray4 relative cursor-pointer"
-              @click=" filterPointsByRowTable(item, id) "
-              :class=" {'active-row text-white opacity-60' : activeRow == id } "
-              :id="id"
-            >
-              <td >
-                {{ getPercentByPitch(item, 'OTHER') }}
-              </td>
-              <td>
-               {{ getPercentByPitch(item, 'SL') }}
-              </td>
-              <td>
-                {{ getPercentByPitch(item, 'CB') }}
-              </td>
-              <td>
-                {{ getPercentByPitch(item, 'CH') }}
-              </td>
-              <td>
-                {{ getPercentByPitch(item, 'FB') }}
-              </td>
-              <td>
-                {{ item.length }}
-              </td>
-              <td>
-                {{ item[0].profile.first_name }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="bullpen-scroll">
+          <table class="bullpen-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th v-for="type in PITCH_TYPES" :key="type.key" :class="`tone-${type.tone}`">
+                  {{ type.label }}
+                </th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="allRows.length === 0">
+                <td :colspan="PITCH_TYPES.length + 2" class="empty-cell">No bullpen contact data found.</td>
+              </tr>
+              <template v-else>
+                <tr
+                  v-for="row in tableRows"
+                  :key="row.id"
+                  class="click-row"
+                  :class="{ selected: activePlayerId === row.id }"
+                  @click="setActivePlayer(row.id)"
+                >
+                  <td class="player-cell">{{ row.name }}</td>
+                  <td v-for="type in PITCH_TYPES" :key="`${row.id}-${type.key}`">{{ row.values[type.key] }}</td>
+                  <td>{{ row.total }}</td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>
 </template>
+
 <style scoped>
-.pitch-table {
-  @apply rounded-[20px] bg-white;
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
+.bullpen-panel {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(12, 18, 38, 0.96), rgba(7, 11, 24, 0.96));
+  padding: 18px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
 }
-.button-group {
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
+
+.bullpen-header,
+.table-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
 }
-.ball-header {
-  background-repeat: no-repeat;
-  background-size: contain;
-  height: 25px;
-  width: 25px;
-  background-position: center;
+
+.bullpen-eyebrow {
+  color: #ff2d55;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
-.ball-header.orange {
-  background-image: url("@/assets/img/training/ball-orange.svg");
+
+.bullpen-title {
+  margin-top: 4px;
+  font-size: clamp(20px, 3vw, 30px);
+  font-weight: 900;
+  text-transform: uppercase;
 }
-.ball-header.left {
-  background-image: url("@/assets/img/training/balltraining-green.svg");
+
+.bullpen-subtitle,
+.table-title-row span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+  font-weight: 700;
 }
-.ball-header.middle {
-  background-image: url("@/assets/img/training/balltraining.svg");
+
+.bullpen-metric {
+  min-width: 120px;
+  border: 1px solid rgba(255, 45, 85, 0.35);
+  border-radius: 16px;
+  background: rgba(255, 45, 85, 0.12);
+  padding: 10px 14px;
+  text-align: center;
 }
-.ball-header.right {
-  background-image: url("@/assets/img/training/balltraining-blue.svg");
+
+.bullpen-metric span {
+  display: block;
+  font-size: 26px;
+  font-weight: 900;
 }
-.ball-header.purple {
-  background-image: url("@/assets/img/training/ball-purple.svg");
+
+.bullpen-metric small {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
+
+.bullpen-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(280px, 0.9fr) minmax(420px, 1.35fr);
+  gap: 16px;
+  align-items: stretch;
 }
-table tbody tr::after{
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #ADE8F4;
+
+.filter-card,
+.zone-card,
+.table-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(4, 9, 22, 0.78);
 }
-table tbody tr:nth-child(even)::after{
-  background-color: #DADADA;
+
+.filter-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
 }
-.active-row {
-  background-color: #0096C7 !important;
+
+.filter-label {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.filter-button {
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #050816;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+
+.filter-button:hover {
+  transform: translateY(-1px);
+}
+
+.filter-button.active {
+  border-color: #ff2d55;
+  background: #ff2d55;
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(255, 45, 85, 0.24);
+}
+
+.zone-card {
+  display: grid;
+  place-items: center;
+  padding: 14px;
+}
+
+.table-card {
+  min-width: 0;
+  padding: 14px;
+}
+
+.table-title-row h4 {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.bullpen-scroll {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bullpen-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  color: #fff;
+}
+
+.bullpen-table th {
+  background: #171d46;
+  padding: 14px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bullpen-table td {
+  padding: 14px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.player-cell,
+.bullpen-table th:first-child {
+  text-align: left;
+}
+
+.click-row {
+  cursor: pointer;
+  background: rgba(31, 40, 82, 0.68);
+}
+
+.click-row:nth-child(even) {
+  background: rgba(53, 60, 111, 0.68);
+}
+
+.click-row.selected {
+  outline: 2px solid rgba(255, 45, 85, 0.72);
+  outline-offset: -2px;
+}
+
+.tone-red { background: #d8232a !important; }
+.tone-blue { background: #2160c4 !important; }
+.tone-navy { background: #16224c !important; }
+.tone-gold { background: #e6d08a !important; color: #060b14 !important; }
+.tone-slate { background: #5c6b8a !important; }
+
+.empty-cell {
+  color: rgba(255, 255, 255, 0.58);
+  padding: 28px 12px;
+  text-align: center !important;
+}
+
+@media (max-width: 1100px) {
+  .bullpen-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-card {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filter-label {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .bullpen-panel {
+    padding: 12px;
+  }
+
+  .bullpen-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filter-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

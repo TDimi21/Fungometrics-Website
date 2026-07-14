@@ -22,7 +22,7 @@ const { openSendMsgWindow, closeMsgWindow, isShowMsgModal, sendMsg, getSmsPlayer
 const { ordenarElementos } = useSortStatistics()
 const route = useRoute()
 const tabHeading = ref([
-  'Ball by Ball', 'Pitch Breakdown', 'Contact', 'Trajectory', 'Velocity'
+  'BALL BY BALL', 'PITCH BREAKDOWN', 'CONTACT', 'TRAJECTORY', 'VELOCITY'
 ])
 
 const isLoading = ref(false)
@@ -88,7 +88,7 @@ const sortData =  (key) => {
 
 onMounted(() => {
   getStatistic()
-  route.params.type == 'P' ? tabHeading.value.splice(tabHeading.value.indexOf('Trajectory'), 1) : ''
+  route.params.type == 'P' ? tabHeading.value = ['BALL BY BALL', 'PITCH BREAKDOWN', 'CONTACT', 'VELOCITY'] : ''
 })
 
 const createDataForExcel = () => {

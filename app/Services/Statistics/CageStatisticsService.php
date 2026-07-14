@@ -73,7 +73,10 @@ final class CageStatisticsService
             if(strtoupper((string)$traj)==='LD')$ldCount++;
         }
         $N=count($powerScores);
-        if($N<3)return[];
+        // Show cage stats for any recorded swing (matches the app + the other
+        // disciplines, which gate at >=1). A 3-swing minimum silently blanked the
+        // whole FCS panel — score AND tiles — for small sessions.
+        if($N<1)return[];
         $powerScore=array_sum($powerScores)/$N;
         $launchScore=array_sum($launchScores)/$N;
         $pull=$middle=$oppo=0;

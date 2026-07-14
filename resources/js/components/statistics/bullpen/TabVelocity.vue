@@ -1,307 +1,596 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useTeamStore } from "@/store/team"
+import { computed, ref, watch } from 'vue'
+import BullpenZoneMap from '@/components/dashboard/BullpenZoneMap.vue'
+import { useTeamStore } from '@/store/team'
 
 const props = defineProps({
   VelocityData: {
     type: Object,
     required: false,
-    default: {}
-  }
+    default: () => ({}),
+  },
+  ballData: {
+    type: [Object, Array],
+    required: false,
+    default: () => [],
+  },
 })
 
 const { team } = useTeamStore()
 
-const playerVelocities = ref([])
+const PITCH_FILTERS = [
+  { label: 'ALL', key: 'ALL' },
+  { label: 'FASTBALL', key: 'FB' },
+  { label: 'CURVEBALL', key: 'CB' },
+  { label: 'CHANGE-UP', key: 'CH' },
+  { label: 'SLIDER', key: 'SL' },
+  { label: 'OTHER', key: 'OTHER' },
+]
 
-const tableOneHeadings = ref([
-  'SWING #', 'VELOCITY'
-])
+const PITCH_TYPES = [
+  { label: 'FB', key: 'FB', tone: 'red' },
+  { label: 'CH', key: 'CH', tone: 'blue' },
+  { label: 'CV', key: 'CB', tone: 'navy' },
+  { label: 'SL', key: 'SL', tone: 'gold' },
+  { label: 'OTH', key: 'OTHER', tone: 'slate' },
+]
 
-const tableTwoHeadings = ref([
-"other", "sl", "cv", "ch", "fb", "Max Fb", "player"
-])
+const activeFilter = ref('ALL')
+const activePlayerId = ref('team')
 
-const buttonsGroup = ref([
-  { text: 'All', typeHit: 'All' },
-  { text: 'Fast ball', typeHit: 'FB' },
-  { text: 'Curve ball', typeHit: 'CB' },
-  { text: 'Change up', typeHit: 'CH' },
-  { text: 'Slider', typeHit: 'SL' },
-  { text: 'Other', typeHit: 'OTHER' }
-])
-
-const currentIndex = ref(0)
-const activeRow = ref('1')
-
-const filterBytrajecotry = (index, typeHit) => {
-  playerVelocities.value = []
-  currentIndex.value = index
-
-  Object.values(props.VelocityData).forEach(player => {
-
-    player.forEach(track => {
-      if (activeRow.value == 1) {
-        if (track.type_throw === typeHit && typeHit !== 'All') {
-          playerVelocities.value.push(track)
-        } else if (typeHit === 'All') {
-          playerVelocities.value.push(track)
-        }
-      }
-
-      if ( activeRow.value == track.pitcher_id) {
-        if (track.type_throw === typeHit && typeHit !== 'All') {
-          playerVelocities.value.push(track)
-        } else if (typeHit === 'All') {
-          playerVelocities.value.push(track)
-        }
-      }
-    })
+const rowsFrom = (value) => {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'object') return []
+  return Object.values(value).flatMap((entry) => {
+    if (Array.isArray(entry)) return entry
+    if (entry && typeof entry === 'object') return [entry]
+    return []
   })
 }
 
-const filterRowByVelocity = computed(() => (allContact, trajectory) => {
-  let velocities = 0
-  let counter = 0
+const normalizePitchType = (row) => {
+  const raw = String(row?.type_throw ?? row?.type_of_throw ?? row?.pitch_type ?? row?.pitch_name ?? '')
+    .trim()
+    .toUpperCase()
 
-  allContact.filter(item => {
-    if (item.type_throw?.includes(trajectory)) {
-      if (item.miles_per_hour != 0) {
-        velocities += item.miles_per_hour
-        counter++
-      }
-    }
-  })
-  if (counter != 0) {
-    velocities = velocities / counter
+  if (raw) {
+    if (['FB', 'FASTBALL', 'FAST BALL'].includes(raw)) return 'FB'
+    if (['CH', 'CHANGEUP', 'CHANGE-UP', 'CHANGE UP'].includes(raw)) return 'CH'
+    if (['CB', 'CV', 'CURVEBALL', 'CURVE BALL', 'CURVE'].includes(raw)) return 'CB'
+    if (['SL', 'SLIDER'].includes(raw)) return 'SL'
+    return 'OTHER'
   }
-  
-  return (velocities).toFixed(2)
+
+  const id = Number(row?.type_of_throw_id ?? row?.type_id ?? row?.pitch_type_id ?? 0)
+  if (id === 1) return 'FB'
+  if (id === 2) return 'CH'
+  if (id === 3) return 'SL'
+  if (id === 4) return 'CB'
+  return 'OTHER'
+}
+
+const velocityOf = (row) => {
+  const raw = row?.miles_per_hour ?? row?.pitch_velocity ?? row?.velocity ?? row?.velo
+  if (raw === null || raw === undefined || raw === '') return null
+  const value = Number(raw)
+  return Number.isFinite(value) && value > 0 ? value : null
+}
+
+const playerIdFromRow = (row) => {
+  const id = row?.pitcher_id ?? row?.player_id ?? row?.user_id ?? row?.profile?.id ?? row?.player?.id
+  return id === null || id === undefined || id === '' ? null : String(id)
+}
+
+const playerNameFromRow = (row, fallback = 'Player') => {
+  const explicit = row?.player_name || row?.pitcher_name || row?.name
+  if (explicit) return String(explicit)
+
+  const profile = row?.profile || row?.player || row?.pitcher || {}
+  const first = profile?.first_name || profile?.name?.first || ''
+  const last = profile?.last_name || profile?.name?.last || ''
+  const full = `${first} ${last}`.trim()
+  return full || fallback
+}
+
+const allRows = computed(() => {
+  const direct = rowsFrom(props.ballData)
+  return direct.length ? direct : rowsFrom(props.VelocityData)
 })
 
-const getMaxVelocity = (allContact) => {
-  let max = 0
-  allContact.forEach(element => {
-    if (max < element.miles_per_hour && element.type_throw.includes('FB')) {
-      max = element.miles_per_hour
+const playerRows = computed(() => {
+  const groupedEntries = Object.entries(props.VelocityData || {})
+    .map(([id, value]) => {
+      const rows = rowsFrom(value)
+      return {
+        id: String(id),
+        name: playerNameFromRow(rows[0], `Player ${String(id).slice(0, 6)}`),
+        rows,
+      }
+    })
+    .filter((entry) => entry.rows.length > 0)
+
+  if (groupedEntries.length) return groupedEntries
+
+  const grouped = new Map()
+  allRows.value.forEach((row) => {
+    const id = playerIdFromRow(row)
+    if (!id) return
+    if (!grouped.has(id)) {
+      grouped.set(id, {
+        id,
+        name: playerNameFromRow(row, `Player ${id.slice(0, 6)}`),
+        rows: [],
+      })
     }
+    grouped.get(id).rows.push(row)
   })
-
-  return (max).toFixed(2)
-}
-
-const getMaxTrajectoryOfTeam = () => {
-  let max = 0
-  Object.values(props.VelocityData).forEach(item => {
-    item.forEach(element => {
-      if (max < element.miles_per_hour && element.type_throw?.includes('FB')) {
-        max = element.miles_per_hour
-      }
-    })
-  })
-
-  return (max).toFixed(2)
-}
-
-const filterByFirstRowTable = () => {
-  activeRow.value = '1'
-  playerVelocities.value = []
-
-  Object.values(props.VelocityData).forEach(item => {
-    item.forEach(player => {
-      playerVelocities.value.push(player)
-    })
-  })
-}
-
-const contactAllLocationCount = computed(() => (allContact, trajectory) => {
-  let velocities = 0
-  let counter = 0
-
-  Object.values(allContact).forEach(contact => {
-    contact.forEach(item => {
-      if (item.type_throw?.includes(trajectory)) {
-        if (item.miles_per_hour != 0) {
-          velocities += item.miles_per_hour
-          counter++          
-        }
-      }
-    })
-  })
-
-  if (counter != 0) {
-    velocities = velocities / counter
-  }
-  return (velocities).toFixed(2)
+  return [...grouped.values()]
 })
 
-const filterByPlayer = (player, id) => {
-  activeRow.value = id
-  playerVelocities.value = player
+const activeBaseRows = computed(() => {
+  if (activePlayerId.value === 'team') return allRows.value
+  return playerRows.value.find((player) => player.id === activePlayerId.value)?.rows || []
+})
+
+const filteredRows = computed(() => {
+  const scoped = activeFilter.value === 'ALL'
+    ? activeBaseRows.value
+    : activeBaseRows.value.filter((row) => normalizePitchType(row) === activeFilter.value)
+  return scoped.filter((row) => velocityOf(row) !== null)
+})
+
+const pitchListRows = computed(() => {
+  return filteredRows.value.map((row, index) => ({
+    id: `${playerIdFromRow(row) || 'team'}-${row?.id || row?.sort || index}`,
+    number: Number.isFinite(Number(row?.sort)) ? Number(row.sort) + 1 : index + 1,
+    pitch: normalizePitchType(row),
+    velocity: velocityOf(row),
+  }))
+})
+
+const averageVelocity = computed(() => {
+  if (!filteredRows.value.length) return '0.0'
+  const values = filteredRows.value.map(velocityOf).filter((value) => value !== null)
+  if (!values.length) return '0.0'
+  return (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1)
+})
+
+const maxVelocity = computed(() => {
+  const values = filteredRows.value.map(velocityOf).filter((value) => value !== null)
+  if (!values.length) return '0.0'
+  return Math.max(...values).toFixed(1)
+})
+
+const averageFor = (rows, pitchType) => {
+  const values = rows
+    .filter((row) => normalizePitchType(row) === pitchType)
+    .map(velocityOf)
+    .filter((value) => value !== null)
+
+  if (!values.length) return '-'
+  return (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1)
 }
 
-onMounted(() => {
-  Object.values(props.VelocityData).forEach(item => {
-    item.forEach(player => {
-      playerVelocities.value.push(player)
-    })
-  })
+const maxFastballFor = (rows) => {
+  const values = rows
+    .filter((row) => normalizePitchType(row) === 'FB')
+    .map(velocityOf)
+    .filter((value) => value !== null)
+
+  if (!values.length) return '-'
+  return Math.max(...values).toFixed(1)
+}
+
+const tableRows = computed(() => {
+  const rows = [
+    {
+      id: 'team',
+      name: team?.name || 'Team Total',
+      rows: allRows.value,
+      isTeam: true,
+    },
+    ...playerRows.value,
+  ]
+
+  return rows.map((entry) => ({
+    ...entry,
+    values: Object.fromEntries(PITCH_TYPES.map((type) => [type.key, averageFor(entry.rows, type.key)])),
+    maxFb: maxFastballFor(entry.rows),
+  }))
 })
+
+const activeSubject = computed(() => {
+  if (activePlayerId.value === 'team') return team?.name || 'Team Total'
+  return playerRows.value.find((player) => player.id === activePlayerId.value)?.name || 'Player'
+})
+
+const setActivePlayer = (id) => {
+  activePlayerId.value = id
+}
+
+watch(
+  () => props.VelocityData,
+  () => {
+    if (activePlayerId.value !== 'team' && !playerRows.value.some((player) => player.id === activePlayerId.value)) {
+      activePlayerId.value = 'team'
+    }
+  },
+  { deep: true },
+)
 </script>
+
 <template>
-  <section class="mt-5">
-    <div class="grid grid-cols-3 bg-fungo-lightblue divide-x divide-[#000] text-center py-2 uppercase">
-      <div class="col-span-2">
-        <p>LIST OF VOELOCITIES</p>
-      </div>
+  <section class="bullpen-panel">
+    <div class="bullpen-header">
       <div>
-        VELOCITY BREACKDOWN
+        <p class="bullpen-eyebrow">Velocity Breakdown</p>
+        <h3 class="bullpen-title">Velocity</h3>
+        <p class="bullpen-subtitle">{{ activeSubject }} · {{ filteredRows.length }} velocity readings shown</p>
+      </div>
+      <div class="metric-row">
+        <div class="bullpen-metric">
+          <span>{{ averageVelocity }}</span>
+          <small>Avg mph</small>
+        </div>
+        <div class="bullpen-metric">
+          <span>{{ maxVelocity }}</span>
+          <small>Top mph</small>
+        </div>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-7 lg:gap-x-8 mt-10 gap-y-8">
-      <div class="grid lg:grid-cols-1 bg-white rounded-[10px] h-min button-group px-7 py-9 gap-y-3">
-        <p class="text-fungo-red">Select</p>
-        <button v-for="(button, index) in buttonsGroup" :key="index"
-          class="rounded-[5px] border border-fungo-darkblue py-1" @click="filterBytrajecotry(index, button.typeHit)"
-          :class="{ 'bg-fungo-red text-white border-fungo-red': currentIndex === index }">
-          {{ button.text }}
+    <div class="bullpen-grid">
+      <aside class="filter-card">
+        <p class="filter-label">Select Pitch</p>
+        <button
+          v-for="filter in PITCH_FILTERS"
+          :key="filter.key"
+          type="button"
+          class="filter-button"
+          :class="{ active: activeFilter === filter.key }"
+          @click="activeFilter = filter.key"
+        >
+          {{ filter.label }}
         </button>
-      </div>
-      <div class="pitch-table col-span-3 px-5 py-4">
-        <table class="w-full border-collapse text-fungo-darkblue">
+      </aside>
 
-          <thead class="bg-fungo-lightblue">
-            <tr class="divide-x divide-[#000]">
-              <th v-for="(heading, index) in tableOneHeadings" :key="index"
-                class="py-3 px-2 font-fungo-500 uppercase w-min">
-                {{ heading }}
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr v-for="(velocity, id) in playerVelocities" :key="id" class="bg-white even:bg-fungo-gray4 relative">
-              <td>{{ velocity.sort + 1 }}</td>
-              <td>{{ velocity.miles_per_hour }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="zone-card">
+        <BullpenZoneMap :pitches="filteredRows" mode="grid" />
       </div>
 
-      <div class="pitch-table col-span-3 px-5 py-4">
-        <table class="w-full border-collapse text-fungo-darkblue">
+      <div class="velocity-stack">
+        <div class="table-card">
+          <div class="table-title-row">
+            <div>
+              <p class="bullpen-eyebrow">Pitch List</p>
+              <h4>Velocities</h4>
+            </div>
+            <span>{{ activeFilter === 'ALL' ? 'All pitches' : PITCH_FILTERS.find((f) => f.key === activeFilter)?.label }}</span>
+          </div>
 
-          <thead class="bg-fungo-lightblue">
-            <tr class="divide-x divide-[#000]">
-              <th v-for="(heading, index) in tableTwoHeadings" :key="index"
-                class="py-3 px-2 font-fungo-500 uppercase w-min">
-                {{ heading }}
-              </th>
-            </tr>
-          </thead>
+          <div class="bullpen-scroll pitch-list-scroll">
+            <table class="bullpen-table compact-table">
+              <thead>
+                <tr>
+                  <th>Pitch #</th>
+                  <th>Pitch</th>
+                  <th>Velocity</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="pitchListRows.length === 0">
+                  <td colspan="3" class="empty-cell">No velocity data found.</td>
+                </tr>
+                <template v-else>
+                  <tr v-for="row in pitchListRows" :key="row.id">
+                    <td>{{ row.number }}</td>
+                    <td>{{ row.pitch }}</td>
+                    <td>{{ row.velocity.toFixed(1) }} mph</td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-          <tbody>
-            <tr
-              class="bg-white even:bg-fungo-gray4 relative cursor-pointer"
-              :class=" {'active-row text-white opacity-60' : activeRow == '1' } "
-              @click="filterByFirstRowTable"
-            >
-              <td >
-                {{ contactAllLocationCount(props.VelocityData, 'OTHER') }}
-              </td>
-              <td>
-                {{ contactAllLocationCount(props.VelocityData, 'SL') }}
-              </td>
-              <td>
-                {{ contactAllLocationCount(props.VelocityData, 'CB') }}
-              </td>
-              <td>
-                {{ contactAllLocationCount(props.VelocityData, 'CH') }}
-              </td>
-              <td>
-                {{ contactAllLocationCount(props.VelocityData, 'FB') }}
-              </td>
-              <td>
-                {{ getMaxTrajectoryOfTeam() }}
-              </td>
-              <td>
-                {{ team.name }}
-              </td>
-            </tr>
-            <tr v-for="(velocity, id) in VelocityData" :key="id"
-              class="bg-white even:bg-fungo-gray4 relative cursor-pointer"
-              :id="id"
-              :class="{ 'active-row text-white opacity-60': activeRow == id }"
-              @click="filterByPlayer(velocity, id)">
-              <td>{{ filterRowByVelocity(velocity, 'OTHER') == 0 ? '-' : filterRowByVelocity(velocity, 'OTHER') }}</td>
-              <td>{{ filterRowByVelocity(velocity, 'SL') == 0 ? '-' : filterRowByVelocity(velocity, 'SL') }}</td>
-              <td>{{ filterRowByVelocity(velocity, 'CB') == 0 ? '-' : filterRowByVelocity(velocity, 'CB') }}</td>
-              <td>{{ filterRowByVelocity(velocity, 'CH') == 0 ? '-' : filterRowByVelocity(velocity, 'CH') }}</td>
-              <td>{{ filterRowByVelocity(velocity, 'FB') == 0 ? '-' : filterRowByVelocity(velocity, 'FB') }}</td>
-              <td>{{ getMaxVelocity(velocity) }}</td>
-              <td>{{ velocity[0].profile.first_name }}</td>
-              
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-card">
+          <div class="table-title-row">
+            <div>
+              <p class="bullpen-eyebrow">Average Velocity</p>
+              <h4>Pitch Type Table</h4>
+            </div>
+            <span>Click a row to filter the grid</span>
+          </div>
+
+          <div class="bullpen-scroll">
+            <table class="bullpen-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th v-for="type in PITCH_TYPES" :key="type.key" :class="`tone-${type.tone}`">
+                    {{ type.label }}
+                  </th>
+                  <th>Max FB</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="allRows.length === 0">
+                  <td :colspan="PITCH_TYPES.length + 2" class="empty-cell">No bullpen velocity rows found.</td>
+                </tr>
+                <template v-else>
+                  <tr
+                    v-for="row in tableRows"
+                    :key="row.id"
+                    class="click-row"
+                    :class="{ selected: activePlayerId === row.id }"
+                    @click="setActivePlayer(row.id)"
+                  >
+                    <td class="player-cell">{{ row.name }}</td>
+                    <td v-for="type in PITCH_TYPES" :key="`${row.id}-${type.key}`">{{ row.values[type.key] }}</td>
+                    <td>{{ row.maxFb }}</td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </template>
+
 <style scoped>
-.pitch-table {
-  @apply rounded-[20px] bg-white;
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
+.bullpen-panel {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(12, 18, 38, 0.96), rgba(7, 11, 24, 0.96));
+  padding: 18px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
 }
 
-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
+.bullpen-header,
+.table-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
-table tbody tr::after {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #ADE8F4;
+.bullpen-eyebrow {
+  color: #ff2d55;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-table tbody tr:nth-child(even)::after {
-  background-color: #DADADA;
+.bullpen-title {
+  margin-top: 4px;
+  font-size: clamp(20px, 3vw, 30px);
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
-.button-group {
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
+.bullpen-subtitle,
+.table-title-row span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.ball-header {
-  background-repeat: no-repeat;
-  background-size: contain;
-  height: 25px;
-  width: 25px;
-  background-position: center;
+.metric-row {
+  display: flex;
+  gap: 10px;
 }
 
-.ball-header.foul {
-  background-image: url("../../assets/img/login/assteslogin/ballbutton.svg");
+.bullpen-metric {
+  min-width: 112px;
+  border: 1px solid rgba(255, 45, 85, 0.35);
+  border-radius: 16px;
+  background: rgba(255, 45, 85, 0.12);
+  padding: 10px 14px;
+  text-align: center;
 }
 
-.ball-header.weack {
-  background-image: url("../../assets/img/training/balltraining-green.svg");
+.bullpen-metric span {
+  display: block;
+  font-size: 24px;
+  font-weight: 900;
 }
 
-.ball-header.average {
-  background-image: url("../../assets/img/training/balltraining.svg");
+.bullpen-metric small {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.ball-header.hard {
-  background-image: url("../../assets/img/training/balltraining-blue.svg");
+.bullpen-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(280px, 0.75fr) minmax(460px, 1.45fr);
+  gap: 16px;
+  align-items: stretch;
 }
 
-.active-row {
-  background-color: #0096C7 !important;
+.filter-card,
+.zone-card,
+.table-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(4, 9, 22, 0.78);
+}
+
+.filter-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+}
+
+.filter-label {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.filter-button {
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #050816;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+
+.filter-button:hover {
+  transform: translateY(-1px);
+}
+
+.filter-button.active {
+  border-color: #ff2d55;
+  background: #ff2d55;
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(255, 45, 85, 0.24);
+}
+
+.zone-card {
+  display: grid;
+  place-items: center;
+  padding: 14px;
+}
+
+.velocity-stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.table-card {
+  min-width: 0;
+  padding: 14px;
+}
+
+.table-title-row h4 {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.bullpen-scroll {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pitch-list-scroll {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.bullpen-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  color: #fff;
+}
+
+.compact-table {
+  min-width: 420px;
+}
+
+.bullpen-table th {
+  background: #171d46;
+  padding: 14px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bullpen-table td {
+  padding: 14px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.player-cell,
+.bullpen-table th:first-child {
+  text-align: left;
+}
+
+.click-row,
+.compact-table tbody tr {
+  background: rgba(31, 40, 82, 0.68);
+}
+
+.click-row:nth-child(even),
+.compact-table tbody tr:nth-child(even) {
+  background: rgba(53, 60, 111, 0.68);
+}
+
+.click-row {
+  cursor: pointer;
+}
+
+.click-row.selected {
+  outline: 2px solid rgba(255, 45, 85, 0.72);
+  outline-offset: -2px;
+}
+
+.tone-red { background: #d8232a !important; }
+.tone-blue { background: #2160c4 !important; }
+.tone-navy { background: #16224c !important; }
+.tone-gold { background: #e6d08a !important; color: #060b14 !important; }
+.tone-slate { background: #5c6b8a !important; }
+
+.empty-cell {
+  color: rgba(255, 255, 255, 0.58);
+  padding: 28px 12px;
+  text-align: center !important;
+}
+
+@media (max-width: 1100px) {
+  .bullpen-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-card {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filter-label {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .bullpen-panel {
+    padding: 12px;
+  }
+
+  .bullpen-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .metric-row {
+    flex-direction: column;
+  }
+
+  .filter-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

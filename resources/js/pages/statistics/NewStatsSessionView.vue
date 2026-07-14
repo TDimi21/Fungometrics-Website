@@ -10,7 +10,12 @@ import SessionHeatmapPanel from '@/components/statistics/session/SessionHeatmapP
 import SessionVelocityGridPanel from '@/components/statistics/session/SessionVelocityGridPanel.vue'
 import BattingReportCard from '@/components/statistics/BattingReportCard.vue'
 import { TabBallByBall as BattingAllPitches } from '@/components/statistics'
-import { TabBall as BullpenAllPitches, TabVelo as BullpenVelocity } from '@/components/statistics/bullpen'
+import {
+  TabBall as BullpenAllPitches,
+  TabPitch as BullpenPitchBreakdown,
+  TabCont as BullpenContact,
+  TabVelo as BullpenVelocity,
+} from '@/components/statistics/bullpen'
 import {
   BattingTotals,
   BattingPercentage,
@@ -132,7 +137,7 @@ const toggleLiveAbPlayer = (playerId) => {
 
 const tabNames = computed(() => {
   if (selectedSession.value === 'P') {
-    return ['ALL PITCHES', 'HEATMAP', 'VELO GRID', 'S&M', 'TOTALS', 'PERCENTAGES']
+    return ['BALL BY BALL', 'PITCH BREAKDOWN', 'CONTACT', 'VELOCITY']
   }
   if (selectedSession.value === 'B') {
     return ['ALL PITCHES', 'SPRAY CHART', 'TOTALS', 'PERCENTAGES']
@@ -1871,8 +1876,8 @@ onMounted(() => {
             </div>
           </TabList>
 
-          <TabList v-else-if="selectedSession === 'P'" class="mb-5 rounded-xl bg-white/10 p-2">
-            <div class="flex flex-wrap items-center justify-center gap-2">
+          <TabList v-else-if="selectedSession === 'P'" class="mb-5 rounded-[18px] border border-white/10 bg-[#090e1f]/95 p-2 shadow-[0_18px_42px_rgba(0,0,0,0.28)]">
+            <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
               <Tab
                 v-for="name in tabNames"
                 :key="name"
@@ -1880,8 +1885,8 @@ onMounted(() => {
                 v-slot="{ selected }"
               >
                 <button
-                  class="rounded-lg px-5 py-2 text-sm md:text-base font-black tracking-wide transition"
-                  :class="selected ? 'bg-[#ff2d55] text-white' : 'bg-white/5 text-white/80 hover:bg-white/10'"
+                  class="rounded-xl px-4 py-3 text-xs md:text-sm font-black tracking-[0.08em] transition uppercase"
+                  :class="selected ? 'bg-[#ff2d55] text-white shadow-[0_12px_28px_rgba(255,45,85,0.28)]' : 'bg-[#2f333d] text-white/90 hover:bg-white/15'"
                 >
                   {{ name }}
                 </button>
@@ -1907,7 +1912,7 @@ onMounted(() => {
 
           <TabPanels>
             <TabPanel v-for="name in tabNames" :key="`panel-${name}`">
-              <template v-if="name === 'ALL PITCHES' || name === 'ALL THROWS'">
+              <template v-if="name === 'ALL PITCHES' || name === 'ALL THROWS' || name === 'BALL BY BALL'">
                 <BattingAllPitches
                   v-if="isBatting"
                   :isLoading="false"
@@ -2079,6 +2084,24 @@ onMounted(() => {
                 </div>
               </template>
 
+              <template v-else-if="name === 'PITCH BREAKDOWN'">
+                <BullpenPitchBreakdown
+                  v-if="isBullpen"
+                  :breakdown-data="visibleByPlayerRows"
+                  :ball-data="visibleFlatRows"
+                />
+                <div v-else class="rounded-2xl border border-white/10 bg-white/10 p-5 text-white/70">Pitch breakdown is only available for bullpen sessions.</div>
+              </template>
+
+              <template v-else-if="name === 'CONTACT'">
+                <BullpenContact
+                  v-if="isBullpen"
+                  :breakdown-data="visibleByPlayerRows"
+                  :ball-data="visibleFlatRows"
+                />
+                <div v-else class="rounded-2xl border border-white/10 bg-white/10 p-5 text-white/70">Contact is only available for bullpen sessions.</div>
+              </template>
+
               <template v-else-if="name === 'SPRAY CHART'">
                 <SessionHeatmapPanel
                   v-if="isBatting"
@@ -2092,10 +2115,11 @@ onMounted(() => {
                 <div v-else class="rounded-2xl border border-white/10 bg-white/10 p-5 text-white/70">Spray chart is only available for batting sessions.</div>
               </template>
 
-              <template v-else-if="name === 'VELO' || name === 'HOPS'">
+              <template v-else-if="name === 'VELO' || name === 'HOPS' || name === 'VELOCITY'">
                 <BullpenVelocity
                   v-if="isBullpen"
                   :VelocityData="visibleByPlayerRows"
+                  :ball-data="visibleFlatRows"
                 />
                 <div v-else-if="selectedSession === 'EV'" class="rounded-2xl border border-white/10 bg-white/10 p-4 overflow-x-auto">
                   <table class="min-w-full text-sm">

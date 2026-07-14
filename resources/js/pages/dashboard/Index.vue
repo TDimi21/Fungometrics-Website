@@ -583,7 +583,10 @@ function scoreGrade(s) {
 /** Extract cage FCS from backend pre-computed score */
 function computeCageFCS(cage) {
   const fcs = cage?.fcs
-  if (!fcs || fcs.total < 3) return { score: null, detail: null }
+  // Backend returns [] (empty array) when it has no usable swings; guard against
+  // that so an empty array isn't treated as a score object. Show any session with
+  // >=1 swing (matches the app + EVS/LTS/WBS, which also gate at >=1).
+  if (!fcs || fcs.fcs == null || !(fcs.total >= 1)) return { score: null, detail: null }
   return { score: fcs.fcs, detail: fcs }
 }
 
