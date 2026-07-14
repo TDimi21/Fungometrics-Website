@@ -101,7 +101,7 @@ class SeasonArchiveExportService
         $includeCommunication = $this->bool($options['include_communication_summary'] ?? true);
         $includeNextSteps = $this->bool($options['include_next_steps'] ?? true);
 
-        return $this->stripInternalIds([
+        $packet = [
             'title' => 'FMTRX Season Development Review',
             'subtitle' => $this->subtitleForAudience($audience),
             'team_name' => $archive['team_name'] ?? 'Team',
@@ -114,12 +114,17 @@ class SeasonArchiveExportService
             'planner_progress' => $includePlanner ? Arr::wrap($archive['planner_progress'] ?? []) : [],
             'communication_summary' => $includeCommunication ? Arr::wrap($archive['communication_summary'] ?? []) : [],
             'player_development_summary' => $this->includePlayerRows($audience, $options) ? Arr::wrap($archive['player_development_summary'] ?? []) : [],
-            'staff_notes' => $this->includeStaffNotes($audience, $options) ? Arr::wrap($archive['staff_notes'] ?? []) : [],
             'season_highlights' => Arr::wrap($archive['season_highlights'] ?? []),
             'season_concerns' => Arr::wrap($archive['season_concerns'] ?? []),
             'recommended_next_steps' => $includeNextSteps ? Arr::wrap($archive['recommended_next_steps'] ?? []) : [],
             'appendix' => $this->appendix($audience),
-        ]);
+        ];
+
+        if ($this->includeStaffNotes($audience, $options)) {
+            $packet['staff_notes'] = Arr::wrap($archive['staff_notes'] ?? []);
+        }
+
+        return $this->stripInternalIds($packet);
     }
 
     public function buildShareText(array $packet, array $options = []): string
@@ -307,7 +312,7 @@ class SeasonArchiveExportService
         }
 
         if (! $this->includeStaffNotes($audience, $options)) {
-            $filtered['staff_notes'] = [];
+            unset($filtered['staff_notes']);
         }
 
         if ($audience === 'director') {
@@ -318,7 +323,7 @@ class SeasonArchiveExportService
 
         if ($audience === 'players') {
             $filtered['player_development_summary'] = [];
-            $filtered['staff_notes'] = [];
+            unset($filtered['staff_notes']);
             $filtered['warnings'] = [];
             $filtered['evidence'] = [];
             $filtered['weekly_timeline'] = $this->stripWeeklyRawDetails(Arr::wrap($filtered['weekly_timeline'] ?? []), false);
@@ -328,7 +333,7 @@ class SeasonArchiveExportService
 
         if ($audience === 'parents') {
             $filtered['player_development_summary'] = [];
-            $filtered['staff_notes'] = [];
+            unset($filtered['staff_notes']);
             $filtered['warnings'] = [];
             $filtered['evidence'] = [];
             $filtered['weekly_timeline'] = $this->stripWeeklyRawDetails(Arr::wrap($filtered['weekly_timeline'] ?? []), false);
