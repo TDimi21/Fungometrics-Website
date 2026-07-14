@@ -8,6 +8,7 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { toast } from '@/utils/AlertPlugin'
 import SessionHeatmapPanel from '@/components/statistics/session/SessionHeatmapPanel.vue'
 import SessionVelocityGridPanel from '@/components/statistics/session/SessionVelocityGridPanel.vue'
+import BattingReportCard from '@/components/statistics/BattingReportCard.vue'
 import { TabBallByBall as BattingAllPitches } from '@/components/statistics'
 import { TabBall as BullpenAllPitches, TabVelo as BullpenVelocity } from '@/components/statistics/bullpen'
 import {
@@ -676,6 +677,17 @@ const rowMatchesPlayerFilter = (row) => {
 
 const visibleFlatRows = computed(() => {
   return flatRows.value.filter(rowMatchesPlayerFilter)
+})
+
+// Label shown under the batting hero score: a single player's name, "Team", or "N players".
+const battingSubjectLabel = computed(() => {
+  const ids = selectedBattingPlayerIds.value
+  if (!ids.length) return teamName.value || 'Team'
+  if (ids.length === 1) {
+    const p = availablePlayerButtons.value.find((x) => String(x.id) === String(ids[0]))
+    return p?.name || playersMap.value[String(ids[0])] || 'Player'
+  }
+  return `${ids.length} players`
 })
 
 const getPlayerName = (row) => {
@@ -1669,6 +1681,14 @@ onMounted(() => {
               {{ player.name }}
             </button>
           </div>
+
+          <!-- App-parity batting summary (hero FPS score + bars + tips) -->
+          <BattingReportCard
+            v-if="selectedSession === 'B'"
+            :balls="visibleFlatRows"
+            :subject="battingSubjectLabel"
+            class="mb-6"
+          />
 
           <div v-if="selectedSession === 'EV'" class="mb-4 flex flex-wrap justify-center gap-2">
             <button
