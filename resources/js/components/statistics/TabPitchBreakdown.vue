@@ -9,7 +9,7 @@
 import { ref, computed } from 'vue'
 import StatsStrikeZonePlot from '@/components/statistics/StatsStrikeZonePlot.vue'
 import { useTeamStore } from '@/store/team'
-import stadiumBg from '@/assets/img/stadium-bg.png'
+import stadiumBg from '@/assets/img/fungometrics-stadium.png'
 
 const props = defineProps({
   breakdownData: { type: Object, required: false, default: () => ({}) }, // by_player

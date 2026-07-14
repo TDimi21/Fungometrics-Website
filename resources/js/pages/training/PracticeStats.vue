@@ -273,12 +273,14 @@ if(userData.type === 'coach'){
           >
             <TabTrajectory
               :trajectoryData="statsData.by_player"
+              :ball-data="statsData.ball_x_ball"
             />
           </TabPanel>
           <TabPanel>
             <TabVelocity
               v-if="route.params.type == 'B'"
               :VelocityData="statsData.by_player"
+              :ball-data="statsData.ball_x_ball"
             />
             <TabVelo
               v-else

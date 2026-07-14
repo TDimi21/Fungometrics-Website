@@ -1,240 +1,153 @@
 <script setup>
+/**
+ * TabBallByBall.vue — batting "Ball by Ball" (Swing Analysis) tab.
+ * Matches the app (Statics/tableBatting/Ballbyball.js): the swing-by-swing table
+ * sits over the stadium background with the app's navy header and FMTRX brand
+ * color-coded Contact + Trajectory cells. Sorting + row edit are preserved.
+ */
 import { ref } from 'vue'
 import { TableEdit } from '@/components/icons'
-import {useTrainingStore} from "../../store/training";
-import router from "../../../router";
+import { useTrainingStore } from '../../store/training'
+import router from '../../../router'
 import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.png'
+import stadiumBg from '@/assets/img/fungometrics-stadium.png'
 
-const training = useTrainingStore();
+const training = useTrainingStore()
 
 const props = defineProps({
-  tableData: {
-    type: Object,
-    required: false,
-    default: {}
-  },
-  isLoading: {
-    type: Boolean,
-    required: true
-  }
+  tableData: { type: Object, required: false, default: () => ({}) },
+  isLoading: { type: Boolean, required: true },
 })
 
 const tableHeadings = ref([
-  { title: "pitch #", is_sort: true, filter: 'sort'},
-  { title: "player", is_sort: true, filter: 'profile.first_name' },
-  { title: "q.c.", is_sort: true, filter: 'quality_of_contact'},
-  { title: "traj.", is_sort: true, filter: 'type_of_hit'},
-  { title: "b/s", is_sort: true, filter: 'zone'},
-  { title: "dir", is_sort: true, filter: 'field_direction'},
-  { title: "velo", is_sort: true, filter: 'velocity'},
-  { title: "edit", is_sort: false, filter: ''}
+  { title: 'PITCH #', is_sort: true, filter: 'sort' },
+  { title: 'PLAYER', is_sort: true, filter: 'profile.first_name' },
+  { title: 'CONTACT', is_sort: true, filter: 'quality_of_contact' },
+  { title: 'TRAJ.', is_sort: true, filter: 'type_of_hit' },
+  { title: 'B/S', is_sort: true, filter: 'zone' },
+  { title: 'DIR', is_sort: true, filter: 'field_direction' },
+  { title: 'VELO', is_sort: true, filter: 'velocity' },
+  { title: 'EDIT', is_sort: false, filter: '' },
 ])
 
+// FMTRX brand cell colors (shared with the app's stat tables).
+const contactStyle = (q) => {
+  const u = String(q ?? '').toUpperCase()
+  if (u === 'H' || u === 'HARD') return { background: '#d8232a', color: '#fff' }
+  if (u === 'A' || u === 'AVG' || u === 'AVERAGE') return { background: '#e6d08a', color: '#000' }
+  if (u === 'W' || u === 'WEAK') return { background: '#2160c4', color: '#fff' }
+  if (u === 'M' || u === 'MF' || u === 'F' || u === 'MISS') return { background: '#5c6b8a', color: '#fff' }
+  return {}
+}
+const trajStyle = (t) => {
+  const u = String(t ?? '').toUpperCase()
+  if (u === 'FB') return { background: '#2160c4', color: '#fff' }
+  if (u === 'PF') return { background: '#e6d08a', color: '#000' }
+  if (u === 'LD') return { background: '#d8232a', color: '#fff' }
+  if (u === 'GB') return { background: '#16224c', color: '#fff' }
+  return {}
+}
+
 const editData = (player) => {
-  let editData = {
-    'id': player.practice_id,
-    'players': [{
-      'id': player.batter_id,
-      'name': {
-        'first': player.profile.first_name,
-        'last': player.profile.last_name,
-        'full': player.profile.first_name + ' ' + player.profile.last_name
+  const editData = {
+    id: player.practice_id,
+    players: [{
+      id: player.batter_id,
+      name: {
+        first: player.profile.first_name,
+        last: player.profile.last_name,
+        full: player.profile.first_name + ' ' + player.profile.last_name,
       },
-      'picture': player.profile.picture
+      picture: player.profile.picture,
     }],
-    ...player
+    ...player,
   }
-
   training.setDataTraining(editData)
-
-  router.push({
-    path: '/track/batting'
-  })
+  router.push({ path: '/track/batting' })
 }
 
-const getPlayerPicture = (item) => {
-  return item?.profile?.picture || item?.player?.picture || DefaultImg
-}
-
-const getPlayerFirstName = (item) => {
-  return item?.profile?.first_name || item?.player?.first_name || item?.batter_name || 'Player'
-}
-
-const getPlayerLastName = (item) => {
-  return item?.profile?.last_name || item?.player?.last_name || ''
-}
-
-const getPlayerDisplayName = (item) => {
-  const first = getPlayerFirstName(item)
-  const last = getPlayerLastName(item)
-  const full = `${first} ${last}`.trim()
-  return full || 'Player'
-}
-
+const getPlayerPicture = (item) => item?.profile?.picture || item?.player?.picture || DefaultImg
+const getPlayerFirstName = (item) => item?.profile?.first_name || item?.player?.first_name || item?.batter_name || 'Player'
+const getPlayerLastName = (item) => item?.profile?.last_name || item?.player?.last_name || ''
+const getPlayerDisplayName = (item) => `${getPlayerFirstName(item)} ${getPlayerLastName(item)}`.trim() || 'Player'
 </script>
 
 <template>
-  <div class="stat-table-wrap">
-    <section class="stat-table-scroll">
-      <table class="stat-table w-full border-separate space-y-6">
-        <thead>
-        <tr>
-          <th
-            v-for="(heading, index) in tableHeadings"
-            :key="index"
-            class="py-3 px-2 md:px-0 uppercase w-min"
-            @click="$emit('sortData', heading.filter)"
-          >
-            <span role="button" class="flex flex-row justify-evenly items-center cursor-pointer">
-              <label>{{ heading.title }}</label>
-              <img v-if="heading.is_sort" src="@/assets/img/icons/sort-solid.svg" alt="sort data" class="w-3">
-            </span>
-          </th>
-        </tr>
-      </thead>
-
-      <tbody>
-        <tr v-if="isLoading" class="w-full">
-          <td colspan="9" class="text-3xl text-center">Loading data...</td>
-        </tr>
-        <tr v-else-if="!props.tableData.length > 0" class="w-full">
-          <td colspan="9" class="text-3xl text-center">There is no data</td>
-        </tr>
-        <tr v-else v-for="(item, index) in props.tableData" :key="index" class="relative">
-          <td>
-            {{ (item?.sort ?? index) + 1 }}
-          </td>
-          <td class="w-[100px] lg:w-[300px] lg:max-w-[400px]">
-            <div class="grid grid-cols-2 place-items-center w-[200px] lg:w-auto">
-              <img
-                :src="getPlayerPicture(item)"
-                :alt="`Photo of ${getPlayerFirstName(item)}`"
-                class="w-[70px] h-[70px] rounded-full border-[5px] border-fungo-gray"
+  <section class="sbb" :style="{ backgroundImage: `url(${stadiumBg})` }">
+    <div class="sbb-overlay" />
+    <div class="sbb-inner">
+      <div class="sbb-scroll">
+        <table class="sbb-table">
+          <thead>
+            <tr>
+              <th
+                v-for="(heading, index) in tableHeadings"
+                :key="index"
+                :class="{ 'sbb-th--player': heading.title === 'PLAYER' }"
+                @click="heading.is_sort && $emit('sortData', heading.filter)"
               >
-              <p class="">
-                {{ getPlayerDisplayName(item) }}
-              </p>
-            </div>
-          </td>
-          <td>
-            {{ item.quality_of_contact == 'N' ? '-' : item.quality_of_contact }}
-          </td>
-          <td>
-            {{ (['H','A','W'].includes(item.quality_of_contact) && item.type_of_hit === 'TK') ? '—' : item.type_of_hit }}
-          </td>
-          <td>
-            {{ item.zone }}
-          </td>
-          <td>
-            {{ item.field_direction }}
-          </td>
-          <td>
-            {{ item.velocity == 0 ? '0.0': item.velocity}}
-          </td>
-          <td>
-            <button
-              v-on:click="editData(item)"
-              class="rounded-full hover:bg-white/15 p-2 transition-[background-color] ease-in duration-200"
-            >
-              <TableEdit />
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+                <span role="button" class="sbb-th-label" :class="{ 'cursor-pointer': heading.is_sort }">
+                  {{ heading.title }}
+                  <img v-if="heading.is_sort" src="@/assets/img/icons/sort-solid.svg" alt="sort" class="sbb-sort" />
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="isLoading">
+              <td colspan="8" class="sbb-msg">Loading data…</td>
+            </tr>
+            <tr v-else-if="!(props.tableData && props.tableData.length)">
+              <td colspan="8" class="sbb-msg">There is no data</td>
+            </tr>
+            <tr v-else v-for="(item, index) in props.tableData" :key="index">
+              <td class="sbb-num">{{ (item?.sort ?? index) + 1 }}</td>
+              <td class="sbb-player">
+                <img :src="getPlayerPicture(item)" :alt="getPlayerDisplayName(item)" class="sbb-avatar" />
+                <span>{{ getPlayerDisplayName(item) }}</span>
+              </td>
+              <td :style="contactStyle(item.quality_of_contact)" class="sbb-tag">
+                {{ item.quality_of_contact === 'N' ? '—' : item.quality_of_contact }}
+              </td>
+              <td :style="trajStyle(item.type_of_hit)" class="sbb-tag">
+                {{ (['H','A','W'].includes(item.quality_of_contact) && item.type_of_hit === 'TK') ? '—' : item.type_of_hit }}
+              </td>
+              <td>{{ item.zone }}</td>
+              <td>{{ item.field_direction }}</td>
+              <td class="sbb-velo">{{ item.velocity == 0 ? '0.0' : item.velocity }}</td>
+              <td>
+                <button class="sbb-edit" @click="editData(item)">
+                  <TableEdit />
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </section>
-  </div>
 </template>
 
 <style scoped>
-.stat-table-wrap {
-  padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 1rem;
-  background: rgba(10, 16, 32, 0.8);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
-}
-
-.stat-table-scroll {
-  overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.85rem;
-  background: rgba(2, 8, 23, 0.65);
-}
-
-.stat-table {
-  border-spacing: 0 10px;
-  color: #e2e8f0;
-}
-
-.stat-table thead th {
-  background: rgba(15, 23, 42, 0.95);
-  color: #e2e8f0;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  white-space: nowrap;
-}
-
-.stat-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
-  color: #e5e7eb;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.stat-table tbody tr::after {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: rgba(192, 0, 0, 0.55);
-}
-
-.stat-table tbody tr:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.stat-table tbody tr:nth-child(even) {
-  background: rgba(148, 163, 184, 0.05);
-}
-
-.stat-table tbody tr:hover {
-  background: rgba(59, 130, 246, 0.12);
-}
-
-.stat-table tbody tr:nth-child(even)::after {
-  background-color: rgba(148, 163, 184, 0.35);
-}
-
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-::-webkit-scrollbar-button {
-  width: 0px;
-  height: 0px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 8px;
-}
-
-::-webkit-scrollbar-thumb:active {
-  background: #1e293b;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.85);
-  border-radius: 8px;
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
+.sbb { position: relative; border-radius: 16px; overflow: hidden; background-size: cover; background-position: center; }
+.sbb-overlay { position: absolute; inset: 0; background: rgba(26, 31, 53, 0.88); }
+.sbb-inner { position: relative; padding: 16px; }
+.sbb-scroll { overflow-x: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+.sbb-table { width: 100%; border-collapse: separate; border-spacing: 0; color: #e2e8f0; font-variant-numeric: tabular-nums; }
+.sbb-table thead th { position: sticky; top: 0; background: #191c4a; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; padding: 12px 8px; text-align: center; white-space: nowrap; }
+.sbb-th--player { color: #e10600; text-align: left; padding-left: 14px; }
+.sbb-th-label { display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
+.sbb-sort { width: 10px; opacity: 0.7; }
+.sbb-table tbody td { padding: 10px 8px; text-align: center; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.sbb-table tbody tr:nth-child(odd) { background: rgba(255,255,255,0.03); }
+.sbb-table tbody tr:nth-child(even) { background: rgba(148,163,184,0.05); }
+.sbb-table tbody tr:hover { background: rgba(33,96,196,0.16); }
+.sbb-num { font-weight: 800; color: #fff; }
+.sbb-player { display: flex; align-items: center; gap: 10px; text-align: left; white-space: nowrap; font-weight: 700; color: #fff; padding-left: 14px !important; }
+.sbb-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); object-fit: cover; flex-shrink: 0; }
+.sbb-tag { font-weight: 800; }
+.sbb-velo { font-weight: 800; color: #fff; }
+.sbb-edit { border-radius: 999px; padding: 8px; transition: background-color 0.2s; }
+.sbb-edit:hover { background: rgba(255,255,255,0.15); }
+.sbb-msg { padding: 40px 0; text-align: center; font-size: 20px; color: rgba(255,255,255,0.6); }
 </style>

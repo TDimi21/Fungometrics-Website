@@ -1,306 +1,214 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useTeamStore } from "@/store/team"
+/**
+ * TabVelocity.vue — batting "Velocity" tab.
+ * Matches the app (Statics/tableBatting/Velocity.js): stadium background + navy
+ * overlay, left hit-type filters, a spray field, a per-player exit-velocity
+ * breakdown (avg by trajectory + MAX EV), and a per-swing velocity list.
+ */
+import { ref, computed } from 'vue'
+import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
+import { useTeamStore } from '@/store/team'
+import stadiumBg from '@/assets/img/fungometrics-stadium.png'
 
 const props = defineProps({
-  VelocityData: {
-    type: Object,
-    required: false,
-    default: {}
-  }
+  VelocityData: { type: Object, required: false, default: () => ({}) }, // by_player
+  ballData: { type: Array, required: false, default: () => [] },         // ball_x_ball
 })
 
 const { team } = useTeamStore()
 
-const playerVelocities = ref([])
+const FILTERS = [
+  { label: 'ALL', type: null },
+  { label: 'GROUND', type: 'GB' },
+  { label: 'POP FLY', type: 'PF' },
+  { label: 'FLY BALL', type: 'FB' },
+  { label: 'LINE DRIVE', type: 'LD' },
+]
+const activeFilter = ref('ALL')
+const selectedPlayer = ref(null)
 
-const tableOneHeadings = ref([
-  'SWING #', 'VELOCITY'
-])
-
-const tableTwoHeadings = ref([
-  'ld', 'fb', 'pf', 'GB', 'max ev', 'player'
-])
-
-const buttonsGroup = ref([
-  { text: 'All', typeHit: 'All' },
-  { text: 'Ground', typeHit: 'GB' },
-  { text: 'Pop fly', typeHit: 'PF' },
-  { text: 'Fly ball', typeHit: 'FB' },
-  { text: 'Line drive', typeHit: 'LD' }
-])
-
-const currentIndex = ref(0)
-const activeRow = ref('1')
-
-const filterBytrajecotry = (index, typeHit) => {
-  playerVelocities.value = []
-  currentIndex.value = index
-
-  Object.values(props.VelocityData).forEach(player => {
-
-    player.forEach(track => {
-      if (activeRow.value == 1) {
-        if (track.type_of_hit === typeHit && typeHit !== 'All') {
-          playerVelocities.value.push(track)
-        } else if (typeHit === 'All') {
-          playerVelocities.value.push(track)
-        }
-      }
-
-      if (activeRow.value == track.batter_id) {
-        if (track.type_of_hit === typeHit && typeHit !== 'All') {
-          playerVelocities.value.push(track)
-        } else if (typeHit === 'All') {
-          playerVelocities.value.push(track)
-        }
-      }
-    })
-  })
-
-  if (playerVelocities.value.length > 0) {
-    playerVelocities.value.sort((a, b) => a.sort - b.sort)
-  }
+const identityOf = (b) => {
+  const id = String(b.batter_id ?? b.profile?.id ?? '')
+  const name = b.batter_name || `${b.profile?.first_name ?? ''} ${b.profile?.last_name ?? ''}`.trim() || 'Unknown'
+  return { id, name }
 }
 
-const filterRowByTrajectory = computed(() => (allContact, trajectory) => {
-  let velocities = 0
-  let counter = 0
-
-  allContact.filter(item => {
-    if (item.type_of_hit.includes(trajectory)) {
-      if (item.velocity != 0) {
-        velocities += item.velocity
-        counter++
-      }
-    }
-  })
-  if (counter != 0) {
-    velocities = velocities / counter
-  }
-
-  return (velocities).toFixed(2)
+const allBalls = computed(() => {
+  if (Array.isArray(props.ballData) && props.ballData.length) return props.ballData
+  return Object.values(props.VelocityData || {}).flatMap((v) => (Array.isArray(v) ? v : []))
 })
 
-const getMaxTrajectory = (allContact) => {
-  let max = 0
-  allContact.forEach(element => {
-    if (max < element.velocity) {
-      max = element.velocity
-    }
+const filteredBalls = computed(() => {
+  const type = FILTERS.find((f) => f.label === activeFilter.value)?.type
+  return allBalls.value.filter((b) => {
+    if (type && String(b.type_of_hit ?? '').toUpperCase() !== type) return false
+    if (selectedPlayer.value && identityOf(b).id !== String(selectedPlayer.value)) return false
+    return true
   })
-
-  return (max).toFixed(2)
-}
-
-const getMaxTrajectoryOfTeam = () => {
-  let max = 0
-  Object.values(props.VelocityData).forEach(item => {
-    item.forEach(element => {
-      if (max < element.velocity) {
-        max = element.velocity
-      }
-    })
-  })
-
-  return (max).toFixed(2)
-}
-
-const filterByFirstRowTable = () => {
-  activeRow.value = '1'
-  playerVelocities.value = []
-
-  Object.values(props.VelocityData).forEach(item => {
-    item.forEach(player => {
-      playerVelocities.value.push(player)
-    })
-  })
-}
-
-const contactAllLocationCount = computed(() => (allContact, trajectory) => {
-  let velocities = 0
-  let counter = 0
-
-  Object.values(allContact).forEach(contact => {
-    contact.filter(item => {
-      if (item.type_of_hit === trajectory) {
-        if (item.velocity != 0) {
-          velocities += item.velocity
-          counter++
-        }
-      }
-    })
-  })
-
-  if (counter != 0) {
-    velocities = velocities / counter
-  }
-
-  return velocities.toFixed(2)
 })
 
-const filterByPlayer = (player, id) => {
-  activeRow.value = id
-  playerVelocities.value = player
+// Per-swing velocity list (respects both filter + selected player).
+const swingList = computed(() =>
+  [...filteredBalls.value]
+    .map((b) => ({ n: (Number(b.sort) || 0) + 1, velo: Number(b.velocity) || 0 }))
+    .filter((s) => s.velo > 0)
+    .sort((a, b) => a.n - b.n),
+)
+
+const avgFor = (balls, type) => {
+  const vs = balls.filter((b) => String(b.type_of_hit ?? '').toUpperCase() === type && Number(b.velocity) > 0).map((b) => Number(b.velocity))
+  return vs.length ? (vs.reduce((a, v) => a + v, 0) / vs.length).toFixed(1) : '—'
+}
+const maxFor = (balls) => {
+  const vs = balls.map((b) => Number(b.velocity) || 0)
+  const m = vs.length ? Math.max(...vs) : 0
+  return m > 0 ? m.toFixed(1) : '—'
 }
 
-onMounted(() => {
-  Object.values(props.VelocityData).forEach(item => {
-    item.forEach(player => {
-      playerVelocities.value.push(player)
-    })
+const table = computed(() => {
+  const byPlayer = new Map()
+  allBalls.value.forEach((b) => {
+    const { id, name } = identityOf(b)
+    const key = id || name
+    if (!byPlayer.has(key)) byPlayer.set(key, { id, name, balls: [] })
+    byPlayer.get(key).balls.push(b)
   })
-
-  if (playerVelocities.value.length > 0) {
-    playerVelocities.value.sort((a, b) => a.sort - b.sort)
+  const players = [...byPlayer.values()]
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      ld: avgFor(p.balls, 'LD'),
+      fb: avgFor(p.balls, 'FB'),
+      pf: avgFor(p.balls, 'PF'),
+      gb: avgFor(p.balls, 'GB'),
+      maxEv: maxFor(p.balls),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const all = allBalls.value
+  return {
+    players,
+    team: { id: null, name: team?.name || 'Team', ld: avgFor(all, 'LD'), fb: avgFor(all, 'FB'), pf: avgFor(all, 'PF'), gb: avgFor(all, 'GB'), maxEv: maxFor(all) },
   }
 })
+
+const selectRow = (id) => { selectedPlayer.value = selectedPlayer.value === id ? null : id }
 </script>
-<template>
-  <section class="mt-5">
-    <div class="grid grid-cols-3 bg-[#0d1f3c] divide-x divide-white/10 text-center py-2 text-white uppercase">
-      <div class="col-span-2">
-        <p>LIST OF VELOCITIES</p>
-      </div>
-      <div>
-        VELOCITY BREAKDOWN
-      </div>
-    </div>
 
-    <div class="grid grid-cols-1 mt-10 lg:grid-cols-2 xl:grid-cols-7 lg:gap-x-8 gap-y-8">
-      <div class="grid lg:grid-cols-1 bg-[#0d1f3c] rounded-[10px] h-min button-group px-7 py-9 gap-y-3 border border-white/10">
-        <p class="text-[#e10600]">Select</p>
-        <button v-for="(button, index) in buttonsGroup" :key="index"
-          class="rounded-[5px] border border-white/20 py-1 text-white/70 hover:text-white hover:bg-white/10" @click="filterBytrajecotry(index, button.typeHit)"
-          :class="{ 'bg-[#e10600] text-white border-[#e10600]': currentIndex === index }">
-          {{ button.text }}
+<template>
+  <section class="sbt" :style="{ backgroundImage: `url(${stadiumBg})` }">
+    <div class="sbt-overlay" />
+    <div class="sbt-inner sbt-inner--velo">
+      <div class="sbt-filters">
+        <button
+          v-for="f in FILTERS"
+          :key="f.label"
+          class="sbt-filter"
+          :class="{ 'sbt-filter--on': activeFilter === f.label }"
+          @click="activeFilter = f.label"
+        >
+          {{ f.label }}
         </button>
       </div>
-      <div class="col-span-3 px-5 py-4 pitch-table">
-        <table class="w-full border-collapse text-fungo-darkblue">
 
-          <thead class="bg-[rgba(15,23,42,0.95)]">
-            <tr class="divide-x divide-white/20">
-              <th v-for="(heading, index) in tableOneHeadings" :key="index"
-                class="px-2 py-3 uppercase font-fungo-500 w-min text-white">
-                {{ heading }}
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr v-for="(velocity, id) in playerVelocities" :key="id" class="relative bg-[rgba(10,16,32,0.5)] even:bg-[rgba(13,31,60,0.5)] text-white">
-              <td>{{ velocity.sort + 1 }}</td>
-              <td>{{ velocity.velocity }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="sbt-plot">
+        <VelocitySprayField :balls="filteredBalls" mode="spray" :use-field-mark="true" :show-chrome="false" />
       </div>
 
-      <div class="col-span-3 px-5 py-4 pitch-table">
-        <table class="w-full border-collapse text-fungo-darkblue">
+      <div class="sbt-right">
+        <!-- Per-player exit velocity breakdown -->
+        <div class="sbt-tablewrap">
+          <table class="sbt-table">
+            <thead>
+              <tr>
+                <th class="sbt-th sbt-th--player">PLAYER</th>
+                <th class="sbt-th">LD</th>
+                <th class="sbt-th">FB</th>
+                <th class="sbt-th">PF</th>
+                <th class="sbt-th">GB</th>
+                <th class="sbt-th">MAX EV</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="sbt-row" :class="{ 'sbt-row--sel': selectedPlayer === null }" @click="selectedPlayer = null">
+                <td class="sbt-td-label">{{ table.team.name }}</td>
+                <td class="sbt-cell sbt-cell--ld">{{ table.team.ld }}</td>
+                <td class="sbt-cell sbt-cell--fb">{{ table.team.fb }}</td>
+                <td class="sbt-cell sbt-cell--pf">{{ table.team.pf }}</td>
+                <td class="sbt-cell sbt-cell--gb">{{ table.team.gb }}</td>
+                <td class="sbt-cell sbt-cell--max">{{ table.team.maxEv }}</td>
+              </tr>
+              <tr
+                v-for="p in table.players"
+                :key="p.id || p.name"
+                class="sbt-row"
+                :class="{ 'sbt-row--sel': selectedPlayer === p.id }"
+                @click="selectRow(p.id)"
+              >
+                <td class="sbt-td-label">{{ p.name }}</td>
+                <td class="sbt-cell sbt-cell--ld">{{ p.ld }}</td>
+                <td class="sbt-cell sbt-cell--fb">{{ p.fb }}</td>
+                <td class="sbt-cell sbt-cell--pf">{{ p.pf }}</td>
+                <td class="sbt-cell sbt-cell--gb">{{ p.gb }}</td>
+                <td class="sbt-cell sbt-cell--max">{{ p.maxEv }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-          <thead class="bg-[rgba(15,23,42,0.95)]">
-            <tr class="divide-x divide-white/20">
-              <th v-for="(heading, index) in tableTwoHeadings" :key="index"
-                class="px-2 py-3 uppercase font-fungo-500 w-min text-white">
-                {{ heading }}
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr class="relative bg-[rgba(10,16,32,0.5)] even:bg-[rgba(13,31,60,0.5)] cursor-pointer text-white"
-              :class="{ 'active-row text-white opacity-60': activeRow == '1' }" @click="filterByFirstRowTable">
-              <td>
-                {{ contactAllLocationCount(props.VelocityData, 'LD') }}
-              </td>
-              <td>
-                {{ contactAllLocationCount(props.VelocityData, 'FB') }}
-              </td>
-              <td>
-                {{ contactAllLocationCount(props.VelocityData, 'PF') }}
-              </td>
-              <td>
-                {{ contactAllLocationCount(props.VelocityData, 'GB') }}
-              </td>
-              <td>
-                {{ getMaxTrajectoryOfTeam() }}
-              </td>
-              <td>
-                {{ team.name }}
-              </td>
-            </tr>
-            <tr v-for="(velocity, id) in VelocityData" :key="id"
-              class="relative bg-[rgba(10,16,32,0.5)] even:bg-[rgba(13,31,60,0.5)] cursor-pointer text-white"
-              :class="{ 'active-row text-white opacity-60': activeRow == id }" @click="filterByPlayer(velocity, id)">
-              <td>{{ filterRowByTrajectory(velocity, 'LD') }}</td>
-              <td>{{ filterRowByTrajectory(velocity, 'FB') }}</td>
-              <td>{{ filterRowByTrajectory(velocity, 'PF') }}</td>
-              <td>{{ filterRowByTrajectory(velocity, 'GB') }}</td>
-              <td>{{ getMaxTrajectory(velocity) }}</td>
-              <td>{{ velocity[0].profile.first_name }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Per-swing velocity list -->
+        <div class="sbt-list">
+          <div class="sbt-list-head">
+            <span>SWING #</span><span>VELOCITY</span>
+          </div>
+          <div class="sbt-list-body">
+            <div v-for="s in swingList" :key="s.n" class="sbt-list-row">
+              <span>{{ s.n }}</span><span class="sbt-list-velo">{{ s.velo.toFixed(1) }} <em>mph</em></span>
+            </div>
+            <div v-if="!swingList.length" class="sbt-list-empty">No recorded exit velocities</div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </template>
+
 <style scoped>
-.pitch-table {
-  @apply rounded-[20px];
-  background: rgba(10, 16, 32, 0.8);
-  box-shadow: 0 4px 32px rgba(0,0,0,0.4);
-}
+.sbt { position: relative; border-radius: 16px; overflow: hidden; background-size: cover; background-position: center; }
+.sbt-overlay { position: absolute; inset: 0; background: rgba(26, 31, 53, 0.86); }
+.sbt-inner { position: relative; display: grid; grid-template-columns: 1fr; gap: 18px; padding: 18px; align-items: start; }
+@media (min-width: 1024px) { .sbt-inner--velo { grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1.25fr); gap: 22px; } }
 
-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
-}
+.sbt-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (min-width: 1024px) { .sbt-filters { flex-direction: column; } }
+.sbt-filter { flex: 1 1 auto; min-width: 90px; padding: 9px 8px; border-radius: 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.03em; background: rgba(255,255,255,0.95); color: #0a1024; border: 1px solid rgba(255,255,255,0.25); cursor: pointer; transition: 0.15s; }
+.sbt-filter:hover { background: #fff; }
+.sbt-filter--on { background: #e10600; color: #fff; border-color: #e10600; }
 
-table tbody tr::after {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #e10600;
-}
+.sbt-plot { display: flex; flex-direction: column; gap: 10px; }
+.sbt-right { display: flex; flex-direction: column; gap: 14px; }
 
-table tbody tr:nth-child(even)::after {
-  background-color: #c00400;
-}
+.sbt-tablewrap { overflow-x: auto; border-radius: 12px; }
+.sbt-table { width: 100%; border-collapse: separate; border-spacing: 0 0; font-variant-numeric: tabular-nums; }
+.sbt-th { background: #191c4a; color: #fff; font-size: 10px; font-weight: 800; padding: 10px 5px; text-align: center; letter-spacing: 0.03em; }
+.sbt-th--player { color: #e10600; text-align: left; padding-left: 12px; }
+.sbt-row { cursor: pointer; }
+.sbt-row:hover .sbt-td-label { background: #232a52; }
+.sbt-row--sel { outline: 2px solid #e10600; outline-offset: -2px; }
+.sbt-td-label { background: #1a1f35; color: #fff; font-size: 12px; font-weight: 700; padding: 11px 12px; white-space: nowrap; }
+.sbt-cell { text-align: center; font-size: 13px; font-weight: 800; color: #fff; padding: 11px 5px; }
+.sbt-cell--ld { background: #d8232a; }
+.sbt-cell--fb { background: #2160c4; }
+.sbt-cell--pf { background: #e6d08a; color: #000; }
+.sbt-cell--gb { background: #16224c; }
+.sbt-cell--max { background: #1f7a44; }
 
-.button-group {
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
-}
-
-.ball-header {
-  background-repeat: no-repeat;
-  background-size: contain;
-  height: 25px;
-  width: 25px;
-  background-position: center;
-}
-
-.ball-header.foul {
-  background-image: url("../../assets/img/login/assteslogin/ballbutton.svg");
-}
-
-.ball-header.weack {
-  background-image: url("../../assets/img/training/balltraining-green.svg");
-}
-
-.ball-header.average {
-  background-image: url("../../assets/img/training/balltraining.svg");
-}
-
-.ball-header.hard {
-  background-image: url("../../assets/img/training/balltraining-blue.svg");
-}
-
-.active-row {
-  background-color: #e10600 !important;
-}
+/* Swing velocity list */
+.sbt-list { border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: rgba(10,16,32,0.6); }
+.sbt-list-head { display: grid; grid-template-columns: 1fr 1fr; background: #191c4a; color: #fff; font-size: 10px; font-weight: 800; padding: 9px 14px; letter-spacing: 0.04em; }
+.sbt-list-body { max-height: 260px; overflow-y: auto; }
+.sbt-list-row { display: grid; grid-template-columns: 1fr 1fr; padding: 8px 14px; font-size: 12px; color: #e2e8f0; font-variant-numeric: tabular-nums; }
+.sbt-list-row:nth-child(odd) { background: rgba(255,255,255,0.03); }
+.sbt-list-velo { font-weight: 800; color: #fff; }
+.sbt-list-velo em { font-style: normal; font-size: 10px; font-weight: 600; opacity: 0.6; }
+.sbt-list-empty { padding: 18px; text-align: center; color: rgba(255,255,255,0.4); font-size: 12px; }
 </style>
