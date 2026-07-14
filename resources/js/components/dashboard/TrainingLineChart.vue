@@ -66,23 +66,27 @@ const model = computed(() => {
       legend: [{ label: 'Avg', color: GREEN }, { label: 'Top', color: BLUE }, { label: 'Expected', color: YELLOW }],
     }
   }
-  // long toss
-  const normalized = pts.map((p, i) => ({
+  // long toss — group every throw by its hop count (0,1,2,3) and plot the AVERAGE
+  // distance for each. x = hops, y = distance. A throw with no hop value counts as
+  // 0 hops. (Not a point per throw — one point per hop bucket.)
+  const normalized = pts.map((p) => ({
     distance: toFiniteNumber(p?.distance, p?.dist, p?.value, p?.maxDist, p?.avgMaxDist, p?.max_distance),
     hop: toFiniteNumber(p?.hop, p?.hops),
-    label: p?.label ?? p?.throw_number ?? p?.throwNumber ?? String(i + 1),
   })).filter((p) => p.distance !== null && p.distance > 0)
-  const dist = normalized.map((p) => p.distance)
-  const hops = normalized.map((p) => p.hop)
-  const expectedFlat = dist.length ? Math.round((dist.reduce((s, v) => s + v, 0) / dist.length) * 10) / 10 : null
+  const HOPS = [0, 1, 2, 3]
+  const bucketed = HOPS.map((h) => normalized.filter((p) => Math.max(0, Math.round(p.hop ?? 0)) === h).map((p) => p.distance))
+  const values = bucketed.map((vals) => (vals.length ? Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10 : null))
+  // Reference line = overall average distance across every throw.
+  const allDist = normalized.map((p) => p.distance)
+  const expectedFlat = allDist.length ? Math.round((allDist.reduce((s, v) => s + v, 0) / allDist.length) * 10) / 10 : null
   return {
-    title: 'Distance by Throw',
-    xLabels: normalized.map((p, i) => String(p.label ?? i + 1)),
-    lines: [{ label: 'Distance', color: GREEN, values: dist, width: 4 }],
+    title: 'Avg Distance by Hop',
+    xLabels: HOPS.map(String),   // 0, 1, 2, 3
+    lines: [{ label: 'Distance', color: GREEN, values, width: 4 }],
     expected: null,
     expectedFlat,           // single horizontal dashed line
-    dots: dist.map((d, i) => ({ value: d, hop: hops[i], above: expectedFlat == null || d >= expectedFlat })),
-    legend: [{ label: 'Distance', color: GREEN }, { label: 'Expected', color: YELLOW }, { label: 'Dot color = hops', color: '#fff' }],
+    dots: values.map((v, i) => ({ value: v, hop: HOPS[i], count: bucketed[i].length, above: v == null || expectedFlat == null || v >= expectedFlat })),
+    legend: [{ label: 'Avg Distance', color: GREEN }, { label: 'Expected', color: YELLOW }, { label: 'Dot color = hops', color: '#fff' }],
   }
 })
 
@@ -125,9 +129,14 @@ const hasData = computed(() => model.value.lines.some((l) => l.values.some((v) =
       <!-- data lines -->
       <path v-for="l in model.lines" :key="l.label" :d="linePath(l.values)" fill="none" :stroke="l.color" :stroke-width="l.width" stroke-linejoin="round" stroke-linecap="round" />
 
-      <!-- dots -->
+      <!-- dots (one per hop bucket; skip hops with no throws) -->
       <template v-if="model.dots">
-        <circle v-for="(d, i) in model.dots" :key="`d${i}`" :cx="xAt(i)" :cy="yAt(d.value)" r="5" :fill="hopColor(d.hop)" :stroke="d.above ? '#fff' : '#EF4444'" stroke-width="1.5" />
+        <g v-for="(d, i) in model.dots" :key="`d${i}`">
+          <template v-if="d.value != null">
+            <circle :cx="xAt(i)" :cy="yAt(d.value)" r="5.5" :fill="hopColor(d.hop)" :stroke="d.above ? '#fff' : '#EF4444'" stroke-width="1.5" />
+            <text :x="xAt(i)" :y="yAt(d.value) - 10" fill="#fff" font-size="10" font-weight="800" text-anchor="middle">{{ d.value }}</text>
+          </template>
+        </g>
       </template>
       <template v-else>
         <g v-for="l in model.lines" :key="`dots-${l.label}`">
