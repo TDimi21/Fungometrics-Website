@@ -179,8 +179,9 @@ const trajectoryLabel = (value) => {
 }
 
 const getHop = (row) => {
-  const hop = toNumber(row?.hop ?? row?.hops ?? row?.player_hop ?? row?.hop_count ?? row?.number_of_hops ?? 0)
-  if (hop === null) return null
+  const hop = toNumber(row?.hop ?? row?.hops ?? row?.player_hop ?? row?.hop_count ?? row?.number_of_hops)
+  // A throw with no recorded hop count is treated as zero hops.
+  if (hop === null) return 0
   return Math.max(0, Math.round(hop))
 }
 
