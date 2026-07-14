@@ -218,7 +218,11 @@ const toObjectRows = (val) => {
 
 const parseNum = (row, keys) => {
   for (const k of keys) {
-    const n = Number(row?.[k])
+    const raw = row?.[k]
+    const cleaned = typeof raw === 'string'
+      ? raw.replace(/,/g, '').match(/-?\d+(\.\d+)?/)?.[0]
+      : raw
+    const n = Number(cleaned)
     if (Number.isFinite(n) && n > 0) return n
   }
   return null
@@ -1340,12 +1344,13 @@ const exitVelBreakdown = computed(() => {
 const longTossBreakdown = computed(() => {
   const ltSessions = trainingSessions.value.filter((s) => normalizeMode(s) === 'LT')
   const rows = ltSessions.flatMap((s) => getSessionRows(s))
-  const dists = rows.map((r) => parseNum(r, ['distance', 'dist', 'throw_distance', 'feet'])).filter((v) => v !== null)
+  const longTossDistanceKeys = ['distance', 'dist', 'long_toss_distance', 'throw_distance', 'throw_distance_feet', 'distance_feet', 'distance_ft', 'feet', 'ft', 'max_distance', 'value']
+  const dists = rows.map((r) => parseNum(r, longTossDistanceKeys)).filter((v) => v !== null)
   const hops = rows.map((r) => parseHop(r))
   const hopAvg = (n) => {
     const vals = rows
       .filter((r, idx) => Number(hops[idx]) === n)
-      .map((r) => parseNum(r, ['distance', 'dist', 'throw_distance', 'feet']))
+      .map((r) => parseNum(r, longTossDistanceKeys))
       .filter((v) => v !== null)
     return fmt(avgOf(vals) ?? null, 1)
   }

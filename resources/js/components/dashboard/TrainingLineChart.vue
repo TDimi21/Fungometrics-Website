@@ -38,7 +38,10 @@ const WB_MULT = { 3: 1.04, 4: 1.02, 5: 1, 6: 0.97, 7: 0.94 }
 const toFiniteNumber = (...values) => {
   for (const value of values) {
     if (value === null || value === undefined || value === '') continue
-    const number = Number(value)
+    const cleaned = typeof value === 'string'
+      ? value.replace(/,/g, '').match(/-?\d+(\.\d+)?/)?.[0]
+      : value
+    const number = Number(cleaned)
     if (Number.isFinite(number)) return number
   }
   return null
@@ -70,8 +73,31 @@ const model = computed(() => {
   // distance for each. x = hops, y = distance. A throw with no hop value counts as
   // 0 hops. (Not a point per throw — one point per hop bucket.)
   const normalized = pts.map((p) => ({
-    distance: toFiniteNumber(p?.distance, p?.dist, p?.value, p?.maxDist, p?.avgMaxDist, p?.max_distance),
-    hop: toFiniteNumber(p?.hop, p?.hops),
+    distance: toFiniteNumber(
+      p?.distance,
+      p?.dist,
+      p?.value,
+      p?.long_toss_distance,
+      p?.throw_distance,
+      p?.throw_distance_feet,
+      p?.distance_feet,
+      p?.distance_ft,
+      p?.feet,
+      p?.ft,
+      p?.maxDist,
+      p?.avgMaxDist,
+      p?.max_distance,
+    ),
+    hop: toFiniteNumber(
+      p?.player_hop,
+      p?.hop,
+      p?.hops,
+      p?.hop_count,
+      p?.number_of_hops,
+      p?.bounces,
+      p?.bounce,
+      p?.bounce_count,
+    ),
   })).filter((p) => p.distance !== null && p.distance > 0)
   const HOPS = [0, 1, 2, 3]
   const bucketed = HOPS.map((h) => normalized.filter((p) => Math.max(0, Math.round(p.hop ?? 0)) === h).map((p) => p.distance))

@@ -61,7 +61,10 @@ const rowsArray = computed(() => {
 
 const toNumber = (value) => {
   if (value === null || value === undefined || value === '') return null
-  const n = Number(value)
+  const cleaned = typeof value === 'string'
+    ? value.replace(/,/g, '').match(/-?\d+(\.\d+)?/)?.[0]
+    : value
+  const n = Number(cleaned)
   return Number.isFinite(n) ? n : null
 }
 
@@ -149,7 +152,21 @@ const getVelocity = (row) =>
       null,
   )
 
-const getDistance = (row) => toNumber(row?.distance ?? row?.dist ?? row?.throw_distance ?? row?.feet ?? null)
+const getDistance = (row) =>
+  toNumber(
+    row?.distance ??
+      row?.dist ??
+      row?.long_toss_distance ??
+      row?.throw_distance ??
+      row?.throw_distance_feet ??
+      row?.distance_feet ??
+      row?.distance_ft ??
+      row?.feet ??
+      row?.ft ??
+      row?.max_distance ??
+      row?.value ??
+      null,
+  )
 
 const getWeight = (row) =>
   toNumber(
@@ -179,7 +196,7 @@ const trajectoryLabel = (value) => {
 }
 
 const getHop = (row) => {
-  const hop = toNumber(row?.hop ?? row?.hops ?? row?.player_hop ?? row?.hop_count ?? row?.number_of_hops)
+  const hop = toNumber(row?.player_hop ?? row?.hop ?? row?.hops ?? row?.hop_count ?? row?.number_of_hops ?? row?.bounces ?? row?.bounce ?? row?.bounce_count)
   // A throw with no recorded hop count is treated as zero hops.
   if (hop === null) return 0
   return Math.max(0, Math.round(hop))

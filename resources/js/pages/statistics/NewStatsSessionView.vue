@@ -385,7 +385,10 @@ const sprayRanges = [
 
 const toNumberOrNull = (value) => {
   if (value === null || value === undefined || value === '') return null
-  const num = Number(value)
+  const cleaned = typeof value === 'string'
+    ? value.replace(/,/g, '').match(/-?\d+(\.\d+)?/)?.[0]
+    : value
+  const num = Number(cleaned)
   return Number.isFinite(num) ? num : null
 }
 
@@ -808,7 +811,16 @@ const evVelocityByTypeRows = computed(() => {
 })
 
 const normalizeLongTossHop = (row) => {
-  const hop = Number(row?.hop)
+  const hop = toNumberOrNull(
+    row?.player_hop ??
+      row?.hop ??
+      row?.hops ??
+      row?.hop_count ??
+      row?.number_of_hops ??
+      row?.bounces ??
+      row?.bounce ??
+      row?.bounce_count,
+  )
   if (!Number.isFinite(hop)) return 'Unknown'
   if (hop <= 0) return 'No Hops'
   if (hop === 1) return '1 Hop'
@@ -818,8 +830,20 @@ const normalizeLongTossHop = (row) => {
 }
 
 const getDistanceNumber = (row) => {
-  const num = Number(row?.distance)
-  return Number.isFinite(num) ? num : null
+  const num = toNumberOrNull(
+    row?.distance ??
+      row?.dist ??
+      row?.long_toss_distance ??
+      row?.throw_distance ??
+      row?.throw_distance_feet ??
+      row?.distance_feet ??
+      row?.distance_ft ??
+      row?.feet ??
+      row?.ft ??
+      row?.max_distance ??
+      row?.value,
+  )
+  return num
 }
 
 const longTossAllThrowsRows = computed(() => {
