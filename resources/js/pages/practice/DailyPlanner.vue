@@ -123,6 +123,10 @@ const developmentHealthTrendMessage = ref('')
 const developmentHealthAlerts = ref(null)
 const developmentHealthAlertsLoading = ref(false)
 const developmentHealthAlertsMessage = ref('')
+const developmentHealthAlertActions = ref(null)
+const developmentHealthAlertActionsLoading = ref(false)
+const developmentHealthAlertActionLoading = ref('')
+const developmentHealthAlertActionMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const selectedSeasonArchiveDelivery = ref(null)
 const weeklyReportNotes = ref([])
@@ -279,6 +283,7 @@ const loadCommandCenter = async () => {
     developmentProgramHealth.value = null
     developmentHealthTrend.value = null
     developmentHealthAlerts.value = null
+    developmentHealthAlertActions.value = null
     selectedWeeklyReportDelivery.value = null
     selectedSeasonArchiveDelivery.value = null
     weeklyReportNotes.value = []
@@ -782,6 +787,35 @@ const loadDevelopmentHealthAlerts = async () => {
     developmentHealthAlertsLoading.value = false
   }
 }
+const loadDevelopmentHealthAlertActions = async () => {
+  if (!activeTeamId.value) {
+    developmentHealthAlertActions.value = null
+    return null
+  }
+
+  developmentHealthAlertActionsLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/development-health-alert-actions`, {
+      days: 30,
+      weeks: 8,
+      severity_threshold: 'medium',
+    })
+    developmentHealthAlertActions.value = res?.data?.data || null
+    return developmentHealthAlertActions.value
+  } catch {
+    developmentHealthAlertActions.value = null
+    developmentHealthAlertActionMessage.value = 'Alert actions are not available yet.'
+    return null
+  } finally {
+    developmentHealthAlertActionsLoading.value = false
+  }
+}
+const refreshDevelopmentHealthAlerts = async () => {
+  await Promise.all([
+    loadDevelopmentHealthAlerts(),
+    loadDevelopmentHealthAlertActions(),
+  ])
+}
 const refreshSeasonArchiveDeliveryInsights = async () => {
   await Promise.all([
     loadSeasonArchiveDeliveryHistory(),
@@ -903,8 +937,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -1233,6 +1267,25 @@ const developmentTrendImprovements = computed(() => Array.isArray(developmentHea
 const developmentTrendDeclines = computed(() => Array.isArray(developmentHealthTrend.value?.biggest_declines) ? developmentHealthTrend.value.biggest_declines : [])
 const developmentTrendRecommendations = computed(() => Array.isArray(developmentHealthTrend.value?.trend_recommendations) ? developmentHealthTrend.value.trend_recommendations : [])
 const developmentTrendWarnings = computed(() => Array.isArray(developmentHealthTrend.value?.warnings) ? developmentHealthTrend.value.warnings : [])
+const alertStatusTone = (severity) => ({
+  critical: 'warning',
+  high: 'warning',
+  medium: 'info',
+  low: 'muted',
+  none: 'good',
+}[severity] || 'muted')
+const developmentAlertsSummary = computed(() => developmentHealthAlerts.value?.summary || {})
+const developmentAlerts = computed(() => Array.isArray(developmentHealthAlerts.value?.alerts) ? developmentHealthAlerts.value.alerts : [])
+const developmentAlertCounts = computed(() => developmentHealthAlerts.value?.alert_counts || {})
+const developmentHighestAlert = computed(() => developmentHealthAlerts.value?.highest_priority_alert || null)
+const developmentAlertActions = computed(() => Array.isArray(developmentHealthAlerts.value?.recommended_actions) ? developmentHealthAlerts.value.recommended_actions : [])
+const developmentAlertWarnings = computed(() => Array.isArray(developmentHealthAlerts.value?.warnings) ? developmentHealthAlerts.value.warnings : [])
+const developmentAlertActionRows = computed(() => Array.isArray(developmentHealthAlertActions.value?.alerts) ? developmentHealthAlertActions.value.alerts : [])
+const developmentAlertActionMap = computed(() => developmentAlertActionRows.value.reduce((map, row) => ({
+  ...map,
+  [row.alert_id]: Array.isArray(row.actions) ? row.actions : [],
+}), {}))
+const actionsForDevelopmentAlert = (alert) => developmentAlertActionMap.value[alert?.alert_id] || []
 const seasonRhythmActionTemplateMap = {
   create_staff_packet: { template: 'staff_review_packet', audience: 'staff' },
   create_parent_summary: { template: 'parent_safe_season_summary', audience: 'parents' },
@@ -1670,6 +1723,116 @@ const handleActionResult = async (result, action) => {
     commandActionMessage.value += ` ${result.warnings[0]}`
   }
   if (action?.action_type === 'publish_plan') await loadPlans()
+}
+const alertActionKey = (action) => action?.action_id || `${action?.action_type || 'alert-action'}-${action?.title || ''}`
+const alertActionDisabled = (action) => developmentHealthAlertActionLoading.value !== '' || action?.enabled === false
+const alertActionConfirmText = (action) => {
+  if (action?.action_type === 'publish_plan') return 'Publish this Daily Plan? Players can see it after publish and assignment.'
+  if (action?.action_type === 'send_reminder') return 'Prepare the player reminder? Nothing will send unless the existing reminder workflow supports it.'
+  if (action?.action_type === 'promote_trusted_data') return 'Promote approved benchmark values into trusted data? Pending and rejected values will not be promoted.'
+  return `Run "${action?.title || 'this action'}"?`
+}
+const openDevelopmentAlertSection = async (section) => {
+  if (section === 'review_queue') {
+    await openReviewQueue()
+    developmentHealthAlertActionMessage.value = 'Review queue opened.'
+    return
+  }
+  if (section === 'weekly_report_delivery') {
+    if (!weeklyTeamReport.value) await loadWeeklyTeamReport()
+    await nextTick()
+    document.querySelector('[data-dp-section="weekly_report_delivery"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    developmentHealthAlertActionMessage.value = 'Weekly report prep opened. Nothing was sent.'
+    return
+  }
+  if (['benchmark_collection_plan', 'next_week_plan_draft'].includes(section)) {
+    await loadNextWeekDraft()
+    await nextTick()
+    document.querySelector('[data-dp-section="next_week_plan_draft"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    developmentHealthAlertActionMessage.value = 'Baseline/next plan workflow opened. Nothing was assigned or published.'
+    return
+  }
+  if (section === 'player_plan_progress') {
+    await nextTick()
+    document.querySelector('[data-dp-section="player_plan_progress"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    developmentHealthAlertActionMessage.value = 'Player progress opened.'
+    return
+  }
+  if (section === 'development_health_trendline') {
+    await nextTick()
+    document.querySelector('[data-dp-section="development_health_trendline"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    developmentHealthAlertActionMessage.value = 'Development health trendline opened.'
+    return
+  }
+  if (section === 'population_learning_qa') {
+    developmentHealthAlertActionMessage.value = 'Open the population learning admin QA tools to review guardrail exclusions and trusted payload quality.'
+    return
+  }
+  await nextTick()
+  document.querySelector('[data-dp-section="coach_command_center"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  developmentHealthAlertActionMessage.value = 'Related workflow opened.'
+}
+const runDevelopmentAlertAction = async (alert, action) => {
+  if (!action) return
+  developmentHealthAlertActionMessage.value = ''
+
+  if (action.enabled === false) {
+    developmentHealthAlertActionMessage.value = action.disabled_reason || 'This action is not available yet.'
+    return
+  }
+
+  if (!action.api_endpoint || action.method !== 'POST') {
+    await openDevelopmentAlertSection(action.target_section)
+    return
+  }
+
+  const confirmed = action.requires_confirmation ? confirm(alertActionConfirmText(action)) : false
+  if (action.requires_confirmation && !confirmed) return
+
+  try {
+    developmentHealthAlertActionLoading.value = alertActionKey(action)
+    const res = await axiosPost(action.api_endpoint, {
+      alert_id: alert?.alert_id || action.payload?.alert_id || null,
+      action_type: action.action_type,
+      payload: action.payload || {},
+      confirm: confirmed,
+      days: 30,
+      weeks: 8,
+      severity_threshold: 'medium',
+    })
+    const data = res?.data?.data || res?.data || {}
+    if (data.updated_alerts?.alerts) developmentHealthAlerts.value = data.updated_alerts
+    if (data.updated_command_center) {
+      commandCenter.value = data.updated_command_center
+      await loadCompletionSummary(commandCenter.value?.daily_plan_id)
+    } else {
+      await loadCommandCenter()
+    }
+
+    if (action.action_type === 'review_submissions') await openReviewQueue()
+    if (action.action_type === 'send_weekly_report') await openDevelopmentAlertSection('weekly_report_delivery')
+    if (action.action_type === 'generate_next_plan') {
+      generatedPlanPreview.value = data.result?.daily_plan_preview || data.result?.suggested_practice_plan || null
+      await openDevelopmentAlertSection('next_week_plan_draft')
+    }
+    if (action.action_type === 'publish_plan') await loadPlans()
+    await Promise.all([
+      loadDevelopmentProgramHealth(),
+      loadDevelopmentHealthTrend(),
+      loadDevelopmentHealthAlerts(),
+      loadDevelopmentHealthAlertActions(),
+      loadWeeklyRollup(),
+      loadWeeklyTeamReport(),
+    ])
+    developmentHealthAlertActionMessage.value = data.message || action.success_message || 'Action completed.'
+    if (Array.isArray(data.warnings) && data.warnings.length) {
+      developmentHealthAlertActionMessage.value += ` ${data.warnings[0]}`
+    }
+  } catch {
+    developmentHealthAlertActionMessage.value = 'Could not complete this action.'
+  } finally {
+    developmentHealthAlertActionLoading.value = ''
+  }
 }
 const fallbackCopyText = (text) => {
   const area = document.createElement('textarea')
@@ -2450,7 +2613,7 @@ const del = async (p) => {
           <button class="dp-btn dp-btn--primary" @click="newPlan">+ New Plan</button>
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
-        <section class="dp-command mb-5">
+        <section class="dp-command mb-5" data-dp-section="coach_command_center">
           <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
               <div class="dp-command-eyebrow">Coach Planner Command Center</div>
@@ -2513,7 +2676,7 @@ const del = async (p) => {
               </div>
             </div>
 
-            <div class="dp-command-block">
+            <div class="dp-command-block" data-dp-section="development_program_health">
               <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div>
                   <div class="dp-section mb-0">Development Program Health</div>
@@ -2637,7 +2800,7 @@ const del = async (p) => {
               <p v-if="developmentProgramHealthMessage" class="dp-command-message">{{ developmentProgramHealthMessage }}</p>
             </div>
 
-            <div class="dp-command-block">
+            <div class="dp-command-block" data-dp-section="development_health_trendline">
               <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div>
                   <div class="dp-section mb-0">Development Health Trendline</div>
@@ -2770,7 +2933,139 @@ const del = async (p) => {
               <p v-if="developmentHealthTrendMessage" class="dp-command-message">{{ developmentHealthTrendMessage }}</p>
             </div>
 
-            <div class="dp-command-block">
+            <div class="dp-command-block" data-dp-section="development_health_alerts">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div>
+                  <div class="dp-section mb-0">Development Health Alerts</div>
+                  <p class="dp-command-sub">Live coach-facing alerts for planning, completion, benchmark, review, communication, and data quality issues.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="dp-status" :class="statusBadgeClass(alertStatusTone(developmentHighestAlert?.severity || (developmentAlerts.length ? 'medium' : 'none')))">
+                    {{ developmentHealthAlerts ? `${developmentAlerts.length} Active` : 'No Data Yet' }}
+                  </span>
+                  <button class="dp-link" :disabled="developmentHealthAlertsLoading || developmentHealthAlertActionsLoading" @click="refreshDevelopmentHealthAlerts">
+                    {{ developmentHealthAlertsLoading || developmentHealthAlertActionsLoading ? 'Refreshing…' : 'Refresh Alerts' }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="developmentHealthAlertsLoading && !developmentHealthAlerts" class="dp-command-loading">Checking development health alerts…</div>
+              <div v-else-if="developmentHealthAlerts">
+                <div class="dp-weekly-header">
+                  <div>
+                    <div class="dp-command-label">{{ human(developmentHealthAlerts.alert_status || 'none') }}</div>
+                    <p class="dp-empty-copy">{{ developmentAlertsSummary.headline || 'No development health alerts right now.' }}</p>
+                  </div>
+                  <div class="text-right">
+                    <div class="dp-command-value">{{ developmentAlertsSummary.active_alert_count ?? developmentAlerts.length }}</div>
+                    <div class="dp-command-sub">active alert{{ Number(developmentAlertsSummary.active_alert_count ?? developmentAlerts.length) === 1 ? '' : 's' }}</div>
+                  </div>
+                </div>
+
+                <div class="dp-completion-grid mt-3">
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Critical</div>
+                    <div class="dp-command-value">{{ developmentAlertCounts.critical || 0 }}</div>
+                    <div class="dp-command-sub">Immediate attention</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">High</div>
+                    <div class="dp-command-value">{{ developmentAlertCounts.high || 0 }}</div>
+                    <div class="dp-command-sub">Coach action needed</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Medium</div>
+                    <div class="dp-command-value">{{ developmentAlertCounts.medium || 0 }}</div>
+                    <div class="dp-command-sub">Monitor and address</div>
+                  </div>
+                  <div class="dp-command-card">
+                    <div class="dp-command-label">Next Best Action</div>
+                    <div class="dp-command-value">{{ developmentAlertsSummary.next_best_action ? 'Ready' : '—' }}</div>
+                    <div class="dp-command-sub">{{ developmentAlertsSummary.next_best_action || 'No alert action needed right now.' }}</div>
+                  </div>
+                </div>
+
+                <div v-if="developmentHighestAlert?.alert_id" class="dp-command-card dp-command-card--attention mt-3">
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <div class="dp-command-label">Highest Priority Alert</div>
+                      <div class="font-extrabold text-white mt-1">{{ developmentHighestAlert.title }}</div>
+                    </div>
+                    <span class="dp-priority" :class="priorityClass(developmentHighestAlert.severity)">{{ human(developmentHighestAlert.severity) }}</span>
+                  </div>
+                  <p class="dp-empty-copy">{{ developmentHighestAlert.message }}</p>
+                  <p v-if="developmentHighestAlert.why_it_matters" class="dp-command-sub mt-2">Why: {{ developmentHighestAlert.why_it_matters }}</p>
+                  <p v-if="developmentHighestAlert.recommended_action" class="dp-command-sub mt-1">Action: {{ developmentHighestAlert.recommended_action }}</p>
+                </div>
+
+                <div class="dp-weekly-columns mt-3">
+                  <div class="dp-weekly-panel dp-communication-panel--wide">
+                    <div class="dp-command-label">Alert List</div>
+                    <div v-if="developmentAlerts.length" class="dp-weekly-recommendations mt-2">
+                      <div v-for="alert in developmentAlerts.slice(0, 6)" :key="`development-alert-${alert.alert_id}`" class="dp-action-card">
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                          <div class="font-extrabold">{{ alert.title }}</div>
+                          <span class="dp-priority" :class="priorityClass(alert.severity)">{{ human(alert.severity) }}</span>
+                        </div>
+                        <p class="text-white/55 text-xs mt-2">{{ alert.message }}</p>
+                        <p class="text-white/35 text-xs mt-1">Component: {{ human(alert.component || alert.type || 'development_health') }}</p>
+                        <p v-if="alert.delta !== null && alert.delta !== undefined" class="text-white/35 text-xs mt-1">
+                          Delta: {{ signedDelta(alert.delta) }}
+                        </p>
+                        <p class="text-white/35 text-xs mt-1">Action: {{ alert.recommended_action }}</p>
+                        <div v-if="actionsForDevelopmentAlert(alert).length" class="flex flex-wrap gap-2 mt-3">
+                          <button
+                            v-for="action in actionsForDevelopmentAlert(alert).slice(0, 3)"
+                            :key="`alert-button-${alert.alert_id}-${action.action_id}`"
+                            class="dp-btn dp-btn--small"
+                            :class="{ 'dp-btn--primary': action.action_id === actionsForDevelopmentAlert(alert)[0]?.action_id }"
+                            :disabled="alertActionDisabled(action)"
+                            @click.stop="runDevelopmentAlertAction(alert, action)"
+                          >
+                            {{ developmentHealthAlertActionLoading === alertActionKey(action) ? 'Working…' : action.button_label }}
+                          </button>
+                        </div>
+                        <p
+                          v-for="action in actionsForDevelopmentAlert(alert).filter((row) => row.enabled === false && row.disabled_reason).slice(0, 1)"
+                          :key="`alert-disabled-${alert.alert_id}-${action.action_id}`"
+                          class="text-red-200/70 text-xs mt-2"
+                        >
+                          {{ action.disabled_reason }}
+                        </p>
+                      </div>
+                    </div>
+                    <div v-else class="dp-empty dp-empty--sm mt-2">
+                      No development health alerts right now. FMTRX will flag planning, completion, benchmark, review, and communication issues here.
+                    </div>
+                  </div>
+
+                  <div class="dp-weekly-panel">
+                    <div class="dp-command-label">Recommended Actions</div>
+                    <div v-if="developmentAlertActions.length" class="dp-delivery-analytics-list mt-2">
+                      <div v-for="action in developmentAlertActions.slice(0, 5)" :key="`development-alert-action-${action.title}`" class="dp-action-card">
+                        <span class="dp-priority" :class="priorityClass(action.priority)">{{ human(action.priority) }}</span>
+                        <div class="font-extrabold mt-2">{{ action.title }}</div>
+                        <p class="text-white/55 text-xs mt-2">{{ action.why }}</p>
+                        <p class="text-white/35 text-xs mt-1">{{ action.action }}</p>
+                      </div>
+                    </div>
+                    <div v-else class="dp-empty dp-empty--sm mt-2">No alert actions needed right now.</div>
+                  </div>
+                </div>
+
+                <div v-if="developmentAlertWarnings.length" class="dp-command-alert mt-3">
+                  <div class="font-bold mb-1">Alert warnings</div>
+                  <div v-for="warning in developmentAlertWarnings.slice(0, 4)" :key="`development-alert-warning-${warning}`">{{ warning }}</div>
+                </div>
+              </div>
+              <div v-else class="dp-empty dp-empty--sm">
+                Health alerts are not available yet.
+              </div>
+              <p v-if="developmentHealthAlertsMessage" class="dp-command-message">{{ developmentHealthAlertsMessage }}</p>
+              <p v-if="developmentHealthAlertActionMessage" class="dp-command-message">{{ developmentHealthAlertActionMessage }}</p>
+            </div>
+
+            <div class="dp-command-block" data-dp-section="player_plan_progress">
               <div class="dp-section mb-2">Workout Completion Summary</div>
               <div v-if="completionSummaryLoading && !completionSummary" class="dp-command-loading">Loading completion summary…</div>
               <div v-else-if="completionSummaryError" class="dp-empty dp-empty--sm">{{ completionSummaryError }}</div>
@@ -3007,7 +3302,7 @@ const del = async (p) => {
                   <p class="dp-command-sub mt-2">PDF export is not configured yet. Use Copy Summary or Printable HTML.</p>
                   <p v-if="weeklyReportExportMessage" class="dp-command-message">{{ weeklyReportExportMessage }}</p>
 
-                  <div class="dp-report-delivery mt-3">
+                  <div class="dp-report-delivery mt-3" data-dp-section="weekly_report_delivery">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div class="dp-command-label">Delivery Prep</div>
@@ -4407,7 +4702,7 @@ const del = async (p) => {
               </template>
             </div>
 
-            <div class="dp-command-block">
+            <div class="dp-command-block" data-dp-section="next_week_plan_draft">
               <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div class="dp-section mb-0">Next Week Plan Draft</div>
                 <button class="dp-link" :disabled="nextWeekDraftLoading" @click="loadNextWeekDraft">{{ nextWeekDraftLoading ? 'Generating…' : 'Regenerate Draft' }}</button>
@@ -4831,7 +5126,7 @@ const del = async (p) => {
               </div>
             </div>
 
-            <div class="dp-command-grid dp-command-grid--two" ref="reviewQueueRef">
+            <div class="dp-command-grid dp-command-grid--two" ref="reviewQueueRef" data-dp-section="review_queue">
               <div class="dp-command-card" :class="{ 'dp-command-card--attention': commandVisibility.show_review_shortcut }">
                 <div class="dp-command-label">Review Queue</div>
                 <div class="dp-command-value">{{ commandReview.pending_review_count || 0 }} pending</div>
