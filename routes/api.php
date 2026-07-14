@@ -63,6 +63,7 @@ use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryAnalyticsController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryHistoryController;
 use App\Http\Controllers\Api\Planner\WeeklyReportDeliveryReviewController;
 use App\Http\Controllers\Api\Planner\SeasonCommunicationRhythmController;
+use App\Http\Controllers\Api\Planner\CoachOperatingSystemHomeController;
 use App\Http\Controllers\Api\Planner\DevelopmentProgramHealthController;
 use App\Http\Controllers\Api\Planner\DevelopmentHealthTrendController;
 use App\Http\Controllers\Api\Planner\DevelopmentHealthAlertsController;
@@ -256,6 +257,7 @@ Route::prefix('player')->group(function (): void {
 
 Route::prefix('coach')->group(function (): void {
     Route::post('register', RegisterCoachController::class);
+    Route::middleware(['auth:sanctum'])->get('/teams/{teamId}/operating-system-home', [CoachOperatingSystemHomeController::class, 'team']);
     Route::middleware(['auth:sanctum', 'ability:coach'])->group(function (): void {
         Route::post('/players/{id}/set-password', SetPlayerPassword::class);
         Route::post('/add/teams', AddTeams::class);

@@ -127,6 +127,9 @@ const developmentHealthAlertActions = ref(null)
 const developmentHealthAlertActionsLoading = ref(false)
 const developmentHealthAlertActionLoading = ref('')
 const developmentHealthAlertActionMessage = ref('')
+const operatingHome = ref(null)
+const operatingHomeLoading = ref(false)
+const operatingHomeMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const selectedSeasonArchiveDelivery = ref(null)
 const weeklyReportNotes = ref([])
@@ -291,6 +294,7 @@ const loadCommandCenter = async () => {
     nextWeekDraft.value = null
     nextWeekCalendarDraft.value = null
     weeklyDraftPlans.value = null
+    operatingHome.value = null
     return
   }
   commandLoading.value = true
@@ -305,6 +309,29 @@ const loadCommandCenter = async () => {
     commandError.value = 'Could not load the planner command center.'
   } finally {
     commandLoading.value = false
+  }
+}
+const loadOperatingHome = async () => {
+  operatingHomeMessage.value = ''
+  if (!activeTeamId.value) {
+    operatingHome.value = null
+    return null
+  }
+
+  operatingHomeLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/operating-system-home`, {
+      days: 30,
+      weeks: 8,
+    })
+    operatingHome.value = res?.data?.data || null
+    return operatingHome.value
+  } catch {
+    operatingHome.value = null
+    operatingHomeMessage.value = 'Operating system home is not available yet.'
+    return null
+  } finally {
+    operatingHomeLoading.value = false
   }
 }
 const loadNextWeekDraft = async () => {
@@ -937,8 +964,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; loadRoster(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadOperatingHome(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; loadRoster(); loadOperatingHome(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -1004,6 +1031,18 @@ const commandHeader = computed(() => commandCenter.value?.operating_header || {}
 const primaryAction = computed(() => commandCenter.value?.primary_next_action || commandActions.value[0] || null)
 const commandStatusCards = computed(() => Array.isArray(commandCenter.value?.status_cards) ? commandCenter.value.status_cards : [])
 const commandVisibility = computed(() => commandCenter.value?.section_visibility || {})
+const operatingSummary = computed(() => operatingHome.value?.operating_summary || {})
+const operatingTodayPlan = computed(() => operatingHome.value?.today_plan || {})
+const operatingPrimaryAction = computed(() => operatingHome.value?.primary_next_action || null)
+const operatingNextActionStack = computed(() => Array.isArray(operatingHome.value?.next_action_stack) ? operatingHome.value.next_action_stack : [])
+const operatingHealth = computed(() => operatingHome.value?.health_snapshot || {})
+const operatingAlerts = computed(() => operatingHome.value?.alerts_snapshot || {})
+const operatingBenchmark = computed(() => operatingHome.value?.benchmark_snapshot || {})
+const operatingReview = computed(() => operatingHome.value?.review_snapshot || {})
+const operatingPlanner = computed(() => operatingHome.value?.planner_snapshot || {})
+const operatingCommunication = computed(() => operatingHome.value?.communication_snapshot || {})
+const operatingPlayerAttention = computed(() => Array.isArray(operatingHome.value?.player_attention) ? operatingHome.value.player_attention : [])
+const operatingQuickLinks = computed(() => Array.isArray(operatingHome.value?.quick_links) ? operatingHome.value.quick_links : [])
 const completionRows = computed(() => Array.isArray(completionSummary.value?.player_summaries) ? completionSummary.value.player_summaries : [])
 const completionActions = computed(() => Array.isArray(completionSummary.value?.coach_next_actions) ? completionSummary.value.coach_next_actions : [])
 const weeklyPlanSummary = computed(() => weeklyRollup.value?.plan_execution_summary || {})
@@ -1771,6 +1810,37 @@ const openDevelopmentAlertSection = async (section) => {
   await nextTick()
   document.querySelector('[data-dp-section="coach_command_center"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
   developmentHealthAlertActionMessage.value = 'Related workflow opened.'
+}
+const openOperatingHomeTarget = async (target) => {
+  const section = typeof target === 'string' ? target : (target?.target_section || target?.section || '')
+  if (!section) return
+
+  if (section === 'review_queue') {
+    await openReviewQueue()
+    return
+  }
+
+  const sectionMap = {
+    daily_planner: 'coach_command_center',
+    planner_operations: 'coach_command_center',
+    weekly_rollup: 'weekly_rollup',
+    benchmark_intelligence: 'benchmark_intelligence',
+    benchmark_collection_plan: 'next_week_plan_draft',
+    next_week_plan_draft: 'next_week_plan_draft',
+    weekly_report_delivery: 'weekly_report_delivery',
+    communication_rhythm: 'weekly_report_delivery',
+    development_health_alerts: 'development_health_alerts',
+    development_program_health: 'development_program_health',
+    development_health_trendline: 'development_health_trendline',
+    player_plan_progress: 'player_plan_progress',
+  }
+
+  if (section === 'weekly_rollup' && !weeklyRollup.value) await loadWeeklyRollup()
+  if (section === 'weekly_report_delivery' && !weeklyTeamReport.value) await loadWeeklyTeamReport()
+  if (['benchmark_collection_plan', 'next_week_plan_draft'].includes(section) && !nextWeekDraft.value) await loadNextWeekDraft()
+
+  await nextTick()
+  document.querySelector(`[data-dp-section="${sectionMap[section] || section}"]`)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
 }
 const runDevelopmentAlertAction = async (alert, action) => {
   if (!action) return
@@ -2613,6 +2683,155 @@ const del = async (p) => {
           <button class="dp-btn dp-btn--primary" @click="newPlan">+ New Plan</button>
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
+        <section class="dp-command mb-5" data-dp-section="operating_system_home">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <div class="dp-command-eyebrow">FMTRX Operating System</div>
+              <h2 class="text-xl font-black tracking-wide">{{ operatingSummary.headline || 'Coach Operating Home' }}</h2>
+              <p class="text-white/45 text-sm mt-1">{{ operatingSummary.summary_text || 'One read-only view for today’s plan, team health, alerts, benchmark data, reviews, and communication rhythm.' }}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="dp-status" :class="statusBadgeClass(operatingHome?.home_status === 'ready' ? 'complete' : operatingHome?.home_status === 'partial' ? 'warning' : 'muted')">
+                {{ human(operatingSummary.status_label || operatingHome?.home_status || 'loading') }}
+              </span>
+              <button class="dp-btn" :disabled="operatingHomeLoading" @click="loadOperatingHome">{{ operatingHomeLoading ? 'Refreshing…' : 'Refresh Home' }}</button>
+            </div>
+          </div>
+
+          <div v-if="operatingHomeMessage" class="dp-command-alert">{{ operatingHomeMessage }}</div>
+          <div v-else-if="operatingHomeLoading && !operatingHome" class="dp-command-loading">Loading FMTRX operating system home…</div>
+          <template v-else-if="operatingHome">
+            <div class="dp-operating-header">
+              <div class="min-w-0">
+                <div class="dp-section mb-2">Today’s Plan</div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="dp-operating-title">{{ operatingTodayPlan.title || 'No active Daily Plan' }}</h3>
+                  <span class="dp-status" :class="statusBadgeClass(operatingTodayPlan.status === 'published' ? 'complete' : operatingTodayPlan.status === 'missing' ? 'warning' : 'neutral')">
+                    {{ human(operatingTodayPlan.status || 'missing') }}
+                  </span>
+                </div>
+                <p class="dp-operating-sub">
+                  {{ operatingTodayPlan.scheduled_for || operatingHome.date || 'Today' }} · {{ operatingTodayPlan.estimated_minutes || 0 }} min · {{ operatingTodayPlan.assigned_count || 0 }} assigned
+                </p>
+                <p class="dp-empty-copy">{{ operatingTodayPlan.message || operatingSummary.primary_focus || 'Keep the current plan moving.' }}</p>
+                <div class="dp-command-mini">
+                  <span>{{ operatingTodayPlan.acknowledged_count || 0 }} acknowledged</span>
+                  <span>{{ operatingTodayPlan.completed_count || 0 }} completed</span>
+                  <span>{{ operatingTodayPlan.completion_percentage == null ? '—' : `${oneDecimal(operatingTodayPlan.completion_percentage)}%` }} complete</span>
+                  <span>{{ operatingTodayPlan.pending_review_count || 0 }} reviews</span>
+                  <span>{{ operatingTodayPlan.benchmark_generated ? 'FMTRX generated' : 'Manual or missing' }}</span>
+                </div>
+              </div>
+              <div class="dp-primary-action">
+                <div class="dp-command-label">Next Best Action</div>
+                <div class="dp-primary-action-title">{{ operatingPrimaryAction?.title || 'No Urgent Action' }}</div>
+                <p>{{ operatingPrimaryAction?.why || 'No critical operating issue is waiting right now.' }}</p>
+                <div class="dp-primary-action-buttons">
+                  <button
+                    v-if="operatingPrimaryAction?.button_label"
+                    class="dp-btn dp-btn--primary"
+                    @click="openOperatingHomeTarget(operatingPrimaryAction)"
+                  >
+                    {{ operatingPrimaryAction.button_label }}
+                  </button>
+                  <button class="dp-btn" @click="openOperatingHomeTarget('coach_command_center')">Open Planner Operations</button>
+                </div>
+                <p class="dp-command-sub mt-2">Preview only. FMTRX will not publish, approve, send, or trust data from this card.</p>
+              </div>
+            </div>
+
+            <div class="dp-completion-grid mt-4">
+              <div class="dp-command-card">
+                <div class="dp-command-label">Health</div>
+                <div class="dp-command-value">{{ operatingHealth.overall_score_0_100 == null ? '—' : oneDecimal(operatingHealth.overall_score_0_100) }}</div>
+                <div class="dp-command-sub">{{ operatingHealth.headline || human(operatingHealth.label || 'no data') }}</div>
+              </div>
+              <div class="dp-command-card" :class="{ 'dp-command-card--attention': Number(operatingAlerts.high_count || 0) > 0 || Number(operatingAlerts.critical_count || 0) > 0 }">
+                <div class="dp-command-label">Alerts</div>
+                <div class="dp-command-value">{{ operatingAlerts.active_alert_count || 0 }}</div>
+                <div class="dp-command-sub">{{ operatingAlerts.highest_priority_alert?.title || 'No active alerts.' }}</div>
+              </div>
+              <div class="dp-command-card">
+                <div class="dp-command-label">Benchmark</div>
+                <div class="dp-command-value">{{ operatingBenchmark.players_with_benchmark_data ?? '—' }}/{{ (Number(operatingBenchmark.players_with_benchmark_data || 0) + Number(operatingBenchmark.players_without_benchmark_data || 0)) || '—' }}</div>
+                <div class="dp-command-sub">{{ human(operatingBenchmark.data_collection_priority || 'low') }} data priority · {{ operatingBenchmark.weakest_metric || 'No weakest metric yet' }}</div>
+              </div>
+              <div class="dp-command-card" :class="{ 'dp-command-card--attention': Number(operatingReview.pending_review_count || 0) > 0 }">
+                <div class="dp-command-label">Review Queue</div>
+                <div class="dp-command-value">{{ operatingReview.pending_review_count || 0 }}</div>
+                <div class="dp-command-sub">{{ operatingReview.message || 'No pending reviews.' }}</div>
+              </div>
+              <div class="dp-command-card">
+                <div class="dp-command-label">Planner</div>
+                <div class="dp-command-value">{{ operatingPlanner.active_plan_count || 0 }}</div>
+                <div class="dp-command-sub">{{ operatingPlanner.draft_plan_count || 0 }} drafts · {{ operatingPlanner.next_week_plan_available ? 'Next week available' : 'No next week plan' }}</div>
+              </div>
+              <div class="dp-command-card">
+                <div class="dp-command-label">Communication</div>
+                <div class="dp-command-value">{{ operatingCommunication.weekly_report_due ? 'Due' : 'Current' }}</div>
+                <div class="dp-command-sub">{{ operatingCommunication.message || 'Communication rhythm not available yet.' }}</div>
+              </div>
+            </div>
+
+            <div class="dp-weekly-columns mt-4">
+              <div class="dp-weekly-panel">
+                <div class="dp-command-label">Action Stack</div>
+                <div v-if="operatingNextActionStack.length" class="dp-delivery-analytics-list mt-2">
+                  <button
+                    v-for="action in operatingNextActionStack.slice(0, 5)"
+                    :key="`${action.rank}-${action.title}`"
+                    type="button"
+                    class="dp-action-card text-left w-full"
+                    @click="openOperatingHomeTarget(action)"
+                  >
+                    <span class="dp-priority" :class="priorityClass(action.priority)">{{ human(action.priority) }}</span>
+                    <div class="font-extrabold mt-2">{{ action.title }}</div>
+                    <p class="text-white/55 text-xs mt-2">{{ action.why }}</p>
+                    <p class="text-white/35 text-xs mt-1">{{ action.action }}</p>
+                  </button>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-2">No operating actions are waiting.</div>
+              </div>
+
+              <div class="dp-weekly-panel">
+                <div class="dp-command-label">Players Needing Attention</div>
+                <div v-if="operatingPlayerAttention.length" class="dp-weekly-list">
+                  <button
+                    v-for="row in operatingPlayerAttention.slice(0, 6)"
+                    :key="`${row.player_id}-${row.category}`"
+                    type="button"
+                    class="dp-weekly-row text-left w-full"
+                    @click="openOperatingHomeTarget(row.category === 'pending_review' ? 'review_queue' : row.category === 'missing_baseline' ? 'next_week_plan_draft' : 'player_plan_progress')"
+                  >
+                    <span>{{ row.player_name }}</span>
+                    <small>{{ human(row.priority) }} · {{ row.reason }}</small>
+                  </button>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-2">No players need operating attention right now.</div>
+              </div>
+            </div>
+
+            <div class="dp-command-block mt-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div class="dp-command-label">Quick Links</div>
+                  <p class="dp-command-sub">Jump to the existing workflow. These links do not run an action.</p>
+                </div>
+                <div class="dp-primary-action-buttons">
+                  <button
+                    v-for="link in operatingQuickLinks"
+                    :key="link.label"
+                    class="dp-btn dp-btn--small"
+                    @click="openOperatingHomeTarget(link)"
+                  >
+                    {{ link.label }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+          <div v-else class="dp-command-loading">FMTRX will build this operating view as your team uses planner, benchmark, review, and report workflows.</div>
+        </section>
         <section class="dp-command mb-5" data-dp-section="coach_command_center">
           <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
@@ -3108,7 +3327,7 @@ const del = async (p) => {
               </template>
             </div>
 
-            <div class="dp-command-block">
+            <div class="dp-command-block" data-dp-section="weekly_rollup">
               <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div class="dp-section mb-0">Weekly Planner Rollup</div>
                 <button class="dp-link" :disabled="weeklyRollupLoading" @click="loadWeeklyRollup">{{ weeklyRollupLoading ? 'Refreshing…' : 'Refresh Week' }}</button>
@@ -5096,7 +5315,7 @@ const del = async (p) => {
 
             <div v-if="generatedPlanPreview" class="dp-command-block">
               <div class="dp-section mb-2">Generated Plan Preview</div>
-              <div class="dp-command-card">
+              <div class="dp-command-card" data-dp-section="benchmark_intelligence">
                 <div class="dp-command-label">Preview Only</div>
                 <div class="dp-command-value">{{ generatedPlanPreview.name || 'Suggested Daily Plan' }}</div>
                 <div class="dp-command-sub">{{ generatedPlanPreview.primary_goal || 'No primary goal' }} · {{ generatedPlanPreview.estimated_minutes || 0 }} min · {{ generatedPlanPreview.buckets?.length || 0 }} blocks</div>
