@@ -2721,8 +2721,8 @@ watch(
                   {{ selectedPerfRow?.label }} visualization coming next — key stats below.
                 </div>
 
-                <!-- Key stat tiles -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <!-- Key stat tiles (bullpen shows its own filter-aware tiles inside the panel) -->
+                <div v-if="selectedPerfKey !== 'bullpen'" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div v-for="s in selectedPerfStats" :key="s.label" class="rounded-lg bg-white/[0.04] border border-white/5 px-3 py-2.5 text-center">
                     <div class="text-[9px] font-black uppercase tracking-wider text-white/35 mb-1">{{ s.label }}</div>
                     <div class="text-lg font-black tabular-nums leading-tight" :style="{ color: s.color }">{{ s.value }}</div>

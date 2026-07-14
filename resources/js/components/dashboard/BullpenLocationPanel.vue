@@ -33,6 +33,12 @@ const strikePct = computed(() => {
   const strikes = p.filter((x) => x.is_strike).length
   return Math.round((strikes / p.length) * 1000) / 10
 })
+// Filter-aware velocity stats — recompute whenever the pitch-type filter changes.
+const velocities = computed(() => filteredPitches.value
+  .map((p) => Number(p.velocity ?? p.miles_per_hour) || 0)
+  .filter((v) => v > 0))
+const avgVelo = computed(() => { const v = velocities.value; return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : null })
+const topVelo = computed(() => { const v = velocities.value; return v.length ? Math.max(...v) : null })
 </script>
 
 <template>
@@ -47,14 +53,30 @@ const strikePct = computed(() => {
     </div>
 
     <div class="blp-footer">
-      <div class="blp-strike">
-        <span class="blp-strike-l">Strike %</span>
-        <b class="blp-strike-v">{{ strikePct != null ? `${strikePct}%` : '—' }}</b>
-        <span class="blp-count">{{ filteredPitches.length }} pitch{{ filteredPitches.length === 1 ? '' : 'es' }}</span>
-      </div>
+      <span class="blp-count">{{ filteredPitches.length }} pitch{{ filteredPitches.length === 1 ? '' : 'es' }} shown</span>
       <div class="blp-toggle">
         <button class="blp-tbtn" :class="{ 'blp-tbtn--on': view === 'grid' }" @click="view = 'grid'">Velo Grid</button>
         <button class="blp-tbtn blp-tbtn--heat" :class="{ 'blp-tbtn--on': view === 'heatmap' }" @click="view = 'heatmap'">Heatmap</button>
+      </div>
+    </div>
+
+    <!-- Filter-aware stat tiles (update with the pitch-type filter, like the map) -->
+    <div class="blp-tiles">
+      <div class="blp-tile">
+        <div class="blp-tile-l">Avg Velo</div>
+        <div class="blp-tile-v" style="color:#37D67A">{{ avgVelo != null ? avgVelo : '—' }} <span class="blp-tile-u">mph</span></div>
+      </div>
+      <div class="blp-tile">
+        <div class="blp-tile-l">Top Velo</div>
+        <div class="blp-tile-v" style="color:#34A7FF">{{ topVelo != null ? topVelo : '—' }} <span class="blp-tile-u">mph</span></div>
+      </div>
+      <div class="blp-tile">
+        <div class="blp-tile-l">Strike %</div>
+        <div class="blp-tile-v" style="color:#F59E0B">{{ strikePct != null ? `${strikePct}%` : '—' }}</div>
+      </div>
+      <div class="blp-tile">
+        <div class="blp-tile-l">Pitches</div>
+        <div class="blp-tile-v">{{ filteredPitches.length }}</div>
       </div>
     </div>
   </div>
@@ -78,4 +100,9 @@ const strikePct = computed(() => {
 .blp-tbtn:hover { color: #fff; }
 .blp-tbtn--on { color: #fff; background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); }
 .blp-tbtn--heat.blp-tbtn--on { background: #C00000; border-color: #C00000; }
+.blp-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.blp-tile { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: 10px 8px; text-align: center; }
+.blp-tile-l { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; color: rgba(255,255,255,.35); margin-bottom: 4px; }
+.blp-tile-v { font-size: 18px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.blp-tile-u { font-size: 10px; font-weight: 700; opacity: .7; }
 </style>

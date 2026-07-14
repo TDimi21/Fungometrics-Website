@@ -130,6 +130,8 @@ const developmentHealthAlertActionMessage = ref('')
 const operatingHome = ref(null)
 const operatingHomeLoading = ref(false)
 const operatingHomeMessage = ref('')
+const operatingHomeActionMessage = ref('')
+const operatingHomeActionLoading = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const selectedSeasonArchiveDelivery = ref(null)
 const weeklyReportNotes = ref([])
@@ -965,7 +967,7 @@ const loadCustomDrills = async () => {
   } catch { customDrills.value = [] }
 }
 onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadOperatingHome(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; loadRoster(); loadOperatingHome(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; operatingHomeActionMessage.value = ''; loadRoster(); loadOperatingHome(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -1043,6 +1045,86 @@ const operatingPlanner = computed(() => operatingHome.value?.planner_snapshot ||
 const operatingCommunication = computed(() => operatingHome.value?.communication_snapshot || {})
 const operatingPlayerAttention = computed(() => Array.isArray(operatingHome.value?.player_attention) ? operatingHome.value.player_attention : [])
 const operatingQuickLinks = computed(() => Array.isArray(operatingHome.value?.quick_links) ? operatingHome.value.quick_links : [])
+const operatingTeamName = computed(() => team.value?.name?.full || team.value?.name || team.value?.team_name || team.value?.title || 'FMTRX Team')
+const operatingBenchmarkPlayerTotal = computed(() => Number(operatingBenchmark.value.players_with_benchmark_data || 0) + Number(operatingBenchmark.value.players_without_benchmark_data || 0))
+const operatingStatusLabel = computed(() => human(operatingSummary.value.status_label || operatingHome.value?.home_status || 'no_data'))
+const operatingFocusLabel = computed(() => operatingSummary.value.primary_focus || operatingPrimaryAction.value?.category || 'Daily Operations')
+const operatingActionByType = (types) => {
+  const allowed = Array.isArray(types) ? types : [types]
+  return operatingNextActionStack.value.find((action) => allowed.includes(action?.action_type)) || null
+}
+const operatingMobileCards = computed(() => [
+  {
+    key: 'today_plan',
+    label: 'Today’s Plan',
+    value: human(operatingTodayPlan.value.status || 'no_plan'),
+    detail: `${operatingTodayPlan.value.assigned_count || 0} assigned · ${operatingTodayPlan.value.completion_percentage == null ? '—' : `${oneDecimal(operatingTodayPlan.value.completion_percentage)}%`} complete`,
+    sub: `${operatingTodayPlan.value.pending_review_count || 0} pending review`,
+    target: 'daily_planner',
+    attention: ['missing', 'no_plan'].includes(String(operatingTodayPlan.value.status || '')),
+  },
+  {
+    key: 'health',
+    label: 'Health',
+    value: operatingHealth.value.overall_score_0_100 == null ? '—' : oneDecimal(operatingHealth.value.overall_score_0_100),
+    detail: operatingHealth.value.headline || human(operatingHealth.value.label || 'no_data'),
+    sub: operatingHealth.value.risk_label ? `Risk: ${human(operatingHealth.value.risk_label)}` : 'Development health',
+    target: 'development_program_health',
+    attention: ['at_risk', 'critical', 'poor'].includes(String(operatingHealth.value.label || operatingHealth.value.risk_label || '')),
+  },
+  {
+    key: 'alerts',
+    label: 'Alerts',
+    value: operatingAlerts.value.active_alert_count || 0,
+    detail: operatingAlerts.value.highest_priority_alert?.title || 'No active alerts.',
+    sub: `${operatingAlerts.value.critical_count || 0} critical · ${operatingAlerts.value.high_count || 0} high`,
+    target: 'development_health_alerts',
+    attention: Number(operatingAlerts.value.high_count || 0) > 0 || Number(operatingAlerts.value.critical_count || 0) > 0,
+  },
+  {
+    key: 'benchmark',
+    label: 'Benchmark Data',
+    value: operatingBenchmarkPlayerTotal.value ? `${operatingBenchmark.value.players_with_benchmark_data || 0}/${operatingBenchmarkPlayerTotal.value}` : '—',
+    detail: `${human(operatingBenchmark.value.data_collection_priority || 'low')} priority`,
+    sub: operatingBenchmark.value.weakest_metric || 'Benchmark data will appear after baselines are collected.',
+    target: 'benchmark_intelligence',
+    attention: ['critical', 'high'].includes(String(operatingBenchmark.value.data_collection_priority || '')),
+  },
+  {
+    key: 'review',
+    label: 'Review Needed',
+    value: operatingReview.value.pending_review_count || 0,
+    detail: operatingReview.value.message || 'No submissions waiting for review.',
+    sub: `${operatingReview.value.approved_unpromoted_count || 0} approved unpromoted`,
+    target: 'review_queue',
+    attention: Number(operatingReview.value.pending_review_count || 0) > 0,
+  },
+  {
+    key: 'communication',
+    label: 'Weekly Update',
+    value: operatingCommunication.value.weekly_report_due ? 'Due' : 'Current',
+    detail: operatingCommunication.value.rhythm_label ? human(operatingCommunication.value.rhythm_label) : 'Communication rhythm',
+    sub: operatingCommunication.value.last_report_at ? `Last: ${prettyDateTime(operatingCommunication.value.last_report_at)}` : (operatingCommunication.value.message || 'Weekly communication details are not available yet.'),
+    target: 'weekly_report_delivery',
+    attention: Boolean(operatingCommunication.value.weekly_report_due),
+  },
+  {
+    key: 'player_attention',
+    label: 'Player Attention',
+    value: operatingPlayerAttention.value.length || 0,
+    detail: operatingPlayerAttention.value[0]?.player_name ? `${operatingPlayerAttention.value[0].player_name}: ${operatingPlayerAttention.value[0].reason}` : 'No players need urgent attention right now.',
+    sub: operatingPlayerAttention.value.length > 3 ? `Top 3 shown of ${operatingPlayerAttention.value.length}` : 'Top operating needs',
+    target: operatingPlayerAttention.value[0]?.category === 'pending_review' ? 'review_queue' : operatingPlayerAttention.value[0]?.category === 'missing_baseline' ? 'next_week_plan_draft' : 'player_plan_progress',
+    attention: operatingPlayerAttention.value.length > 0,
+  },
+])
+const operatingMobileQuickActions = computed(() => [
+  { label: 'Plan', target: 'daily_planner' },
+  { label: 'Review', action: operatingActionByType(['review_submissions']), target: 'review_queue' },
+  { label: 'Alerts', target: 'development_health_alerts' },
+  { label: 'Report', action: operatingActionByType(['prepare_weekly_report', 'prepare_parent_update']), target: 'weekly_report_delivery' },
+  { label: 'More', target: 'coach_command_center' },
+])
 const completionRows = computed(() => Array.isArray(completionSummary.value?.player_summaries) ? completionSummary.value.player_summaries : [])
 const completionActions = computed(() => Array.isArray(completionSummary.value?.coach_next_actions) ? completionSummary.value.coach_next_actions : [])
 const weeklyPlanSummary = computed(() => weeklyRollup.value?.plan_execution_summary || {})
@@ -1661,6 +1743,7 @@ const toggleReviewTask = (taskId) => {
     : [...selectedReviewTaskIds.value, id]
 }
 const actionButtonDisabled = (action) => commandActionLoading.value !== '' || action?.enabled === false
+const operatingActionDisabled = (action) => operatingHomeActionLoading.value !== '' || action?.enabled === false
 const actionConfirmText = (action, payload = {}) => {
   const count = payload.task_ids?.length || action?.payload?.player_ids?.length || 0
   if (action?.action_type === 'send_reminder') return `Send reminder to ${count || commandSummary.value.not_acknowledged_count || 0} players who have not acknowledged?`
@@ -1669,6 +1752,82 @@ const actionConfirmText = (action, payload = {}) => {
   if (action?.action_type === 'promote_trusted_data') return 'Promote approved values to trusted benchmark data?'
   if (action?.action_type === 'publish_plan') return 'Publish this Daily Plan?'
   return `Run "${action?.title || 'this action'}"?`
+}
+const operatingActionConfirmText = (action) => {
+  if (action?.action_type === 'publish_plan') return 'Publish this Daily Plan? Players can see it after publish and assignment.'
+  if (action?.action_type === 'assign_plan') return 'Assign this plan to the selected players? Existing player progress will be preserved.'
+  if (action?.action_type === 'approve_selected_values') return 'Approve selected benchmark submissions?'
+  if (action?.action_type === 'request_corrections') return 'Request corrections for selected benchmark submissions?'
+  if (action?.action_type === 'promote_trusted_data') return 'Promote approved benchmark values into trusted data? Pending and rejected values will not be promoted.'
+  if (action?.action_type === 'send_reminder') return 'Prepare the player reminder? Nothing will send unless the existing reminder workflow supports it.'
+  if (action?.action_type === 'save_suggested_plan_draft') return 'Save the generated suggestion as a draft Daily Plan? It will not publish.'
+  return `Run "${action?.title || 'this action'}"?`
+}
+const runOperatingHomeAction = async (action) => {
+  if (!action) return
+  operatingHomeActionMessage.value = ''
+  generatedPlanPreview.value = null
+
+  if (action.enabled === false) {
+    operatingHomeActionMessage.value = action.disabled_reason || 'This action is not available yet.'
+    return
+  }
+
+  if (action.method !== 'POST') {
+    await openOperatingHomeTarget(action)
+    return
+  }
+
+  const confirmed = action.requires_confirmation ? confirm(operatingActionConfirmText(action)) : false
+  if (action.requires_confirmation && !confirmed) return
+
+  try {
+    operatingHomeActionLoading.value = actionKey(action) || action.action_type
+    const res = await axiosPost(action.api_endpoint || `coach/teams/${activeTeamId.value}/operating-system-home/actions/execute`, {
+      action_type: action.action_type,
+      payload: {
+        ...(action.payload || {}),
+        daily_plan_id: action.payload?.daily_plan_id || operatingTodayPlan.value?.daily_plan_id || commandCenter.value?.daily_plan_id || null,
+      },
+      confirm: confirmed,
+      days: 365,
+      weeks: 8,
+    })
+    const data = res?.data || {}
+    if (data.updated_home?.team_id) operatingHome.value = data.updated_home
+    else await loadOperatingHome()
+    if (data.updated_command_center) {
+      commandCenter.value = data.updated_command_center
+      await loadCompletionSummary(commandCenter.value?.daily_plan_id)
+    } else {
+      await loadCommandCenter()
+    }
+    if (data.status === 'navigation_only') await openOperatingHomeTarget(action)
+    if (action.action_type === 'review_submissions') await openReviewQueue()
+    if (['generate_suggested_plan', 'generate_next_week_plan'].includes(action.action_type)) {
+      generatedPlanPreview.value = data?.result?.daily_plan_preview || data?.result?.daily_plan || data?.result || null
+      await openOperatingHomeTarget('next_week_plan_draft')
+    }
+    if (action.action_type === 'collect_baselines') await openOperatingHomeTarget('next_week_plan_draft')
+    if (action.action_type === 'prepare_weekly_report' || action.action_type === 'prepare_parent_update') await openOperatingHomeTarget('weekly_report_delivery')
+    if (action.action_type === 'publish_plan') await loadPlans()
+    operatingHomeActionMessage.value = data.message || action.success_message || 'Action completed.'
+    if (Array.isArray(data.warnings) && data.warnings.length) {
+      operatingHomeActionMessage.value += ` ${data.warnings[0]}`
+    }
+  } catch {
+    operatingHomeActionMessage.value = 'Could not complete that Operating Home action.'
+  } finally {
+    operatingHomeActionLoading.value = ''
+  }
+}
+const runOperatingMobileQuickAction = async (item) => {
+  if (!item) return
+  if (item.action) {
+    await runOperatingHomeAction(item.action)
+    return
+  }
+  await openOperatingHomeTarget(item.target)
 }
 const runCommandAction = async (action) => {
   if (!action) return
@@ -2701,7 +2860,162 @@ const del = async (p) => {
           <div v-if="operatingHomeMessage" class="dp-command-alert">{{ operatingHomeMessage }}</div>
           <div v-else-if="operatingHomeLoading && !operatingHome" class="dp-command-loading">Loading FMTRX operating system home…</div>
           <template v-else-if="operatingHome">
-            <div class="dp-operating-header">
+            <div v-if="operatingHomeActionMessage" class="dp-command-alert mb-3">{{ operatingHomeActionMessage }}</div>
+
+            <div class="dp-mobile-os-shell">
+              <div class="dp-mobile-os-header">
+                <div class="min-w-0">
+                  <div class="dp-command-eyebrow">FMTRX OS</div>
+                  <div class="dp-mobile-os-team">{{ operatingTeamName }}</div>
+                  <span class="dp-status mt-2" :class="statusBadgeClass(operatingHome?.home_status === 'ready' ? 'complete' : operatingHome?.home_status === 'partial' ? 'warning' : 'muted')">
+                    {{ operatingStatusLabel }}
+                  </span>
+                  <p class="dp-mobile-os-focus">Focus: {{ operatingFocusLabel }}</p>
+                  <p class="dp-mobile-os-next">Next: {{ operatingPrimaryAction?.title || 'No urgent action' }}</p>
+                </div>
+                <button
+                  v-if="operatingPrimaryAction?.button_label"
+                  class="dp-btn dp-btn--primary dp-mobile-os-main-btn"
+                  :disabled="operatingActionDisabled(operatingPrimaryAction)"
+                  @click="runOperatingHomeAction(operatingPrimaryAction)"
+                >
+                  {{ operatingHomeActionLoading === actionKey(operatingPrimaryAction) ? 'Working…' : operatingPrimaryAction.button_label }}
+                </button>
+              </div>
+
+              <div class="dp-mobile-primary-card">
+                <div class="dp-command-label">Next Action</div>
+                <div class="dp-primary-action-title">{{ operatingPrimaryAction?.title || 'No Urgent Action' }}</div>
+                <p>{{ operatingPrimaryAction?.why || 'No critical operating issue is waiting right now.' }}</p>
+                <p v-if="operatingPrimaryAction?.enabled === false" class="dp-mobile-disabled">{{ operatingPrimaryAction.disabled_reason || 'This action is not available yet.' }}</p>
+                <button
+                  v-if="operatingPrimaryAction?.button_label"
+                  class="dp-btn dp-btn--primary dp-mobile-full-btn"
+                  :disabled="operatingActionDisabled(operatingPrimaryAction)"
+                  @click="runOperatingHomeAction(operatingPrimaryAction)"
+                >
+                  {{ operatingHomeActionLoading === actionKey(operatingPrimaryAction) ? 'Working…' : operatingPrimaryAction.button_label }}
+                </button>
+                <p class="dp-command-sub">Coach confirmation is required for publish, send, approve, assign, or promote actions.</p>
+              </div>
+
+              <div class="dp-mobile-card-grid" aria-label="Operating status cards">
+                <button
+                  v-for="card in operatingMobileCards"
+                  :key="card.key"
+                  type="button"
+                  class="dp-mobile-status-card"
+                  :class="{ 'dp-mobile-status-card--attention': card.attention }"
+                  @click="openOperatingHomeTarget(card.target)"
+                >
+                  <span>{{ card.label }}</span>
+                  <strong>{{ card.value }}</strong>
+                  <small>{{ card.detail }}</small>
+                  <em>{{ card.sub }}</em>
+                </button>
+              </div>
+
+              <div class="dp-mobile-quick-row" aria-label="Quick operating actions">
+                <button
+                  v-for="item in operatingMobileQuickActions"
+                  :key="item.label"
+                  type="button"
+                  class="dp-mobile-quick-btn"
+                  :disabled="item.action ? operatingActionDisabled(item.action) : false"
+                  @click="runOperatingMobileQuickAction(item)"
+                >
+                  {{ item.action && operatingHomeActionLoading === actionKey(item.action) ? 'Working…' : item.label }}
+                </button>
+              </div>
+
+              <details class="dp-mobile-collapse">
+                <summary>
+                  <span>Action Stack</span>
+                  <strong>{{ operatingNextActionStack.length }}</strong>
+                </summary>
+                <div v-if="operatingNextActionStack.length" class="dp-mobile-collapse-body">
+                  <button
+                    v-for="action in operatingNextActionStack.slice(0, 3)"
+                    :key="`mobile-action-${action.rank}-${action.title}`"
+                    type="button"
+                    class="dp-action-card text-left w-full"
+                    :disabled="operatingActionDisabled(action)"
+                    @click="runOperatingHomeAction(action)"
+                  >
+                    <span class="dp-priority" :class="priorityClass(action.priority)">{{ human(action.priority) }}</span>
+                    <div class="font-extrabold mt-2">{{ action.title }}</div>
+                    <p class="text-white/55 text-xs mt-2">{{ action.why }}</p>
+                  </button>
+                  <div v-if="operatingNextActionStack.length > 3" class="dp-command-sub">Top 3 shown. Open Planner Operations for the full stack.</div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm">No operating actions are waiting.</div>
+              </details>
+
+              <details class="dp-mobile-collapse">
+                <summary>
+                  <span>Player Attention</span>
+                  <strong>{{ operatingPlayerAttention.length }}</strong>
+                </summary>
+                <div v-if="operatingPlayerAttention.length" class="dp-mobile-collapse-body">
+                  <button
+                    v-for="row in operatingPlayerAttention.slice(0, 3)"
+                    :key="`mobile-player-${row.player_id}-${row.category}`"
+                    type="button"
+                    class="dp-weekly-row text-left w-full"
+                    @click="openOperatingHomeTarget(row.category === 'pending_review' ? 'review_queue' : row.category === 'missing_baseline' ? 'next_week_plan_draft' : 'player_plan_progress')"
+                  >
+                    <span>{{ row.player_name }}</span>
+                    <small>{{ human(row.priority) }} · {{ row.reason }}</small>
+                  </button>
+                  <div v-if="operatingPlayerAttention.length > 3" class="dp-command-sub">Top 3 shown of {{ operatingPlayerAttention.length }}.</div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm">No players need urgent attention right now.</div>
+              </details>
+
+              <details class="dp-mobile-collapse">
+                <summary>
+                  <span>Benchmark Data</span>
+                  <strong>{{ human(operatingBenchmark.data_collection_priority || 'low') }}</strong>
+                </summary>
+                <div class="dp-mobile-collapse-body">
+                  <div class="dp-command-sub">Players with data: {{ operatingBenchmark.players_with_benchmark_data || 0 }} of {{ operatingBenchmarkPlayerTotal || '—' }}</div>
+                  <div class="dp-command-sub">Weakest category: {{ operatingBenchmark.weakest_category || 'More data needed' }}</div>
+                  <div class="dp-command-sub">Weakest metric: {{ operatingBenchmark.weakest_metric || 'Benchmark data will appear after baselines are collected.' }}</div>
+                  <button class="dp-btn dp-btn--small mt-2" @click="openOperatingHomeTarget('benchmark_intelligence')">View Benchmark Data</button>
+                </div>
+              </details>
+
+              <details class="dp-mobile-collapse">
+                <summary>
+                  <span>Communication</span>
+                  <strong>{{ operatingCommunication.weekly_report_due ? 'Due' : 'Current' }}</strong>
+                </summary>
+                <div class="dp-mobile-collapse-body">
+                  <div class="dp-command-sub">{{ operatingCommunication.message || 'Weekly communication details are not available yet.' }}</div>
+                  <button class="dp-btn dp-btn--small mt-2" @click="openOperatingHomeTarget('weekly_report_delivery')">Prepare Update</button>
+                </div>
+              </details>
+
+              <details class="dp-mobile-collapse">
+                <summary>
+                  <span>Quick Links</span>
+                  <strong>{{ operatingQuickLinks.length }}</strong>
+                </summary>
+                <div v-if="operatingQuickLinks.length" class="dp-mobile-link-list">
+                  <button
+                    v-for="link in operatingQuickLinks"
+                    :key="`mobile-link-${link.label}`"
+                    class="dp-btn dp-btn--small"
+                    @click="openOperatingHomeTarget(link)"
+                  >
+                    {{ link.label }}
+                  </button>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm">Quick links are not available yet.</div>
+              </details>
+            </div>
+
+            <div class="dp-operating-header dp-operating-desktop">
               <div class="min-w-0">
                 <div class="dp-section mb-2">Today’s Plan</div>
                 <div class="flex flex-wrap items-center gap-2">
@@ -2730,9 +3044,10 @@ const del = async (p) => {
                   <button
                     v-if="operatingPrimaryAction?.button_label"
                     class="dp-btn dp-btn--primary"
-                    @click="openOperatingHomeTarget(operatingPrimaryAction)"
+                    :disabled="operatingActionDisabled(operatingPrimaryAction)"
+                    @click="runOperatingHomeAction(operatingPrimaryAction)"
                   >
-                    {{ operatingPrimaryAction.button_label }}
+                    {{ operatingHomeActionLoading === actionKey(operatingPrimaryAction) ? 'Working…' : operatingPrimaryAction.button_label }}
                   </button>
                   <button class="dp-btn" @click="openOperatingHomeTarget('coach_command_center')">Open Planner Operations</button>
                 </div>
@@ -2740,7 +3055,7 @@ const del = async (p) => {
               </div>
             </div>
 
-            <div class="dp-completion-grid mt-4">
+            <div class="dp-completion-grid dp-operating-desktop mt-4">
               <div class="dp-command-card">
                 <div class="dp-command-label">Health</div>
                 <div class="dp-command-value">{{ operatingHealth.overall_score_0_100 == null ? '—' : oneDecimal(operatingHealth.overall_score_0_100) }}</div>
@@ -2773,7 +3088,7 @@ const del = async (p) => {
               </div>
             </div>
 
-            <div class="dp-weekly-columns mt-4">
+            <div class="dp-weekly-columns dp-operating-desktop mt-4">
               <div class="dp-weekly-panel">
                 <div class="dp-command-label">Action Stack</div>
                 <div v-if="operatingNextActionStack.length" class="dp-delivery-analytics-list mt-2">
@@ -2782,7 +3097,8 @@ const del = async (p) => {
                     :key="`${action.rank}-${action.title}`"
                     type="button"
                     class="dp-action-card text-left w-full"
-                    @click="openOperatingHomeTarget(action)"
+                    :disabled="operatingActionDisabled(action)"
+                    @click="runOperatingHomeAction(action)"
                   >
                     <span class="dp-priority" :class="priorityClass(action.priority)">{{ human(action.priority) }}</span>
                     <div class="font-extrabold mt-2">{{ action.title }}</div>
@@ -2811,7 +3127,7 @@ const del = async (p) => {
               </div>
             </div>
 
-            <div class="dp-command-block mt-4">
+            <div class="dp-command-block dp-operating-desktop mt-4">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div class="dp-command-label">Quick Links</div>
@@ -5619,6 +5935,7 @@ const del = async (p) => {
 @media (min-width:900px){ .dp-operating-header { grid-template-columns:minmax(0,1.4fr) minmax(300px,.8fr); align-items:stretch; } }
 .dp-operating-title { font-size:24px; line-height:1.1; font-weight:950; overflow-wrap:anywhere; }
 .dp-operating-sub { color:rgba(255,255,255,.52); font-size:13px; margin-top:6px; }
+.dp-mobile-os-shell { display:none; }
 .dp-empty-copy { color:rgba(255,255,255,.58); font-size:12.5px; line-height:1.45; margin-top:10px; }
 .dp-primary-action { background:rgba(216,35,42,.1); border:1px solid rgba(216,35,42,.28); border-radius:14px; padding:14px; min-width:0; }
 .dp-primary-action-title { font-size:18px; line-height:1.15; font-weight:950; margin-top:7px; overflow-wrap:anywhere; }
@@ -5653,6 +5970,10 @@ const del = async (p) => {
 @media (min-width:820px){ .dp-weekly-columns { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 .dp-weekly-panel { background:rgba(9,14,29,.5); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:12px; min-width:0; }
 .dp-weekly-list { display:grid; gap:6px; margin-top:8px; }
+.dp-weekly-row { display:flex; flex-direction:column; align-items:flex-start; gap:4px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:9px 10px; color:inherit; }
+.dp-weekly-row:hover { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.16); }
+.dp-weekly-row span { color:#fff; font-size:12.5px; font-weight:950; overflow-wrap:anywhere; }
+.dp-weekly-row small { color:rgba(255,255,255,.5); font-size:11.5px; line-height:1.35; overflow-wrap:anywhere; }
 .dp-weekly-recommendations { display:grid; gap:8px; margin-top:9px; }
 @media (min-width:900px){ .dp-weekly-recommendations { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 .dp-weekly-recommendations--single { grid-template-columns:1fr; }
@@ -5821,6 +6142,182 @@ const del = async (p) => {
 .dp-priority--high { background:rgba(245,158,11,.18); color:#fbbf24; }
 .dp-priority--medium { background:rgba(59,130,246,.16); color:#93c5fd; }
 .dp-priority--low { background:rgba(148,163,184,.14); color:#cbd5e1; }
+@media (max-width:767px) {
+  .dp-command { border-radius:16px; padding:12px; }
+  .dp-operating-desktop { display:none !important; }
+  .dp-mobile-os-shell { display:grid; gap:12px; }
+  .dp-mobile-os-header {
+    position:sticky;
+    top:8px;
+    z-index:8;
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:10px;
+    background:linear-gradient(135deg, rgba(9,14,29,.96), rgba(15,24,48,.94));
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:16px;
+    padding:12px;
+    box-shadow:0 14px 32px rgba(0,0,0,.32);
+  }
+  .dp-mobile-os-team {
+    color:#fff;
+    font-size:18px;
+    line-height:1.15;
+    font-weight:950;
+    overflow-wrap:anywhere;
+  }
+  .dp-mobile-os-focus,
+  .dp-mobile-os-next {
+    color:rgba(255,255,255,.68);
+    font-size:12px;
+    line-height:1.35;
+    margin-top:7px;
+    overflow-wrap:anywhere;
+  }
+  .dp-mobile-os-next { color:rgba(255,255,255,.5); margin-top:3px; }
+  .dp-mobile-os-main-btn,
+  .dp-mobile-full-btn {
+    width:100%;
+    min-height:46px;
+    justify-content:center;
+  }
+  .dp-mobile-primary-card {
+    background:rgba(216,35,42,.1);
+    border:1px solid rgba(216,35,42,.3);
+    border-radius:16px;
+    padding:13px;
+  }
+  .dp-mobile-primary-card p {
+    color:rgba(255,255,255,.64);
+    font-size:12.5px;
+    line-height:1.45;
+    margin-top:8px;
+  }
+  .dp-mobile-disabled {
+    color:#fcd34d !important;
+    background:rgba(245,158,11,.08);
+    border:1px solid rgba(245,158,11,.18);
+    border-radius:10px;
+    padding:8px 9px;
+  }
+  .dp-mobile-card-grid {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:9px;
+  }
+  .dp-mobile-status-card {
+    width:100%;
+    min-height:92px;
+    display:grid;
+    gap:4px;
+    text-align:left;
+    color:inherit;
+    background:rgba(9,14,29,.72);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:14px;
+    padding:12px;
+  }
+  .dp-mobile-status-card--attention {
+    border-color:rgba(216,35,42,.34);
+    background:rgba(216,35,42,.08);
+  }
+  .dp-mobile-status-card span {
+    color:rgba(255,255,255,.48);
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-size:10px;
+    font-weight:900;
+  }
+  .dp-mobile-status-card strong {
+    color:#fff;
+    font-size:22px;
+    line-height:1.1;
+    font-weight:950;
+    overflow-wrap:anywhere;
+  }
+  .dp-mobile-status-card small {
+    color:rgba(255,255,255,.66);
+    font-size:12px;
+    line-height:1.35;
+    overflow-wrap:anywhere;
+  }
+  .dp-mobile-status-card em {
+    color:rgba(255,255,255,.42);
+    font-size:11px;
+    line-height:1.35;
+    font-style:normal;
+    overflow-wrap:anywhere;
+  }
+  .dp-mobile-quick-row {
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    padding:1px 0 4px;
+    scrollbar-width:none;
+  }
+  .dp-mobile-quick-row::-webkit-scrollbar { display:none; }
+  .dp-mobile-quick-btn {
+    flex:0 0 auto;
+    min-width:76px;
+    min-height:44px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.055);
+    color:#fff;
+    border-radius:12px;
+    padding:9px 12px;
+    font-size:12px;
+    font-weight:950;
+  }
+  .dp-mobile-quick-btn:disabled { opacity:.55; }
+  .dp-mobile-collapse {
+    border:1px solid rgba(255,255,255,.1);
+    background:rgba(9,14,29,.62);
+    border-radius:14px;
+    overflow:hidden;
+  }
+  .dp-mobile-collapse summary {
+    min-height:46px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:12px;
+    cursor:pointer;
+    list-style:none;
+  }
+  .dp-mobile-collapse summary::-webkit-details-marker { display:none; }
+  .dp-mobile-collapse summary span {
+    color:#fff;
+    font-size:13px;
+    font-weight:950;
+  }
+  .dp-mobile-collapse summary strong {
+    color:rgba(255,255,255,.72);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:999px;
+    padding:4px 8px;
+    font-size:10.5px;
+    font-weight:950;
+    white-space:nowrap;
+  }
+  .dp-mobile-collapse-body {
+    display:grid;
+    gap:8px;
+    border-top:1px solid rgba(255,255,255,.08);
+    padding:10px 12px 12px;
+  }
+  .dp-mobile-link-list {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    border-top:1px solid rgba(255,255,255,.08);
+    padding:10px 12px 12px;
+  }
+}
+@media (min-width:768px) {
+  .dp-mobile-os-shell { display:none !important; }
+}
 .dp-player-status-list { display:grid; gap:7px; }
 .dp-player-status-row { display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:10px; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px; }
 @media (min-width:700px){ .dp-player-status-row { flex-direction:row; align-items:center; } }

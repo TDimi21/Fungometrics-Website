@@ -627,7 +627,9 @@ class CoachOperatingSystemHomeService
         return [
             'weekly_report_due' => ! (bool) ($latestWeek['has_any_report'] ?? false),
             'last_weekly_report_at' => $lastReportAt,
+            'last_report_at' => $lastReportAt,
             'communication_rhythm_label' => data_get($rhythm, 'rhythm_score.label'),
+            'rhythm_label' => data_get($rhythm, 'rhythm_score.label'),
             'parent_update_due' => ! (bool) ($latestWeek['has_parent_update'] ?? false),
             'staff_report_due' => ! (bool) ($latestWeek['has_staff_report'] ?? false),
             'message' => (string) ($latestWeek['recommended_action'] ?? data_get($rhythm, 'recommended_actions.0.action') ?? 'Weekly report information is not available yet.'),
@@ -640,13 +642,13 @@ class CoachOperatingSystemHomeService
     private function quickLinks(string $teamId): array
     {
         return [
-            ['label' => 'Daily Planner', 'target_section' => 'daily_planner', 'route' => null],
-            ['label' => 'Weekly Rollup', 'target_section' => 'weekly_rollup', 'route' => null],
-            ['label' => 'Benchmark Intelligence', 'target_section' => 'benchmark_intelligence', 'route' => null],
-            ['label' => 'Review Queue', 'target_section' => 'review_queue', 'route' => null],
-            ['label' => 'Reports', 'target_section' => 'weekly_report_delivery', 'route' => null],
-            ['label' => 'Alerts', 'target_section' => 'development_health_alerts', 'route' => null],
-            ['label' => 'Health Score', 'target_section' => 'development_program_health', 'route' => null],
+            $this->quickLink('Daily Planner', 'open_daily_planner', 'daily_planner'),
+            $this->quickLink('Weekly Rollup', 'open_weekly_calendar', 'weekly_rollup'),
+            $this->quickLink('Benchmark Intelligence', 'view_benchmark_intelligence', 'benchmark_intelligence'),
+            $this->quickLink('Review Queue', 'review_submissions', 'review_queue'),
+            $this->quickLink('Reports', 'prepare_weekly_report', 'weekly_report_delivery'),
+            $this->quickLink('Alerts', 'view_alerts', 'development_health_alerts'),
+            $this->quickLink('Health Score', 'view_health_score', 'development_program_health'),
         ];
     }
 
@@ -683,6 +685,8 @@ class CoachOperatingSystemHomeService
      */
     private function actionRow(string $title, string $priority, string $category, string $why, string $action, ?string $actionType, ?string $buttonLabel, ?string $targetSection, mixed $targetRoute, string $source, array $raw = []): array
     {
+        $metadata = $this->homeActionMetadata($actionType, $buttonLabel, $targetSection, $targetRoute, $raw);
+
         return [
             'rank' => 0,
             'title' => $title,
@@ -696,7 +700,104 @@ class CoachOperatingSystemHomeService
             'target_route' => $targetRoute,
             'enabled' => (bool) ($raw['enabled'] ?? true),
             'source' => $source,
+            ...$metadata,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function quickLink(string $label, string $actionType, string $targetSection): array
+    {
+        return [
+            'label' => $label,
+            'action_type' => $actionType,
+            'button_label' => $label,
+            'enabled' => true,
+            'requires_confirmation' => false,
+            'requires_selection' => false,
+            'target_section' => $targetSection,
+            'target_route' => '/practice-planner',
+            'route' => null,
+            'api_endpoint' => null,
+            'method' => null,
+            'disabled_reason' => null,
+            'safety_notes' => ['Navigation only; no backend data is changed.'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function homeActionMetadata(?string $actionType, ?string $buttonLabel, ?string $targetSection, mixed $targetRoute, array $raw = []): array
+    {
+        $normalized = match ((string) ($actionType ?? '')) {
+            'approve_values' => 'approve_selected_values',
+            'generate_next_plan' => 'generate_suggested_plan',
+            'send_weekly_report' => 'prepare_weekly_report',
+            default => $actionType,
+        };
+
+        $mutationActions = [
+            'publish_plan',
+            'assign_plan',
+            'approve_selected_values',
+            'request_corrections',
+            'promote_trusted_data',
+            'send_reminder',
+            'save_suggested_plan_draft',
+        ];
+        $selectionActions = ['assign_plan', 'approve_selected_values', 'request_corrections'];
+        $navigationActions = [
+            null,
+            '',
+            'open_daily_planner',
+            'view_alerts',
+            'view_health_score',
+            'view_benchmark_intelligence',
+            'view_communication_rhythm',
+            'open_weekly_calendar',
+            'none',
+        ];
+
+        $hasEndpoint = $normalized && ! in_array($normalized, $navigationActions, true);
+
+        return [
+            'action_type' => $normalized,
+            'button_label' => $buttonLabel,
+            'requires_confirmation' => in_array($normalized, $mutationActions, true),
+            'requires_selection' => in_array($normalized, $selectionActions, true),
+            'target_section' => $targetSection,
+            'target_route' => $targetRoute,
+            'api_endpoint' => null,
+            'method' => $raw['method'] ?? ($hasEndpoint ? 'POST' : null),
+            'payload' => Arr::wrap($raw['payload'] ?? []),
+            'success_message' => $raw['success_message'] ?? null,
+            'disabled_reason' => (bool) ($raw['enabled'] ?? true) ? null : ($raw['disabled_reason'] ?? 'This action is not available yet.'),
+            'safety_notes' => $this->homeActionSafetyNotes((string) ($normalized ?? ''), $hasEndpoint),
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function homeActionSafetyNotes(string $actionType, bool $hasEndpoint): array
+    {
+        $notes = ['Uses existing FMTRX workflows; no scoring or benchmark formulas are changed.'];
+
+        if (! $hasEndpoint) {
+            $notes[] = 'Navigation only; no backend data is changed.';
+        }
+
+        if (in_array($actionType, ['publish_plan', 'assign_plan', 'approve_selected_values', 'request_corrections', 'promote_trusted_data', 'send_reminder', 'save_suggested_plan_draft'], true)) {
+            $notes[] = 'Requires explicit coach confirmation before any write action.';
+        }
+
+        if ($actionType === 'promote_trusted_data') {
+            $notes[] = 'Only approved values can be promoted; pending and rejected values are ignored.';
+        }
+
+        return $notes;
     }
 
     /**

@@ -258,6 +258,8 @@ Route::prefix('player')->group(function (): void {
 Route::prefix('coach')->group(function (): void {
     Route::post('register', RegisterCoachController::class);
     Route::middleware(['auth:sanctum'])->get('/teams/{teamId}/operating-system-home', [CoachOperatingSystemHomeController::class, 'team']);
+    Route::middleware(['auth:sanctum'])->get('/teams/{teamId}/operating-system-home/actions', [CoachOperatingSystemHomeController::class, 'actions']);
+    Route::middleware(['auth:sanctum'])->post('/teams/{teamId}/operating-system-home/actions/execute', [CoachOperatingSystemHomeController::class, 'executeAction']);
     Route::middleware(['auth:sanctum', 'ability:coach'])->group(function (): void {
         Route::post('/players/{id}/set-password', SetPlayerPassword::class);
         Route::post('/add/teams', AddTeams::class);
