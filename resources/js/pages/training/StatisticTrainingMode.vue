@@ -1,6 +1,6 @@
 <script setup>
 import LayoutVue from '../../layout/Layout.vue';
-import { defineProps, onMounted, ref } from 'vue'
+import { computed, defineProps, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTeamStore } from '@/store/team.js'
 import { useTrainingStore } from "../../store/training";
@@ -20,6 +20,7 @@ import { SendMsgModal, SendMsgStatusModal } from '@/components/shared'
 import useSendMsg from '@/composables/useSendMsg.js'
 import Loader from '@/components/Loader.vue'
 import { useUserStore } from "../../store/user";
+import TrainingSessionStatsTabs from '@/components/statistics/training/TrainingSessionStatsTabs.vue'
 
 const useTeam = useTeamStore()
 const { team } = storeToRefs(useTeam)
@@ -94,6 +95,13 @@ const selectedPlayer = ref('')
 const excelHeaderData = ref({})
 const excelDataExport = ref([])
 const activeRow = ref(0)
+
+const rawBallRows = computed(() => {
+  const rows = globalResponse.value?.data?.data?.ball_x_ball || []
+  if (Array.isArray(rows)) return rows
+  if (rows && typeof rows === 'object') return Object.values(rows)
+  return []
+})
 
 onMounted(() => {
   setLabelTitle()
@@ -893,9 +901,18 @@ const getSortData = (data) => {
 }
 
 const getEditData = (event) => {
-  let id = event.idPlayer
-  let data = Object.values(globalResponse.value.data.data.ball_x_ball)
-  let editPlayer = data.find(element => element.id === id)
+  const data = Object.values(globalResponse.value.data.data.ball_x_ball)
+  const rawEvent = event && typeof event === 'object' && event.profile ? event : null
+  let id = event?.idPlayer ?? event?.id ?? rawEvent?.id
+  let editPlayer = rawEvent || data.find(element => element.id === id)
+  if (!editPlayer) {
+    toast.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Could not find this training row to edit.',
+    })
+    return
+  }
   let setData = {
     "balls": 0,
     "bxs": 0,
@@ -1022,86 +1039,26 @@ if (userData.type === 'coach') {
       </div>
     </div>
     <section class="md:px-[5%]">
-      <TabGroup>
-        <div class="flex items-center justify-between border-b-2 border-white/10 mb-4">
-          <TabList class="flex">
-            <Tab as="template" v-slot="{ selected }" class="mx-4" v-for="head in tabHeading">
-              <button class="outline-none pb-2 px-1 text-sm font-semibold transition-colors whitespace-nowrap"
-                :class="{ 'text-app-gold border-b-2 border-app-gold': selected, 'text-app-muted hover:text-white': !selected }">
-                {{ head }}
-              </button>
-            </Tab>
-          </TabList>
-          <download-excel
-            class="flex items-center gap-2 bg-app-card hover:bg-app-card-hover border border-white/10 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors mb-1 flex-shrink-0"
-            :data="excelDataExport" :fields="excelHeaderData" :name="nameFile"
-          >
-            <svg width="14" height="17" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M18 7.71429H12.8571V0H5.14286V7.71429H0L9 16.7143L18 7.71429ZM7.71307 10.2863V2.57202H10.2845V10.2863H11.7888L8.99878 13.0763L6.20878 10.2863H7.71307ZM18 21.8571V19.2856H0V21.8571H18Z" fill="#E10600" />
-            </svg>
-            <span class="text-sm font-semibold">Export</span>
-          </download-excel>
-        </div>
-        <TabPanels>
-          <TabPanel>
-            <DynamicTable :actionable="true" :is-sorteable="true" v-on:edit-event="getEditData($event)"
-              v-on:click-header="sortBy($event)" :is-loading="isLoading" :headings="ballxballHeadings"
-              :table-data="ballxballData" />
-          </TabPanel>
-          <TabPanel>
-            <div class="grid grid-cols-3 gap-4 p-2 mt-4 bg-fungo-lightblue">
-              <div class="col-span-5 text-center uppercase md:col-span-3 xl:col-span-2">{{ labelList }}</div>
-              <div class="hidden uppercase xl:inline">{{ labelAverage }}</div>
-            </div>
-            <div class="grid grid-cols-5 gap-4 my-[45px]">
-              <!--Colum-->
-              <div class="col-span-5 mx-auto w-60 md:w-full md:col-span-1">
-                <div class="flex pl-2 bg-white border-l-4 justify-beteewn h-14 border-fungo-red xl:w-40">
-                  <span class="text-fungo-red place-self-center">Max #</span>
-                  <span class="px-4 text-xl place-self-center font-fungo-800">{{ maxThrow }}</span>
-                </div>
-                <div class="flex flex-col px-4 py-6 mt-10 bg-white xl:w-40">
-                  <span class="mb-4 text-fungo-red">Select</span>
-                  <div v-if="props.mode == 'LT'">
-                    <button :class="filter == 'a' ? 'is-active' : ''"
-                      class="w-full mt-4 border border-1 border-fungo-red text-fungo-red"
-                      @click="filterLongToss('a')">All</button>
-                    <button v-for="item in longTossFilter" :class="filter == item.value ? 'is-active' : ''"
-                      class="w-full mt-4 border border-1 border-fungo-red text-fungo-red"
-                      @click="filterLongToss(item.value)">{{ item.text }}</button>
-                  </div>
-                  <div v-if="props.mode == 'EV'">
-                    <button :class="filter == 'a' ? 'is-active' : ''"
-                      class="w-full mt-4 border border-1 border-fungo-red text-fungo-red"
-                      @click="filterExitVelocity('a')">All</button>
-                    <button v-for="item in ExitVelocityFilter" :class="filter == item.value ? 'is-active' : ''"
-                      class="w-full mt-4 border border-1 border-fungo-red text-fungo-red"
-                      @click="filterExitVelocity(item.value)">{{ item.text }}</button>
-                  </div>
-                  <div v-if="props.mode == 'WB'">
-                    <button :class="filter == 'a' ? 'is-active' : ''"
-                      class="w-full mt-4 border border-1 border-fungo-red text-fungo-red"
-                      @click="filterWeigthBall('a')">All</button>
-                    <button v-for="item in globalWeightList" :class="filter == item ? 'is-active' : ''"
-                      class="w-full mt-4 border border-1 border-fungo-red text-fungo-red"
-                      @click="filterWeigthBall(item)">{{ item }}</button>
-                  </div>
-                </div>
-              </div>
-              <!--Colum-->
-              <div class="col-span-5 px-2 bg-white md:col-span-4 xl:col-span-2 ">
-                <DynamicTable :headings="ListThrowsLabel" :table-data="listThrowsData" />
-              </div>
-              <!--Colum-->
-              <div class="col-span-5 p-2 text-center uppercase bg-fungo-lightblue xl:hidden">{{ labelAverage }}</div>
-              <div class="col-span-5 px-2 bg-white xl:col-span-2">
-                <DynamicTable v-on:clicked-data="getListForPlayer($event)" :headings="averageHeaders" :have_team="true"
-                  :table-dataTeam="averageDataTeam" :table-data="averageData" :activeRow="activeRow" />
-              </div>
-            </div>
-          </TabPanel>
-        </TabPanels>
-      </TabGroup>
+      <div class="mb-4 flex justify-end">
+        <download-excel
+          class="flex items-center gap-2 bg-app-card hover:bg-app-card-hover border border-white/10 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors mb-1 flex-shrink-0"
+          :data="excelDataExport" :fields="excelHeaderData" :name="nameFile"
+        >
+          <svg width="14" height="17" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M18 7.71429H12.8571V0H5.14286V7.71429H0L9 16.7143L18 7.71429ZM7.71307 10.2863V2.57202H10.2845V10.2863H11.7888L8.99878 13.0763L6.20878 10.2863H7.71307ZM18 21.8571V19.2856H0V21.8571H18Z" fill="#E10600" />
+          </svg>
+          <span class="text-sm font-semibold">Export</span>
+        </download-excel>
+      </div>
+
+      <TrainingSessionStatsTabs
+        :mode="props.mode"
+        :rows="rawBallRows"
+        :team-name="team?.name || 'Team'"
+        :is-loading="isLoading"
+        :editable="true"
+        @edit-row="getEditData"
+      />
     </section>
     <SendMsgModal v-if="isShowMsgModal" @closeModal="closeMsgWindow" @sendMessage="send" :players="playersToSend" />
     <SendMsgStatusModal v-if="isShowMsgModalStatus" @closeModal="isShowMsgModalStatus = !isShowMsgModalStatus"

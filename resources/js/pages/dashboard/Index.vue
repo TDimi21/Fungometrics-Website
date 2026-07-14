@@ -8,6 +8,7 @@ import { useTeamStore } from "../../store/team";
 import { IndicatorChart } from '@/components/dashboard'
 import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
+import ExitVeloPanel from '@/components/dashboard/ExitVeloPanel.vue'
 import BullpenLocationPanel from '@/components/dashboard/BullpenLocationPanel.vue'
 import TrainingLineChart from '@/components/dashboard/TrainingLineChart.vue'
 import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
@@ -2717,7 +2718,10 @@ watch(
                     v-else-if="selectedPerfKey === 'cage'"
                     :balls="cageSpray" mode="spray" :use-field-mark="false"
                   />
-                  <!-- Batting / Exit Velocity: velocity heatmap from batting swings -->
+                  <!-- Exit Velocity: EV-only trajectory + velocity panel (EV records no
+                       spray/position, so it must NOT reuse the batting spray field) -->
+                  <ExitVeloPanel v-else-if="selectedPerfKey === 'ev'" :detail="perfDetail.ev" />
+                  <!-- Batting: velocity heatmap from batting swings -->
                   <VelocitySprayField v-else :balls="allSwingBalls" mode="heatmap" />
                 </div>
                 <div v-else class="mb-4 rounded-lg border border-dashed border-white/10 py-10 text-center text-white/25 text-xs">
