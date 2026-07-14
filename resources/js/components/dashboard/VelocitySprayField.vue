@@ -16,6 +16,9 @@ const props = defineProps({
   useFieldMark: { type: Boolean, default: true }, // batting taps a grid; cage has real spray
   trajectoryLines: { type: Boolean, default: true },
   level: { type: String, default: 'hs' },
+  // When false, hide the built-in filter chips + legend so a parent (e.g. the
+  // Contact stats tab) can drive filtering from its own controls.
+  showChrome: { type: Boolean, default: true },
 })
 
 const W = 460
@@ -177,7 +180,7 @@ const distanceLabels = (() => {
 
 <template>
   <div class="vsf">
-    <div class="vsf-filters">
+    <div v-if="showChrome" class="vsf-filters">
       <button v-for="f in FILTERS" :key="f.key" class="vsf-chip" :class="{ 'vsf-chip--on': filter === f.key }" @click="filter = f.key">{{ f.label }}</button>
       <span class="vsf-count">{{ swingCount }} {{ mode === 'spray' ? 'result' : 'swing' }}{{ swingCount === 1 ? '' : 's' }}</span>
     </div>
@@ -225,7 +228,7 @@ const distanceLabels = (() => {
       <div v-if="swingCount === 0" class="vsf-empty">{{ mode === 'spray' ? 'No cage results with a spray angle yet' : 'No batting swings yet' }}</div>
     </div>
 
-    <div class="vsf-legend">
+    <div v-if="showChrome" class="vsf-legend">
       <span class="vsf-legend-label">Exit velocity</span>
       <span class="vsf-legend-bar"></span>
       <span class="vsf-legend-ends">low → high mph</span>

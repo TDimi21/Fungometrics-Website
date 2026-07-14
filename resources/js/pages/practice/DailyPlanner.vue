@@ -133,6 +133,9 @@ const operatingHomeLoading = ref(false)
 const operatingHomeMessage = ref('')
 const operatingHomeActionMessage = ref('')
 const operatingHomeActionLoading = ref('')
+const launchReadiness = ref(null)
+const launchReadinessLoading = ref(false)
+const launchReadinessMessage = ref('')
 const selectedWeeklyReportDelivery = ref(null)
 const selectedSeasonArchiveDelivery = ref(null)
 const weeklyReportNotes = ref([])
@@ -335,6 +338,29 @@ const loadOperatingHome = async () => {
     return null
   } finally {
     operatingHomeLoading.value = false
+  }
+}
+const loadLaunchReadiness = async () => {
+  launchReadinessMessage.value = ''
+  if (!activeTeamId.value) {
+    launchReadiness.value = null
+    return null
+  }
+
+  launchReadinessLoading.value = true
+  try {
+    const res = await axiosGet(`coach/teams/${activeTeamId.value}/launch-readiness`, {
+      days: 365,
+      weeks: 8,
+    })
+    launchReadiness.value = res?.data?.data || null
+    return launchReadiness.value
+  } catch {
+    launchReadiness.value = null
+    launchReadinessMessage.value = 'Launch readiness is not available yet.'
+    return null
+  } finally {
+    launchReadinessLoading.value = false
   }
 }
 const loadNextWeekDraft = async () => {
@@ -967,8 +993,8 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadOperatingHome(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; operatingHomeActionMessage.value = ''; loadRoster(); loadOperatingHome(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; operatingHomeActionMessage.value = ''; launchReadiness.value = null; launchReadinessMessage.value = ''; loadRoster(); loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = () => { editing.value = blankPlan() }
@@ -1038,6 +1064,30 @@ const operatingSummary = computed(() => operatingHome.value?.operating_summary |
 const operatingTodayPlan = computed(() => operatingHome.value?.today_plan || {})
 const operatingPrimaryAction = computed(() => operatingHome.value?.primary_next_action || null)
 const operatingNextActionStack = computed(() => Array.isArray(operatingHome.value?.next_action_stack) ? operatingHome.value.next_action_stack : [])
+const launchSummary = computed(() => launchReadiness.value?.launch_summary || {})
+const launchComponents = computed(() => [
+  launchReadiness.value?.coach_readiness,
+  launchReadiness.value?.player_readiness,
+  launchReadiness.value?.benchmark_readiness,
+  launchReadiness.value?.planner_readiness,
+  launchReadiness.value?.report_readiness,
+  launchReadiness.value?.privacy_safety,
+].filter(Boolean))
+const launchReadyNow = computed(() => Array.isArray(launchReadiness.value?.ready_now) ? launchReadiness.value.ready_now : [])
+const launchInternalOnly = computed(() => Array.isArray(launchReadiness.value?.internal_only) ? launchReadiness.value.internal_only : [])
+const launchNeedsMoreData = computed(() => Array.isArray(launchReadiness.value?.needs_more_data) ? launchReadiness.value.needs_more_data : [])
+const launchKnownRisks = computed(() => Array.isArray(launchReadiness.value?.known_risks) ? launchReadiness.value.known_risks : [])
+const launchBlockers = computed(() => Array.isArray(launchReadiness.value?.launch_blockers) ? launchReadiness.value.launch_blockers : [])
+const launchBacklog = computed(() => Array.isArray(launchReadiness.value?.next_cycle_backlog) ? launchReadiness.value.next_cycle_backlog : [])
+const launchFlags = computed(() => Array.isArray(launchReadiness.value?.feature_flags_recommendation) ? launchReadiness.value.feature_flags_recommendation : [])
+const launchStatusTone = computed(() => {
+  const status = launchReadiness.value?.readiness_status
+  if (status === 'ready') return 'complete'
+  if (status === 'limited_release') return 'info'
+  if (status === 'internal_only') return 'warning'
+  if (status === 'not_ready' || status === 'failed') return 'warning'
+  return 'muted'
+})
 const operatingHealth = computed(() => operatingHome.value?.health_snapshot || {})
 const operatingAlerts = computed(() => operatingHome.value?.alerts_snapshot || {})
 const operatingBenchmark = computed(() => operatingHome.value?.benchmark_snapshot || {})
@@ -3150,6 +3200,131 @@ const del = async (p) => {
             </div>
           </template>
           <div v-else class="dp-command-loading">FMTRX will build this operating view as your team uses planner, benchmark, review, and report workflows.</div>
+        </section>
+        <section class="dp-command mb-5" data-dp-section="launch_readiness">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <div class="dp-command-eyebrow">Launch Readiness</div>
+              <h2 class="text-xl font-black tracking-wide">{{ launchSummary.headline || 'Final Launch Readiness' }}</h2>
+              <p class="text-white/45 text-sm mt-1">{{ launchSummary.summary_text || 'Run production smoke tests to complete launch readiness.' }}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="dp-status" :class="statusBadgeClass(launchStatusTone)">
+                {{ human(launchReadiness?.readiness_status || 'unknown') }}
+              </span>
+              <button class="dp-btn" :disabled="launchReadinessLoading" @click="loadLaunchReadiness">
+                {{ launchReadinessLoading ? 'Refreshing…' : 'Refresh Readiness' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="launchReadinessMessage" class="dp-command-alert">{{ launchReadinessMessage }}</div>
+          <div v-else-if="launchReadinessLoading && !launchReadiness" class="dp-command-loading">Loading launch readiness…</div>
+          <template v-else-if="launchReadiness">
+            <div class="dp-command-grid">
+              <div class="dp-command-card">
+                <div class="dp-command-label">Launch Mode</div>
+                <div class="dp-command-value">{{ human(launchSummary.recommended_launch_mode || 'hold') }}</div>
+                <div class="dp-command-sub">Score: {{ launchReadiness.overall_score_0_100 == null ? '—' : oneDecimal(launchReadiness.overall_score_0_100) }}</div>
+              </div>
+              <div class="dp-command-card" :class="{ 'dp-command-card--attention': launchBlockers.length }">
+                <div class="dp-command-label">Launch Blockers</div>
+                <div class="dp-command-value">{{ launchBlockers.length }}</div>
+                <div class="dp-command-sub">{{ launchBlockers[0]?.title || 'No blockers found.' }}</div>
+              </div>
+              <div class="dp-command-card">
+                <div class="dp-command-label">Next Best Step</div>
+                <div class="dp-command-value">{{ launchSummary.next_best_step || 'Production Smoke Test' }}</div>
+                <div class="dp-command-sub">{{ launchSummary.primary_blocker ? `Primary blocker: ${launchSummary.primary_blocker}` : 'Keep internal QA tools hidden during beta.' }}</div>
+              </div>
+            </div>
+
+            <div class="dp-command-block">
+              <div class="dp-command-label">Component Readiness</div>
+              <div class="dp-command-grid mt-2">
+                <div
+                  v-for="component in launchComponents"
+                  :key="component.key || component.display_name"
+                  class="dp-command-card"
+                  :class="{ 'dp-command-card--attention': component.status === 'not_ready' }"
+                >
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="dp-command-label">{{ component.display_name || human(component.key) }}</div>
+                    <span class="dp-status" :class="statusBadgeClass(component.status === 'ready' ? 'complete' : component.status === 'limited' ? 'info' : component.status === 'not_ready' ? 'warning' : 'muted')">
+                      {{ human(component.status) }}
+                    </span>
+                  </div>
+                  <div class="dp-command-value">{{ component.score_0_100 == null ? '—' : oneDecimal(component.score_0_100) }}</div>
+                  <div class="dp-command-sub">{{ component.summary || 'Readiness details are not available yet.' }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dp-weekly-columns mt-4">
+              <div class="dp-weekly-panel">
+                <div class="dp-command-label">Ready Now</div>
+                <div v-if="launchReadyNow.length" class="dp-delivery-analytics-list mt-2">
+                  <div v-for="item in launchReadyNow.slice(0, 8)" :key="`ready-${item}`" class="dp-weekly-row">
+                    <span>{{ item }}</span>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-2">No ready-now items are available yet.</div>
+              </div>
+              <div class="dp-weekly-panel">
+                <div class="dp-command-label">Internal Only</div>
+                <div v-if="launchInternalOnly.length" class="dp-delivery-analytics-list mt-2">
+                  <div v-for="item in launchInternalOnly.slice(0, 8)" :key="`internal-${item}`" class="dp-weekly-row">
+                    <span>{{ item }}</span>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-2">No internal-only items are listed.</div>
+              </div>
+            </div>
+
+            <div class="dp-weekly-columns mt-4">
+              <div class="dp-weekly-panel">
+                <div class="dp-command-label">Needs More Data</div>
+                <div v-if="launchNeedsMoreData.length" class="dp-delivery-analytics-list mt-2">
+                  <div v-for="gap in launchNeedsMoreData.slice(0, 6)" :key="`gap-${gap.title}-${gap.priority}`" class="dp-weekly-row">
+                    <span>{{ gap.title || 'More Data Needed' }}</span>
+                    <small>{{ human(gap.priority) }} · {{ gap.why || 'Collect more production data to improve confidence.' }}</small>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-2">No data gaps are blocking launch readiness.</div>
+              </div>
+              <div class="dp-weekly-panel">
+                <div class="dp-command-label">Known Risks</div>
+                <div v-if="launchKnownRisks.length" class="dp-delivery-analytics-list mt-2">
+                  <div v-for="risk in launchKnownRisks.slice(0, 6)" :key="`risk-${risk}`" class="dp-weekly-row">
+                    <span>{{ risk }}</span>
+                  </div>
+                </div>
+                <div v-else class="dp-empty dp-empty--sm mt-2">No known risks listed.</div>
+              </div>
+            </div>
+
+            <div class="dp-command-block">
+              <div class="dp-command-label">Feature Flag Recommendation</div>
+              <div v-if="launchFlags.length" class="dp-command-mini">
+                <span v-for="flag in launchFlags.slice(0, 12)" :key="flag.feature_key">
+                  {{ flag.display_name }}: {{ human(flag.recommended_status) }}
+                </span>
+              </div>
+              <div v-else class="dp-empty dp-empty--sm mt-2">Feature flag recommendations are not available yet.</div>
+            </div>
+
+            <div class="dp-command-block">
+              <div class="dp-command-label">Next Cycle Backlog</div>
+              <div v-if="launchBacklog.length" class="dp-delivery-analytics-list mt-2">
+                <div v-for="item in launchBacklog.slice(0, 8)" :key="`backlog-${item.title}-${item.area}`" class="dp-weekly-row">
+                  <span>{{ item.title }}</span>
+                  <small>{{ human(item.priority) }} · {{ human(item.area) }} · {{ item.why }}</small>
+                </div>
+              </div>
+              <div v-else class="dp-empty dp-empty--sm mt-2">No backlog items found.</div>
+            </div>
+          </template>
+          <div v-else class="dp-command-loading">Launch readiness is not available yet.</div>
         </section>
         <section class="dp-command mb-5" data-dp-section="coach_command_center">
           <div class="flex flex-wrap items-start justify-between gap-3 mb-4">

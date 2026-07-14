@@ -22,6 +22,7 @@ use App\Services\Intelligence\BenchmarkTaskReviewService;
 use App\Services\Intelligence\BenchmarkTrustedDataPromotionService;
 use App\Services\Intelligence\CoachActionPracticePlanner;
 use App\Services\Intelligence\DecisionEngine;
+use App\Services\Intelligence\FmtrxLaunchReadinessService;
 use App\Services\Intelligence\PlayerIntelligenceService;
 use App\Services\Intelligence\PracticePlanUpdateSuggestionService;
 use App\Services\Intelligence\TeamIntelligenceService;
@@ -47,6 +48,7 @@ class IntelligenceController extends Controller
         private readonly BenchmarkTrustedDataPromotionService $benchmarkTrustedDataPromotionService,
         private readonly BenchmarkDataQualityRescoreService $benchmarkDataQualityRescoreService,
         private readonly CoachActionPracticePlanner $coachActionPracticePlanner,
+        private readonly FmtrxLaunchReadinessService $launchReadinessService,
         private readonly BenchmarkPracticePlanDailyPlannerAdapter $coachActionDailyPlannerAdapter,
         private readonly PracticePlanUpdateSuggestionService $practicePlanUpdateSuggestionService,
         private readonly DailyPlanRepublishReviewService $dailyPlanRepublishReviewService,
@@ -151,6 +153,32 @@ class IntelligenceController extends Controller
         return response()->json(
             $this->playerIntelligence->build($teamId, $playerId, $this->days($request))
         );
+    }
+
+    public function launchReadiness(Request $request, string $teamId): JsonResponse
+    {
+        if (! $this->teamIsAccessible($request, $teamId)) {
+            return $this->forbidden('You do not have access to this team');
+        }
+
+        $validated = $request->validate([
+            'days' => ['nullable', 'integer', 'min:7', 'max:365'],
+            'weeks' => ['nullable', 'integer', 'min:1', 'max:52'],
+            'strict' => ['nullable'],
+        ]);
+
+        return response()->json([
+            'code' => 'INTEL-LAUNCH',
+            'message' => 'fmtrx launch readiness',
+            'status' => 'success',
+            'data' => $this->launchReadinessService->buildReadinessReport($teamId, [
+                'days' => $this->days($request),
+                'weeks' => max(1, min(52, (int) ($validated['weeks'] ?? 8))),
+                'strict' => filter_var($validated['strict'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'include_internal_features' => true,
+                'include_backlog' => true,
+            ]),
+        ]);
     }
 
     public function listBenchmarkTasks(Request $request, string $teamId): JsonResponse

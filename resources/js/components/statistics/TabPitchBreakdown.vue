@@ -1,216 +1,165 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { PrintCatcherData } from '@/components/shared'
-import { useTeamStore } from "@/store/team";
+/**
+ * TabPitchBreakdown.vue — batting "Pitch Breakdown" tab.
+ * Matches the app (Statics/tableBatting/Pitch.js): stadium background + navy
+ * overlay, left hit-type filters, a strike-zone scatter colored by outcome
+ * (In Play / Foul / Swing & Miss / Take), and a directional table
+ * (PLAYER · LEFT · MIDDLE · RIGHT · TOTAL) with FMTRX brand cell colors.
+ */
+import { ref, computed } from 'vue'
+import StatsStrikeZonePlot from '@/components/statistics/StatsStrikeZonePlot.vue'
+import { useTeamStore } from '@/store/team'
+import stadiumBg from '@/assets/img/stadium-bg.png'
 
 const props = defineProps({
-  breakdownData: {
-    type: Object,
-    required: false,
-    default: {}
-  }
+  breakdownData: { type: Object, required: false, default: () => ({}) }, // by_player
+  ballData: { type: Array, required: false, default: () => [] },          // ball_x_ball
 })
 
-const { team } = useTeamStore();
+const { team } = useTeamStore()
 
-const tableHeadings = ref([
-  "left", "middle", "right", "total swings", "player"
-])
-const buttonsGroup = ref([
-  { text: 'All', typeHit: 'All' },
-  { text: 'Ground', typeHit: 'GB' },
-  { text: 'Pop fly', typeHit: 'PF' },
-  { text: 'Fly ball', typeHit: 'FB' },
-  { text: 'Line drive', typeHit: 'LD' }
-])
+const FILTERS = [
+  { label: 'ALL', type: null },
+  { label: 'GROUND BALL', type: 'GB' },
+  { label: 'POP FLY', type: 'PF' },
+  { label: 'FLY BALL', type: 'FB' },
+  { label: 'LINE DRIVE', type: 'LD' },
+]
+const activeFilter = ref('ALL')
+const selectedPlayer = ref(null) // batter id, or null for team/all
 
-const currentIndex = ref(0)
-let coordinates = ref([])
-const activeRow = ref('1')
-const teamTotalSwings = ref(0)
+const LEGEND = [
+  { color: '#2ECC71', label: 'In Play' },
+  { color: '#F1C40F', label: 'Foul' },
+  { color: '#E74C3C', label: 'Swing & Miss' },
+  { color: '#3498DB', label: 'Take' },
+]
 
-const pitchLocationLeftCount = (allLocation) => {
-  return allLocation.filter(item => item.field_direction?.includes('L')).length
+// Outcome color for a pitch dot (mirrors app pitchResultColor).
+const pitchResultColor = (b) => {
+  const t = String(b.type_of_hit ?? '').toUpperCase()
+  const q = String(b.quality_of_contact ?? '').toUpperCase()
+  if (t === 'TK' || t === 'TAKE') return '#3498DB'
+  if (q === 'M' || q === 'MF' || t === 'SM') return '#E74C3C'
+  if (q === 'F' || t === 'F' || t === 'FOUL') return '#F1C40F'
+  return '#2ECC71'
 }
 
-const pitchLocationRightCount = (allLocation) => {
-  return allLocation.filter(item => item.field_direction?.includes('R')).length
+const identityOf = (b) => {
+  const id = String(b.batter_id ?? b.profile?.id ?? '')
+  const name = b.batter_name || `${b.profile?.first_name ?? ''} ${b.profile?.last_name ?? ''}`.trim() || 'Unknown'
+  return { id, name }
 }
 
-const pitchLocationCenterCount = (allLocation) => {
-  return allLocation.filter(item => item.field_direction?.includes('C')).length
-}
+// All batting balls (prefer flat ball_x_ball; fall back to the grouped map).
+const allBalls = computed(() => {
+  if (Array.isArray(props.ballData) && props.ballData.length) return props.ballData
+  return Object.values(props.breakdownData || {}).flatMap((v) => (Array.isArray(v) ? v : []))
+})
 
-const filterByTrajectory = (index, type) => {
-  coordinates.value = []
-  currentIndex.value = index
-
-  Object.values(props.breakdownData).forEach(player => {
-
-    player.forEach( track => {
-      // if (activeRow.value === track.batter_id) {
-        if (activeRow.value == 1) {
-          if(track.type_of_hit === type && type !== 'All'){
-            coordinates.value.push({ point: track.pitch_mark, feature: track.field_direction })
-          } else if(type === 'All') {
-            coordinates.value.push({ point: track.pitch_mark, feature: track.field_direction })
-          }
-        }
-
-        if ( activeRow.value == track.batter_id) {
-          if(track.type_of_hit === type && type !== 'All'){
-            coordinates.value.push({ point: track.pitch_mark, feature: track.field_direction })
-          } else if(type === 'All') {
-            coordinates.value.push({ point: track.pitch_mark, feature: track.field_direction })
-          }
-        }
-
-      // }
-
-    })
-  })
-}
-
-const filterPointsByRowTable = (player, id) => {
-  coordinates.value = []
-  activeRow.value = id
-  player.forEach(element => {
-    coordinates.value.push({ point: element.pitch_mark, feature: element.field_direction })
-  })
-}
-
-const filterPointsByFirstRowTable = () => {
-  coordinates.value = []
-  activeRow.value = '1'
-  teamTotalSwings.value = 0
-
-  Object.values(props.breakdownData).forEach(item => {
-    teamTotalSwings.value += item.length
-
-    item.forEach(location => {
-      coordinates.value.push({ point: location.pitch_mark, feature: location.field_direction })
-    })
-  })
-}
-
-const pitchAllLocationCount = (allContact, trajectory) => {
-  let counter = 0
-
-  Object.values(allContact).forEach(contact => {
-    contact.forEach(item => {
-      if (item.field_direction?.includes(trajectory)) {
-        counter++
-      }
-    })
-  })
-
-  return counter
-}
-
-onMounted(() => {
-  Object.values(props.breakdownData).forEach(item => {
-    teamTotalSwings.value += item.length
-
-    item.forEach(location => {
-      coordinates.value.push({ point: location.pitch_mark, feature: location.field_direction })
-    })
+const filteredBalls = computed(() => {
+  const type = FILTERS.find((f) => f.label === activeFilter.value)?.type
+  return allBalls.value.filter((b) => {
+    if (type && String(b.type_of_hit ?? '').toUpperCase() !== type) return false
+    if (selectedPlayer.value && identityOf(b).id !== String(selectedPlayer.value)) return false
+    return true
   })
 })
 
+// Directional aggregation (LEFT / MIDDLE / RIGHT) per player + team totals.
+const dirOf = (b) => {
+  const d = String(b.field_direction ?? '').toUpperCase()
+  if (d.includes('L')) return 'left'
+  if (d.includes('R')) return 'right'
+  if (d.includes('C')) return 'mid'
+  return null
+}
+
+const table = computed(() => {
+  const type = FILTERS.find((f) => f.label === activeFilter.value)?.type
+  // Table respects the hit-type filter but not the player row selection.
+  const balls = allBalls.value.filter((b) => !type || String(b.type_of_hit ?? '').toUpperCase() === type)
+  const byPlayer = new Map()
+  balls.forEach((b) => {
+    const { id, name } = identityOf(b)
+    const key = id || name
+    const cur = byPlayer.get(key) || { id, name, left: 0, mid: 0, right: 0, total: 0 }
+    const d = dirOf(b)
+    if (d) cur[d] += 1
+    cur.total += 1
+    byPlayer.set(key, cur)
+  })
+  const players = [...byPlayer.values()].sort((a, b) => a.name.localeCompare(b.name))
+  const teamRow = players.reduce(
+    (acc, p) => ({ left: acc.left + p.left, mid: acc.mid + p.mid, right: acc.right + p.right, total: acc.total + p.total }),
+    { left: 0, mid: 0, right: 0, total: 0 },
+  )
+  return { players, team: { id: null, name: team?.name || 'Team', ...teamRow } }
+})
+
+const setFilter = (label) => { activeFilter.value = label }
+const selectRow = (id) => { selectedPlayer.value = selectedPlayer.value === id ? null : id }
 </script>
-<template>
-  <section class="mt-5">
-    <div class="grid grid-cols-3 bg-[#0d1f3c] divide-x divide-white/10 text-center py-2 text-white uppercase">
-      <div class="col-span-2">
-        <p>Pitch Heat Map</p>
-      </div>
-      <div>
-        directional breakdown
-      </div>
-    </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-7 lg:gap-x-8 mt-10 gap-y-8">
-      <div class="grid lg:grid-cols-1 bg-[#0d1f3c] rounded-[10px] h-min button-group px-7 py-9 gap-y-3 border border-white/10">
-        <p class="text-[#e10600]">Select</p>
+<template>
+  <section class="sbt" :style="{ backgroundImage: `url(${stadiumBg})` }">
+    <div class="sbt-overlay" />
+    <div class="sbt-inner">
+      <!-- LEFT: hit-type filters -->
+      <div class="sbt-filters">
         <button
-          v-for="(button, index) in buttonsGroup"
-          :key="index"
-          class="rounded-[5px] border border-white/20 py-1 text-white/70 hover:text-white hover:bg-white/10"
-          @click="filterByTrajectory(index, button.typeHit)"
-          :class="{'bg-[#e10600] text-white border-[#e10600]' : currentIndex === index}"
+          v-for="f in FILTERS"
+          :key="f.label"
+          class="sbt-filter"
+          :class="{ 'sbt-filter--on': activeFilter === f.label }"
+          @click="setFilter(f.label)"
         >
-          {{ button.text }}
+          {{ f.label }}
         </button>
       </div>
-      <div class="col-span-3 lg:col-span-1 xl:col-span-3 px-5">
-        <PrintCatcherData :ballCoordinates="coordinates" :isInBatting="true"/>
+
+      <!-- CENTER: strike-zone plot -->
+      <div class="sbt-plot">
+        <div class="sbt-legend">
+          <span v-for="l in LEGEND" :key="l.label" class="sbt-leg">
+            <span class="sbt-leg-dot" :style="{ background: l.color }" />{{ l.label }}
+          </span>
+        </div>
+        <StatsStrikeZonePlot :balls="filteredBalls" :color-of="pitchResultColor" mark-key="pitch_mark" />
       </div>
 
-      <div class="pitch-table col-span-3 px-5 py-4">
-        <table class="w-full space-y-6 text-white">
-
-          <thead class="bg-[rgba(15,23,42,0.95)]">
-            <tr class="bg-[#0a1628] pb-4">
-              <th class="ball-header left"></th>
-              <th class="ball-header middle"></th>
-              <th class="ball-header right"></th>
-            </tr>
+      <!-- RIGHT: directional table -->
+      <div class="sbt-tablewrap">
+        <table class="sbt-table">
+          <thead>
             <tr>
-              <th class="bg-[#0a1628] h-[10px]"></th>
-            </tr>
-            <tr class="divide-x divide-white/20">
-              <th v-for="(heading, index) in tableHeadings" :key="index"
-                class="py-3 px-2 font-fungo-500 uppercase w-min">
-                {{ heading }}
-              </th>
+              <th class="sbt-th sbt-th--player">PLAYER</th>
+              <th class="sbt-th">LEFT</th>
+              <th class="sbt-th">MIDDLE</th>
+              <th class="sbt-th">RIGHT</th>
+              <th class="sbt-th">TOTAL</th>
             </tr>
           </thead>
-
           <tbody>
-            <tr
-              class="bg-[rgba(10,16,32,0.5)] even:bg-[rgba(13,31,60,0.5)] relative cursor-pointer"
-              :class=" {'active-row text-white opacity-60' : activeRow == '1' } "
-              @click="filterPointsByFirstRowTable"
-            >
-              <td>
-                {{ pitchAllLocationCount(props.breakdownData, 'L') }}
-              </td>
-              <td>
-                {{ pitchAllLocationCount(props.breakdownData, 'C') }}
-              </td>
-              <td>
-                {{ pitchAllLocationCount(props.breakdownData, 'R') }}
-              </td>
-              <td>
-                {{ teamTotalSwings }}
-              </td>
-              <td>
-                {{ team.name }}
-              </td>
+            <tr class="sbt-row" :class="{ 'sbt-row--sel': selectedPlayer === null }" @click="selectedPlayer = null">
+              <td class="sbt-td-label">{{ table.team.name }}</td>
+              <td class="sbt-cell sbt-cell--left">{{ table.team.left }}</td>
+              <td class="sbt-cell sbt-cell--mid">{{ table.team.mid }}</td>
+              <td class="sbt-cell sbt-cell--right">{{ table.team.right }}</td>
+              <td class="sbt-cell sbt-cell--total">{{ table.team.total }}</td>
             </tr>
             <tr
-              v-for="(item, id) in props.breakdownData"
-              :key="id"
-              class="bg-[rgba(10,16,32,0.5)] even:bg-[rgba(13,31,60,0.5)] relative cursor-pointer"
-              @click=" filterPointsByRowTable(item, id) "
-              :class=" {'active-row text-white opacity-60' : activeRow == id } "
-              :id="id"
+              v-for="p in table.players"
+              :key="p.id || p.name"
+              class="sbt-row"
+              :class="{ 'sbt-row--sel': selectedPlayer === p.id }"
+              @click="selectRow(p.id)"
             >
-              <td >
-                {{ pitchLocationLeftCount(item) }}
-              </td>
-              <td>
-               {{ pitchLocationCenterCount(item) }}
-              </td>
-              <td>
-                {{ pitchLocationRightCount(item) }}
-              </td>
-              <td>
-                {{ item.length }}
-              </td>
-              <td>
-                {{ item[0].profile.first_name }}
-              </td>
+              <td class="sbt-td-label">{{ p.name }}</td>
+              <td class="sbt-cell sbt-cell--left">{{ p.left }}</td>
+              <td class="sbt-cell sbt-cell--mid">{{ p.mid }}</td>
+              <td class="sbt-cell sbt-cell--right">{{ p.right }}</td>
+              <td class="sbt-cell sbt-cell--total">{{ p.total }}</td>
             </tr>
           </tbody>
         </table>
@@ -218,47 +167,39 @@ onMounted(() => {
     </div>
   </section>
 </template>
+
 <style scoped>
-.pitch-table {
-  @apply rounded-[20px];
-  background: rgba(10, 16, 32, 0.8);
-  box-shadow: 0 4px 32px rgba(0,0,0,0.4);
-}
-.button-group {
-  box-shadow: 0px 154.341px 216.189px #B9C9F3;
-}
-.ball-header {
-  background-repeat: no-repeat;
-  background-size: contain;
-  height: 25px;
-  width: 25px;
-  background-position: center;
-}
-.ball-header.left {
-  background-image: url("../../assets/img/training/balltraining-green.svg");
-}
-.ball-header.middle {
-  background-image: url("../../assets/img/training/balltraining.svg");
-}
-.ball-header.right {
-  background-image: url("../../assets/img/training/balltraining-blue.svg");
-}
-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
-}
-table tbody tr::after{
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #e10600;
-}
-table tbody tr:nth-child(even)::after{
-  background-color: #c00400;
-}
-.active-row {
-  background-color: #e10600 !important;
-}
+.sbt { position: relative; border-radius: 16px; overflow: hidden; background-size: cover; background-position: center; }
+.sbt-overlay { position: absolute; inset: 0; background: rgba(26, 31, 53, 0.86); }
+.sbt-inner { position: relative; display: grid; grid-template-columns: 1fr; gap: 18px; padding: 18px; align-items: center; }
+@media (min-width: 1024px) { .sbt-inner { grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1.15fr); gap: 22px; } }
+
+/* Filters */
+.sbt-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (min-width: 1024px) { .sbt-filters { flex-direction: column; } }
+.sbt-filter { flex: 1 1 auto; min-width: 90px; padding: 9px 8px; border-radius: 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.03em; color: #fff; background: rgba(255,255,255,0.95); color: #0a1024; border: 1px solid rgba(255,255,255,0.25); cursor: pointer; transition: 0.15s; }
+.sbt-filter:hover { background: #fff; }
+.sbt-filter--on { background: #e10600; color: #fff; border-color: #e10600; }
+
+/* Plot */
+.sbt-plot { display: flex; flex-direction: column; gap: 10px; }
+.sbt-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.sbt-leg { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.88); }
+.sbt-leg-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Table */
+.sbt-tablewrap { overflow-x: auto; border-radius: 12px; }
+.sbt-table { width: 100%; border-collapse: separate; border-spacing: 0 0; font-variant-numeric: tabular-nums; }
+.sbt-th { background: #191c4a; color: #fff; font-size: 10px; font-weight: 800; padding: 10px 6px; text-align: center; letter-spacing: 0.04em; }
+.sbt-th--player { color: #e10600; text-align: left; padding-left: 12px; }
+.sbt-row { cursor: pointer; }
+.sbt-row:hover .sbt-td-label { background: #232a52; }
+.sbt-row--sel { outline: 2px solid #e10600; outline-offset: -2px; }
+.sbt-td-label { background: #1a1f35; color: #fff; font-size: 12px; font-weight: 700; padding: 11px 12px; white-space: nowrap; }
+.sbt-cell { text-align: center; font-size: 13px; font-weight: 800; color: #fff; padding: 11px 6px; }
+.sbt-cell--left { background: #2160c4; }
+.sbt-cell--mid { background: #e6d08a; color: #000; }
+.sbt-cell--right { background: #16224c; }
+.sbt-cell--total { background: rgba(25, 28, 74, 0.55); }
+.sbt-row:nth-child(even) .sbt-cell--total { background: rgba(255, 255, 255, 0.08); }
 </style>

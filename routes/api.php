@@ -280,6 +280,7 @@ Route::prefix('coach')->group(function (): void {
         Route::middleware('plan:view_advanced_stats')->get('/teams/{id}/player-development-board', GetPlayerDevelopmentBoard::class);
         Route::middleware('plan:view_advanced_stats')->get('/teams/{team}/intelligence', [IntelligenceController::class, 'team']);
         Route::middleware('plan:view_advanced_stats')->get('/teams/{team}/players/{player}/intelligence', [IntelligenceController::class, 'player']);
+        Route::middleware('plan:view_advanced_stats')->get('/teams/{teamId}/launch-readiness', [IntelligenceController::class, 'launchReadiness']);
         Route::middleware('plan:view_advanced_stats')->get('/development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::get('/sessions/lasts/{team}', GetLastSessions::class);
         // One call returning recent sessions' detail bundled by type (kills the

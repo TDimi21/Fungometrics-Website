@@ -249,6 +249,7 @@ if(userData.type === 'coach'){
             <TabPitchBreakdown
               v-if="route.params.type == 'B'"
               :breakdown-data="statsData.by_player"
+              :ball-data="statsData.ball_x_ball"
             />
             <TabPitch
               v-else
@@ -260,6 +261,7 @@ if(userData.type === 'coach'){
             <TabContact
               v-if="route.params.type == 'B'"
               :contact-data="statsData.by_player"
+              :ball-data="statsData.ball_x_ball"
             />
             <TabCont
               v-else
