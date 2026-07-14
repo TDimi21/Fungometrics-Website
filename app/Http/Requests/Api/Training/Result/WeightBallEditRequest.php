@@ -28,6 +28,7 @@ class WeightBallEditRequest extends FormRequest
             'set' => ['nullable','integer'],
             'weight' =>  ['nullable','integer'],
             'velocity' =>  ['nullable','integer'],
+            'user_id' => ['nullable','string'],
         ];
     }
 

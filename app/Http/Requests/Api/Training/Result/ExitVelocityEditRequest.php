@@ -28,6 +28,7 @@ class ExitVelocityEditRequest extends FormRequest
             'set' => ['nullable','integer'],
             'trajectory' =>  ['nullable','string'],
             'velocity' =>  ['nullable','integer'],
+            'user_id' => ['nullable','string'],
         ];
     }
 
