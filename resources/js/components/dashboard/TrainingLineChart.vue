@@ -35,6 +35,15 @@ const hopColor = (hop) => {
 const WB_WEIGHTS = [3, 4, 5, 6, 7]
 const WB_MULT = { 3: 1.04, 4: 1.02, 5: 1, 6: 0.97, 7: 0.94 }
 
+const toFiniteNumber = (...values) => {
+  for (const value of values) {
+    if (value === null || value === undefined || value === '') continue
+    const number = Number(value)
+    if (Number.isFinite(number)) return number
+  }
+  return null
+}
+
 const model = computed(() => {
   const pts = Array.isArray(props.points) ? props.points : []
   if (props.mode === 'weightedball') {
@@ -58,12 +67,17 @@ const model = computed(() => {
     }
   }
   // long toss
-  const dist = pts.map((p) => Number(p.distance) || 0)
-  const hops = pts.map((p) => (p.hop != null ? Number(p.hop) : null))
+  const normalized = pts.map((p, i) => ({
+    distance: toFiniteNumber(p?.distance, p?.dist, p?.value, p?.maxDist, p?.avgMaxDist, p?.max_distance),
+    hop: toFiniteNumber(p?.hop, p?.hops),
+    label: p?.label ?? p?.throw_number ?? p?.throwNumber ?? String(i + 1),
+  })).filter((p) => p.distance !== null && p.distance > 0)
+  const dist = normalized.map((p) => p.distance)
+  const hops = normalized.map((p) => p.hop)
   const expectedFlat = dist.length ? Math.round((dist.reduce((s, v) => s + v, 0) / dist.length) * 10) / 10 : null
   return {
     title: 'Distance by Throw',
-    xLabels: pts.map((_, i) => String(i + 1)),
+    xLabels: normalized.map((p, i) => String(p.label ?? i + 1)),
     lines: [{ label: 'Distance', color: GREEN, values: dist, width: 4 }],
     expected: null,
     expectedFlat,           // single horizontal dashed line

@@ -369,6 +369,18 @@ final class LongTossStatisticsService
         $avgIntensity = count($intensityScores) ? array_sum($intensityScores) / count($intensityScores) : 0.0;
         $avgEstimatedPeakVelo = count($estimatedPeakVelos) ? array_sum($estimatedPeakVelos) / count($estimatedPeakVelos) : null;
         $avgPeakNoHopDistance = count($peakNoHopDistances) ? array_sum($peakNoHopDistances) / count($peakNoHopDistances) : null;
+        $chartPoints = array_values(array_map(
+            fn(array $throw, int $index) => [
+                'label' => (string) ($index + 1),
+                'distance' => round((float) $throw['dist'], 1),
+                'dist' => round((float) $throw['dist'], 1),
+                'hop' => (int) $throw['hop'],
+                'player_id' => $throw['userId'],
+                'date' => $throw['date'] ? (string) $throw['date'] : null,
+            ],
+            $allThrows,
+            array_keys($allThrows)
+        ));
 
         return [
             'lts'             => $totalScore,
@@ -389,6 +401,8 @@ final class LongTossStatisticsService
             'avgIntensityPct' => round($avgIntensity, 1),
             'avgEstimatedPeakVelo' => $avgEstimatedPeakVelo !== null ? round($avgEstimatedPeakVelo, 1) : null,
             'avgPeakNoHopDist' => $avgPeakNoHopDistance !== null ? round($avgPeakNoHopDistance, 1) : null,
+            'chartPoints'      => $chartPoints,
+            'chart_points'     => $chartPoints,
         ];
     }
 

@@ -612,6 +612,21 @@ function computeWBS(wb) {
   return { score: wbs.wbs, detail: wbs }
 }
 
+const isUsableLongTossPoint = (point) => {
+  if (!point || typeof point !== 'object') return false
+  const distance = Number(point.distance ?? point.dist ?? point.value ?? point.maxDist ?? point.avgMaxDist ?? point.max_distance)
+  return Number.isFinite(distance) && distance > 0
+}
+
+const longTossReviewCurve = computed(() => {
+  const chartFeed = Array.isArray(longTossCurve.value) ? longTossCurve.value.filter(isUsableLongTossPoint) : []
+  if (chartFeed.length) return chartFeed
+
+  const detail = perfDetail.value.lt ?? {}
+  const scoreFeed = detail.chartPoints ?? detail.chart_points
+  return Array.isArray(scoreFeed) ? scoreFeed.filter(isUsableLongTossPoint) : []
+})
+
 const fetchPerformanceOverview = async (force = false) => {
   if (!force && Object.values(perf.value).some(v => v !== null) && (Date.now() - (perfLastFetch.value ?? 0)) < DASHBOARD_CACHE_TTL_MS) return
   const teamIds = getActiveTeamIdCandidates()
@@ -2710,7 +2725,7 @@ watch(
                   <!-- Bullpen: catcher's-view heat / velocity map of pitch locations -->
                   <BullpenLocationPanel v-if="selectedPerfKey === 'bullpen'" :pitches="bullpenPitches" />
                   <!-- Long Toss: distance-by-throw line chart (dots colored by hops) -->
-                  <TrainingLineChart v-else-if="selectedPerfKey === 'lt'" mode="longtoss" :points="longTossCurve" />
+                  <TrainingLineChart v-else-if="selectedPerfKey === 'lt'" mode="longtoss" :points="longTossReviewCurve" />
                   <!-- Weighted Ball: velocity curve (avg + top) by ball weight -->
                   <TrainingLineChart v-else-if="selectedPerfKey === 'wb'" mode="weightedball" :points="weightedBallCurve" />
                   <!-- Cage: real spray chart of results (dots + trajectory) from cage data -->

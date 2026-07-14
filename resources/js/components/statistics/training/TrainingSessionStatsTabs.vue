@@ -270,6 +270,47 @@ const maxOf = (values) => {
   return clean.length ? Math.max(...clean) : null
 }
 
+// ── Player-tab charts (EV: avg velocity by trajectory · LT: avg distance by hop) ──
+// Respect the selected player (or show the team when none is selected), mirroring
+// the app's ExitVelocity/LongToss player charts. Bars scale to the tallest category.
+const rowsForPlayerChart = computed(() =>
+  normalizedRows.value.filter((row) => !selectedPlayerId.value || row.playerId === selectedPlayerId.value),
+)
+
+const withBars = (cats) => {
+  const maxAvg = Math.max(1, ...cats.map((c) => c.avg || 0))
+  return cats.map((c) => ({ ...c, barPct: c.avg ? Math.max(5, Math.round((c.avg / maxAvg) * 100)) : 0 }))
+}
+
+const evTrajectoryChart = computed(() => {
+  const rows = rowsForPlayerChart.value
+  const cats = [
+    { key: 'LD', label: 'Line Drive', color: '#37D67A' },
+    { key: 'GB', label: 'Ground Ball', color: '#F59E0B' },
+    { key: 'FB', label: 'Fly Ball', color: '#34A7FF' },
+  ].map((c) => {
+    const vals = rows.filter((r) => r.trajectory === c.key).map((r) => r.velocity).filter((v) => v !== null && v > 0)
+    return { ...c, avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null, count: vals.length }
+  })
+  return withBars(cats)
+})
+
+const ltHopChart = computed(() => {
+  const rows = rowsForPlayerChart.value
+  const cats = [
+    { key: 0, label: 'No Hop', color: '#37D67A' },
+    { key: 1, label: '1 Hop', color: '#34A7FF' },
+    { key: 2, label: '2 Hop', color: '#F59E0B' },
+    { key: 3, label: '3 Hop', color: '#EF4444' },
+  ].map((c) => {
+    const vals = rows.filter((r) => (r.hop ?? -1) === c.key).map((r) => r.distance).filter((v) => v !== null && v > 0)
+    return { ...c, avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null, count: vals.length }
+  })
+  return withBars(cats)
+})
+
+const playerChart = computed(() => (modeKey.value === 'EV' ? evTrajectoryChart.value : ltHopChart.value))
+
 const groupRowsByPlayer = computed(() => {
   const map = new Map()
   normalizedRows.value.forEach((row) => {
@@ -890,6 +931,26 @@ const metricCards = computed(() => {
             </button>
           </div>
 
+          <!-- Player chart — EV: avg velocity by trajectory · LT: avg distance by hop -->
+          <section v-if="modeKey === 'EV' || modeKey === 'LT'" class="training-chart-card">
+            <h4 class="training-chart-title">
+              {{ modeKey === 'EV' ? 'Avg Exit Velocity by Trajectory' : 'Avg Distance by Hop' }}
+              <span>{{ selectedPlayerId ? (playerSummaries.find((p) => p.id === selectedPlayerId)?.name || '') : 'Team' }}</span>
+            </h4>
+            <div class="training-bars">
+              <div v-for="c in playerChart" :key="`bar-${c.label}`" class="training-bar-col">
+                <div class="training-bar-val" :style="{ color: c.color }">
+                  {{ c.avg != null ? formatNumber(c.avg) : '—' }}<em v-if="c.avg != null">{{ modeKey === 'EV' ? 'mph' : 'ft' }}</em>
+                </div>
+                <div class="training-bar-track">
+                  <div class="training-bar-fill" :style="{ height: c.barPct + '%', background: c.color }" />
+                </div>
+                <div class="training-bar-label">{{ c.label }}</div>
+                <div class="training-bar-count">{{ c.count }} {{ modeKey === 'EV' ? 'sw' : 'thr' }}</div>
+              </div>
+            </div>
+          </section>
+
           <div class="training-table-wrap">
             <table class="training-table">
               <thead>
@@ -1080,6 +1141,86 @@ const metricCards = computed(() => {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   background: rgba(0, 0, 0, 0.22);
+}
+
+/* Player-tab chart (EV avg velocity by trajectory · LT avg distance by hop) */
+.training-chart-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.22);
+  padding: 16px 18px 12px;
+  margin-bottom: 14px;
+}
+.training-chart-title {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.training-chart-title span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.4);
+}
+.training-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  min-height: 180px;
+}
+.training-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.training-bar-val {
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.training-bar-val em {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.65;
+  margin-left: 2px;
+}
+.training-bar-track {
+  width: 100%;
+  max-width: 64px;
+  height: 130px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px 8px 4px 4px;
+  overflow: hidden;
+}
+.training-bar-fill {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  transition: height 0.4s ease;
+  min-height: 3px;
+}
+.training-bar-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+}
+.training-bar-count {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .training-table {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Player;
 
 use App\Http\Controllers\Controller;
+use App\Models\Concerns\PracticeTypes;
 use App\Models\ExitVelocityPractice;
 use App\Models\LongTossPractice;
 use App\Models\Practice;
