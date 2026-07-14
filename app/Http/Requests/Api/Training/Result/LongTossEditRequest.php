@@ -28,6 +28,7 @@ class LongTossEditRequest extends FormRequest
             'set'=>['nullable','integer'],
             'hop'=>['nullable','integer'],
             'distance'=>['nullable','integer'],
+            'user_id'=>['nullable','string'],
         ];
     }
 

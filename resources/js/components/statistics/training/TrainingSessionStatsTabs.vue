@@ -311,6 +311,13 @@ const ltHopChart = computed(() => {
 
 const playerChart = computed(() => (modeKey.value === 'EV' ? evTrajectoryChart.value : ltHopChart.value))
 
+// Long Toss chart as an X/Y line: x = hop count (0,1,2,3), y = avg distance.
+const LT_HOP_KEYS = ['value']
+const ltHopCurvePoints = computed(() =>
+  ltHopChart.value.map((c) => ({ label: String(c.key), value: c.avg, color: c.color, count: c.count })),
+)
+const ltChartHasData = computed(() => ltHopChart.value.some((c) => c.avg != null))
+
 const groupRowsByPlayer = computed(() => {
   const map = new Map()
   normalizedRows.value.forEach((row) => {
@@ -931,23 +938,52 @@ const metricCards = computed(() => {
             </button>
           </div>
 
-          <!-- Player chart — EV: avg velocity by trajectory · LT: avg distance by hop -->
+          <!-- Player chart — EV: avg velocity by trajectory (bars) · LT: avg distance by hop (x/y line) -->
           <section v-if="modeKey === 'EV' || modeKey === 'LT'" class="training-chart-card">
             <h4 class="training-chart-title">
               {{ modeKey === 'EV' ? 'Avg Exit Velocity by Trajectory' : 'Avg Distance by Hop' }}
               <span>{{ selectedPlayerId ? (playerSummaries.find((p) => p.id === selectedPlayerId)?.name || '') : 'Team' }}</span>
             </h4>
-            <div class="training-bars">
-              <div v-for="c in playerChart" :key="`bar-${c.label}`" class="training-bar-col">
+
+            <!-- EV: vertical bars -->
+            <div v-if="modeKey === 'EV'" class="training-bars">
+              <div v-for="c in evTrajectoryChart" :key="`bar-${c.label}`" class="training-bar-col">
                 <div class="training-bar-val" :style="{ color: c.color }">
-                  {{ c.avg != null ? formatNumber(c.avg) : '—' }}<em v-if="c.avg != null">{{ modeKey === 'EV' ? 'mph' : 'ft' }}</em>
+                  {{ c.avg != null ? formatNumber(c.avg) : '—' }}<em v-if="c.avg != null">mph</em>
                 </div>
                 <div class="training-bar-track">
                   <div class="training-bar-fill" :style="{ height: c.barPct + '%', background: c.color }" />
                 </div>
                 <div class="training-bar-label">{{ c.label }}</div>
-                <div class="training-bar-count">{{ c.count }} {{ modeKey === 'EV' ? 'sw' : 'thr' }}</div>
+                <div class="training-bar-count">{{ c.count }} sw</div>
               </div>
+            </div>
+
+            <!-- LT: x = hops (0,1,2,3), y = distance, point = avg distance per hop -->
+            <div v-else class="training-lt-chart">
+              <div class="training-lt-yaxis">Distance (ft)</div>
+              <div class="training-lt-plot">
+                <div v-if="!ltChartHasData" class="training-empty">No long toss throws for this selection.</div>
+                <svg v-else viewBox="0 0 480 240" preserveAspectRatio="none" class="training-lt-svg">
+                  <!-- axes -->
+                  <line :x1="CHART_PADDING.left" :y1="CHART_PADDING.top" :x2="CHART_PADDING.left" :y2="240 - CHART_PADDING.bottom" stroke="rgba(255,255,255,0.22)" stroke-width="1" />
+                  <line :x1="CHART_PADDING.left" :y1="240 - CHART_PADDING.bottom" :x2="480 - CHART_PADDING.right" :y2="240 - CHART_PADDING.bottom" stroke="rgba(255,255,255,0.22)" stroke-width="1" />
+                  <!-- y min / max ticks -->
+                  <text x="4" :y="chartY(chartBounds(ltHopCurvePoints, LT_HOP_KEYS).max, ltHopCurvePoints, LT_HOP_KEYS, 240) + 4" fill="rgba(255,255,255,0.55)" font-size="11" font-weight="800">{{ chartBounds(ltHopCurvePoints, LT_HOP_KEYS).max }}</text>
+                  <text x="4" :y="chartY(chartBounds(ltHopCurvePoints, LT_HOP_KEYS).min, ltHopCurvePoints, LT_HOP_KEYS, 240) + 4" fill="rgba(255,255,255,0.55)" font-size="11" font-weight="800">{{ chartBounds(ltHopCurvePoints, LT_HOP_KEYS).min }}</text>
+                  <!-- distance line across hops -->
+                  <polyline v-if="chartHasData(ltHopCurvePoints, LT_HOP_KEYS)" :points="chartPolyline(ltHopCurvePoints, 'value', LT_HOP_KEYS, 480, 240)" fill="none" stroke="#37D67A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+                  <!-- x labels (hops) + points (avg distance) -->
+                  <g v-for="(point, index) in ltHopCurvePoints" :key="`lt-hop-${point.label}`">
+                    <text :x="chartX(index, ltHopCurvePoints.length, 480)" y="232" fill="rgba(255,255,255,0.75)" font-size="13" font-weight="900" text-anchor="middle">{{ point.label }}</text>
+                    <template v-if="point.value !== null">
+                      <circle :cx="chartX(index, ltHopCurvePoints.length, 480)" :cy="chartY(point.value, ltHopCurvePoints, LT_HOP_KEYS, 240)" r="5.5" :fill="point.color" stroke="#0b1322" stroke-width="1.5" />
+                      <text :x="chartX(index, ltHopCurvePoints.length, 480)" :y="chartY(point.value, ltHopCurvePoints, LT_HOP_KEYS, 240) - 11" fill="#fff" font-size="11" font-weight="800" text-anchor="middle">{{ formatNumber(point.value) }}</text>
+                    </template>
+                  </g>
+                </svg>
+              </div>
+              <div class="training-lt-xaxis">Hops</div>
             </div>
           </section>
 
@@ -1221,6 +1257,47 @@ const metricCards = computed(() => {
   font-size: 9px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.35);
+}
+
+/* Long Toss x/y line chart (x = hops 0-3, y = distance) */
+.training-lt-chart {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  grid-template-rows: 1fr 18px;
+  gap: 4px;
+  align-items: center;
+}
+.training-lt-yaxis {
+  grid-row: 1;
+  grid-column: 1;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+.training-lt-plot {
+  grid-row: 1;
+  grid-column: 2;
+  min-height: 200px;
+}
+.training-lt-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.training-lt-xaxis {
+  grid-row: 2;
+  grid-column: 2;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .training-table {
