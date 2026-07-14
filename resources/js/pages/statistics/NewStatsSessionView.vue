@@ -9,6 +9,7 @@ import { toast } from '@/utils/AlertPlugin'
 import SessionHeatmapPanel from '@/components/statistics/session/SessionHeatmapPanel.vue'
 import SessionVelocityGridPanel from '@/components/statistics/session/SessionVelocityGridPanel.vue'
 import BattingReportCard from '@/components/statistics/BattingReportCard.vue'
+import TrainingSessionStatsTabs from '@/components/statistics/training/TrainingSessionStatsTabs.vue'
 import { TabBallByBall as BattingAllPitches } from '@/components/statistics'
 import {
   TabBall as BullpenAllPitches,
@@ -139,6 +140,9 @@ const tabNames = computed(() => {
   if (selectedSession.value === 'P') {
     return ['BALL BY BALL', 'PITCH BREAKDOWN', 'CONTACT', 'VELOCITY']
   }
+  if (['EV', 'LT', 'WB'].includes(selectedSession.value)) {
+    return ['BALL BY BALL', 'LEADERS', 'PLAYER']
+  }
   if (selectedSession.value === 'B') {
     return ['ALL PITCHES', 'SPRAY CHART', 'TOTALS', 'PERCENTAGES']
   }
@@ -157,6 +161,7 @@ const tabNames = computed(() => {
 const selectedSession = computed(() => String(route.query?.session || '').toUpperCase())
 const isBatting = computed(() => selectedSession.value === 'B')
 const isBullpen = computed(() => selectedSession.value === 'P')
+const isTrainingModeStats = computed(() => ['EV', 'LT', 'WB'].includes(selectedSession.value))
 const endpointBySession = {
   B: 'batting',
   P: 'bullpen',
@@ -1695,7 +1700,7 @@ onMounted(() => {
             class="mb-6"
           />
 
-          <div v-if="selectedSession === 'EV'" class="mb-4 flex flex-wrap justify-center gap-2">
+          <div v-if="selectedSession === 'EV' && !isTrainingModeStats" class="mb-4 flex flex-wrap justify-center gap-2">
             <button
               class="rounded-full border px-3 py-1.5 text-xs md:text-sm font-bold transition"
               :class="selectedEvPlayerIds.length === 0 ? 'border-[#ff2d55] bg-[#ff2d55]/20 text-white' : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'"
@@ -1714,7 +1719,7 @@ onMounted(() => {
             </button>
           </div>
 
-          <div v-if="selectedSession === 'LT'" class="mb-4 flex flex-wrap justify-center gap-2">
+          <div v-if="selectedSession === 'LT' && !isTrainingModeStats" class="mb-4 flex flex-wrap justify-center gap-2">
             <button
               class="rounded-full border px-3 py-1.5 text-xs md:text-sm font-bold transition"
               :class="selectedLongTossPlayerIds.length === 0 ? 'border-[#ff2d55] bg-[#ff2d55]/20 text-white' : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'"
@@ -1733,7 +1738,7 @@ onMounted(() => {
             </button>
           </div>
 
-          <div v-if="selectedSession === 'WB'" class="mb-4 flex flex-wrap justify-center gap-2">
+          <div v-if="selectedSession === 'WB' && !isTrainingModeStats" class="mb-4 flex flex-wrap justify-center gap-2">
             <button
               class="rounded-full border px-3 py-1.5 text-xs md:text-sm font-bold transition"
               :class="selectedWeightBallPlayerIds.length === 0 ? 'border-[#ff2d55] bg-[#ff2d55]/20 text-white' : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'"
@@ -1858,6 +1863,24 @@ onMounted(() => {
             </div>
           </TabList>
 
+          <TabList v-else-if="isTrainingModeStats" class="mb-5 rounded-[18px] border border-white/10 bg-[#090e1f]/95 p-2 shadow-[0_18px_42px_rgba(0,0,0,0.28)]">
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Tab
+                v-for="name in tabNames"
+                :key="name"
+                as="template"
+                v-slot="{ selected }"
+              >
+                <button
+                  class="rounded-xl px-4 py-3 text-xs md:text-sm font-black tracking-[0.08em] transition uppercase"
+                  :class="selected ? 'bg-[#ff2d55] text-white shadow-[0_12px_28px_rgba(255,45,85,0.28)]' : 'bg-[#2f333d] text-white/90 hover:bg-white/15'"
+                >
+                  {{ name }}
+                </button>
+              </Tab>
+            </div>
+          </TabList>
+
           <TabList v-else-if="selectedSession === 'EV'" class="mb-5 rounded-xl bg-white/10 p-2">
             <div class="flex flex-wrap items-center justify-center gap-2">
               <Tab
@@ -1912,7 +1935,17 @@ onMounted(() => {
 
           <TabPanels>
             <TabPanel v-for="name in tabNames" :key="`panel-${name}`">
-              <template v-if="name === 'ALL PITCHES' || name === 'ALL THROWS' || name === 'BALL BY BALL'">
+              <template v-if="isTrainingModeStats">
+                <TrainingSessionStatsTabs
+                  :mode="selectedSession"
+                  :rows="visibleFlatRows"
+                  :team-name="teamName"
+                  :active-tab="name"
+                  :show-tabs="false"
+                />
+              </template>
+
+              <template v-else-if="name === 'ALL PITCHES' || name === 'ALL THROWS' || name === 'BALL BY BALL'">
                 <BattingAllPitches
                   v-if="isBatting"
                   :isLoading="false"

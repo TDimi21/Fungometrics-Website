@@ -259,6 +259,12 @@ final class ExitVelocityStatisticsService
         $evVals    = array_column($swingScores, 'ev');
         $trajCount = array_count_values(array_column($swingScores, 'traj'));
         $pct       = fn($k) => round((($trajCount[$k] ?? 0) / $total) * 100, 1);
+        // Average exit velocity per trajectory (LD / FB / GB) for the EV panel.
+        $avgEvByTraj = function (string $k) use ($swingScores): ?float {
+            $vals = array_column(array_values(array_filter($swingScores, fn ($s) => $s['traj'] === $k)), 'ev');
+
+            return count($vals) ? round(array_sum($vals) / count($vals), 1) : null;
+        };
 
         return [
             'evs'             => $evs,
@@ -286,6 +292,9 @@ final class ExitVelocityStatisticsService
             'fbPct'           => $pct('FB'),
             'gbPct'           => $pct('GB'),
             'puPct'           => $pct('PU'),
+            'ldAvgEV'         => $avgEvByTraj('LD'),
+            'fbAvgEV'         => $avgEvByTraj('FB'),
+            'gbAvgEV'         => $avgEvByTraj('GB'),
         ];
     }
 

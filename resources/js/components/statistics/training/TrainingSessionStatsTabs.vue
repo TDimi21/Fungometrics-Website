@@ -445,21 +445,22 @@ const metricCards = computed(() => {
           <div class="training-list-card">
             <div class="training-card-title">Leaderboard</div>
             <div v-if="leaders.length === 0" class="training-empty training-empty--small">No leaders available.</div>
-            <button
-              v-for="player in leaders"
-              v-else
-              :key="`leader-${player.id}`"
-              type="button"
-              class="training-leader-row"
-              :class="{ 'training-leader-row--active': selectedPlayerId === player.id }"
-              @click="selectPlayer(player.id)"
-            >
-              <span class="training-rank">{{ player.rank }}</span>
-              <span class="training-name">{{ player.name }}</span>
-              <span class="training-leader-stat">
-                {{ formatNumber(leaderValue(player)) }} {{ leaderUnit }}
-              </span>
-            </button>
+            <template v-else>
+              <button
+                v-for="player in leaders"
+                :key="`leader-${player.id}`"
+                type="button"
+                class="training-leader-row"
+                :class="{ 'training-leader-row--active': selectedPlayerId === player.id }"
+                @click="selectPlayer(player.id)"
+              >
+                <span class="training-rank">{{ player.rank }}</span>
+                <span class="training-name">{{ player.name }}</span>
+                <span class="training-leader-stat">
+                  {{ formatNumber(leaderValue(player)) }} {{ leaderUnit }}
+                </span>
+              </button>
+            </template>
           </div>
 
           <div class="training-table-wrap">
@@ -547,9 +548,11 @@ const metricCards = computed(() => {
                   <td v-if="modeKey === 'EV'">{{ formatNumber(player.ev.fbAvg) }} mph</td>
                   <td v-if="modeKey === 'WB'" class="training-breakdown">
                     <span v-if="!player.weights.length">-</span>
-                    <span v-for="weight in player.weights" v-else :key="`wb-${player.id}-${weight}`">
-                      {{ formatNumber(weight, 0) }} oz: {{ formatNumber(player.wb[String(weight)]?.avg) }} avg / {{ formatNumber(player.wb[String(weight)]?.top) }} top
-                    </span>
+                    <template v-else>
+                      <span v-for="weight in player.weights" :key="`wb-${player.id}-${weight}`">
+                        {{ formatNumber(weight, 0) }} oz: {{ formatNumber(player.wb[String(weight)]?.avg) }} avg / {{ formatNumber(player.wb[String(weight)]?.top) }} top
+                      </span>
+                    </template>
                   </td>
                 </tr>
               </tbody>

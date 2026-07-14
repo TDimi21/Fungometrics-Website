@@ -18,13 +18,20 @@ const has = computed(() => props.detail && Number(props.detail.total) > 0)
 
 const num = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? '—' : v)
 
-// Exit velocity only tracks Line Drive / Fly Ball / Ground Ball.
+// Exit velocity only tracks Line Drive / Fly Ball / Ground Ball. Each row shows
+// the AVERAGE exit velocity for that trajectory (the distribution is already
+// covered by the quality bar below). Bar width scales the mph to a 0–110 range.
+const EV_CEILING = 110
 const trajRows = computed(() => {
   const d = props.detail || {}
+  const row = (key, label, color, raw) => {
+    const avg = raw == null || raw === '' || Number.isNaN(Number(raw)) ? null : Number(raw)
+    return { key, label, color, avg, pct: avg != null ? Math.max(0, Math.min(100, (avg / EV_CEILING) * 100)) : 0 }
+  }
   return [
-    { key: 'ld', label: 'Line Drive', pct: Number(d.ldPct) || 0, color: '#37D67A' },
-    { key: 'fb', label: 'Fly Ball', pct: Number(d.fbPct) || 0, color: '#3B82F6' },
-    { key: 'gb', label: 'Ground Ball', pct: Number(d.gbPct) || 0, color: '#F59E0B' },
+    row('ld', 'Line Drive', '#37D67A', d.ldAvgEV),
+    row('fb', 'Fly Ball', '#3B82F6', d.fbAvgEV),
+    row('gb', 'Ground Ball', '#F59E0B', d.gbAvgEV),
   ]
 })
 
@@ -54,14 +61,14 @@ const rangeSegs = computed(() => {
         </div>
       </div>
 
-      <!-- Trajectory mix (GB / FB / LD only) -->
+      <!-- Avg exit velocity per trajectory (GB / FB / LD only) -->
       <div class="evp-block">
-        <div class="evp-block-head">Trajectory Mix</div>
+        <div class="evp-block-head">Avg Exit Velocity by Trajectory</div>
         <div class="evp-traj">
           <div v-for="t in trajRows" :key="t.key" class="evp-row">
             <span class="evp-label">{{ t.label }}</span>
             <div class="evp-track"><div class="evp-fill" :style="{ width: t.pct + '%', background: t.color }" /></div>
-            <span class="evp-pct" :style="{ color: t.color }">{{ t.pct }}%</span>
+            <span class="evp-pct" :style="{ color: t.color }">{{ t.avg != null ? t.avg : '—' }}<em v-if="t.avg != null"> mph</em></span>
           </div>
         </div>
       </div>
@@ -96,7 +103,8 @@ const rangeSegs = computed(() => {
 .evp-label { width: 92px; flex-shrink: 0; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.82); }
 .evp-track { flex: 1; height: 10px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
 .evp-fill { height: 100%; border-radius: 999px; transition: width 0.4s; }
-.evp-pct { width: 42px; text-align: right; font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.evp-pct { width: 66px; text-align: right; font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.evp-pct em { font-style: normal; font-size: 10px; font-weight: 600; opacity: 0.7; }
 
 .evp-segbar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); }
 .evp-seglegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
