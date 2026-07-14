@@ -168,7 +168,7 @@ if(userData.type === 'coach'){
   <Loader v-show="isSending"/>
   <Layout class="bg-[#060d1a] min-h-screen">
     <!-- Header bar -->
-    <section class="bg-[#0a1628] w-full h-auto absolute left-0 px-[5%] py-3 shadow-lg">
+    <section class="bg-[#0a1628] w-full h-auto px-[5%] py-3 shadow-lg">
       <div class="flex flex-col items-center lg:flex-row gap-4 lg:gap-0 justify-between">
 
         <!-- Left: logo + export -->
@@ -210,7 +210,7 @@ if(userData.type === 'coach'){
       </div>
     </section>
 
-    <section class="mt-[190px] lg:mt-[115px] md:px-[5%]">
+    <section class="mt-6 md:px-[5%]">
       <TabGroup>
         <!-- Tab bar -->
         <TabList class="flex justify-center gap-1 bg-[#0d1f3c] rounded-xl p-1.5 mx-auto mb-6 max-w-fit shadow-inner">
