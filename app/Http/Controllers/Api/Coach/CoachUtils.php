@@ -14,7 +14,7 @@ use App\Models\PlayerTeam;
 use App\Models\Profile;
 use App\Models\User;
 use App\Services\CreateServiceData;
-use App\Services\ListServiceData;
+use App\Services\Access\EntitlementResolver;
 use Illuminate\Database\Eloquent\Model;
 
 class CoachUtils
@@ -45,6 +45,12 @@ class CoachUtils
      */
     public static function teamHeadCoachPlan(string $teamId): string
     {
+        $member = CoachTeam::where('team_id', $teamId)->orderByDesc('is_main')->first();
+        $coach = $member ? User::find($member->coach_id) : null;
+        if ($coach) {
+            return app(EntitlementResolver::class)->getEffectivePlan($coach, $teamId);
+        }
+
         $main = CoachTeam::where('team_id', $teamId)
             ->where('is_main', true)
             ->first();
@@ -65,7 +71,7 @@ class CoachUtils
      */
     public static function coachSeatLimitReached(string $teamId): bool
     {
-        if (self::teamHeadCoachPlan($teamId) === 'coach_pro') {
+        if ('coach_pro' === self::teamHeadCoachPlan($teamId)) {
             return false;
         }
 
@@ -85,7 +91,7 @@ class CoachUtils
         $response_user = (new CreateServiceData(new User()))->handle([
             'phone' => $data['phone'],
             'type' => $type,
-            'status'=>true
+            'status' => true
         ]);
         $nameArr = $data['name'] ?? [];
         $response_profile = (new CreateServiceData(new Profile()))->handle([
@@ -111,7 +117,7 @@ class CoachUtils
                 $playerData = array_filter([
                     'user_id' => $response_user->id,
                     'grad_year' => $data['player']['grad_year'] ?? null,
-                ], fn ($value) => $value !== null && $value !== '');
+                ], fn ($value) => null !== $value && '' !== $value);
 
                 if (count($playerData) > 1) {
                     (new CreateServiceData(new Player()))->handle($playerData);

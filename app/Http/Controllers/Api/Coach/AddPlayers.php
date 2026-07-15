@@ -7,11 +7,11 @@ namespace App\Http\Controllers\Api\Coach;
 use App\Events\UserCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
-use App\Models\CoachTeam;
 use App\Models\Player;
 use App\Models\PlayerTeam;
 use App\Models\User;
 use App\Services\ListServiceData;
+use App\Services\Access\EntitlementResolver;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -32,9 +32,11 @@ class AddPlayers extends Controller
 
             // ── Player limit enforcement ──
             $coach = $request->user();
-            $plan = $coach->subscription_plan ?? 'free';
-            if ($plan !== 'coach_pro') {
-                $teamId = $data['team'] ?? null;
+            $teamId = $data['team'] ?? null;
+            $accessTeamId = $teamId && CoachUtils::isCoachOnTeam($coach->id, $teamId) ? $teamId : null;
+            $hasUnlimitedPlayers = app(EntitlementResolver::class)
+                ->hasEntitlement($coach, 'unlimited_players', $accessTeamId);
+            if ( ! $hasUnlimitedPlayers) {
                 if ($teamId) {
                     $currentCount = PlayerTeam::where('team_id', $teamId)
                         ->where('actual', true)

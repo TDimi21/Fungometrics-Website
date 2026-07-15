@@ -6,6 +6,7 @@ namespace Tests\Feature\Api\Training\Result;
 
 use App\Models\Concerns\PracticeTypes;
 use App\Models\Concerns\UserTypes;
+use App\Models\CoachTeam;
 use App\Models\Practice;
 use App\Models\Team;
 use App\Models\User;
@@ -87,7 +88,6 @@ class PremiumSessionPlanGatingTest extends TestCase
     {
         $coach = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'free']);
         $team  = Team::factory()->create();
-
         Sanctum::actingAs($coach, ['coach']);
 
         $response = $this->json('GET', "api/coach/performance-overview/{$team->id}");
@@ -99,6 +99,7 @@ class PremiumSessionPlanGatingTest extends TestCase
     {
         $coach = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         $team  = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id]);
 
         Sanctum::actingAs($coach, ['coach']);
 

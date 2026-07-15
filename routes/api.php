@@ -196,6 +196,7 @@ Route::post('/complete/{user}/coach', CompleteCoachController::class)->middlewar
 Route::post('/complete/{user}/player', CompletePlayerController::class)->middleware(['guest']);
 
 Route::middleware(['auth:sanctum'])->group(function (): void {
+    Route::get('me/access', \App\Http\Controllers\Api\Access\GetMyAccess::class);
     Route::post('/edit/players/{id}', EditPlayers::class);
     Route::get('player/me', \App\Http\Controllers\Api\Player\GetMe::class);
     Route::post('player/fitness', SaveFitness::class);
