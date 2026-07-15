@@ -53,13 +53,15 @@ class EntitlementResolver
         }
 
         if (null !== $teamId) {
+            $teamSubscriptionSources = [];
             if (Schema::hasTable('subscriptions')) {
-                $sources = array_merge($sources, $this->subscriptionSources('team_id', $teamId, $membership['role']));
+                $teamSubscriptionSources = $this->subscriptionSources('team_id', $teamId, $membership['role']);
+                $sources = array_merge($sources, $teamSubscriptionSources);
             }
             if (Schema::hasTable('entitlement_grants')) {
                 $sources = array_merge($sources, $this->grantSources('team_id', $teamId, $membership['role']));
             }
-            $legacyTeamPlan = $this->legacyTeamPlan($teamId);
+            $legacyTeamPlan = [] === $teamSubscriptionSources ? $this->legacyTeamPlan($teamId) : null;
             if (null !== $legacyTeamPlan) {
                 $sources[] = $this->catalogSource($legacyTeamPlan, 'team_legacy', null, null, $membership['role']);
             }

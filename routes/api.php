@@ -507,4 +507,14 @@ Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): vo
 // ── Admin routes ──────────────────────────────────────────────────────────────
 Route::middleware(['auth:sanctum', 'ability:coach'])->prefix('admin')->group(function (): void {
     Route::patch('/users/{id}/plan', UpdateUserPlan::class);
+    Route::get('/users/{user}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'userIndex']);
+    Route::post('/users/{user}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'userStore']);
+    Route::get('/teams/{team}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'teamIndex']);
+    Route::post('/teams/{team}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'teamStore']);
+    Route::patch('/subscriptions/{subscription}', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'update']);
+    Route::post('/subscriptions/{subscription}/cancel', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'cancel']);
+    Route::post('/subscriptions/{subscription}/revoke', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'revoke']);
+    Route::get('/entitlement-grants', [\App\Http\Controllers\Api\Admin\EntitlementGrantAdminController::class, 'index']);
+    Route::post('/entitlement-grants', [\App\Http\Controllers\Api\Admin\EntitlementGrantAdminController::class, 'store']);
+    Route::post('/entitlement-grants/{grant}/revoke', [\App\Http\Controllers\Api\Admin\EntitlementGrantAdminController::class, 'revoke']);
 });

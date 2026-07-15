@@ -1,0 +1,177 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Billing;
+
+use App\Models\Subscription;
+use App\Models\SubscriptionAudit;
+use App\Models\SubscriptionPlan;
+use App\Models\Team;
+use App\Models\User;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class SubscriptionManager
+{
+    private const TERMINAL = ['expired', 'revoked'];
+
+    public function createManualUserSubscription(User $user, string $planKey, ?Carbon $startsAt = null, ?Carbon $endsAt = null, ?User $actor = null, ?string $reason = null): Subscription
+    {
+        return $this->createManual(['user_id' => $user->id], $planKey, $startsAt, $endsAt, $actor, $reason);
+    }
+
+    public function createManualTeamSubscription(Team $team, string $planKey, ?Carbon $startsAt = null, ?Carbon $endsAt = null, ?User $actor = null, ?string $reason = null): Subscription
+    {
+        if ( ! ($team->status ?? true)) {
+            throw ValidationException::withMessages(['team' => 'The team is inactive.']);
+        }
+        return $this->createManual(['team_id' => $team->id], $planKey, $startsAt, $endsAt, $actor, $reason);
+    }
+
+    public function changeSubscriptionPlan(Subscription $subscription, string $planKey, ?User $actor = null, ?string $reason = null): Subscription
+    {
+        return DB::transaction(function () use ($subscription, $planKey, $actor, $reason): Subscription {
+            $subscription->refresh();
+            $this->assertMutable($subscription);
+            $plan = $this->plan($planKey);
+            if ($subscription->plan_id === $plan->id) {
+                return $subscription;
+            }
+            $before = $subscription->toArray();
+            $subscription->update(['status' => 'expired', 'ended_at' => now()]);
+            $replacement = Subscription::create([
+                'user_id' => $subscription->user_id, 'team_id' => $subscription->team_id,
+                'plan_id' => $plan->id, 'provider' => $subscription->provider,
+                'status' => 'active', 'starts_at' => now(),
+                'current_period_ends_at' => $subscription->current_period_ends_at,
+                'metadata' => ['replaces_subscription_id' => $subscription->id],
+            ]);
+            $this->audit($actor, 'subscription.plan_changed', $replacement, null, $before, $replacement->toArray(), $reason);
+            return $replacement;
+        });
+    }
+
+    public function cancelSubscription(Subscription $subscription, bool $immediately = false, ?User $actor = null, ?string $reason = null): Subscription
+    {
+        if ( ! $immediately && null === $subscription->current_period_ends_at) {
+            throw ValidationException::withMessages(['subscription' => 'Cancel-at-period-end requires a period end date.']);
+        }
+        return $this->transition($subscription, $immediately ? 'canceled' : $subscription->status, [
+            'canceled_at' => now(),
+            'ended_at' => $immediately ? now() : null,
+        ], $actor, $immediately ? 'subscription.canceled_immediately' : 'subscription.cancel_at_period_end', $reason);
+    }
+
+    public function expireSubscription(Subscription $subscription, ?User $actor = null, ?string $reason = null): Subscription
+    {
+        return $this->transition($subscription, 'expired', ['ended_at' => now()], $actor, 'subscription.expired', $reason);
+    }
+
+    public function revokeSubscription(Subscription $subscription, ?User $actor = null, ?string $reason = null): Subscription
+    {
+        return $this->transition($subscription, 'revoked', ['ended_at' => now()], $actor, 'subscription.revoked', $reason);
+    }
+
+    public function startGracePeriod(Subscription $subscription, Carbon $until, ?User $actor = null, ?string $reason = null): Subscription
+    {
+        if ($until->isPast()) {
+            throw ValidationException::withMessages(['grace_period_ends_at' => 'Grace period must end in the future.']);
+        }
+        return $this->transition($subscription, 'grace_period', ['grace_period_ends_at' => $until->utc()], $actor, 'subscription.grace_started', $reason);
+    }
+
+    /** @param array<string, mixed> $attributes */
+    public function reconcileSubscription(Subscription $subscription, array $attributes, ?User $actor = null, ?string $reason = null): Subscription
+    {
+        $allowed = array_intersect_key($attributes, array_flip(['status', 'current_period_ends_at', 'grace_period_ends_at', 'canceled_at', 'ended_at', 'metadata']));
+        $status = (string) ($allowed['status'] ?? $subscription->status);
+        unset($allowed['status']);
+        return $this->transition($subscription, $status, $allowed, $actor, 'subscription.reconciled', $reason);
+    }
+
+    /** @param array<string, string> $owner */
+    private function createManual(array $owner, string $planKey, ?Carbon $startsAt, ?Carbon $endsAt, ?User $actor, ?string $reason): Subscription
+    {
+        return DB::transaction(function () use ($owner, $planKey, $startsAt, $endsAt, $actor, $reason): Subscription {
+            if (1 !== count($owner)) {
+                throw ValidationException::withMessages(['owner' => 'Exactly one owner is required.']);
+            }
+            $plan = $this->plan($planKey);
+            $active = Subscription::query()->where($owner)->where('provider', 'manual')
+                ->whereIn('status', ['trialing', 'active', 'grace_period'])->whereNull('ended_at')->lockForUpdate()->first();
+            $sameEnd = (null === $active?->current_period_ends_at && null === $endsAt)
+                || (null !== $active?->current_period_ends_at && null !== $endsAt && $active->current_period_ends_at->equalTo($endsAt));
+            if ($active && $active->plan_id === $plan->id && $sameEnd) {
+                return $active;
+            }
+            if ($active) {
+                $active->update(['status' => 'expired', 'ended_at' => now()]);
+            }
+            $subscription = Subscription::create($owner + [
+                'plan_id' => $plan->id, 'provider' => 'manual', 'status' => 'active',
+                'starts_at' => ($startsAt ?? now())->utc(), 'current_period_ends_at' => $endsAt?->utc(),
+                'metadata' => ['admin_actor_id' => $actor?->id],
+            ]);
+            $this->audit($actor, 'subscription.created', $subscription, null, null, $subscription->toArray(), $reason);
+            return $subscription;
+        });
+    }
+
+    /** @param array<string, mixed> $changes */
+    private function transition(Subscription $subscription, string $status, array $changes, ?User $actor, string $action, ?string $reason): Subscription
+    {
+        return DB::transaction(function () use ($subscription, $status, $changes, $actor, $action, $reason): Subscription {
+            $subscription->refresh();
+            $this->assertTransition($subscription->status, $status);
+            $before = $subscription->toArray();
+            $subscription->update(['status' => $status] + $changes);
+            $this->audit($actor, $action, $subscription, null, $before, $subscription->fresh()->toArray(), $reason);
+            return $subscription->fresh();
+        });
+    }
+
+    private function assertTransition(string $from, string $to): void
+    {
+        $allowed = [
+            'trialing' => ['trialing', 'active', 'grace_period', 'canceled', 'expired', 'revoked'],
+            'active' => ['active', 'grace_period', 'past_due', 'canceled', 'expired', 'revoked'],
+            'grace_period' => ['grace_period', 'active', 'expired', 'revoked'],
+            'past_due' => ['past_due', 'active', 'grace_period', 'expired', 'revoked'],
+            'canceled' => ['canceled', 'expired', 'revoked'],
+            'expired' => ['expired'], 'revoked' => ['revoked'],
+        ];
+        if ( ! in_array($to, $allowed[$from] ?? [], true)) {
+            throw ValidationException::withMessages(['status' => "Invalid subscription transition: {$from} to {$to}."]);
+        }
+    }
+
+    private function assertMutable(Subscription $subscription): void
+    {
+        if (in_array($subscription->status, self::TERMINAL, true)) {
+            throw ValidationException::withMessages(['subscription' => 'Terminal subscriptions cannot be modified.']);
+        }
+    }
+
+    private function plan(string $key): SubscriptionPlan
+    {
+        $plan = SubscriptionPlan::query()->where('key', $key)->where('active', true)->first();
+        if ( ! $plan) {
+            throw ValidationException::withMessages(['plan' => 'Unknown or inactive subscription plan.']);
+        }
+        return $plan;
+    }
+
+    /** @param array<string, mixed>|null $before @param array<string, mixed>|null $after */
+    private function audit(?User $actor, string $action, ?Subscription $subscription, ?string $grantId, ?array $before, ?array $after, ?string $reason): void
+    {
+        SubscriptionAudit::create([
+            'actor_user_id' => $actor?->id, 'action' => $action,
+            'target_user_id' => $subscription?->user_id, 'target_team_id' => $subscription?->team_id,
+            'subscription_id' => $subscription?->id, 'grant_id' => $grantId,
+            'before_state' => $before, 'after_state' => $after, 'reason' => $reason,
+            'correlation_id' => request()?->header('X-Request-ID'), 'created_at' => now(),
+        ]);
+    }
+}
