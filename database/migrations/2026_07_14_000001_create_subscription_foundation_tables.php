@@ -17,7 +17,10 @@ return new class () extends Migration {
             $table->string('name');
             $table->string('audience')->index();
             $table->boolean('active')->default(true)->index();
-            $table->json('metadata')->nullable();
+            // LONGTEXT keeps this compatible with older MariaDB versions that
+            // do not support the native JSON column type. Model casts still
+            // provide normal array/JSON serialization at the application layer.
+            $table->longText('metadata')->nullable();
             $table->timestamps();
         });
 
@@ -25,7 +28,7 @@ return new class () extends Migration {
             $table->uuid('id')->primary();
             $table->foreignUuid('subscription_plan_id')->constrained('subscription_plans')->cascadeOnDelete();
             $table->string('entitlement_key')->index();
-            $table->json('metadata')->nullable();
+            $table->longText('metadata')->nullable();
             $table->timestamps();
             $table->unique(['subscription_plan_id', 'entitlement_key'], 'plan_entitlement_unique');
         });
@@ -45,7 +48,7 @@ return new class () extends Migration {
             $table->timestamp('grace_period_ends_at')->nullable()->index();
             $table->timestamp('canceled_at')->nullable();
             $table->timestamp('ended_at')->nullable()->index();
-            $table->json('metadata')->nullable();
+            $table->longText('metadata')->nullable();
             $table->timestamps();
             $table->index(['user_id', 'status']);
             $table->index(['team_id', 'status']);
@@ -62,7 +65,7 @@ return new class () extends Migration {
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('ends_at')->nullable()->index();
             $table->timestamp('revoked_at')->nullable()->index();
-            $table->json('metadata')->nullable();
+            $table->longText('metadata')->nullable();
             $table->timestamps();
             $table->index(['user_id', 'entitlement_key']);
             $table->index(['team_id', 'entitlement_key']);
@@ -73,14 +76,16 @@ return new class () extends Migration {
             $table->string('provider');
             $table->string('provider_event_id');
             $table->string('event_type')->index();
-            $table->json('payload');
+            $table->longText('payload');
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processing_error')->nullable();
             $table->timestamps();
             $table->unique(['provider', 'provider_event_id'], 'billing_provider_event_unique');
         });
 
-        if (in_array(DB::getDriverName(), ['mysql', 'pgsql'], true)) {
+        // Older MariaDB releases also lack reliable CHECK support. Eloquent's
+        // saving hooks enforce exactly one owner on every application write.
+        if ('pgsql' === DB::getDriverName()) {
             DB::statement('ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_one_owner CHECK ((user_id IS NOT NULL AND team_id IS NULL) OR (user_id IS NULL AND team_id IS NOT NULL))');
             DB::statement('ALTER TABLE entitlement_grants ADD CONSTRAINT entitlement_grants_one_owner CHECK ((user_id IS NOT NULL AND team_id IS NULL) OR (user_id IS NULL AND team_id IS NOT NULL))');
         }
