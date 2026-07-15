@@ -39,6 +39,7 @@ const STEPS = [
 ]
 const stepIndex = ref(0)
 const currentStep = computed(() => STEPS[stepIndex.value])
+const currentStepKey = computed(() => currentStep.value?.key || STEPS[0].key)
 const goTo = (key) => { const i = STEPS.findIndex(s => s.key === key); if (i >= 0) stepIndex.value = i }
 const next = () => { if (stepIndex.value < STEPS.length - 1) stepIndex.value++ }
 const back = () => { if (stepIndex.value > 0) stepIndex.value-- }
@@ -123,6 +124,11 @@ const loadDraft = async (id = activePlayerId.value) => {
   applyDraftData(saved)
 }
 const saveDraft = async () => {
+  if (!activePlayerId.value) {
+    saveError.value = 'Select a player first.'
+    return
+  }
+  saveError.value = ''
   const snapshot = JSON.parse(JSON.stringify(form))
   try { localStorage.setItem(draftKey(), JSON.stringify(snapshot)) } catch (_) { /* noop */ }
   dirty.value = false
@@ -168,9 +174,15 @@ const switchPlayer = (newId) => {
   draftMsg.value = ''
 }
 
+const resolveInitialPlayerId = () => {
+  if (props.playerId) return String(props.playerId)
+  const first = (props.players || []).find(p => p?.id)
+  return first?.id ? String(first.id) : ''
+}
+
 watch(() => props.visible, (v) => {
   if (v) {
-    activePlayerId.value = props.playerId ? String(props.playerId) : ''
+    activePlayerId.value = resolveInitialPlayerId()
     loadDraft()
     stepIndex.value = 0
     draftMsg.value = ''
@@ -356,7 +368,7 @@ const onSave = async () => {
             <!-- Step selector -->
             <div class="px-5 pt-4">
               <div class="relative">
-                <select v-model="currentStep.key" @change="goTo($event.target.value)"
+                <select :value="currentStepKey" @change="goTo($event.target.value)"
                   class="w-full appearance-none rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-bold text-white outline-none focus:border-red-400/60">
                   <option v-for="s in STEPS" :key="s.key" :value="s.key">Assessment · {{ s.label }}</option>
                 </select>
@@ -369,7 +381,7 @@ const onSave = async () => {
               <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
 
                 <!-- BASEBALL METRICS -->
-                <div v-if="currentStep.key === 'baseball'">
+                <div v-if="currentStepKey === 'baseball'">
                   <div class="flex items-center justify-between mb-1">
                     <h3 class="flex items-center gap-2 text-white font-black"><span class="inline-block h-4 w-1 rounded bg-[#ff5a5f]"></span>Baseball Metrics</h3>
                     <span class="text-sm font-black" :style="{ color: scoreColor(fmtrx.athletic) }">{{ dash(fmtrx.athletic) }} Athletic</span>
@@ -392,7 +404,7 @@ const onSave = async () => {
                 </div>
 
                 <!-- STRENGTH -->
-                <div v-else-if="currentStep.key === 'strength'">
+                <div v-else-if="currentStepKey === 'strength'">
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="flex items-center gap-2 text-white font-black"><span class="inline-block h-4 w-1 rounded bg-cyan-400"></span>🏋️ Strength Testing</h3>
                   </div>
@@ -448,7 +460,7 @@ const onSave = async () => {
                 </div>
 
                 <!-- MOBILITY -->
-                <div v-else-if="currentStep.key === 'mobility'">
+                <div v-else-if="currentStepKey === 'mobility'">
                   <div class="flex items-center justify-between mb-1">
                     <h3 class="text-white font-black">Mobility Testing</h3>
                     <span class="text-sm font-black" :style="{ color: scoreColor(fmtrx.mobility) }">{{ dash(fmtrx.mobility) }}</span>
@@ -477,7 +489,7 @@ const onSave = async () => {
                 </div>
 
                 <!-- THROWING / ARM HEALTH -->
-                <div v-else-if="currentStep.key === 'arm'">
+                <div v-else-if="currentStepKey === 'arm'">
                   <div class="flex items-center justify-between mb-2">
                     <h3 class="flex items-center gap-2 text-white font-black"><span class="inline-block h-4 w-1 rounded bg-green-400"></span>Throwing / Arm Health</h3>
                     <span class="text-sm font-black" :style="{ color: scoreColor(fmtrx.armHealth) }">{{ dash(fmtrx.armHealth) }} / 100</span>
@@ -523,7 +535,7 @@ const onSave = async () => {
                 </div>
 
                 <!-- HITTING -->
-                <div v-else-if="currentStep.key === 'hitting'">
+                <div v-else-if="currentStepKey === 'hitting'">
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="flex items-center gap-2 text-white font-black"><span class="inline-block h-4 w-1 rounded bg-[#ff7a18]"></span>Hitting Assessment</h3>
                     <span class="text-sm font-black" :style="{ color: scoreColor(fmtrx.hitting) }">{{ dash(fmtrx.hitting) }} / 100</span>
@@ -559,7 +571,7 @@ const onSave = async () => {
                 </div>
 
                 <!-- PITCHING -->
-                <div v-else-if="currentStep.key === 'pitching'">
+                <div v-else-if="currentStepKey === 'pitching'">
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="flex items-center gap-2 text-white font-black"><span class="inline-block h-4 w-1 rounded bg-blue-400"></span>Pitching Assessment</h3>
                     <span class="text-sm font-black" :style="{ color: scoreColor(fmtrx.pitching) }">{{ dash(fmtrx.pitching) }} / 100</span>
@@ -615,7 +627,7 @@ const onSave = async () => {
                 </div>
 
                 <!-- FMTRX SCORING -->
-                <div v-else-if="currentStep.key === 'fmtrx'">
+                <div v-else-if="currentStepKey === 'fmtrx'">
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="flex items-center gap-2 text-white font-black"><span class="inline-block h-4 w-1 rounded bg-yellow-400"></span>FMTRX Baseline Score</h3>
                     <span class="text-sm font-black" :style="{ color: scoreColor(fmtrx.overall) }">{{ dash(fmtrx.overall) }} Overall</span>
