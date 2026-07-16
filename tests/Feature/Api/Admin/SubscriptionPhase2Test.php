@@ -73,6 +73,26 @@ class SubscriptionPhase2Test extends TestCase
         $this->assertSame(2, SubscriptionAudit::where('grant_id', $grant->id)->count());
     }
 
+    public function test_grant_rejects_missing_owner_at_service_boundary(): void
+    {
+        $this->expectException(ValidationException::class);
+        app(EntitlementGrantManager::class)->create([
+            'user_id' => null,
+            'team_id' => null,
+            'entitlement_key' => 'view_advanced_stats',
+        ], User::factory()->create());
+    }
+
+    public function test_grant_rejects_two_owners_at_service_boundary(): void
+    {
+        $this->expectException(ValidationException::class);
+        app(EntitlementGrantManager::class)->create([
+            'user_id' => User::factory()->create()->id,
+            'team_id' => Team::factory()->create()->id,
+            'entitlement_key' => 'view_advanced_stats',
+        ], User::factory()->create());
+    }
+
     public function test_legacy_admin_plan_change_dual_writes(): void
     {
         $admin = User::factory()->create(['type' => 'coach', 'email' => 'admin@fungometrics.com']);

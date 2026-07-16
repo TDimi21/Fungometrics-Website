@@ -8,7 +8,9 @@ use App\Exceptions\NotFound;
 use App\Http\Controllers\Api\RoasterUtils;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\PlayerTeamResource;
+use App\Models\CoachTeam;
 use App\Models\PlayerTeam;
+use App\Models\Team;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +28,15 @@ class GetTeamById extends Controller
     {
         try {
             $teamId = (string) $request->id;
+            $userId = (string) $request->user()->id;
+            $teamExists = Team::query()->whereKey($teamId)->exists();
+            $canAccess = CoachTeam::query()
+                ->where('team_id', $teamId)
+                ->where('coach_id', $userId)
+                ->exists();
+            if ( ! $teamExists || ! $canAccess) {
+                throw new NotFound();
+            }
             $result = Cache::remember("roster_team_{$teamId}", 60, function () use ($teamId) {
                 $playersId = PlayerTeam::query()
                     ->where('team_id', $teamId)

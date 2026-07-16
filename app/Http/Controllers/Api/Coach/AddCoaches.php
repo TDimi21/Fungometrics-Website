@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Coach;
 
+use App\Events\UserChanged;
 use App\Events\UserCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
@@ -31,6 +32,7 @@ class AddCoaches extends Controller
             $data = $request->validated();
             $teamId = $data['team'];
             $actor = $request->user();
+            $changedEventData = null;
 
             // ── Role gate: only the head coach manages coach seats ──
             if (! CoachUtils::isHeadCoach($actor->id, $teamId)) {
@@ -87,13 +89,15 @@ class AddCoaches extends Controller
 
                 if ($existing && $existing->trashed()) {
                     $existing->restore();
+                    $membership = $existing;
                 } else {
-                    (new CreateServiceData(new CoachTeam()))->handle([
+                    $membership = (new CreateServiceData(new CoachTeam()))->handle([
                         'team_id' => $teamId,
                         'coach_id' => $user->id,
                         'is_main' => false,
                     ]);
                 }
+                $changedEventData = ['user' => $user, 'team' => $membership];
             }
 
             $response = [
@@ -103,6 +107,9 @@ class AddCoaches extends Controller
                 'data' => [],
             ];
             DB::commit();
+            if (null !== $changedEventData) {
+                event(new UserChanged($changedEventData));
+            }
 
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {

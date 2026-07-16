@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Coach;
 
+use App\Events\UserChanged;
 use App\Events\UserCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
@@ -54,6 +55,7 @@ class AddPlayers extends Controller
             }
             $player = (new ListServiceData(new User()))->byParamFirst('phone', $data['phone']);
             $message = "";
+            $changedEventData = null;
             if ( ! isset($player)) {
                 $savePlayer = CoachUtils::saveNewUser($data);
                 event(new UserCreated($savePlayer['user']));
@@ -64,8 +66,7 @@ class AddPlayers extends Controller
                     $message = 'this player already belongs to the team';
                 } else {
                     $message = 'the player is added to team';
-                    // Only fire SMS event for genuinely new team additions
-                    // (player already has a profile — no claim needed)
+                    $changedEventData = ['user' => $player, 'team' => $data_team];
                 }
             }
 
@@ -84,6 +85,9 @@ class AddPlayers extends Controller
                 'data' =>  User::with('profile', 'player', 'fitness', 'positions')->find($userId),
             ];
             DB::commit();
+            if (null !== $changedEventData) {
+                event(new UserChanged($changedEventData));
+            }
 
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {

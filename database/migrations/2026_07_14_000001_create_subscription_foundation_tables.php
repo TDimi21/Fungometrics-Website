@@ -13,9 +13,9 @@ return new class () extends Migration {
     {
         Schema::create('subscription_plans', function (Blueprint $table): void {
             $table->uuid('id')->primary();
-            $table->string('key')->unique();
+            $table->string('key', 64)->unique();
             $table->string('name');
-            $table->string('audience')->index();
+            $table->string('audience', 32)->index();
             $table->boolean('active')->default(true)->index();
             // LONGTEXT keeps this compatible with older MariaDB versions that
             // do not support the native JSON column type. Model casts still
@@ -27,7 +27,7 @@ return new class () extends Migration {
         Schema::create('plan_entitlements', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('subscription_plan_id')->constrained('subscription_plans')->cascadeOnDelete();
-            $table->string('entitlement_key')->index();
+            $table->string('entitlement_key', 128)->index();
             $table->longText('metadata')->nullable();
             $table->timestamps();
             $table->unique(['subscription_plan_id', 'entitlement_key'], 'plan_entitlement_unique');
@@ -38,11 +38,11 @@ return new class () extends Migration {
             $table->foreignUuid('user_id')->nullable()->constrained('users')->cascadeOnDelete();
             $table->foreignUuid('team_id')->nullable()->constrained('teams')->cascadeOnDelete();
             $table->foreignUuid('plan_id')->constrained('subscription_plans');
-            $table->string('provider')->index();
-            $table->string('provider_customer_id')->nullable()->index();
-            $table->string('provider_subscription_id')->nullable();
-            $table->string('provider_product_id')->nullable();
-            $table->string('status')->index();
+            $table->string('provider', 32)->index();
+            $table->string('provider_customer_id', 128)->nullable()->index();
+            $table->string('provider_subscription_id', 128)->nullable();
+            $table->string('provider_product_id', 128)->nullable();
+            $table->string('status', 32)->index();
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('current_period_ends_at')->nullable()->index();
             $table->timestamp('grace_period_ends_at')->nullable()->index();
@@ -59,8 +59,8 @@ return new class () extends Migration {
             $table->uuid('id')->primary();
             $table->foreignUuid('user_id')->nullable()->constrained('users')->cascadeOnDelete();
             $table->foreignUuid('team_id')->nullable()->constrained('teams')->cascadeOnDelete();
-            $table->string('entitlement_key')->index();
-            $table->string('source_type')->index();
+            $table->string('entitlement_key', 128)->index();
+            $table->string('source_type', 32)->index();
             $table->uuid('source_id')->nullable()->index();
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('ends_at')->nullable()->index();
@@ -73,9 +73,9 @@ return new class () extends Migration {
 
         Schema::create('billing_events', function (Blueprint $table): void {
             $table->uuid('id')->primary();
-            $table->string('provider');
-            $table->string('provider_event_id');
-            $table->string('event_type')->index();
+            $table->string('provider', 32);
+            $table->string('provider_event_id', 128);
+            $table->string('event_type', 128)->index();
             $table->longText('payload');
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processing_error')->nullable();

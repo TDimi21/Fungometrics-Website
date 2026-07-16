@@ -63,6 +63,17 @@ class GetTeamTest extends TestCase
         ]);
     }
 
+    public function test_get_team_by_id_returns_not_found_for_unrelated_coach(): void
+    {
+        $owner = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $unrelatedCoach = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['team_id' => $team->id, 'coach_id' => $owner->id]);
+        Sanctum::actingAs($unrelatedCoach, [UserTypes::COACH->value]);
+
+        $this->json('GET', 'api/coach/teams/'.$team->id)->assertNotFound();
+    }
+
     public function test_get_team_by_id_unauthorized(): void
     {
         $user = User::factory()->create(['type'=>UserTypes::PLAYER->value]);
