@@ -19,7 +19,7 @@ class SubscriptionManager
 
     public function createManualUserSubscription(User $user, string $planKey, ?Carbon $startsAt = null, ?Carbon $endsAt = null, ?User $actor = null, ?string $reason = null): Subscription
     {
-        return $this->createManual(['user_id' => $user->id], $planKey, $startsAt, $endsAt, $actor, $reason);
+        return $this->createManual(['user_id' => $user->id], $planKey, $startsAt, $endsAt, $actor, $reason, (string) $user->type);
     }
 
     public function createManualTeamSubscription(Team $team, string $planKey, ?Carbon $startsAt = null, ?Carbon $endsAt = null, ?User $actor = null, ?string $reason = null): Subscription
@@ -27,7 +27,7 @@ class SubscriptionManager
         if ( ! ($team->status ?? true)) {
             throw ValidationException::withMessages(['team' => 'The team is inactive.']);
         }
-        return $this->createManual(['team_id' => $team->id], $planKey, $startsAt, $endsAt, $actor, $reason);
+        return $this->createManual(['team_id' => $team->id], $planKey, $startsAt, $endsAt, $actor, $reason, 'coach');
     }
 
     public function changeSubscriptionPlan(Subscription $subscription, string $planKey, ?User $actor = null, ?string $reason = null): Subscription
@@ -92,13 +92,23 @@ class SubscriptionManager
     }
 
     /** @param array<string, string> $owner */
-    private function createManual(array $owner, string $planKey, ?Carbon $startsAt, ?Carbon $endsAt, ?User $actor, ?string $reason): Subscription
+    private function createManual(array $owner, string $planKey, ?Carbon $startsAt, ?Carbon $endsAt, ?User $actor, ?string $reason, string $audience): Subscription
     {
-        return DB::transaction(function () use ($owner, $planKey, $startsAt, $endsAt, $actor, $reason): Subscription {
+        return DB::transaction(function () use ($owner, $planKey, $startsAt, $endsAt, $actor, $reason, $audience): Subscription {
             if (1 !== count($owner)) {
                 throw ValidationException::withMessages(['owner' => 'Exactly one owner is required.']);
             }
+            // Serialize creation even when no active subscription row exists yet.
+            // Locking the stable owner row closes the concurrent first-write gap.
+            if (isset($owner['user_id'])) {
+                User::query()->whereKey($owner['user_id'])->lockForUpdate()->firstOrFail();
+            } else {
+                Team::query()->whereKey($owner['team_id'])->lockForUpdate()->firstOrFail();
+            }
             $plan = $this->plan($planKey);
+            if ($plan->audience !== $audience && 'free' !== $plan->key) {
+                throw ValidationException::withMessages(['plan' => 'The plan audience does not match the subscription owner.']);
+            }
             $active = Subscription::query()->where($owner)->where('provider', 'manual')
                 ->whereIn('status', ['trialing', 'active', 'grace_period'])->whereNull('ended_at')->lockForUpdate()->first();
             $sameEnd = (null === $active?->current_period_ends_at && null === $endsAt)

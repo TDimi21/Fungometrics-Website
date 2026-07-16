@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'admin_emails' => array_values(array_filter(array_map('trim', explode(',', (string) env('SUBSCRIPTION_ADMIN_EMAILS', 'admin@fungometrics.com'))))),
     'plans' => [
         'free' => ['name' => 'Free', 'audience' => 'coach', 'entitlements' => [
             'create_session', 'record_pitches', 'view_session_history', 'roster_view',

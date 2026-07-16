@@ -102,6 +102,45 @@ class EntitlementResolverTest extends TestCase
         $this->resolver->getEntitlements(User::factory()->create(), $team->id);
     }
 
+    public function test_real_team_subscription_replaces_head_coach_legacy_fallback(): void
+    {
+        $head = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
+        $member = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $head->id, 'team_id' => $team->id, 'is_main' => true]);
+        CoachTeam::factory()->create(['coach_id' => $member->id, 'team_id' => $team->id, 'is_main' => false]);
+        $this->subscribeTeam($team, 'coach_basic');
+
+        $summary = $this->resolver->getAccessSummary($member, $team->id);
+        $this->assertSame('coach_basic', $summary['plan']);
+        $this->assertFalse($this->resolver->hasEntitlement($member, 'view_advanced_stats', $team->id));
+    }
+
+    public function test_team_access_requires_explicit_context_and_switches_deterministically(): void
+    {
+        $player = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
+        $basic = Team::factory()->create();
+        $pro = Team::factory()->create();
+        PlayerTeam::create(['user_id' => $player->id, 'team_id' => $basic->id, 'actual' => true]);
+        PlayerTeam::create(['user_id' => $player->id, 'team_id' => $pro->id, 'actual' => true]);
+        $this->subscribeTeam($basic, 'coach_basic');
+        $this->subscribeTeam($pro, 'coach_pro');
+
+        $this->assertFalse($this->resolver->hasEntitlement($player, 'view_advanced_stats'));
+        $this->assertFalse($this->resolver->hasEntitlement($player, 'view_advanced_stats', $basic->id));
+        $this->assertTrue($this->resolver->hasEntitlement($player, 'view_advanced_stats', $pro->id));
+    }
+
+    public function test_player_filters_coach_only_team_grants(): void
+    {
+        [$player, $team] = $this->playerOnTeam();
+        EntitlementGrant::create(['team_id' => $team->id, 'entitlement_key' => 'edit_team', 'source_type' => 'admin']);
+        EntitlementGrant::create(['team_id' => $team->id, 'entitlement_key' => 'view_advanced_stats', 'source_type' => 'admin']);
+
+        $this->assertFalse($this->resolver->hasEntitlement($player, 'edit_team', $team->id));
+        $this->assertTrue($this->resolver->hasEntitlement($player, 'view_advanced_stats', $team->id));
+    }
+
     public function test_middleware_allows_an_entitled_request(): void
     {
         $pro = User::factory()->create(['subscription_plan' => 'coach_pro']);

@@ -505,7 +505,7 @@ Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): vo
 });
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
-Route::middleware(['auth:sanctum', 'ability:coach'])->prefix('admin')->group(function (): void {
+Route::middleware(['auth:sanctum', 'ability:coach', 'subscription.admin'])->prefix('admin')->group(function (): void {
     Route::patch('/users/{id}/plan', UpdateUserPlan::class);
     Route::get('/users/{user}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'userIndex']);
     Route::post('/users/{user}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'userStore']);

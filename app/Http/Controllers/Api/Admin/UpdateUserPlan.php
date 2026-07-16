@@ -10,6 +10,7 @@ use App\Models\SubscriptionAudit;
 use App\Services\Access\EntitlementResolver;
 use App\Services\Billing\SubscriptionManager;
 use Exception;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -80,6 +81,8 @@ class UpdateUserPlan extends Controller
                 ],
             ], HttpCodes::HTTP_OK);
 
+        } catch (ValidationException $exception) {
+            throw $exception;
         } catch (Exception $exception) {
             Log::error('Admin UpdateUserPlan error: '.$exception->getMessage());
             return response()->json([

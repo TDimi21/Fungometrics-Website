@@ -23,7 +23,7 @@ class SubscriptionPhase2Test extends TestCase
     public function test_manual_user_creation_is_idempotent_and_audited(): void
     {
         $actor = User::factory()->create(['type' => 'coach']);
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'player']);
         $manager = app(SubscriptionManager::class);
         $first = $manager->createManualUserSubscription($user, 'player_pro', null, null, $actor);
         $second = $manager->createManualUserSubscription($user, 'player_pro', null, null, $actor);
@@ -43,7 +43,7 @@ class SubscriptionPhase2Test extends TestCase
 
     public function test_immediate_cancel_and_revocation_are_terminal(): void
     {
-        $subscription = app(SubscriptionManager::class)->createManualUserSubscription(User::factory()->create(), 'player_pro');
+        $subscription = app(SubscriptionManager::class)->createManualUserSubscription(User::factory()->create(['type' => 'player']), 'player_pro');
         $canceled = app(SubscriptionManager::class)->cancelSubscription($subscription, true);
         $this->assertSame('canceled', $canceled->status);
         $revoked = app(SubscriptionManager::class)->revokeSubscription($canceled);
@@ -55,7 +55,7 @@ class SubscriptionPhase2Test extends TestCase
     public function test_cancel_at_period_end_requires_and_preserves_period_end(): void
     {
         $until = now()->addMonth();
-        $subscription = app(SubscriptionManager::class)->createManualUserSubscription(User::factory()->create(), 'player_pro', null, $until);
+        $subscription = app(SubscriptionManager::class)->createManualUserSubscription(User::factory()->create(['type' => 'player']), 'player_pro', null, $until);
         $canceled = app(SubscriptionManager::class)->cancelSubscription($subscription);
         $this->assertSame('active', $canceled->status);
         $this->assertNotNull($canceled->canceled_at);
@@ -75,8 +75,8 @@ class SubscriptionPhase2Test extends TestCase
 
     public function test_legacy_admin_plan_change_dual_writes(): void
     {
-        $admin = User::factory()->create(['type' => 'coach']);
-        $target = User::factory()->create(['subscription_plan' => 'free']);
+        $admin = User::factory()->create(['type' => 'coach', 'email' => 'admin@fungometrics.com']);
+        $target = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
         Sanctum::actingAs($admin, ['coach']);
         $this->patchJson("/api/admin/users/{$target->id}/plan", ['subscription_plan' => 'player_pro'])->assertOk();
         $this->assertDatabaseHas('users', ['id' => $target->id, 'subscription_plan' => 'player_pro']);
