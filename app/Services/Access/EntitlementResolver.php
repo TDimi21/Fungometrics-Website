@@ -9,6 +9,7 @@ use App\Models\EntitlementGrant;
 use App\Models\PlayerTeam;
 use App\Models\Subscription;
 use App\Models\User;
+use BackedEnum;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\UnauthorizedException;
@@ -42,11 +43,12 @@ class EntitlementResolver
     {
         $membership = $teamId ? $this->membership($user, $teamId) : null;
         $sources = [];
+        $audience = $this->audience($user);
         $legacyKey = $user->subscription_plan ?: 'free';
-        $sources[] = $this->catalogSource($legacyKey, 'legacy');
+        $sources[] = $this->catalogSource($legacyKey, 'legacy', audience: $audience);
 
         if (Schema::hasTable('subscriptions')) {
-            $sources = array_merge($sources, $this->subscriptionSources('user_id', $user->id));
+            $sources = array_merge($sources, $this->subscriptionSources('user_id', $user->id, audience: $audience));
         }
         if (Schema::hasTable('entitlement_grants')) {
             $sources = array_merge($sources, $this->grantSources('user_id', $user->id));
@@ -63,7 +65,7 @@ class EntitlementResolver
             }
             $legacyTeamPlan = [] === $teamSubscriptionSources ? $this->legacyTeamPlan($teamId) : null;
             if (null !== $legacyTeamPlan) {
-                $sources[] = $this->catalogSource($legacyTeamPlan, 'team_legacy', null, null, $membership['role']);
+                $sources[] = $this->catalogSource($legacyTeamPlan, 'team_legacy', null, null, $membership['role'], $audience);
             }
         }
 
@@ -86,7 +88,7 @@ class EntitlementResolver
             'expires_at' => $effective['expires_at'],
             'team' => $teamId ? ['id' => $teamId, 'role' => $membership['role']] : null,
             'entitlements' => $entitlements,
-            'limits' => config("access.plans.{$effective['plan']}.limits", ['players' => null, 'coaches' => null, 'teams' => null]),
+            'limits' => $this->limits($effective['plan'], $audience),
         ];
     }
 
@@ -105,7 +107,7 @@ class EntitlementResolver
     }
 
     /** @return array<int, array<string, mixed>> */
-    private function subscriptionSources(string $ownerColumn, string $ownerId, ?string $teamRole = null): array
+    private function subscriptionSources(string $ownerColumn, string $ownerId, ?string $teamRole = null, ?string $audience = null): array
     {
         return Subscription::query()->with('plan.entitlements')->where($ownerColumn, $ownerId)
             ->whereNull('ended_at')->where(function ($query): void {
@@ -117,7 +119,7 @@ class EntitlementResolver
                 })->orWhere(function ($grace) use ($now): void {
                     $grace->where('status', 'grace_period')->where('grace_period_ends_at', '>', $now);
                 });
-            })->get()->map(function (Subscription $subscription) use ($teamRole): array {
+            })->get()->map(function (Subscription $subscription) use ($teamRole, $audience): array {
                 $entitlements = $subscription->plan->entitlements->pluck('entitlement_key')->all();
                 return $this->source(
                     $subscription->plan->key,
@@ -127,7 +129,8 @@ class EntitlementResolver
                     $subscription->provider,
                     $subscription->grace_period_ends_at ?? $subscription->current_period_ends_at,
                     $subscription->id,
-                    $teamRole
+                    $teamRole,
+                    $audience
                 );
             })->all();
     }
@@ -159,21 +162,39 @@ class EntitlementResolver
     }
 
     /** @return array<string, mixed> */
-    private function catalogSource(string $key, string $source, ?string $provider = null, ?Carbon $expires = null, ?string $teamRole = null): array
+    private function catalogSource(string $key, string $source, ?string $provider = null, ?Carbon $expires = null, ?string $teamRole = null, ?string $audience = null): array
     {
         $definition = config("access.plans.{$key}") ?? config('access.plans.free');
-        return $this->source($key, $definition['entitlements'], $source, 'active', $provider, $expires, $key, $teamRole);
+        return $this->source($key, $definition['entitlements'], $source, 'active', $provider, $expires, $key, $teamRole, $audience);
     }
 
     /** @param array<int, string> $entitlements @return array<string, mixed> */
-    private function source(string $plan, array $entitlements, string $source, string $status, ?string $provider, ?Carbon $expires, string $identity, ?string $teamRole): array
+    private function source(string $plan, array $entitlements, string $source, string $status, ?string $provider, ?Carbon $expires, string $identity, ?string $teamRole, ?string $audience = null): array
     {
-        if ('player' === $teamRole) {
-            $entitlements = array_values(array_intersect($entitlements, config('access.plans.player_pro.entitlements')));
+        if ('player' === $teamRole || 'player' === $audience) {
+            $entitlements = array_values(array_intersect($entitlements, config('access.plans.player_pro.entitlements', [])));
+        }
+        if ('free' === $plan && 'player' === $audience) {
+            $entitlements = array_values(array_intersect($entitlements, config('access.audience_baselines.player.entitlements', [])));
         }
         return compact('plan', 'entitlements', 'source', 'status', 'provider') + [
             'expires_at' => $expires?->toIso8601String(), 'identity' => $identity,
         ];
+    }
+
+    /** @return array<string, int|null> */
+    private function limits(string $plan, string $audience): array
+    {
+        if ('free' === $plan && 'player' === $audience) {
+            return config('access.audience_baselines.player.limits', ['players' => null, 'coaches' => null, 'teams' => null]);
+        }
+
+        return config("access.plans.{$plan}.limits", ['players' => null, 'coaches' => null, 'teams' => null]);
+    }
+
+    private function audience(User $user): string
+    {
+        return $user->type instanceof BackedEnum ? (string) $user->type->value : (string) $user->type;
     }
 
     private function sourceRank(array $source): int

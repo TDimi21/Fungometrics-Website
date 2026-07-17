@@ -13,6 +13,8 @@ use App\Models\SubscriptionPlan;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Access\EntitlementResolver;
+use App\Http\Middleware\RequiresPlan;
+use Illuminate\Http\Request;
 use Illuminate\Database\QueryException;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -29,13 +31,38 @@ class EntitlementResolverTest extends TestCase
 
     public function test_legacy_plans_retain_their_entitlements(): void
     {
-        $free = User::factory()->create(['subscription_plan' => 'free']);
-        $coach = User::factory()->create(['subscription_plan' => 'coach_pro']);
-        $player = User::factory()->create(['subscription_plan' => 'player_pro']);
+        $free = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
+        $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
+        $player = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);
 
         $this->assertTrue($this->resolver->hasEntitlement($free, 'create_session'));
         $this->assertTrue($this->resolver->hasEntitlement($coach, 'view_advanced_stats'));
         $this->assertTrue($this->resolver->hasEntitlement($player, 'recruiting_profile'));
+    }
+
+    public function test_legacy_free_access_is_filtered_by_user_audience(): void
+    {
+        $player = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
+        $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
+
+        $this->assertSame(['notifications', 'recent_sessions'], $this->resolver->getEntitlements($player));
+        $this->assertTrue($this->resolver->hasEntitlement($coach, 'create_session'));
+        $this->assertTrue($this->resolver->hasEntitlement($coach, 'add_coaches'));
+    }
+
+    public function test_player_free_access_is_denied_every_coach_only_entitlement_by_middleware(): void
+    {
+        $player = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
+        $playerFeatures = config('access.plans.player_pro.entitlements');
+        $coachOnly = array_diff(config('access.plans.coach_pro.entitlements'), $playerFeatures);
+        $middleware = app(RequiresPlan::class);
+
+        foreach ($coachOnly as $feature) {
+            $request = Request::create('/protected', 'GET');
+            $request->setUserResolver(fn () => $player);
+            $response = $middleware->handle($request, fn () => response()->json(['allowed' => true]), $feature);
+            $this->assertSame(403, $response->getStatusCode(), "Player unexpectedly received {$feature}.");
+        }
     }
 
     public function test_active_personal_subscription_provides_access_but_expired_does_not(): void

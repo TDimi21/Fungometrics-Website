@@ -37,5 +37,11 @@ return [
             'player_recaps', 'shareable_profile', 'recruiting_profile',
         ], 'limits' => ['players' => null, 'coaches' => null, 'teams' => null]],
     ],
+    'audience_baselines' => [
+        'player' => [
+            'entitlements' => ['notifications', 'recent_sessions'],
+            'limits' => ['players' => null, 'coaches' => null, 'teams' => null],
+        ],
+    ],
     'plan_priority' => ['free', 'coach_basic', 'player_basic', 'coach_pro', 'player_pro'],
 ];

@@ -119,7 +119,46 @@ class RevenueCatTest extends TestCase
         $this->getJson('/api/me/access')
             ->assertOk()
             ->assertJsonPath('data.plan', 'free')
-            ->assertJsonPath('data.source', 'legacy');
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.source', 'legacy')
+            ->assertJsonPath('data.provider', null)
+            ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions']);
+    }
+
+    public function test_expired_player_plans_resolve_player_safe_free_access(): void
+    {
+        foreach (['player_basic', 'player_pro'] as $planKey) {
+            $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
+            Subscription::create([
+                'user_id' => $user->id,
+                'plan_id' => SubscriptionPlan::where('key', $planKey)->value('id'),
+                'provider' => 'revenuecat',
+                'provider_subscription_id' => 'expired-'.$planKey,
+                'status' => 'expired',
+                'current_period_ends_at' => now()->subMinute(),
+                'ended_at' => now()->subMinute(),
+            ]);
+            Sanctum::actingAs($user, ['player']);
+            $this->getJson('/api/me/access')->assertOk()
+                ->assertJsonPath('data.plan', 'free')
+                ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions']);
+        }
+    }
+
+    public function test_refund_revokes_player_access_and_resets_compatibility_cache(): void
+    {
+        $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);
+        $headers = ['Authorization' => 'Bearer test-hook'];
+        $this->postJson('/api/billing/revenuecat/webhook', $this->payload($user), $headers)->assertOk();
+        $refund = $this->payload($user, 'REFUND');
+        $refund['event']['id'] = 'player-refund';
+        $this->postJson('/api/billing/revenuecat/webhook', $refund, $headers)->assertOk();
+
+        $this->assertSame('free', $user->fresh()->subscription_plan);
+        Sanctum::actingAs($user->fresh(), ['player']);
+        $this->getJson('/api/me/access')->assertOk()
+            ->assertJsonPath('data.plan', 'free')
+            ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions']);
     }
     public function test_unknown_product_user_cross_audience_and_production_events_are_rejected(): void
     {
