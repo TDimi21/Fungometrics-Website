@@ -9,9 +9,10 @@ use App\Models\BillingEvent;
 use App\Models\Concerns\UserTypes;
 use App\Models\Subscription;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
-use Tests\TestCase;
 use RuntimeException;
+use Tests\TestCase;
 
 class RevenueCatTest extends TestCase
 {
@@ -173,6 +174,35 @@ class RevenueCatTest extends TestCase
         $this->app->instance(RevenueCatClient::class, $fake);
         $this->postJson('/api/me/billing/revenuecat/sync')->assertOk();
         $this->assertSame('player_basic', $user->fresh()->subscription_plan);
+    }
+
+    public function test_sync_preserves_provider_access_when_the_application_timezone_is_not_utc(): void
+    {
+        config(['app.timezone' => 'America/Denver']);
+        Carbon::setTestNow(Carbon::parse('2026-07-17 08:53:12', 'America/Denver'));
+        $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
+        Sanctum::actingAs($user, ['player']);
+        $fake = new class () implements RevenueCatClient {
+            public function subscriptionsFor(string $appUserId): array
+            {
+                return [[
+                    'id' => 'timezone-subscription',
+                    'product_id' => 'fmtrx_player_basic_monthly',
+                    'status' => 'active',
+                    'starts_at' => now()->subMinute()->utc()->valueOf(),
+                    'current_period_ends_at' => now()->addMinutes(20)->utc()->valueOf(),
+                ]];
+            }
+        };
+        $this->app->instance(RevenueCatClient::class, $fake);
+
+        $this->postJson('/api/me/billing/revenuecat/sync')
+            ->assertOk()
+            ->assertJsonPath('data.plan', 'player_basic')
+            ->assertJsonPath('data.source', 'subscription')
+            ->assertJsonPath('data.provider', 'revenuecat');
+
+        Carbon::setTestNow();
     }
     public function test_sync_fails_closed_without_server_credentials(): void
     {

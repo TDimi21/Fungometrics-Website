@@ -79,7 +79,7 @@ class SubscriptionManager
         if ($until->isPast()) {
             throw ValidationException::withMessages(['grace_period_ends_at' => 'Grace period must end in the future.']);
         }
-        return $this->transition($subscription, 'grace_period', ['grace_period_ends_at' => $until->utc()], $actor, 'subscription.grace_started', $reason);
+        return $this->transition($subscription, 'grace_period', ['grace_period_ends_at' => $this->databaseTime($until)], $actor, 'subscription.grace_started', $reason);
     }
 
     /** @param array<string, mixed> $attributes */
@@ -110,10 +110,10 @@ class SubscriptionManager
             $before = $subscription?->toArray();
             $subscription ??= new Subscription(['user_id' => $locked->id, 'provider' => $provider, 'provider_subscription_id' => $providerSubscriptionId]);
             $subscription->fill(['plan_id' => $plan->id, 'provider_product_id' => $productId, 'status' => $status,
-                'starts_at' => $startsAt->utc(), 'current_period_ends_at' => $periodEndsAt?->utc(),
-                'grace_period_ends_at' => 'grace_period' === $status ? $periodEndsAt?->utc() : null,
+                'starts_at' => $this->databaseTime($startsAt), 'current_period_ends_at' => $this->databaseTime($periodEndsAt),
+                'grace_period_ends_at' => 'grace_period' === $status ? $this->databaseTime($periodEndsAt) : null,
                 'canceled_at' => 'CANCELLATION' === $reason ? now() : null,
-                'ended_at' => in_array($status, ['expired', 'revoked'], true) ? ($periodEndsAt ?? now())->utc() : null,
+                'ended_at' => in_array($status, ['expired', 'revoked'], true) ? $this->databaseTime($periodEndsAt ?? now()) : null,
                 'metadata' => $metadata])->save();
             $this->audit(null, 'subscription.provider_reconciled', $subscription, null, $before, $subscription->fresh()->toArray(), $reason);
             return $subscription->fresh();
@@ -150,7 +150,7 @@ class SubscriptionManager
             }
             $subscription = Subscription::create($owner + [
                 'plan_id' => $plan->id, 'provider' => 'manual', 'status' => 'active',
-                'starts_at' => ($startsAt ?? now())->utc(), 'current_period_ends_at' => $endsAt?->utc(),
+                'starts_at' => $this->databaseTime($startsAt ?? now()), 'current_period_ends_at' => $this->databaseTime($endsAt),
                 'metadata' => ['admin_actor_id' => $actor?->id],
             ]);
             $this->audit($actor, 'subscription.created', $subscription, null, null, $subscription->toArray(), $reason);
@@ -184,6 +184,11 @@ class SubscriptionManager
         if ( ! in_array($to, $allowed[$from] ?? [], true)) {
             throw ValidationException::withMessages(['status' => "Invalid subscription transition: {$from} to {$to}."]);
         }
+    }
+
+    private function databaseTime(?Carbon $value): ?Carbon
+    {
+        return $value?->copy()->setTimezone((string) config('app.timezone', 'UTC'));
     }
 
     private function assertMutable(Subscription $subscription): void
