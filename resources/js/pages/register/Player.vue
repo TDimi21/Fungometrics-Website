@@ -78,17 +78,36 @@ const submitPlayer = async () => {
     const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
     await axios.post(api_url+'player/register', dataForm
     ).then(async function (response) {
-      // await userStore.setData(response.data.data.user);
-      // setToken(response.data.data.token);
-      // isLogged.status = !isLogged.status;
+      const token = response?.data?.data?.token
+      const user = response?.data?.data?.user
+
+      if (token && user) {
+        // Auto-login the new player: store the session and go straight to their
+        // dashboard instead of bouncing them to the login screen.
+        const sessionUser = { ...user }
+        if (!sessionUser.type) sessionUser.type = 'player'
+        setToken(token)
+        isLogged.status = true
+        await userStore.setData(sessionUser)
+
+        toast.fire({
+          icon: 'success',
+          title: 'Welcome to FungoMetrics',
+          text: response.data.message,
+        })
+        isLoading.status = !isLoading.status
+        await router.push('/player-dashboard')
+        return
+      }
+
+      // Fallback (no token returned): keep the old behavior and send to login.
       toast.fire({
         icon: 'success',
         title: 'Player Register',
         text: response.data.message,
       })
-
-      isLoading.status =!isLoading.status;
-      await router.replace("/login/player")
+      isLoading.status = !isLoading.status
+      await router.replace('/login/player')
 
     }).catch(async function (error){
       console.log('err', error.response.data.data);

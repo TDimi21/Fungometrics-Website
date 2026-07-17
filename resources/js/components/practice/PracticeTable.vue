@@ -7,6 +7,7 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import {toast} from "@/utils/AlertPlugin"
 import { useTrainingStore } from "@/store/training";
 import { usePlayerResume } from '@/composables/usePlayerResume.js'
+import { useUserTimezone } from '@/composables/useUserTimezone.js'
 import battingCardLogo from '@/assets/img/training/battingbglogo.svg'
 import bullpenCardLogo from '@/assets/img/training/bullpenbglogo.svg'
 import liveABCardLogo from '@/assets/img/training/liveabbglogo.svg'
@@ -95,15 +96,18 @@ const playerNames = (item) => {
   return item.lineup.map((player) => player?.player?.name?.full).filter(Boolean).join(', ')
 }
 
+const { timezone, zoneLabel } = useUserTimezone()
+
 const formatDateTime = (value) => {
   if (!value) return { date: '-', time: '-' }
   const normalized = typeof value === 'string' ? value.replace(' ', 'T') : value
   const parsed = new Date(normalized)
   if (Number.isNaN(parsed.getTime())) return { date: '-', time: '-' }
 
+  // Show in the user's timezone (from their ZIP; Eastern default), not the browser's.
   return {
-    date: parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    time: parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    date: parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: timezone.value }),
+    time: `${parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone.value })} ${zoneLabel.value}`,
   }
 }
 

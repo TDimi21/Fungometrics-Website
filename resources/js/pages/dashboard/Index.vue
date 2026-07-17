@@ -619,12 +619,17 @@ const isUsableLongTossPoint = (point) => {
 }
 
 const longTossReviewCurve = computed(() => {
-  const chartFeed = Array.isArray(longTossCurve.value) ? longTossCurve.value.filter(isUsableLongTossPoint) : []
-  if (chartFeed.length) return chartFeed
-
+  // The chart groups EVERY individual throw by its hop count, so prefer the complete
+  // per-throw list (chartPoints from the LTS detail) over the sort-index-aggregated
+  // team curve — the latter can omit throws (e.g. later-index 0-hop throws), which
+  // made the No-Hop bucket come up empty.
   const detail = perfDetail.value.lt ?? {}
   const scoreFeed = detail.chartPoints ?? detail.chart_points
-  return Array.isArray(scoreFeed) ? scoreFeed.filter(isUsableLongTossPoint) : []
+  if (Array.isArray(scoreFeed)) {
+    const usable = scoreFeed.filter(isUsableLongTossPoint)
+    if (usable.length) return usable
+  }
+  return Array.isArray(longTossCurve.value) ? longTossCurve.value.filter(isUsableLongTossPoint) : []
 })
 
 const fetchPerformanceOverview = async (force = false) => {

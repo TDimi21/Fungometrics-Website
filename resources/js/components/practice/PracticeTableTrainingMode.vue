@@ -8,9 +8,11 @@ import { Modal } from '@/components/shared'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import {toast} from "@/utils/AlertPlugin"
 import { usePlayerResume } from '@/composables/usePlayerResume.js'
+import { useUserTimezone } from '@/composables/useUserTimezone.js'
 import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 
 const activeTraining = useTrainingStore()
+const { timezone, zoneLabel } = useUserTimezone()
 
 const props = defineProps({
   tableData: {
@@ -67,9 +69,10 @@ const formatDateTime = (value) => {
   const parsed = new Date(normalized)
   if (Number.isNaN(parsed.getTime())) return { date: '-', time: '-' }
 
+  // Show in the user's timezone (from their ZIP; Eastern default), not the browser's.
   return {
-    date: parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    time: parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    date: parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: timezone.value }),
+    time: `${parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone.value })} ${zoneLabel.value}`,
   }
 }
 
