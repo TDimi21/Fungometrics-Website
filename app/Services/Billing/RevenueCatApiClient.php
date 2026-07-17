@@ -32,17 +32,18 @@ class RevenueCatApiClient implements RevenueCatClient
                 return $subscription;
             }
 
-            $transactions = $client
-                ->get('/projects/'.rawurlencode($project).'/subscriptions/'.rawurlencode($subscriptionId).'/transactions', [
-                    'sort' => 'purchased_at',
-                    'direction' => 'desc',
-                    'limit' => 1,
-                ])->throw()->json();
-            $latest = is_array($transactions['items'][0] ?? null) ? $transactions['items'][0] : [];
-            $storeProductId = (string) ($latest['product_store_identifier'] ?? '');
+            $revenueCatProductId = (string) ($subscription['product_id'] ?? '');
+            if ('' === $revenueCatProductId) {
+                return $subscription;
+            }
+
+            $product = $client
+                ->get('/projects/'.rawurlencode($project).'/products/'.rawurlencode($revenueCatProductId))
+                ->throw()->json();
+            $storeProductId = (string) ($product['store_identifier'] ?? '');
 
             if ('' !== $storeProductId) {
-                $subscription['revenuecat_product_id'] = $subscription['product_id'] ?? null;
+                $subscription['revenuecat_product_id'] = $revenueCatProductId;
                 $subscription['product_id'] = $storeProductId;
             }
 

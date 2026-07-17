@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class RevenueCatApiClientTest extends TestCase
 {
-    public function test_it_resolves_the_store_product_identifier_from_the_latest_transaction(): void
+    public function test_it_resolves_the_store_identifier_from_the_revenuecat_product(): void
     {
         config([
             'billing.revenuecat.base_url' => 'https://api.revenuecat.com/v2',
@@ -27,11 +27,9 @@ class RevenueCatApiClientTest extends TestCase
                     'status' => 'active',
                 ]],
             ]),
-            'api.revenuecat.com/v2/projects/project-1/subscriptions/subscription-1/transactions*' => Http::response([
-                'items' => [[
-                    'id' => 'transaction-1',
-                    'product_store_identifier' => 'fmtrx_player_basic_monthly',
-                ]],
+            'api.revenuecat.com/v2/projects/project-1/products/revenuecat-product-1' => Http::response([
+                'id' => 'revenuecat-product-1',
+                'store_identifier' => 'fmtrx_player_basic_monthly',
             ]),
         ]);
 
