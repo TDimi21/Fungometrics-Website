@@ -34,6 +34,9 @@ class RevenueCatTest extends TestCase
             'HTTP_ACCEPT' => 'application/json',
             'CONTENT_TYPE' => 'application/json',
         ], '{bad')->assertUnprocessable();
+
+        $this->assertDatabaseCount('billing_events', 0);
+        $this->assertDatabaseCount('subscriptions', 0);
     }
     public function test_initial_purchase_is_idempotent_and_updates_compatibility_cache(): void
     {
