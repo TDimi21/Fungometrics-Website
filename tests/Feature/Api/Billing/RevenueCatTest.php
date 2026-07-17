@@ -199,6 +199,7 @@ class RevenueCatTest extends TestCase
     }
     public function test_apple_sandbox_is_accepted_and_production_or_unknown_stores_are_rejected(): void
     {
+        $this->bindAppleClient();
         $user = User::factory()->create(['type' => 'player']);
         $headers = ['Authorization' => 'Bearer test-hook'];
         $apple = $this->payload($user);
@@ -207,7 +208,7 @@ class RevenueCatTest extends TestCase
         $this->postJson('/api/billing/revenuecat/webhook', $apple, $headers)->assertOk();
         $this->assertDatabaseHas('subscriptions', [
             'provider' => 'revenuecat',
-            'provider_subscription_id' => 'app_store:original-1',
+            'provider_subscription_id' => 'app_store:rc-subscription-1',
         ]);
 
         foreach ([['environment' => 'PRODUCTION'], ['store' => 'STRIPE']] as $index => $change) {
@@ -220,6 +221,7 @@ class RevenueCatTest extends TestCase
 
     public function test_test_store_and_apple_provider_identities_cannot_collide(): void
     {
+        $this->bindAppleClient();
         $user = User::factory()->create(['type' => 'player']);
         $headers = ['Authorization' => 'Bearer test-hook'];
         $testStore = $this->payload($user);
@@ -231,7 +233,79 @@ class RevenueCatTest extends TestCase
         $this->postJson('/api/billing/revenuecat/webhook', $apple, $headers)->assertOk();
 
         $this->assertSame(1, Subscription::where('provider_subscription_id', 'original-1')->count());
-        $this->assertSame(1, Subscription::where('provider_subscription_id', 'app_store:original-1')->count());
+        $this->assertSame(1, Subscription::where('provider_subscription_id', 'app_store:rc-subscription-1')->count());
+    }
+
+    public function test_apple_sync_and_webhook_converge_on_the_revenuecat_subscription_identity(): void
+    {
+        $user = User::factory()->create(['type' => 'player']);
+        $client = new class () implements RevenueCatClient {
+            public function subscriptionsFor(string $appUserId): array
+            {
+                return [[
+                    'id' => 'rc-subscription-1',
+                    'store_subscription_identifier' => 'apple-renewal-transaction',
+                    'store' => 'app_store',
+                    'product_id' => 'fmtrx_player_pro_monthly',
+                    'status' => 'active',
+                    'starts_at' => now()->subHour()->valueOf(),
+                    'current_period_ends_at' => now()->addHour()->valueOf(),
+                ]];
+            }
+            public function subscriptionIdForStoreIdentifier(string $storeSubscriptionIdentifier): string
+            {
+                if ('apple-original-transaction' !== $storeSubscriptionIdentifier) {
+                    throw new RuntimeException('wrong store identity');
+                }
+
+                return 'rc-subscription-1';
+            }
+        };
+        $this->app->instance(RevenueCatClient::class, $client);
+        Sanctum::actingAs($user, ['player']);
+
+        $this->postJson('/api/me/billing/revenuecat/sync')->assertOk();
+        $payload = $this->payload($user, 'RENEWAL');
+        $payload['event']['id'] = 'apple-renewal';
+        $payload['event']['store'] = 'APP_STORE';
+        $payload['event']['original_transaction_id'] = 'apple-original-transaction';
+        $payload['event']['transaction_id'] = 'apple-renewal-transaction';
+        $this->postJson('/api/billing/revenuecat/webhook', $payload, ['Authorization' => 'Bearer test-hook'])->assertOk();
+
+        $this->assertSame(1, Subscription::where('provider', 'revenuecat')->where('user_id', $user->id)->count());
+        $this->assertDatabaseHas('subscriptions', [
+            'user_id' => $user->id,
+            'provider' => 'revenuecat',
+            'provider_subscription_id' => 'app_store:rc-subscription-1',
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_apple_webhook_merges_the_legacy_original_transaction_row(): void
+    {
+        $this->bindAppleClient();
+        $user = User::factory()->create(['type' => 'player']);
+        $plan = SubscriptionPlan::where('key', 'player_pro')->firstOrFail();
+        Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'provider' => 'revenuecat',
+            'provider_subscription_id' => 'app_store:original-1',
+            'provider_product_id' => 'fmtrx_player_pro_monthly',
+            'status' => 'active',
+            'starts_at' => now()->subHour(),
+            'current_period_ends_at' => now()->addHour(),
+        ]);
+
+        $payload = $this->payload($user, 'RENEWAL');
+        $payload['event']['id'] = 'apple-legacy-merge';
+        $payload['event']['store'] = 'APP_STORE';
+        $this->postJson('/api/billing/revenuecat/webhook', $payload, ['Authorization' => 'Bearer test-hook'])->assertOk();
+
+        $this->assertSame(1, Subscription::where('provider', 'revenuecat')->where('user_id', $user->id)->count());
+        $this->assertDatabaseHas('subscriptions', ['provider_subscription_id' => 'app_store:rc-subscription-1']);
+        $this->assertDatabaseMissing('subscriptions', ['provider_subscription_id' => 'app_store:original-1']);
+        $this->assertDatabaseHas('subscription_audits', ['action' => 'revenuecat.apple_identity_merged']);
     }
     public function test_lifecycle_events_reconcile_without_duplicate_subscriptions(): void
     {
@@ -300,6 +374,10 @@ class RevenueCatTest extends TestCase
                 }
                 return [['id' => 'sync-sub', 'product_id' => 'fmtrx_player_basic_monthly', 'status' => 'active', 'starts_at' => now()->subDay()->valueOf(), 'current_period_ends_at' => now()->addMonth()->valueOf()]];
             }
+            public function subscriptionIdForStoreIdentifier(string $storeSubscriptionIdentifier): string
+            {
+                throw new RuntimeException('not used');
+            }
         };
         $this->app->instance(RevenueCatClient::class, $fake);
         $this->postJson('/api/me/billing/revenuecat/sync')->assertOk();
@@ -324,6 +402,10 @@ class RevenueCatTest extends TestCase
                     'starts_at' => now()->subMinute()->utc()->valueOf(),
                     'current_period_ends_at' => now()->addMinutes(20)->utc()->valueOf(),
                 ]];
+            }
+            public function subscriptionIdForStoreIdentifier(string $storeSubscriptionIdentifier): string
+            {
+                throw new RuntimeException('not used');
             }
         };
         $this->app->instance(RevenueCatClient::class, $fake);
@@ -364,5 +446,19 @@ class RevenueCatTest extends TestCase
         return ['api_version' => '1.0', 'event' => ['id' => 'rc-event-1', 'type' => $type, 'event_timestamp_ms' => now()->valueOf(),
             'app_user_id' => $user?->id ?? fake()->uuid, 'product_id' => 'fmtrx_player_pro_monthly', 'environment' => 'SANDBOX', 'store' => 'TEST_STORE',
             'transaction_id' => 'txn-1', 'original_transaction_id' => 'original-1', 'purchased_at_ms' => now()->subDay()->valueOf(), 'expiration_at_ms' => now()->addMonth()->valueOf()]];
+    }
+
+    private function bindAppleClient(): void
+    {
+        $this->app->instance(RevenueCatClient::class, new class () implements RevenueCatClient {
+            public function subscriptionsFor(string $appUserId): array
+            {
+                return [];
+            }
+            public function subscriptionIdForStoreIdentifier(string $storeSubscriptionIdentifier): string
+            {
+                return 'rc-subscription-1';
+            }
+        });
     }
 }

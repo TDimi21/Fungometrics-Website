@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Billing;
 
+use App\Contracts\Billing\RevenueCatClient;
 use App\Contracts\Billing\SubscriptionReconciler;
 use App\Models\BillingEvent;
 use App\Models\Subscription;
@@ -18,7 +19,7 @@ class RevenueCatReconciler implements SubscriptionReconciler
 {
     private const ACCESS_STATUSES = ['active', 'trialing', 'in_grace_period', 'in_billing_retry'];
 
-    public function __construct(private SubscriptionManager $subscriptions)
+    public function __construct(private SubscriptionManager $subscriptions, private RevenueCatClient $client)
     {
     }
 
@@ -60,7 +61,11 @@ class RevenueCatReconciler implements SubscriptionReconciler
             'CANCELLATION' => 'active',
             default => throw ValidationException::withMessages(['event' => 'Unsupported RevenueCat lifecycle event.']),
         };
-        $transaction = $this->providerIdentity($store, (string) ($payload['original_transaction_id'] ?? $payload['transaction_id'] ?? ''));
+        $storeIdentity = (string) ($payload['original_transaction_id'] ?? $payload['transaction_id'] ?? '');
+        $transaction = $this->providerIdentity(
+            $store,
+            'APP_STORE' === $store ? $this->client->subscriptionIdForStoreIdentifier($storeIdentity) : $storeIdentity
+        );
         $this->upsert($user, $mapping['plan'], $product, $transaction, $status, $startsAt, $endsAt, $type, $payload);
     }
 
@@ -99,9 +104,50 @@ class RevenueCatReconciler implements SubscriptionReconciler
     {
         DB::transaction(function () use ($user, $planKey, $product, $transaction, $status, $startsAt, $endsAt, $reason, $metadata): void {
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
-            $this->subscriptions->reconcileProviderUserSubscription($locked, 'revenuecat', $transaction, $product, $planKey, $status, $startsAt, $endsAt, ['revenuecat' => $metadata], $reason);
+            $subscription = $this->subscriptions->reconcileProviderUserSubscription($locked, 'revenuecat', $transaction, $product, $planKey, $status, $startsAt, $endsAt, ['revenuecat' => $metadata], $reason);
+            $this->mergeLegacyAppleIdentity($locked, $subscription, $metadata, $reason);
             $this->updateCompatibilityCache($locked);
         });
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function mergeLegacyAppleIdentity(User $user, Subscription $canonical, array $metadata, string $reason): void
+    {
+        if ('APP_STORE' !== mb_strtoupper((string) ($metadata['store'] ?? ''))) {
+            return;
+        }
+
+        $originalTransactionId = (string) ($metadata['original_transaction_id'] ?? '');
+        if ('' === $originalTransactionId) {
+            return;
+        }
+
+        $legacyIdentity = 'app_store:'.$originalTransactionId;
+        if ($legacyIdentity === $canonical->provider_subscription_id) {
+            return;
+        }
+
+        $legacy = Subscription::query()
+            ->where('provider', 'revenuecat')
+            ->where('provider_subscription_id', $legacyIdentity)
+            ->lockForUpdate()
+            ->first();
+        if ( ! $legacy) {
+            return;
+        }
+        if ($legacy->user_id !== $user->id) {
+            throw ValidationException::withMessages(['owner' => 'Legacy Apple subscription identity belongs to another FMTRX user.']);
+        }
+
+        SubscriptionAudit::create([
+            'subscription_id' => $canonical->id,
+            'action' => 'revenuecat.apple_identity_merged',
+            'before_state' => $legacy->toArray(),
+            'after_state' => $canonical->fresh()->toArray(),
+            'reason' => $reason,
+            'created_at' => now(),
+        ]);
+        $legacy->delete();
     }
 
     private function updateCompatibilityCache(User $user): void

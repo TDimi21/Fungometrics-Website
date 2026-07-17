@@ -10,15 +10,34 @@ use RuntimeException;
 
 class RevenueCatApiClient implements RevenueCatClient
 {
+    public function subscriptionIdForStoreIdentifier(string $storeSubscriptionIdentifier): string
+    {
+        if ('' === $storeSubscriptionIdentifier) {
+            throw new RuntimeException('RevenueCat store subscription identity is required.');
+        }
+
+        $response = $this->client()
+            ->get('/projects/'.rawurlencode($this->project()).'/subscriptions', [
+                'store_subscription_identifier' => $storeSubscriptionIdentifier,
+            ])->throw()->json();
+
+        $items = is_array($response['items'] ?? null) ? $response['items'] : [];
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $item): string => is_array($item) ? (string) ($item['id'] ?? '') : '',
+            $items
+        ))));
+
+        if (1 !== count($ids)) {
+            throw new RuntimeException('RevenueCat store subscription identity did not resolve uniquely.');
+        }
+
+        return $ids[0];
+    }
+
     public function subscriptionsFor(string $appUserId): array
     {
-        $key = (string) config('billing.revenuecat.secret_api_key');
-        $project = (string) config('billing.revenuecat.project_id');
-        if ('' === $key || '' === $project) {
-            throw new RuntimeException('RevenueCat server synchronization is not configured.');
-        }
-        $client = Http::baseUrl((string) config('billing.revenuecat.base_url'))
-            ->withToken($key)->acceptJson()->timeout(8);
+        $project = $this->project();
+        $client = $this->client();
         $response = $client
             ->get('/projects/'.rawurlencode($project).'/customers/'.rawurlencode($appUserId).'/subscriptions', [
                 'environment' => 'test' === config('billing.revenuecat.environment') ? 'sandbox' : 'production',
@@ -49,5 +68,26 @@ class RevenueCatApiClient implements RevenueCatClient
 
             return $subscription;
         }, $items);
+    }
+
+    private function client(): \Illuminate\Http\Client\PendingRequest
+    {
+        $key = (string) config('billing.revenuecat.secret_api_key');
+        if ('' === $key) {
+            throw new RuntimeException('RevenueCat server synchronization is not configured.');
+        }
+
+        return Http::baseUrl((string) config('billing.revenuecat.base_url'))
+            ->withToken($key)->acceptJson()->timeout(8);
+    }
+
+    private function project(): string
+    {
+        $project = (string) config('billing.revenuecat.project_id');
+        if ('' === $project) {
+            throw new RuntimeException('RevenueCat server synchronization is not configured.');
+        }
+
+        return $project;
     }
 }
