@@ -103,7 +103,16 @@ class RevenueCatReconciler implements SubscriptionReconciler
     private function updateCompatibilityCache(User $user): void
     {
         $effectivePersonal = Subscription::query()->where('user_id', $user->id)->whereIn('status', ['trialing', 'active', 'grace_period'])
-            ->where(fn ($q) => $q->whereNull('ended_at')->orWhere('ended_at', '>', now()))->with('plan')->get()
+            ->whereNull('ended_at')->where(function ($query): void {
+                $now = now();
+                $query->where(function ($active) use ($now): void {
+                    $active->whereIn('status', ['active', 'trialing'])
+                        ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
+                        ->where(fn ($q) => $q->whereNull('current_period_ends_at')->orWhere('current_period_ends_at', '>', $now));
+                })->orWhere(function ($grace) use ($now): void {
+                    $grace->where('status', 'grace_period')->where('grace_period_ends_at', '>', $now);
+                });
+            })->with('plan')->get()
             ->sortByDesc(fn (Subscription $s) => array_search($s->plan->key, config('access.plan_priority', []), true) ?: 0)->first();
         $user->update(['subscription_plan' => $effectivePersonal?->plan?->key ?? 'free']);
     }

@@ -8,6 +8,7 @@ use App\Contracts\Billing\RevenueCatClient;
 use App\Models\BillingEvent;
 use App\Models\Concerns\UserTypes;
 use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
@@ -91,6 +92,34 @@ class RevenueCatTest extends TestCase
         $subscription = Subscription::where('user_id', $user->id)->where('provider', 'revenuecat')->firstOrFail();
         $this->assertSame('active', $subscription->status);
         $this->assertNotNull($subscription->canceled_at);
+    }
+
+    public function test_expiration_does_not_leave_access_from_an_older_active_row_past_its_period_end(): void
+    {
+        $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_basic']);
+        Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => SubscriptionPlan::where('key', 'player_basic')->value('id'),
+            'provider' => 'revenuecat',
+            'provider_subscription_id' => 'older-period',
+            'provider_product_id' => 'fmtrx_player_basic_monthly',
+            'status' => 'active',
+            'starts_at' => now()->subMinutes(10),
+            'current_period_ends_at' => now()->subMinute(),
+        ]);
+        $headers = ['Authorization' => 'Bearer test-hook'];
+        $this->postJson('/api/billing/revenuecat/webhook', $this->payload($user), $headers)->assertOk();
+        $expiration = $this->payload($user, 'EXPIRATION');
+        $expiration['event']['id'] = 'expiration-after-renewals';
+        $this->postJson('/api/billing/revenuecat/webhook', $expiration, $headers)->assertOk();
+
+        $user = $user->fresh();
+        $this->assertSame('free', $user->subscription_plan);
+        Sanctum::actingAs($user, ['player']);
+        $this->getJson('/api/me/access')
+            ->assertOk()
+            ->assertJsonPath('data.plan', 'free')
+            ->assertJsonPath('data.source', 'legacy');
     }
     public function test_unknown_product_user_cross_audience_and_production_events_are_rejected(): void
     {
