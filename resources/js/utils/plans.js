@@ -31,6 +31,7 @@ export const PLAN_FEATURES = {
     'invite_players',
     'notifications',
     'recent_sessions',
+    'record_assessments',
   ],
   coach_basic: [
     'create_session',
@@ -40,6 +41,7 @@ export const PLAN_FEATURES = {
     'invite_players',
     'notifications',
     'recent_sessions',
+    'record_assessments',
   ],
   coach_pro: [
     'create_session',
@@ -72,6 +74,17 @@ export const PLAN_FEATURES = {
     'add_team',
     'manage_multiple_teams',
     'unlimited_players',
+    'scripted_bp',
+    'scripted_bullpen',
+    'planner_create',
+    'plan_builder',
+    'assign_workouts',
+    'view_workout_progress',
+    'manage_player_groups',
+    'record_assessments',
+    'view_assessment_reports',
+    'view_assessment_comparisons',
+    'view_assessment_recommendations',
     'view_player_cards',
     'export_stats',
     'sms_results',
@@ -107,6 +120,9 @@ export const PLAN_FEATURES = {
     'player_recaps',
     'shareable_profile',
     'recruiting_profile',
+    'view_assessment_reports',
+    'view_assessment_comparisons',
+    'view_assessment_recommendations',
   ],
 }
 
@@ -153,39 +169,10 @@ export const FEATURE_META = {
   sms_results:              { label: 'SMS Results',               category: 'Other' },
 }
 
-const PLAN_OVERRIDE_KEY = 'admin_plan_feature_overrides'
-
-// Returns the active feature list for a plan — admin overrides take precedence.
+// Display fallback only. Runtime authorization always comes from /api/me/access;
+// administrators edit Laravel's plan_entitlements through protected APIs.
 export function getActivePlanFeatures(plan) {
-  try {
-    const raw = localStorage.getItem(PLAN_OVERRIDE_KEY)
-    if (raw) {
-      const overrides = JSON.parse(raw)
-      if (Array.isArray(overrides[plan])) return overrides[plan]
-    }
-  } catch {}
   return PLAN_FEATURES[plan] ?? []
-}
-
-export function loadPlanOverrides() {
-  try {
-    const raw = localStorage.getItem(PLAN_OVERRIDE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {}
-  return null
-}
-
-export function savePlanOverrides(overrides) {
-  try {
-    localStorage.setItem(PLAN_OVERRIDE_KEY, JSON.stringify(overrides))
-    return true
-  } catch {
-    return false
-  }
-}
-
-export function clearPlanOverrides() {
-  try { localStorage.removeItem(PLAN_OVERRIDE_KEY) } catch {}
 }
 
 // Full list of every known feature key (for admin to build the matrix).

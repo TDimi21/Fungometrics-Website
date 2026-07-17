@@ -35,7 +35,7 @@ class AddCoaches extends Controller
             $changedEventData = null;
 
             // ── Role gate: only the head coach manages coach seats ──
-            if (! CoachUtils::isHeadCoach($actor->id, $teamId)) {
+            if ( ! CoachUtils::isHeadCoach($actor->id, $teamId)) {
                 DB::rollBack();
                 return response()->json([
                     'code' => '005-ROLE',
@@ -71,14 +71,14 @@ class AddCoaches extends Controller
                 DB::rollBack();
                 return response()->json([
                     'code' => '005-LIMIT',
-                    'message' => 'This team has reached its ' . CoachUtils::COACH_SEAT_LIMIT
-                        . '-coach limit. Upgrade to Coach Pro to add more coaches.',
+                    'message' => 'This team has reached its '.CoachUtils::coachSeatLimit($teamId)
+                        .'-coach limit.',
                     'status' => 'error',
                     'data' => [],
                 ], HttpCodes::HTTP_FORBIDDEN);
             }
 
-            if (! isset($user)) {
+            if ( ! isset($user)) {
                 $saved = CoachUtils::saveNewUser($data, UserTypes::COACH->value);
                 event(new UserCreated($saved['user']));
             } else {

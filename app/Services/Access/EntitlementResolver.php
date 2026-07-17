@@ -8,6 +8,7 @@ use App\Models\CoachTeam;
 use App\Models\EntitlementGrant;
 use App\Models\PlayerTeam;
 use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use BackedEnum;
 use Illuminate\Support\Carbon;
@@ -171,7 +172,14 @@ class EntitlementResolver
     private function catalogSource(string $key, string $source, ?string $provider = null, ?Carbon $expires = null, ?string $teamRole = null, ?string $audience = null): array
     {
         $definition = config("access.plans.{$key}") ?? config('access.plans.free');
-        return $this->source($key, $definition['entitlements'], $source, 'active', $provider, $expires, $key, $teamRole, $audience);
+        $entitlements = $definition['entitlements'];
+        if (Schema::hasTable('subscription_plans') && Schema::hasTable('plan_entitlements')) {
+            $databasePlan = SubscriptionPlan::query()->with('entitlements')->where('key', $key)->first();
+            if ($databasePlan) {
+                $entitlements = $databasePlan->entitlements->pluck('entitlement_key')->all();
+            }
+        }
+        return $this->source($key, $entitlements, $source, 'active', $provider, $expires, $key, $teamRole, $audience);
     }
 
     /** @param array<int, string> $entitlements @return array<string, mixed> */
@@ -193,6 +201,16 @@ class EntitlementResolver
     {
         if ('free' === $plan && 'player' === $audience) {
             return config('access.audience_baselines.player.limits', ['players' => null, 'coaches' => null, 'teams' => null]);
+        }
+
+        if (Schema::hasTable('subscription_plans')) {
+            $metadata = SubscriptionPlan::query()->where('key', $plan)->value('metadata');
+            if (is_string($metadata)) {
+                $metadata = json_decode($metadata, true);
+            }
+            if (is_array($metadata) && isset($metadata['limits']) && is_array($metadata['limits'])) {
+                return array_replace(['players' => null, 'coaches' => null, 'teams' => null], $metadata['limits']);
+            }
         }
 
         return config("access.plans.{$plan}.limits", ['players' => null, 'coaches' => null, 'teams' => null]);

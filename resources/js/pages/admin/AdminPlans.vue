@@ -1,242 +1,174 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
-import {
-  PLAN_FEATURES,
-  PLAN_LABELS,
-  FEATURE_META,
-  loadPlanOverrides,
-  savePlanOverrides,
-  clearPlanOverrides,
-  getAllFeatureKeys,
-} from '@/utils/plans.js'
+import { useAxiosAuth } from '@/composables/axios-auth.js'
+import { createPlanFeaturesApi } from '@/services/planFeatures.js'
 
 const router = useRouter()
+const { axiosGet, axiosPut } = useAxiosAuth()
+const api = createPlanFeaturesApi(axiosGet, axiosPut)
+const plans = ref([])
+const catalog = ref([])
+const groups = ref([])
+const activeKey = ref('coach_pro')
+const draft = ref(null)
+const reason = ref('')
+const loading = ref(true)
+const saving = ref(false)
+const error = ref('')
+const success = ref('')
 
-const PLAN_KEYS = ['free', 'coach_basic', 'coach_pro', 'player_basic', 'player_pro']
-const COACH_PLANS  = ['free', 'coach_basic', 'coach_pro']
-const PLAYER_PLANS = ['player_basic', 'player_pro']
+const activePlan = computed(() => plans.value.find(plan => plan.key === activeKey.value) || null)
+const activeCatalog = computed(() => catalog.value.filter(item => item.audience === 'shared' || item.audience === activePlan.value?.audience))
+const dirty = computed(() => draft.value && activePlan.value && JSON.stringify(draft.value) !== JSON.stringify({
+  entitlements: activePlan.value.entitlements,
+  limits: activePlan.value.limits,
+}))
 
-// planMatrix[plan] = Set of enabled feature keys
-const planMatrix = ref({})
-const activePlan = ref('coach_pro')
-const saved      = ref(false)
-const hasOverride = ref(false)
-
-// All feature keys ordered by category
-const ALL_FEATURES = getAllFeatureKeys()
-const CATEGORIES   = [...new Set(ALL_FEATURES.map(k => FEATURE_META[k]?.category ?? 'Other'))]
-
-function initMatrix() {
-  const overrides = loadPlanOverrides()
-  hasOverride.value = !!overrides
-  const source = overrides ?? PLAN_FEATURES
-  const m = {}
-  for (const p of PLAN_KEYS) {
-    m[p] = new Set(Array.isArray(source[p]) ? source[p] : PLAN_FEATURES[p] ?? [])
+function resetDraft(plan = activePlan.value) {
+  if (!plan) return
+  draft.value = {
+    entitlements: [...plan.entitlements],
+    limits: { ...plan.limits },
   }
-  planMatrix.value = m
+  reason.value = ''
+  error.value = ''
+  success.value = ''
 }
 
-onMounted(initMatrix)
-
-const featuresInPlan = computed(() => planMatrix.value[activePlan.value] ?? new Set())
-
-function isEnabled(featureKey) {
-  return featuresInPlan.value.has(featureKey)
+function selectPlan(key) {
+  if (dirty.value && !confirm('Discard unsaved plan changes?')) return
+  activeKey.value = key
+  resetDraft(plans.value.find(plan => plan.key === key))
 }
 
-function toggleFeature(featureKey) {
-  const s = new Set(planMatrix.value[activePlan.value])
-  if (s.has(featureKey)) s.delete(featureKey)
-  else s.add(featureKey)
-  planMatrix.value = { ...planMatrix.value, [activePlan.value]: s }
+function isEnabled(key) { return draft.value?.entitlements.includes(key) }
+function isImmutable(key) { return activePlan.value?.immutable_entitlements.includes(key) }
+function toggle(key) {
+  if (isImmutable(key) || activePlan.value?.legacy) return
+  draft.value.entitlements = isEnabled(key)
+    ? draft.value.entitlements.filter(item => item !== key)
+    : [...draft.value.entitlements, key].sort()
 }
+function byGroup(group) { return activeCatalog.value.filter(item => item.category === group) }
 
-// Which other plans already include this feature
-function otherPlansWithFeature(featureKey) {
-  return PLAN_KEYS.filter(p => p !== activePlan.value && planMatrix.value[p]?.has(featureKey))
-}
-
-function featuresByCategory(category) {
-  return ALL_FEATURES.filter(k => (FEATURE_META[k]?.category ?? 'Other') === category)
-}
-
-// Save overrides to localStorage
-function saveChanges() {
-  const overrides = {}
-  for (const p of PLAN_KEYS) {
-    overrides[p] = [...(planMatrix.value[p] ?? [])]
-  }
-  savePlanOverrides(overrides)
-  hasOverride.value = true
-  saved.value = true
-  setTimeout(() => { saved.value = false }, 2500)
-}
-
-function resetToDefaults() {
-  if (!confirm('Reset all plan features to defaults? This removes your custom configuration.')) return
-  clearPlanOverrides()
-  hasOverride.value = false
-  initMatrix()
-  saved.value = false
-}
-
-// Move a feature to a specific plan (enable there, optionally disable current)
-function moveToPlan(featureKey, targetPlan) {
-  const cur = new Set(planMatrix.value[activePlan.value])
-  cur.delete(featureKey)
-  const target = new Set(planMatrix.value[targetPlan])
-  target.add(featureKey)
-  planMatrix.value = {
-    ...planMatrix.value,
-    [activePlan.value]: cur,
-    [targetPlan]: target,
+async function load() {
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await api.load()
+    plans.value = response.plans
+    groups.value = response.feature_groups
+    catalog.value = response.entitlements
+    if (!plans.value.some(plan => plan.key === activeKey.value)) activeKey.value = plans.value[0]?.key
+    resetDraft(plans.value.find(plan => plan.key === activeKey.value))
+  } catch (e) {
+    error.value = e?.response?.data?.message || 'Unable to load authoritative plan features.'
+  } finally {
+    loading.value = false
   }
 }
 
-const enabledCount = computed(() => featuresInPlan.value.size)
-const totalCount   = computed(() => ALL_FEATURES.length)
+async function save() {
+  if (!dirty.value || saving.value || activePlan.value?.legacy) return
+  if (reason.value.trim().length < 3) {
+    error.value = 'Enter a reason for this change.'
+    return
+  }
+  if (!confirm(`Apply these changes to every ${activePlan.value.display_name} user?`)) return
+  saving.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    const updated = await api.update(activePlan.value.key, {
+      entitlements: draft.value.entitlements,
+      limits: draft.value.limits,
+      version: activePlan.value.version,
+      reason: reason.value.trim(),
+    })
+    plans.value = plans.value.map(plan => plan.key === updated.key ? updated : plan)
+    resetDraft(updated)
+    success.value = 'Authoritative plan features saved.'
+  } catch (e) {
+    if (e?.response?.status === 409) {
+      error.value = 'Another administrator changed this plan. The matrix has been refreshed.'
+      await load()
+    } else {
+      const errors = e?.response?.data?.errors
+      error.value = errors ? Object.values(errors).flat().join(' ') : (e?.response?.data?.message || 'Save failed.')
+    }
+  } finally {
+    saving.value = false
+  }
+}
 
-// Plan color coding
-const PLAN_COLORS = {
-  free:         'border-white/20 text-white/50',
-  coach_basic:  'border-blue-500/50 text-blue-400',
-  coach_pro:    'border-app-red/60 text-app-red',
-  player_basic: 'border-green-500/50 text-green-400',
-  player_pro:   'border-amber-400/60 text-amber-400',
-}
-const PLAN_ACTIVE = {
-  free:         'bg-white/15 border-white/40 text-white',
-  coach_basic:  'bg-blue-500/20 border-blue-400 text-blue-300',
-  coach_pro:    'bg-app-red/20 border-app-red text-white',
-  player_basic: 'bg-green-600/20 border-green-400 text-green-300',
-  player_pro:   'bg-amber-500/20 border-amber-400 text-amber-300',
-}
+onMounted(load)
 </script>
 
 <template>
   <Layout>
-    <!-- Header -->
     <div class="flex items-center gap-3 mb-1">
-      <button class="text-white/50 hover:text-white" @click="router.push({ name: 'admin.dashboard' })">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
-      </button>
+      <button class="text-white/50 hover:text-white" @click="router.push({ name: 'admin.dashboard' })">‹</button>
       <h1 class="text-white text-xl font-bold flex-1">Plan Features</h1>
-      <span v-if="hasOverride"
-        class="text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-1 rounded-lg">
-        CUSTOM
-      </span>
+      <button class="text-xs text-white/60" @click="load">Refresh</button>
     </div>
-    <p class="text-white/30 text-xs mb-5 ml-8">
-      Control which features are included in each subscription tier.
-      Changes are saved as web configuration — backend enforcement is done server-side.
-    </p>
+    <p class="text-white/40 text-xs mb-5">Laravel is authoritative. Saved changes affect access on the next refresh.</p>
 
-    <!-- Plan Tabs -->
-    <div class="flex gap-1.5 mb-1 flex-wrap">
-      <button
-        v-for="p in PLAN_KEYS" :key="p"
-        class="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors"
-        :class="activePlan === p ? PLAN_ACTIVE[p] : PLAN_COLORS[p] + ' bg-white/4 hover:bg-white/10'"
-        @click="activePlan = p"
-      >{{ PLAN_LABELS[p] }}</button>
-    </div>
-
-    <!-- Plan Summary Bar -->
-    <div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3 mb-4">
-      <div>
-        <p class="text-white font-bold text-sm">{{ PLAN_LABELS[activePlan] }}</p>
-        <p class="text-white/40 text-xs mt-0.5">{{ enabledCount }} of {{ totalCount }} features enabled</p>
-      </div>
-      <div class="flex gap-2">
-        <!-- Quick-enable all for this plan -->
-        <button
-          class="text-xs text-white/40 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 transition-colors"
-          @click="() => { planMatrix[activePlan] = new Set(ALL_FEATURES) }">
-          Enable All
-        </button>
-        <button
-          class="text-xs text-white/40 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 transition-colors"
-          @click="() => { planMatrix[activePlan] = new Set() }">
-          Clear All
+    <p v-if="loading" class="text-white/60 py-10 text-center">Loading authoritative matrix…</p>
+    <p v-else-if="!plans.length" class="text-white/60 py-10 text-center">No plans are available.</p>
+    <template v-else>
+      <div class="flex gap-1.5 mb-4 flex-wrap">
+        <button v-for="plan in plans" :key="plan.key" class="px-3 py-2 rounded-lg text-xs font-bold border"
+          :class="activeKey === plan.key ? 'bg-app-red/20 border-app-red text-white' : 'border-white/15 text-white/50'"
+          @click="selectPlan(plan.key)">
+          {{ plan.display_name }} <span v-if="plan.legacy">(Legacy)</span>
         </button>
       </div>
-    </div>
 
-    <!-- Feature List by Category -->
-    <div class="space-y-4 mb-6">
-      <div v-for="cat in CATEGORIES" :key="cat">
-        <!-- Category Header -->
-        <div class="flex items-center gap-2 mb-2">
-          <p class="text-white/35 text-xs font-black tracking-widest uppercase">{{ cat }}</p>
-          <div class="flex-1 h-px bg-white/8"></div>
-          <span class="text-white/20 text-xs">
-            {{ featuresByCategory(cat).filter(k => isEnabled(k)).length }}/{{ featuresByCategory(cat).length }}
-          </span>
-        </div>
+      <div v-if="activePlan.legacy" class="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
+        Coach Basic is a read-only legacy plan.
+      </div>
+      <div v-if="error" class="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{{ error }}</div>
+      <div v-if="success" class="mb-4 p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-300 text-sm">{{ success }}</div>
 
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+        <label v-for="(label, key) in { players: 'Player limit', coaches: 'Coach-seat limit', teams: 'Team limit' }" :key="key" class="text-white/50 text-xs">
+          {{ label }} <span class="text-white/25">(blank = unlimited)</span>
+          <input type="number" min="0" :disabled="activePlan.legacy" :value="draft.limits[key]"
+            class="mt-1 w-full rounded-lg bg-white/5 border border-white/15 text-white px-3 py-2 disabled:opacity-40"
+            @input="draft.limits[key] = $event.target.value === '' ? null : Number($event.target.value)" />
+        </label>
+      </div>
+
+      <div v-for="group in groups" :key="group" class="mb-5" v-show="byGroup(group).length">
+        <h2 class="text-white/40 text-xs font-black uppercase tracking-widest mb-2">{{ group }}</h2>
         <div class="space-y-1">
-          <div v-for="featureKey in featuresByCategory(cat)" :key="featureKey"
-            class="flex items-center gap-3 bg-white/4 border rounded-xl px-4 py-3 transition-colors"
-            :class="isEnabled(featureKey) ? 'border-white/12' : 'border-white/5 opacity-60'">
-
-            <!-- Toggle -->
-            <button
-              class="relative w-10 h-6 rounded-full flex-shrink-0 transition-colors focus:outline-none"
-              :class="isEnabled(featureKey) ? 'bg-app-red' : 'bg-white/15'"
-              @click="toggleFeature(featureKey)">
-              <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                :class="isEnabled(featureKey) ? 'translate-x-4' : 'translate-x-0'"></span>
-            </button>
-
-            <!-- Feature Label -->
-            <div class="flex-1 min-w-0">
-              <p class="text-white text-sm font-semibold truncate">{{ FEATURE_META[featureKey]?.label ?? featureKey }}</p>
-              <p class="text-white/25 text-xs font-mono mt-0.5 truncate">{{ featureKey }}</p>
-            </div>
-
-            <!-- Other plans that have this feature (chips) -->
-            <div class="flex gap-1 flex-shrink-0 flex-wrap justify-end max-w-[160px]">
-              <span
-                v-for="op in otherPlansWithFeature(featureKey)" :key="op"
-                class="text-xs px-1.5 py-0.5 rounded text-white/40 bg-white/6 border border-white/8 whitespace-nowrap"
-              >{{ PLAN_LABELS[op] }}</span>
-            </div>
-
-            <!-- Move-to dropdown -->
-            <div class="relative flex-shrink-0" v-if="isEnabled(featureKey)">
-              <select
-                class="bg-white/8 border border-white/15 text-white/50 text-xs rounded-lg px-2 py-1.5 cursor-pointer hover:bg-white/15 transition-colors appearance-none pr-5"
-                @change="(e) => { if (e.target.value) { moveToPlan(featureKey, e.target.value); e.target.value = '' } }"
-                :value="''">
-                <option value="" disabled>Move →</option>
-                <option v-for="p in PLAN_KEYS.filter(p => p !== activePlan)" :key="p" :value="p">
-                  {{ PLAN_LABELS[p] }}
-                </option>
-              </select>
-            </div>
-
-          </div>
+          <button v-for="item in byGroup(group)" :key="item.key" class="w-full flex items-center gap-3 text-left p-3 rounded-xl border"
+            :class="isEnabled(item.key) ? 'border-white/15 bg-white/5' : 'border-white/5 opacity-60'"
+            :disabled="activePlan.legacy || isImmutable(item.key)" @click="toggle(item.key)">
+            <span class="w-10 h-6 rounded-full p-0.5" :class="isEnabled(item.key) ? 'bg-app-red' : 'bg-white/15'">
+              <span class="block w-5 h-5 bg-white rounded-full transition-transform" :class="isEnabled(item.key) ? 'translate-x-4' : ''"></span>
+            </span>
+            <span class="flex-1">
+              <span class="block text-white text-sm font-semibold">{{ item.display_name }}</span>
+              <span class="block text-white/35 text-xs">{{ item.description }}</span>
+            </span>
+            <span v-if="isImmutable(item.key)" class="text-xs text-amber-300">Required</span>
+          </button>
         </div>
       </div>
-    </div>
 
-    <!-- Save / Reset Bar (sticky bottom) -->
-    <div class="sticky bottom-0 bg-[#0C1021]/90 backdrop-blur border-t border-white/10 -mx-4 px-4 py-3 flex items-center gap-3">
-      <button
-        class="flex-1 bg-app-red text-white font-bold text-sm py-3 rounded-xl hover:bg-red-600 transition-colors"
-        @click="saveChanges">
-        {{ saved ? '✓ Saved' : 'Save Plan Changes' }}
-      </button>
-      <button
-        class="px-4 py-3 bg-white/8 border border-white/15 text-white/50 text-sm font-semibold rounded-xl hover:bg-white/15 hover:text-white transition-colors whitespace-nowrap"
-        @click="resetToDefaults">
-        Reset Defaults
-      </button>
-    </div>
+      <div class="sticky bottom-0 bg-[#0C1021]/95 border-t border-white/10 -mx-4 px-4 py-3">
+        <textarea v-model="reason" :disabled="activePlan.legacy" maxlength="1000" rows="2" placeholder="Required reason for change"
+          class="w-full mb-2 rounded-lg bg-white/5 border border-white/15 text-white px-3 py-2 disabled:opacity-40"></textarea>
+        <div class="flex gap-2">
+          <button class="flex-1 bg-app-red text-white font-bold py-3 rounded-xl disabled:opacity-40" :disabled="!dirty || saving || activePlan.legacy" @click="save">
+            {{ saving ? 'Saving…' : 'Save Authoritative Changes' }}
+          </button>
+          <button class="px-4 border border-white/15 text-white/60 rounded-xl disabled:opacity-40" :disabled="!dirty" @click="resetDraft">Discard</button>
+        </div>
+      </div>
+    </template>
   </Layout>
 </template>

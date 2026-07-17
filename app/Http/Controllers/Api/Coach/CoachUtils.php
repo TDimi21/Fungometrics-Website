@@ -71,11 +71,36 @@ class CoachUtils
      */
     public static function coachSeatLimitReached(string $teamId): bool
     {
-        if ('coach_pro' === self::teamHeadCoachPlan($teamId)) {
+        $limit = self::teamLimit($teamId, 'coaches');
+        if (null === $limit) {
             return false;
         }
 
-        return CoachTeam::where('team_id', $teamId)->count() >= self::COACH_SEAT_LIMIT;
+        return CoachTeam::where('team_id', $teamId)->count() >= $limit;
+    }
+
+    public static function coachSeatLimit(string $teamId): ?int
+    {
+        return self::teamLimit($teamId, 'coaches');
+    }
+
+    public static function playerLimit(string $teamId): ?int
+    {
+        return self::teamLimit($teamId, 'players');
+    }
+
+    private static function teamLimit(string $teamId, string $key): ?int
+    {
+        $member = CoachTeam::where('team_id', $teamId)->orderByDesc('is_main')->first();
+        $coach = $member ? User::find($member->coach_id) : null;
+        if ( ! $coach) {
+            return config("access.plans.free.limits.{$key}");
+        }
+
+        $limits = app(EntitlementResolver::class)->getAccessSummary($coach, $teamId)['limits'];
+        $value = $limits[$key] ?? null;
+
+        return null === $value ? null : (int) $value;
     }
 
     /**

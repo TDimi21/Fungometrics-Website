@@ -12,7 +12,6 @@ use App\Models\Player;
 use App\Models\PlayerTeam;
 use App\Models\User;
 use App\Services\ListServiceData;
-use App\Services\Access\EntitlementResolver;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -32,25 +31,20 @@ class AddPlayers extends Controller
             $data = $request->validated();
 
             // ── Player limit enforcement ──
-            $coach = $request->user();
             $teamId = $data['team'] ?? null;
-            $accessTeamId = $teamId && CoachUtils::isCoachOnTeam($coach->id, $teamId) ? $teamId : null;
-            $hasUnlimitedPlayers = app(EntitlementResolver::class)
-                ->hasEntitlement($coach, 'unlimited_players', $accessTeamId);
-            if ( ! $hasUnlimitedPlayers) {
-                if ($teamId) {
-                    $currentCount = PlayerTeam::where('team_id', $teamId)
-                        ->where('actual', true)
-                        ->count();
-                    if ($currentCount >= 10) {
-                        DB::rollBack();
-                        return response()->json([
-                            'code'    => '016-LIMIT',
-                            'message' => 'You have reached the 10-player limit on your current plan. Upgrade to Coach Pro for unlimited players.',
-                            'status'  => 'error',
-                            'data'    => [],
-                        ], HttpCodes::HTTP_FORBIDDEN);
-                    }
+            $playerLimit = $teamId ? CoachUtils::playerLimit($teamId) : null;
+            if ($teamId && null !== $playerLimit) {
+                $currentCount = PlayerTeam::where('team_id', $teamId)
+                    ->where('actual', true)
+                    ->count();
+                if ($currentCount >= $playerLimit) {
+                    DB::rollBack();
+                    return response()->json([
+                        'code'    => '016-LIMIT',
+                        'message' => "You have reached the {$playerLimit}-player limit on your current plan.",
+                        'status'  => 'error',
+                        'data'    => [],
+                    ], HttpCodes::HTTP_FORBIDDEN);
                 }
             }
             $player = (new ListServiceData(new User()))->byParamFirst('phone', $data['phone']);

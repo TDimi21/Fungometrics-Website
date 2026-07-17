@@ -14,6 +14,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Models\Concerns\UserTypes;
 use App\Services\CreateServiceData;
+use App\Services\Access\EntitlementResolver;
 use App\Services\UploadS3File;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -49,6 +50,23 @@ class AddTeams extends Controller
         try {
             DB::beginTransaction();
 
+            $coach = $request->user();
+            $teamLimit = app(EntitlementResolver::class)->getAccessSummary($coach)['limits']['teams'] ?? null;
+            if (null !== $teamLimit) {
+                $teamCount = CoachTeam::query()->where('coach_id', $coach->id)
+                    ->whereHas('team', fn ($query) => $query->where('is_dummy', false))
+                    ->distinct('team_id')->count('team_id');
+                if ($teamCount >= (int) $teamLimit) {
+                    DB::rollBack();
+                    return response()->json([
+                        'code' => '004-LIMIT',
+                        'message' => "You have reached the {$teamLimit}-team limit on your current plan.",
+                        'status' => 'error',
+                        'data' => [],
+                    ], HttpCodes::HTTP_FORBIDDEN);
+                }
+            }
+
             // ── 1. Create the real team ──────────────────────────────────────
             $url  = UploadS3File::getUrl($request->logo, '/teams');
             $data = $request->validated();
@@ -64,7 +82,7 @@ class AddTeams extends Controller
 
             // ── 2. Create the per-team dummy opponent ────────────────────────
             $dummyTeam = (new CreateServiceData(new Team()))->handle([
-                'name'          => $realTeam->name . ' Scouts',
+                'name'          => $realTeam->name.' Scouts',
                 'logo'          => '',
                 'state'         => 'SIM',
                 'zip'           => '00000',
@@ -83,7 +101,7 @@ class AddTeams extends Controller
             // ── 3. Create 12 dummy players for this dummy team ───────────────
             foreach (self::DUMMY_PLAYERS as $i => $p) {
                 $user = (new CreateServiceData(new User()))->handle([
-                    'phone'    => 'dummy-' . $dummyTeam->id . '-' . $i,
+                    'phone'    => 'dummy-'.$dummyTeam->id.'-'.$i,
                     'type'     => UserTypes::PLAYER->value,
                     'status'   => true,
                     'is_dummy' => true,
@@ -129,4 +147,3 @@ class AddTeams extends Controller
         }
     }
 }
-

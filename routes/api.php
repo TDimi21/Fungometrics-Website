@@ -207,10 +207,10 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
     Route::post('player/fitness', SaveFitness::class);
     Route::get('player/fitness/{id}', GetFitness::class);
     Route::get('players/{player}/athletic-performance', GetAthleticPerformance::class);
-    Route::post('assessments/{assessment}/calculate-api', CalculateAthleticPerformance::class);
+    Route::middleware('plan:view_assessment_reports')->post('assessments/{assessment}/calculate-api', CalculateAthleticPerformance::class);
     Route::post('assessments', SaveAssessment::class);
-    Route::get('assessments/player/{player}', GetPlayerAssessments::class);
-    Route::get('assessments/team/{team}', GetTeamAssessments::class);
+    Route::middleware('plan:view_assessment_reports')->get('assessments/player/{player}', GetPlayerAssessments::class);
+    Route::middleware('plan:view_assessment_reports')->get('assessments/team/{team}', GetTeamAssessments::class);
     Route::get('dashboard/{team}', GetDataGraphics::class);
     Route::get('player-compare/{player}', GetPlayerCompareStats::class);
     Route::get('pitcher-stats/team', GetTeamPitchStats::class);
@@ -268,7 +268,7 @@ Route::prefix('coach')->group(function (): void {
     Route::middleware(['auth:sanctum'])->post('/teams/{teamId}/operating-system-home/actions/execute', [CoachOperatingSystemHomeController::class, 'executeAction']);
     Route::middleware(['auth:sanctum', 'ability:coach'])->group(function (): void {
         Route::post('/players/{id}/set-password', SetPlayerPassword::class);
-        Route::post('/add/teams', AddTeams::class);
+        Route::middleware('plan:add_team')->post('/add/teams', AddTeams::class);
         Route::post('/edit', EditCoach::class);
         Route::post('/edit/teams/{team}', EditTeams::class);
         Route::post('/add/players', AddPlayers::class);
@@ -304,18 +304,18 @@ Route::prefix('coach')->group(function (): void {
         Route::middleware('plan:sms_results')->post('/send/results/{practice}', SendSmsResults::class);
 
         // Practice Planner — team-shared, synced between app and web
-        Route::get('/practice-plans', GetPracticePlans::class);
-        Route::post('/practice-plans', SavePracticePlan::class);
-        Route::delete('/practice-plans/{id}', DeletePracticePlan::class);
+        Route::middleware('plan:planner_create')->get('/practice-plans', GetPracticePlans::class);
+        Route::middleware('plan:planner_create')->post('/practice-plans', SavePracticePlan::class);
+        Route::middleware('plan:planner_create')->delete('/practice-plans/{id}', DeletePracticePlan::class);
 
         // Daily Planner (coach authoring) — synced between app and web
-        Route::get('/daily-plans', GetDailyPlans::class);
-        Route::post('/daily-plans', SaveDailyPlan::class);
-        Route::delete('/daily-plans/{id}', DeleteDailyPlan::class);
+        Route::middleware('plan:planner_create')->get('/daily-plans', GetDailyPlans::class);
+        Route::middleware('plan:planner_create')->post('/daily-plans', SaveDailyPlan::class);
+        Route::middleware('plan:planner_create')->delete('/daily-plans/{id}', DeleteDailyPlan::class);
         // Coach reviews player results: all players' progress for a plan, + per-player review.
-        Route::get('/daily-plans/{id}/progress', GetDailyPlanProgress::class);
-        Route::get('/daily-plans/{dailyPlanId}/completion-summary', GetDailyPlanCompletionSummary::class);
-        Route::post('/daily-plans/{planId}/players/{playerId}/review', SaveCoachWorkoutReview::class);
+        Route::middleware('plan:view_workout_progress')->get('/daily-plans/{id}/progress', GetDailyPlanProgress::class);
+        Route::middleware('plan:view_workout_progress')->get('/daily-plans/{dailyPlanId}/completion-summary', GetDailyPlanCompletionSummary::class);
+        Route::middleware('plan:view_workout_progress')->post('/daily-plans/{planId}/players/{playerId}/review', SaveCoachWorkoutReview::class);
         Route::get('/daily-plans/{dailyPlanId}/acknowledgements', GetDailyPlanAcknowledgements::class);
         Route::get('/daily-plans/{dailyPlanId}/reminder-preview', GetDailyPlanReminderPreview::class);
         Route::post('/daily-plans/{dailyPlanId}/send-reminder', SendDailyPlanReminder::class);
@@ -373,25 +373,25 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/teams/{teamId}/next-week-calendar-draft', GetNextWeekCalendarDraft::class);
         Route::post('/teams/{teamId}/next-week-calendar-draft/save-days', SaveNextWeekCalendarDraftDays::class);
         Route::get('/teams/{teamId}/weekly-draft-plans', [WeeklyPlanPublishController::class, 'list']);
-        Route::post('/teams/{teamId}/weekly-draft-plans/publish', [WeeklyPlanPublishController::class, 'publishWeeklyDrafts']);
-        Route::post('/daily-plans/{dailyPlanId}/publish', [WeeklyPlanPublishController::class, 'publishPlan']);
-        Route::post('/daily-plans/{dailyPlanId}/publish-and-assign', [WeeklyPlanPublishController::class, 'publishAndAssignPlan']);
+        Route::middleware('plan:assign_workouts')->post('/teams/{teamId}/weekly-draft-plans/publish', [WeeklyPlanPublishController::class, 'publishWeeklyDrafts']);
+        Route::middleware('plan:planner_create')->post('/daily-plans/{dailyPlanId}/publish', [WeeklyPlanPublishController::class, 'publishPlan']);
+        Route::middleware('plan:assign_workouts')->post('/daily-plans/{dailyPlanId}/publish-and-assign', [WeeklyPlanPublishController::class, 'publishAndAssignPlan']);
         Route::get('/teams/{teamId}/daily-plan-update-suggestions', [IntelligenceController::class, 'teamDailyPlanUpdateSuggestions']);
 
         // Custom drills / lifts — saved per coach; `library` is the shared,
         // browse-other-coaches' community view (public drills).
-        Route::get('/drills', GetCustomDrills::class);
-        Route::get('/drills/library', GetDrillLibrary::class);
-        Route::post('/drills', SaveCustomDrill::class);
-        Route::delete('/drills/{id}', DeleteCustomDrill::class);
+        Route::middleware('plan:plan_builder')->get('/drills', GetCustomDrills::class);
+        Route::middleware('plan:plan_builder')->get('/drills/library', GetDrillLibrary::class);
+        Route::middleware('plan:plan_builder')->post('/drills', SaveCustomDrill::class);
+        Route::middleware('plan:plan_builder')->delete('/drills/{id}', DeleteCustomDrill::class);
 
         // Recent workout completions — polled by the coach app for in-app alerts.
-        Route::get('/workout-completions', GetWorkoutCompletions::class);
+        Route::middleware('plan:view_workout_progress')->get('/workout-completions', GetWorkoutCompletions::class);
 
         // Player sub-groups — reusable assign presets for plans & practices.
-        Route::get('/player-groups', GetPlayerGroups::class);
-        Route::post('/player-groups', SavePlayerGroup::class);
-        Route::delete('/player-groups/{id}', DeletePlayerGroup::class);
+        Route::middleware('plan:manage_player_groups')->get('/player-groups', GetPlayerGroups::class);
+        Route::middleware('plan:manage_player_groups')->post('/player-groups', SavePlayerGroup::class);
+        Route::middleware('plan:manage_player_groups')->delete('/player-groups/{id}', DeletePlayerGroup::class);
 
         // Saved field presets (Game Mode field builder) — user-scoped, synced replacement for localStorage
         Route::get('/field-presets', GetFieldPresets::class);
@@ -399,7 +399,7 @@ Route::prefix('coach')->group(function (): void {
         Route::delete('/field-presets/{id}', DeleteFieldPreset::class);
 
         // Synced (team-shared) replacements for localStorage-only data
-        Route::post('/assessments/{id}/insights', [AssessmentInsightController::class, 'update']);
+        Route::middleware('plan:view_assessment_recommendations')->post('/assessments/{id}/insights', [AssessmentInsightController::class, 'update']);
         Route::get('/assessment-drafts/{player}', [AssessmentDraftController::class, 'show']);
         Route::post('/assessment-drafts', [AssessmentDraftController::class, 'store']);
         Route::delete('/assessment-drafts/{player}', [AssessmentDraftController::class, 'destroy']);
@@ -478,9 +478,9 @@ Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
     Route::middleware('plan:arm_care')->post('/armcare', SaveArmCareResultPractice::class);
 
     // ── Scripted BP ──────────────────────────────────────────────────────────
-    Route::post('/scripted-bp/plan', SaveScriptedBpPlan::class);
-    Route::post('/scripted-bp/swing', SaveScriptedBpSwing::class);
-    Route::get('/scripted-bp/{practice}', GetScriptedBpResults::class);
+    Route::middleware('plan:scripted_bp')->post('/scripted-bp/plan', SaveScriptedBpPlan::class);
+    Route::middleware('plan:scripted_bp')->post('/scripted-bp/swing', SaveScriptedBpSwing::class);
+    Route::middleware('plan:scripted_bp')->get('/scripted-bp/{practice}', GetScriptedBpResults::class);
     Route::middleware(['ability:coach', 'plan:view_team_stats'])->get(
         '/statistics/{team}',
         FilterTrainings::class
@@ -511,6 +511,10 @@ Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): vo
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
 Route::middleware(['auth:sanctum', 'ability:coach', 'subscription.admin'])->prefix('admin')->group(function (): void {
+    Route::get('/billing/plans', [\App\Http\Controllers\Api\Admin\PlanFeatureAdminController::class, 'plans']);
+    Route::get('/billing/entitlements', [\App\Http\Controllers\Api\Admin\PlanFeatureAdminController::class, 'entitlements']);
+    Route::put('/billing/plans/{plan}/entitlements', [\App\Http\Controllers\Api\Admin\PlanFeatureAdminController::class, 'update']);
+    Route::get('/billing/entitlement-audits', [\App\Http\Controllers\Api\Admin\PlanFeatureAdminController::class, 'audits']);
     Route::patch('/users/{id}/plan', UpdateUserPlan::class);
     Route::get('/users/{user}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'userIndex']);
     Route::post('/users/{user}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'userStore']);
