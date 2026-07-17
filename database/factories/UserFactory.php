@@ -20,13 +20,18 @@ class UserFactory extends Factory
      */
     public function definition()
     {
+        $type = Arr::random(UserTypes::cases());
+
         return [
             'id' => fake()->uuid,
             'phone' => fake()->phoneNumber,
-            'type' => Arr::random(UserTypes::cases()),
+            'type' => $type,
             'email' => fake()->safeEmail(),
             'status' => fake()->boolean,
             'password' => fake()->password,
+            // Most legacy feature tests exercise application behavior rather
+            // than plan denial. Access-control tests explicitly override this.
+            'subscription_plan' => UserTypes::COACH === $type ? 'coach_pro' : 'player_pro',
         ];
     }
 

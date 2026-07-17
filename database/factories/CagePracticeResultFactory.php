@@ -25,16 +25,17 @@ class CagePracticeResultFactory extends Factory
     public function definition()
     {
         return [
-            'practice_id'=>Practice::factory()->create()->id,
-            'user_id'=>User::factory()->create()->id,
+            'practice_id' => Practice::factory()->create()->id,
+            'user_id' => User::factory()->create()->id,
             'team_id' => Team::factory()->create()->id,
-            'launch_angle'=>fake()->numberBetween(6, 45),
-            'launch_angle_velocity'=>fake()->numberBetween(10, 130),
-            'spray_angle'=>fake()->boolean ? ''.fake()->numberBetween(0, 90) : '-'.fake()->numberBetween(1, 90),
-            'distance_travel'=>fake()->numberBetween(10, 300),
-            'ground_ball'=>fake()->boolean(),
-            'cage_mark'=>fake()->numberBetween(0, 90),
-            'cage_position'=>Arr::random(SidesPitchPosition::cases()),
+            'launch_angle' => fake()->numberBetween(6, 45),
+            'launch_angle_velocity' => fake()->numberBetween(10, 130),
+            'spray_angle' => fake()->boolean ? ''.fake()->numberBetween(0, 90) : '-'.fake()->numberBetween(1, 90),
+            'distance_travel' => fake()->numberBetween(10, 300),
+            'ground_ball' => fake()->boolean(),
+            'cage_mark' => fake()->numberBetween(0, 90),
+            'cage_position' => Arr::random(SidesPitchPosition::cases()),
+            'sort' => fake()->randomDigitNotZero(),
             'created_at' => Carbon::now()
         ];
     }

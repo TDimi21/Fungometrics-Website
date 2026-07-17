@@ -95,7 +95,6 @@ use App\Http\Controllers\Api\Coach\GetTeamCode;
 use App\Http\Controllers\Api\Coach\GetPlayerDevelopmentBoard;
 use App\Http\Controllers\Api\Coach\GetPlayerDevelopmentDashboard;
 use App\Http\Controllers\Api\Coach\GetTeamPlayerCards;
-use App\Http\Controllers\Api\Coach\GetTeamsPlayers;
 use App\Http\Controllers\Api\Coach\GetTeamsPlayersV2;
 use App\Http\Controllers\Api\Coach\RemoveCoachFromTeam;
 use App\Http\Controllers\Api\Coach\RemovePlayers;
@@ -180,13 +179,17 @@ use App\Http\Controllers\Api\Training\Result\SaveScriptedBpSwing;
 use App\Http\Controllers\Api\Sessions\Results\GetScriptedBpResults;
 use App\Http\Controllers\Api\Admin\UpdateUserPlan;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Billing\RevenueCatWebhookController;
+use App\Http\Controllers\Api\Billing\RevenueCatSyncController;
+use App\Http\Controllers\Api\Billing\RevenueCatProductsController;
 
-Route::middleware(['auth:sanctum', 'ability:coach'])->get('/opcache-clear', function() {
+Route::middleware(['auth:sanctum', 'ability:coach'])->get('/opcache-clear', function () {
     opcache_reset();
     return response()->json(['cleared' => true, 'ts' => time()]);
 });
 
 Route::post('login', LoginController::class);
+Route::post('billing/revenuecat/webhook', RevenueCatWebhookController::class)->middleware('throttle:120,1');
 
 Route::post('/forgot-password', SendEmailRecoverController::class)->middleware(['guest']);
 
@@ -197,6 +200,8 @@ Route::post('/complete/{user}/player', CompletePlayerController::class)->middlew
 
 Route::middleware(['auth:sanctum'])->group(function (): void {
     Route::get('me/access', \App\Http\Controllers\Api\Access\GetMyAccess::class);
+    Route::post('me/billing/revenuecat/sync', RevenueCatSyncController::class)->middleware('throttle:10,1');
+    Route::get('me/billing/revenuecat/products', RevenueCatProductsController::class);
     Route::post('/edit/players/{id}', EditPlayers::class);
     Route::get('player/me', \App\Http\Controllers\Api\Player\GetMe::class);
     Route::post('player/fitness', SaveFitness::class);

@@ -38,8 +38,9 @@ return [
         'number' => env('TWILIO_NUMBER'),
     ],
 
-    'images'=>[
-        'logo'=>env('DEFAULT_LOGO', 'https://fungometrics.s3.amazonaws.com/updatedlogo.png'),
-    ]
+    'images' => [
+        'logo' => env('DEFAULT_LOGO', 'https://fungometrics.s3.amazonaws.com/updatedlogo.png'),
+    ],
+    'revenuecat' => config('billing.revenuecat'),
 
 ];

@@ -91,6 +91,35 @@ class SubscriptionManager
         return $this->transition($subscription, $status, $allowed, $actor, 'subscription.reconciled', $reason);
     }
 
+    /** @param array<string, mixed> $metadata */
+    public function reconcileProviderUserSubscription(User $user, string $provider, string $providerSubscriptionId, string $productId, string $planKey, string $status, Carbon $startsAt, ?Carbon $periodEndsAt, array $metadata = [], ?string $reason = null): Subscription
+    {
+        if ('' === $providerSubscriptionId) {
+            throw ValidationException::withMessages(['transaction_id' => 'Provider transaction identity is required.']);
+        }
+        return DB::transaction(function () use ($user, $provider, $providerSubscriptionId, $productId, $planKey, $status, $startsAt, $periodEndsAt, $metadata, $reason): Subscription {
+            $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $plan = $this->plan($planKey);
+            if ($plan->audience !== (string) $locked->type) {
+                throw ValidationException::withMessages(['plan' => 'The plan audience does not match the subscription owner.']);
+            }
+            $subscription = Subscription::query()->where('provider', $provider)->where('provider_subscription_id', $providerSubscriptionId)->lockForUpdate()->first();
+            if ($subscription && $subscription->user_id !== $locked->id) {
+                throw ValidationException::withMessages(['owner' => 'Provider subscription belongs to another FMTRX user.']);
+            }
+            $before = $subscription?->toArray();
+            $subscription ??= new Subscription(['user_id' => $locked->id, 'provider' => $provider, 'provider_subscription_id' => $providerSubscriptionId]);
+            $subscription->fill(['plan_id' => $plan->id, 'provider_product_id' => $productId, 'status' => $status,
+                'starts_at' => $startsAt->utc(), 'current_period_ends_at' => $periodEndsAt?->utc(),
+                'grace_period_ends_at' => 'grace_period' === $status ? $periodEndsAt?->utc() : null,
+                'canceled_at' => 'CANCELLATION' === $reason ? now() : null,
+                'ended_at' => in_array($status, ['expired', 'revoked'], true) ? ($periodEndsAt ?? now())->utc() : null,
+                'metadata' => $metadata])->save();
+            $this->audit(null, 'subscription.provider_reconciled', $subscription, null, $before, $subscription->fresh()->toArray(), $reason);
+            return $subscription->fresh();
+        });
+    }
+
     /** @param array<string, string> $owner */
     private function createManual(array $owner, string $planKey, ?Carbon $startsAt, ?Carbon $endsAt, ?User $actor, ?string $reason, string $audience): Subscription
     {
