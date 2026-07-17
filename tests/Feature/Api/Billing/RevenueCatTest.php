@@ -197,6 +197,42 @@ class RevenueCatTest extends TestCase
             $this->postJson('/api/billing/revenuecat/webhook', $payload, $headers)->assertUnprocessable();
         }
     }
+    public function test_apple_sandbox_is_accepted_and_production_or_unknown_stores_are_rejected(): void
+    {
+        $user = User::factory()->create(['type' => 'player']);
+        $headers = ['Authorization' => 'Bearer test-hook'];
+        $apple = $this->payload($user);
+        $apple['event']['id'] = 'apple-sandbox';
+        $apple['event']['store'] = 'APP_STORE';
+        $this->postJson('/api/billing/revenuecat/webhook', $apple, $headers)->assertOk();
+        $this->assertDatabaseHas('subscriptions', [
+            'provider' => 'revenuecat',
+            'provider_subscription_id' => 'app_store:original-1',
+        ]);
+
+        foreach ([['environment' => 'PRODUCTION'], ['store' => 'STRIPE']] as $index => $change) {
+            $invalid = $this->payload($user);
+            $invalid['event']['id'] = 'invalid-apple-'.$index;
+            $invalid['event'] = array_merge($invalid['event'], $change);
+            $this->postJson('/api/billing/revenuecat/webhook', $invalid, $headers)->assertUnprocessable();
+        }
+    }
+
+    public function test_test_store_and_apple_provider_identities_cannot_collide(): void
+    {
+        $user = User::factory()->create(['type' => 'player']);
+        $headers = ['Authorization' => 'Bearer test-hook'];
+        $testStore = $this->payload($user);
+        $apple = $this->payload($user);
+        $apple['event']['id'] = 'same-transaction-apple';
+        $apple['event']['store'] = 'APP_STORE';
+
+        $this->postJson('/api/billing/revenuecat/webhook', $testStore, $headers)->assertOk();
+        $this->postJson('/api/billing/revenuecat/webhook', $apple, $headers)->assertOk();
+
+        $this->assertSame(1, Subscription::where('provider_subscription_id', 'original-1')->count());
+        $this->assertSame(1, Subscription::where('provider_subscription_id', 'app_store:original-1')->count());
+    }
     public function test_lifecycle_events_reconcile_without_duplicate_subscriptions(): void
     {
         $user = User::factory()->create(['type' => 'player']);
@@ -272,7 +308,9 @@ class RevenueCatTest extends TestCase
 
     public function test_sync_preserves_provider_access_when_the_application_timezone_is_not_utc(): void
     {
+        $originalTimezone = date_default_timezone_get();
         config(['app.timezone' => 'America/Denver']);
+        date_default_timezone_set('America/Denver');
         Carbon::setTestNow(Carbon::parse('2026-07-17 08:53:12', 'America/Denver'));
         $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
         Sanctum::actingAs($user, ['player']);
@@ -290,13 +328,20 @@ class RevenueCatTest extends TestCase
         };
         $this->app->instance(RevenueCatClient::class, $fake);
 
-        $this->postJson('/api/me/billing/revenuecat/sync')
+        $response = $this->postJson('/api/me/billing/revenuecat/sync');
+        $subscription = Subscription::where('provider_subscription_id', 'timezone-subscription')->firstOrFail();
+        $this->assertSame('active', $subscription->status);
+        $this->assertNull($subscription->ended_at);
+        $this->assertTrue($subscription->current_period_ends_at->isFuture(), $subscription->current_period_ends_at->toIso8601String());
+
+        $response
             ->assertOk()
             ->assertJsonPath('data.plan', 'player_basic')
             ->assertJsonPath('data.source', 'subscription')
             ->assertJsonPath('data.provider', 'revenuecat');
 
         Carbon::setTestNow();
+        date_default_timezone_set($originalTimezone);
     }
     public function test_sync_fails_closed_without_server_credentials(): void
     {
@@ -317,7 +362,7 @@ class RevenueCatTest extends TestCase
     private function payload(?User $user = null, string $type = 'INITIAL_PURCHASE'): array
     {
         return ['api_version' => '1.0', 'event' => ['id' => 'rc-event-1', 'type' => $type, 'event_timestamp_ms' => now()->valueOf(),
-            'app_user_id' => $user?->id ?? fake()->uuid, 'product_id' => 'fmtrx_player_pro_monthly', 'environment' => 'SANDBOX',
+            'app_user_id' => $user?->id ?? fake()->uuid, 'product_id' => 'fmtrx_player_pro_monthly', 'environment' => 'SANDBOX', 'store' => 'TEST_STORE',
             'transaction_id' => 'txn-1', 'original_transaction_id' => 'original-1', 'purchased_at_ms' => now()->subDay()->valueOf(), 'expiration_at_ms' => now()->addMonth()->valueOf()]];
     }
 }

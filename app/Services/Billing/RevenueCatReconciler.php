@@ -49,6 +49,7 @@ class RevenueCatReconciler implements SubscriptionReconciler
         if ($environment !== $expected) {
             throw ValidationException::withMessages(['environment' => 'RevenueCat environment mismatch.']);
         }
+        $store = $this->store((string) ($payload['store'] ?? ''));
         $endsAt = $this->milliseconds($payload['grace_period_expiration_at_ms'] ?? $payload['expiration_at_ms'] ?? null);
         $startsAt = $this->milliseconds($payload['purchased_at_ms'] ?? null) ?? now();
         $status = match ($type) {
@@ -59,7 +60,8 @@ class RevenueCatReconciler implements SubscriptionReconciler
             'CANCELLATION' => 'active',
             default => throw ValidationException::withMessages(['event' => 'Unsupported RevenueCat lifecycle event.']),
         };
-        $this->upsert($user, $mapping['plan'], $product, (string) ($payload['original_transaction_id'] ?? $payload['transaction_id'] ?? ''), $status, $startsAt, $endsAt, $type, $payload);
+        $transaction = $this->providerIdentity($store, (string) ($payload['original_transaction_id'] ?? $payload['transaction_id'] ?? ''));
+        $this->upsert($user, $mapping['plan'], $product, $transaction, $status, $startsAt, $endsAt, $type, $payload);
     }
 
     /** @param array<int, array<string, mixed>> $items */
@@ -69,7 +71,9 @@ class RevenueCatReconciler implements SubscriptionReconciler
         foreach ($items as $item) {
             $product = (string) ($item['product_id'] ?? '');
             $mapping = $this->mapping($product, $user);
-            $seen[] = (string) ($item['id'] ?? '');
+            $store = $this->store((string) ($item['store'] ?? $item['store_type'] ?? 'TEST_STORE'));
+            $identity = $this->providerIdentity($store, (string) ($item['id'] ?? ''));
+            $seen[] = $identity;
             $status = in_array((string) ($item['status'] ?? ''), self::ACCESS_STATUSES, true)
                 ? ('in_grace_period' === ($item['status'] ?? '') ? 'grace_period' : ('in_billing_retry' === ($item['status'] ?? '') ? 'past_due' : (string) $item['status']))
                 : 'expired';
@@ -77,7 +81,7 @@ class RevenueCatReconciler implements SubscriptionReconciler
                 $user,
                 $mapping['plan'],
                 $product,
-                (string) ($item['id'] ?? ''),
+                $identity,
                 $status,
                 $this->milliseconds($item['starts_at'] ?? null) ?? now(),
                 $this->milliseconds($item['current_period_ends_at'] ?? null),
@@ -141,5 +145,24 @@ class RevenueCatReconciler implements SubscriptionReconciler
     private function milliseconds(mixed $value): ?Carbon
     {
         return is_numeric($value) ? Carbon::createFromTimestampMsUTC((int) $value) : null;
+    }
+
+    private function store(string $store): string
+    {
+        $normalized = mb_strtoupper($store);
+        if ( ! in_array($normalized, config('billing.revenuecat.sandbox_stores', []), true)) {
+            throw ValidationException::withMessages(['store' => 'RevenueCat store is not enabled for this environment.']);
+        }
+
+        return $normalized;
+    }
+
+    private function providerIdentity(string $store, string $identity): string
+    {
+        if ('' === $identity) {
+            throw ValidationException::withMessages(['transaction_id' => 'RevenueCat subscription identity is required.']);
+        }
+
+        return 'APP_STORE' === $store ? 'app_store:'.$identity : $identity;
     }
 }
