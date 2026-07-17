@@ -27,15 +27,45 @@ class RevenueCatTest extends TestCase
     }
     public function test_webhook_rejects_invalid_authorization_and_malformed_payload(): void
     {
-        $this->postJson('/api/billing/revenuecat/webhook', $this->payload(), ['Authorization' => 'wrong'])->assertUnauthorized();
-        $this->withHeader('Authorization', 'Bearer test-hook')->postJson('/api/billing/revenuecat/webhook', [])->assertUnprocessable();
+        $this->call('POST', '/api/billing/revenuecat/webhook', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], '{}')->assertUnauthorized()->assertExactJson(['message' => 'Unauthorized.']);
+
+        $this->call('POST', '/api/billing/revenuecat/webhook', [], [], [], [
+            'HTTP_AUTHORIZATION' => 'wrong',
+            'CONTENT_TYPE' => 'application/json',
+        ], '{}')->assertUnauthorized()->assertExactJson(['message' => 'Unauthorized.']);
+
         $this->call('POST', '/api/billing/revenuecat/webhook', [], [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer test-hook',
-            'HTTP_ACCEPT' => 'application/json',
             'CONTENT_TYPE' => 'application/json',
-        ], '{bad')->assertUnprocessable();
+        ], '{}')->assertUnprocessable()->assertJson(['message' => 'The given data was invalid.']);
+
+        $this->call('POST', '/api/billing/revenuecat/webhook', [], [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer test-hook',
+            'CONTENT_TYPE' => 'application/json',
+        ], '{bad')->assertUnprocessable()->assertExactJson(['message' => 'Malformed JSON.']);
 
         $this->assertDatabaseCount('billing_events', 0);
+        $this->assertDatabaseCount('subscriptions', 0);
+    }
+    public function test_valid_test_event_without_accept_header_returns_json_success(): void
+    {
+        $payload = $this->payload(null, 'TEST');
+        $payload['event']['id'] = 'test-without-accept';
+
+        $this->call('POST', '/api/billing/revenuecat/webhook', [], [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer test-hook',
+            'CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload, JSON_THROW_ON_ERROR))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/json')
+            ->assertExactJson(['received' => true]);
+
+        $this->assertDatabaseHas('billing_events', [
+            'provider' => 'revenuecat',
+            'provider_event_id' => 'test-without-accept',
+        ]);
         $this->assertDatabaseCount('subscriptions', 0);
     }
     public function test_initial_purchase_is_idempotent_and_updates_compatibility_cache(): void

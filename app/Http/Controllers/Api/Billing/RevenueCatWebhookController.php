@@ -8,7 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Services\Billing\BillingEventProcessor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use JsonException;
 
 class RevenueCatWebhookController extends Controller
 {
@@ -22,9 +24,30 @@ class RevenueCatWebhookController extends Controller
         if ( ! $request->isJson()) {
             return response()->json(['message' => 'Malformed JSON.'], 422);
         }
-        $request->validate(['api_version' => ['required', 'string'], 'event' => ['required', 'array'],
+
+        $rawBody = $request->getContent();
+        try {
+            $payload = json_decode($rawBody, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return response()->json(['message' => 'Malformed JSON.'], 422);
+        }
+
+        if ( ! is_array($payload) || ! str_starts_with(ltrim($rawBody), '{')) {
+            return response()->json(['message' => 'Malformed JSON.'], 422);
+        }
+
+        $validator = Validator::make($payload, ['api_version' => ['required', 'string'], 'event' => ['required', 'array'],
             'event.id' => ['required', 'string', 'max:128'], 'event.type' => ['required', 'string', 'max:128'], 'event.event_timestamp_ms' => ['required', 'integer']]);
-        $body = (array) $request->input('event');
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        /** @var array<string, mixed> $body */
+        $body = $payload['event'];
         $event = $processor->record('revenuecat', (string) $body['id'], (string) $body['type'], $body);
         if (null === $event->processed_at && null === $event->processing_error) {
             try {
