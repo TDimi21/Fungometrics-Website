@@ -145,6 +145,32 @@ class RevenueCatTest extends TestCase
         }
     }
 
+    public function test_access_self_heals_a_paid_compatibility_cache_after_the_last_period_elapses(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-17 09:25:14', 'America/El_Salvador'));
+        $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);
+        Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => SubscriptionPlan::where('key', 'player_pro')->value('id'),
+            'provider' => 'revenuecat',
+            'provider_subscription_id' => 'early-expiration-period',
+            'status' => 'active',
+            'starts_at' => now()->subMinutes(5),
+            'current_period_ends_at' => now()->addSeconds(21),
+        ]);
+
+        Carbon::setTestNow(now()->addMinute());
+        Sanctum::actingAs($user, ['player']);
+        $this->getJson('/api/me/access')->assertOk()
+            ->assertJsonPath('data.plan', 'free')
+            ->assertJsonPath('data.source', 'legacy')
+            ->assertJsonPath('data.provider', null)
+            ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions']);
+        $this->assertSame('free', $user->fresh()->subscription_plan);
+
+        Carbon::setTestNow();
+    }
+
     public function test_refund_revokes_player_access_and_resets_compatibility_cache(): void
     {
         $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);

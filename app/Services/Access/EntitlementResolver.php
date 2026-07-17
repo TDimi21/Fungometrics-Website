@@ -44,12 +44,14 @@ class EntitlementResolver
         $membership = $teamId ? $this->membership($user, $teamId) : null;
         $sources = [];
         $audience = $this->audience($user);
-        $legacyKey = $user->subscription_plan ?: 'free';
-        $sources[] = $this->catalogSource($legacyKey, 'legacy', audience: $audience);
+        $hasSubscriptionHistory = false;
 
         if (Schema::hasTable('subscriptions')) {
+            $hasSubscriptionHistory = Subscription::query()->where('user_id', $user->id)->exists();
             $sources = array_merge($sources, $this->subscriptionSources('user_id', $user->id, audience: $audience));
         }
+        $legacyKey = $hasSubscriptionHistory ? 'free' : ($user->subscription_plan ?: 'free');
+        $sources[] = $this->catalogSource($legacyKey, 'legacy', audience: $audience);
         if (Schema::hasTable('entitlement_grants')) {
             $sources = array_merge($sources, $this->grantSources('user_id', $user->id));
         }
@@ -79,6 +81,10 @@ class EntitlementResolver
         usort($sources, fn (array $a, array $b): int => $this->sourceRank($b) <=> $this->sourceRank($a)
             ?: strcmp($a['identity'], $b['identity']));
         $effective = $sources[0];
+
+        if (null === $teamId && $hasSubscriptionHistory && $user->subscription_plan !== $effective['plan']) {
+            $user->update(['subscription_plan' => $effective['plan']]);
+        }
 
         return [
             'plan' => $effective['plan'],
