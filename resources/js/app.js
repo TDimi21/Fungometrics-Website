@@ -18,6 +18,9 @@ import 'vue3-carousel/dist/carousel.css'
 import JsonExcel from "vue-json-excel3";
 import VueApexCharts from 'vue3-apexcharts'
 import { useAccessStore } from '@/store/access.js'
+import { useTeamStore } from '@/store/team.js'
+import { storeToRefs } from 'pinia'
+import { watch } from 'vue'
 
 const safeParse = (value) => {
   try {
@@ -54,12 +57,13 @@ app.use(pinia)
 app.use(Router)
 
 const access = useAccessStore(pinia)
-let accessRefreshInFlight = false
+const teamStore = useTeamStore(pinia)
+const { team } = storeToRefs(teamStore)
+const activeTeamId = () => team.value?.id_team ?? team.value?.id ?? null
 const refreshAndEnforceAccess = async () => {
-  if (accessRefreshInFlight || !getAuthToken()) return
-  accessRefreshInFlight = true
+  if (!getAuthToken()) return
   try {
-    await access.refresh({ team_id: access.teamId })
+    await access.refresh({ team_id: activeTeamId() })
     const required = routeEntitlement(Router.currentRoute.value)
     if (required && !access.canAccess(required)) {
       await Router.replace({ path: '/dashboard', query: { access_denied: required } })
@@ -69,10 +73,13 @@ const refreshAndEnforceAccess = async () => {
     if (required) {
       await Router.replace({ path: '/dashboard', query: { access_denied: required } })
     }
-  } finally {
-    accessRefreshInFlight = false
   }
 }
+
+watch(activeTeamId, (nextTeamId) => {
+  access.setTeamContext(nextTeamId)
+  void refreshAndEnforceAccess()
+}, { immediate: true })
 
 // Populate entitlements immediately on startup. Without this call the access
 // store remains unloaded until the first 30-second interval (or a focus event),
@@ -80,6 +87,7 @@ const refreshAndEnforceAccess = async () => {
 void refreshAndEnforceAccess()
 window.setInterval(refreshAndEnforceAccess, 30_000)
 window.addEventListener('focus', refreshAndEnforceAccess)
+window.addEventListener('fmtrx-access-forbidden', refreshAndEnforceAccess)
 document.addEventListener('visibilitychange', () => {
   if ('visible' === document.visibilityState) refreshAndEnforceAccess()
 })

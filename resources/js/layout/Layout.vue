@@ -34,12 +34,14 @@ import PlayerTickerBar from "./PlayerTickerBar.vue";
 import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.png";
 import stadiumBackground from "@/assets/img/training/baseball field.jpeg";
 import { getAuthToken } from "@/utils/authToken.js";
+import { useAccessStore } from "@/store/access.js";
 
 const { axiosGet } = useAxiosAuth();
 const userStore = useUserStore();
 const teamStore = useTeamStore();
 const playerStore = usePlayerStore();
 const trainingStore = useTrainingStore();
+const accessStore = useAccessStore();
 const { players, setPlayers } = storeToRefs(playerStore);
 const { isShowMsgModal } = storeToRefs(trainingStore);
 const { userData } = storeToRefs(userStore);
@@ -133,6 +135,7 @@ const toggleSidebar = () =>
 const logout = () => {
   confirm.fire().then((result) => {
     if (result.isConfirmed) {
+      accessStore.clear();
       localStorage.clear();
       sessionStorage.clear();
       location.reload();

@@ -3,6 +3,12 @@ import { getAuthToken } from '@/utils/authToken.js'
 
 export const useAxiosAuth = () => {
   const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
+  const withAccessRefreshSignal = promise => promise.catch(error => {
+    if (error?.response?.status === 403 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('fmtrx-access-forbidden'))
+    }
+    throw error
+  })
 
   const resolveToken = () => {
     return getAuthToken() || null
@@ -17,30 +23,30 @@ export const useAxiosAuth = () => {
   }
 
   const axiosPost = (url, data) => {
-    return axios.post(apiBaseUrl + url, data,{
+    return withAccessRefreshSignal(axios.post(apiBaseUrl + url, data,{
       headers: authHeaders()
 
-    })
+    }))
   }
 
   const axiosGet = (url, data) => {
-    return axios.get(apiBaseUrl + url, {
+    return withAccessRefreshSignal(axios.get(apiBaseUrl + url, {
       params: {
         ...data
       },
       headers: authHeaders()
-    })
+    }))
   }
   const axiosPut = (url, data) => {
-    return axios.put(apiBaseUrl + url, data,{
+    return withAccessRefreshSignal(axios.put(apiBaseUrl + url, data,{
       headers: authHeaders()
 
-    })
+    }))
   }
   const axiosDelete = (url, id) => {
-    return axios.delete(apiBaseUrl + url + id, {
+    return withAccessRefreshSignal(axios.delete(apiBaseUrl + url + id, {
       headers: authHeaders()
-    })
+    }))
   }
   return {
     axiosPost,

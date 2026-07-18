@@ -29,11 +29,13 @@ export const useAccessStore = defineStore('access', () => {
   const loading = ref(false)
   const error = ref(null)
   const teamId = ref(null)
+  let requestSequence = 0
 
   const entitlements = computed(() => summary.value.entitlements || [])
   const canAccess = (key) => loaded.value && entitlements.value.includes(key)
 
   const clear = () => {
+    requestSequence += 1
     summary.value = emptySummary()
     loaded.value = false
     loading.value = false
@@ -41,39 +43,55 @@ export const useAccessStore = defineStore('access', () => {
     teamId.value = null
   }
 
-  const refresh = async ({ team_id = null } = {}) => {
+  const setTeamContext = (nextTeamId) => {
+    const normalized = nextTeamId ? String(nextTeamId) : null
+    if (teamId.value === normalized) return false
+
+    requestSequence += 1
+    teamId.value = normalized
+    summary.value = emptySummary()
+    loaded.value = false
+    loading.value = false
+    error.value = null
+    return true
+  }
+
+  const refresh = async ({ team_id = teamId.value } = {}) => {
     const token = getAuthToken()
     if (!token) {
       clear()
       return summary.value
     }
 
+    const context = team_id ? String(team_id) : null
+    setTeamContext(context)
+    const sequence = ++requestSequence
     loading.value = true
     error.value = null
 
     try {
       const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
       const response = await axios.get(`${apiBaseUrl}me/access`, {
-        params: team_id ? { team_id } : {},
+        params: context ? { team_id: context } : {},
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: 'application/json',
         },
       })
 
+      if (sequence !== requestSequence || teamId.value !== context) return summary.value
       summary.value = response?.data?.data || emptySummary()
-      teamId.value = team_id
       loaded.value = true
       return summary.value
     } catch (requestError) {
       // Fail closed. Stale paid access must not survive a failed refresh.
+      if (sequence !== requestSequence || teamId.value !== context) return summary.value
       summary.value = emptySummary()
-      teamId.value = team_id
       loaded.value = true
       error.value = requestError
       throw requestError
     } finally {
-      loading.value = false
+      if (sequence === requestSequence) loading.value = false
     }
   }
 
@@ -86,6 +104,7 @@ export const useAccessStore = defineStore('access', () => {
     entitlements,
     canAccess,
     refresh,
+    setTeamContext,
     clear,
   }
 })

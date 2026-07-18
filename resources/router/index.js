@@ -52,6 +52,7 @@ const AdminSecurity    = () => import('@/pages/admin/AdminSecurity.vue');
 const AdminAuditLogs   = () => import('@/pages/admin/AdminAuditLogs.vue');
 const AdminReports     = () => import('@/pages/admin/AdminReports.vue');
 const AdminPlans       = () => import('@/pages/admin/AdminPlans.vue');
+const Purchase = () => import('@/pages/Purchase.vue');
 
 //layout
 //Authenticated
@@ -109,6 +110,12 @@ const routes = [
 		name: "dashboard",
 		path: "/dashboard",
 		component: DashBoard,
+		meta: { requiresAuth: true },
+	},
+	{
+		name: "purchase",
+		path: "/purchase",
+		component: Purchase,
 		meta: { requiresAuth: true },
 	},
 	{

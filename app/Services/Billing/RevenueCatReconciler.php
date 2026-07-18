@@ -53,12 +53,16 @@ class RevenueCatReconciler implements SubscriptionReconciler
         $store = $this->store((string) ($payload['store'] ?? ''));
         $endsAt = $this->milliseconds($payload['grace_period_expiration_at_ms'] ?? $payload['expiration_at_ms'] ?? null);
         $startsAt = $this->milliseconds($payload['purchased_at_ms'] ?? null) ?? now();
+        // RevenueCat retry access is bounded by a provider-verified future
+        // expiration/grace timestamp. A bare billing issue or cancellation is
+        // never allowed to create indefinite access.
+        $hasFutureBoundary = $endsAt?->isFuture() ?? false;
         $status = match ($type) {
             'INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'PRODUCT_CHANGE', 'SUBSCRIPTION_EXTENDED', 'REFUND_REVERSED' => 'active',
-            'BILLING_ISSUE' => $endsAt?->isFuture() ? 'grace_period' : 'past_due',
+            'BILLING_ISSUE' => $hasFutureBoundary ? 'grace_period' : 'past_due',
             'EXPIRATION' => 'expired',
             'REFUND' => 'revoked',
-            'CANCELLATION' => 'active',
+            'CANCELLATION' => $hasFutureBoundary ? 'active' : 'expired',
             default => throw ValidationException::withMessages(['event' => 'Unsupported RevenueCat lifecycle event.']),
         };
         $storeIdentity = (string) ($payload['original_transaction_id'] ?? $payload['transaction_id'] ?? '');
@@ -79,9 +83,13 @@ class RevenueCatReconciler implements SubscriptionReconciler
             $store = $this->store((string) ($item['store'] ?? $item['store_type'] ?? 'TEST_STORE'));
             $identity = $this->providerIdentity($store, (string) ($item['id'] ?? ''));
             $seen[] = $identity;
-            $status = in_array((string) ($item['status'] ?? ''), self::ACCESS_STATUSES, true)
-                ? ('in_grace_period' === ($item['status'] ?? '') ? 'grace_period' : ('in_billing_retry' === ($item['status'] ?? '') ? 'past_due' : (string) $item['status']))
-                : 'expired';
+            $providerStatus = (string) ($item['status'] ?? '');
+            $boundary = $this->milliseconds($item['grace_period_ends_at'] ?? $item['current_period_ends_at'] ?? null);
+            $status = match ($providerStatus) {
+                'active', 'trialing' => false !== $boundary?->isFuture() ? $providerStatus : 'expired',
+                'in_grace_period', 'in_billing_retry' => $boundary?->isFuture() ? 'grace_period' : 'past_due',
+                default => 'expired',
+            };
             $this->upsert(
                 $user,
                 $mapping['plan'],
@@ -89,7 +97,7 @@ class RevenueCatReconciler implements SubscriptionReconciler
                 $identity,
                 $status,
                 $this->milliseconds($item['starts_at'] ?? null) ?? now(),
-                $this->milliseconds($item['current_period_ends_at'] ?? null),
+                $boundary,
                 'SYNC',
                 $item
             );

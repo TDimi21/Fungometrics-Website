@@ -21,6 +21,16 @@ describe('web entitlement gate coverage', () => {
     expect(router).not.toMatch(/hasFeature\s*\(/)
   })
 
+  it('provides an authenticated, non-checkout purchase destination', () => {
+    const router = source('resources/router/index.js')
+    const page = source('resources/js/pages/Purchase.vue')
+    expect(router).toContain('path: "/purchase"')
+    expect(router).toContain('name: "purchase"')
+    expect(page).toContain('Web checkout is not available')
+    expect(page).toContain("me/billing/revenuecat/products")
+    expect(page).not.toMatch(/purchasePackage|createPaymentIntent|checkout\.sessions/i)
+  })
+
   it('protects and clears the mounted performance overview from authoritative access', () => {
     const dashboard = source('resources/js/pages/dashboard/Index.vue')
 

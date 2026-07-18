@@ -94,6 +94,63 @@ class RevenueCatTest extends TestCase
         $this->assertNotNull($subscription->canceled_at);
     }
 
+    public function test_billing_issue_access_is_bounded_by_verified_future_grace(): void
+    {
+        $user = User::factory()->create(['type' => 'player']);
+        $payload = $this->payload($user, 'BILLING_ISSUE');
+        $payload['event']['id'] = 'billing-future-grace';
+        $payload['event']['grace_period_expiration_at_ms'] = now()->addHour()->valueOf();
+        $this->postJson('/api/billing/revenuecat/webhook', $payload, ['Authorization' => 'Bearer test-hook'])->assertOk();
+
+        $subscription = Subscription::where('user_id', $user->id)->firstOrFail();
+        $this->assertSame('grace_period', $subscription->status);
+        $this->assertTrue($subscription->grace_period_ends_at->isFuture());
+        Sanctum::actingAs($user->fresh(), ['player']);
+        $this->getJson('/api/me/access')->assertJsonPath('data.plan', 'player_pro');
+    }
+
+    public function test_billing_issue_without_future_boundary_fails_closed(): void
+    {
+        $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);
+        $payload = $this->payload($user, 'BILLING_ISSUE');
+        $payload['event']['id'] = 'billing-no-boundary';
+        unset($payload['event']['expiration_at_ms']);
+        $this->postJson('/api/billing/revenuecat/webhook', $payload, ['Authorization' => 'Bearer test-hook'])->assertOk();
+
+        $this->assertDatabaseHas('subscriptions', ['user_id' => $user->id, 'status' => 'past_due']);
+        $this->assertSame('free', $user->fresh()->subscription_plan);
+    }
+
+    public function test_renewal_recovers_access_during_billing_retry(): void
+    {
+        $user = User::factory()->create(['type' => 'player']);
+        $headers = ['Authorization' => 'Bearer test-hook'];
+        $retry = $this->payload($user, 'BILLING_ISSUE');
+        $retry['event']['id'] = 'billing-retry-before-renewal';
+        $retry['event']['grace_period_expiration_at_ms'] = now()->addHour()->valueOf();
+        $this->postJson('/api/billing/revenuecat/webhook', $retry, $headers)->assertOk();
+
+        $renewal = $this->payload($user, 'RENEWAL');
+        $renewal['event']['id'] = 'billing-retry-recovered';
+        $this->postJson('/api/billing/revenuecat/webhook', $renewal, $headers)->assertOk();
+
+        $this->assertDatabaseCount('subscriptions', 1);
+        $this->assertDatabaseHas('subscriptions', ['user_id' => $user->id, 'status' => 'active']);
+        $this->assertSame('player_pro', $user->fresh()->subscription_plan);
+    }
+
+    public function test_cancellation_without_expiration_does_not_create_indefinite_access(): void
+    {
+        $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);
+        $payload = $this->payload($user, 'CANCELLATION');
+        $payload['event']['id'] = 'cancel-no-boundary';
+        unset($payload['event']['expiration_at_ms']);
+        $this->postJson('/api/billing/revenuecat/webhook', $payload, ['Authorization' => 'Bearer test-hook'])->assertOk();
+
+        $this->assertDatabaseHas('subscriptions', ['user_id' => $user->id, 'status' => 'expired']);
+        $this->assertSame('free', $user->fresh()->subscription_plan);
+    }
+
     public function test_expiration_does_not_leave_access_from_an_older_active_row_past_its_period_end(): void
     {
         $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_basic']);
