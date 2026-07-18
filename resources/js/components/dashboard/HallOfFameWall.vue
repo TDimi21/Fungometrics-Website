@@ -201,35 +201,36 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
               </div>
             </div>
 
-            <div class="hof-bigrow">
-              <div class="hof-bigscore">
-                <div class="hof-bigscore-lbl">{{ active.bigLabel }}</div>
-                <div class="hof-bigscore-val">{{ active.featured.bigValue }}<span v-if="active.unit" class="hof-bigscore-unit">{{ active.unit }}</span></div>
-                <div class="hof-bigtrend" :class="trendClass(active.featured.trend)">
-                  {{ trendGlyph(active.featured.trend) }}<template v-if="active.featured.trend"> {{ trendText(active.featured.trend) }}</template>
-                  <span class="hof-bigtrend-cap">vs prior period</span>
+            <div class="hof-performance-row" :class="{ 'has-profile-chart': active.featured.profileChart && active.featured.profileChart.length > 1 }">
+              <div class="hof-bigrow">
+                <div class="hof-bigscore">
+                  <div class="hof-bigscore-lbl">{{ active.bigLabel }}</div>
+                  <div class="hof-bigscore-val">{{ active.featured.bigValue }}<span v-if="active.unit" class="hof-bigscore-unit">{{ active.unit }}</span></div>
+                  <div class="hof-bigtrend" :class="trendClass(active.featured.trend)">
+                    {{ trendGlyph(active.featured.trend) }}<template v-if="active.featured.trend"> {{ trendText(active.featured.trend) }}</template>
+                    <span class="hof-bigtrend-cap">vs prior period</span>
+                  </div>
                 </div>
+                <!-- Other categories retain their time-series sparkline. -->
+                <svg v-if="!active.featured.profileChart || active.featured.profileChart.length < 2" class="hof-spark" :viewBox="`0 0 ${SPARK_W} ${SPARK_H}`" preserveAspectRatio="none">
+                  <template v-if="sparkPoints(active.featured.spark)">
+                    <polyline :points="sparkPoints(active.featured.spark)" fill="none" :stroke="color" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </template>
+                  <line v-else :x1="0" :y1="SPARK_H / 2" :x2="SPARK_W" :y2="SPARK_H / 2" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" stroke-dasharray="3 4" />
+                </svg>
               </div>
-              <!-- sparkline (placeholder flat line until history is supplied) -->
-              <svg class="hof-spark" :viewBox="`0 0 ${SPARK_W} ${SPARK_H}`" preserveAspectRatio="none">
-                <template v-if="sparkPoints(active.featured.spark)">
-                  <polyline :points="sparkPoints(active.featured.spark)" fill="none" :stroke="color" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </template>
-                <line v-else :x1="0" :y1="SPARK_H / 2" :x2="SPARK_W" :y2="SPARK_H / 2" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" stroke-dasharray="3 4" />
-              </svg>
-            </div>
-
-            <div v-if="active.featured.profileChart && active.featured.profileChart.length > 1" class="hof-profile-chart">
-              <div class="hof-profile-chart-title">Velocity by Ball Weight</div>
-              <svg viewBox="0 0 200 66" preserveAspectRatio="none" aria-label="Weighted-ball velocity spectrum">
-                <line x1="10" y1="52" x2="190" y2="52" stroke="rgba(255,255,255,.12)" stroke-width="1" />
-                <polyline :points="profileChartPoints(active.featured.profileChart)" fill="none" :stroke="color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                <g v-for="(point, pointIndex) in active.featured.profileChart" :key="point.weight">
-                  <circle :cx="10 + ((pointIndex / (active.featured.profileChart.length - 1)) * 180)" :cy="profileChartY(active.featured.profileChart, pointIndex)" r="3.5" :fill="color" />
-                  <text :x="10 + ((pointIndex / (active.featured.profileChart.length - 1)) * 180)" y="64" text-anchor="middle">{{ point.weight }} oz</text>
-                  <text :x="10 + ((pointIndex / (active.featured.profileChart.length - 1)) * 180)" :y="profileChartY(active.featured.profileChart, pointIndex) - 6" text-anchor="middle" class="value">{{ point.velocity }}</text>
-                </g>
-              </svg>
+              <div v-if="active.featured.profileChart && active.featured.profileChart.length > 1" class="hof-profile-chart">
+                <div class="hof-profile-chart-title">Velocity by Ball Weight</div>
+                <svg viewBox="0 0 200 66" preserveAspectRatio="none" aria-label="Weighted-ball velocity spectrum">
+                  <line x1="10" y1="52" x2="190" y2="52" stroke="rgba(255,255,255,.12)" stroke-width="1" />
+                  <polyline :points="profileChartPoints(active.featured.profileChart)" fill="none" :stroke="color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                  <g v-for="(point, pointIndex) in active.featured.profileChart" :key="point.weight">
+                    <circle :cx="10 + ((pointIndex / (active.featured.profileChart.length - 1)) * 180)" :cy="profileChartY(active.featured.profileChart, pointIndex)" r="3.5" :fill="color" />
+                    <text :x="10 + ((pointIndex / (active.featured.profileChart.length - 1)) * 180)" y="64" text-anchor="middle">{{ point.weight }} oz</text>
+                    <text :x="10 + ((pointIndex / (active.featured.profileChart.length - 1)) * 180)" :y="profileChartY(active.featured.profileChart, pointIndex) - 6" text-anchor="middle" class="value">{{ point.velocity }}</text>
+                  </g>
+                </svg>
+              </div>
             </div>
 
             <div v-if="active.featured.subMetrics && active.featured.subMetrics.length" class="hof-metrics">
@@ -384,6 +385,9 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
 .hof-bio-v { font-size: 12px; font-weight: 800; color: #fff; }
 
 .hof-bigrow { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: 16px; }
+.hof-performance-row.has-profile-chart { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(300px, 1.6fr); align-items: end; gap: 18px; margin-top: 16px; }
+.hof-performance-row.has-profile-chart .hof-bigrow { margin-top: 0; }
+.hof-performance-row.has-profile-chart .hof-bigscore-val { font-size: clamp(48px, 4.5vw, 82px); }
 .hof-bigscore-lbl { font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.42); }
 .hof-bigscore-val { font-size: clamp(44px, 5vw, 72px); font-weight: 900; letter-spacing: -.02em; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; margin-top: 2px; }
 .hof-bigscore-unit { font-size: 15px; font-weight: 800; opacity: .7; margin-left: 6px; }
@@ -392,10 +396,14 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
 .hof-bigtrend-cap { font-weight: 600; color: rgba(255,255,255,.35); }
 .hof-spark { width: 96px; height: 30px; flex: none; }
 .hof-profile-chart { margin-top: 12px; padding: 9px 10px 5px; border-radius: 10px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.025); }
+.hof-performance-row.has-profile-chart .hof-profile-chart { margin-top: 0; }
 .hof-profile-chart-title { margin-bottom: 2px; color: rgba(255,255,255,.42); font-size: 8px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
 .hof-profile-chart svg { display: block; width: 100%; height: 74px; overflow: visible; }
 .hof-profile-chart text { fill: rgba(255,255,255,.42); font-size: 6px; font-weight: 800; }
 .hof-profile-chart text.value { fill: rgba(255,255,255,.82); font-size: 7px; }
+@media (max-width: 700px) {
+  .hof-performance-row.has-profile-chart { grid-template-columns: 1fr; }
+}
 
 .hof-metrics { margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
 .hof-metric { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 9px 8px; text-align: center; }
