@@ -13,16 +13,18 @@ use App\Models\Player;
 use App\Models\PlayerFitness;
 use App\Models\PlayerPosition;
 use App\Models\PlayerTeam;
+use App\Models\Practice;
 use App\Models\Profile;
 use App\Models\Team;
 use App\Models\User;
+use App\Models\WeightBallPractice;
 use Carbon\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class HallOfFameLeaderboardTest extends TestCase
 {
-    public function test_coach_pro_receives_one_team_scoped_twelve_category_wall(): void
+    public function test_coach_pro_receives_one_complete_team_scoped_category_wall(): void
     {
         Carbon::setTestNow('2026-07-18 12:00:00');
         [$coach, $team] = $this->coachTeam('coach_pro');
@@ -69,9 +71,13 @@ class HallOfFameLeaderboardTest extends TestCase
             'distance_travel' => 330,
             'created_at' => now()->subDays(3),
         ]);
+        // Historical long-toss results can have a null row-level team_id; the
+        // parent practice remains the authoritative team association.
+        $longTossPractice = Practice::factory()->create(['team_id' => $team->id]);
         foreach ([330, 325, 320, 315, 310] as $index => $distance) {
             LongTossPractice::factory()->create([
-                'team_id' => $team->id,
+                'practice_id' => $longTossPractice->id,
+                'team_id' => null,
                 'user_id' => $leader->id,
                 'distance' => $distance,
                 'hop' => 0,
@@ -81,13 +87,27 @@ class HallOfFameLeaderboardTest extends TestCase
         }
         foreach ([340, 290, 250, 220, 180] as $index => $distance) {
             LongTossPractice::factory()->create([
-                'team_id' => $team->id,
+                'practice_id' => $longTossPractice->id,
+                'team_id' => null,
                 'user_id' => $challenger->id,
                 'distance' => $distance,
                 'hop' => 0,
                 'sort' => $index + 1,
                 'created_at' => now()->subDays(2),
             ]);
+        }
+        foreach ([3 => 105, 4 => 96, 5 => 90, 6 => 86, 7 => 78] as $weight => $velocity) {
+            foreach ([$velocity, $velocity - 1] as $index => $throwVelocity) {
+                WeightBallPractice::factory()->create([
+                    'practice_id' => $longTossPractice->id,
+                    'team_id' => null,
+                    'user_id' => $leader->id,
+                    'weight' => $weight,
+                    'velocity' => $throwVelocity,
+                    'sort' => $index + 1,
+                    'created_at' => now()->subDays(2),
+                ]);
+            }
         }
         PlayerFitness::factory()->create([
             'user_id' => $leader->id,
@@ -116,7 +136,7 @@ class HallOfFameLeaderboardTest extends TestCase
         $categories = collect($response->json('data.categories'));
         $this->assertSame([
             'hitter', 'pitcher', 'avg_ev', 'max_ev', 'avg_fb', 'max_fb',
-            'bullpen', 'cage', 'long_toss', 'strength', 'mobility', 'recovery',
+            'bullpen', 'cage', 'long_toss', 'weighted_ball', 'strength', 'mobility', 'recovery',
         ], $categories->pluck('key')->all());
         $this->assertTrue($categories->every(fn (array $category) => count($category['rows']) <= 25));
         $this->assertSame('Jake Hall', $categories->firstWhere('key', 'hitter')['featured']['name']);
@@ -126,6 +146,11 @@ class HallOfFameLeaderboardTest extends TestCase
         $this->assertSame('Jake Hall', $longToss['featured']['name']);
         $this->assertSame(330.0, (float) collect($longToss['featured']['subMetrics'])->firstWhere('label', 'Max Carry')['value']);
         $this->assertGreaterThan(90, (float) $longToss['featured']['bigValue']);
+        $weightedBall = $categories->firstWhere('key', 'weighted_ball');
+        $this->assertSame(10, $weightedBall['limit']);
+        $this->assertSame('Jake Hall', $weightedBall['featured']['name']);
+        $this->assertSame(90.0, (float) collect($weightedBall['featured']['subMetrics'])->firstWhere('label', '5 oz Top Velocity')['value']);
+        $this->assertCount(5, $weightedBall['featured']['profileChart']);
         $this->assertSame(93.0, (float) $categories->firstWhere('key', 'strength')['featured']['bigValue']);
         $this->assertGreaterThanOrEqual(2, count($categories->firstWhere('key', 'hitter')['featured']['spark']));
         $this->assertNotContains('Other Team', $categories->flatMap(fn (array $category) => array_column($category['rows'], 'name'))->all());
@@ -148,7 +173,7 @@ class HallOfFameLeaderboardTest extends TestCase
         Sanctum::actingAs($coach, ['coach']);
 
         $response = $this->getJson("/api/coach/leaderboard/{$team->id}?range=6")->assertOk();
-        $this->assertCount(12, $response->json('data.categories'));
+        $this->assertCount(13, $response->json('data.categories'));
         $this->assertSame(30, $response->json('data.range.days'));
         $this->assertSame([], $response->json('data.categories.0.rows'));
 

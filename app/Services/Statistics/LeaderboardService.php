@@ -15,6 +15,7 @@ use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
+use App\Models\WeightBallPractice;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Throwable;
@@ -38,6 +39,7 @@ final class LeaderboardService
         ['key' => 'bullpen', 'label' => 'Top Bullpen Score', 'icon' => '◈', 'color' => '#6366f1', 'metric' => 'bullpen_score', 'unit' => '', 'bigLabel' => 'Bullpen Score', 'sub' => [['Avg FB', 'avg_fb', 'mph'], ['Top FB', 'max_fb', 'mph'], ['Strike', 'strike_pct', '%'], ['Pitch Mix', 'pitch_mix_score', ''], ['First Pitch', 'first_pitch_score', '%'], ['Command', 'command_score', '']]],
         ['key' => 'cage', 'label' => 'Top Cage Score', 'icon' => '▦', 'color' => '#14b8a6', 'metric' => 'cage_score', 'unit' => '', 'bigLabel' => 'Cage Score', 'sub' => [['Avg EV', 'cage_avg_ev', 'mph'], ['Max EV', 'cage_max_ev', 'mph'], ['Avg Distance', 'cage_avg_distance', 'ft'], ['Sweet Spot', 'sweet_spot_pct', '%'], ['Line Drive', 'cage_line_drive_pct', '%']]],
         ['key' => 'long_toss', 'label' => 'Top Long Toss', 'icon' => '➤', 'color' => '#f59e0b', 'metric' => 'long_toss_score', 'unit' => '', 'bigLabel' => 'Long Toss Score', 'sub' => [['Max Carry', 'long_toss_max', 'ft'], ['Average Carry', 'long_toss_avg', 'ft'], ['Zero-Hop', 'zero_hop_pct', '%'], ['Carry Consistency', 'long_toss_consistency', '%'], ['Carry Efficiency', 'carry_efficiency', '%'], ['Average Hops', 'average_hops', ''], ['30-Day Growth', 'long_toss_growth', 'ft'], ['Arm Endurance', 'arm_endurance', ''], ['Velocity Transfer', 'velocity_transfer', '%']]],
+        ['key' => 'weighted_ball', 'label' => 'Top Weighted Ball Performance', 'icon' => '◉', 'color' => '#f97316', 'metric' => 'weighted_ball_score', 'unit' => '', 'bigLabel' => 'Weighted Ball Performance Score', 'limit' => 10, 'sub' => [['5 oz Top Velocity', 'wb_5oz_max', 'mph'], ['3 oz Top Velocity', 'wb_3oz_max', 'mph'], ['7 oz Top Velocity', 'wb_7oz_max', 'mph'], ['Velocity Spectrum', 'wb_spectrum', ''], ['Velocity Ratio', 'wb_velocity_ratio', ''], ['Speed Reserve', 'wb_speed_reserve', 'mph'], ['Strength Reserve', 'wb_strength_reserve', 'mph'], ['Force Drop-Off', 'wb_force_dropoff', 'mph/oz'], ['Consistency', 'wb_consistency', '%'], ['30-Day Growth', 'wb_growth', 'WBPS']]],
         ['key' => 'strength', 'label' => 'Top Strength Score', 'icon' => '✦', 'color' => '#06b6d4', 'metric' => 'strength_score', 'unit' => '', 'bigLabel' => 'Strength Score', 'sub' => [['Bench', 'bench_press', 'lb'], ['Squat', 'squat', 'lb'], ['Deadlift', 'dead_lift', 'lb'], ['Power Clean', 'power_clean', 'lb'], ['Grip', 'hand_strength', 'lb'], ['Rotational Power', 'rotational_power', 'ft']]],
         ['key' => 'mobility', 'label' => 'Top Mobility Score', 'icon' => '◇', 'color' => '#a78bfa', 'metric' => 'mobility_score', 'unit' => '', 'bigLabel' => 'Mobility Score', 'sub' => [['Hip', 'hip_mobility', ''], ['Shoulder', 'shoulder_mobility', ''], ['T-Spine', 't_spine_mobility', ''], ['Hamstring', 'hamstring_mobility', ''], ['Ankle', 'ankle_mobility', '']]],
         ['key' => 'recovery', 'label' => 'Top Recovery Score', 'icon' => '☀', 'color' => '#fb923c', 'metric' => 'recovery_score', 'unit' => '', 'bigLabel' => 'Recovery Score', 'sub' => [['Sleep', 'sleep_hours', 'hrs'], ['Readiness', 'readiness_score', ''], ['Arm Care', 'arm_health_score', ''], ['Soreness', 'soreness_score', ''], ['Workload', 'workload_score', '']]],
@@ -117,7 +119,24 @@ final class LeaderboardService
         $dateFilter($cage);
         $exitVelocity = ExitVelocityPractice::query()->where('team_id', $teamId)->whereIn('user_id', $playerIds);
         $dateFilter($exitVelocity);
-        $longToss = LongTossPractice::query()->where('team_id', $teamId)->whereIn('user_id', $playerIds);
+        $longToss = LongTossPractice::query()
+            ->whereIn('user_id', $playerIds)
+            ->where(function ($query) use ($teamId): void {
+                $query->where('team_id', $teamId)
+                    ->orWhere(function ($legacy) use ($teamId): void {
+                        $legacy->whereNull('team_id')
+                            ->whereHas('practice', fn ($practice) => $practice->where('team_id', $teamId));
+                    });
+            });
+        $weightedBall = WeightBallPractice::query()
+            ->whereIn('user_id', $playerIds)
+            ->where(function ($query) use ($teamId): void {
+                $query->where('team_id', $teamId)
+                    ->orWhere(function ($legacy) use ($teamId): void {
+                        $legacy->whereNull('team_id')
+                            ->whereHas('practice', fn ($practice) => $practice->where('team_id', $teamId));
+                    });
+            });
         $dateFilter($longToss);
         $fitness = PlayerFitness::query()->whereIn('user_id', $playerIds);
         $dateFilter($fitness, 'fitness_date');
@@ -133,6 +152,7 @@ final class LeaderboardService
             'cage' => $cage->get()->groupBy(fn ($row) => (string) $row->user_id),
             'exit_velocity' => $exitVelocity->get()->groupBy(fn ($row) => (string) $row->user_id),
             'long_toss' => $longToss->get()->groupBy(fn ($row) => (string) $row->user_id),
+            'weighted_ball' => $weightedBall->get()->groupBy(fn ($row) => (string) $row->user_id),
             'fitness' => $fitness->get()->groupBy(fn ($row) => (string) $row->user_id),
             'assessments' => $assessments->get()->groupBy(fn ($row) => (string) $row->user_id),
             'athletic' => $athletic->get()->groupBy(fn ($row) => (string) $row->player_id),
@@ -154,7 +174,7 @@ final class LeaderboardService
             }
 
             $all = [];
-            foreach (['batting', 'bullpen', 'cage', 'exit_velocity', 'long_toss', 'fitness', 'assessments', 'athletic'] as $key) {
+            foreach (['batting', 'bullpen', 'cage', 'exit_velocity', 'long_toss', 'weighted_ball', 'fitness', 'assessments', 'athletic'] as $key) {
                 $all[$key] = collect($data[$key]->get($playerId, collect()));
             }
 
@@ -223,6 +243,7 @@ final class LeaderboardService
         $bullpen = $data['bullpen'];
         $cage = $data['cage'];
         $longToss = $data['long_toss'];
+        $weightedBall = $data['weighted_ball'];
 
         $fps = $this->battingStatistics->fps($batting);
         $bps = $this->bullpenStatistics->bps($bullpen);
@@ -247,6 +268,7 @@ final class LeaderboardService
         $armEndurance = $this->armEnduranceScore($validLongToss);
         $longTossScore = $this->longTossPerformanceScore($longTossMax, $longTossAvg, $zeroHopPct, $longTossConsistency, $longTossGrowth);
         $velocityTransfer = $this->velocityTransferScore($longTossMax, $this->maximum($fb->pluck('miles_per_hour')));
+        $weightedBallProfile = $this->weightedBallProfile($weightedBall, $this->maximum($fb->pluck('miles_per_hour')));
 
         $throwing = is_array($latestAssessment?->throwing_workload_data) ? $latestAssessment->throwing_workload_data : [];
         $hittingScore = $this->positive($latestAssessment?->hitting_score) ?? $this->positive($fps['fps'] ?? null);
@@ -290,6 +312,21 @@ final class LeaderboardService
             'long_toss_growth' => $longTossGrowth,
             'arm_endurance' => $armEndurance,
             'velocity_transfer' => $velocityTransfer,
+            'weighted_ball_score' => $weightedBallProfile['score'],
+            'wb_3oz_max' => $weightedBallProfile['max_by_weight'][3] ?? null,
+            'wb_4oz_max' => $weightedBallProfile['max_by_weight'][4] ?? null,
+            'wb_5oz_max' => $weightedBallProfile['max_by_weight'][5] ?? null,
+            'wb_6oz_max' => $weightedBallProfile['max_by_weight'][6] ?? null,
+            'wb_7oz_max' => $weightedBallProfile['max_by_weight'][7] ?? null,
+            'wb_spectrum' => $weightedBallProfile['spectrum'],
+            'wb_velocity_ratio' => $weightedBallProfile['velocity_ratio'],
+            'wb_speed_reserve' => $weightedBallProfile['speed_reserve'],
+            'wb_strength_reserve' => $weightedBallProfile['strength_reserve'],
+            'wb_force_dropoff' => $weightedBallProfile['force_dropoff'],
+            'wb_consistency' => $weightedBallProfile['consistency'],
+            'wb_transfer_score' => $weightedBallProfile['transfer_score'],
+            'wb_growth' => $this->weightedBallGrowth($weightedBall, $this->maximum($fb->pluck('miles_per_hour'))),
+            'wb_profile_chart' => $weightedBallProfile['chart'],
             'strength_score' => $strengthScore,
             'bench_press' => $this->positive($latestFitness?->bench_press) ?? $this->positive($latestAssessment?->bench_lbs),
             'squat' => $this->positive($latestFitness?->back_squat) ?? $this->positive($latestFitness?->front_squat) ?? $this->positive($latestAssessment?->squat_lbs),
@@ -348,7 +385,7 @@ final class LeaderboardService
             $previousRanks[$player['id']] = $index + 1;
         }
 
-        $top = array_slice($ranked, 0, 25);
+        $top = array_slice($ranked, 0, (int) ($category['limit'] ?? 25));
         $base = $this->emptyCategory($category);
         $base['rows'] = array_map(function (array $player, int $index) use ($category, $metric, $previousRanks): array {
             $currentRank = $index + 1;
@@ -363,7 +400,9 @@ final class LeaderboardService
                 'spark' => $player['series'][$category['key']] ?? [],
                 'evidence' => 'long_toss' === $category['key'] && null !== $player['metrics']['long_toss_max']
                     ? ((int) round($player['metrics']['long_toss_max'])).' ft max carry'
-                    : null,
+                    : ('weighted_ball' === $category['key'] && null !== $player['metrics']['wb_5oz_max']
+                        ? ((int) round($player['metrics']['wb_5oz_max'])).' mph with 5 oz'
+                        : null),
             ];
         }, $top, array_keys($top));
 
@@ -394,7 +433,11 @@ final class LeaderboardService
                     'unit' => $sub[2],
                 ], $category['sub']),
                 'insight' => 'long_toss' === $category['key'] ? $this->longTossInsight($leader['metrics']) : null,
+                'profileChart' => 'weighted_ball' === $category['key'] ? $leader['metrics']['wb_profile_chart'] : null,
             ];
+            if ('weighted_ball' === $category['key']) {
+                $base['featured']['insight'] = $this->weightedBallInsight($leader['metrics']);
+            }
         }
 
         return $base;
@@ -410,6 +453,7 @@ final class LeaderboardService
             'color' => $category['color'],
             'unit' => $category['unit'],
             'bigLabel' => $category['bigLabel'],
+            'limit' => (int) ($category['limit'] ?? 25),
             'rows' => [],
             'featured' => null,
         ];
@@ -508,6 +552,117 @@ final class LeaderboardService
         $growthScore = max(0.0, min(100.0, 50.0 + (($growthFeet ?? 0.0) * 2.5)));
 
         return round(($maxScore * .40) + ($averageScore * .25) + ($zeroHopPct * .15) + ($consistency * .10) + ($growthScore * .10), 1);
+    }
+
+    private function weightedBallProfile(Collection $throws, ?float $maxFastball): array
+    {
+        $valid = $throws->filter(fn ($row) => is_numeric($row->weight) && is_numeric($row->velocity)
+            && (float) $row->weight > 0 && (float) $row->velocity > 20 && (float) $row->velocity < 130);
+        $maxByWeight = [];
+        $consistencyScores = [];
+        foreach ($valid->groupBy(fn ($row) => (int) round((float) $row->weight)) as $weight => $rows) {
+            $maxByWeight[(int) $weight] = $this->maximum($rows->pluck('velocity'));
+            $score = $this->consistencyScore($rows->pluck('velocity'));
+            if (null !== $score) {
+                $consistencyScores[] = $score;
+            }
+        }
+
+        $max3 = $maxByWeight[3] ?? null;
+        $max5 = $maxByWeight[5] ?? null;
+        $max7 = $maxByWeight[7] ?? null;
+        $speedReserve = null === $max3 || null === $max5 ? null : round($max3 - $max5, 1);
+        $strengthReserve = null === $max5 || null === $max7 ? null : round($max5 - $max7, 1);
+        $velocityRatio = null === $max3 || null === $max5 || $max3 <= 0 ? null : round($max5 / $max3, 3);
+        $forceDropoff = null === $max3 || null === $max7 ? null : round(($max3 - $max7) / 4, 1);
+        $consistency = [] === $consistencyScores ? null : round(array_sum($consistencyScores) / count($consistencyScores), 1);
+        $spectrum = $this->weightedBallSpectrum($speedReserve, $strengthReserve);
+
+        $transferScore = null;
+        if (null !== $max5) {
+            $transferScore = null !== $maxFastball
+                ? round(max(0.0, min(100.0, ($maxFastball / max(1.0, $max5)) * 100.0)), 1)
+                : (null === $velocityRatio ? null : round(min(100.0, $velocityRatio * 100.0), 1));
+        }
+
+        $score = null;
+        if (null !== $max5) {
+            $fiveOzScore = min(100.0, ($max5 / 95.0) * 100.0);
+            $spectrumScore = null === $speedReserve || null === $strengthReserve
+                ? 50.0
+                : max(0.0, min(100.0, 100.0 - (abs($speedReserve - $strengthReserve) * 5.0)));
+            $speedScore = null === $speedReserve ? 50.0 : max(0.0, min(100.0, ($speedReserve / 15.0) * 100.0));
+            $strengthScore = null === $strengthReserve ? 50.0 : max(0.0, min(100.0, ($strengthReserve / 15.0) * 100.0));
+            $score = round(($fiveOzScore * .35) + (($transferScore ?? 50.0) * .25) + ($spectrumScore * .15)
+                + ($speedScore * .10) + ($strengthScore * .10) + (($consistency ?? 50.0) * .05), 1);
+        }
+
+        $chart = [];
+        foreach ([3, 4, 5, 6, 7] as $weight) {
+            if (null !== ($maxByWeight[$weight] ?? null)) {
+                $chart[] = ['weight' => $weight, 'velocity' => $maxByWeight[$weight]];
+            }
+        }
+
+        return [
+            'score' => $score,
+            'max_by_weight' => $maxByWeight,
+            'spectrum' => $spectrum,
+            'velocity_ratio' => $velocityRatio,
+            'speed_reserve' => $speedReserve,
+            'strength_reserve' => $strengthReserve,
+            'force_dropoff' => $forceDropoff,
+            'consistency' => $consistency,
+            'transfer_score' => $transferScore,
+            'chart' => $chart,
+        ];
+    }
+
+    private function weightedBallSpectrum(?float $speedReserve, ?float $strengthReserve): ?string
+    {
+        if (null === $speedReserve || null === $strengthReserve) {
+            return null;
+        }
+        if (abs($speedReserve - $strengthReserve) <= 2) {
+            return 'Balanced';
+        }
+        if ($speedReserve >= 7 && $speedReserve > $strengthReserve) {
+            return 'Speed Dominant';
+        }
+        if ($strengthReserve <= 4) {
+            return 'Force Dominant';
+        }
+
+        return 'Transfer Dominant';
+    }
+
+    private function weightedBallGrowth(Collection $throws, ?float $maxFastball): ?float
+    {
+        $now = Carbon::now();
+        $currentStart = $now->copy()->subDays(30);
+        $previousStart = $now->copy()->subDays(60);
+        $current = $throws->filter(fn ($row) => ($date = $this->rowDate($row, 'weighted_ball')) && $date->gte($currentStart));
+        $previous = $throws->filter(fn ($row) => ($date = $this->rowDate($row, 'weighted_ball')) && $date->gte($previousStart) && $date->lt($currentStart));
+        $currentScore = $this->weightedBallProfile($current, $maxFastball)['score'];
+        $previousScore = $this->weightedBallProfile($previous, $maxFastball)['score'];
+
+        return null === $currentScore || null === $previousScore ? null : round($currentScore - $previousScore, 1);
+    }
+
+    private function weightedBallInsight(array $metrics): array
+    {
+        $lines = [];
+        $lines[] = ($metrics['wb_3oz_max'] ?? 0) >= 95 ? 'Elite arm speed.' : 'Arm-speed reserve is still developing.';
+        $lines[] = ($metrics['wb_consistency'] ?? 0) >= 90 ? 'Excellent weighted-ball consistency.' : 'More repeatable velocity will improve WBPS.';
+        if (null !== ($metrics['wb_transfer_score'] ?? null)) {
+            $lines[] = $metrics['wb_transfer_score'] >= 90 ? 'Strong 5 oz transfer.' : 'The biggest opportunity is better 5 oz transfer.';
+        }
+
+        $max5 = $metrics['wb_5oz_max'] ?? null;
+        $maxFb = $metrics['max_fb'] ?? null;
+        $projected = null === $max5 || null === $maxFb ? null : round(max(0.0, min(3.0, ($max5 - $maxFb) * .20)), 1);
+
+        return ['lines' => $lines, 'projected_mph_gain' => $projected];
     }
 
     private function consistencyScore(iterable $values): ?float

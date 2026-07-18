@@ -350,7 +350,11 @@ const leaderboardServer = ref(null)
 const leaderboardLoading = ref(false)
 const leaderboardError = ref('')
 let leaderboardRequestId = 0
-const fmtWallNum = (v) => (v == null || v === '' ? '—' : (Number.isInteger(Number(v)) ? String(Number(v)) : (Math.round(Number(v) * 10) / 10).toFixed(1)))
+const fmtWallNum = (v) => {
+  if (v == null || v === '') return '—'
+  if (typeof v === 'string' && !Number.isFinite(Number(v))) return v
+  return Number.isInteger(Number(v)) ? String(Number(v)) : (Math.round(Number(v) * 10) / 10).toFixed(1)
+}
 
 const loadLeaderboard = async () => {
   if (!canViewPerformanceOverview.value || !getActiveTeamIdCandidates().length) return
@@ -384,6 +388,7 @@ const wallCategories = computed(() => {
       icon: c.icon,
       unit: c.unit,
       bigLabel: c.bigLabel,
+      limit: c.limit ?? 25,
       rows: (c.rows ?? []).map((r) => ({ id: r.player_id, name: r.name, avatar: r.avatar, subtitle: r.subtitle, evidence: r.evidence ?? null, value: fmtWallNum(r.value), trend: r.trend ?? null, spark: r.spark ?? null })),
       featured: c.featured ? {
         id: c.featured.player_id, name: c.featured.name, avatar: c.featured.avatar, subtitle: c.featured.subtitle,
@@ -391,6 +396,7 @@ const wallCategories = computed(() => {
         bio: (c.featured.bio ?? []).map((b) => ({ k: b.k, v: b.v ?? '—' })),
         subMetrics: (c.featured.subMetrics ?? []).map((m) => ({ label: m.label, value: fmtWallNum(m.value), unit: m.unit })),
         insight: c.featured.insight ?? null,
+        profileChart: c.featured.profileChart ?? null,
       } : null,
     }))
   }

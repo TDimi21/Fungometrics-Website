@@ -37,7 +37,8 @@ let timer = null
 const cats = computed(() => (Array.isArray(props.categories) ? props.categories.filter(Boolean) : []))
 const active = computed(() => cats.value[idx.value] ?? cats.value[0] ?? null)
 const color = computed(() => active.value?.color || '#ef4444')
-const rankedRows = computed(() => (Array.isArray(active.value?.rows) ? active.value.rows.slice(0, 25) : []))
+const activeLimit = computed(() => Number(active.value?.limit) || 25)
+const rankedRows = computed(() => (Array.isArray(active.value?.rows) ? active.value.rows.slice(0, activeLimit.value) : []))
 const shouldScrollRows = computed(() => rankedRows.value.length > 5)
 
 const advance = (step = 1) => {
@@ -109,6 +110,16 @@ const sparkPoints = (arr) => {
   const span = max - min || 1
   return nums.map((v, i) => `${((i / (nums.length - 1)) * SPARK_W).toFixed(1)},${(SPARK_H - ((v - min) / span) * SPARK_H).toFixed(1)}`).join(' ')
 }
+const profileChartPoints = (arr) => {
+  if (!Array.isArray(arr) || arr.length < 2) return null
+  const values = arr.map((point) => Number(point?.velocity)).filter(Number.isFinite)
+  if (values.length < 2) return null
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  return values.map((value, i) => `${10 + ((i / (values.length - 1)) * 180)},${52 - ((value - min) / span) * 38}`).join(' ')
+}
+const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')[index]?.split(',')[1] ?? 52)
 </script>
 
 <template>
@@ -166,7 +177,7 @@ const sparkPoints = (arr) => {
           </div>
 
           <button v-if="active.rows.length" class="hof-viewall" @click="showAll = true">
-            View Full Top 25 <span>›</span>
+            View Full Top {{ activeLimit }} <span>›</span>
           </button>
         </div>
 
@@ -205,6 +216,19 @@ const sparkPoints = (arr) => {
                   <polyline :points="sparkPoints(active.featured.spark)" fill="none" :stroke="color" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 </template>
                 <line v-else :x1="0" :y1="SPARK_H / 2" :x2="SPARK_W" :y2="SPARK_H / 2" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" stroke-dasharray="3 4" />
+              </svg>
+            </div>
+
+            <div v-if="active.featured.profileChart && active.featured.profileChart.length > 1" class="hof-profile-chart">
+              <div class="hof-profile-chart-title">Velocity by Ball Weight</div>
+              <svg viewBox="0 0 200 66" preserveAspectRatio="none" aria-label="Weighted-ball velocity spectrum">
+                <line x1="10" y1="52" x2="190" y2="52" stroke="rgba(255,255,255,.12)" stroke-width="1" />
+                <polyline :points="profileChartPoints(active.featured.profileChart)" fill="none" :stroke="color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                <g v-for="(point, pointIndex) in active.featured.profileChart" :key="point.weight">
+                  <circle :cx="10 + ((pointIndex / (active.featured.profileChart.length - 1)) * 180)" :cy="profileChartY(active.featured.profileChart, pointIndex)" r="3.5" :fill="color" />
+                  <text :x="10 + ((pointIndex / (active.featured.profileChart.length - 1)) * 180)" y="64" text-anchor="middle">{{ point.weight }} oz</text>
+                  <text :x="10 + ((pointIndex / (active.featured.profileChart.length - 1)) * 180)" :y="profileChartY(active.featured.profileChart, pointIndex) - 6" text-anchor="middle" class="value">{{ point.velocity }}</text>
+                </g>
               </svg>
             </div>
 
@@ -258,7 +282,7 @@ const sparkPoints = (arr) => {
         <div class="hof-modal" :style="{ '--accent': color }">
           <div class="hof-modal-head">
             <div>
-              <div class="hof-modal-title">Top 25 • {{ active.label }}</div>
+              <div class="hof-modal-title">Top {{ activeLimit }} • {{ active.label }}</div>
               <div class="hof-sub">{{ active.subtitle }}</div>
             </div>
             <button class="hof-modal-x" @click="showAll = false" aria-label="Close">✕</button>
@@ -367,6 +391,11 @@ const sparkPoints = (arr) => {
 .hof-bigtrend.up { color: #37d67a; } .hof-bigtrend.down { color: #ef4444; } .hof-bigtrend.flat { color: rgba(255,255,255,.35); }
 .hof-bigtrend-cap { font-weight: 600; color: rgba(255,255,255,.35); }
 .hof-spark { width: 96px; height: 30px; flex: none; }
+.hof-profile-chart { margin-top: 12px; padding: 9px 10px 5px; border-radius: 10px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.025); }
+.hof-profile-chart-title { margin-bottom: 2px; color: rgba(255,255,255,.42); font-size: 8px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.hof-profile-chart svg { display: block; width: 100%; height: 74px; overflow: visible; }
+.hof-profile-chart text { fill: rgba(255,255,255,.42); font-size: 6px; font-weight: 800; }
+.hof-profile-chart text.value { fill: rgba(255,255,255,.82); font-size: 7px; }
 
 .hof-metrics { margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
 .hof-metric { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 9px 8px; text-align: center; }
