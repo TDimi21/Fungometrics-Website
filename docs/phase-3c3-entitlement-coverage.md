@@ -1,8 +1,19 @@
 # FMTRX Phase 3C.3 entitlement-control completion report
 
-Status: **IMPLEMENTED LOCALLY; NOT COMMITTED, PUSHED, DEPLOYED, OR RUN AGAINST PRODUCTION.**
+Status: **IMPLEMENTATION COMMITTED AND PUSHED FOR REVIEW; NOT DEPLOYED OR RUN AGAINST PRODUCTION.**
 
 Laravel `GET /api/me/access` remains the only runtime plan-feature authority. This phase does not change prices, RevenueCat, Apple products, receipts, webhooks, subscription/provider identities, permanent Laravel UUIDs, or production data.
+
+## Repository and scope status
+
+- Laravel/web Phase 3C.3 implementation: committed and pushed at `29f1b8e44cc1b605f8b8fde31f4021dbd6b86f26`.
+- Mobile Phase 3C.3 implementation: committed and pushed at `c9ea0b7f3b0deabd074b2a757058d11dc868f73f`.
+- A later routing/docs commit, `e6d96f720728bbe4cd9f775cc66af191d0e55a8d`, is preserved unchanged.
+- The newer Hall-of-Fame work is preserved remotely on `feature/hall-of-fame-dashboard-phase3c3-preserve` at `e296c702f7ea75f90a19eb2c528596a65cb0457f` and is not part of the Phase 3C.3 deployment candidate.
+- A concurrently published mixed correction (`88c54b3266b538fdc95cd27b91868d6248d19048`) was unwound with the normal forward revert `fcb5e2ef3af4fbde825a4c3d6c6345afaf3539a3`; no published history was rewritten.
+- The reviewed Top-10 separation is a one-file forward correction at `1d81a343f2e0ba6acbf5ca95eb1b030ab1ead1c7`.
+- This report correction is committed separately after the Top-10 correction. Its exact commit is recorded in the deployment-review handoff because a commit cannot contain its own hash.
+- Nothing has been deployed. No production migration or production/provider data change has occurred.
 
 ## Reviewed Phase 3C.2 input
 
@@ -147,7 +158,7 @@ APP_ENV=testing DB_DATABASE=fungo_test php -d memory_limit=512M vendor/bin/phpun
 | Run | Tests | Assertions | Errors | Failures |
 |---|---:|---:|---:|---:|
 | Phase 3C.2 base (`ca1e9183`) | 607 | 3,514 | 8 | 75 |
-| Phase 3C.3 worktree | 625 | 3,600 | 7 | 76 |
+| Phase 3C.3 candidate | 625 | 3,600 | 7 | 76 |
 
 The final comparison is made by fully qualified JUnit test-case name. Both runs contain the same 83 unique failing/error test names: **zero Phase 3C.3-only names and zero Phase 3C.2-only names**. The aggregate moved from 8 errors/75 failures to 7 errors/76 failures because one identical failing test changed failure category; it did not introduce a new failing test name. The complete Laravel suite is not described as passing.
 
@@ -183,7 +194,7 @@ Laravel/web:
 - `tests/frontend/entitlementGateCoverage.spec.js`
 - `docs/phase-3c3-entitlement-coverage.md`
 
-`resources/js/pages/dashboard/Index.vue` also contains concurrent, unrelated Top-10/dashboard edits that were already being changed in the shared workspace during this work. They were preserved and are not claimed as Phase 3C.3 entitlement changes; only the access-store import, Performance Overview request guard, mounted-state clearing, cache guard, and denied/loading presentation are in Phase 3C.3 scope.
+The corrected `resources/js/pages/dashboard/Index.vue` contains only the reviewed Phase 3C.3 access-store import, Performance Overview request guard, mounted-state clearing, cache guards, and denied/loading presentation relative to the Phase 3C.2 base. The unrelated Top-10/dashboard design and the newer Hall-of-Fame work are preserved on the dedicated remote feature branch and are not included in the deployment candidate.
 
 Mobile:
 
@@ -201,14 +212,14 @@ identities, and customer records remain intact.
 
 ## Deployment and rollback plan (not executed)
 
-1. Review and approve both repository diffs and the paired regression comparison.
-2. Commit Laravel/web and mobile separately only after explicit approval.
-3. Back up the deployed database and verify the production database identity before any deployment command.
-4. Deploy Laravel/web first, clear caches, build the web client, and verify the admin catalog classifications.
-5. Perform an additive-then-revert test on `performance_overview` using a dedicated coach account; verify `/api/me/access`, direct route behavior, both audit rows, and unchanged RevenueCat subscription identity/count.
-6. Verify a dedicated player with `development_graphs` can access only their own graph and loses it immediately after a controlled revert.
-7. Distribute the mobile build only after backend/web acceptance.
-8. Roll back by redeploying the prior code commits and clearing caches. Do not delete plan definitions, audits, subscriptions, or customer data.
+1. Review the final Laravel/web report commit and mobile commit `c9ea0b7f3b0deabd074b2a757058d11dc868f73f` before deployment approval.
+2. Back up the deployed database and verify the production database identity before any deployment command, even though this phase has no migration.
+3. Deploy Laravel/web first, clear caches, build the web client, and verify the admin catalog classifications.
+4. Perform an additive-then-revert test on `performance_overview` using a dedicated coach account; verify `/api/me/access`, direct route behavior, both audit rows, and unchanged RevenueCat subscription identity/count.
+5. Verify a dedicated player with `development_graphs` can access only their own graph and loses it immediately after a controlled revert.
+6. Distribute the mobile build only after backend/web acceptance.
+7. To roll back Phase 3C.3, redeploy Laravel/web `ca1e9183c2717ec1f4f9147d25a63a3f8c3c75f7` and mobile `ef8c2417727ca4f10c277585f07bbdd393cc7140`, clear Laravel caches, and rebuild the web client. No database rollback is required.
+8. Do not delete plan definitions, entitlement audits, subscriptions, provider identities, or customer data during rollback.
 
 ## Controlled production acceptance checklist (not executed)
 
