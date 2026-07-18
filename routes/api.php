@@ -202,13 +202,13 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
     Route::get('me/access', \App\Http\Controllers\Api\Access\GetMyAccess::class);
     Route::post('me/billing/revenuecat/sync', RevenueCatSyncController::class)->middleware('throttle:10,1');
     Route::get('me/billing/revenuecat/products', RevenueCatProductsController::class);
-    Route::post('/edit/players/{id}', EditPlayers::class);
+    Route::middleware(['ability:coach', 'plan:edit_player'])->post('/edit/players/{id}', EditPlayers::class);
     Route::get('player/me', \App\Http\Controllers\Api\Player\GetMe::class);
     Route::post('player/fitness', SaveFitness::class);
     Route::get('player/fitness/{id}', GetFitness::class);
     Route::get('players/{player}/athletic-performance', GetAthleticPerformance::class);
     Route::middleware('plan:view_assessment_reports')->post('assessments/{assessment}/calculate-api', CalculateAthleticPerformance::class);
-    Route::post('assessments', SaveAssessment::class);
+    Route::middleware('ability:coach')->post('assessments', SaveAssessment::class);
     Route::middleware('plan:view_assessment_reports')->get('assessments/player/{player}', GetPlayerAssessments::class);
     Route::middleware('plan:view_assessment_reports')->get('assessments/team/{team}', GetTeamAssessments::class);
     Route::get('dashboard/{team}', GetDataGraphics::class);
@@ -270,11 +270,11 @@ Route::prefix('coach')->group(function (): void {
         Route::post('/players/{id}/set-password', SetPlayerPassword::class);
         Route::middleware('plan:add_team')->post('/add/teams', AddTeams::class);
         Route::post('/edit', EditCoach::class);
-        Route::post('/edit/teams/{team}', EditTeams::class);
+        Route::middleware('plan:edit_team')->post('/edit/teams/{team}', EditTeams::class);
         Route::post('/add/players', AddPlayers::class);
         Route::post('/remove/players', RemovePlayers::class);
         Route::delete('/remove/coach/{id}', RemoveCoachFromTeam::class);
-        Route::get('/list/results/{practice}', ListSmsResults::class);
+        Route::middleware('plan:sms_results')->get('/list/results/{practice}', ListSmsResults::class);
         Route::delete('/remove/team/{id}', RemoveTeam::class);
         Route::post('/add/coaches', AddCoaches::class);
         Route::get('/roster/coaches', GetCoachesList::class);
@@ -291,9 +291,9 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/sessions/lasts/{team}', GetLastSessions::class);
         // One call returning recent sessions' detail bundled by type (kills the
         // Stats screen's per-session N+1 fetch).
-        Route::get('/stats/bundle/{team}', GetStatsBundle::class);
+        Route::middleware(['plan:view_team_stats', 'plan:view_session_report'])->get('/stats/bundle/{team}', GetStatsBundle::class);
         Route::middleware('plan:performance_overview')->get('/performance-overview/{team}', GetPerformanceOverview::class);
-        Route::post('/trainingab', AddNewLiveABSession::class);
+        Route::middleware('plan:liveab_sessions')->post('/trainingab', AddNewLiveABSession::class);
         Route::middleware('plan:liveab_sessions')->get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);
         Route::get('/search/players', SearchPlayers::class);
         Route::get('/search/coaches', SearchCoaches::class);
@@ -316,23 +316,23 @@ Route::prefix('coach')->group(function (): void {
         Route::middleware('plan:view_workout_progress')->get('/daily-plans/{id}/progress', GetDailyPlanProgress::class);
         Route::middleware('plan:view_workout_progress')->get('/daily-plans/{dailyPlanId}/completion-summary', GetDailyPlanCompletionSummary::class);
         Route::middleware('plan:view_workout_progress')->post('/daily-plans/{planId}/players/{playerId}/review', SaveCoachWorkoutReview::class);
-        Route::get('/daily-plans/{dailyPlanId}/acknowledgements', GetDailyPlanAcknowledgements::class);
-        Route::get('/daily-plans/{dailyPlanId}/reminder-preview', GetDailyPlanReminderPreview::class);
-        Route::post('/daily-plans/{dailyPlanId}/send-reminder', SendDailyPlanReminder::class);
-        Route::post('/daily-plans/{dailyPlanId}/send-reminder-to-players', SendDailyPlanReminder::class);
-        Route::get('/daily-plans/{dailyPlanId}/update-suggestions', [IntelligenceController::class, 'dailyPlanUpdateSuggestions']);
-        Route::post('/daily-plans/{dailyPlanId}/apply-update-suggestions', [IntelligenceController::class, 'applyDailyPlanUpdateSuggestions']);
-        Route::get('/daily-plans/{dailyPlanId}/republish-review', [IntelligenceController::class, 'dailyPlanRepublishReview']);
-        Route::post('/daily-plans/{dailyPlanId}/republish-review/preview', [IntelligenceController::class, 'previewDailyPlanRepublishReview']);
-        Route::post('/daily-plans/{dailyPlanId}/republish-review/apply', [IntelligenceController::class, 'applyDailyPlanRepublishReview']);
-        Route::post('/daily-plans/{dailyPlanId}/republish', [IntelligenceController::class, 'republishDailyPlan']);
-        Route::get('/daily-plans/{dailyPlanId}/revisions/compare', [IntelligenceController::class, 'compareDailyPlanRevisions']);
-        Route::get('/daily-plans/{dailyPlanId}/revisions/{revisionId}', [IntelligenceController::class, 'showDailyPlanRevision']);
-        Route::get('/daily-plans/{dailyPlanId}/revisions', [IntelligenceController::class, 'listDailyPlanRevisions']);
-        Route::get('/daily-plans/{dailyPlanId}/command-center', GetDailyPlanCommandCenter::class);
-        Route::get('/teams/{teamId}/planner-command-center', GetTeamPlannerCommandCenter::class);
-        Route::post('/teams/{teamId}/planner-command-center/action', RunPlannerCommandCenterAction::class);
-        Route::get('/teams/{teamId}/weekly-planner-rollup', GetWeeklyPlannerRollup::class);
+        Route::middleware('plan:view_workout_progress')->get('/daily-plans/{dailyPlanId}/acknowledgements', GetDailyPlanAcknowledgements::class);
+        Route::middleware('plan:view_workout_progress')->get('/daily-plans/{dailyPlanId}/reminder-preview', GetDailyPlanReminderPreview::class);
+        Route::middleware('plan:assign_workouts')->post('/daily-plans/{dailyPlanId}/send-reminder', SendDailyPlanReminder::class);
+        Route::middleware('plan:assign_workouts')->post('/daily-plans/{dailyPlanId}/send-reminder-to-players', SendDailyPlanReminder::class);
+        Route::middleware(['plan:planner_create', 'plan:ai_analytics'])->get('/daily-plans/{dailyPlanId}/update-suggestions', [IntelligenceController::class, 'dailyPlanUpdateSuggestions']);
+        Route::middleware(['plan:planner_create', 'plan:ai_analytics'])->post('/daily-plans/{dailyPlanId}/apply-update-suggestions', [IntelligenceController::class, 'applyDailyPlanUpdateSuggestions']);
+        Route::middleware('plan:planner_create')->get('/daily-plans/{dailyPlanId}/republish-review', [IntelligenceController::class, 'dailyPlanRepublishReview']);
+        Route::middleware('plan:planner_create')->post('/daily-plans/{dailyPlanId}/republish-review/preview', [IntelligenceController::class, 'previewDailyPlanRepublishReview']);
+        Route::middleware('plan:planner_create')->post('/daily-plans/{dailyPlanId}/republish-review/apply', [IntelligenceController::class, 'applyDailyPlanRepublishReview']);
+        Route::middleware('plan:planner_create')->post('/daily-plans/{dailyPlanId}/republish', [IntelligenceController::class, 'republishDailyPlan']);
+        Route::middleware('plan:planner_create')->get('/daily-plans/{dailyPlanId}/revisions/compare', [IntelligenceController::class, 'compareDailyPlanRevisions']);
+        Route::middleware('plan:planner_create')->get('/daily-plans/{dailyPlanId}/revisions/{revisionId}', [IntelligenceController::class, 'showDailyPlanRevision']);
+        Route::middleware('plan:planner_create')->get('/daily-plans/{dailyPlanId}/revisions', [IntelligenceController::class, 'listDailyPlanRevisions']);
+        Route::middleware('plan:planner_create')->get('/daily-plans/{dailyPlanId}/command-center', GetDailyPlanCommandCenter::class);
+        Route::middleware('plan:planner_create')->get('/teams/{teamId}/planner-command-center', GetTeamPlannerCommandCenter::class);
+        Route::middleware('plan:planner_create')->post('/teams/{teamId}/planner-command-center/action', RunPlannerCommandCenterAction::class);
+        Route::middleware('plan:planner_create')->get('/teams/{teamId}/weekly-planner-rollup', GetWeeklyPlannerRollup::class);
         Route::get('/teams/{teamId}/weekly-team-report', GetCoachWeeklyTeamReport::class);
         Route::get('/teams/{teamId}/communication-rhythm', [CommunicationRhythmController::class, 'team']);
         Route::get('/teams/{teamId}/season-communication-rhythm', [SeasonCommunicationRhythmController::class, 'team']);
@@ -368,11 +368,11 @@ Route::prefix('coach')->group(function (): void {
         Route::post('/teams/{teamId}/weekly-report-notes', [WeeklyReportNotesController::class, 'store']);
         Route::put('/weekly-report-notes/{noteId}', [WeeklyReportNotesController::class, 'update']);
         Route::delete('/weekly-report-notes/{noteId}', [WeeklyReportNotesController::class, 'destroy']);
-        Route::get('/teams/{teamId}/next-week-plan-draft', GetNextWeekPlanDraft::class);
-        Route::post('/teams/{teamId}/next-week-plan-draft/save-day', SaveNextWeekPlanDraftDay::class);
-        Route::get('/teams/{teamId}/next-week-calendar-draft', GetNextWeekCalendarDraft::class);
-        Route::post('/teams/{teamId}/next-week-calendar-draft/save-days', SaveNextWeekCalendarDraftDays::class);
-        Route::get('/teams/{teamId}/weekly-draft-plans', [WeeklyPlanPublishController::class, 'list']);
+        Route::middleware('plan:planner_create')->get('/teams/{teamId}/next-week-plan-draft', GetNextWeekPlanDraft::class);
+        Route::middleware('plan:planner_create')->post('/teams/{teamId}/next-week-plan-draft/save-day', SaveNextWeekPlanDraftDay::class);
+        Route::middleware('plan:planner_create')->get('/teams/{teamId}/next-week-calendar-draft', GetNextWeekCalendarDraft::class);
+        Route::middleware('plan:planner_create')->post('/teams/{teamId}/next-week-calendar-draft/save-days', SaveNextWeekCalendarDraftDays::class);
+        Route::middleware('plan:planner_create')->get('/teams/{teamId}/weekly-draft-plans', [WeeklyPlanPublishController::class, 'list']);
         Route::middleware('plan:assign_workouts')->post('/teams/{teamId}/weekly-draft-plans/publish', [WeeklyPlanPublishController::class, 'publishWeeklyDrafts']);
         Route::middleware('plan:planner_create')->post('/daily-plans/{dailyPlanId}/publish', [WeeklyPlanPublishController::class, 'publishPlan']);
         Route::middleware('plan:assign_workouts')->post('/daily-plans/{dailyPlanId}/publish-and-assign', [WeeklyPlanPublishController::class, 'publishAndAssignPlan']);
@@ -434,24 +434,24 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
     });
 
 Route::middleware(['auth:sanctum'])->prefix('training')->group(function (): void {
-    Route::middleware('scripted.practice:scripted_bullpen')->post('/', AddNewSession::class);
-    Route::middleware('scripted.practice:scripted_bullpen')->get('/{uuid}', GetSession::class);
-    Route::middleware('scripted.practice:scripted_bullpen')->put('/{uuid}', FinishPractice::class);
-    Route::middleware('scripted.practice:scripted_bullpen')->delete('/{uuid}', DeletePractice::class);
+    Route::middleware('session.entitlement')->post('/', AddNewSession::class);
+    Route::middleware('session.entitlement')->get('/{uuid}', GetSession::class);
+    Route::middleware('session.entitlement')->put('/{uuid}', FinishPractice::class);
+    Route::middleware('session.entitlement')->delete('/{uuid}', DeletePractice::class);
 });
 
 Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
-    Route::get('/batting/{uuid}', GetBattingResultPractice::class);
-    Route::post('/batting', SaveBattingResultPractice::class);
-    Route::put('/batting/{uuid}', EditBattingResultPractice::class);
+    Route::middleware('session.entitlement')->get('/batting/{uuid}', GetBattingResultPractice::class);
+    Route::middleware('session.entitlement')->post('/batting', SaveBattingResultPractice::class);
+    Route::middleware('session.entitlement')->put('/batting/{uuid}', EditBattingResultPractice::class);
 
-    Route::middleware('scripted.practice:scripted_bullpen')->get('/bullpen/{uuid}', GetBullpenResultPractice::class);
-    Route::middleware('scripted.practice:scripted_bullpen')->post('/bullpen', SaveBullpenResultPractice::class);
-    Route::middleware('scripted.practice:scripted_bullpen')->put('/bullpen/{uuid}', EditBullpenResultPractice::class);
+    Route::middleware('session.entitlement')->get('/bullpen/{uuid}', GetBullpenResultPractice::class);
+    Route::middleware('session.entitlement')->post('/bullpen', SaveBullpenResultPractice::class);
+    Route::middleware('session.entitlement')->put('/bullpen/{uuid}', EditBullpenResultPractice::class);
 
-    Route::get('/cage/{uuid}', GetCageResultPractice::class);
-    Route::post('/cage', SaveCageResultPractice::class);
-    Route::put('/cage/{uuid}', EditCageResultPractice::class);
+    Route::middleware('session.entitlement')->get('/cage/{uuid}', GetCageResultPractice::class);
+    Route::middleware('session.entitlement')->post('/cage', SaveCageResultPractice::class);
+    Route::middleware('session.entitlement')->put('/cage/{uuid}', EditCageResultPractice::class);
 
     Route::middleware(['ability:coach', 'plan:liveab_sessions'])->get('/liveab/{uuid}', GetLiveABResultPractice::class);
     Route::middleware(['ability:coach', 'plan:liveab_sessions'])->post('/liveab', SaveLiveABResultPractice::class);
@@ -498,15 +498,15 @@ Route::middleware(['auth:sanctum'])->prefix('sessions')->group(function (): void
 });
 
 Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): void {
-    Route::get('/{practice}/batting', GetBattingPracticeResults::class);
-    Route::middleware('scripted.practice:scripted_bullpen')->get('/{practice}/bullpen', GetBullpenPracticeResults::class);
-    Route::middleware('plan:long_toss_sessions')->get('/{practice}/longtoss', GetLongTossPracticeResult::class);
-    Route::middleware('plan:weighted_ball_sessions')->get('/{practice}/weightball', GetWeightBallPracticeResult::class);
-    Route::middleware('plan:exit_velocity_sessions')->get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
-    Route::get('/{practice}/cage', GetCagePracticeResults::class);
+    Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/batting', GetBattingPracticeResults::class);
+    Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/bullpen', GetBullpenPracticeResults::class);
+    Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/longtoss', GetLongTossPracticeResult::class);
+    Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/weightball', GetWeightBallPracticeResult::class);
+    Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
+    Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/cage', GetCagePracticeResults::class);
     // Players see their own Live AB ball-by-ball too (was coach-only). Still
     // tier-gated by plan:liveab_sessions (Player Pro / Coach Pro).
-    Route::middleware('plan:liveab_sessions')->get('/{practice}/liveab', GetLiveABPracticeResults::class);
+    Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/liveab', GetLiveABPracticeResults::class);
 });
 
 // ── Admin routes ──────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ use App\Models\Player;
 use App\Models\PlayerAssessment;
 use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
+use App\Models\CoachTeam;
 use App\Services\AthleticPerformanceIndexService;
 use App\Services\CreateServiceData;
 use Carbon\Carbon;
@@ -31,13 +32,13 @@ class SaveAssessment extends Controller
         'deadlift_lbs'    => ['percentile_key' => 'deadlift_percentile', 'higher' => true],
         'bench_lbs'       => ['percentile_key' => 'bench_press_percentile', 'higher' => true],
         'broad_jump_in'   => ['percentile_key' => 'broad_jump_percentile', 'higher' => true],
-        'vertical_jump_in'=> ['percentile_key' => 'vertical_jump_percentile', 'higher' => true],
+        'vertical_jump_in' => ['percentile_key' => 'vertical_jump_percentile', 'higher' => true],
         'sprint_10yd_sec' => ['percentile_key' => 'sprint_10yd_percentile', 'higher' => false],
     ];
 
     private function computeAgeYears(?string $bornDate, ?string $assessmentDate): ?int
     {
-        if (!$bornDate) {
+        if ( ! $bornDate) {
             return null;
         }
 
@@ -52,8 +53,8 @@ class SaveAssessment extends Controller
 
     private function percentileRank(array $values, float $value, bool $higherIsBetter): int
     {
-        $clean = array_values(array_filter($values, fn ($v) => $v !== null && is_numeric($v)));
-        if (!count($clean)) {
+        $clean = array_values(array_filter($values, fn ($v) => null !== $v && is_numeric($v)));
+        if ( ! count($clean)) {
             return 0;
         }
 
@@ -74,7 +75,7 @@ class SaveAssessment extends Controller
         $pct = (($less + (0.5 * $equal)) / $n) * 100.0;
 
         // For sprint time and similar lower-is-better metrics, invert.
-        if (!$higherIsBetter) {
+        if ( ! $higherIsBetter) {
             $pct = 100.0 - $pct;
         }
 
@@ -96,7 +97,7 @@ class SaveAssessment extends Controller
                 ->all();
         }
 
-        if ($ageYears !== null) {
+        if (null !== $ageYears) {
             $asOf = $assessmentDate ?: Carbon::now()->toDateString();
             $ageValues = DB::table('player_assessments')
                 ->join('players', 'players.user_id', '=', 'player_assessments.user_id')
@@ -119,18 +120,18 @@ class SaveAssessment extends Controller
      */
     private function buildFitnessSnapshotData(array $data): array
     {
-        $toFloat = static fn ($k) => isset($data[$k]) && $data[$k] !== '' && $data[$k] !== null
+        $toFloat = static fn ($k) => isset($data[$k]) && '' !== $data[$k] && null !== $data[$k]
             ? (float) $data[$k]
             : null;
 
-        $toInt = static fn ($k) => isset($data[$k]) && $data[$k] !== '' && $data[$k] !== null
+        $toInt = static fn ($k) => isset($data[$k]) && '' !== $data[$k] && null !== $data[$k]
             ? (int) round((float) $data[$k])
             : null;
 
         $mobilityFields = ['hip_mobility', 'shoulder_mobility', 'ankle_mobility', 'hip_flexor_mobility', 'rotational_mobility'];
         $mobilityVals = array_values(array_filter(
             array_map(fn (string $f) => $toInt($f), $mobilityFields),
-            fn ($v) => $v !== null
+            fn ($v) => null !== $v
         ));
 
         $mobilityScore = count($mobilityVals) > 0
@@ -149,20 +150,27 @@ class SaveAssessment extends Controller
             'sprint_10yd' => $toFloat('sprint_10yd_sec'),
             'mobility_score' => $mobilityScore,
             'strength_score' => isset($data['strength_overall_score']) ? (int) $data['strength_overall_score'] : null,
-        ], fn ($v) => $v !== null && $v !== '');
+        ], fn ($v) => null !== $v && '' !== $v);
     }
 
     public function __invoke(AssessmentRequest $request): JsonResponse
     {
+        $mayAssess = CoachTeam::query()->where('coach_id', $request->user()->id)
+            ->whereIn('team_id', PlayerTeam::query()->where('user_id', (string) $request->user_id)->select('team_id'))
+            ->exists();
+        if ( ! $mayAssess) {
+            return response()->json(['message' => 'You may assess only players on your teams.'], HttpCodes::HTTP_FORBIDDEN);
+        }
+
         try {
             $data = $request->validated();
 
-            if (!isset($data['assessed_by']) || !$data['assessed_by']) {
+            if ( ! isset($data['assessed_by']) || ! $data['assessed_by']) {
                 $data['assessed_by'] = (string) optional($request->user())->id;
             }
 
             // Mobile may send null/empty team_id in some flows; infer from player-team pivot.
-            if (!isset($data['team_id']) || !$data['team_id']) {
+            if ( ! isset($data['team_id']) || ! $data['team_id']) {
                 $inferredTeamId = PlayerTeam::query()
                     ->where('user_id', (string) $request->user_id)
                     ->whereNotNull('team_id')
@@ -193,7 +201,7 @@ class SaveAssessment extends Controller
             foreach (self::RAW_PERCENTILE_METRICS as $rawKey => $cfg) {
                 // Only score metrics the coach actually entered. A missing or zero
                 // value is treated as "not tested" and excluded entirely.
-                if (!isset($data[$rawKey]) || $data[$rawKey] === null || $data[$rawKey] === '' || (float) $data[$rawKey] <= 0) {
+                if ( ! isset($data[$rawKey]) || null === $data[$rawKey] || '' === $data[$rawKey] || (float) $data[$rawKey] <= 0) {
                     continue;
                 }
 
@@ -254,7 +262,7 @@ class SaveAssessment extends Controller
                 $sum = 0.0;
                 $weight = 0.0;
                 foreach ($weighted as [$score, $w]) {
-                    if ($score !== null && $score > 0) {
+                    if (null !== $score && $score > 0) {
                         $sum += $score * $w;
                         $weight += $w;
                     }
@@ -282,19 +290,19 @@ class SaveAssessment extends Controller
             $mobilityFields = ['hip_mobility', 'shoulder_mobility', 'ankle_mobility', 'hip_flexor_mobility', 'rotational_mobility'];
             $mobilityVals   = array_filter(
                 array_map(fn ($f) => isset($data[$f]) ? (int) $data[$f] : null, $mobilityFields),
-                fn ($v) => $v !== null && $v > 0
+                fn ($v) => null !== $v && $v > 0
             );
             $mobilityOverall = count($mobilityVals) > 0
                 ? (int) round((array_sum($mobilityVals) / count($mobilityVals)) * 10)
                 : null;
 
-            $hittingScore = isset($data['hitting_score']) && $data['hitting_score'] !== null
+            $hittingScore = isset($data['hitting_score']) && null !== $data['hitting_score']
                 ? (int) $data['hitting_score']
                 : null;
-            $pitchingScore = isset($data['pitching_score']) && $data['pitching_score'] !== null
+            $pitchingScore = isset($data['pitching_score']) && null !== $data['pitching_score']
                 ? (int) $data['pitching_score']
                 : null;
-            $armHealthScore = isset($data['arm_health_score']) && $data['arm_health_score'] !== null
+            $armHealthScore = isset($data['arm_health_score']) && null !== $data['arm_health_score']
                 ? (int) $data['arm_health_score']
                 : null;
 
@@ -327,7 +335,7 @@ class SaveAssessment extends Controller
             // Keep player metrics in sync with coach assessment (assessment is authoritative).
             try {
                 $fitnessSnapshot = $this->buildFitnessSnapshotData($data);
-                if (!empty($fitnessSnapshot['user_id'])) {
+                if ( ! empty($fitnessSnapshot['user_id'])) {
                     $fitnessDate = (string) ($fitnessSnapshot['fitness_date'] ?? now()->toDateString());
 
                     $playerFitness = PlayerFitness::query()->updateOrCreate(
@@ -341,7 +349,7 @@ class SaveAssessment extends Controller
                     (new AthleticPerformanceIndexService())->calculateAndSave($playerFitness);
                 }
             } catch (Exception $fitnessException) {
-                Log::warning('SaveAssessment fitness sync warning: ' . $fitnessException->getMessage());
+                Log::warning('SaveAssessment fitness sync warning: '.$fitnessException->getMessage());
             }
 
             try {
@@ -355,7 +363,7 @@ class SaveAssessment extends Controller
                     (new AthleticPerformanceIndexService())->calculateAndSave($latestFitness);
                 }
             } catch (Exception $scoreException) {
-                Log::warning('SaveAssessment score sync warning: ' . $scoreException->getMessage());
+                Log::warning('SaveAssessment score sync warning: '.$scoreException->getMessage());
             }
 
             // Bust relevant caches
@@ -378,13 +386,13 @@ class SaveAssessment extends Controller
 
             return response()->json([
                 'code'    => '060',
-                'message' => 'assessment saved for player ' . $request->user_id,
+                'message' => 'assessment saved for player '.$request->user_id,
                 'status'  => 'success',
                 'data'    => $assessment,
             ], HttpCodes::HTTP_CREATED);
 
         } catch (Exception $e) {
-            Log::error('SaveAssessment: ' . $e->getMessage());
+            Log::error('SaveAssessment: '.$e->getMessage());
             return response()->json([
                 'code'    => '060-E',
                 'message' => 'failed to save assessment',

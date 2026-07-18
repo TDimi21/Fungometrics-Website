@@ -82,6 +82,22 @@ class PlanFeatureManager
             if ([] !== $removedImmutable) {
                 throw ValidationException::withMessages(['entitlements' => 'Immutable baseline capabilities cannot be removed: '.implode(', ', $removedImmutable)]);
             }
+            $current = $plan->entitlements()->pluck('entitlement_key')->all();
+            $editableStatuses = ['fully_wired', 'platform_wired', 'composite_wired'];
+            $coverage = config('entitlement_coverage.entitlements', []);
+            $locked = collect($catalog)->filter(function (array $definition, string $key) use ($coverage, $editableStatuses): bool {
+                return ! (bool) ($definition['toggleable'] ?? false)
+                    || ! in_array($coverage[$key]['implementation_status'] ?? 'disabled_incomplete', $editableStatuses, true);
+            })->keys()->all();
+            $changedLocked = array_values(array_unique(array_merge(
+                array_diff(array_intersect($current, $locked), $requested),
+                array_diff(array_intersect($requested, $locked), $current)
+            )));
+            if ([] !== $changedLocked) {
+                throw ValidationException::withMessages([
+                    'entitlements' => 'Baseline, deprecated, and unimplemented capabilities cannot be changed: '.implode(', ', $changedLocked),
+                ]);
+            }
             $validatedLimits = $this->validateLimits($limits);
             $before = $this->serialize($plan);
 

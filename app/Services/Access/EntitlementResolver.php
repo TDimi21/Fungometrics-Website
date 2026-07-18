@@ -76,12 +76,28 @@ class EntitlementResolver
         foreach ($sources as $source) {
             $entitlements = array_merge($entitlements, $source['entitlements']);
         }
+        $entitlements = array_merge(
+            $entitlements,
+            config("access.audience_baselines.{$audience}.entitlements", [])
+        );
+        $entitlements = array_values(array_diff($entitlements, ['unlimited_players', 'manage_multiple_teams']));
         $entitlements = array_values(array_unique($entitlements));
-        sort($entitlements);
 
         usort($sources, fn (array $a, array $b): int => $this->sourceRank($b) <=> $this->sourceRank($a)
             ?: strcmp($a['identity'], $b['identity']));
         $effective = $sources[0];
+        $limits = $this->limits($effective['plan'], $audience);
+        if (
+            'coach' === $audience
+            && (null === $limits['teams'] || $limits['teams'] > 1)
+            && in_array('add_team', $entitlements, true)
+            && in_array('team_switching', $entitlements, true)
+        ) {
+            $entitlements[] = 'manage_multiple_teams';
+        }
+        $entitlements = array_values(array_unique($entitlements));
+        sort($entitlements);
+        $usage = $this->usage($user, $teamId, $audience, $limits);
 
         if (null === $teamId && $hasSubscriptionHistory && $user->subscription_plan !== $effective['plan']) {
             $user->update(['subscription_plan' => $effective['plan']]);
@@ -96,7 +112,29 @@ class EntitlementResolver
             'expires_at' => $effective['expires_at'],
             'team' => $teamId ? ['id' => $teamId, 'role' => $membership['role']] : null,
             'entitlements' => $entitlements,
-            'limits' => $this->limits($effective['plan'], $audience),
+            'limits' => $limits,
+            'usage' => $usage,
+            'remaining' => collect($limits)->mapWithKeys(function ($limit, string $key) use ($usage): array {
+                $used = $usage[$key] ?? null;
+                return [$key => null === $limit || null === $used ? null : max(0, $limit - $used)];
+            })->all(),
+        ];
+    }
+
+    /** @param array<string, int|null> $limits @return array<string, int|null> */
+    private function usage(User $user, ?string $teamId, string $audience, array $limits): array
+    {
+        if ('coach' !== $audience) {
+            return ['players' => null, 'coaches' => null, 'teams' => null];
+        }
+
+        $teams = CoachTeam::query()->where('coach_id', $user->id)->pluck('team_id')->unique();
+        $scope = $teamId ? collect([$teamId]) : $teams;
+
+        return [
+            'players' => PlayerTeam::query()->whereIn('team_id', $scope)->where('actual', true)->distinct('user_id')->count('user_id'),
+            'coaches' => CoachTeam::query()->whereIn('team_id', $scope)->distinct('coach_id')->count('coach_id'),
+            'teams' => $teams->count(),
         ];
     }
 

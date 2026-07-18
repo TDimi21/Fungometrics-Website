@@ -21,7 +21,7 @@ const error = ref('')
 const success = ref('')
 
 const activePlan = computed(() => plans.value.find(plan => plan.key === activeKey.value) || null)
-const activeCatalog = computed(() => catalog.value.filter(item => item.audience === 'shared' || item.audience === activePlan.value?.audience))
+const activeCatalog = computed(() => catalog.value.filter(item => !item.hidden && (item.audience === 'shared' || item.audience === activePlan.value?.audience)))
 const coverageByKey = computed(() => Object.fromEntries(coverage.value.map(item => [item.key, item.coverage])))
 const dirty = computed(() => draft.value && activePlan.value && JSON.stringify(draft.value) !== JSON.stringify({
   entitlements: activePlan.value.entitlements,
@@ -46,9 +46,10 @@ function selectPlan(key) {
 }
 
 function isEnabled(key) { return draft.value?.entitlements.includes(key) }
-function isImmutable(key) { return activePlan.value?.immutable_entitlements.includes(key) }
+function itemDefinition(key) { return catalog.value.find(item => item.key === key) }
+function isImmutable(key) { return activePlan.value?.immutable_entitlements.includes(key) || itemDefinition(key)?.toggleable === false }
 function implementation(key) { return coverageByKey.value[key] || { implementation_status: 'not_implemented', gaps: ['missing_coverage'] } }
-function isIncomplete(key) { return implementation(key).implementation_status !== 'fully_wired' }
+function isIncomplete(key) { return !['fully_wired', 'platform_wired', 'composite_wired'].includes(implementation(key).implementation_status) }
 function toggle(key) {
   if (isImmutable(key) || isIncomplete(key) || activePlan.value?.legacy) return
   draft.value.entitlements = isEnabled(key)

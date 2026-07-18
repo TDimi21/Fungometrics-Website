@@ -29,6 +29,7 @@ class EntitlementCoverageRegistryTest extends TestCase
             $this->assertIsArray($entry['coverage']['backend']);
             $this->assertIsArray($entry['coverage']['web']);
             $this->assertIsArray($entry['coverage']['mobile']);
+            $this->assertIsArray($entry['coverage']['platforms']);
             $this->assertIsArray($entry['coverage']['gaps']);
         }
     }
@@ -87,6 +88,6 @@ class EntitlementCoverageRegistryTest extends TestCase
             $this->assertSame([], $entry['coverage']['gaps']);
             $this->assertNotContains(false, array_column($entry['coverage']['backend'], 'enforced'));
         }
-        $this->assertGreaterThanOrEqual(0, $checked);
+        $this->assertGreaterThan(0, $checked);
     }
 }

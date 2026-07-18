@@ -14,11 +14,13 @@ use App\Http\Controllers\Api\Sessions\GetLongTossPracticeResult;
 use App\Http\Controllers\Api\Sessions\GetWeightBallPracticeResult;
 use App\Models\Practice;
 use App\Models\TeamsLiveAB;
+use App\Services\Access\EntitlementResolver;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
+use Throwable;
 
 /**
  * One call that returns the recent sessions' detail for a team, bundled by type.
@@ -31,6 +33,10 @@ use Symfony\Component\HttpFoundation\Response as HttpCodes;
  */
 class GetStatsBundle extends Controller
 {
+    public function __construct(private readonly EntitlementResolver $resolver)
+    {
+    }
+
     /** type => [detail controller, Practice relation that marks the type] */
     private array $types = [
         'batting'      => [GetBattingPracticeResults::class, 'batting'],
@@ -48,14 +54,25 @@ class GetStatsBundle extends Controller
             $teamId = (string) $request->route('team');
             $limit  = (int) ($request->query('limit', 12));
             $limit  = max(1, min(20, $limit));
+            $entitlements = $this->resolver->getEntitlements($request->user(), $teamId);
 
             $bundle = [];
             foreach ($this->types as $type => [$controllerClass, $relation]) {
-                $practiceIds = $this->recentPracticeIds($type, $relation, $teamId, $limit);
+                $required = match ($type) {
+                    'liveab' => 'liveab_sessions',
+                    'exitvelocity' => 'exit_velocity_sessions',
+                    'longtoss' => 'long_toss_sessions',
+                    'weightball' => 'weighted_ball_sessions',
+                    default => null,
+                };
+                if ($required && ! in_array($required, $entitlements, true)) {
+                    continue;
+                }
+                $practiceIds = $this->recentPracticeIds($type, $relation, $teamId, $limit, $entitlements);
                 $bundle[$type] = [];
                 foreach ($practiceIds as $pid) {
                     $body = $this->invokeDetail($controllerClass, (string) $pid);
-                    if ($body !== null) {
+                    if (null !== $body) {
                         $bundle[$type][(string) $pid] = $body;
                     }
                 }
@@ -68,7 +85,7 @@ class GetStatsBundle extends Controller
                 'data'    => $bundle,
             ], HttpCodes::HTTP_OK);
         } catch (Exception $e) {
-            Log::error('GetStatsBundle: ' . $e->getMessage());
+            Log::error('GetStatsBundle: '.$e->getMessage());
 
             return response()->json([
                 'code'    => '090-E',
@@ -80,11 +97,11 @@ class GetStatsBundle extends Controller
     }
 
     /** Recent practice ids of a given type for the team. */
-    private function recentPracticeIds(string $type, string $relation, string $teamId, int $limit): array
+    private function recentPracticeIds(string $type, string $relation, string $teamId, int $limit, array $entitlements): array
     {
         $query = Practice::where('team_id', $teamId);
 
-        if ($type === 'batting') {
+        if ('batting' === $type) {
             // Batting includes scripted BP swings.
             $query->where(function ($q): void {
                 $q->whereHas('batting')->orWhereHas('scriptedBpSwings');
@@ -93,12 +110,19 @@ class GetStatsBundle extends Controller
             $query->whereHas($relation);
         }
 
+        if ('batting' === $type && ! in_array('scripted_bp', $entitlements, true)) {
+            $query->where('is_scripted', false);
+        }
+        if ('bullpen' === $type && ! in_array('scripted_bullpen', $entitlements, true)) {
+            $query->where('is_scripted', false);
+        }
+
         $ids = $query->orderByDesc('updated_at')->limit($limit)->pluck('id')->all();
 
         // LiveAB sessions can also be keyed via the opposite-side TeamsLiveAB join.
-        if ($type === 'liveab') {
+        if ('liveab' === $type) {
             $joinIds = TeamsLiveAB::where('team_id', $teamId)->pluck('practice_id')->all();
-            if (! empty($joinIds)) {
+            if ( ! empty($joinIds)) {
                 $extra = Practice::whereIn('id', $joinIds)
                     ->orderByDesc('updated_at')
                     ->limit($limit)
@@ -122,7 +146,7 @@ class GetStatsBundle extends Controller
             $response = $controller->__invoke($req);
             $body = json_decode($response->getContent(), true);
 
-            if (! is_array($body)) {
+            if ( ! is_array($body)) {
                 return null;
             }
 
@@ -130,7 +154,7 @@ class GetStatsBundle extends Controller
             $ok = ($body['status'] ?? null) === 'success' || ! empty($body['data']);
 
             return $ok ? $body : null;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return null;
         }
     }

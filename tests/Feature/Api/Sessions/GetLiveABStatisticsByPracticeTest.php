@@ -172,52 +172,52 @@ class GetLiveABStatisticsByPracticeTest extends TestCase
         ]);
     }
 
-  public function test_get_statistics_batting_by_practice_not_found(): void
-  {
-      $user = User::factory()->create([
-          'type' => UserTypes::COACH->value
-      ]);
-      Sanctum::actingAs($user, [UserTypes::COACH->value]);
+    public function test_get_statistics_batting_by_practice_not_found(): void
+    {
+        $user = User::factory()->create([
+            'type' => UserTypes::COACH->value
+        ]);
+        Sanctum::actingAs($user, [UserTypes::COACH->value]);
 
 
 
-      $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/liveab');
+        $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/liveab');
 
-      $response->assertNotFound()->assertJsonStructure([
-          'code',
-          'message',
-          'status',
-          'data'
-      ]);
-  }
+        $response->assertNotFound()->assertJsonStructure([
+            'code',
+            'message',
+            'status',
+            'data'
+        ]);
+    }
 
-  public function test_get_statistics_batting_by_practice_unauthorized(): void
-  {
-      $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/liveab');
+    public function test_get_statistics_batting_by_practice_unauthorized(): void
+    {
+        $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/liveab');
 
-      $response->assertUnauthorized()->assertJsonStructure([
-          'code',
-          'message',
-          'status',
-          'data'
-      ]);
-  }
+        $response->assertUnauthorized()->assertJsonStructure([
+            'code',
+            'message',
+            'status',
+            'data'
+        ]);
+    }
 
-  public function test_get_statistics_batting_by_practice_forbidden(): void
-  {
-      $user = User::factory()->create([
-          'type' => UserTypes::PLAYER->value
-      ]);
-      Sanctum::actingAs($user, [UserTypes::PLAYER->value]);
+    public function test_get_statistics_batting_by_practice_forbidden(): void
+    {
+        $user = User::factory()->create([
+            'type' => UserTypes::PLAYER->value,
+            'subscription_plan' => 'free',
+        ]);
+        Sanctum::actingAs($user, [UserTypes::PLAYER->value]);
 
 
-      $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/liveab');
+        $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/liveab');
 
-      $response->assertForbidden()->assertJsonStructure([
-          'code',
-          'message',
-          'status',
-          'data'
-      ]);
-  }
+        $response->assertForbidden()->assertJsonStructure([
+            'message',
+            'required_entitlement',
+            'effective_plan',
+        ]);
+    }
 }

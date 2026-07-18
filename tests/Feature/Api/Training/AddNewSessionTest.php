@@ -7,6 +7,7 @@ namespace Tests\Feature\Api\Training;
 use App\Http\Requests\Api\Training\AddNewSessionRequest;
 use App\Models\Concerns\PracticeTypes;
 use App\Models\Concerns\UserTypes;
+use App\Models\CoachTeam;
 use App\Models\Player;
 use App\Models\Profile;
 use App\Models\Team;
@@ -19,10 +20,12 @@ class AddNewSessionTest extends TestCase
 {
     public function test_add_new_session_training_ok(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
         Sanctum::actingAs($user);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $user->id, 'team_id' => $team->id]);
         $data = [
-            'team' => Team::factory()->create()->id,
+            'team' => $team->id,
             'type' => PracticeTypes::TRAINING->value,
             'note' => fake()->paragraph,
         ];
@@ -45,40 +48,44 @@ class AddNewSessionTest extends TestCase
         $response->assertCreated();
     }
 
-  public function test_add_new_session_training_type_ok(): void
-  {
-      $user = User::factory()->create();
-      Sanctum::actingAs($user);
-      $data = [
-          'team' => Team::factory()->create()->id,
-          'type' => PracticeTypes::BATTING->value,
-          'note' => fake()->paragraph,
-      ];
-      $i = 0;
-      $temp_players = User::factory()->count(4)->create(['type' => UserTypes::PLAYER->value]);
-      $data['players'] = $temp_players->map(function ($temp_item) use (&$i) {
-          $i++;
+    public function test_add_new_session_training_type_ok(): void
+    {
+        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        Sanctum::actingAs($user);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $user->id, 'team_id' => $team->id]);
+        $data = [
+            'team' => $team->id,
+            'type' => PracticeTypes::BATTING->value,
+            'note' => fake()->paragraph,
+        ];
+        $i = 0;
+        $temp_players = User::factory()->count(4)->create(['type' => UserTypes::PLAYER->value]);
+        $data['players'] = $temp_players->map(function ($temp_item) use (&$i) {
+            $i++;
 
-          return ['id' => $temp_item->id, 'sort' => $i];
-      });
-      foreach ($temp_players as $player) {
-          Profile::factory()->create([
-              'user_id' => $player->id,
-          ]);
-          Player::factory()->create([
-              'user_id' => $player->id,
-          ]);
-      }
-      $response = $this->json('POST', 'api/training', $data);
-      $response->assertCreated();
-  }
+            return ['id' => $temp_item->id, 'sort' => $i];
+        });
+        foreach ($temp_players as $player) {
+            Profile::factory()->create([
+                'user_id' => $player->id,
+            ]);
+            Player::factory()->create([
+                'user_id' => $player->id,
+            ]);
+        }
+        $response = $this->json('POST', 'api/training', $data);
+        $response->assertCreated();
+    }
 
     public function test_add_new_session_training_type_cage_ok(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
         Sanctum::actingAs($user);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $user->id, 'team_id' => $team->id]);
         $data = [
-            'team' => Team::factory()->create()->id,
+            'team' => $team->id,
             'type' => PracticeTypes::CAGE->value,
             'note' => fake()->paragraph,
             'cage' => [
@@ -107,8 +114,8 @@ class AddNewSessionTest extends TestCase
             'code',
             'message',
             'status',
-            'data'=>[
-                'cage_data'=>[
+            'data' => [
+                'cage_data' => [
                     'height',
                     'width',
                     'length'
@@ -119,7 +126,10 @@ class AddNewSessionTest extends TestCase
 
     public function test_add_new_session_training_without_team_ok(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::PLAYER->value]);
+        $user = User::factory()->create([
+            'type' => UserTypes::PLAYER->value,
+            'subscription_plan' => 'player_pro',
+        ]);
         Profile::factory()->create([
             'user_id' => $user->id,
         ]);

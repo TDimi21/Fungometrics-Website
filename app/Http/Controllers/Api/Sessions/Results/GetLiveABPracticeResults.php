@@ -9,6 +9,8 @@ use App\Http\Controllers\Controller;
 use App\Models\BattingPracticeResult;
 use App\Models\BullpenPracticeResult;
 use App\Models\LiveABPracticeResult;
+use App\Models\Practice;
+use App\Services\Access\EntitlementResolver;
 use App\Services\Statistics\HelperStatisticsLiveAB;
 use App\Services\Statistics\LiveABStatisticsService;
 use App\Utils\Helper;
@@ -23,9 +25,11 @@ class GetLiveABPracticeResults extends Controller
 {
     protected array $bsCount;
     private ServiceCountBSLiveAB $serviceCountBSLiveAB;
+    private EntitlementResolver $resolver;
 
-    public function __construct()
+    public function __construct(EntitlementResolver $resolver)
     {
+        $this->resolver = $resolver;
         $this->bsCount = config('constants.countBS');
         $this->serviceCountBSLiveAB = new ServiceCountBSLiveAB($this, $this->bsCount);
     }
@@ -88,20 +92,35 @@ class GetLiveABPracticeResults extends Controller
                 }
             }
 
+            $practice = Practice::query()->findOrFail($request->practice);
+            $entitlements = $this->resolver->getEntitlements(
+                $request->user(),
+                $practice->team_id ? (string) $practice->team_id : null
+            );
+            $responseData = ['count' => $count];
+            if (in_array('box_score', $entitlements, true)) {
+                $responseData += [
+                    'ball_x_ball' => $data,
+                    'by_pitchers' => $pitchers,
+                    'by_batters' => $batters,
+                ];
+            }
+            if (in_array('view_advanced_stats', $entitlements, true)) {
+                $responseData += [
+                    'matrixBS' => $matrixBS,
+                    'matrixBSPB' => $matrixBSxBatter,
+                    'matrixBSPH' => $matrixBSxPitcher,
+                ];
+            }
+            if (in_array('liveab_analytics', $entitlements, true)) {
+                $responseData['calculates'] = $calculateData;
+            }
+
             $response = [
                 'code' => '041',
                 'message' => 'data from practice liveab',
                 'status' => 'success',
-                'data' => [
-                    'count' => $count,
-                    'ball_x_ball' => $data,
-                    'by_pitchers' => $pitchers,
-                    'by_batters' => $batters,
-                    'matrixBS' => $matrixBS,
-                    'matrixBSPB' => $matrixBSxBatter,
-                    'matrixBSPH' => $matrixBSxPitcher,
-                    'calculates' => $calculateData,
-                ],
+                'data' => $responseData,
             ];
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {
@@ -124,7 +143,7 @@ class GetLiveABPracticeResults extends Controller
     {
         $plateAppearance = $data->where('count_b_s', '=', '0-0')->count();
         $notCount = $data->whereIn('bases', [4,6])->count();
-        $atBat = $plateAppearance-$notCount;
+        $atBat = $plateAppearance - $notCount;
 
         $matrixBS['pitch'] = $this->serviceCountBSLiveAB->getBSTeamPitch($data);
         $matrixBS['contact'] = $this->serviceCountBSLiveAB->getBSTeamContactQuality($data);
@@ -135,7 +154,7 @@ class GetLiveABPracticeResults extends Controller
         $matrixBS['SLG%'] = $this->serviceCountBSLiveAB->getBSTeamSLGPercent($data, $atBat);
         $matrixBS['bat_avg'] = $this->serviceCountBSLiveAB->getBSTeamBatAvg($data, $atBat);
         $matrixBS['ab'] = $this->calculateAtBatData($data, $atBat);
-        $matrixBS['other']=['pa'=>$plateAppearance,'count(BB,HBP)'=>$notCount,'atBat'=>$atBat];
+        $matrixBS['other'] = ['pa' => $plateAppearance,'count(BB,HBP)' => $notCount,'atBat' => $atBat];
         return $matrixBS;
     }
     public function resultBSPlayers($data, $group)
@@ -146,7 +165,7 @@ class GetLiveABPracticeResults extends Controller
         foreach ($calculates as $key => $players) {
             $plateAppearance = $players->where('count_b_s', '=', '0-0')->count();
             $notCount = $players->whereIn('bases', [4,6])->count();
-            $atBat = $plateAppearance-$notCount;
+            $atBat = $plateAppearance - $notCount;
 
             foreach ($this->bsCount as $bs) {
                 $results['pitch']['b-s'][$key][$bs] = HelperStatisticsLiveAB::countBSxPitchTypes($players, $bs);
@@ -155,10 +174,12 @@ class GetLiveABPracticeResults extends Controller
                 $results['1b'][$key][$bs] = HelperStatisticsLiveAB::countBSx1B($players, $bs);
                 $results['XHB'][$key][$bs] = HelperStatisticsLiveAB::countBSXBH(
                     $players,
-                    $bs);
+                    $bs
+                );
                 $results['SLG'][$key][$bs] = round(
                     Helper::caseDivide(HelperStatisticsLiveAB::countBSxSlgPercents($players, $bs), $atBat),
-                    4);
+                    4
+                );
                 $results['bat_avg'][$key][$bs] = round(Helper::caseDivide(HelperStatisticsLiveAB::countBSxBatAvg($players, $bs), $atBat), 4);
                 $results['ab'][$key] = $this->calculateAtBatData($players, $atBat);
             }
@@ -167,8 +188,8 @@ class GetLiveABPracticeResults extends Controller
             $results['1b'][$key]['total'] = array_sum($results['1b'][$key]);
             $results['XHB'][$key]['total'] = array_sum($results['XHB'][$key]);
             $results['SLG'][$key]['total'] = round(array_sum($results['SLG'][$key]), 4);
-            $results['bat_avg'][$key]['total'] = round(array_sum($results['bat_avg'][$key]),4);
-            $results['other'][$key]=['pa'=>$plateAppearance,'count(BB,HBP)'=>$notCount,'atBat'=>$atBat];
+            $results['bat_avg'][$key]['total'] = round(array_sum($results['bat_avg'][$key]), 4);
+            $results['other'][$key] = ['pa' => $plateAppearance,'count(BB,HBP)' => $notCount,'atBat' => $atBat];
             ///// totals
             $results['pitch']['b-s'][$key]['total'] = HelperStatisticsLiveAB::sumBSByPitch($players);
             $results['contact']['b-s'][$key]['total'] = HelperStatisticsLiveAB::sumBSByContact($players);

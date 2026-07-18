@@ -70,6 +70,7 @@ class Kernel extends HttpKernel
         'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
         'plan' => \App\Http\Middleware\RequiresPlan::class,
         'scripted.practice' => \App\Http\Middleware\RequiresScriptedPracticeEntitlement::class,
+        'session.entitlement' => \App\Http\Middleware\RequiresSessionEntitlement::class,
         'subscription.admin' => \App\Http\Middleware\EnsureSubscriptionAdmin::class,
     ];
 }

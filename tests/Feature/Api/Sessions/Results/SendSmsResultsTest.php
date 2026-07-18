@@ -9,6 +9,7 @@ use App\Models\BullpenPracticeResult;
 use App\Models\Concerns\PracticeModes;
 use App\Models\Concerns\PracticeTypes;
 use App\Models\Concerns\UserTypes;
+use App\Models\CoachTeam;
 use App\Models\Practice;
 use App\Models\Profile;
 use App\Models\SmsLog;
@@ -23,10 +24,12 @@ class SendSmsResultsTest extends TestCase
     public function test_send_sms_result_ok(): void
     {
 
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $user->id, 'team_id' => $team->id]);
         $practice = Practice::factory()->create([
-            'team_id' => Team::factory()->create()->id,
+            'team_id' => $team->id,
             'type' => PracticeTypes::BULLPEN->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,
         ]);
@@ -56,10 +59,10 @@ class SendSmsResultsTest extends TestCase
             'pitcher_id' => $user3->user_id,
         ]);
 
-        $data = ['players'=>[
-            ['id'=>$user1->user_id,'name'=>$user1->first_name,'phone'=>$user1->user->phone],
-            ['id'=>$user2->user_id,'name'=>$user2->first_name,'phone'=>$user2->user->phone],
-            ['id'=>$user3->user_id,'name'=>$user3->first_name,'phone'=>$user3->user->phone],]
+        $data = ['players' => [
+            ['id' => $user1->user_id,'name' => $user1->first_name,'phone' => $user1->user->phone],
+            ['id' => $user2->user_id,'name' => $user2->first_name,'phone' => $user2->user->phone],
+            ['id' => $user3->user_id,'name' => $user3->first_name,'phone' => $user3->user->phone],]
 
         ];
         Event::fake([SentResults::class]);
@@ -80,10 +83,12 @@ class SendSmsResultsTest extends TestCase
 
     public function test_send_sms_result_ok_sent(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $user->id, 'team_id' => $team->id]);
         $practice = Practice::factory()->create([
-            'team_id' => Team::factory()->create()->id,
+            'team_id' => $team->id,
             'type' => PracticeTypes::BULLPEN->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,
         ]);
@@ -122,10 +127,10 @@ class SendSmsResultsTest extends TestCase
             "message" => 'test'
         ]);
 
-        $data = ['players'=>[
-            ['id'=>$user1->user_id,'name'=>$user1->first_name,'phone'=>$user1->user->phone],
-            ['id'=>$user2->user_id,'name'=>$user2->first_name,'phone'=>$user2->user->phone],
-            ['id'=>$user3->user_id,'name'=>$user3->first_name,'phone'=>$user3->user->phone],]
+        $data = ['players' => [
+            ['id' => $user1->user_id,'name' => $user1->first_name,'phone' => $user1->user->phone],
+            ['id' => $user2->user_id,'name' => $user2->first_name,'phone' => $user2->user->phone],
+            ['id' => $user3->user_id,'name' => $user3->first_name,'phone' => $user3->user->phone],]
 
         ];
 
@@ -147,7 +152,7 @@ class SendSmsResultsTest extends TestCase
 
     public function test_send_sms_result_error(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
         $practice = Practice::factory()->create([
             'team_id' => Team::factory()->create()->id,
@@ -189,10 +194,10 @@ class SendSmsResultsTest extends TestCase
             "message" => 'test'
         ]);
 
-        $data = ['players'=>[
-            ['id'=>$user1->user_id,'name'=>$user1->first_name,'phone'=>$user1->user->phone],
-            ['id'=>$user2->user_id,'name'=>$user2->first_name,'phone'=>$user2->user->phone],
-            ['id'=>$user3->user_id,'name'=>$user3->first_name,'phone'=>$user3->user->phone],]
+        $data = ['players' => [
+            ['id' => $user1->user_id,'name' => $user1->first_name,'phone' => $user1->user->phone],
+            ['id' => $user2->user_id,'name' => $user2->first_name,'phone' => $user2->user->phone],
+            ['id' => $user3->user_id,'name' => $user3->first_name,'phone' => $user3->user->phone],]
 
         ];
 
@@ -202,18 +207,13 @@ class SendSmsResultsTest extends TestCase
             $data
         );
 
-        $response->assertServerError()->assertJsonStructure([
-            'code',
-            'message',
-            'status',
-            'data' => []
-        ]);
+        $response->assertNotFound();
 
     }
 
     public function test_send_sms_result_validations(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
         $practice = Practice::factory()->create([
             'team_id' => Team::factory()->create()->id,
@@ -247,7 +247,7 @@ class SendSmsResultsTest extends TestCase
             'modes' => PracticeModes::HIT_OR_PITCH->value,
         ]);
 
-        $data = ['players'=>[]];
+        $data = ['players' => []];
 
         $response = $this->json(
             'POST',

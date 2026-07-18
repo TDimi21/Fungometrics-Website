@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\Training;
 
+use App\Models\Concerns\PracticeModes;
+use App\Models\Concerns\PracticeTypes;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Validation\Rule;
 
 class AddNewSessionRequest extends FormRequest
 {
@@ -29,9 +32,9 @@ class AddNewSessionRequest extends FormRequest
     public function rules()
     {
         return [
-            'team' => ['nullable'],
-            'type' => ['nullable'],
-            'modes' => ['nullable'],
+            'team' => ['nullable', 'string'],
+            'type' => ['nullable', Rule::enum(PracticeTypes::class)],
+            'modes' => ['nullable', Rule::enum(PracticeModes::class)],
             'scripted' => ['nullable', 'boolean'],
             'note' => ['required'],
             'players' => ['required', 'array'],

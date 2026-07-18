@@ -76,10 +76,15 @@ $items = [
 
 $immutable = [
     'free' => ['create_session', 'record_pitches', 'view_session_history', 'roster_view', 'invite_players', 'add_coaches', 'notifications', 'recent_sessions', 'record_assessments'],
+    'coach_basic' => ['create_session', 'record_pitches', 'view_session_history', 'roster_view', 'invite_players', 'add_coaches', 'notifications', 'recent_sessions', 'record_assessments'],
     'coach_pro' => ['create_session', 'record_pitches', 'view_session_history', 'roster_view', 'invite_players', 'add_coaches', 'notifications', 'recent_sessions', 'record_assessments'],
-    'player_basic' => ['notifications', 'recent_sessions'],
-    'player_pro' => ['notifications', 'recent_sessions'],
+    'player_basic' => ['view_own_profile', 'view_own_sessions', 'notifications', 'recent_sessions'],
+    'player_pro' => ['view_own_profile', 'view_own_sessions', 'notifications', 'recent_sessions'],
 ];
+
+$baseline = array_values(array_unique(array_merge(...array_values($immutable))));
+$deprecated = ['unlimited_players', 'manage_multiple_teams'];
+$notImplemented = ['shareable_profile', 'recruiting_profile'];
 
 return [
     'items' => collect($items)->map(fn (array $item, string $key): array => [
@@ -88,8 +93,15 @@ return [
         'description' => $item[1],
         'category' => $item[2],
         'audience' => $item[3],
-        'toggleable' => true,
-        'immutable_reason' => null,
+        'toggleable' => ! in_array($key, array_merge($baseline, $deprecated, $notImplemented), true),
+        'immutable_reason' => match (true) {
+            in_array($key, $baseline, true) => 'Authenticated audience baseline; still subject to ownership, membership, assignment, and numeric limits.',
+            'unlimited_players' === $key => 'Deprecated. The numeric player limit is authoritative.',
+            'manage_multiple_teams' === $key => 'Deprecated as an editable grant. It is derived from the team limit, add_team, and team_switching.',
+            in_array($key, $notImplemented, true) => 'Hidden until a verified server-authoritative workflow exists.',
+            default => null,
+        },
+        'hidden' => in_array($key, $notImplemented, true),
         'dependencies' => [],
         'conflicts' => [],
     ])->all(),

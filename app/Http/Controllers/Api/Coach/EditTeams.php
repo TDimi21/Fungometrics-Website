@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\RoasterUtils;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\EditTeamsRequest;
 use App\Models\Team;
+use App\Models\CoachTeam;
 use App\Services\UploadS3File;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +23,10 @@ class EditTeams extends Controller
      */
     public function __invoke(EditTeamsRequest $request): JsonResponse
     {
+        if ( ! CoachTeam::query()->where('coach_id', $request->user()->id)->where('team_id', $request->team)->exists()) {
+            return response()->json(['message' => 'You may edit only your teams.'], HttpCodes::HTTP_FORBIDDEN);
+        }
+
         try {
             $dataEdit = $request->validated();
             $model = Team::findOrFail($request->team);

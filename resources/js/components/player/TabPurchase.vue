@@ -2,11 +2,19 @@
 import { ref } from 'vue'
 import { YearTab, MonthTab } from '@/components/player/PurchaseComponents/index.js'
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/vue'
+import { useAccessStore } from '@/store/access.js'
 const tabHeading = ref(['Bill Yearly', 'Bill Monthly'])
+const access = useAccessStore()
 
 </script>
 <template>
   <section class="mt-10">
+    <div v-if="access.loaded" class="mx-auto mb-4 w-[75%] rounded-lg border border-fungo-gray2 bg-white p-4">
+      <h3 class="font-fungo-700 text-fungo-darkblue">Current plan usage</h3>
+      <p v-for="(label, key) in { players: 'Players', coaches: 'Coach seats', teams: 'Teams' }" :key="key" class="text-sm text-fungo-gray9">
+        {{ label }}: {{ access.summary.usage?.[key] ?? '—' }} / {{ access.summary.limits?.[key] ?? 'Unlimited' }}
+      </p>
+    </div>
     <tab-group>
       <tab-list class="flex flex-col md:flex-row justify-center items-center py-4">
         <div class="border border-fungo-darkblue rounded-lg">

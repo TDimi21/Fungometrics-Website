@@ -122,7 +122,7 @@ class RevenueCatTest extends TestCase
             ->assertJsonPath('data.status', 'active')
             ->assertJsonPath('data.source', 'legacy')
             ->assertJsonPath('data.provider', null)
-            ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions']);
+            ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions', 'view_own_profile', 'view_own_sessions']);
     }
 
     public function test_expired_player_plans_resolve_player_safe_free_access(): void
@@ -141,7 +141,7 @@ class RevenueCatTest extends TestCase
             Sanctum::actingAs($user, ['player']);
             $this->getJson('/api/me/access')->assertOk()
                 ->assertJsonPath('data.plan', 'free')
-                ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions']);
+                ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions', 'view_own_profile', 'view_own_sessions']);
         }
     }
 
@@ -165,7 +165,7 @@ class RevenueCatTest extends TestCase
             ->assertJsonPath('data.plan', 'free')
             ->assertJsonPath('data.source', 'legacy')
             ->assertJsonPath('data.provider', null)
-            ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions']);
+            ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions', 'view_own_profile', 'view_own_sessions']);
         $this->assertSame('free', $user->fresh()->subscription_plan);
 
         Carbon::setTestNow();
@@ -184,7 +184,7 @@ class RevenueCatTest extends TestCase
         Sanctum::actingAs($user->fresh(), ['player']);
         $this->getJson('/api/me/access')->assertOk()
             ->assertJsonPath('data.plan', 'free')
-            ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions']);
+            ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions', 'view_own_profile', 'view_own_sessions']);
     }
     public function test_unknown_product_user_cross_audience_and_production_events_are_rejected(): void
     {

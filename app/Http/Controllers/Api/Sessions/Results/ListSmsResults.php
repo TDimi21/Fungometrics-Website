@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Api\Sessions\Results;
 
 use App\Http\Controllers\Controller;
 use App\Models\SmsLog;
+use App\Models\Practice;
+use App\Models\CoachTeam;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +22,14 @@ class ListSmsResults extends Controller
      */
     public function __invoke(Request $request): JsonResponse
     {
+        $practice = Practice::query()->findOrFail($request->practice);
+        $ownsPersonalPractice = null === $practice->team_id && $practice->user_id === $request->user()->id;
+        $ownsTeamPractice = $practice->team_id && CoachTeam::query()
+            ->where('coach_id', $request->user()->id)
+            ->where('team_id', $practice->team_id)
+            ->exists();
+        abort_unless($ownsPersonalPractice || $ownsTeamPractice, HttpCodes::HTTP_FORBIDDEN, 'This session is not available to this coach.');
+
         try {
             $smslist = SmsLog::with('user', 'user.profile', 'user.player')
                 ->where('practice_id', '=', $request->practice)->get();
@@ -28,21 +38,21 @@ class ListSmsResults extends Controller
                     'code' => '054',
                     'message' => '',
                     'status' => 'success',
-                    'data' => ['status_send'=>false,],
+                    'data' => ['status_send' => false,],
                 ];
                 return response()->json($response, HttpCodes::HTTP_OK);
             }
             $result = $smslist->map(function ($element) {
                 return[
-                    'name'=>[
-                        'full'=>$element->user->profile->first_name." ".$element->user->profile->last_name,
-                        'first'=>$element->user->profile->first_name,
-                        'last'=>$element->user->profile->last_name,
+                    'name' => [
+                        'full' => $element->user->profile->first_name." ".$element->user->profile->last_name,
+                        'first' => $element->user->profile->first_name,
+                        'last' => $element->user->profile->last_name,
                     ],
-                    'response'=>$element->response,
-                    'status'=>$element->status,
-                    'message'=>$element->message,
-                    'shirt'=>$element->user->player->number_in_shirt??0
+                    'response' => $element->response,
+                    'status' => $element->status,
+                    'message' => $element->message,
+                    'shirt' => $element->user->player->number_in_shirt ?? 0
 
                 ];
             });

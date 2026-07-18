@@ -52,6 +52,13 @@ class RequiresPlan
             return $request->route('id');
         }
 
+        foreach (['team_id', 'team'] as $parameter) {
+            $value = $request->input($parameter);
+            if (is_string($value) && '' !== $value) {
+                return $value;
+            }
+        }
+
         return null;
     }
 

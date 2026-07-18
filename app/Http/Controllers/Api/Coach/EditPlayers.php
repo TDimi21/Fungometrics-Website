@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\PlayerUtils;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\EditPlayerRequest;
 use App\Models\User;
+use App\Models\CoachTeam;
+use App\Models\PlayerTeam;
 use App\Services\UploadS3File;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +25,13 @@ class EditPlayers extends Controller
      */
     public function __invoke(EditPlayerRequest $request): JsonResponse
     {
+        $sharedTeam = CoachTeam::query()->where('coach_id', $request->user()->id)
+            ->whereIn('team_id', PlayerTeam::query()->where('user_id', $request->id)->select('team_id'))
+            ->exists();
+        if ( ! $sharedTeam) {
+            return response()->json(['message' => 'You may edit only players on your teams.'], HttpCodes::HTTP_FORBIDDEN);
+        }
+
         try {
             DB::beginTransaction();
             $player = User::findOrFail($request->id);
@@ -78,7 +87,7 @@ class EditPlayers extends Controller
                 'code' => '033',
                 'message' => $photoError ? 'player updated (photo not saved)' : 'player updated',
                 'status' => 'success',
-                'photo_uploaded' => $photoError === null,
+                'photo_uploaded' => null === $photoError,
                 'data' => User::with('profile', 'player', 'positions')->find($request->id),
             ];
             if ($photoError) {

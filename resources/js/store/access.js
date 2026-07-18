@@ -13,6 +13,8 @@ const emptySummary = () => ({
   team: null,
   entitlements: [],
   limits: {},
+  usage: {},
+  remaining: {},
 })
 
 /**

@@ -29,6 +29,7 @@ class EntitlementCoverageRegistry
                     'backend' => [],
                     'web' => [],
                     'mobile' => [],
+                    'platforms' => ['backend', 'web', 'mobile'],
                     'enforcement_behavior' => 'deny',
                     'access_type' => 'mutating',
                     'dependencies' => [],

@@ -37,7 +37,8 @@ class EntitlementResolverTest extends TestCase
 
         $this->assertTrue($this->resolver->hasEntitlement($free, 'create_session'));
         $this->assertTrue($this->resolver->hasEntitlement($coach, 'view_advanced_stats'));
-        $this->assertTrue($this->resolver->hasEntitlement($player, 'recruiting_profile'));
+        $this->assertTrue($this->resolver->hasEntitlement($player, 'heat_maps'));
+        $this->assertFalse($this->resolver->hasEntitlement($player, 'recruiting_profile'));
     }
 
     public function test_legacy_free_access_is_filtered_by_user_audience(): void
@@ -45,7 +46,7 @@ class EntitlementResolverTest extends TestCase
         $player = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
         $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
 
-        $this->assertSame(['notifications', 'recent_sessions'], $this->resolver->getEntitlements($player));
+        $this->assertSame(['notifications', 'recent_sessions', 'view_own_profile', 'view_own_sessions'], $this->resolver->getEntitlements($player));
         $this->assertTrue($this->resolver->hasEntitlement($coach, 'create_session'));
         $this->assertTrue($this->resolver->hasEntitlement($coach, 'add_coaches'));
     }
@@ -86,10 +87,10 @@ class EntitlementResolverTest extends TestCase
         $plan = SubscriptionPlan::where('key', 'player_pro')->firstOrFail();
         $subscription = Subscription::create(['user_id' => $user->id, 'plan_id' => $plan->id,
             'provider' => 'apple', 'status' => 'grace_period', 'grace_period_ends_at' => now()->addMinute()]);
-        $this->assertTrue($this->resolver->hasEntitlement($user, 'recruiting_profile'));
+        $this->assertTrue($this->resolver->hasEntitlement($user, 'heat_maps'));
 
         $subscription->update(['grace_period_ends_at' => now()->subSecond()]);
-        $this->assertFalse($this->resolver->hasEntitlement($user, 'recruiting_profile'));
+        $this->assertFalse($this->resolver->hasEntitlement($user, 'heat_maps'));
     }
 
     public function test_direct_grants_respect_dates_and_revocation(): void

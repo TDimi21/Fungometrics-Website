@@ -18,6 +18,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { ageFromDOB, resolveBornValue } from '@/utils/dob.js'
+import { useAccessStore } from '@/store/access.js'
 
 const route  = useRoute()
 const router = useRouter()
@@ -25,6 +26,9 @@ const { axiosGet } = useAxiosAuth()
 
 const sessionId   = route.params.id
 const sessionType = route.params.type   // batting|bullpen|cage|exit_velocity|long_toss|weight_ball
+const access = useAccessStore()
+const canScriptedBp = computed(() => access.canAccess('scripted_bp'))
+const canScriptedBullpen = computed(() => access.canAccess('scripted_bullpen'))
 const sessionDate = route.query.date ?? null
 const sessionNote = route.query.note ?? null
 
@@ -1125,7 +1129,7 @@ const displayDate = computed(() => {
             </div>
           </section>
 
-          <section v-if="scriptedBp" class="mx-4 mb-5">
+          <section v-if="scriptedBp && canScriptedBp" class="mx-4 mb-5">
             <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">📋 Scripted BP Scorecard</h3>
             <div class="rounded-xl bg-white/5 border border-white/8 p-4">
               <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
@@ -1241,7 +1245,7 @@ const displayDate = computed(() => {
             </div>
           </section>
 
-          <section v-if="scriptedBullpen" class="mx-4 mb-5">
+          <section v-if="scriptedBullpen && canScriptedBullpen" class="mx-4 mb-5">
             <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">📋 Scripted Bullpen Scorecard</h3>
             <div class="rounded-xl bg-white/5 border border-white/8 p-4">
               <div class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

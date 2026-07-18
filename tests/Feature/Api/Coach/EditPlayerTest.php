@@ -8,21 +8,23 @@ use App\Http\Requests\Api\Coach\EditPlayerRequest;
 use App\Models\Concerns\PlayerPositions;
 use App\Models\Concerns\SidesPLayer;
 use App\Models\Concerns\UserTypes;
+use App\Models\CoachTeam;
 use App\Models\Player;
 use App\Models\PlayerPosition;
+use App\Models\PlayerTeam;
 use App\Models\Profile;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
-use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 class EditPlayerTest extends TestCase
 {
     public function test_edit_player_ok(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
 
         $player = Player::factory()->create([
@@ -30,9 +32,12 @@ class EditPlayerTest extends TestCase
                 'user_id' => User::factory()->create()->id
             ])->user_id
         ]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $user->id, 'team_id' => $team->id]);
+        PlayerTeam::factory()->create(['user_id' => $player->user_id, 'team_id' => $team->id, 'actual' => true]);
 
         PlayerPosition::factory(3)->create([
-            'player_id'=>$player->user_id
+            'player_id' => $player->user_id
         ]);
 
 
@@ -54,12 +59,12 @@ class EditPlayerTest extends TestCase
             'player' => [
                 'ft' => 7,
                 'inch' => 2,
-                'weight'=>80,
+                'weight' => 80,
                 'born' => fake()->date,
                 'shirt' => fake()->randomDigit(),
-                'sides'=>[
-                    'pitch'=>SidesPLayer::LEFT->value,
-                    'hit'=>SidesPLayer::LEFT->value,
+                'sides' => [
+                    'pitch' => SidesPLayer::LEFT->value,
+                    'hit' => SidesPLayer::LEFT->value,
                 ]
             ],
             'positions' => [
@@ -84,7 +89,7 @@ class EditPlayerTest extends TestCase
 
     public function test_edit_player_validations(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
         $player = Player::factory()->create([
             'user_id' => Profile::factory()->create([
@@ -97,7 +102,7 @@ class EditPlayerTest extends TestCase
 
     public function test_edit_player_unauthorized(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         $player = Player::factory()->create([
             'user_id' => Profile::factory()->create([
                 'user_id' => User::factory()->create()->id
@@ -110,7 +115,7 @@ class EditPlayerTest extends TestCase
 
     public function test_edit_player_error(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
 
         $player = Player::factory()->create([
@@ -120,7 +125,7 @@ class EditPlayerTest extends TestCase
         ]);
 
         PlayerPosition::factory(3)->create([
-            'player_id'=>$player->user_id
+            'player_id' => $player->user_id
         ]);
 
 
@@ -139,7 +144,7 @@ class EditPlayerTest extends TestCase
             'player' => [
                 'ft' => 7,
                 'inch' => 2,
-                'weight'=>80,
+                'weight' => 80,
                 'born' => fake()->date,
             ],
             'positions' => [
@@ -148,7 +153,7 @@ class EditPlayerTest extends TestCase
             ],
         ];
         $response = $this->json('POST', 'api/edit/players/'.fake()->uuid, $data);
-        $response->assertStatus(Response::HTTP_INTERNAL_SERVER_ERROR);
+        $response->assertForbidden();
     }
 
     public function test_edit_player_error2(): void
@@ -156,7 +161,7 @@ class EditPlayerTest extends TestCase
         $this->mock(EditPlayerRequest::class, function ($mock): void {
             $mock->shouldReceive('passes')->andReturn(true);
         });
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
 
         $player = Player::factory()->create([
@@ -166,13 +171,13 @@ class EditPlayerTest extends TestCase
         ]);
 
         PlayerPosition::factory(3)->create([
-            'player_id'=>$player->user_id
+            'player_id' => $player->user_id
         ]);
 
 
         Storage::fake('s3');
         $data = [];
         $response = $this->json('POST', 'api/edit/players/'.$player->id, $data);
-        $response->assertStatus(Response::HTTP_INTERNAL_SERVER_ERROR);
+        $response->assertServerError();
     }
 }

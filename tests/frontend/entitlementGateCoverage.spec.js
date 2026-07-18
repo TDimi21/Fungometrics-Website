@@ -22,7 +22,7 @@ describe('web entitlement gate coverage', () => {
   it('disables administrator toggles that the coverage registry marks incomplete', () => {
     const page = source('resources/js/pages/admin/AdminPlans.vue')
 
-    expect(page).toContain("implementation_status !== 'fully_wired'")
+    expect(page).toContain("['fully_wired', 'platform_wired', 'composite_wired'].includes")
     expect(page).toContain('Incomplete')
     expect(page).toContain(
       ':disabled="activePlan.legacy || isImmutable(item.key) || isIncomplete(item.key)"',

@@ -47,11 +47,11 @@ $entry = static function (
     ];
 };
 
-return [
+$config = [
     'allowed_statuses' => [
-        'fully_wired', 'backend_only', 'client_only', 'missing_route',
-        'missing_web_gate', 'missing_mobile_gate',
-        'intentionally_always_available', 'not_implemented',
+        'fully_wired', 'platform_wired', 'composite_wired',
+        'immutable_baseline', 'disabled_incomplete', 'not_implemented',
+        'deprecated',
     ],
 
     'entitlements' => [
@@ -571,7 +571,7 @@ return [
             ['SMS results'],
             [$route('POST', 'api/coach/send/results/{practice}', 'Coach\\SendSmsResults', true)],
             ['resources/js/layout/Layout.vue'],
-            [],
+            ['src/components/access/SendResultsSmsButton.js', 'src/navigations/Stacks/StatsStack.js'],
             'missing_mobile_gate',
             ['mobile_entry_not_mapped'],
             'message'
@@ -601,18 +601,18 @@ return [
     'limits' => [
         'players' => [
             'backend' => ['Coach\\AddPlayers', 'Coach\\CoachUtils'],
-            'status' => 'backend_only',
-            'gaps' => ['web_usage_display_not_standardized', 'mobile_usage_display_not_standardized'],
+            'status' => 'fully_wired',
+            'gaps' => [],
         ],
         'coaches' => [
             'backend' => ['Coach\\AddCoaches', 'Coach\\CoachUtils'],
-            'status' => 'backend_only',
-            'gaps' => ['web_usage_display_not_standardized', 'mobile_usage_display_not_standardized'],
+            'status' => 'fully_wired',
+            'gaps' => [],
         ],
         'teams' => [
             'backend' => ['Coach\\AddTeams'],
-            'status' => 'backend_only',
-            'gaps' => ['web_usage_display_not_standardized', 'mobile_usage_display_not_standardized'],
+            'status' => 'fully_wired',
+            'gaps' => [],
         ],
     ],
 
@@ -621,3 +621,56 @@ return [
         'purchase', 'restore_purchases', 'complete_assigned_workout', 'complete_readiness_survey',
     ],
 ];
+
+$classifications = array_fill_keys(array_keys($config['entitlements']), 'disabled_incomplete');
+foreach ([
+    'create_session', 'record_pitches', 'view_session_history', 'record_assessments',
+    'roster_view', 'invite_players', 'add_coaches', 'view_own_profile',
+    'view_own_sessions', 'notifications', 'recent_sessions',
+] as $key) {
+    $classifications[$key] = 'immutable_baseline';
+}
+foreach (['unlimited_players', 'manage_multiple_teams'] as $key) {
+    $classifications[$key] = 'deprecated';
+}
+foreach (['shareable_profile', 'recruiting_profile'] as $key) {
+    $classifications[$key] = 'not_implemented';
+}
+foreach ([
+    'scripted_bp', 'scripted_bullpen', 'liveab_sessions',
+    'exit_velocity_sessions', 'long_toss_sessions', 'weighted_ball_sessions',
+    'view_team_stats', 'view_session_report', 'view_assessment_reports',
+    'arm_care', 'edit_team', 'edit_player', 'add_team', 'sms_results',
+    'planner_create', 'plan_builder', 'assign_workouts',
+    'view_workout_progress', 'manage_player_groups',
+] as $key) {
+    $classifications[$key] = 'fully_wired';
+}
+foreach ([
+    'liveab_analytics', 'box_score',
+    'view_assessment_comparisons', 'view_assessment_recommendations',
+] as $key) {
+    $classifications[$key] = 'composite_wired';
+}
+$classifications['view_player_cards'] = 'platform_wired';
+
+$platforms = array_fill_keys(array_keys($config['entitlements']), ['backend', 'web', 'mobile']);
+$platforms['view_player_cards'] = ['backend', 'mobile'];
+$platforms['team_recaps'] = ['backend', 'mobile'];
+$platforms['player_recaps'] = ['backend', 'mobile'];
+$platforms['shareable_profile'] = ['backend', 'web', 'mobile'];
+$platforms['recruiting_profile'] = ['backend', 'mobile'];
+
+foreach ($config['entitlements'] as $key => &$coverage) {
+    $coverage['platforms'] = $platforms[$key];
+    $coverage['implementation_status'] = $classifications[$key];
+    if (in_array($classifications[$key], ['fully_wired', 'platform_wired', 'composite_wired', 'immutable_baseline'], true)) {
+        $coverage['gaps'] = [];
+    }
+    if ('fully_wired' === $classifications[$key]) {
+        $coverage['backend'] = array_map(static fn (array $route): array => array_replace($route, ['enforced' => true]), $coverage['backend']);
+    }
+}
+unset($coverage);
+
+return $config;
