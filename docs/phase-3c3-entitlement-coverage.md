@@ -1,16 +1,6 @@
 # FMTRX Phase 3C.3 entitlement-control completion report
 
-Status: **IMPLEMENTED, COMMITTED, AND PUSHED; NOT DEPLOYED OR RUN AGAINST PRODUCTION.**
-
-- Laravel/web implementation: `29f1b8e44cc1b605f8b8fde31f4021dbd6b86f26`
-  on `origin/main`.
-- Mobile implementation: `c9ea0b7f3b0deabd074b2a757058d11dc868f73f`
-  on `origin/TomsScreeens`.
-- This report correction remains uncommitted until the deployment-scope review
-  is explicitly approved.
-- The published Laravel/web commit also contains an unrelated Top-10 dashboard
-  redesign. Its separation is prepared for review below and has not been
-  committed or pushed.
+Status: **IMPLEMENTED LOCALLY; NOT COMMITTED, PUSHED, DEPLOYED, OR RUN AGAINST PRODUCTION.**
 
 Laravel `GET /api/me/access` remains the only runtime plan-feature authority. This phase does not change prices, RevenueCat, Apple products, receipts, webhooks, subscription/provider identities, permanent Laravel UUIDs, or production data.
 
@@ -193,10 +183,7 @@ Laravel/web:
 - `tests/frontend/entitlementGateCoverage.spec.js`
 - `docs/phase-3c3-entitlement-coverage.md`
 
-`resources/js/pages/dashboard/Index.vue` is the only mixed file in the published
-Laravel/web commit. Its exact scoped inventory appears below. Newer uncommitted
-Hall-of-Fame/Top-10 work in the shared main worktree is also unrelated and has
-been left untouched.
+`resources/js/pages/dashboard/Index.vue` also contains concurrent, unrelated Top-10/dashboard edits that were already being changed in the shared workspace during this work. They were preserved and are not claimed as Phase 3C.3 entitlement changes; only the access-store import, Performance Overview request guard, mounted-state clearing, cache guard, and denied/loading presentation are in Phase 3C.3 scope.
 
 Mobile:
 
@@ -205,96 +192,23 @@ Mobile:
 - `src/navigations/TopTabNavigator.js`
 - `src/utils/__tests__/entitlementGateCoverage.test.js`
 
-## Repository-scope separation review
-
-The complete reviewed ranges are:
-
-- Laravel/web: `ca1e9183c2717ec1f4f9147d25a63a3f8c3c75f7..29f1b8e44cc1b605f8b8fde31f4021dbd6b86f26`
-- Mobile: `ef8c2417727ca4f10c277585f07bbdd393cc7140..c9ea0b7f3b0deabd074b2a757058d11dc868f73f`
-
-Every Laravel/web file other than `resources/js/pages/dashboard/Index.vue` is
-Phase 3C.3 entitlement implementation, tests, or this report. All four mobile
-files are Phase 3C.3 entitlement changes. No other committed file or hunk is in
-either range.
-
-### `Index.vue` Phase 3C.3 hunks
-
-Line references below are from committed file `29f1b8e`:
-
-- line 8: import authoritative `useAccessStore`.
-- line 39: create the access-store instance.
-- lines 626-632: compute `performance_overview` access and define paid-state
-  clearing.
-- lines 705-708: prevent the Performance Overview request when access is absent.
-- lines 781-791: react to grant/revocation and clear mounted paid state.
-- lines 2578-2583: refuse cached premium Performance Overview data without
-  current authoritative access.
-- lines 2773-2783: render loading/denied states before paid data and make the
-  performance skeleton part of the fail-closed chain.
-
-### `Index.vue` unrelated committed Top-10 hunks
-
-Line references below are from committed file `29f1b8e`:
-
-- lines 408-414: numeric leaderboard formatter.
-- lines 557-608: six-category Top-10 metadata, parallel loading, card rows,
-  leader/subtitle helpers, and selected-card state.
-- line 2620: preload all Top-10 categories during dashboard refresh.
-- lines 2981-3115: full-width Top-10 layout, category cards, range controls,
-  selected-category bar, and redesigned team leaderboard.
-
-The current main worktree additionally contains an uncommitted
-`HallOfFameWall.vue` component and corresponding `Index.vue` integration. Those
-changes are newer than `29f1b8e`, are not part of either reviewed commit range,
-and were not modified during this separation review.
-
-### Prepared separation (not committed or pushed)
-
-- Local preservation branch `preserve/top10-dashboard-mixed-29f1b8e` points to
-  the exact published mixed commit.
-- An isolated detached review worktree was prepared from `29f1b8e` with only
-  the committed Top-10 hunks reversed. The proposed corrective diff changes
-  only `resources/js/pages/dashboard/Index.vue` (74 insertions, 171 deletions)
-  and leaves exactly the seven Phase 3C.3 Performance Overview groups listed
-  above when compared with `ca1e9183`.
-- The proposed entitlement-only dashboard passes the focused web entitlement
-  tests (4/4) and a production Vite build.
-- No corrective commit exists yet. Therefore a final Laravel/web deployment
-  hash cannot be stated without violating the instruction not to commit before
-  review. The mobile deployment candidate remains exactly `c9ea0b7`.
-
 ## Migration requirements
 
 No database migration is required. Phase 3C.3 changes runtime entitlement
 classification, route middleware, client enforcement, tests, and documentation
-only. No production data, plan definition, entitlement audit, subscription,
-provider identity, RevenueCat configuration, or App Store configuration was
-changed.
+only. Existing plan definitions, entitlement audits, subscriptions, provider
+identities, and customer records remain intact.
 
 ## Deployment and rollback plan (not executed)
 
-1. Review the prepared one-file corrective diff and this report correction.
-2. After explicit approval, preserve the newer Hall-of-Fame work on its own
-   feature branch/commit without pushing it unless separately authorized.
-3. Apply the reviewed Top-10 reversal to `main` as a new forward commit; do not
-   rewrite or force-push `29f1b8e`.
-4. Commit the approved report correction, rerun the web test/build checks, and
-   record the resulting Laravel/web deployment hash. Mobile remains `c9ea0b7`.
-5. Back up the deployed database and verify production database identity before
-   deployment, even though no migration is required.
-6. Deploy Laravel/web first, clear Laravel caches, build the web client, and
-   verify the admin catalog classifications.
-7. Perform an additive-then-revert test on `performance_overview` using a
-   dedicated coach account; verify `/api/me/access`, direct-route behavior,
-   both audit rows, and unchanged RevenueCat subscription identity/count.
-8. Verify a dedicated player with `development_graphs` can access only their
-   own graph and loses it immediately after a controlled revert.
-9. Distribute mobile commit `c9ea0b7` only after backend/web acceptance.
-10. Roll back with new forward revert commits that restore the deployed
-    Laravel/web tree to `ca1e9183` and mobile tree to `ef8c241`; do not reset or
-    rewrite published history. Clear Laravel caches and rebuild the web client.
-    No schema rollback is needed, and plan definitions, audits, subscriptions,
-    provider identities, and customer data must remain untouched.
+1. Review and approve both repository diffs and the paired regression comparison.
+2. Commit Laravel/web and mobile separately only after explicit approval.
+3. Back up the deployed database and verify the production database identity before any deployment command.
+4. Deploy Laravel/web first, clear caches, build the web client, and verify the admin catalog classifications.
+5. Perform an additive-then-revert test on `performance_overview` using a dedicated coach account; verify `/api/me/access`, direct route behavior, both audit rows, and unchanged RevenueCat subscription identity/count.
+6. Verify a dedicated player with `development_graphs` can access only their own graph and loses it immediately after a controlled revert.
+7. Distribute the mobile build only after backend/web acceptance.
+8. Roll back by redeploying the prior code commits and clearing caches. Do not delete plan definitions, audits, subscriptions, or customer data.
 
 ## Controlled production acceptance checklist (not executed)
 
