@@ -334,7 +334,7 @@ final class LeaderboardService
             $previousRanks[$player['id']] = $index + 1;
         }
 
-        $top = array_slice($ranked, 0, 10);
+        $top = array_slice($ranked, 0, 25);
         $base = $this->emptyCategory($category);
         $base['rows'] = array_map(function (array $player, int $index) use ($category, $metric, $previousRanks): array {
             $currentRank = $index + 1;

@@ -105,7 +105,7 @@ class HallOfFameLeaderboardTest extends TestCase
             'hitter', 'pitcher', 'avg_ev', 'max_ev', 'avg_fb', 'max_fb',
             'bullpen', 'cage', 'long_toss', 'strength', 'mobility', 'recovery',
         ], $categories->pluck('key')->all());
-        $this->assertTrue($categories->every(fn (array $category) => count($category['rows']) <= 10));
+        $this->assertTrue($categories->every(fn (array $category) => count($category['rows']) <= 25));
         $this->assertSame('Jake Hall', $categories->firstWhere('key', 'hitter')['featured']['name']);
         $this->assertSame('Jake Hall', $categories->firstWhere('key', 'bullpen')['featured']['name']);
         $this->assertNotNull($categories->firstWhere('key', 'bullpen')['featured']['bigValue']);

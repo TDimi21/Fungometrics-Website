@@ -2777,13 +2777,13 @@ watch(
         <!-- Full-width rotating leaderboard + Recent Sessions (stacked) -->
         <div class="flex flex-col gap-5">
 
-          <!-- Top 10 Metrics & Performers — the Hall of Fame Wall -->
+          <!-- Top 25 Metrics & Performers — the Hall of Fame Wall -->
           <div class="flex flex-col gap-5">
 
             <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 md:p-6 shadow-xl">
               <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-5">
                 <div>
-                  <h2 class="text-xl font-black uppercase tracking-wide text-white">Top 10 Metrics &amp; Performers</h2>
+                  <h2 class="text-xl font-black uppercase tracking-wide text-white">Top 25 Metrics &amp; Performers</h2>
                   <p class="text-white/45 text-sm mt-1">Explore the top performers across key performance categories.</p>
                   <div class="flex gap-1 mt-4 bg-white/5 rounded-lg p-1 w-fit">
                     <button @click="top10Mode = 'players'"

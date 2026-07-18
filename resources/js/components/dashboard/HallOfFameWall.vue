@@ -3,7 +3,7 @@
  * HallOfFameWall.vue — the FMTRX facility "Hall of Fame Wall".
  *
  * ONE rotating leaderboard experience (not many cards). Every 5s it cycles to the
- * next category: the Top-5 board (left) and the #1 featured athlete (right) update
+ * next category: the Top-25 board (left) and the #1 featured athlete (right) update
  * together with a color theme, a countdown, and smooth transitions.
  *
  * Every slot in the design is rendered — trend chips, sparklines, and sub-metric
@@ -21,7 +21,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 const props = defineProps({
   categories: { type: Array, default: () => [] },
   fallbackAvatar: { type: String, default: '' },
-  interval: { type: Number, default: 5 },
+  interval: { type: Number, default: 12 },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
 })
@@ -37,6 +37,8 @@ let timer = null
 const cats = computed(() => (Array.isArray(props.categories) ? props.categories.filter(Boolean) : []))
 const active = computed(() => cats.value[idx.value] ?? cats.value[0] ?? null)
 const color = computed(() => active.value?.color || '#ef4444')
+const rankedRows = computed(() => (Array.isArray(active.value?.rows) ? active.value.rows.slice(0, 25) : []))
+const shouldScrollRows = computed(() => rankedRows.value.length > 5)
 
 const advance = (step = 1) => {
   const n = cats.value.length
@@ -140,26 +142,30 @@ const sparkPoints = (arr) => {
 
           <div class="hof-cols"><span>Rank</span><span>Player</span><span class="right">Score</span></div>
 
-          <div class="hof-rows">
-            <div v-for="(row, i) in active.rows.slice(0, 5)" :key="row.id || row.name" class="hof-row" :class="{ 'is-first': i === 0 }">
-              <span class="hof-rank">{{ i + 1 }}</span>
-              <img class="hof-ava" :src="row.avatar || fallbackAvatar" @error="onAvatarError" alt="" />
-              <div class="hof-who">
-                <div class="hof-name">{{ row.name }}</div>
-                <div v-if="row.subtitle" class="hof-pos">{{ row.subtitle }}</div>
-              </div>
-              <span class="hof-trend" :class="trendClass(row.trend)" :title="row.trend == null ? 'Trend pending' : 'Change since last ranking'">
-                {{ trendGlyph(row.trend) }}<template v-if="row.trend"> {{ trendText(row.trend) }}</template>
-              </span>
-              <span class="hof-score">{{ row.value }}<small v-if="active.unit && row.value !== '—'"> {{ active.unit }}</small></span>
+          <div class="hof-rows" :class="{ 'is-scrolling': shouldScrollRows, 'is-paused': paused }" :style="{ '--scroll-duration': `${interval}s` }">
+            <div class="hof-scroll-track">
+              <template v-for="copy in (shouldScrollRows ? 2 : 1)" :key="copy">
+                <div v-for="(row, i) in rankedRows" :key="`${copy}-${row.id || row.name}-${i}`" class="hof-row" :class="{ 'is-first': i === 0 }">
+                  <span class="hof-rank">{{ i + 1 }}</span>
+                  <img class="hof-ava" :src="row.avatar || fallbackAvatar" @error="onAvatarError" alt="" />
+                  <div class="hof-who">
+                    <div class="hof-name">{{ row.name }}</div>
+                    <div v-if="row.subtitle" class="hof-pos">{{ row.subtitle }}</div>
+                  </div>
+                  <span class="hof-trend" :class="trendClass(row.trend)" :title="row.trend == null ? 'Trend pending' : 'Change since last ranking'">
+                    {{ trendGlyph(row.trend) }}<template v-if="row.trend"> {{ trendText(row.trend) }}</template>
+                  </span>
+                  <span class="hof-score">{{ row.value }}<small v-if="active.unit && row.value !== '—'"> {{ active.unit }}</small></span>
+                </div>
+              </template>
             </div>
-            <div v-if="!active.rows.length" class="hof-none">
+            <div v-if="!rankedRows.length" class="hof-none">
               {{ active.placeholder ? 'Score coming soon' : 'No ranked players yet' }}
             </div>
           </div>
 
           <button v-if="active.rows.length" class="hof-viewall" @click="showAll = true">
-            View Full Top 10 <span>›</span>
+            View Full Top 25 <span>›</span>
           </button>
         </div>
 
@@ -237,13 +243,13 @@ const sparkPoints = (arr) => {
       </div>
     </div>
 
-    <!-- Full Top 10 modal -->
+    <!-- Full Top 25 modal -->
     <Transition name="hof-modal">
       <div v-if="showAll && active" class="hof-modal-bg" @click.self="showAll = false">
         <div class="hof-modal" :style="{ '--accent': color }">
           <div class="hof-modal-head">
             <div>
-              <div class="hof-modal-title">Top 10 • {{ active.label }}</div>
+              <div class="hof-modal-title">Top 25 • {{ active.label }}</div>
               <div class="hof-sub">{{ active.subtitle }}</div>
             </div>
             <button class="hof-modal-x" @click="showAll = false" aria-label="Close">✕</button>
@@ -301,8 +307,12 @@ const sparkPoints = (arr) => {
 .hof-timer b { color: var(--accent); font-variant-numeric: tabular-nums; margin-left: 3px; }
 .hof-cols { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.3); padding: 0 4px 8px; border-bottom: 1px solid rgba(255,255,255,.07); }
 .hof-cols .right { text-align: right; }
-.hof-rows { display: flex; flex-direction: column; margin-top: 4px; }
-.hof-row { display: grid; grid-template-columns: 34px auto 1fr auto auto; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid rgba(255,255,255,.05); }
+.hof-rows { --row-height: 49px; display: flex; flex-direction: column; margin-top: 4px; height: calc(var(--row-height) * 5); overflow: hidden; }
+.hof-scroll-track { display: flex; flex-direction: column; }
+.hof-rows.is-scrolling .hof-scroll-track { animation: hof-scroll-list var(--scroll-duration, 12s) linear infinite; }
+.hof-rows.is-paused .hof-scroll-track { animation-play-state: paused; }
+@keyframes hof-scroll-list { to { transform: translateY(-50%); } }
+.hof-row { min-height: var(--row-height); box-sizing: border-box; display: grid; grid-template-columns: 34px auto 1fr auto auto; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid rgba(255,255,255,.05); }
 .hof-row.is-first { background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 10px; border-bottom-color: transparent; }
 .hof-rank { width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: rgba(255,255,255,.55); background: rgba(255,255,255,.06); }
 .hof-row.is-first .hof-rank { background: var(--accent); color: #0a1020; }
