@@ -30,6 +30,8 @@ const idx = ref(0)
 const countdown = ref(props.interval)
 const paused = ref(false)
 const showAll = ref(false)
+const hofRoot = ref(null)
+const isFullscreen = ref(false)
 let timer = null
 
 const cats = computed(() => (Array.isArray(props.categories) ? props.categories.filter(Boolean) : []))
@@ -52,7 +54,36 @@ onMounted(() => {
     if (countdown.value <= 0) advance(1)
   }, 1000)
 })
-onBeforeUnmount(() => timer && clearInterval(timer))
+const syncFullscreenState = () => {
+  const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement
+  isFullscreen.value = fullscreenElement === hofRoot.value
+}
+const toggleFullscreen = async () => {
+  const el = hofRoot.value
+  if (!el) return
+  try {
+    if (isFullscreen.value) {
+      if (document.exitFullscreen) await document.exitFullscreen()
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen()
+    } else if (el.requestFullscreen) {
+      await el.requestFullscreen()
+    } else if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen()
+    }
+  } catch (error) {
+    console.warn('Hall of Fame fullscreen unavailable', error)
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('fullscreenchange', syncFullscreenState)
+  document.addEventListener('webkitfullscreenchange', syncFullscreenState)
+})
+onBeforeUnmount(() => {
+  if (timer) clearInterval(timer)
+  document.removeEventListener('fullscreenchange', syncFullscreenState)
+  document.removeEventListener('webkitfullscreenchange', syncFullscreenState)
+})
 watch(() => cats.value.length, (n) => { if (idx.value >= n) idx.value = 0 })
 
 const clock = computed(() => `00:${String(Math.max(0, countdown.value)).padStart(2, '0')}`)
@@ -79,7 +110,7 @@ const sparkPoints = (arr) => {
 </script>
 
 <template>
-  <div class="hof" :style="{ '--accent': color }" @mouseenter="paused = true" @mouseleave="paused = false">
+  <div ref="hofRoot" class="hof" :class="{ 'is-fullscreen': isFullscreen }" :style="{ '--accent': color }" @mouseenter="paused = true" @mouseleave="paused = false">
     <div v-if="loading" class="hof-state" role="status">
       <span class="hof-loader" />
       <strong>Building the Hall of Fame</strong>
@@ -197,7 +228,13 @@ const sparkPoints = (arr) => {
         <button v-for="(c, i) in cats" :key="c.value" class="hof-dot" :class="{ on: i === idx }"
           :style="i === idx ? { background: color } : {}" @click="goTo(i)" :aria-label="`Show ${c.label}`" />
       </div>
-      <div class="hof-refresh">{{ paused ? 'Rotation paused' : `Rotating every ${interval} seconds` }}</div>
+      <div class="hof-foot-actions">
+        <div class="hof-refresh">{{ paused ? 'Rotation paused' : `Rotating every ${interval} seconds` }}</div>
+        <button type="button" class="hof-present" @click="toggleFullscreen" :aria-label="isFullscreen ? 'Exit TV presentation' : 'Present Hall of Fame on TV'">
+          <span aria-hidden="true">{{ isFullscreen ? '↙' : '⛶' }}</span>
+          {{ isFullscreen ? 'Exit Presentation' : 'Present on TV' }}
+        </button>
+      </div>
     </div>
 
     <!-- Full Top 10 modal -->
@@ -328,6 +365,41 @@ const sparkPoints = (arr) => {
 .hof-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.16); border: none; cursor: pointer; padding: 0; transition: transform .2s; }
 .hof-dot.on { transform: scale(1.35); }
 .hof-refresh { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.3); }
+.hof-foot-actions { display: flex; align-items: center; gap: 12px; }
+.hof-present { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--accent) 45%, rgba(255,255,255,.1)); background: color-mix(in srgb, var(--accent) 12%, rgba(255,255,255,.03)); color: #fff; cursor: pointer; font-size: 9px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; }
+.hof-present:hover { background: color-mix(in srgb, var(--accent) 24%, rgba(255,255,255,.05)); }
+.hof-present span { font-size: 14px; line-height: 1; }
+
+/* TV presentation mode */
+.hof:fullscreen, .hof.is-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  padding: clamp(24px, 3vw, 56px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background:
+    radial-gradient(110% 130% at 85% 0%, color-mix(in srgb, var(--accent) 20%, transparent) 0%, transparent 58%),
+    #060b14;
+}
+.hof:fullscreen .hof-stage, .hof.is-fullscreen .hof-stage { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: clamp(24px, 3vw, 56px); align-items: center; }
+.hof:fullscreen .hof-title, .hof.is-fullscreen .hof-title { font-size: clamp(28px, 3vw, 52px); }
+.hof:fullscreen .hof-name, .hof.is-fullscreen .hof-name { font-size: clamp(17px, 1.4vw, 25px); }
+.hof:fullscreen .hof-row, .hof.is-fullscreen .hof-row { padding: clamp(10px, 1.2vh, 18px) 8px; }
+.hof:fullscreen .hof-ava, .hof.is-fullscreen .hof-ava { width: clamp(38px, 3vw, 54px); height: clamp(38px, 3vw, 54px); }
+.hof:fullscreen .hof-feature-photo, .hof.is-fullscreen .hof-feature-photo { width: clamp(130px, 12vw, 210px); height: clamp(130px, 12vw, 210px); }
+.hof:fullscreen .hof-feature-name, .hof.is-fullscreen .hof-feature-name { font-size: clamp(38px, 4vw, 72px); }
+.hof:fullscreen .hof-bigscore-val, .hof.is-fullscreen .hof-bigscore-val { font-size: clamp(72px, 8vw, 140px); }
+.hof:fullscreen .hof-foot, .hof.is-fullscreen .hof-foot { margin-top: clamp(18px, 2vh, 30px); }
+.hof:fullscreen .hof-progress, .hof.is-fullscreen .hof-progress { margin-left: calc(clamp(24px, 3vw, 56px) * -1); margin-right: calc(clamp(24px, 3vw, 56px) * -1); }
+@media (max-width: 760px) {
+  .hof-foot { gap: 10px; flex-wrap: wrap; }
+  .hof-dots { order: 3; width: 100%; justify-content: center; }
+  .hof-refresh { display: none; }
+}
 
 /* Transition */
 .hof-enter-active, .hof-leave-active { transition: opacity .45s ease, transform .45s ease; }
