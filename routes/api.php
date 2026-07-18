@@ -245,8 +245,8 @@ Route::prefix('player')->group(function (): void {
         Route::post('benchmark-tasks/{taskId}/complete', [IntelligenceController::class, 'completePlayerBenchmarkTask']);
         Route::post('benchmark-tasks/{taskId}/complete-with-payload', [IntelligenceController::class, 'completePlayerBenchmarkTaskWithPayload']);
         Route::post('benchmark-tasks/{taskId}/dismiss', [IntelligenceController::class, 'dismissPlayerBenchmarkTask']);
-        Route::middleware('plan:view_advanced_stats')->get('development/players/{player}', GetPlayerDevelopmentDashboard::class);
-        Route::middleware('plan:view_advanced_stats')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
+        Route::middleware('plan:development_graphs')->get('development/players/{player}', GetPlayerDevelopmentDashboard::class);
+        Route::middleware('plan:development_graphs')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
 
         // Daily Planner (player side) — "My Workouts" + progress
         Route::get('weekly-plans', GetPlayerWeeklyPlans::class);

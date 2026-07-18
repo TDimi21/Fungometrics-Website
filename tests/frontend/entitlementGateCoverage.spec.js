@@ -14,9 +14,31 @@ describe('web entitlement gate coverage', () => {
     expect(router).toContain("entitlement: 'liveab_sessions'")
     expect(router).toContain("entitlement: 'view_session_report'")
     expect(router).toContain("entitlement: 'planner_create'")
+    expect(router).toContain("name: 'development.player'")
+    expect(router).toContain("entitlement: 'development_graphs'")
     expect(router).toContain('useAccessStore')
     expect(router).not.toMatch(/subscription_plan/)
     expect(router).not.toMatch(/hasFeature\s*\(/)
+  })
+
+  it('protects and clears the mounted performance overview from authoritative access', () => {
+    const dashboard = source('resources/js/pages/dashboard/Index.vue')
+
+    expect(dashboard).toContain("access.canAccess('performance_overview')")
+    expect(dashboard).toContain('if (!canViewPerformanceOverview.value)')
+    expect(dashboard).toContain('clearPerformanceOverview()')
+    expect(dashboard).toContain('watch(\n  canViewPerformanceOverview')
+    expect(dashboard).toContain('v-if="!access.loaded"')
+    expect(dashboard).toContain('v-else-if="!canViewPerformanceOverview"')
+    expect(dashboard).not.toMatch(/subscription_plan/)
+  })
+
+  it('keeps the deprecated practice control out of runtime route authority', () => {
+    const router = source('resources/router/index.js')
+
+    expect(router).toMatch(/name:\s*["']practice\.planner["']/)
+    expect(router).toContain("entitlement: 'planner_create'")
+    expect(router).not.toContain("entitlement: 'practice_sessions'")
   })
 
   it('disables administrator toggles that the coverage registry marks incomplete', () => {

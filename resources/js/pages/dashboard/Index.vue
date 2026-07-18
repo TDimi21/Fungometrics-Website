@@ -5,6 +5,7 @@ import Layout from "../../layout/Layout.vue"
 import { useUserStore } from "../../store/user";
 import { usePlayerStore } from "../../store/players";
 import { useTeamStore } from "../../store/team";
+import { useAccessStore } from '@/store/access.js'
 import { IndicatorChart } from '@/components/dashboard'
 import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
@@ -35,6 +36,7 @@ const { axiosPost, axiosGet } = useAxiosAuth()
 const user = useUserStore()
 const dashTab = ref('overview')
 const teamStore = useTeamStore()
+const access = useAccessStore()
 const { team } = storeToRefs(teamStore)
 const resolveTeamId = (teamLike) => teamLike?.id_team ?? teamLike?.id ?? null
 const activeTeamId = computed(() => resolveTeamId(team.value))
@@ -403,6 +405,13 @@ const formatTop10MetricValue = (item, tab) => {
   return `${value}${tab?.suffix ?? ''}`
 }
 
+// Raw numeric value (unit is rendered separately in the leaderboard cards).
+const formatTop10Number = (item, tab) => {
+  const v = top10MetricValue(item, tab)
+  if (v === null) return '—'
+  return Number.isInteger(v) ? String(v) : (Math.round(v * 10) / 10).toFixed(1)
+}
+
 // ── Player Development Board ──────────────────────────────────────────────────
 const devBoard = ref([])
 const devBoardLoading = ref(false)
@@ -545,6 +554,59 @@ const switchTop10Tab = (val) => {
   getTop10(true)
 }
 
+// ── Top 10 leaderboard — all 6 categories loaded at once (card grid UI) ───────
+const TOP10_META = {
+  1:  { emoji: '🏏', color: '#ef4444', subtitle: 'Based on Hitting Score',  unit: 'MPH',    lead: 'max EV' },
+  4:  { emoji: '⚾', color: '#3b82f6', subtitle: 'Based on Pitching Score', unit: 'MPH',    lead: 'avg FB' },
+  2:  { emoji: '📈', color: '#22c55e', subtitle: 'Average Exit Velocity',   unit: 'MPH',    lead: 'avg EV' },
+  5:  { emoji: '⚡', color: '#a855f7', subtitle: 'Average Velocity',        unit: 'MPH',    lead: 'avg velo' },
+  3:  { emoji: '🔀', color: '#eab308', subtitle: 'Total Swings Recorded',   unit: 'SWINGS', lead: 'total swings' },
+  12: { emoji: '💪', color: '#14b8a6', subtitle: 'Overall Strength Score',  unit: 'SCORE',  lead: 'strength score' },
+}
+const top10Meta = (v) => TOP10_META[v] ?? { emoji: '📊', color: '#94a3b8', subtitle: '', unit: '', lead: '' }
+
+const top10AllData = ref({}) // { [tabValue]: rows[] }
+
+const loadAllTop10 = async (force = false) => {
+  if (!getActiveTeamIdCandidates().length) return
+  await ensureTeamPlayerCards().catch(() => {})
+  const next = { ...top10AllData.value }
+  await Promise.all(top10Tabs.map(async (tab) => {
+    try {
+      if (tab.value === 12) { next[tab.value] = topStrengthRows.value.slice(0, 10); return }
+      const { data } = await withTeamIdFallbackPost(
+        (id) => 'table/' + id,
+        () => ({ option: tab.value, range: top10Range.value }),
+      )
+      next[tab.value] = dedupeTop10Players(data?.data?.all ?? [], tab)
+    } catch (e) { next[tab.value] = next[tab.value] ?? [] }
+  }))
+  top10AllData.value = next
+}
+
+const top10CardRows = (tab) => {
+  if (tab.value === 12) return topStrengthRows.value.slice(0, 3)
+  return (top10AllData.value[tab.value] ?? []).slice(0, 3)
+}
+const top10CardLeader = (tab) => top10CardRows(tab)[0] ?? null
+
+// Player subtitle (position • level) enriched from the roster player cards.
+const top10PlayerSubtitle = (item) => {
+  const card = playerCardsByName.value.get(normalizePlayerName(top10PlayerName(item)))
+  const p = card?.profile ?? {}
+  const ph = card?.physical ?? {}
+  const parts = []
+  const pos = p.position || ph.position || p.positions || ''
+  if (pos) parts.push(String(pos))
+  const level = p.level || ph.level || ''
+  if (level) parts.push(String(level))
+  return parts.join(' • ')
+}
+
+// The category summarized in the bottom bar (defaults to Top Hitter).
+const top10SelectedTab = computed(() => top10Tabs.find(t => t.value === top10Tab.value) ?? top10Tabs[0])
+const selectTop10Card = (tab) => { top10Tab.value = tab.value }
+
 // ── Charts ────────────────────────────────────────────────────────────────────
 const {
   ballStrike, isloading, directional,
@@ -561,6 +623,13 @@ const perfLastFetch = ref(null)
 const perf = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null, wb: null })
 const perfDetail = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null })
 const perfUnavailableTeams = ref({})
+const canViewPerformanceOverview = computed(() => access.canAccess('performance_overview'))
+
+const clearPerformanceOverview = () => {
+  perf.value = { batting: null, bullpen: null, cage: null, ev: null, lt: null, wb: null }
+  perfDetail.value = { batting: null, bullpen: null, cage: null, ev: null, lt: null }
+  perfLastFetch.value = null
+}
 
 /** Same colour scale as the mobile app's scoreColor() helper */
 function scoreColor(s) {
@@ -633,6 +702,10 @@ const longTossReviewCurve = computed(() => {
 })
 
 const fetchPerformanceOverview = async (force = false) => {
+  if (!canViewPerformanceOverview.value) {
+    clearPerformanceOverview()
+    return
+  }
   if (!force && Object.values(perf.value).some(v => v !== null) && (Date.now() - (perfLastFetch.value ?? 0)) < DASHBOARD_CACHE_TTL_MS) return
   const teamIds = getActiveTeamIdCandidates()
   const teamId = teamIds[0]
@@ -704,6 +777,18 @@ const fetchPerformanceOverview = async (force = false) => {
   }
   finally { perfLoading.value = false }
 }
+
+watch(
+  canViewPerformanceOverview,
+  (allowed) => {
+    if (!allowed) {
+      clearPerformanceOverview()
+      return
+    }
+    fetchPerformanceOverview(true).catch(e => console.warn('fetchPerformanceOverview access refresh error:', e?.message ?? e))
+  },
+  { immediate: true }
+)
 
 // The 6 overview rows — same labels/order as the app
 const perfRows = computed(() => [
@@ -2490,11 +2575,11 @@ const hydrateDashboardFromCache = () => {
     top10Range.value = cache.top10Range
   }
 
-  if (cache.perf) {
+  if (canViewPerformanceOverview.value && cache.perf) {
     perf.value = cache.perf
   }
 
-  if (cache.perfDetail) {
+  if (canViewPerformanceOverview.value && cache.perfDetail) {
     perfDetail.value = cache.perfDetail
   }
 
@@ -2532,6 +2617,7 @@ watch(
       getStaticChartData().catch(e => console.warn('getStaticChartData error:', e?.message ?? e)) // contact_spray → velocity field
       fetchTeamInsight().catch(e => console.warn('fetchTeamInsight error:', e?.message ?? e))
       ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards preload error:', e?.message ?? e))
+      loadAllTop10().catch(e => console.warn('loadAllTop10 error:', e?.message ?? e))
     }, 800)
   },
   { immediate: true }
@@ -2684,8 +2770,17 @@ watch(
               <span class="text-white/30 text-xs">Last 10 sessions · FMTRX score</span>
             </div>
 
+            <div v-if="!access.loaded" class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center text-sm text-white/40">
+              Verifying authoritative access…
+            </div>
+
+            <div v-else-if="!canViewPerformanceOverview" class="rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-10 text-center">
+              <p class="text-sm font-black uppercase tracking-wider text-amber-200">Performance Overview is not included in this plan.</p>
+              <p class="mt-2 text-xs text-white/45">Refresh access or upgrade to view scored performance analysis.</p>
+            </div>
+
             <!-- Loading skeleton -->
-            <div v-if="perfLoading" class="flex flex-col gap-3">
+            <div v-else-if="perfLoading" class="flex flex-col gap-3">
               <div v-for="i in 6" :key="i" class="h-7 rounded-lg bg-white/5 animate-pulse"></div>
             </div>
 
@@ -2883,104 +2978,140 @@ watch(
           </div>
 
         <!-- 2-Column grid -->
-        <div class="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5">
+        <div class="flex flex-col gap-5">
 
-          <!-- COL 2: Top 10 Metrics & Performers -->
+          <!-- Top 10 Metrics & Performers (full-width leaderboard) -->
           <div class="flex flex-col gap-5">
+            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 md:p-6 shadow-xl">
 
-            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-black uppercase tracking-widest text-white">Top 10 Metrics & Performers</h2>
-              </div>
-
-              <!-- Player / Team toggle -->
-              <div class="flex gap-1 mb-4 bg-white/5 rounded-lg p-0.5 w-fit">
-                <button
-                  @click="top10Mode = 'players'"
-                  class="px-4 py-1.5 rounded-md text-xs font-black uppercase tracking-wide transition-all"
-                  :class="top10Mode === 'players' ? 'bg-[#C00000] text-white' : 'text-white/40 hover:text-white'"
-                >Player Leaders</button>
-                <button
-                  @click="top10Mode = 'team'"
-                  class="px-4 py-1.5 rounded-md text-xs font-black uppercase tracking-wide transition-all"
-                  :class="top10Mode === 'team' ? 'bg-[#C00000] text-white' : 'text-white/40 hover:text-white'"
-                >Team Leaders</button>
-              </div>
-
-              <!-- Player Leaders view -->
-              <template v-if="top10Mode === 'players'">
-                <!-- Metric cards -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
-                  <button
-                    v-for="tab in top10Tabs" :key="tab.value"
-                    @click="openTop10Modal(tab)"
-                    class="text-left rounded-xl border p-3 transition-all"
-                    :class="top10Tab === tab.value
-                      ? 'bg-[#C00000]/20 border-[#C00000]/60 text-white shadow-lg shadow-red-900/30'
-                      : 'bg-white/[0.04] border-white/15 text-white/80 hover:border-white/35 hover:bg-white/[0.07]'"
-                  >
-                    <div class="text-[11px] font-black uppercase tracking-widest">{{ tab.label }}</div>
-                    <div class="mt-2 text-xs text-white/60">Open modal to view top 10 players</div>
-                  </button>
+              <!-- Header: title + toggle (left) · period (right) -->
+              <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-5">
+                <div>
+                  <h2 class="text-xl font-black uppercase tracking-wide text-white">Top 10 Metrics &amp; Performers</h2>
+                  <p class="text-white/45 text-sm mt-1">Explore the top performers across key performance categories.</p>
+                  <div class="flex gap-1 mt-4 bg-white/5 rounded-lg p-1 w-fit">
+                    <button @click="top10Mode = 'players'"
+                      class="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-black uppercase tracking-wide transition"
+                      :class="top10Mode === 'players' ? 'bg-[#C00000] text-white shadow' : 'text-white/40 hover:text-white'">
+                      <span>👤</span> Player Leaders
+                    </button>
+                    <button @click="top10Mode = 'team'"
+                      class="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-black uppercase tracking-wide transition"
+                      :class="top10Mode === 'team' ? 'bg-[#C00000] text-white shadow' : 'text-white/40 hover:text-white'">
+                      <span>👥</span> Team Leaders
+                    </button>
+                  </div>
                 </div>
-
-                <!-- Range filter -->
-                <div class="flex items-center gap-2 mb-4">
+                <div class="flex items-center gap-2">
                   <span class="text-white/30 text-[10px] uppercase tracking-widest">Period</span>
-                  <div class="flex gap-1">
-                    <button
-                      v-for="r in [{ l: 'All', v: 0 }, { l: '1Y', v: 12 }, { l: '1M', v: 6 }, { l: '1W', v: 3 }]"
-                      :key="r.v"
-                      @click="top10Range = r.v; top10Tab === 12 ? ensureTeamPlayerCards() : getTop10(true)"
-                      class="px-2.5 py-1 rounded-lg text-xs font-bold transition border"
-                      :class="top10Range === r.v
-                        ? 'bg-white/15 border-white/30 text-white'
-                        : 'bg-transparent border-white/10 text-white/35 hover:text-white/60'"
-                    >{{ r.l }}</button>
+                  <div class="flex gap-1.5">
+                    <button v-for="r in [{ l: 'All', v: 0 }, { l: '1Y', v: 12 }, { l: '1M', v: 6 }, { l: '1W', v: 3 }]" :key="r.v"
+                      @click="top10Range = r.v; loadAllTop10(true)"
+                      class="px-3 py-1.5 rounded-lg text-xs font-black transition border"
+                      :class="top10Range === r.v ? 'bg-white/10 border-white/30 text-white' : 'bg-transparent border-white/10 text-white/40 hover:text-white/70'">
+                      {{ r.l }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PLAYER LEADERS -->
+              <template v-if="top10Mode === 'players'">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div v-for="tab in top10Tabs" :key="tab.value"
+                    @click="selectTop10Card(tab)"
+                    class="rounded-2xl border p-4 transition cursor-pointer"
+                    :class="top10Tab === tab.value ? 'bg-white/[0.05]' : 'bg-white/[0.025] border-white/10 hover:border-white/25'"
+                    :style="top10Tab === tab.value ? { borderColor: top10Meta(tab.value).color + '80', boxShadow: '0 0 0 1px ' + top10Meta(tab.value).color + '33, 0 10px 30px rgba(0,0,0,.3)' } : {}">
+
+                    <!-- card header -->
+                    <div class="flex items-start gap-3">
+                      <div class="w-11 h-11 rounded-xl flex items-center justify-center text-lg shrink-0 border"
+                        :style="{ background: top10Meta(tab.value).color + '1f', borderColor: top10Meta(tab.value).color + '55' }">{{ top10Meta(tab.value).emoji }}</div>
+                      <div class="min-w-0 flex-1">
+                        <div class="text-sm font-black uppercase tracking-wide text-white truncate">{{ tab.label }}</div>
+                        <div class="text-[11px] text-white/45 truncate">{{ top10Meta(tab.value).subtitle }}</div>
+                      </div>
+                      <button @click.stop="openTop10Modal(tab)" class="shrink-0 text-[10px] font-black uppercase tracking-widest whitespace-nowrap"
+                        :style="{ color: top10Meta(tab.value).color }">Top 10 ›</button>
+                    </div>
+
+                    <!-- top 3 -->
+                    <div class="mt-3">
+                      <div v-for="(row, idx) in top10CardRows(tab)" :key="idx"
+                        class="flex items-center gap-3 py-2 border-t border-white/5 first:border-t-0">
+                        <span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0"
+                          :style="idx === 0 ? { background: top10Meta(tab.value).color, color: '#0a1020' } : { background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.6)' }">{{ idx + 1 }}</span>
+                        <img :src="top10PlayerAvatar(row) || top10FallbackAvatar" @error="$event.target.src = top10FallbackAvatar"
+                          class="w-8 h-8 rounded-full object-cover border border-white/15 shrink-0" alt="" />
+                        <div class="min-w-0 flex-1">
+                          <div class="text-sm font-bold text-white truncate">{{ top10PlayerName(row) }}</div>
+                          <div v-if="top10PlayerSubtitle(row)" class="text-[10px] text-white/40 truncate">{{ top10PlayerSubtitle(row) }}</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                          <div class="text-base font-black tabular-nums leading-none" :style="{ color: top10Meta(tab.value).color }">{{ formatTop10Number(row, tab) }}</div>
+                          <div class="text-[9px] font-bold text-white/35 uppercase mt-0.5">{{ top10Meta(tab.value).unit }}</div>
+                        </div>
+                      </div>
+                      <div v-if="!top10CardRows(tab).length" class="py-5 text-center text-white/25 text-xs">No data yet</div>
+                    </div>
+
+                    <!-- footer -->
+                    <div class="mt-3 pt-3 border-t border-white/5 flex items-center justify-between gap-2">
+                      <div class="min-w-0">
+                        <div class="text-[9px] font-black uppercase tracking-widest text-white/30">Leader</div>
+                        <div class="text-xs font-bold text-white truncate">
+                          {{ top10CardLeader(tab) ? top10PlayerName(top10CardLeader(tab)) : '—' }}
+                          <span v-if="top10CardLeader(tab)" class="text-white/40 font-medium"> · {{ formatTop10Number(top10CardLeader(tab), tab) }} {{ top10Meta(tab.value).lead }}</span>
+                        </div>
+                      </div>
+                      <button @click.stop="openTop10Modal(tab)"
+                        class="shrink-0 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border transition hover:bg-white/5"
+                        :style="{ color: top10Meta(tab.value).color, borderColor: top10Meta(tab.value).color + '66' }">View Top 10</button>
+                    </div>
                   </div>
                 </div>
 
-                <!-- Selected category quick preview -->
-                <div v-if="top10Rows.length" class="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                  <div class="flex items-center justify-between gap-2">
-                    <div class="text-xs uppercase tracking-widest text-white/45">Selected Category</div>
-                    <button class="text-[10px] uppercase tracking-widest text-[#FCA5A5]" @click="openTop10Modal(activeTop10Tab)">Open Top 10</button>
+                <!-- Selected category bar -->
+                <div class="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center text-base border shrink-0"
+                      :style="{ background: top10Meta(top10SelectedTab.value).color + '1f', borderColor: top10Meta(top10SelectedTab.value).color + '55' }">{{ top10Meta(top10SelectedTab.value).emoji }}</div>
+                    <div class="min-w-0">
+                      <div class="text-[10px] font-black uppercase tracking-widest text-white/35">Selected Category</div>
+                      <div class="text-sm font-black text-white truncate">
+                        {{ top10SelectedTab.label }}
+                        <span v-if="top10CardLeader(top10SelectedTab)" class="text-white/45 font-medium"> — Leader: {{ top10PlayerName(top10CardLeader(top10SelectedTab)) }} · {{ formatTop10Number(top10CardLeader(top10SelectedTab), top10SelectedTab) }} {{ top10Meta(top10SelectedTab.value).lead }}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div class="mt-1.5 text-sm font-black text-white">{{ activeTop10Tab.label }}</div>
-                  <div class="mt-1 text-xs text-white/70">
-                    Leader: {{ top10PlayerName(top10Rows[0]) }} · {{ formatTop10MetricValue(top10Rows[0], activeTop10Tab) }}
-                  </div>
+                  <button @click="openTop10Modal(top10SelectedTab)"
+                    class="shrink-0 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest"
+                    :style="{ color: top10Meta(top10SelectedTab.value).color }">Open Full Top 10 ↗</button>
                 </div>
               </template>
 
-              <!-- Team Leaders view -->
+              <!-- TEAM LEADERS -->
               <template v-else>
-                <div v-if="perfLoading" class="flex justify-center py-8">
+                <div v-if="perfLoading" class="flex justify-center py-10">
                   <svg class="animate-spin w-6 h-6 text-[#C00000]" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                   </svg>
                 </div>
-                <div v-else-if="!teamLeaders.length" class="text-white/25 text-sm text-center py-8">No team data yet</div>
-                <div v-else class="flex flex-col gap-1.5">
-                  <div
-                    v-for="(row, idx) in teamLeaders" :key="row.label"
-                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/5"
-                  >
-                    <span class="w-5 text-center text-sm font-black shrink-0"
-                      :class="idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-400' : 'text-white/30'">
-                      {{ idx + 1 }}
-                    </span>
-                    <span class="flex-1 text-sm font-bold text-white/70 truncate">{{ row.label }}</span>
-                    <span class="text-xs font-black px-2.5 py-1 rounded-full whitespace-nowrap"
-                      :style="{ backgroundColor: scoreColor(row.value) + '22', color: scoreColor(row.value) }">
-                      {{ row.value }}{{ row.suffix }}
-                    </span>
+                <div v-else-if="!teamLeaders.length" class="text-white/25 text-sm text-center py-10">No team data yet</div>
+                <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  <div v-for="(row, idx) in teamLeaders" :key="row.label"
+                    class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3.5 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="text-[10px] font-black uppercase tracking-widest text-white/35">#{{ idx + 1 }}</div>
+                      <div class="text-sm font-bold text-white/85 truncate">{{ row.label }}</div>
+                    </div>
+                    <span class="text-lg font-black tabular-nums whitespace-nowrap" :style="{ color: scoreColor(row.value) }">{{ row.value }}{{ row.suffix }}</span>
                   </div>
                 </div>
               </template>
             </div>
-
           </div>
 
           <!-- COL 3: Recent Sessions -->

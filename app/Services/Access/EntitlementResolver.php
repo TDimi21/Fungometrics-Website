@@ -80,7 +80,11 @@ class EntitlementResolver
             $entitlements,
             config("access.audience_baselines.{$audience}.entitlements", [])
         );
-        $entitlements = array_values(array_diff($entitlements, ['unlimited_players', 'manage_multiple_teams']));
+        $nonRuntimeEntitlements = array_merge(
+            config('entitlements.deprecated', []),
+            config('entitlements.not_implemented', [])
+        );
+        $entitlements = array_values(array_diff($entitlements, $nonRuntimeEntitlements));
         $entitlements = array_values(array_unique($entitlements));
 
         usort($sources, fn (array $a, array $b): int => $this->sourceRank($b) <=> $this->sourceRank($a)

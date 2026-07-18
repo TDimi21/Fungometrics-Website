@@ -83,8 +83,14 @@ $immutable = [
 ];
 
 $baseline = array_values(array_unique(array_merge(...array_values($immutable))));
-$deprecated = ['unlimited_players', 'manage_multiple_teams'];
-$notImplemented = ['shareable_profile', 'recruiting_profile'];
+$deprecated = ['practice_sessions', 'unlimited_players', 'manage_multiple_teams'];
+$notImplemented = [
+    'ai_recommendations',
+    'team_recaps',
+    'player_recaps',
+    'shareable_profile',
+    'recruiting_profile',
+];
 
 return [
     'items' => collect($items)->map(fn (array $item, string $key): array => [
@@ -96,6 +102,7 @@ return [
         'toggleable' => ! in_array($key, array_merge($baseline, $deprecated, $notImplemented), true),
         'immutable_reason' => match (true) {
             in_array($key, $baseline, true) => 'Authenticated audience baseline; still subject to ownership, membership, assignment, and numeric limits.',
+            'practice_sessions' === $key => 'Deprecated duplicate. Create Practice Plans (planner_create) is the authoritative control.',
             'unlimited_players' === $key => 'Deprecated. The numeric player limit is authoritative.',
             'manage_multiple_teams' === $key => 'Deprecated as an editable grant. It is derived from the team limit, add_team, and team_switching.',
             in_array($key, $notImplemented, true) => 'Hidden until a verified server-authoritative workflow exists.',
@@ -110,6 +117,8 @@ return [
         'login', 'register', 'password_recovery', 'profile_settings', 'claim_profile',
         'purchase', 'restore_purchases', 'complete_assigned_workout', 'complete_readiness_survey',
     ],
+    'deprecated' => $deprecated,
+    'not_implemented' => $notImplemented,
     'categories' => [
         'Core Sessions', 'Advanced Sessions', 'Statistics and Analytics', 'Reports and Recaps',
         'Planner and Workouts', 'Assessments', 'Arm Care', 'Team and Roster',

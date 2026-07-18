@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /*
 |--------------------------------------------------------------------------
-| Phase 3C.2 entitlement coverage registry
+| Phase 3C.3 entitlement coverage registry
 |--------------------------------------------------------------------------
 |
 | This registry describes proven runtime wiring. It is intentionally
@@ -167,8 +167,8 @@ $config = [
             [],
             ['resources/js/pages/practice/PracticePlanner.vue'],
             ['src/navigations/TopTabNavigator.js', 'src/screens/PracticeSessionScreen.js'],
-            'client_only',
-            ['no_distinct_backend_operation'],
+            'deprecated',
+            ['duplicate_of_planner_create'],
             'create/view/update'
         ),
         'view_team_stats' => $entry(
@@ -216,8 +216,8 @@ $config = [
             [$route('GET', 'api/coach/performance-overview/{team}', 'Coach\\GetPerformanceOverview', true)],
             ['resources/js/pages/dashboard/Index.vue'],
             ['src/components/TeamStatsPanel/index.js'],
-            'missing_web_gate',
-            ['web_panel_not_gated'],
+            'fully_wired',
+            [],
             'read-only',
             'read-only'
         ),
@@ -255,7 +255,7 @@ $config = [
             [],
             ['resources/js/features/development/*'],
             ['src/screens/assessmentReport/AssessmentReportScreen.js'],
-            'client_only',
+            'not_implemented',
             ['no_isolated_player_recommendation_route'],
             'read-only',
             'read-only'
@@ -297,7 +297,7 @@ $config = [
             [],
             [],
             ['src/screens/TeamSessionRecapScreen.js'],
-            'client_only',
+            'not_implemented',
             ['no_isolated_backend_operation'],
             'read-only',
             'read-only'
@@ -307,7 +307,7 @@ $config = [
             [],
             [],
             ['src/screens/PlayerRecapScreen.js'],
-            'client_only',
+            'not_implemented',
             ['no_isolated_backend_operation'],
             'read-only',
             'read-only'
@@ -541,9 +541,9 @@ $config = [
             ['Development graphs'],
             [$route('GET', 'api/player/development/*', 'Coach\\GetPlayerDevelopmentDashboard', true)],
             ['resources/router/index.js:development.player'],
-            ['src/screens/homePlayer.js'],
-            'missing_web_gate',
-            ['route_uses_view_advanced_stats_instead_of_development_graphs', 'web_route_not_gated'],
+            [],
+            'platform_wired',
+            [],
             'read-only',
             'read-only'
         ),
@@ -630,10 +630,10 @@ foreach ([
 ] as $key) {
     $classifications[$key] = 'immutable_baseline';
 }
-foreach (['unlimited_players', 'manage_multiple_teams'] as $key) {
+foreach (['practice_sessions', 'unlimited_players', 'manage_multiple_teams'] as $key) {
     $classifications[$key] = 'deprecated';
 }
-foreach (['shareable_profile', 'recruiting_profile'] as $key) {
+foreach (['ai_recommendations', 'team_recaps', 'player_recaps', 'shareable_profile', 'recruiting_profile'] as $key) {
     $classifications[$key] = 'not_implemented';
 }
 foreach ([
@@ -643,6 +643,7 @@ foreach ([
     'arm_care', 'edit_team', 'edit_player', 'add_team', 'sms_results',
     'planner_create', 'plan_builder', 'assign_workouts',
     'view_workout_progress', 'manage_player_groups',
+    'performance_overview',
 ] as $key) {
     $classifications[$key] = 'fully_wired';
 }
@@ -653,9 +654,11 @@ foreach ([
     $classifications[$key] = 'composite_wired';
 }
 $classifications['view_player_cards'] = 'platform_wired';
+$classifications['development_graphs'] = 'platform_wired';
 
 $platforms = array_fill_keys(array_keys($config['entitlements']), ['backend', 'web', 'mobile']);
 $platforms['view_player_cards'] = ['backend', 'mobile'];
+$platforms['development_graphs'] = ['backend', 'web'];
 $platforms['team_recaps'] = ['backend', 'mobile'];
 $platforms['player_recaps'] = ['backend', 'mobile'];
 $platforms['shareable_profile'] = ['backend', 'web', 'mobile'];
@@ -667,7 +670,7 @@ foreach ($config['entitlements'] as $key => &$coverage) {
     if (in_array($classifications[$key], ['fully_wired', 'platform_wired', 'composite_wired', 'immutable_baseline'], true)) {
         $coverage['gaps'] = [];
     }
-    if ('fully_wired' === $classifications[$key]) {
+    if (in_array($classifications[$key], ['fully_wired', 'platform_wired'], true)) {
         $coverage['backend'] = array_map(static fn (array $route): array => array_replace($route, ['enforced' => true]), $coverage['backend']);
     }
 }
