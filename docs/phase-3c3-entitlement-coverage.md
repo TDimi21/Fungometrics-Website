@@ -153,7 +153,7 @@ The final comparison is made by fully qualified JUnit test-case name. Both runs 
 
 ## Verification results
 
-- Phase 3C.3 matrix, coverage registry, and premium route-gating slice: 17 tests / 73 assertions passed.
+- Phase 3C.3 matrix, coverage registry, and premium route-gating slice: 18 tests / 80 assertions passed.
 - Entitlement resolver, coverage, Plan Features administration, RevenueCat, premium gating, scripted bullpen, capacity concurrency, SMS, and intelligence slice: 36 tests / 1,535 assertions passed.
 - Full training/session slice: 130 tests with 4 preexisting failures (three premium write fixtures expect success without paid grants; one legacy Live AB edit fixture expects `200` but receives validation `422`).
 - Complete Laravel suite: 625 tests / 3,600 assertions / 7 errors / 76 failures; exact-name comparison found zero new regression names.
@@ -191,6 +191,13 @@ Mobile:
 - `src/navigations/Stacks/StatsStack.js`
 - `src/navigations/TopTabNavigator.js`
 - `src/utils/__tests__/entitlementGateCoverage.test.js`
+
+## Migration requirements
+
+No database migration is required. Phase 3C.3 changes runtime entitlement
+classification, route middleware, client enforcement, tests, and documentation
+only. Existing plan definitions, entitlement audits, subscriptions, provider
+identities, and customer records remain intact.
 
 ## Deployment and rollback plan (not executed)
 
