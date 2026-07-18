@@ -5,6 +5,7 @@
 /storage/*.key
 /vendor
 .env
+.env.save
 .env.backup
 .phpunit.result.cache
 .DS_Store
