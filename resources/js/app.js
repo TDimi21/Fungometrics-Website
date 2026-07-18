@@ -74,6 +74,10 @@ const refreshAndEnforceAccess = async () => {
   }
 }
 
+// Populate entitlements immediately on startup. Without this call the access
+// store remains unloaded until the first 30-second interval (or a focus event),
+// leaving gated dashboard sections waiting even for authorized users.
+void refreshAndEnforceAccess()
 window.setInterval(refreshAndEnforceAccess, 30_000)
 window.addEventListener('focus', refreshAndEnforceAccess)
 document.addEventListener('visibilitychange', () => {
