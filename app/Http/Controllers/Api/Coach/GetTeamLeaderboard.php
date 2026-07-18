@@ -12,9 +12,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
+use Throwable;
 
 /**
- * GET /api/coach/leaderboard/{team}
+ * GET /api/coach/leaderboard/{team}?range=0|3|6|12
  *
  * The Hall of Fame Wall feed: every leaderboard category for the team in one
  * cached response. Auth is coach-of-team (or admin); server-computed and cached
@@ -27,20 +28,33 @@ class GetTeamLeaderboard extends Controller
         try {
             $user = $request->user();
             $isAdmin = in_array((string) ($user->type ?? ''), ['admin', 'super_admin'], true);
-            if (! $isAdmin && ! CoachTeam::where('team_id', $team)->where('coach_id', (string) ($user->id ?? ''))->exists()) {
+            if ( ! $isAdmin && ! CoachTeam::where('team_id', $team)->where('coach_id', (string) ($user->id ?? ''))->exists()) {
                 return response()->json([
                     'code' => 'LB-F', 'status' => 'error', 'message' => 'not allowed to view this team', 'data' => ['categories' => []],
                 ], HttpCodes::HTTP_FORBIDDEN);
             }
 
-            $data = Cache::remember("leaderboard_v1_{$team}", 300, fn () => $service->forTeam($team));
+            $range = (int) $request->query('range', 0);
+            if ( ! in_array($range, [0, 3, 6, 12], true)) {
+                return response()->json([
+                    'code' => 'LB-V', 'status' => 'error', 'message' => 'range must be one of 0, 3, 6, or 12', 'data' => ['categories' => []],
+                ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $data = Cache::remember(
+                "leaderboard_v2_{$team}_{$range}",
+                now()->addMinutes(5),
+                fn () => $service->forTeam($team, $range),
+            );
 
             return response()->json(['code' => 'LB', 'status' => 'success', 'message' => '', 'data' => $data], HttpCodes::HTTP_OK);
-        } catch (\Throwable $e) {
-            Log::error('GetTeamLeaderboard: ' . $e->getMessage());
+        } catch (Throwable $e) {
+            Log::error('GetTeamLeaderboard: '.$e->getMessage());
 
-            // Degrade gracefully so the dashboard falls back to its client-side data.
-            return response()->json(['code' => 'LB-E', 'status' => 'error', 'message' => 'leaderboard unavailable', 'data' => ['categories' => []]], HttpCodes::HTTP_OK);
+            return response()->json(
+                ['code' => 'LB-E', 'status' => 'error', 'message' => 'leaderboard unavailable', 'data' => ['categories' => []]],
+                HttpCodes::HTTP_SERVICE_UNAVAILABLE,
+            );
         }
     }
 }

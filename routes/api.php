@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\Coach\EditTeams;
 use App\Http\Controllers\Api\Coach\GetCoachesList;
 use App\Http\Controllers\Api\Coach\GetLastSessions;
 use App\Http\Controllers\Api\Coach\GetPerformanceOverview;
+use App\Http\Controllers\Api\Coach\GetTeamLeaderboard;
 use App\Http\Controllers\Api\Coach\GetPlayersList;
 use App\Http\Controllers\Api\Coach\GetPracticePlans;
 use App\Http\Controllers\Api\Coach\GetStatsBundle;
@@ -293,6 +294,7 @@ Route::prefix('coach')->group(function (): void {
         // Stats screen's per-session N+1 fetch).
         Route::middleware(['plan:view_team_stats', 'plan:view_session_report'])->get('/stats/bundle/{team}', GetStatsBundle::class);
         Route::middleware('plan:performance_overview')->get('/performance-overview/{team}', GetPerformanceOverview::class);
+        Route::middleware('plan:performance_overview')->get('/leaderboard/{team}', GetTeamLeaderboard::class);
         Route::middleware('plan:liveab_sessions')->post('/trainingab', AddNewLiveABSession::class);
         Route::middleware('plan:liveab_sessions')->get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);
         Route::get('/search/players', SearchPlayers::class);

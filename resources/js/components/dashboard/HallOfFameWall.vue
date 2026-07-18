@@ -22,6 +22,8 @@ const props = defineProps({
   categories: { type: Array, default: () => [] },
   fallbackAvatar: { type: String, default: '' },
   interval: { type: Number, default: 5 },
+  loading: { type: Boolean, default: false },
+  error: { type: String, default: '' },
 })
 
 const idx = ref(0)
@@ -54,7 +56,9 @@ onBeforeUnmount(() => timer && clearInterval(timer))
 watch(() => cats.value.length, (n) => { if (idx.value >= n) idx.value = 0 })
 
 const clock = computed(() => `00:${String(Math.max(0, countdown.value)).padStart(2, '0')}`)
-const onAvatarError = (e) => { if (props.fallbackAvatar) e.target.src = props.fallbackAvatar }
+const onAvatarError = (e) => {
+  if (props.fallbackAvatar && e.target.src !== props.fallbackAvatar) e.target.src = props.fallbackAvatar
+}
 
 const trendClass = (t) => (t == null ? 'flat' : t > 0 ? 'up' : t < 0 ? 'down' : 'flat')
 const trendGlyph = (t) => (t == null ? '—' : t > 0 ? '↑' : t < 0 ? '↓' : '→')
@@ -76,15 +80,28 @@ const sparkPoints = (arr) => {
 
 <template>
   <div class="hof" :style="{ '--accent': color }" @mouseenter="paused = true" @mouseleave="paused = false">
-    <div v-if="!active" class="hof-empty">No leaderboard data yet</div>
+    <div v-if="loading" class="hof-state" role="status">
+      <span class="hof-loader" />
+      <strong>Building the Hall of Fame</strong>
+      <span>Loading the latest team leaders…</span>
+    </div>
+    <div v-else-if="error" class="hof-state hof-state-error" role="alert">
+      <strong>Leaderboard unavailable</strong>
+      <span>{{ error }}</span>
+    </div>
+    <div v-else-if="!active" class="hof-state">
+      <strong>No leaderboard data yet</strong>
+      <span>Record a team session or assessment to establish the first leader.</span>
+    </div>
 
-    <Transition v-else name="hof" mode="out-in">
+    <Transition v-else-if="active" name="hof" mode="out-in">
       <div class="hof-stage" :key="active.value">
         <!-- LEFT: Top 5 board -->
         <div class="hof-board">
           <div class="hof-board-head">
             <div>
-              <div class="hof-title">Top 10 {{ active.label }}</div>
+              <div class="hof-kicker"><span class="hof-icon">{{ active.icon || '★' }}</span> FMTRX Hall of Fame</div>
+              <div class="hof-title">{{ active.label }}</div>
               <div class="hof-sub">{{ active.subtitle }}</div>
             </div>
             <div class="hof-timer">Updating in <b>{{ clock }}</b></div>
@@ -93,7 +110,7 @@ const sparkPoints = (arr) => {
           <div class="hof-cols"><span>Rank</span><span>Player</span><span class="right">Score</span></div>
 
           <div class="hof-rows">
-            <div v-for="(row, i) in active.rows.slice(0, 5)" :key="i" class="hof-row" :class="{ 'is-first': i === 0 }">
+            <div v-for="(row, i) in active.rows.slice(0, 5)" :key="row.id || row.name" class="hof-row" :class="{ 'is-first': i === 0 }">
               <span class="hof-rank">{{ i + 1 }}</span>
               <img class="hof-ava" :src="row.avatar || fallbackAvatar" @error="onAvatarError" alt="" />
               <div class="hof-who">
@@ -103,7 +120,7 @@ const sparkPoints = (arr) => {
               <span class="hof-trend" :class="trendClass(row.trend)" :title="row.trend == null ? 'Trend pending' : 'Change since last ranking'">
                 {{ trendGlyph(row.trend) }}<template v-if="row.trend"> {{ trendText(row.trend) }}</template>
               </span>
-              <span class="hof-score">{{ row.value }}</span>
+              <span class="hof-score">{{ row.value }}<small v-if="active.unit && row.value !== '—'"> {{ active.unit }}</small></span>
             </div>
             <div v-if="!active.rows.length" class="hof-none">
               {{ active.placeholder ? 'Score coming soon' : 'No ranked players yet' }}
@@ -118,7 +135,7 @@ const sparkPoints = (arr) => {
         <!-- RIGHT: Featured athlete -->
         <div class="hof-feature">
           <template v-if="active.featured">
-            <div class="hof-feature-badge">Top Performer</div>
+            <div class="hof-feature-badge"><span>{{ active.icon || '★' }}</span> Featured Athlete</div>
             <div class="hof-rank-badge">Rank #1</div>
 
             <div class="hof-feature-head">
@@ -141,7 +158,7 @@ const sparkPoints = (arr) => {
                 <div class="hof-bigscore-val">{{ active.featured.bigValue }}<span v-if="active.unit" class="hof-bigscore-unit">{{ active.unit }}</span></div>
                 <div class="hof-bigtrend" :class="trendClass(active.featured.trend)">
                   {{ trendGlyph(active.featured.trend) }}<template v-if="active.featured.trend"> {{ trendText(active.featured.trend) }}</template>
-                  <span class="hof-bigtrend-cap">vs last 30 days</span>
+                  <span class="hof-bigtrend-cap">vs prior period</span>
                 </div>
               </div>
               <!-- sparkline (placeholder flat line until history is supplied) -->
@@ -169,12 +186,18 @@ const sparkPoints = (arr) => {
     </Transition>
 
     <!-- Footer: category dots -->
-    <div class="hof-foot">
+    <div v-if="active && !loading && !error" class="hof-progress" :style="{ transform: `scaleX(${Math.max(0, countdown) / interval})` }" />
+    <div v-if="active && !loading && !error" class="hof-foot">
+      <div class="hof-controls">
+        <button type="button" class="hof-nav" @click="advance(-1)" aria-label="Previous leaderboard">‹</button>
+        <button type="button" class="hof-nav" @click="paused = !paused" :aria-label="paused ? 'Resume rotation' : 'Pause rotation'">{{ paused ? '▶' : 'Ⅱ' }}</button>
+        <button type="button" class="hof-nav" @click="advance(1)" aria-label="Next leaderboard">›</button>
+      </div>
       <div class="hof-dots">
         <button v-for="(c, i) in cats" :key="c.value" class="hof-dot" :class="{ on: i === idx }"
           :style="i === idx ? { background: color } : {}" @click="goTo(i)" :aria-label="`Show ${c.label}`" />
       </div>
-      <div class="hof-refresh">Data refreshes every {{ interval }} seconds</div>
+      <div class="hof-refresh">{{ paused ? 'Rotation paused' : `Rotating every ${interval} seconds` }}</div>
     </div>
 
     <!-- Full Top 10 modal -->
@@ -183,13 +206,13 @@ const sparkPoints = (arr) => {
         <div class="hof-modal" :style="{ '--accent': color }">
           <div class="hof-modal-head">
             <div>
-              <div class="hof-modal-title">Top 10 {{ active.label }}</div>
+              <div class="hof-modal-title">Top 10 • {{ active.label }}</div>
               <div class="hof-sub">{{ active.subtitle }}</div>
             </div>
             <button class="hof-modal-x" @click="showAll = false" aria-label="Close">✕</button>
           </div>
           <div class="hof-modal-rows">
-            <div v-for="(row, i) in active.rows" :key="i" class="hof-row" :class="{ 'is-first': i === 0 }">
+            <div v-for="(row, i) in active.rows" :key="row.id || row.name" class="hof-row" :class="{ 'is-first': i === 0 }">
               <span class="hof-rank">{{ i + 1 }}</span>
               <img class="hof-ava" :src="row.avatar || fallbackAvatar" @error="onAvatarError" alt="" />
               <div class="hof-who">
@@ -197,7 +220,7 @@ const sparkPoints = (arr) => {
                 <div v-if="row.subtitle" class="hof-pos">{{ row.subtitle }}</div>
               </div>
               <span class="hof-trend" :class="trendClass(row.trend)">{{ trendGlyph(row.trend) }}<template v-if="row.trend"> {{ trendText(row.trend) }}</template></span>
-              <span class="hof-score">{{ row.value }}</span>
+              <span class="hof-score">{{ row.value }}<small v-if="active.unit && row.value !== '—'"> {{ active.unit }}</small></span>
             </div>
             <div v-if="!active.rows.length" class="hof-none">No ranked players yet</div>
           </div>
@@ -220,7 +243,12 @@ const sparkPoints = (arr) => {
   overflow: hidden;
   padding: 18px 18px 12px;
 }
-.hof-empty, .hof-feature-empty { color: rgba(255,255,255,.4); font-size: 13px; padding: 40px 0; }
+.hof-state { min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: rgba(255,255,255,.42); text-align: center; padding: 40px 20px; }
+.hof-state strong { color: #fff; font-size: 17px; text-transform: uppercase; letter-spacing: .06em; }
+.hof-state-error strong { color: #f87171; }
+.hof-loader { width: 28px; height: 28px; border: 3px solid rgba(255,255,255,.12); border-top-color: var(--accent); border-radius: 50%; animation: hof-spin .8s linear infinite; }
+@keyframes hof-spin { to { transform: rotate(360deg); } }
+.hof-feature-empty { color: rgba(255,255,255,.4); font-size: 13px; padding: 40px 0; }
 
 .hof-stage { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 18px; align-items: stretch; }
 @media (max-width: 860px) { .hof-stage { grid-template-columns: 1fr; } }
@@ -228,7 +256,9 @@ const sparkPoints = (arr) => {
 /* LEFT board */
 .hof-board { display: flex; flex-direction: column; }
 .hof-board-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-.hof-title { font-size: 17px; font-weight: 900; letter-spacing: .02em; color: #fff; text-transform: uppercase; }
+.hof-kicker { display: flex; align-items: center; gap: 7px; color: var(--accent); font-size: 9px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 4px; }
+.hof-icon { width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 15%, transparent); border-radius: 8px; font-size: 13px; }
+.hof-title { font-size: clamp(17px, 1.55vw, 24px); font-weight: 900; letter-spacing: .02em; color: #fff; text-transform: uppercase; }
 .hof-sub { font-size: 11px; color: rgba(255,255,255,.42); margin-top: 2px; }
 .hof-timer { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.4); white-space: nowrap; }
 .hof-timer b { color: var(--accent); font-variant-numeric: tabular-nums; margin-left: 3px; }
@@ -246,6 +276,7 @@ const sparkPoints = (arr) => {
 .hof-trend { font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 18px; text-align: center; }
 .hof-trend.up { color: #37d67a; } .hof-trend.down { color: #ef4444; } .hof-trend.flat { color: rgba(255,255,255,.3); }
 .hof-score { font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; color: #fff; }
+.hof-score small { font-size: 8px; font-weight: 800; opacity: .45; text-transform: uppercase; }
 .hof-row.is-first .hof-score { color: var(--accent); }
 .hof-none { padding: 24px 0; text-align: center; color: rgba(255,255,255,.3); font-size: 12px; }
 .hof-viewall { margin-top: auto; padding-top: 12px; align-self: flex-start; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; background: none; border: none; }
@@ -264,7 +295,7 @@ const sparkPoints = (arr) => {
 .hof-feature-head { display: flex; gap: 16px; align-items: center; margin-top: 22px; }
 .hof-feature-photo { width: 92px; height: 92px; border-radius: 14px; object-fit: cover; object-position: center 18%; border: 2px solid color-mix(in srgb, var(--accent) 50%, rgba(255,255,255,.1)); flex: none; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
 .hof-feature-id { min-width: 0; }
-.hof-feature-name { font-size: 26px; font-weight: 900; letter-spacing: -.01em; color: #fff; line-height: 1; text-transform: uppercase; }
+.hof-feature-name { font-size: clamp(26px, 2.6vw, 42px); font-weight: 900; letter-spacing: -.01em; color: #fff; line-height: 1; text-transform: uppercase; }
 .hof-feature-pos { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.55); margin-top: 4px; }
 .hof-bio { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .hof-bio-cell { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 5px 8px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
@@ -273,7 +304,7 @@ const sparkPoints = (arr) => {
 
 .hof-bigrow { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: 16px; }
 .hof-bigscore-lbl { font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.42); }
-.hof-bigscore-val { font-size: 44px; font-weight: 900; letter-spacing: -.02em; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.hof-bigscore-val { font-size: clamp(44px, 5vw, 72px); font-weight: 900; letter-spacing: -.02em; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; margin-top: 2px; }
 .hof-bigscore-unit { font-size: 15px; font-weight: 800; opacity: .7; margin-left: 6px; }
 .hof-bigtrend { font-size: 11px; font-weight: 800; margin-top: 6px; display: flex; align-items: center; gap: 6px; }
 .hof-bigtrend.up { color: #37d67a; } .hof-bigtrend.down { color: #ef4444; } .hof-bigtrend.flat { color: rgba(255,255,255,.35); }
@@ -289,6 +320,10 @@ const sparkPoints = (arr) => {
 
 /* Footer */
 .hof-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
+.hof-progress { height: 2px; margin: 13px -18px -1px; background: var(--accent); transform-origin: left center; transition: transform 1s linear; opacity: .72; }
+.hof-controls { display: flex; align-items: center; gap: 5px; }
+.hof-nav { width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; border-radius: 7px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); color: rgba(255,255,255,.62); cursor: pointer; font-size: 12px; font-weight: 900; }
+.hof-nav:hover { color: #fff; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .hof-dots { display: flex; gap: 7px; flex-wrap: wrap; }
 .hof-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.16); border: none; cursor: pointer; padding: 0; transition: transform .2s; }
 .hof-dot.on { transform: scale(1.35); }

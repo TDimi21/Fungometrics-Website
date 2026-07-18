@@ -8,6 +8,7 @@ import { useTeamStore } from "../../store/team";
 import { useAccessStore } from '@/store/access.js'
 import { IndicatorChart } from '@/components/dashboard'
 import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
+import HallOfFameWall from '@/components/dashboard/HallOfFameWall.vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
 import ExitVeloPanel from '@/components/dashboard/ExitVeloPanel.vue'
 import BullpenLocationPanel from '@/components/dashboard/BullpenLocationPanel.vue'
@@ -53,21 +54,6 @@ const withTeamIdFallbackGet = async (buildPath, teamLike = team.value) => {
   for (const id of candidates) {
     try {
       const response = await axiosGet(buildPath(id))
-      return { ...response, resolvedTeamId: id }
-    } catch (e) {
-      lastError = e
-      const status = e?.response?.status
-      if (status !== 404 && status !== 403) throw e
-    }
-  }
-  throw lastError
-}
-const withTeamIdFallbackPost = async (buildPath, bodyFactory, teamLike = team.value) => {
-  const candidates = getTeamIdCandidates(teamLike)
-  let lastError
-  for (const id of candidates) {
-    try {
-      const response = await axiosPost(buildPath(id), bodyFactory(id))
       return { ...response, resolvedTeamId: id }
     } catch (e) {
       lastError = e
@@ -245,165 +231,10 @@ const formatDate = (d) => {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-// ── Top 10 ────────────────────────────────────────────────────────────────────
-const top10Tab = ref(1)
+// ── Hall of Fame leaderboard ─────────────────────────────────────────────────
 const top10Range = ref(0)
-const top10Data = ref([])
-const top10Loading = ref(false)
 const top10Mode = ref('players') // 'players' | 'team'
-
-const top10Tabs = [
-  { label: 'Top Hitter',     value: 1, key: 'velocity', suffix: ' mph' },
-  { label: 'Top Pitcher',    value: 4, key: 'velocity', suffix: ' mph' },
-  { label: 'Top Avg EV',     value: 2, key: 'avg',      suffix: ' mph' },
-  { label: 'Top Avg Velo',   value: 5, key: 'avg',      suffix: ' mph' },
-  { label: 'Total Swings',   value: 3, key: 'count',    suffix: '' },
-  { label: 'Top Strength Score', value: 12, key: 'score', suffix: '' },
-]
-
-const activeTop10Tab = computed(() => top10Tabs.find(t => t.value === top10Tab.value) ?? top10Tabs[0])
-
-const toNumeric = (v) => {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
-}
-
-const normalizePlayerName = (name) => String(name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
-
-const playerCardsByName = computed(() => {
-  const map = new Map()
-  for (const card of (teamPlayerCards.value ?? [])) {
-    const full = card?.profile?.full_name ?? `${card?.profile?.first_name ?? ''} ${card?.profile?.last_name ?? ''}`.trim()
-    const key = normalizePlayerName(full)
-    if (key) map.set(key, card)
-  }
-  return map
-})
-
-const top10PlayerName = (item) => item?.name ?? '—'
-
-const top10MetricValue = (item, tab) => {
-  if (!tab) return null
-  if (tab.value === 12) return toNumeric(item?.score)
-  return toNumeric(item?.[tab.key])
-}
-
-const dedupeTop10Players = (rows, tab) => {
-  const map = new Map()
-  for (const row of (rows ?? [])) {
-    const name = top10PlayerName(row)
-    const key = normalizePlayerName(name)
-    if (!key) continue
-
-    const metricValue = top10MetricValue(row, tab)
-    const current = map.get(key)
-
-    if (!current || (metricValue ?? -Infinity) > (current._metricValue ?? -Infinity)) {
-      map.set(key, {
-        ...row,
-        _metricValue: metricValue,
-      })
-    }
-  }
-
-  return [...map.values()]
-    .sort((a, b) => (b?._metricValue ?? -Infinity) - (a?._metricValue ?? -Infinity))
-    .slice(0, 10)
-}
-
-const top10PlayerInitials = (item) => {
-  const name = top10PlayerName(item)
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase())
-    .join('') || '—'
-}
-
-const top10PlayerAvatar = (item) => {
-  const direct = item?.profile?.picture ?? item?.picture ?? item?.avatar ?? null
-  if (direct) return direct
-
-  const key = normalizePlayerName(top10PlayerName(item))
-  const card = playerCardsByName.value.get(key)
-  return card?.profile?.picture ?? null
-}
-
 const top10FallbackAvatar = updatedLogo
-
-const topStrengthRows = computed(() => {
-  const rows = (teamPlayerCards.value ?? [])
-    .map((card) => ({
-      name:
-        card?.profile?.full_name
-        ?? card?.name
-        ?? card?.profile?.first_name
-        ?? '—',
-      avatar: card?.profile?.picture ?? null,
-      score: toNumeric(card?.fmtrxx_strength_score),
-    }))
-
-  return dedupeTop10Players(rows, { value: 12, key: 'score' })
-})
-
-const top10Rows = computed(() => {
-  if (top10Tab.value === 12) return topStrengthRows.value.slice(0, 10)
-  return dedupeTop10Players(top10Data.value ?? [], activeTop10Tab.value)
-})
-
-const top10Modal = ref({ visible: false, loading: false, tab: null, rows: [] })
-
-const closeTop10Modal = () => {
-  top10Modal.value.visible = false
-}
-
-const loadTop10RowsForTab = async (tab, force = true) => {
-  if (!tab) return []
-  if (tab.value === 12) {
-    await ensureTeamPlayerCards()
-    return topStrengthRows.value.slice(0, 10)
-  }
-
-  if (!getActiveTeamIdCandidates().length) return []
-
-  const { data } = await withTeamIdFallbackPost(
-    (id) => 'table/' + id,
-    () => ({ option: tab.value, range: top10Range.value })
-  )
-
-  const rows = dedupeTop10Players(data?.data?.all ?? [], tab)
-
-  if (tab.value === top10Tab.value || force) {
-    top10Data.value = rows
-    writeDashboardCache({
-      top10Data: top10Data.value,
-      top10Tab: tab.value,
-      top10Range: top10Range.value,
-    })
-  }
-
-  return rows
-}
-
-const openTop10Modal = async (tab) => {
-  if (!tab) return
-  top10Tab.value = tab.value
-  top10Modal.value = { visible: true, loading: true, tab, rows: [] }
-  try {
-    const rows = await loadTop10RowsForTab(tab, true)
-    top10Modal.value = { visible: true, loading: false, tab, rows }
-  } catch (e) {
-    console.warn('openTop10Modal', e)
-    top10Modal.value = { visible: true, loading: false, tab, rows: [] }
-  }
-}
-
-const formatTop10MetricValue = (item, tab) => {
-  const value = top10MetricValue(item, tab)
-  if (value === null) return '—'
-  return `${value}${tab?.suffix ?? ''}`
-}
 
 // ── Player Development Board ──────────────────────────────────────────────────
 const devBoard = ref([])
@@ -514,38 +345,52 @@ const teamLeaders = computed(() => [
   { label: 'Total Pitches',              value: pitchThrows.value?.totals ?? null, suffix: '' },
 ].filter(r => r.value != null))
 
-const getTop10 = async (force = false) => {
-  if (top10Tab.value === 12) {
-    await ensureTeamPlayerCards()
-    return
-  }
+// Server-driven leaderboard: all twelve categories arrive in one response.
+const leaderboardServer = ref(null)
+const leaderboardLoading = ref(false)
+const leaderboardError = ref('')
+const fmtWallNum = (v) => (v == null || v === '' ? '—' : (Number.isInteger(Number(v)) ? String(Number(v)) : (Math.round(Number(v) * 10) / 10).toFixed(1)))
 
-  if (!force && top10Data.value.length) return
-  if (!getActiveTeamIdCandidates().length) return
-  top10Loading.value = true
+const loadLeaderboard = async () => {
+  if (!canViewPerformanceOverview.value || !getActiveTeamIdCandidates().length) return
+  leaderboardLoading.value = true
+  leaderboardError.value = ''
+  leaderboardServer.value = null
   try {
-    top10Data.value = await loadTop10RowsForTab(activeTop10Tab.value, force)
-    writeDashboardCache({
-      top10Data: top10Data.value,
-      top10Tab: top10Tab.value,
-      top10Range: top10Range.value,
-    })
-  } catch (e) { console.warn('getTop10', e) }
-  finally { top10Loading.value = false }
-}
-
-const switchTop10Tab = (val) => {
-  top10Tab.value = val
-
-  if (val === 12) {
-    if (!teamPlayerCards.value.length) {
-      ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards strength tab error:', e?.message ?? e))
-    }
-    return
+    const { data } = await withTeamIdFallbackGet((id) => `coach/leaderboard/${id}?range=${top10Range.value}`)
+    const cats = data?.data?.categories
+    if (data?.status !== 'success' || !Array.isArray(cats)) throw new Error(data?.message || 'Leaderboard data is unavailable.')
+    leaderboardServer.value = cats
+    writeDashboardCache({ top10Range: top10Range.value })
+  } catch (e) {
+    leaderboardError.value = e?.response?.data?.message || e?.message || 'Leaderboard data is unavailable.'
+  } finally {
+    leaderboardLoading.value = false
   }
-
-  getTop10(true)
 }
+
+const wallCategories = computed(() => {
+  const cats = leaderboardServer.value
+  if (Array.isArray(cats) && cats.length) {
+    return cats.map((c) => ({
+      value: c.key,
+      label: c.label,
+      subtitle: c.subtitle,
+      color: c.color,
+      icon: c.icon,
+      unit: c.unit,
+      bigLabel: c.bigLabel,
+      rows: (c.rows ?? []).map((r) => ({ id: r.player_id, name: r.name, avatar: r.avatar, subtitle: r.subtitle, value: fmtWallNum(r.value), trend: r.trend ?? null, spark: r.spark ?? null })),
+      featured: c.featured ? {
+        id: c.featured.player_id, name: c.featured.name, avatar: c.featured.avatar, subtitle: c.featured.subtitle,
+        bigValue: fmtWallNum(c.featured.bigValue), trend: c.featured.trend ?? null, spark: c.featured.spark ?? null,
+        bio: (c.featured.bio ?? []).map((b) => ({ k: b.k, v: b.v ?? '—' })),
+        subMetrics: (c.featured.subMetrics ?? []).map((m) => ({ label: m.label, value: fmtWallNum(m.value), unit: m.unit })),
+      } : null,
+    }))
+  }
+  return []
+})
 
 // ── Charts ────────────────────────────────────────────────────────────────────
 const {
@@ -2503,14 +2348,6 @@ const hydrateDashboardFromCache = () => {
     recentSessions.value = cache.recentSessions
   }
 
-  if (Array.isArray(cache.top10Data) && cache.top10Data.length) {
-    top10Data.value = cache.top10Data
-  }
-
-  if (typeof cache.top10Tab === 'number') {
-    top10Tab.value = cache.top10Tab
-  }
-
   if (typeof cache.top10Range === 'number') {
     top10Range.value = cache.top10Range
   }
@@ -2544,9 +2381,9 @@ watch(
 
     // Priority 1 — fast/cached, render immediately
     getRecentSessions()
-    getTop10()
-
     // Selected team changed — the assessment roster must follow it.
+    leaderboardServer.value = null
+    leaderboardError.value = ''
     strengthSelectedPlayerId.value = ''
     fetchStrengthPlayers().catch(e => console.warn('fetchStrengthPlayers (team change) error:', e?.message ?? e))
 
@@ -2557,6 +2394,7 @@ watch(
       getStaticChartData().catch(e => console.warn('getStaticChartData error:', e?.message ?? e)) // contact_spray → velocity field
       fetchTeamInsight().catch(e => console.warn('fetchTeamInsight error:', e?.message ?? e))
       ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards preload error:', e?.message ?? e))
+      loadLeaderboard().catch(e => console.warn('loadLeaderboard error:', e?.message ?? e))
     }, 800)
   },
   { immediate: true }
@@ -2916,100 +2754,75 @@ watch(
 
           </div>
 
-        <!-- 2-Column grid -->
-        <div class="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5">
+        <!-- Full-width rotating leaderboard + Recent Sessions (stacked) -->
+        <div class="flex flex-col gap-5">
 
-          <!-- COL 2: Top 10 Metrics & Performers -->
+          <!-- Top 10 Metrics & Performers — the Hall of Fame Wall -->
           <div class="flex flex-col gap-5">
 
-            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-black uppercase tracking-widest text-white">Top 10 Metrics & Performers</h2>
-              </div>
-
-              <!-- Player / Team toggle -->
-              <div class="flex gap-1 mb-4 bg-white/5 rounded-lg p-0.5 w-fit">
-                <button
-                  @click="top10Mode = 'players'"
-                  class="px-4 py-1.5 rounded-md text-xs font-black uppercase tracking-wide transition-all"
-                  :class="top10Mode === 'players' ? 'bg-[#C00000] text-white' : 'text-white/40 hover:text-white'"
-                >Player Leaders</button>
-                <button
-                  @click="top10Mode = 'team'"
-                  class="px-4 py-1.5 rounded-md text-xs font-black uppercase tracking-wide transition-all"
-                  :class="top10Mode === 'team' ? 'bg-[#C00000] text-white' : 'text-white/40 hover:text-white'"
-                >Team Leaders</button>
-              </div>
-
-              <!-- Player Leaders view -->
-              <template v-if="top10Mode === 'players'">
-                <!-- Metric cards -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
-                  <button
-                    v-for="tab in top10Tabs" :key="tab.value"
-                    @click="openTop10Modal(tab)"
-                    class="text-left rounded-xl border p-3 transition-all"
-                    :class="top10Tab === tab.value
-                      ? 'bg-[#C00000]/20 border-[#C00000]/60 text-white shadow-lg shadow-red-900/30'
-                      : 'bg-white/[0.04] border-white/15 text-white/80 hover:border-white/35 hover:bg-white/[0.07]'"
-                  >
-                    <div class="text-[11px] font-black uppercase tracking-widest">{{ tab.label }}</div>
-                    <div class="mt-2 text-xs text-white/60">Open modal to view top 10 players</div>
-                  </button>
+            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 md:p-6 shadow-xl">
+              <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-5">
+                <div>
+                  <h2 class="text-xl font-black uppercase tracking-wide text-white">Top 10 Metrics &amp; Performers</h2>
+                  <p class="text-white/45 text-sm mt-1">Explore the top performers across key performance categories.</p>
+                  <div class="flex gap-1 mt-4 bg-white/5 rounded-lg p-1 w-fit">
+                    <button @click="top10Mode = 'players'"
+                      class="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-black uppercase tracking-wide transition"
+                      :class="top10Mode === 'players' ? 'bg-[#C00000] text-white shadow' : 'text-white/40 hover:text-white'">
+                      <span>👤</span> Player Leaders
+                    </button>
+                    <button @click="top10Mode = 'team'"
+                      class="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-black uppercase tracking-wide transition"
+                      :class="top10Mode === 'team' ? 'bg-[#C00000] text-white shadow' : 'text-white/40 hover:text-white'">
+                      <span>👥</span> Team Leaders
+                    </button>
+                  </div>
                 </div>
-
-                <!-- Range filter -->
-                <div class="flex items-center gap-2 mb-4">
+                <div v-if="top10Mode === 'players'" class="flex items-center gap-2">
                   <span class="text-white/30 text-[10px] uppercase tracking-widest">Period</span>
-                  <div class="flex gap-1">
-                    <button
-                      v-for="r in [{ l: 'All', v: 0 }, { l: '1Y', v: 12 }, { l: '1M', v: 6 }, { l: '1W', v: 3 }]"
-                      :key="r.v"
-                      @click="top10Range = r.v; top10Tab === 12 ? ensureTeamPlayerCards() : getTop10(true)"
-                      class="px-2.5 py-1 rounded-lg text-xs font-bold transition border"
-                      :class="top10Range === r.v
-                        ? 'bg-white/15 border-white/30 text-white'
-                        : 'bg-transparent border-white/10 text-white/35 hover:text-white/60'"
-                    >{{ r.l }}</button>
+                  <div class="flex gap-1.5">
+                    <button v-for="r in [{ l: 'All', v: 0 }, { l: '1Y', v: 12 }, { l: '1M', v: 6 }, { l: '1W', v: 3 }]" :key="r.v"
+                      @click="top10Range = r.v; loadLeaderboard()"
+                      class="px-3 py-1.5 rounded-lg text-xs font-black transition border"
+                      :class="top10Range === r.v ? 'bg-white/10 border-white/30 text-white' : 'bg-transparent border-white/10 text-white/40 hover:text-white/70'">
+                      {{ r.l }}
+                    </button>
                   </div>
                 </div>
+              </div>
 
-                <!-- Selected category quick preview -->
-                <div v-if="top10Rows.length" class="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                  <div class="flex items-center justify-between gap-2">
-                    <div class="text-xs uppercase tracking-widest text-white/45">Selected Category</div>
-                    <button class="text-[10px] uppercase tracking-widest text-[#FCA5A5]" @click="openTop10Modal(activeTop10Tab)">Open Top 10</button>
-                  </div>
-                  <div class="mt-1.5 text-sm font-black text-white">{{ activeTop10Tab.label }}</div>
-                  <div class="mt-1 text-xs text-white/70">
-                    Leader: {{ top10PlayerName(top10Rows[0]) }} · {{ formatTop10MetricValue(top10Rows[0], activeTop10Tab) }}
-                  </div>
+              <!-- PLAYER LEADERS — rotating Hall of Fame Wall -->
+              <template v-if="top10Mode === 'players'">
+                <div v-if="!canViewPerformanceOverview" class="rounded-xl border border-white/10 bg-white/[0.03] px-6 py-12 text-center">
+                  <div class="text-sm font-black uppercase tracking-widest text-white/75">Coach Pro Hall of Fame</div>
+                  <div class="mt-2 text-sm text-white/40">Upgrade to unlock the live team leaderboard and athlete performance wall.</div>
                 </div>
+                <HallOfFameWall
+                  v-else
+                  :categories="wallCategories"
+                  :fallback-avatar="top10FallbackAvatar"
+                  :loading="leaderboardLoading"
+                  :error="leaderboardError"
+                />
               </template>
 
-              <!-- Team Leaders view -->
+              <!-- TEAM LEADERS -->
               <template v-else>
-                <div v-if="perfLoading" class="flex justify-center py-8">
+                <div v-if="perfLoading" class="flex justify-center py-10">
                   <svg class="animate-spin w-6 h-6 text-[#C00000]" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                   </svg>
                 </div>
-                <div v-else-if="!teamLeaders.length" class="text-white/25 text-sm text-center py-8">No team data yet</div>
-                <div v-else class="flex flex-col gap-1.5">
-                  <div
-                    v-for="(row, idx) in teamLeaders" :key="row.label"
-                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/5"
-                  >
-                    <span class="w-5 text-center text-sm font-black shrink-0"
-                      :class="idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-400' : 'text-white/30'">
-                      {{ idx + 1 }}
-                    </span>
-                    <span class="flex-1 text-sm font-bold text-white/70 truncate">{{ row.label }}</span>
-                    <span class="text-xs font-black px-2.5 py-1 rounded-full whitespace-nowrap"
-                      :style="{ backgroundColor: scoreColor(row.value) + '22', color: scoreColor(row.value) }">
-                      {{ row.value }}{{ row.suffix }}
-                    </span>
+                <div v-else-if="!teamLeaders.length" class="text-white/25 text-sm text-center py-10">No team data yet</div>
+                <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  <div v-for="(row, idx) in teamLeaders" :key="row.label"
+                    class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3.5 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="text-[10px] font-black uppercase tracking-widest text-white/35">#{{ idx + 1 }}</div>
+                      <div class="text-sm font-bold text-white/85 truncate">{{ row.label }}</div>
+                    </div>
+                    <span class="text-lg font-black tabular-nums whitespace-nowrap" :style="{ color: scoreColor(row.value) }">{{ row.value }}{{ row.suffix }}</span>
                   </div>
                 </div>
               </template>
@@ -3546,66 +3359,6 @@ watch(
                   </div>
                   <p class="text-sm text-white/90 leading-relaxed">{{ coachTakeaway }}</p>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- Top 10 Player Leaders Modal -->
-    <Teleport to="body">
-      <Transition name="sheet">
-        <div
-          v-if="top10Modal.visible"
-          class="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 overflow-y-auto"
-          style="background: rgba(0,0,0,0.65)"
-          @click.self="closeTop10Modal"
-        >
-          <div class="w-full max-w-xl bg-[#0d1b33] rounded-2xl pt-6 pb-6 px-4 sm:px-6 shadow-2xl border border-white/10 mt-1 sm:mt-2 max-h-[92vh] flex flex-col">
-            <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5"></div>
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <h2 class="text-xl font-black text-white">{{ top10Modal.tab?.label || 'Top 10 Players' }}</h2>
-                <p class="text-white/50 text-sm mt-0.5">Highest value per player (duplicates removed)</p>
-              </div>
-              <button class="text-white/60 hover:text-white text-sm font-black" @click="closeTop10Modal">Close</button>
-            </div>
-
-            <div v-if="top10Modal.loading" class="flex justify-center py-10">
-              <svg class="animate-spin w-6 h-6 text-[#C00000]" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-              </svg>
-            </div>
-
-            <div v-else-if="!top10Modal.rows.length" class="text-white/40 text-sm py-10 text-center">No player data for this period</div>
-
-            <div v-else class="mt-4 flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto pr-1">
-              <div
-                v-for="(item, idx) in top10Modal.rows"
-                :key="`${top10PlayerName(item)}-${idx}`"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/10 bg-white/[0.03]"
-              >
-                <span
-                  class="w-5 text-center text-sm font-black shrink-0"
-                  :class="idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-400' : 'text-white/30'"
-                >
-                  {{ idx + 1 }}
-                </span>
-                <div class="flex-1 min-w-0 flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-full overflow-hidden ring-1 ring-white/20 bg-[#0f172a] shrink-0 flex items-center justify-center">
-                    <img
-                      :src="top10PlayerAvatar(item) || top10FallbackAvatar"
-                      alt="player avatar"
-                      class="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span class="text-sm font-bold text-white truncate">{{ top10PlayerName(item) }}</span>
-                </div>
-                <span class="text-xs font-black text-green-300 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full whitespace-nowrap">
-                  {{ formatTop10MetricValue(item, top10Modal.tab) }}
-                </span>
               </div>
             </div>
           </div>
