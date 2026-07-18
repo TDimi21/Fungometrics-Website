@@ -384,12 +384,13 @@ const wallCategories = computed(() => {
       icon: c.icon,
       unit: c.unit,
       bigLabel: c.bigLabel,
-      rows: (c.rows ?? []).map((r) => ({ id: r.player_id, name: r.name, avatar: r.avatar, subtitle: r.subtitle, value: fmtWallNum(r.value), trend: r.trend ?? null, spark: r.spark ?? null })),
+      rows: (c.rows ?? []).map((r) => ({ id: r.player_id, name: r.name, avatar: r.avatar, subtitle: r.subtitle, evidence: r.evidence ?? null, value: fmtWallNum(r.value), trend: r.trend ?? null, spark: r.spark ?? null })),
       featured: c.featured ? {
         id: c.featured.player_id, name: c.featured.name, avatar: c.featured.avatar, subtitle: c.featured.subtitle,
         bigValue: fmtWallNum(c.featured.bigValue), trend: c.featured.trend ?? null, spark: c.featured.spark ?? null,
         bio: (c.featured.bio ?? []).map((b) => ({ k: b.k, v: b.v ?? '—' })),
         subMetrics: (c.featured.subMetrics ?? []).map((m) => ({ label: m.label, value: fmtWallNum(m.value), unit: m.unit })),
+        insight: c.featured.insight ?? null,
       } : null,
     }))
   }

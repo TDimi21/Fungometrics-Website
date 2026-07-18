@@ -37,7 +37,7 @@ final class LeaderboardService
         ['key' => 'max_fb', 'label' => 'Top Max Fastball Velocity', 'icon' => '⚡', 'color' => '#2563eb', 'metric' => 'max_fb', 'unit' => 'mph', 'bigLabel' => 'Max Fastball', 'sub' => [['Avg FB', 'avg_fb', 'mph'], ['Strike', 'strike_pct', '%'], ['Command', 'command_score', '']]],
         ['key' => 'bullpen', 'label' => 'Top Bullpen Score', 'icon' => '◈', 'color' => '#6366f1', 'metric' => 'bullpen_score', 'unit' => '', 'bigLabel' => 'Bullpen Score', 'sub' => [['Avg FB', 'avg_fb', 'mph'], ['Top FB', 'max_fb', 'mph'], ['Strike', 'strike_pct', '%'], ['Pitch Mix', 'pitch_mix_score', ''], ['First Pitch', 'first_pitch_score', '%'], ['Command', 'command_score', '']]],
         ['key' => 'cage', 'label' => 'Top Cage Score', 'icon' => '▦', 'color' => '#14b8a6', 'metric' => 'cage_score', 'unit' => '', 'bigLabel' => 'Cage Score', 'sub' => [['Avg EV', 'cage_avg_ev', 'mph'], ['Max EV', 'cage_max_ev', 'mph'], ['Avg Distance', 'cage_avg_distance', 'ft'], ['Sweet Spot', 'sweet_spot_pct', '%'], ['Line Drive', 'cage_line_drive_pct', '%']]],
-        ['key' => 'long_toss', 'label' => 'Top Long Toss', 'icon' => '➤', 'color' => '#eab308', 'metric' => 'long_toss_max', 'unit' => 'ft', 'bigLabel' => 'Longest Throw', 'sub' => [['Avg Distance', 'long_toss_avg', 'ft'], ['Zero Hop', 'zero_hop_pct', '%'], ['Carry', 'carry_pct', '%'], ['Velocity Transfer', 'velocity_transfer', '%']]],
+        ['key' => 'long_toss', 'label' => 'Top Long Toss', 'icon' => '➤', 'color' => '#f59e0b', 'metric' => 'long_toss_score', 'unit' => '', 'bigLabel' => 'Long Toss Score', 'sub' => [['Max Carry', 'long_toss_max', 'ft'], ['Average Carry', 'long_toss_avg', 'ft'], ['Zero-Hop', 'zero_hop_pct', '%'], ['Carry Consistency', 'long_toss_consistency', '%'], ['Carry Efficiency', 'carry_efficiency', '%'], ['Average Hops', 'average_hops', ''], ['30-Day Growth', 'long_toss_growth', 'ft'], ['Arm Endurance', 'arm_endurance', ''], ['Velocity Transfer', 'velocity_transfer', '%']]],
         ['key' => 'strength', 'label' => 'Top Strength Score', 'icon' => '✦', 'color' => '#06b6d4', 'metric' => 'strength_score', 'unit' => '', 'bigLabel' => 'Strength Score', 'sub' => [['Bench', 'bench_press', 'lb'], ['Squat', 'squat', 'lb'], ['Deadlift', 'dead_lift', 'lb'], ['Power Clean', 'power_clean', 'lb'], ['Grip', 'hand_strength', 'lb'], ['Rotational Power', 'rotational_power', 'ft']]],
         ['key' => 'mobility', 'label' => 'Top Mobility Score', 'icon' => '◇', 'color' => '#a78bfa', 'metric' => 'mobility_score', 'unit' => '', 'bigLabel' => 'Mobility Score', 'sub' => [['Hip', 'hip_mobility', ''], ['Shoulder', 'shoulder_mobility', ''], ['T-Spine', 't_spine_mobility', ''], ['Hamstring', 'hamstring_mobility', ''], ['Ankle', 'ankle_mobility', '']]],
         ['key' => 'recovery', 'label' => 'Top Recovery Score', 'icon' => '☀', 'color' => '#fb923c', 'metric' => 'recovery_score', 'unit' => '', 'bigLabel' => 'Recovery Score', 'sub' => [['Sleep', 'sleep_hours', 'hrs'], ['Readiness', 'readiness_score', ''], ['Arm Care', 'arm_health_score', ''], ['Soreness', 'soreness_score', ''], ['Workload', 'workload_score', '']]],
@@ -233,11 +233,20 @@ final class LeaderboardService
             ->map(fn ($value) => (float) $value);
         $fb = $bullpen->filter(fn ($row) => 'FB' === mb_strtoupper((string) ($row->type_throw ?? '')) && is_numeric($row->miles_per_hour) && (float) $row->miles_per_hour > 0);
         $validLongToss = $longToss->filter(fn ($row) => is_numeric($row->distance) && (float) $row->distance > 0);
+        $zeroHopThrows = $validLongToss->filter(fn ($row) => is_numeric($row->hop) && 0 === (int) $row->hop);
         $contacts = $batting->reject(fn ($row) => 'TAKE' === mb_strtoupper((string) ($row->type_of_hit ?? '')));
         $count = $contacts->count();
         $hard = $contacts->filter(fn ($row) => in_array(mb_strtoupper((string) ($row->quality_of_contact ?? '')), ['H', 'HARD'], true))->count();
         $lineDrives = $contacts->filter(fn ($row) => in_array(mb_strtoupper((string) ($row->type_of_hit ?? '')), ['LD', 'LINE_DRIVE'], true))->count();
-        $zeroHop = $validLongToss->filter(fn ($row) => is_numeric($row->hop) && 0 === (int) $row->hop)->count();
+        $zeroHop = $zeroHopThrows->count();
+        $longTossMax = $this->maximum($zeroHopThrows->pluck('distance'));
+        $longTossAvg = $this->average($validLongToss->pluck('distance'));
+        $zeroHopPct = $this->percentage($zeroHop, $validLongToss->count());
+        $longTossConsistency = $this->consistencyScore($validLongToss->pluck('distance'));
+        $longTossGrowth = $this->thirtyDayGrowth($validLongToss);
+        $armEndurance = $this->armEnduranceScore($validLongToss);
+        $longTossScore = $this->longTossPerformanceScore($longTossMax, $longTossAvg, $zeroHopPct, $longTossConsistency, $longTossGrowth);
+        $velocityTransfer = $this->velocityTransferScore($longTossMax, $this->maximum($fb->pluck('miles_per_hour')));
 
         $throwing = is_array($latestAssessment?->throwing_workload_data) ? $latestAssessment->throwing_workload_data : [];
         $hittingScore = $this->positive($latestAssessment?->hitting_score) ?? $this->positive($fps['fps'] ?? null);
@@ -271,11 +280,16 @@ final class LeaderboardService
             'cage_max_ev' => $this->number($fcs['maxEV'] ?? null),
             'cage_avg_distance' => $this->number($fcs['avgDist'] ?? null),
             'cage_line_drive_pct' => $this->number($fcs['ldPct'] ?? null),
-            'long_toss_max' => $this->maximum($validLongToss->pluck('distance')),
-            'long_toss_avg' => $this->average($validLongToss->pluck('distance')),
-            'zero_hop_pct' => $this->percentage($zeroHop, $validLongToss->count()),
-            'carry_pct' => null,
-            'velocity_transfer' => null,
+            'long_toss_score' => $longTossScore,
+            'long_toss_max' => $longTossMax,
+            'long_toss_avg' => $longTossAvg,
+            'zero_hop_pct' => $zeroHopPct,
+            'long_toss_consistency' => $longTossConsistency,
+            'carry_efficiency' => null === $longTossMax || null === $longTossAvg ? null : round(min(100.0, ($longTossAvg / max(1.0, $longTossMax)) * 100.0), 1),
+            'average_hops' => $this->averageIncludingZero($validLongToss->pluck('hop')),
+            'long_toss_growth' => $longTossGrowth,
+            'arm_endurance' => $armEndurance,
+            'velocity_transfer' => $velocityTransfer,
             'strength_score' => $strengthScore,
             'bench_press' => $this->positive($latestFitness?->bench_press) ?? $this->positive($latestAssessment?->bench_lbs),
             'squat' => $this->positive($latestFitness?->back_squat) ?? $this->positive($latestFitness?->front_squat) ?? $this->positive($latestAssessment?->squat_lbs),
@@ -347,6 +361,9 @@ final class LeaderboardService
                 'value' => $player['metrics'][$metric],
                 'trend' => null === $previousRank ? null : $previousRank - $currentRank,
                 'spark' => $player['series'][$category['key']] ?? [],
+                'evidence' => 'long_toss' === $category['key'] && null !== $player['metrics']['long_toss_max']
+                    ? ((int) round($player['metrics']['long_toss_max'])).' ft max carry'
+                    : null,
             ];
         }, $top, array_keys($top));
 
@@ -376,6 +393,7 @@ final class LeaderboardService
                     'value' => $leader['metrics'][$sub[1]] ?? null,
                     'unit' => $sub[2],
                 ], $category['sub']),
+                'insight' => 'long_toss' === $category['key'] ? $this->longTossInsight($leader['metrics']) : null,
             ];
         }
 
@@ -465,8 +483,105 @@ final class LeaderboardService
         return $values->isEmpty() ? null : round((float) $values->max(), 1);
     }
 
+    private function averageIncludingZero(iterable $values): ?float
+    {
+        $values = collect($values)->filter(fn ($value) => is_numeric($value) && (float) $value >= 0);
+
+        return $values->isEmpty() ? null : round((float) $values->average(), 1);
+    }
+
     private function percentage(int $part, int $whole): ?float
     {
         return $whole > 0 ? round(($part / $whole) * 100, 1) : null;
+    }
+
+    private function longTossPerformanceScore(?float $maxCarry, ?float $averageCarry, ?float $zeroHopPct, ?float $consistency, ?float $growthFeet): ?float
+    {
+        if (null === $averageCarry || null === $consistency || null === $zeroHopPct) {
+            return null;
+        }
+
+        // Distance components are normalized to demanding, attainable baseball
+        // benchmarks. Growth is neutral at zero and rewards up to +20 ft/month.
+        $maxScore = min(100.0, (($maxCarry ?? 0.0) / 350.0) * 100.0);
+        $averageScore = min(100.0, ($averageCarry / 320.0) * 100.0);
+        $growthScore = max(0.0, min(100.0, 50.0 + (($growthFeet ?? 0.0) * 2.5)));
+
+        return round(($maxScore * .40) + ($averageScore * .25) + ($zeroHopPct * .15) + ($consistency * .10) + ($growthScore * .10), 1);
+    }
+
+    private function consistencyScore(iterable $values): ?float
+    {
+        $values = collect($values)->filter(fn ($value) => is_numeric($value) && (float) $value > 0)->map(fn ($value) => (float) $value)->values();
+        if ($values->isEmpty()) {
+            return null;
+        }
+        if (1 === $values->count()) {
+            return 100.0;
+        }
+
+        $mean = (float) $values->average();
+        $variance = (float) $values->map(fn (float $value) => ($value - $mean) ** 2)->average();
+        $coefficientOfVariation = sqrt($variance) / max(1.0, $mean);
+
+        return round(max(0.0, min(100.0, (1.0 - $coefficientOfVariation) * 100.0)), 1);
+    }
+
+    private function thirtyDayGrowth(Collection $throws): ?float
+    {
+        $now = Carbon::now();
+        $currentStart = $now->copy()->subDays(30);
+        $previousStart = $now->copy()->subDays(60);
+        $current = $throws->filter(fn ($row) => ($date = $this->rowDate($row, 'long_toss')) && $date->gte($currentStart));
+        $previous = $throws->filter(fn ($row) => ($date = $this->rowDate($row, 'long_toss')) && $date->gte($previousStart) && $date->lt($currentStart));
+        $currentAverage = $this->average($current->pluck('distance'));
+        $previousAverage = $this->average($previous->pluck('distance'));
+
+        return null === $currentAverage || null === $previousAverage ? null : round($currentAverage - $previousAverage, 1);
+    }
+
+    private function armEnduranceScore(Collection $throws): ?float
+    {
+        if ($throws->count() < 4) {
+            return null;
+        }
+
+        $ordered = $throws->sortBy(fn ($row) => sprintf('%s-%06d-%06d', (string) ($row->practice_id ?? ''), (int) ($row->set ?? 0), (int) ($row->sort ?? 0)))->values();
+        $segmentSize = max(1, (int) floor($ordered->count() / 3));
+        $opening = $this->average($ordered->take($segmentSize)->pluck('distance'));
+        $closing = $this->average($ordered->take(-$segmentSize)->pluck('distance'));
+        if (null === $opening || null === $closing) {
+            return null;
+        }
+
+        return round(max(0.0, min(100.0, ($closing / max(1.0, $opening)) * 100.0)), 1);
+    }
+
+    private function velocityTransferScore(?float $maxCarry, ?float $maxFastball): ?float
+    {
+        if (null === $maxCarry || null === $maxFastball) {
+            return null;
+        }
+
+        // A 300 ft zero-hop carry corresponds to roughly a 90 mph transfer
+        // target; scale the target with carry and cap the displayed efficiency.
+        $targetVelocity = max(60.0, $maxCarry * .30);
+
+        return round(max(0.0, min(100.0, ($maxFastball / $targetVelocity) * 100.0)), 1);
+    }
+
+    private function longTossInsight(array $metrics): array
+    {
+        $lines = [];
+        $lines[] = ($metrics['long_toss_max'] ?? 0) >= 300 ? 'Elite carry.' : 'Carry distance is still developing.';
+        $lines[] = ($metrics['long_toss_consistency'] ?? 0) >= 90 ? 'Excellent consistency.' : 'More repeatable carry will raise the score.';
+        if (null !== ($metrics['velocity_transfer'] ?? null)) {
+            $lines[] = $metrics['velocity_transfer'] >= 85 ? 'Velocity transfer is above average.' : 'Needs better mound transfer.';
+        }
+
+        $growth = $metrics['long_toss_growth'] ?? null;
+        $projectedMph = null === $growth ? null : round(max(-3.0, min(3.0, $growth / 15.0)), 1);
+
+        return ['lines' => $lines, 'projected_mph_gain' => $projectedMph];
     }
 }

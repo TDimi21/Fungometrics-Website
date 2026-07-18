@@ -151,6 +151,7 @@ const sparkPoints = (arr) => {
                   <div class="hof-who">
                     <div class="hof-name">{{ row.name }}</div>
                     <div v-if="row.subtitle" class="hof-pos">{{ row.subtitle }}</div>
+                    <div v-if="row.evidence" class="hof-evidence">{{ row.evidence }}</div>
                   </div>
                   <span class="hof-trend" :class="trendClass(row.trend)" :title="row.trend == null ? 'Trend pending' : 'Change since last ranking'">
                     {{ trendGlyph(row.trend) }}<template v-if="row.trend"> {{ trendText(row.trend) }}</template>
@@ -211,6 +212,14 @@ const sparkPoints = (arr) => {
               <div v-for="m in active.featured.subMetrics" :key="m.label" class="hof-metric">
                 <div class="hof-metric-v">{{ m.value }}<small v-if="m.unit && m.value !== '—'"> {{ m.unit }}</small></div>
                 <div class="hof-metric-l">{{ m.label }}</div>
+              </div>
+            </div>
+            <div v-if="active.featured.insight" class="hof-insight">
+              <div class="hof-insight-title">FMTRX Insight</div>
+              <div v-for="line in active.featured.insight.lines" :key="line" class="hof-insight-line">{{ line }}</div>
+              <div v-if="active.featured.insight.projected_mph_gain != null" class="hof-insight-projection">
+                Projected mound velocity gain
+                <strong>{{ active.featured.insight.projected_mph_gain > 0 ? '+' : '' }}{{ active.featured.insight.projected_mph_gain }} mph</strong>
               </div>
             </div>
           </template>
@@ -320,6 +329,7 @@ const sparkPoints = (arr) => {
 .hof-who { min-width: 0; }
 .hof-name { font-size: 14px; font-weight: 800; color: #fff; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hof-pos { font-size: 10px; color: rgba(255,255,255,.4); }
+.hof-evidence { margin-top: 2px; font-size: 9px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
 .hof-trend { font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 18px; text-align: center; }
 .hof-trend.up { color: #37d67a; } .hof-trend.down { color: #ef4444; } .hof-trend.flat { color: rgba(255,255,255,.3); }
 .hof-score { font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; color: #fff; }
@@ -363,6 +373,11 @@ const sparkPoints = (arr) => {
 .hof-metric-v { font-size: 16px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; line-height: 1; }
 .hof-metric-v small { font-size: 9px; font-weight: 700; opacity: .6; }
 .hof-metric-l { font-size: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.38); margin-top: 4px; }
+.hof-insight { margin-top: 12px; padding: 11px 12px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--accent) 25%, rgba(255,255,255,.07)); background: color-mix(in srgb, var(--accent) 7%, rgba(255,255,255,.02)); }
+.hof-insight-title { margin-bottom: 5px; color: var(--accent); font-size: 9px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.hof-insight-line { color: rgba(255,255,255,.72); font-size: 11px; line-height: 1.45; }
+.hof-insight-projection { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 7px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,.07); color: rgba(255,255,255,.42); font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.hof-insight-projection strong { color: var(--accent); font-size: 13px; }
 .hof-coming { margin-top: 26px; color: rgba(255,255,255,.45); font-size: 14px; font-weight: 600; }
 
 /* Footer */

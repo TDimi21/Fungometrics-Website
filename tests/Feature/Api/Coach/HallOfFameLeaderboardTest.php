@@ -69,13 +69,26 @@ class HallOfFameLeaderboardTest extends TestCase
             'distance_travel' => 330,
             'created_at' => now()->subDays(3),
         ]);
-        LongTossPractice::factory()->create([
-            'team_id' => $team->id,
-            'user_id' => $leader->id,
-            'distance' => 330,
-            'hop' => 0,
-            'created_at' => now()->subDays(2),
-        ]);
+        foreach ([330, 325, 320, 315, 310] as $index => $distance) {
+            LongTossPractice::factory()->create([
+                'team_id' => $team->id,
+                'user_id' => $leader->id,
+                'distance' => $distance,
+                'hop' => 0,
+                'sort' => $index + 1,
+                'created_at' => now()->subDays(2),
+            ]);
+        }
+        foreach ([340, 290, 250, 220, 180] as $index => $distance) {
+            LongTossPractice::factory()->create([
+                'team_id' => $team->id,
+                'user_id' => $challenger->id,
+                'distance' => $distance,
+                'hop' => 0,
+                'sort' => $index + 1,
+                'created_at' => now()->subDays(2),
+            ]);
+        }
         PlayerFitness::factory()->create([
             'user_id' => $leader->id,
             'fitness_date' => now()->subDay()->toDateString(),
@@ -109,7 +122,10 @@ class HallOfFameLeaderboardTest extends TestCase
         $this->assertSame('Jake Hall', $categories->firstWhere('key', 'hitter')['featured']['name']);
         $this->assertSame('Jake Hall', $categories->firstWhere('key', 'bullpen')['featured']['name']);
         $this->assertNotNull($categories->firstWhere('key', 'bullpen')['featured']['bigValue']);
-        $this->assertSame(330.0, (float) $categories->firstWhere('key', 'long_toss')['featured']['bigValue']);
+        $longToss = $categories->firstWhere('key', 'long_toss');
+        $this->assertSame('Jake Hall', $longToss['featured']['name']);
+        $this->assertSame(330.0, (float) collect($longToss['featured']['subMetrics'])->firstWhere('label', 'Max Carry')['value']);
+        $this->assertGreaterThan(90, (float) $longToss['featured']['bigValue']);
         $this->assertSame(93.0, (float) $categories->firstWhere('key', 'strength')['featured']['bigValue']);
         $this->assertGreaterThanOrEqual(2, count($categories->firstWhere('key', 'hitter')['featured']['spark']));
         $this->assertNotContains('Other Team', $categories->flatMap(fn (array $category) => array_column($category['rows'], 'name'))->all());

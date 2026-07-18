@@ -42,7 +42,7 @@ class GetTeamLeaderboard extends Controller
             }
 
             $data = Cache::remember(
-                "leaderboard_v2_{$team}_{$range}",
+                "leaderboard_v3_{$team}_{$range}",
                 now()->addMinutes(5),
                 fn () => $service->forTeam($team, $range),
             );
