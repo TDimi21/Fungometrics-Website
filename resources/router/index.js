@@ -151,12 +151,7 @@ const routes = [
 		name: 'development.player',
 		path: '/development/player/:playerId?',
 		component: PlayerDevelopmentDashboard,
-		// A coach opening one of their players' development pages (from the dashboard
-		// dev board / roster cards) must be allowed, not just a player viewing their
-		// own. 'view_advanced_stats' is held by BOTH Coach Pro and Player Pro (and not
-		// by Basic/Free), so it gates correctly for every audience. 'development_graphs'
-		// was Player-Pro-only, which bounced coaches back to the dashboard.
-		meta: { requiresAuth: true, entitlement: 'view_advanced_stats' },
+		meta: { requiresAuth: true, entitlement: 'development_graphs' },
 		props: true,
 	},
 	{
