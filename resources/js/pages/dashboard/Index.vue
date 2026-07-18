@@ -8,6 +8,7 @@ import { useTeamStore } from "../../store/team";
 import { useAccessStore } from '@/store/access.js'
 import { IndicatorChart } from '@/components/dashboard'
 import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
+import HallOfFameWall from '@/components/dashboard/HallOfFameWall.vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
 import ExitVeloPanel from '@/components/dashboard/ExitVeloPanel.vue'
 import BullpenLocationPanel from '@/components/dashboard/BullpenLocationPanel.vue'
@@ -341,7 +342,9 @@ const topStrengthRows = computed(() => {
         ?? card?.profile?.first_name
         ?? '—',
       avatar: card?.profile?.picture ?? null,
-      score: toNumeric(card?.fmtrxx_strength_score),
+      // Use the strength score shown on the player's metrics card (fitness row),
+      // falling back to the athletic-index score for players without one.
+      score: toNumeric(card?.fitness?.strength_score ?? card?.fmtrxx_strength_score),
     }))
 
   return dedupeTop10Players(rows, { value: 12, key: 'score' })
@@ -606,6 +609,122 @@ const top10PlayerSubtitle = (item) => {
 // The category summarized in the bottom bar (defaults to Top Hitter).
 const top10SelectedTab = computed(() => top10Tabs.find(t => t.value === top10Tab.value) ?? top10Tabs[0])
 const selectTop10Card = (tab) => { top10Tab.value = tab.value }
+
+// ── Hall of Fame Wall — rotating leaderboard (built from the same category data) ──
+const TOP10_BIG = { 1: 'Hitting Score', 4: 'Pitching Score', 2: 'Avg Exit Velocity', 5: 'Avg Velocity', 3: 'Total Swings', 12: 'Strength Score' }
+
+const cardNum = (card, ...keys) => {
+  for (const k of keys) {
+    const v = card?.physical?.[k] ?? card?.fitness?.[k] ?? card?.scores?.[k] ?? card?.[k]
+    if (v != null && v !== '') { const n = Number(v); if (Number.isFinite(n)) return n }
+  }
+  return null
+}
+const cardStr = (card, ...keys) => {
+  for (const k of keys) {
+    const v = card?.physical?.[k] ?? card?.profile?.[k] ?? card?.[k]
+    if (v != null && v !== '') return String(v)
+  }
+  return null
+}
+
+// Featured athlete bio pills (throws / bats / ht / wt) from the roster card.
+const hofBio = (card) => {
+  const out = []
+  const throws = cardStr(card, 'throw_side', 'throws')
+  const bats = cardStr(card, 'hit_side', 'bats')
+  const ht = cardStr(card, 'height', 'height_display')
+  const wt = cardNum(card, 'weight', 'body_weight')
+  if (throws) out.push({ k: 'Throws', v: throws.charAt(0).toUpperCase() })
+  if (bats) out.push({ k: 'Bats', v: bats.charAt(0).toUpperCase() })
+  if (ht) out.push({ k: 'Ht', v: ht })
+  if (wt != null) out.push({ k: 'Wt', v: Math.round(wt) + ' lb' })
+  return out
+}
+
+// Category-appropriate sub-metric tiles (only those with real data are shown).
+const hofSubMetrics = (tabValue, card) => {
+  const tile = (label, value, unit = '') => (value == null ? null : { label, value: Number.isInteger(value) ? String(value) : (Math.round(value * 10) / 10).toFixed(1), unit })
+  let defs
+  if (tabValue === 1 || tabValue === 2) {
+    defs = [tile('Exit Velo', cardNum(card, 'exit_velo', 'exit_velocity'), 'mph'), tile('Bat Speed', cardNum(card, 'bat_speed'), 'mph'), tile('Hit Score', cardNum(card, 'batting')), tile('Throw Velo', cardNum(card, 'throwing_velo'), 'mph')]
+  } else if (tabValue === 4 || tabValue === 5) {
+    defs = [tile('Avg Velo', cardNum(card, 'pitch_velo'), 'mph'), tile('Throw Velo', cardNum(card, 'throwing_velo'), 'mph'), tile('Bullpen', cardNum(card, 'bullpen'))]
+  } else if (tabValue === 12) {
+    defs = [tile('Bench', cardNum(card, 'bench_press'), 'lb'), tile('F. Squat', cardNum(card, 'front_squat'), 'lb'), tile('Pwr Clean', cardNum(card, 'power_clean'), 'lb'), tile('Body Wt', cardNum(card, 'body_weight'), 'lb'), tile('Grip', cardNum(card, 'hand_strength'), 'lb'), tile('Vert', cardNum(card, 'vertical_jump'), 'in')]
+  } else {
+    defs = [tile('Exit Velo', cardNum(card, 'exit_velo'), 'mph'), tile('Bat Speed', cardNum(card, 'bat_speed'), 'mph')]
+  }
+  return defs.filter(Boolean)
+}
+
+const hofCategories = computed(() => top10Tabs.map((tab) => {
+  const meta = top10Meta(tab.value)
+  const rows = (tab.value === 12 ? topStrengthRows.value : (top10AllData.value[tab.value] ?? [])).slice(0, 5)
+  const leader = rows[0] ?? null
+  const card = leader ? playerCardsByName.value.get(normalizePlayerName(top10PlayerName(leader))) : null
+  return {
+    value: tab.value,
+    label: tab.label,
+    subtitle: meta.subtitle,
+    color: meta.color,
+    emoji: meta.emoji,
+    unit: meta.unit === 'MPH' ? 'mph' : (meta.unit === 'SWINGS' ? '' : ''),
+    bigLabel: TOP10_BIG[tab.value] ?? tab.label,
+    rows: rows.map((r) => ({
+      name: top10PlayerName(r),
+      avatar: top10PlayerAvatar(r),
+      subtitle: top10PlayerSubtitle(r),
+      value: formatTop10Number(r, tab),
+      trend: null,
+    })),
+    featured: leader ? {
+      name: top10PlayerName(leader),
+      avatar: top10PlayerAvatar(leader),
+      subtitle: top10PlayerSubtitle(leader),
+      bigValue: formatTop10Number(leader, tab),
+      bio: hofBio(card),
+      subMetrics: hofSubMetrics(tab.value, card),
+    } : null,
+  }
+}).filter((c) => c.rows.length))
+
+// Server-driven leaderboard (all 12 categories, trends/sparklines/sub-metrics).
+// Falls back to the client-side hofCategories when the endpoint is empty/unavailable.
+const leaderboardServer = ref(null)
+const fmtWallNum = (v) => (v == null || v === '' ? '—' : (Number.isInteger(Number(v)) ? String(Number(v)) : (Math.round(Number(v) * 10) / 10).toFixed(1)))
+
+const loadLeaderboard = async () => {
+  if (!getActiveTeamIdCandidates().length) return
+  try {
+    const { data } = await withTeamIdFallbackGet((id) => 'coach/leaderboard/' + id)
+    const cats = data?.data?.categories
+    if (Array.isArray(cats) && cats.length) leaderboardServer.value = cats
+  } catch (e) { /* keep the client-side fallback */ }
+}
+
+const wallCategories = computed(() => {
+  const cats = leaderboardServer.value
+  if (Array.isArray(cats) && cats.length) {
+    return cats.map((c) => ({
+      value: c.key,
+      label: c.label,
+      subtitle: c.subtitle,
+      color: c.color,
+      unit: c.unit,
+      bigLabel: c.bigLabel,
+      placeholder: !!c.placeholder,
+      rows: (c.rows ?? []).map((r) => ({ name: r.name, avatar: r.avatar, subtitle: r.subtitle, value: fmtWallNum(r.value), trend: r.trend ?? null, spark: r.spark ?? null })),
+      featured: c.featured ? {
+        name: c.featured.name, avatar: c.featured.avatar, subtitle: c.featured.subtitle,
+        bigValue: fmtWallNum(c.featured.bigValue), trend: c.featured.trend ?? null, spark: c.featured.spark ?? null,
+        bio: (c.featured.bio ?? []).map((b) => ({ k: b.k, v: b.v ?? '—' })),
+        subMetrics: (c.featured.subMetrics ?? []).map((m) => ({ label: m.label, value: fmtWallNum(m.value), unit: m.unit })),
+      } : null,
+    }))
+  }
+  return hofCategories.value
+})
 
 // ── Charts ────────────────────────────────────────────────────────────────────
 const {
@@ -2618,6 +2737,7 @@ watch(
       fetchTeamInsight().catch(e => console.warn('fetchTeamInsight error:', e?.message ?? e))
       ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards preload error:', e?.message ?? e))
       loadAllTop10().catch(e => console.warn('loadAllTop10 error:', e?.message ?? e))
+      loadLeaderboard().catch(e => console.warn('loadLeaderboard error:', e?.message ?? e))
     }, 800)
   },
   { immediate: true }
@@ -3015,80 +3135,12 @@ watch(
                 </div>
               </div>
 
-              <!-- PLAYER LEADERS -->
+              <!-- PLAYER LEADERS — rotating Hall of Fame Wall -->
               <template v-if="top10Mode === 'players'">
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <div v-for="tab in top10Tabs" :key="tab.value"
-                    @click="selectTop10Card(tab)"
-                    class="rounded-2xl border p-4 transition cursor-pointer"
-                    :class="top10Tab === tab.value ? 'bg-white/[0.05]' : 'bg-white/[0.025] border-white/10 hover:border-white/25'"
-                    :style="top10Tab === tab.value ? { borderColor: top10Meta(tab.value).color + '80', boxShadow: '0 0 0 1px ' + top10Meta(tab.value).color + '33, 0 10px 30px rgba(0,0,0,.3)' } : {}">
-
-                    <!-- card header -->
-                    <div class="flex items-start gap-3">
-                      <div class="w-11 h-11 rounded-xl flex items-center justify-center text-lg shrink-0 border"
-                        :style="{ background: top10Meta(tab.value).color + '1f', borderColor: top10Meta(tab.value).color + '55' }">{{ top10Meta(tab.value).emoji }}</div>
-                      <div class="min-w-0 flex-1">
-                        <div class="text-sm font-black uppercase tracking-wide text-white truncate">{{ tab.label }}</div>
-                        <div class="text-[11px] text-white/45 truncate">{{ top10Meta(tab.value).subtitle }}</div>
-                      </div>
-                      <button @click.stop="openTop10Modal(tab)" class="shrink-0 text-[10px] font-black uppercase tracking-widest whitespace-nowrap"
-                        :style="{ color: top10Meta(tab.value).color }">Top 10 ›</button>
-                    </div>
-
-                    <!-- top 3 -->
-                    <div class="mt-3">
-                      <div v-for="(row, idx) in top10CardRows(tab)" :key="idx"
-                        class="flex items-center gap-3 py-2 border-t border-white/5 first:border-t-0">
-                        <span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0"
-                          :style="idx === 0 ? { background: top10Meta(tab.value).color, color: '#0a1020' } : { background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.6)' }">{{ idx + 1 }}</span>
-                        <img :src="top10PlayerAvatar(row) || top10FallbackAvatar" @error="$event.target.src = top10FallbackAvatar"
-                          class="w-8 h-8 rounded-full object-cover border border-white/15 shrink-0" alt="" />
-                        <div class="min-w-0 flex-1">
-                          <div class="text-sm font-bold text-white truncate">{{ top10PlayerName(row) }}</div>
-                          <div v-if="top10PlayerSubtitle(row)" class="text-[10px] text-white/40 truncate">{{ top10PlayerSubtitle(row) }}</div>
-                        </div>
-                        <div class="text-right shrink-0">
-                          <div class="text-base font-black tabular-nums leading-none" :style="{ color: top10Meta(tab.value).color }">{{ formatTop10Number(row, tab) }}</div>
-                          <div class="text-[9px] font-bold text-white/35 uppercase mt-0.5">{{ top10Meta(tab.value).unit }}</div>
-                        </div>
-                      </div>
-                      <div v-if="!top10CardRows(tab).length" class="py-5 text-center text-white/25 text-xs">No data yet</div>
-                    </div>
-
-                    <!-- footer -->
-                    <div class="mt-3 pt-3 border-t border-white/5 flex items-center justify-between gap-2">
-                      <div class="min-w-0">
-                        <div class="text-[9px] font-black uppercase tracking-widest text-white/30">Leader</div>
-                        <div class="text-xs font-bold text-white truncate">
-                          {{ top10CardLeader(tab) ? top10PlayerName(top10CardLeader(tab)) : '—' }}
-                          <span v-if="top10CardLeader(tab)" class="text-white/40 font-medium"> · {{ formatTop10Number(top10CardLeader(tab), tab) }} {{ top10Meta(tab.value).lead }}</span>
-                        </div>
-                      </div>
-                      <button @click.stop="openTop10Modal(tab)"
-                        class="shrink-0 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border transition hover:bg-white/5"
-                        :style="{ color: top10Meta(tab.value).color, borderColor: top10Meta(tab.value).color + '66' }">View Top 10</button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Selected category bar -->
-                <div class="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div class="flex items-center gap-3 min-w-0">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center text-base border shrink-0"
-                      :style="{ background: top10Meta(top10SelectedTab.value).color + '1f', borderColor: top10Meta(top10SelectedTab.value).color + '55' }">{{ top10Meta(top10SelectedTab.value).emoji }}</div>
-                    <div class="min-w-0">
-                      <div class="text-[10px] font-black uppercase tracking-widest text-white/35">Selected Category</div>
-                      <div class="text-sm font-black text-white truncate">
-                        {{ top10SelectedTab.label }}
-                        <span v-if="top10CardLeader(top10SelectedTab)" class="text-white/45 font-medium"> — Leader: {{ top10PlayerName(top10CardLeader(top10SelectedTab)) }} · {{ formatTop10Number(top10CardLeader(top10SelectedTab), top10SelectedTab) }} {{ top10Meta(top10SelectedTab.value).lead }}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <button @click="openTop10Modal(top10SelectedTab)"
-                    class="shrink-0 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest"
-                    :style="{ color: top10Meta(top10SelectedTab.value).color }">Open Full Top 10 ↗</button>
-                </div>
+                <HallOfFameWall
+                  :categories="wallCategories"
+                  :fallback-avatar="top10FallbackAvatar"
+                />
               </template>
 
               <!-- TEAM LEADERS -->

@@ -111,6 +111,9 @@ class GetTeamPlayerCards extends Controller
                     // ── Latest Fitness ────────────────────────────────────────
                     'fitness' => $fitness ? [
                         'date'        => $fitness->fitness_date,
+                        // Strength score as shown on the player's metrics card
+                        // (the value the Top Strength Score leaderboard should use).
+                        'strength_score' => $fitness->strength_score,
                         'body_weight' => $fitness->body_weight,
                         'bench_press' => $fitness->bench_press,
                         'front_squat' => $fitness->front_squat,

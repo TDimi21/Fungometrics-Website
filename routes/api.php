@@ -95,6 +95,7 @@ use App\Http\Controllers\Api\Coach\GetTeamCode;
 use App\Http\Controllers\Api\Coach\GetPlayerDevelopmentBoard;
 use App\Http\Controllers\Api\Coach\GetPlayerDevelopmentDashboard;
 use App\Http\Controllers\Api\Coach\GetTeamPlayerCards;
+use App\Http\Controllers\Api\Coach\GetTeamLeaderboard;
 use App\Http\Controllers\Api\Coach\GetTeamsPlayersV2;
 use App\Http\Controllers\Api\Coach\RemoveCoachFromTeam;
 use App\Http\Controllers\Api\Coach\RemovePlayers;
@@ -293,6 +294,7 @@ Route::prefix('coach')->group(function (): void {
         // Stats screen's per-session N+1 fetch).
         Route::middleware(['plan:view_team_stats', 'plan:view_session_report'])->get('/stats/bundle/{team}', GetStatsBundle::class);
         Route::middleware('plan:performance_overview')->get('/performance-overview/{team}', GetPerformanceOverview::class);
+        Route::get('/leaderboard/{team}', GetTeamLeaderboard::class); // Hall of Fame Wall feed
         Route::middleware('plan:liveab_sessions')->post('/trainingab', AddNewLiveABSession::class);
         Route::middleware('plan:liveab_sessions')->get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);
         Route::get('/search/players', SearchPlayers::class);
