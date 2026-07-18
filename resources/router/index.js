@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../js/store/auth";
 import { useUserStore } from "../js/store/user";
+import { useAccessStore } from "../js/store/access";
 import { getAuthToken } from "../js/utils/authToken.js";
 
 //Guest components
@@ -114,7 +115,7 @@ const routes = [
 		name: "assessment.reports",
 		path: "/assessment-reports",
 		component: AssessmentReports,
-		meta: { requiresAuth: true },
+		meta: { requiresAuth: true, entitlement: 'view_assessment_reports' },
 	},
 	{
 		name: "playerDashboard",
@@ -126,7 +127,7 @@ const routes = [
 		name: "arm.care",
 		path: "/arm-care",
 		component: () => import("@/pages/training/ArmCare.vue"),
-		meta: { requiresAuth: true },
+		meta: { requiresAuth: true, entitlement: 'arm_care' },
 	},
 	{
 		name: 'development.index',
@@ -184,7 +185,7 @@ const routes = [
 		name: "create.ab",
 		path: "/create/live",
 		component: IndexTrainingABPage,
-		meta: { requiresAuth: true },
+		meta: { requiresAuth: true, entitlement: 'liveab_sessions' },
 		props: true,
 	},
 	{
@@ -226,7 +227,7 @@ const routes = [
 		name: "track.live",
 		path: "/track/live",
 		component: TrackLiveAB,
-		meta: { requiresAuth: true },
+		meta: { requiresAuth: true, entitlement: 'liveab_sessions' },
 		props: true,
 	},
 	{
@@ -275,7 +276,7 @@ const routes = [
 		name: "session.report",
 		path: "/session/report/:id/:type",
 		component: () => import("@/pages/training/SessionReport.vue"),
-		meta: { requiresAuth: true },
+		meta: { requiresAuth: true, entitlement: 'view_session_report' },
 		props: true,
 	},
 	{
@@ -294,7 +295,7 @@ const routes = [
 		name: "practice.planner",
 		path: "/practice-planner",
 		component: PracticePlanner,
-		meta: { requiresAuth: true },
+		meta: { requiresAuth: true, entitlement: 'planner_create' },
 	},
 	{
 		name: "roster.editPlayer",
@@ -392,6 +393,17 @@ const router = createRouter({
 const WEB_START_PRACTICE_ENABLED = false;
 const START_PRACTICE_BLOCKED_PATHS = ['/create', '/track'];
 
+export const routeEntitlement = (to) => {
+	if (to.meta?.entitlement) return to.meta.entitlement;
+	if (to.name !== 'track.trainingMode') return null;
+
+	return {
+		EV: 'exit_velocity_sessions',
+		LT: 'long_toss_sessions',
+		WB: 'weighted_ball_sessions',
+	}[String(to.params?.mode || '').toUpperCase()] || null;
+};
+
 const syncAuthFromToken = () => {
 	const auth = useAuthStore();
 	const token = getAuthToken();
@@ -418,6 +430,34 @@ router.beforeEach((to, from, next) => {
 	} else {
 		next();
 	}
+});
+
+router.beforeEach(async (to, from, next) => {
+	if (!to.matched.some((record) => record.meta.requiresAuth)) {
+		next();
+		return;
+	}
+
+	const entitlement = routeEntitlement(to);
+	if (!entitlement) {
+		next();
+		return;
+	}
+
+	const access = useAccessStore();
+	try {
+		await access.refresh();
+	} catch (_) {
+		next({ path: '/dashboard', query: { access_denied: entitlement } });
+		return;
+	}
+
+	if (!access.canAccess(entitlement)) {
+		next({ path: '/dashboard', query: { access_denied: entitlement } });
+		return;
+	}
+
+	next();
 });
 
 router.beforeEach((to, from, next) => {

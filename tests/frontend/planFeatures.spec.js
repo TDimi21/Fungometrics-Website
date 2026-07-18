@@ -5,9 +5,13 @@ describe('authoritative Plan Features API', () => {
   it('loads plans and entitlement metadata from Laravel', async () => {
     const get = vi.fn()
       .mockResolvedValueOnce({ data: { data: { plans: [{ key: 'free' }], feature_groups: [] } } })
-      .mockResolvedValueOnce({ data: { data: { entitlements: [{ key: 'notifications' }] } } })
+      .mockResolvedValueOnce({ data: { data: {
+        entitlements: [{ key: 'notifications' }],
+        coverage: [{ key: 'notifications', coverage: { implementation_status: 'not_implemented' } }],
+        coverage_summary: { total: 1 },
+      } } })
     await expect(createPlanFeaturesApi(get, vi.fn()).load()).resolves.toMatchObject({
-      plans: [{ key: 'free' }], entitlements: [{ key: 'notifications' }],
+      plans: [{ key: 'free' }], entitlements: [{ key: 'notifications' }], coverage_summary: { total: 1 },
     })
   })
 

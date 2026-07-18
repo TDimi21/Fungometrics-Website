@@ -32,6 +32,7 @@ class AddNewSessionRequest extends FormRequest
             'team' => ['nullable'],
             'type' => ['nullable'],
             'modes' => ['nullable'],
+            'scripted' => ['nullable', 'boolean'],
             'note' => ['required'],
             'players' => ['required', 'array'],
             'cage' => ['nullable', 'array']

@@ -191,6 +191,7 @@ class EntitlementResolverTest extends TestCase
         Sanctum::actingAs($player);
 
         $this->getJson("/api/me/access?team_id={$team->id}")->assertOk()
+            ->assertJsonPath('data.audience', 'player')
             ->assertJsonPath('data.team.role', 'player')
             ->assertJsonPath('data.plan', 'coach_pro')
             ->assertJsonPath('data.source', 'subscription')

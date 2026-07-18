@@ -11,6 +11,7 @@ use App\Models\CoachTeam;
 use App\Models\Concerns\UserTypes;
 use App\Models\PlayerTeam;
 use App\Models\Profile;
+use App\Models\SubscriptionPlan;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
@@ -20,6 +21,70 @@ use Tests\TestCase;
 
 class AddPlayersTest extends TestCase
 {
+    public function test_player_limit_blocks_at_capacity_without_deleting_existing_roster(): void
+    {
+        $coach = User::factory()->create([
+            'type' => UserTypes::COACH->value,
+            'subscription_plan' => 'free',
+        ]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
+        $this->createRoster($team, 10);
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+
+        $this->json('POST', 'api/coach/add/players', [
+            'phone' => fake()->unique()->phoneNumber,
+            'team' => $team->id,
+            'name' => ['first' => fake()->firstName, 'last' => fake()->lastName],
+        ])->assertForbidden()->assertJsonPath('code', '016-LIMIT');
+
+        $this->assertSame(10, PlayerTeam::query()->where('team_id', $team->id)->where('actual', true)->count());
+    }
+
+    public function test_decreased_player_limit_preserves_existing_roster_and_blocks_new_additions(): void
+    {
+        $coach = User::factory()->create([
+            'type' => UserTypes::COACH->value,
+            'subscription_plan' => 'free',
+        ]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
+        $this->createRoster($team, 3);
+        $plan = SubscriptionPlan::query()->where('key', 'free')->firstOrFail();
+        $metadata = $plan->metadata;
+        $metadata['limits']['players'] = 2;
+        $plan->update(['metadata' => $metadata]);
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+
+        $this->json('POST', 'api/coach/add/players', [
+            'phone' => fake()->unique()->phoneNumber,
+            'team' => $team->id,
+            'name' => ['first' => fake()->firstName, 'last' => fake()->lastName],
+        ])->assertForbidden()->assertJsonPath('code', '016-LIMIT');
+
+        $this->assertSame(3, PlayerTeam::query()->where('team_id', $team->id)->where('actual', true)->count());
+    }
+
+    public function test_coach_pro_unlimited_player_limit_allows_another_player(): void
+    {
+        $coach = User::factory()->create([
+            'type' => UserTypes::COACH->value,
+            'subscription_plan' => 'coach_pro',
+        ]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
+        $this->createRoster($team, 12);
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+
+        $this->json('POST', 'api/coach/add/players', [
+            'phone' => fake()->unique()->phoneNumber,
+            'team' => $team->id,
+            'name' => ['first' => fake()->firstName, 'last' => fake()->lastName],
+        ])->assertOk();
+
+        $this->assertSame(13, PlayerTeam::query()->where('team_id', $team->id)->where('actual', true)->count());
+    }
+
     public function test_add_new_player_to_team_ok(): void
     {
         $user = User::factory()->create(['type' => UserTypes::COACH->value]);
@@ -171,5 +236,17 @@ class AddPlayersTest extends TestCase
         Sanctum::actingAs($user, [UserTypes::PLAYER->value]);
         $response = $this->json('POST', 'api/coach/add/players', []);
         $response->assertForbidden();
+    }
+
+    private function createRoster(Team $team, int $size): void
+    {
+        User::factory()->count($size)->create([
+            'type' => UserTypes::PLAYER->value,
+            'subscription_plan' => 'free',
+        ])->each(fn (User $player) => PlayerTeam::factory()->create([
+            'user_id' => $player->id,
+            'team_id' => $team->id,
+            'actual' => true,
+        ]));
     }
 }

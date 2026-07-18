@@ -434,10 +434,10 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
     });
 
 Route::middleware(['auth:sanctum'])->prefix('training')->group(function (): void {
-    Route::post('/', AddNewSession::class);
-    Route::get('/{uuid}', GetSession::class);
-    Route::put('/{uuid}', FinishPractice::class);
-    Route::delete('/{uuid}', DeletePractice::class);
+    Route::middleware('scripted.practice:scripted_bullpen')->post('/', AddNewSession::class);
+    Route::middleware('scripted.practice:scripted_bullpen')->get('/{uuid}', GetSession::class);
+    Route::middleware('scripted.practice:scripted_bullpen')->put('/{uuid}', FinishPractice::class);
+    Route::middleware('scripted.practice:scripted_bullpen')->delete('/{uuid}', DeletePractice::class);
 });
 
 Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
@@ -445,9 +445,9 @@ Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
     Route::post('/batting', SaveBattingResultPractice::class);
     Route::put('/batting/{uuid}', EditBattingResultPractice::class);
 
-    Route::get('/bullpen/{uuid}', GetBullpenResultPractice::class);
-    Route::post('/bullpen', SaveBullpenResultPractice::class);
-    Route::put('/bullpen/{uuid}', EditBullpenResultPractice::class);
+    Route::middleware('scripted.practice:scripted_bullpen')->get('/bullpen/{uuid}', GetBullpenResultPractice::class);
+    Route::middleware('scripted.practice:scripted_bullpen')->post('/bullpen', SaveBullpenResultPractice::class);
+    Route::middleware('scripted.practice:scripted_bullpen')->put('/bullpen/{uuid}', EditBullpenResultPractice::class);
 
     Route::get('/cage/{uuid}', GetCageResultPractice::class);
     Route::post('/cage', SaveCageResultPractice::class);
@@ -499,7 +499,7 @@ Route::middleware(['auth:sanctum'])->prefix('sessions')->group(function (): void
 
 Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): void {
     Route::get('/{practice}/batting', GetBattingPracticeResults::class);
-    Route::get('/{practice}/bullpen', GetBullpenPracticeResults::class);
+    Route::middleware('scripted.practice:scripted_bullpen')->get('/{practice}/bullpen', GetBullpenPracticeResults::class);
     Route::middleware('plan:long_toss_sessions')->get('/{practice}/longtoss', GetLongTossPracticeResult::class);
     Route::middleware('plan:weighted_ball_sessions')->get('/{practice}/weightball', GetWeightBallPracticeResult::class);
     Route::middleware('plan:exit_velocity_sessions')->get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);

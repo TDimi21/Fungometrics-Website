@@ -21,9 +21,9 @@ class Practice extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['is_completed','team_id','user_id', 'started', 'finished', 'note', 'end_note', 'type', 'modes'];
+    protected $fillable = ['is_completed','team_id','user_id', 'started', 'finished', 'note', 'end_note', 'type', 'modes', 'is_scripted'];
 
-    protected $casts = ['id' => 'string', 'is_completed' => 'boolean'];
+    protected $casts = ['id' => 'string', 'is_completed' => 'boolean', 'is_scripted' => 'boolean'];
 
     public function lineup(): HasMany
     {
@@ -34,25 +34,25 @@ class Practice extends Model
         return $this->hasOne(Team::class, 'id', 'team_id');
     }
 
-  public function longToss(): HasMany
-  {
-      return $this->hasMany(LongTossPractice::class);
-  }
+    public function longToss(): HasMany
+    {
+        return $this->hasMany(LongTossPractice::class);
+    }
 
-  public function liveABTeams(): HasMany
-  {
-      return $this->hasMany(TeamsLiveAB::class);
-  }
+    public function liveABTeams(): HasMany
+    {
+        return $this->hasMany(TeamsLiveAB::class);
+    }
 
-  public function cageMeta(): HasOne
-  {
-      return $this->hasOne(CagePracticeMeta::class);
-  }
+    public function cageMeta(): HasOne
+    {
+        return $this->hasOne(CagePracticeMeta::class);
+    }
 
-  public function batting(): HasMany
-  {
-      return $this->hasMany(BattingPracticeResult::class);
-  }
+    public function batting(): HasMany
+    {
+        return $this->hasMany(BattingPracticeResult::class);
+    }
 
     public function bullpen(): HasMany
     {

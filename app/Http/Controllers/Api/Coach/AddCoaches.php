@@ -9,6 +9,7 @@ use App\Events\UserCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
 use App\Models\CoachTeam;
+use App\Models\Team;
 use App\Models\Concerns\UserTypes;
 use App\Models\User;
 use App\Services\CreateServiceData;
@@ -33,6 +34,9 @@ class AddCoaches extends Controller
             $teamId = $data['team'];
             $actor = $request->user();
             $changedEventData = null;
+
+            // The team row is the capacity mutex for all coach-seat writes.
+            Team::query()->whereKey($teamId)->lockForUpdate()->firstOrFail();
 
             // ── Role gate: only the head coach manages coach seats ──
             if ( ! CoachUtils::isHeadCoach($actor->id, $teamId)) {

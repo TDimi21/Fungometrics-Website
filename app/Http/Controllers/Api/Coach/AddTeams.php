@@ -50,7 +50,9 @@ class AddTeams extends Controller
         try {
             DB::beginTransaction();
 
-            $coach = $request->user();
+            // Serialize team-capacity checks for this coach. Without this lock,
+            // two concurrent requests can both pass the count below.
+            $coach = User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             $teamLimit = app(EntitlementResolver::class)->getAccessSummary($coach)['limits']['teams'] ?? null;
             if (null !== $teamLimit) {
                 $teamCount = CoachTeam::query()->where('coach_id', $coach->id)

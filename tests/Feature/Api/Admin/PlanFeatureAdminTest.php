@@ -31,7 +31,8 @@ class PlanFeatureAdminTest extends TestCase
             ->assertJsonFragment(['key' => 'free', 'display_name' => 'Free'])
             ->assertJsonStructure(['data' => ['plans', 'feature_groups', 'system_capabilities', 'limit_metadata']]);
         $this->getJson('/api/admin/billing/entitlements')->assertOk()
-            ->assertJsonFragment(['key' => 'scripted_bp', 'audience' => 'coach']);
+            ->assertJsonFragment(['key' => 'scripted_bp', 'audience' => 'coach'])
+            ->assertJsonStructure(['data' => ['coverage', 'coverage_summary' => ['total', 'by_status', 'limits', 'system_capabilities']]]);
     }
 
     public function test_admin_update_is_immediate_versioned_and_audited(): void

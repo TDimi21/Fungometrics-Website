@@ -21,7 +21,10 @@ class AddCoachTest extends TestCase
 {
     public function test_add_coach_ok(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create([
+            'type' => UserTypes::COACH->value,
+            'subscription_plan' => 'free',
+        ]);
         $team_coach = Team::factory()->create();
         CoachTeam::factory()->create([
             'coach_id' => $user->id,
@@ -96,7 +99,10 @@ class AddCoachTest extends TestCase
 
     public function test_add_coach_blocked_at_seat_limit(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create([
+            'type' => UserTypes::COACH->value,
+            'subscription_plan' => 'free',
+        ]);
         $team = Team::factory()->create();
         // Head coach (1 seat) on a non-pro plan.
         CoachTeam::factory()->create([
@@ -120,6 +126,26 @@ class AddCoachTest extends TestCase
         ]);
         $response->assertForbidden();
         $this->assertSame('005-LIMIT', $response->json('code'));
+    }
+
+    public function test_coach_pro_unlimited_seats_allow_another_coach(): void
+    {
+        $user = User::factory()->create([
+            'type' => UserTypes::COACH->value,
+            'subscription_plan' => 'coach_pro',
+        ]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $user->id, 'team_id' => $team->id, 'is_main' => true]);
+        CoachTeam::factory()->count(8)->create(['team_id' => $team->id, 'is_main' => false]);
+        Sanctum::actingAs($user, [UserTypes::COACH->value]);
+
+        $this->json('POST', 'api/coach/add/coaches', [
+            'phone' => fake()->unique()->phoneNumber,
+            'team' => $team->id,
+            'name' => ['first' => fake()->firstName, 'last' => fake()->lastName],
+        ])->assertOk();
+
+        $this->assertSame(10, CoachTeam::query()->where('team_id', $team->id)->count());
     }
 
     public function test_add_exist_coach_validations(): void

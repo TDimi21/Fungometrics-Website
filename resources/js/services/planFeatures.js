@@ -8,6 +8,8 @@ export function createPlanFeaturesApi(axiosGet, axiosPut) {
       return {
         ...plans.data.data,
         entitlements: entitlements.data.data.entitlements,
+        coverage: entitlements.data.data.coverage || [],
+        coverage_summary: entitlements.data.data.coverage_summary || null,
       }
     },
     async update(plan, payload) {

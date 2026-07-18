@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SubscriptionAudit;
 use App\Models\SubscriptionPlan;
+use App\Services\Access\EntitlementCoverageRegistry;
 use App\Services\Access\PlanFeatureManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,9 +24,13 @@ class PlanFeatureAdminController extends Controller
         ]);
     }
 
-    public function entitlements(): JsonResponse
+    public function entitlements(EntitlementCoverageRegistry $registry): JsonResponse
     {
-        return $this->ok(['entitlements' => array_values(config('entitlements.items', []))]);
+        return $this->ok([
+            'entitlements' => array_values(config('entitlements.items', [])),
+            'coverage' => $registry->all(),
+            'coverage_summary' => $registry->summary(),
+        ]);
     }
 
     public function update(Request $request, string $plan, PlanFeatureManager $manager): JsonResponse

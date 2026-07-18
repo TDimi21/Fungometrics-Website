@@ -10,6 +10,7 @@ const { axiosGet, axiosPut } = useAxiosAuth()
 const api = createPlanFeaturesApi(axiosGet, axiosPut)
 const plans = ref([])
 const catalog = ref([])
+const coverage = ref([])
 const groups = ref([])
 const activeKey = ref('coach_pro')
 const draft = ref(null)
@@ -21,6 +22,7 @@ const success = ref('')
 
 const activePlan = computed(() => plans.value.find(plan => plan.key === activeKey.value) || null)
 const activeCatalog = computed(() => catalog.value.filter(item => item.audience === 'shared' || item.audience === activePlan.value?.audience))
+const coverageByKey = computed(() => Object.fromEntries(coverage.value.map(item => [item.key, item.coverage])))
 const dirty = computed(() => draft.value && activePlan.value && JSON.stringify(draft.value) !== JSON.stringify({
   entitlements: activePlan.value.entitlements,
   limits: activePlan.value.limits,
@@ -45,8 +47,10 @@ function selectPlan(key) {
 
 function isEnabled(key) { return draft.value?.entitlements.includes(key) }
 function isImmutable(key) { return activePlan.value?.immutable_entitlements.includes(key) }
+function implementation(key) { return coverageByKey.value[key] || { implementation_status: 'not_implemented', gaps: ['missing_coverage'] } }
+function isIncomplete(key) { return implementation(key).implementation_status !== 'fully_wired' }
 function toggle(key) {
-  if (isImmutable(key) || activePlan.value?.legacy) return
+  if (isImmutable(key) || isIncomplete(key) || activePlan.value?.legacy) return
   draft.value.entitlements = isEnabled(key)
     ? draft.value.entitlements.filter(item => item !== key)
     : [...draft.value.entitlements, key].sort()
@@ -61,6 +65,7 @@ async function load() {
     plans.value = response.plans
     groups.value = response.feature_groups
     catalog.value = response.entitlements
+    coverage.value = response.coverage
     if (!plans.value.some(plan => plan.key === activeKey.value)) activeKey.value = plans.value[0]?.key
     resetDraft(plans.value.find(plan => plan.key === activeKey.value))
   } catch (e) {
@@ -144,18 +149,25 @@ onMounted(load)
       <div v-for="group in groups" :key="group" class="mb-5" v-show="byGroup(group).length">
         <h2 class="text-white/40 text-xs font-black uppercase tracking-widest mb-2">{{ group }}</h2>
         <div class="space-y-1">
-          <button v-for="item in byGroup(group)" :key="item.key" class="w-full flex items-center gap-3 text-left p-3 rounded-xl border"
-            :class="isEnabled(item.key) ? 'border-white/15 bg-white/5' : 'border-white/5 opacity-60'"
-            :disabled="activePlan.legacy || isImmutable(item.key)" @click="toggle(item.key)">
-            <span class="w-10 h-6 rounded-full p-0.5" :class="isEnabled(item.key) ? 'bg-app-red' : 'bg-white/15'">
-              <span class="block w-5 h-5 bg-white rounded-full transition-transform" :class="isEnabled(item.key) ? 'translate-x-4' : ''"></span>
-            </span>
-            <span class="flex-1">
-              <span class="block text-white text-sm font-semibold">{{ item.display_name }}</span>
-              <span class="block text-white/35 text-xs">{{ item.description }}</span>
-            </span>
-            <span v-if="isImmutable(item.key)" class="text-xs text-amber-300">Required</span>
-          </button>
+          <div v-for="item in byGroup(group)" :key="item.key">
+            <button class="w-full flex items-center gap-3 text-left p-3 rounded-xl border"
+              :class="isEnabled(item.key) ? 'border-white/15 bg-white/5' : 'border-white/5 opacity-60'"
+              :disabled="activePlan.legacy || isImmutable(item.key) || isIncomplete(item.key)" @click="toggle(item.key)">
+              <span class="w-10 h-6 rounded-full p-0.5" :class="isEnabled(item.key) ? 'bg-app-red' : 'bg-white/15'">
+                <span class="block w-5 h-5 bg-white rounded-full transition-transform" :class="isEnabled(item.key) ? 'translate-x-4' : ''"></span>
+              </span>
+              <span class="flex-1">
+                <span class="block text-white text-sm font-semibold">{{ item.display_name }}</span>
+                <span class="block text-white/35 text-xs">{{ item.description }}</span>
+              </span>
+              <span v-if="isImmutable(item.key)" class="text-xs text-amber-300">Required</span>
+              <span v-else-if="isIncomplete(item.key)" class="text-right text-xs text-amber-300">
+                Incomplete · {{ implementation(item.key).implementation_status }}
+              </span>
+            </button>
+            <p v-for="gap in implementation(item.key).gaps" v-show="isIncomplete(item.key)" :key="`${item.key}-${gap}`"
+              class="mt-1 mb-2 px-3 text-[11px] text-white/35">{{ gap }}</p>
+          </div>
         </div>
       </div>
 

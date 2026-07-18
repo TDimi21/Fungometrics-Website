@@ -40,8 +40,10 @@ class AddNewSession extends Controller
             if (isset($dataRequest['team'])) {
                 $dataRequest['team_id'] = $dataRequest['team'];
             }
-            $dataRequest['modes'] = $dataRequest['modes']??PracticeModes::HIT_OR_PITCH->value;
-            $dataRequest['type'] = $dataRequest['type']??PracticeTypes::TRAINING->value;
+            $dataRequest['modes'] = $dataRequest['modes'] ?? PracticeModes::HIT_OR_PITCH->value;
+            $dataRequest['type'] = $dataRequest['type'] ?? PracticeTypes::TRAINING->value;
+            $dataRequest['is_scripted'] = (bool) ($dataRequest['scripted'] ?? false);
+            unset($dataRequest['scripted']);
 
             $practice = (new CreateServiceData(new Practice()))->handle($dataRequest);
             $metaCage = null;

@@ -51,6 +51,7 @@ class PracticeSessionResource extends JsonResource
             'end_note' => $this['practice']->end_note,
             'type' => $this['practice']->type,
             'modes' => $this['practice']->modes,
+            'is_scripted' => (bool) $this['practice']->is_scripted,
             'players' => PracticePlayersResource::collection($this['players']),
             'cage_data' => $cage
         ];

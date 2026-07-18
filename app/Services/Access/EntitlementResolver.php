@@ -89,6 +89,7 @@ class EntitlementResolver
 
         return [
             'plan' => $effective['plan'],
+            'audience' => $audience,
             'status' => $effective['status'],
             'source' => $effective['source'],
             'provider' => $effective['provider'],

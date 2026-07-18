@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
 use App\Models\Player;
 use App\Models\PlayerTeam;
+use App\Models\Team;
 use App\Models\User;
 use App\Services\ListServiceData;
 use Exception;
@@ -32,6 +33,11 @@ class AddPlayers extends Controller
 
             // ── Player limit enforcement ──
             $teamId = $data['team'] ?? null;
+            if ($teamId) {
+                // Serialize capacity checks for this team so concurrent invites
+                // cannot both observe the same remaining seat.
+                Team::query()->whereKey($teamId)->lockForUpdate()->firstOrFail();
+            }
             $playerLimit = $teamId ? CoachUtils::playerLimit($teamId) : null;
             if ($teamId && null !== $playerLimit) {
                 $currentCount = PlayerTeam::where('team_id', $teamId)
