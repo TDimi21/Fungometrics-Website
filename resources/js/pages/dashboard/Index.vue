@@ -349,10 +349,12 @@ const teamLeaders = computed(() => [
 const leaderboardServer = ref(null)
 const leaderboardLoading = ref(false)
 const leaderboardError = ref('')
+let leaderboardRequestId = 0
 const fmtWallNum = (v) => (v == null || v === '' ? '—' : (Number.isInteger(Number(v)) ? String(Number(v)) : (Math.round(Number(v) * 10) / 10).toFixed(1)))
 
 const loadLeaderboard = async () => {
   if (!canViewPerformanceOverview.value || !getActiveTeamIdCandidates().length) return
+  const requestId = ++leaderboardRequestId
   leaderboardLoading.value = true
   leaderboardError.value = ''
   leaderboardServer.value = null
@@ -360,12 +362,14 @@ const loadLeaderboard = async () => {
     const { data } = await withTeamIdFallbackGet((id) => `coach/leaderboard/${id}?range=${top10Range.value}`)
     const cats = data?.data?.categories
     if (data?.status !== 'success' || !Array.isArray(cats)) throw new Error(data?.message || 'Leaderboard data is unavailable.')
+    if (requestId !== leaderboardRequestId) return
     leaderboardServer.value = cats
     writeDashboardCache({ top10Range: top10Range.value })
   } catch (e) {
+    if (requestId !== leaderboardRequestId) return
     leaderboardError.value = e?.response?.data?.message || e?.message || 'Leaderboard data is unavailable.'
   } finally {
-    leaderboardLoading.value = false
+    if (requestId === leaderboardRequestId) leaderboardLoading.value = false
   }
 }
 
@@ -409,6 +413,23 @@ const perf = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null,
 const perfDetail = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null })
 const perfUnavailableTeams = ref({})
 const canViewPerformanceOverview = computed(() => access.canAccess('performance_overview'))
+
+// Access entitlements are loaded asynchronously. If the first dashboard load
+// runs before access is ready, loadLeaderboard exits early; watch both inputs so
+// the paid leaderboard is fetched as soon as it is actually available.
+watch(
+  [canViewPerformanceOverview, activeTeamId],
+  ([allowed, teamId]) => {
+    ++leaderboardRequestId
+    leaderboardServer.value = null
+    leaderboardError.value = ''
+    leaderboardLoading.value = false
+    if (allowed && teamId) {
+      loadLeaderboard().catch(e => console.warn('loadLeaderboard access/team refresh error:', e?.message ?? e))
+    }
+  },
+  { immediate: true }
+)
 
 const clearPerformanceOverview = () => {
   perf.value = { batting: null, bullpen: null, cage: null, ev: null, lt: null, wb: null }
@@ -2394,7 +2415,6 @@ watch(
       getStaticChartData().catch(e => console.warn('getStaticChartData error:', e?.message ?? e)) // contact_spray → velocity field
       fetchTeamInsight().catch(e => console.warn('fetchTeamInsight error:', e?.message ?? e))
       ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards preload error:', e?.message ?? e))
-      loadLeaderboard().catch(e => console.warn('loadLeaderboard error:', e?.message ?? e))
     }, 800)
   },
   { immediate: true }
