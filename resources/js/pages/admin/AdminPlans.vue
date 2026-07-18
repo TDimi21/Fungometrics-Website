@@ -70,7 +70,7 @@ async function load() {
     if (!plans.value.some(plan => plan.key === activeKey.value)) activeKey.value = plans.value[0]?.key
     resetDraft(plans.value.find(plan => plan.key === activeKey.value))
   } catch (e) {
-    error.value = e?.response?.data?.message || 'Unable to load authoritative plan features.'
+    error.value = e?.response?.data?.message || e?.message || 'Unable to load authoritative plan features.'
   } finally {
     loading.value = false
   }
@@ -122,6 +122,7 @@ onMounted(load)
     <p class="text-white/40 text-xs mb-5">Laravel is authoritative. Saved changes affect access on the next refresh.</p>
 
     <p v-if="loading" class="text-white/60 py-10 text-center">Loading authoritative matrix…</p>
+    <div v-else-if="error" class="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{{ error }}</div>
     <p v-else-if="!plans.length" class="text-white/60 py-10 text-center">No plans are available.</p>
     <template v-else>
       <div class="flex gap-1.5 mb-4 flex-wrap">
