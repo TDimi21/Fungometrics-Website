@@ -14,10 +14,12 @@ use App\Models\Team;
 use App\Models\User;
 use App\Models\WeightBallPractice;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class GetWeightBallPracticeResultsTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
     public function test_get_statistics_weight_ball_ok(): void
     {
         $user = User::factory()->create();

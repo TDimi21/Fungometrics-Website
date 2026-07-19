@@ -14,5 +14,11 @@ class BillingEvent extends Model
     public $incrementing = false;
     protected $keyType = 'string';
     protected $guarded = [];
-    protected $casts = ['payload' => 'array', 'processed_at' => 'datetime'];
+    protected $casts = [
+        'payload' => 'array',
+        'processed_at' => 'datetime',
+        'last_attempted_at' => 'datetime',
+        'next_retry_at' => 'datetime',
+        'processing_attempts' => 'integer',
+    ];
 }

@@ -14,10 +14,12 @@ use App\Models\Profile;
 use App\Models\Team;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class GetExitVelocityPracticeResultsTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
     public function test_get_statistics_exit_velocity_ok(): void
     {
         $user = User::factory()->create();

@@ -9,8 +9,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Auth\RegisterPlayerRequest;
 use App\Models\Concerns\LevelTypes;
 use App\Models\Concerns\UserTypes;
+use App\Models\AccountClaim;
 use App\Models\Player;
-use App\Models\User;
+use App\Services\Security\AccountClaimService;
 use App\Services\UploadS3File;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -25,10 +26,13 @@ class CompletePlayerController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function __invoke(RegisterPlayerRequest $request, User $user): JsonResponse
+    public function __invoke(RegisterPlayerRequest $request, AccountClaimService $claims): JsonResponse
     {
         try {
             DB::beginTransaction();
+            /** @var AccountClaim $claim */
+            $claim = $request->attributes->get('account_claim');
+            $user = $claim->user;
             $url = UploadS3File::getUrl($request->picture, '/players');
 
             $user->update([
@@ -67,6 +71,7 @@ class CompletePlayerController extends Controller
 
             $position_response = PlayerUtils::savePositionsPlayer($request, $user->id);
             PlayerUtils::createPlayerFitness($user);
+            $claims->consume($claim, $request);
 
 
             $response = [

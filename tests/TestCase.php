@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use App\Models\CoachTeam;
+use App\Models\PlayerTeam;
+use App\Models\Team;
+use App\Models\User;
 use App\Support\TestingDatabaseSafety;
+use BackedEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Foundation\Testing\WithFaker;
@@ -24,5 +29,26 @@ abstract class TestCase extends BaseTestCase
         TestingDatabaseSafety::assertSafe($environment, $database, $approved);
 
         parent::setUp();
+    }
+
+    protected function grantTeamAccess(User $user, Team $team): void
+    {
+        $type = $user->type instanceof BackedEnum ? $user->type->value : (string) $user->type;
+
+        if ('coach' === $type) {
+            CoachTeam::factory()->create([
+                'coach_id' => $user->id,
+                'team_id' => $team->id,
+                'is_main' => true,
+            ]);
+
+            return;
+        }
+
+        PlayerTeam::factory()->create([
+            'user_id' => $user->id,
+            'team_id' => $team->id,
+            'actual' => true,
+        ]);
     }
 }

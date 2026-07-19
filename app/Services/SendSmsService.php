@@ -21,7 +21,8 @@ class SendSmsService
         $message = 'Welcome to http://www.fungometrics.com',
         $practice=null,
         $type = 'create_profile',
-        $user=null
+        $user=null,
+        bool $sensitive = false
     ): bool {
         try {
             $client = self::smsClient();
@@ -29,14 +30,16 @@ class SendSmsService
                 'from' => config('services.twilio.number'),
                 'body' => $message,
             ]);
-            Log::info('sms response ok', collect($client?->messages)->toArray());
+            if ( ! $sensitive) {
+                Log::info('sms response ok', collect($client?->messages)->toArray());
+            }
             (new CreateServiceData(new SmsLog()))->handle([
                 'user_id' => $user??Auth::id(),
                 'practice_id' => $practice,
                 'type' => $type,
                 'phone' => $phone,
-                'message' => $message,
-                'response' => $client,
+                'message' => $sensitive ? '[redacted security message]' : $message,
+                'response' => $sensitive ? null : $client,
                 'status' => true,
             ]);
 

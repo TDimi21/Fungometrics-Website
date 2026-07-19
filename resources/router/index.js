@@ -3,6 +3,7 @@ import { useAuthStore } from "../js/store/auth";
 import { useUserStore } from "../js/store/user";
 import { useAccessStore } from "../js/store/access";
 import { getAuthToken } from "../js/utils/authToken.js";
+import { canManageSubscriptions } from "../js/utils/administration.js";
 
 //Guest components
 const Welcome = () => import("@/pages/Welcome.vue");
@@ -47,10 +48,6 @@ const AdminDashboard   = () => import('@/pages/admin/AdminDashboard.vue');
 const AdminUsers       = () => import('@/pages/admin/AdminUsers.vue');
 const AdminUserDetail  = () => import('@/pages/admin/AdminUserDetail.vue');
 const AdminTeams       = () => import('@/pages/admin/AdminTeams.vue');
-const AdminRoles       = () => import('@/pages/admin/AdminRoles.vue');
-const AdminSecurity    = () => import('@/pages/admin/AdminSecurity.vue');
-const AdminAuditLogs   = () => import('@/pages/admin/AdminAuditLogs.vue');
-const AdminReports     = () => import('@/pages/admin/AdminReports.vue');
 const AdminPlans       = () => import('@/pages/admin/AdminPlans.vue');
 const Purchase = () => import('@/pages/Purchase.vue');
 
@@ -374,10 +371,6 @@ const routes = [
   { name: 'admin.players',    path: '/admin/players',        component: AdminUsers,      meta: { requiresAuth: true } },
   { name: 'admin.user-detail',path: '/admin/users/:id',      component: AdminUserDetail, meta: { requiresAuth: true }, props: true },
   { name: 'admin.teams',      path: '/admin/teams',          component: AdminTeams,      meta: { requiresAuth: true } },
-  { name: 'admin.roles',      path: '/admin/roles',          component: AdminRoles,      meta: { requiresAuth: true } },
-  { name: 'admin.security',   path: '/admin/security',       component: AdminSecurity,   meta: { requiresAuth: true } },
-  { name: 'admin.auditlogs',  path: '/admin/audit-logs',     component: AdminAuditLogs,  meta: { requiresAuth: true } },
-  { name: 'admin.reports',    path: '/admin/reports',        component: AdminReports,    meta: { requiresAuth: true } },
   { name: 'admin.plans',      path: '/admin/plans',          component: AdminPlans,      meta: { requiresAuth: true } },
 
   /* only for redundant player options */
@@ -415,7 +408,6 @@ const syncAuthFromToken = () => {
 	const auth = useAuthStore();
 	const token = getAuthToken();
 	if (token) {
-		auth.setToken(token);
 		auth.isLogged.status = true;
 		return true;
 	}
@@ -473,8 +465,7 @@ router.beforeEach((to, from, next) => {
 
 	if (to.matched.some((record) => record.meta.guest)) {
 		if (isAuthenticated) {
-			const adminEmail = String(userData?.email || '').toLowerCase();
-			if (adminEmail === 'admin@fungometrics.com') {
+			if (canManageSubscriptions(userData)) {
 				next('/admin');
 			} else if (userData.type == "coach") {
 				next("/dashboard");
@@ -491,8 +482,7 @@ router.beforeEach((to, from, next) => {
 
 router.beforeEach((to, from, next) => {
 	const { userData } = useUserStore();
-	const email = String(userData?.email || '').toLowerCase();
-	const isAdmin = email === 'admin@fungometrics.com';
+	const isAdmin = canManageSubscriptions(userData);
 
 	if (to.path.startsWith('/admin')) {
 		if (!isAdmin) {

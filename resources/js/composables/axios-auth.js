@@ -1,10 +1,18 @@
 import axios from "axios"
 import { getAuthToken } from '@/utils/authToken.js'
 
+export const isEntitlementForbidden = error =>
+  error?.response?.status === 403
+  && typeof error?.response?.data?.required_entitlement === 'string'
+  && error.response.data.required_entitlement.length > 0
+
 export const useAxiosAuth = () => {
   const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
   const withAccessRefreshSignal = promise => promise.catch(error => {
-    if (error?.response?.status === 403 && typeof window !== 'undefined') {
+    if (
+      isEntitlementForbidden(error)
+      && typeof window !== 'undefined'
+    ) {
       window.dispatchEvent(new CustomEvent('fmtrx-access-forbidden'))
     }
     throw error
@@ -24,7 +32,8 @@ export const useAxiosAuth = () => {
 
   const axiosPost = (url, data) => {
     return withAccessRefreshSignal(axios.post(apiBaseUrl + url, data,{
-      headers: authHeaders()
+      headers: authHeaders(),
+      withCredentials: true,
 
     }))
   }
@@ -34,18 +43,21 @@ export const useAxiosAuth = () => {
       params: {
         ...data
       },
-      headers: authHeaders()
+      headers: authHeaders(),
+      withCredentials: true,
     }))
   }
   const axiosPut = (url, data) => {
     return withAccessRefreshSignal(axios.put(apiBaseUrl + url, data,{
-      headers: authHeaders()
+      headers: authHeaders(),
+      withCredentials: true,
 
     }))
   }
   const axiosDelete = (url, id) => {
     return withAccessRefreshSignal(axios.delete(apiBaseUrl + url + id, {
-      headers: authHeaders()
+      headers: authHeaders(),
+      withCredentials: true,
     }))
   }
   return {

@@ -14,10 +14,12 @@ use App\Models\Team;
 use App\Models\User;
 use App\Models\WeightBallPractice;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class GetTopTenThrowTrainingResultsTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
     public function test_get_dashboard_throw_trainings_ok(): void
     {
         $user = User::factory()->create([

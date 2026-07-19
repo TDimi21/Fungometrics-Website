@@ -13,11 +13,12 @@ import { plugin, defaultConfig } from '@formkit/vue'
 import { generateClasses } from '@formkit/themes'
 import {themeFormkit} from "./utils/theme";
 import { getUiTheme, applyUiTheme } from "./composables/useUiTheme";
-import { getAuthToken, migrateLegacyAuthToken } from "./utils/authToken.js";
+import { migrateLegacyAuthToken } from "./utils/authToken.js";
 import 'vue3-carousel/dist/carousel.css'
 import JsonExcel from "vue-json-excel3";
 import VueApexCharts from 'vue3-apexcharts'
 import { useAccessStore } from '@/store/access.js'
+import { useAuthStore } from '@/store/auth.js'
 import { useTeamStore } from '@/store/team.js'
 import { storeToRefs } from 'pinia'
 import { watch } from 'vue'
@@ -57,11 +58,12 @@ app.use(pinia)
 app.use(Router)
 
 const access = useAccessStore(pinia)
+const auth = useAuthStore(pinia)
 const teamStore = useTeamStore(pinia)
 const { team } = storeToRefs(teamStore)
 const activeTeamId = () => team.value?.id_team ?? team.value?.id ?? null
 const refreshAndEnforceAccess = async () => {
-  if (!getAuthToken()) return
+  if (!auth.isLogged.status) return
   try {
     await access.refresh({ team_id: activeTeamId() })
     const required = routeEntitlement(Router.currentRoute.value)

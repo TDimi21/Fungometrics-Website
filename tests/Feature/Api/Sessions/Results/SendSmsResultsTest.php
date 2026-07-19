@@ -215,8 +215,10 @@ class SendSmsResultsTest extends TestCase
     {
         $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
+        $team = Team::factory()->create();
+        $this->grantTeamAccess($user, $team);
         $practice = Practice::factory()->create([
-            'team_id' => Team::factory()->create()->id,
+            'team_id' => $team->id,
             'type' => PracticeTypes::BULLPEN->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,
         ]);

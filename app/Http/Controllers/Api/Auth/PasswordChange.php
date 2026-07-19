@@ -27,6 +27,10 @@ class PasswordChange extends Controller
             $this->validatedPassword($password, $changeData);
             $user->password = Hash::make($request->input('password'));
             $user->save();
+            // A password change is a security boundary. Revoke every API
+            // session so a copied or previously issued token cannot continue
+            // to access the account with the old credentials.
+            $user->tokens()->delete();
 
             $response = [
                 'code' => '055',

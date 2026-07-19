@@ -8,8 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Auth\RegisterCoachRequest;
 use App\Models\Concerns\LevelTypes;
 use App\Models\Concerns\UserTypes;
+use App\Models\AccountClaim;
 use App\Models\Profile;
-use App\Models\User;
+use App\Services\Security\AccountClaimService;
 use App\Services\UploadS3File;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -24,10 +25,13 @@ class CompleteCoachController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function __invoke(RegisterCoachRequest $request, User $user): JsonResponse
+    public function __invoke(RegisterCoachRequest $request, AccountClaimService $claims): JsonResponse
     {
         try {
             DB::beginTransaction();
+            /** @var AccountClaim $claim */
+            $claim = $request->attributes->get('account_claim');
+            $user = $claim->user;
             //  $url = UploadS3File::getUrl($request->logo, '/teams');
 
             $user->update([
@@ -47,6 +51,7 @@ class CompleteCoachController extends Controller
                     'zip' => $request->get('zip'),
                 ]
             );
+            $claims->consume($claim, $request);
 
             $response = [
                 'code' => 'code',

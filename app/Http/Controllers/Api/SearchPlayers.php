@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SearchPlayersResource;
+use App\Models\CoachTeam;
+use App\Services\Access\AdministrativeAccess;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +18,10 @@ use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
 class SearchPlayers extends Controller
 {
+    public function __construct(private AdministrativeAccess $administrativeAccess)
+    {
+    }
+
     /**
      * @param  Request  $request
      * @return JsonResponse
@@ -25,8 +31,23 @@ class SearchPlayers extends Controller
         try {
             $name  = trim((string) ($request->name  ?? ''));
             $phone = trim((string) ($request->phone ?? ''));
+            $isAdmin = $this->administrativeAccess->canManageSubscriptions($request->user());
+            $meaningfulLength = max(mb_strlen($name), mb_strlen(preg_replace('/\D+/', '', $phone) ?? ''));
 
-            $uniqueResults = $this->getDataFromNameAndPhone($phone, $name);
+            if ( ! $isAdmin && $meaningfulLength < 3) {
+                return response()->json([
+                    'code' => '042-V',
+                    'message' => 'Enter at least 3 characters to search players.',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $teamIds = $isAdmin
+                ? null
+                : CoachTeam::query()->where('coach_id', $request->user()->id)->pluck('team_id')->all();
+            $uniqueResults = $this->getDataFromNameAndPhone($phone, $name, $teamIds, $isAdmin);
+            $request->attributes->set('include_search_contact', $isAdmin);
             $responseData  = collect(SearchPlayersResource::collection($uniqueResults));
             $paginatedPage = $this->paginator($responseData, 15);
 
@@ -56,7 +77,12 @@ class SearchPlayers extends Controller
      * @param  string  $name
      * @return mixed
      */
-    public function getDataFromNameAndPhone(string $phone, string $name): mixed
+    public function getDataFromNameAndPhone(
+        string $phone,
+        string $name,
+        ?array $allowedTeamIds = null,
+        bool $includeSensitive = false
+    ): mixed
     {
         $hasFilter = $phone !== '' || $name !== '';
 
@@ -88,6 +114,10 @@ class SearchPlayers extends Controller
             // Exclude dummy/scout players — they exist only as offline opponents.
             ->where('u.is_dummy', '=', false);
 
+        if (null !== $allowedTeamIds) {
+            $query->whereIn('t.id', $allowedTeamIds);
+        }
+
         if ($hasFilter) {
             // When a search term is provided, filter by phone AND/OR name.
             // Also match players with NULL phone so they aren't silently excluded.
@@ -106,15 +136,17 @@ class SearchPlayers extends Controller
         $result = $query->get();
         $data   = $result->groupBy('id');
 
-        return $data->map(function ($group) {
+        return $data->map(function ($group) use ($includeSensitive) {
             // Filter out NULL team rows that appear because of LEFT JOIN
             $teamInfo = $group
                 ->filter(fn ($row) => $row->team_id !== null)
-                ->map(fn ($row) => [
-                    'id'        => $row->team_id,
-                    'name'      => $row->team_name,
-                    'join_code' => $row->team_join_code ?? '',
-                ]);
+                ->map(function ($row) use ($includeSensitive): array {
+                    $team = ['id' => $row->team_id, 'name' => $row->team_name];
+                    if ($includeSensitive) {
+                        $team['join_code'] = $row->team_join_code ?? '';
+                    }
+                    return $team;
+                });
 
             return [
                 'id'         => $group->first()->id,

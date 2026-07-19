@@ -39,10 +39,13 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
+            \App\Http\Middleware\SetSecurityHeaders::class,
         ],
 
         'api' => [
-            // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            \App\Http\Middleware\EncryptCookies::class,
+            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+            \App\Http\Middleware\UseApiTokenCookie::class,
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
@@ -72,5 +75,7 @@ class Kernel extends HttpKernel
         'scripted.practice' => \App\Http\Middleware\RequiresScriptedPracticeEntitlement::class,
         'session.entitlement' => \App\Http\Middleware\RequiresSessionEntitlement::class,
         'subscription.admin' => \App\Http\Middleware\EnsureSubscriptionAdmin::class,
+        'account.claim' => \App\Http\Middleware\ResolveAccountClaim::class,
+        'route.scope' => \App\Http\Middleware\AuthorizeRouteScope::class,
     ];
 }

@@ -12,6 +12,8 @@ export const useAuthStore = defineStore('auth',()=>{
     }
   },
   {
-    persist:true,
-    storage: localStorage
+    persist: {
+      storage: sessionStorage,
+      paths: ['isLogged'],
+    },
   });

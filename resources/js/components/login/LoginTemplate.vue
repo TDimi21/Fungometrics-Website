@@ -9,6 +9,7 @@ import {useAuthStore} from "../../store/auth";
 import {useUserStore} from "../../store/user"
 import {useTeamStore} from "../../store/team"
 import {usePlayerStore} from "../../store/players"
+import { exchangeWebToken } from '../../utils/webSession.js'
 const props = defineProps({
   backgroundImage: {
     type: String,
@@ -30,11 +31,13 @@ const formData = reactive({user: '', password: '', remember: false})
 const loginMode = ref(props.title === 'player' ? 'claim' : 'email')
 const claimForm = reactive({ phone: '', teamCode: '' })
 const claimStep = ref('find')
+const claimChallenge = reactive({ id: '', code: '' })
 const claimedSession = ref(null)
 const claimCredentials = reactive({ email: '', password: '', confirmPassword: '' })
 const isPlayerLogin = computed(() => props.title === 'player')
 const isClaimMode = computed(() => isPlayerLogin.value && loginMode.value === 'claim')
 const isClaimCredentialsStep = computed(() => isClaimMode.value && claimStep.value === 'credentials')
+const isClaimVerificationStep = computed(() => isClaimMode.value && claimStep.value === 'verify')
 
 const normalizeDigits = (value) => String(value || '').replace(/\D+/g, '')
 
@@ -50,7 +53,8 @@ const getSessionCountForTeam = async (api_url, token, teamLike) => {
   for (const id of ids) {
     try {
       const res = await axios.get(api_url + 'coach/sessions/lasts/' + id, {
-        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       const d = res?.data?.data ?? {}
       return [
@@ -88,11 +92,12 @@ const applyAuthSession = async ({ payload, apiUrl }) => {
   const team = payload?.team || null
   const teams = user?.teams || []
 
-  if (!token || !user) {
+  if (!user) {
     throw new Error('missing auth payload')
   }
 
-  setToken(token)
+  await exchangeWebToken(apiUrl, token)
+  setToken('')
   isLogged.status = true
   await userStore.setData(user)
 
@@ -120,7 +125,13 @@ const userNeedsCredentials = (user) => {
 const submitForm = async () => {
   isLoading.status =!isLoading.status;
   const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
-  await axios.post(api_url + 'login', {email: formData.user.toLowerCase(), password: formData.password}
+  await axios.post(api_url + 'login', {email: formData.user.toLowerCase(), password: formData.password}, {
+    withCredentials: true,
+    headers: {
+      Accept: 'application/json',
+      'X-FMTRX-Client': 'web',
+    },
+  }
   ).then(async function (response) {
     isLoading.status =!isLoading.status;
     console.log('login', response.data.data);
@@ -132,19 +143,18 @@ const submitForm = async () => {
         title: 'Login User',
         text: response.data.message,
       })
-      setToken(response.data.data.token);
+      setToken('');
       await userStore.setData(response.data.data);
       if(response.data.data.type == 'player'){
         await router.push('/player-dashboard')
       }else{
         const teams = response?.data?.data?.teams ?? [];
-        const selectedTeam = await pickBestTeamForCoach(api_url, response.data.data.token, teams);
+        const selectedTeam = await pickBestTeamForCoach(api_url, null, teams);
         await teamStore.setTeam(selectedTeam ?? teams[0]);
         await teamStore.setTeams(teams);
         await playerStore.setPlayers(response.data.data.players);
 
-        const loginEmail = String(response.data.data.email || '').toLowerCase()
-        if (loginEmail === 'admin@fungometrics.com') {
+        if (response.data.data?.capabilities?.subscription_admin === true) {
           await router.push('/admin')
         } else {
           await router.push('/dashboard')
@@ -206,18 +216,44 @@ const submitClaimForm = async () => {
     const response = await axios.post(api_url + 'player/join', dataForm)
     const body = response?.data || {}
 
-    if (body?.status === 'not_registered') {
-      await toast.fire({
-        icon: 'warning',
-        title: 'Not Registered',
-        text: 'No account found with that phone number. Please create your player account first.',
-      })
+    if (body?.status !== 'verification_required' || !body?.data?.challenge_id) {
+      throw new Error(body?.message || 'Could not start verification')
+    }
+
+    claimChallenge.id = body.data.challenge_id
+    claimChallenge.code = ''
+    claimStep.value = 'verify'
+    await toast.fire({ icon: 'info', title: 'Verification Required', text: body.message })
+  } catch (error) {
+    const message = error?.response?.data?.message || error?.message || 'Could not claim profile. Please try again.'
+    await toast.fire({ icon: 'error', title: 'Claim Error', text: message })
+  } finally {
+    isLoading.status = true
+  }
+}
+
+const submitClaimVerification = async () => {
+  const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
+  if (!/^\d{6}$/.test(claimChallenge.code)) {
+    await toast.fire({ icon: 'warning', title: 'Verification', text: 'Enter the 6-digit code sent to your phone.' })
+    return
+  }
+
+  isLoading.status = false
+  try {
+    const response = await axios.post(api_url + 'player/join/verify', {
+      challenge_id: claimChallenge.id,
+      verification_code: claimChallenge.code,
+    })
+    const body = response?.data || {}
+
+    if (body?.status === 'registration_required') {
+      await toast.fire({ icon: 'info', title: 'Create Player Account', text: body.message })
       await router.push('/register/player')
       return
     }
-
     if (body?.status !== 'success' || !body?.data?.token) {
-      throw new Error(body?.message || 'Invalid phone number or team code')
+      throw new Error(body?.message || 'Verification failed')
     }
 
     const token = body?.data?.token
@@ -375,7 +411,7 @@ const submitClaimCredentials = async () => {
 </div>
       </FormKit>
 
-      <form v-else-if="!isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
+      <form v-else-if="!isClaimCredentialsStep && !isClaimVerificationStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
         <div class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-sm font-bold text-white mb-2">Mobile Number</label>
@@ -405,6 +441,28 @@ const submitClaimCredentials = async () => {
           <div class="grid place-content-center">
             <BigButtonField color="red" label="Claim Profile" type="submit"></BigButtonField>
           </div>
+        </div>
+      </form>
+
+      <form v-else-if="isClaimVerificationStep" class="w-full max-w-xl" @submit.prevent="submitClaimVerification">
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="block text-sm font-bold text-white mb-2">Verification Code</label>
+            <input
+              v-model="claimChallenge.code"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              autocomplete="one-time-code"
+              placeholder="123456"
+              class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2 tracking-[0.24em]"
+            />
+          </div>
+          <p class="text-xs text-white/75">Enter the one-time code sent to the supplied phone number.</p>
+          <div class="grid place-content-center">
+            <BigButtonField color="red" label="Verify and Join" type="submit"></BigButtonField>
+          </div>
+          <button type="button" class="text-xs font-bold text-white/80" @click="claimStep = 'find'">Start over</button>
         </div>
       </form>
 

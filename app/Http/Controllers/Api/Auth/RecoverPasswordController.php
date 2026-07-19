@@ -35,6 +35,7 @@ class RecoverPasswordController extends Controller
                 ]);
 
                 $user->save();
+                $user->tokens()->delete();
 
                 event(new PasswordReset($user));
             }

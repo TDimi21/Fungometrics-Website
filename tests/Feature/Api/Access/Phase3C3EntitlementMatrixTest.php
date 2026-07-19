@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\Access;
 
 use App\Models\CoachTeam;
+use App\Models\PlayerTeam;
 use App\Models\Subscription;
 use App\Models\SubscriptionAudit;
 use App\Models\SubscriptionPlan;
@@ -99,11 +100,11 @@ class Phase3C3EntitlementMatrixTest extends TestCase
         $this->getJson("/api/player/development/players/{$player->id}")->assertOk();
 
         $otherPlayer = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);
-        $this->getJson("/api/player/development/players/{$otherPlayer->id}")->assertForbidden();
+        $this->getJson("/api/player/development/players/{$otherPlayer->id}")->assertNotFound();
 
         $unrelatedTeam = Team::factory()->create();
         $this->getJson("/api/player/development/teams/{$unrelatedTeam->id}/players/{$player->id}")
-            ->assertForbidden();
+            ->assertNotFound();
 
         $freePlayer = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
         Sanctum::actingAs($freePlayer, ['player']);
@@ -114,6 +115,13 @@ class Phase3C3EntitlementMatrixTest extends TestCase
         $this->getJson("/api/player/development/players/{$freePlayer->id}")->assertForbidden();
 
         $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
+        $sharedTeam = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $sharedTeam->id]);
+        PlayerTeam::factory()->create([
+            'user_id' => $player->id,
+            'team_id' => $sharedTeam->id,
+            'actual' => true,
+        ]);
         Sanctum::actingAs($coach, ['coach']);
         $this->getJson("/api/player/development/players/{$player->id}")->assertForbidden();
     }
@@ -127,9 +135,14 @@ class Phase3C3EntitlementMatrixTest extends TestCase
         Sanctum::actingAs($coach, ['coach']);
 
         $this->getJson("/api/coach/performance-overview/{$ownedTeam->id}")->assertOk();
-        $this->getJson("/api/coach/performance-overview/{$unrelatedTeam->id}")->assertForbidden();
+        $this->getJson("/api/coach/performance-overview/{$unrelatedTeam->id}")->assertNotFound();
 
         $player = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);
+        PlayerTeam::factory()->create([
+            'user_id' => $player->id,
+            'team_id' => $ownedTeam->id,
+            'actual' => true,
+        ]);
         Sanctum::actingAs($player, ['player']);
         $this->getJson("/api/coach/performance-overview/{$ownedTeam->id}")->assertForbidden();
     }

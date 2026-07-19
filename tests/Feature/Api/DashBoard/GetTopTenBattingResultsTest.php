@@ -15,10 +15,12 @@ use App\Models\Profile;
 use App\Models\Team;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class GetTopTenBattingResultsTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
     public function test_get_dashboard_top_ten_batting_velocity_ok(): void
     {
         $user = User::factory()->create([

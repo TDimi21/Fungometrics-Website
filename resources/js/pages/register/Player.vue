@@ -11,6 +11,7 @@ import BannerPlayer from "../../assets/img/register/banner-player.jpg";
 import Loader from "../../components/Loader.vue";
 import axios from "axios";
 import {toast} from "../../utils/AlertPlugin";
+import { exchangeWebToken } from '../../utils/webSession.js'
 
 
 const {isLogged,setToken} = useAuthStore();
@@ -86,7 +87,8 @@ const submitPlayer = async () => {
         // dashboard instead of bouncing them to the login screen.
         const sessionUser = { ...user }
         if (!sessionUser.type) sessionUser.type = 'player'
-        setToken(token)
+        await exchangeWebToken(api_url, token)
+        setToken('')
         isLogged.status = true
         await userStore.setData(sessionUser)
 

@@ -13,6 +13,8 @@ use App\Http\Resources\Api\PlayerTeamResource;
 use App\Models\CoachTeam;
 use App\Models\Concerns\UserTypes;
 use App\Models\User;
+use App\Services\Access\AdministrativeAccess;
+use App\Services\Security\ApiTokenCookie;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Log;
@@ -22,7 +24,10 @@ class LoginController extends Controller
 {
     private RoasterUtils $getPlayerData;
 
-    public function __construct()
+    public function __construct(
+        private AdministrativeAccess $administrativeAccess,
+        private ApiTokenCookie $apiTokenCookie
+    )
     {
         $this->getPlayerData = new RoasterUtils();
     }
@@ -40,7 +45,11 @@ class LoginController extends Controller
               // request instead of the app retrying multiple email formats).
               $user = AuthUtils::authCredentials($request);
               $data = AuthUtils::createTokenFromUser($user);
-              $response_data->put('token', $data['token']);
+              $isWebClient = 'web' === $request->header('X-FMTRX-Client');
+              if ( ! $isWebClient) {
+                  $response_data->put('token', $data['token']);
+              }
+              $response_data->put('capabilities', $this->administrativeAccess->capabilities($user));
               if ($user->type === UserTypes::PLAYER->value) {
                   $response_data->put('player', $user->toArray());
                   $response_data->put('profile', $user->profile ? $user->profile->toArray() : []);
@@ -88,7 +97,11 @@ class LoginController extends Controller
                   'data' => $response,
               ];
 
-              return response()->json($response, HttpCodes::HTTP_OK);
+              $json = response()->json($response, HttpCodes::HTTP_OK);
+
+              return $isWebClient
+                  ? $this->apiTokenCookie->attach($json, $data['token'])
+                  : $json;
           } catch (Exception $exception) {
               $response = [
                   'code' => '001-E',

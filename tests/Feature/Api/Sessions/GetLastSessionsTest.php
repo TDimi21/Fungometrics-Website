@@ -14,10 +14,12 @@ use App\Models\Profile;
 use App\Models\Team;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class GetLastSessionsTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
     public function test_get_last_sessions_by_team_ok(): void
     {
         $user = User::factory()->create(['type' => UserTypes::COACH->value]);

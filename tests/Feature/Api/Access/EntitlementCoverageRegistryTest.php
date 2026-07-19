@@ -90,4 +90,17 @@ class EntitlementCoverageRegistryTest extends TestCase
         }
         $this->assertGreaterThan(0, $checked);
     }
+
+    public function test_registry_preserves_recorded_gaps_and_backend_enforcement_evidence(): void
+    {
+        $createSession = config('entitlement_coverage.entitlements.create_session');
+
+        $this->assertSame('disabled_incomplete', $createSession['implementation_status']);
+        $this->assertContains('backend_create_not_gated', $createSession['gaps']);
+        $this->assertContains(false, array_column($createSession['backend'], 'enforced'));
+
+        $scriptedBp = config('entitlement_coverage.entitlements.scripted_bp');
+        $this->assertSame('disabled_incomplete', $scriptedBp['implementation_status']);
+        $this->assertContains('web_entry_and_deep_link_not_gated', $scriptedBp['gaps']);
+    }
 }

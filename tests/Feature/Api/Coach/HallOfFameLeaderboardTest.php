@@ -164,7 +164,7 @@ class HallOfFameLeaderboardTest extends TestCase
 
         [$proCoach] = $this->coachTeam('coach_pro');
         Sanctum::actingAs($proCoach, ['coach']);
-        $this->getJson("/api/coach/leaderboard/{$team->id}")->assertForbidden();
+        $this->getJson("/api/coach/leaderboard/{$team->id}")->assertNotFound();
     }
 
     public function test_empty_team_keeps_the_complete_contract_and_validates_range(): void
@@ -180,6 +180,66 @@ class HallOfFameLeaderboardTest extends TestCase
         $this->getJson("/api/coach/leaderboard/{$team->id}?range=99")
             ->assertStatus(422)
             ->assertJsonPath('code', 'LB-V');
+    }
+
+    public function test_partial_tied_and_missing_data_are_ranked_without_inventing_values(): void
+    {
+        [$coach, $team] = $this->coachTeam('coach_pro');
+        $first = $this->player($team, 'Tie', 'One');
+        $second = $this->player($team, 'Tie', 'Two');
+        $missing = $this->player($team, 'Missing', 'Score');
+
+        foreach ([$first, $second] as $player) {
+            PlayerFitness::factory()->create([
+                'user_id' => $player->id,
+                'fitness_date' => now()->toDateString(),
+                'strength_score' => 90,
+            ]);
+        }
+        PlayerFitness::factory()->create([
+            'user_id' => $missing->id,
+            'fitness_date' => now()->toDateString(),
+            'strength_score' => null,
+        ]);
+
+        Sanctum::actingAs($coach, ['coach']);
+        $categories = collect($this->getJson("/api/coach/leaderboard/{$team->id}")
+            ->assertOk()->json('data.categories'));
+        $strength = $categories->firstWhere('key', 'strength');
+        $names = collect($strength['rows'])->pluck('name');
+
+        $this->assertCount(2, $strength['rows']);
+        $this->assertEqualsCanonicalizing(['Tie One', 'Tie Two'], $names->all());
+        $this->assertTrue(collect($strength['rows'])->every(fn (array $row) => 90.0 === (float) $row['value']));
+        $this->assertNotContains('Missing Score', $names->all());
+        $this->assertContains($strength['featured']['name'], ['Tie One', 'Tie Two']);
+    }
+
+    public function test_switching_between_authorized_teams_never_reuses_the_previous_team_wall(): void
+    {
+        [$coach, $firstTeam] = $this->coachTeam('coach_pro');
+        $secondTeam = Team::factory()->create(['name' => 'Second Team']);
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $secondTeam->id]);
+        $firstPlayer = $this->player($firstTeam, 'First', 'Leader');
+        $secondPlayer = $this->player($secondTeam, 'Second', 'Leader');
+
+        foreach ([[$firstTeam, $firstPlayer, 88], [$secondTeam, $secondPlayer, 99]] as [$team, $player, $velocity]) {
+            BattingPracticeResult::factory()->create([
+                'team_id' => $team->id,
+                'batter_id' => $player->id,
+                'velocity' => $velocity,
+                'created_at' => now(),
+            ]);
+        }
+
+        Sanctum::actingAs($coach, ['coach']);
+        $firstWall = collect($this->getJson("/api/coach/leaderboard/{$firstTeam->id}")
+            ->assertOk()->json('data.categories'))->firstWhere('key', 'max_ev');
+        $secondWall = collect($this->getJson("/api/coach/leaderboard/{$secondTeam->id}")
+            ->assertOk()->json('data.categories'))->firstWhere('key', 'max_ev');
+
+        $this->assertSame(['First Leader'], collect($firstWall['rows'])->pluck('name')->all());
+        $this->assertSame(['Second Leader'], collect($secondWall['rows'])->pluck('name')->all());
     }
 
     /** @return array{User, Team} */

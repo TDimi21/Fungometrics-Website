@@ -16,10 +16,12 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class FilterBattingTrainingsTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
     public function test_get_statistics_batting_results_all_ok(): void
     {
         $user = User::factory()->create([

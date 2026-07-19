@@ -40,17 +40,17 @@ class PlanFeatureAdminTest extends TestCase
         $admin = $this->admin();
         $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
         $plan = $this->plan('free');
-        $this->assertNotContains('scripted_bp', app(EntitlementResolver::class)->getEntitlements($coach));
+        $this->assertNotContains('performance_overview', app(EntitlementResolver::class)->getEntitlements($coach));
 
         $response = $this->putJson('/api/admin/billing/plans/free/entitlements', [
-            'entitlements' => [...$plan['entitlements'], 'scripted_bp'],
+            'entitlements' => [...$plan['entitlements'], 'performance_overview'],
             'limits' => ['players' => 12, 'coaches' => 5, 'teams' => 1],
             'version' => $plan['version'],
             'reason' => 'Acceptance test enablement',
             'correlation_id' => 'phase3c-test',
         ])->assertOk()->assertJsonPath('data.plan.limits.players', 12);
 
-        $this->assertContains('scripted_bp', app(EntitlementResolver::class)->getEntitlements($coach));
+        $this->assertContains('performance_overview', app(EntitlementResolver::class)->getEntitlements($coach));
         $this->assertSame(12, app(EntitlementResolver::class)->getAccessSummary($coach)['limits']['players']);
         $this->assertDatabaseHas('subscription_audits', [
             'actor_user_id' => $admin->id,
@@ -134,16 +134,19 @@ class PlanFeatureAdminTest extends TestCase
     public function test_runtime_route_gate_changes_without_subscription_or_token_changes(): void
     {
         $admin = $this->admin();
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $admin->id, 'team_id' => $team->id, 'is_main' => true]);
         $plan = $this->plan('free');
-        $this->getJson('/api/coach/daily-plans')->assertForbidden();
+        $this->getJson("/api/coach/performance-overview/{$team->id}")->assertForbidden();
 
         $this->putJson('/api/admin/billing/plans/free/entitlements', [
-            'entitlements' => [...$plan['entitlements'], 'planner_create'],
+            'entitlements' => [...$plan['entitlements'], 'performance_overview'],
             'limits' => $plan['limits'], 'version' => $plan['version'],
             'reason' => 'Runtime route acceptance',
         ])->assertOk();
 
-        $this->getJson('/api/me/access')->assertOk()->assertJsonFragment(['planner_create']);
+        $this->getJson('/api/me/access')->assertOk()->assertJsonFragment(['performance_overview']);
+        $this->getJson("/api/coach/performance-overview/{$team->id}")->assertOk();
         $this->assertSame($admin->id, auth()->id());
     }
 
@@ -153,18 +156,18 @@ class PlanFeatureAdminTest extends TestCase
         $plan = $this->plan('free');
 
         $webUpdate = $this->putJson('/api/admin/billing/plans/free/entitlements', [
-            'entitlements' => [...$plan['entitlements'], 'scripted_bp'],
+            'entitlements' => [...$plan['entitlements'], 'performance_overview'],
             'limits' => $plan['limits'], 'version' => $plan['version'],
             'reason' => 'Web acceptance enable', 'correlation_id' => 'web-acceptance',
         ])->assertOk()->json('data.plan');
-        $this->getJson('/api/me/access')->assertJsonFragment(['scripted_bp']);
+        $this->getJson('/api/me/access')->assertJsonFragment(['performance_overview']);
 
         $this->putJson('/api/admin/billing/plans/free/entitlements', [
-            'entitlements' => array_values(array_diff($webUpdate['entitlements'], ['scripted_bp'])),
+            'entitlements' => array_values(array_diff($webUpdate['entitlements'], ['performance_overview'])),
             'limits' => $webUpdate['limits'], 'version' => $webUpdate['version'],
             'reason' => 'Mobile acceptance reverse', 'correlation_id' => 'mobile-acceptance',
         ])->assertOk();
-        $this->assertNotContains('scripted_bp', app(EntitlementResolver::class)->getEntitlements($admin));
+        $this->assertNotContains('performance_overview', app(EntitlementResolver::class)->getEntitlements($admin));
         $this->assertSame(2, SubscriptionAudit::query()->where('action', 'plan.entitlements.updated')->count());
     }
 

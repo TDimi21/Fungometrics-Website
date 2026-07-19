@@ -19,10 +19,8 @@ class SearchPlayersResource extends JsonResource
     public function toArray($request)
     {
 
-        return [
+        $response = [
             'id'=>$this['id'],
-            'email'=>$this['email'],
-            'phone'=>$this['phone'],
             'avatar'=>$this['picture'],
             'name'=>[
                 'first'=>$this['first_name'],
@@ -35,5 +33,12 @@ class SearchPlayersResource extends JsonResource
             ],
             'actual_team'=>$this['teams']
         ];
+
+        if ($request->attributes->get('include_search_contact', false)) {
+            $response['email'] = $this['email'];
+            $response['phone'] = $this['phone'];
+        }
+
+        return $response;
     }
 }

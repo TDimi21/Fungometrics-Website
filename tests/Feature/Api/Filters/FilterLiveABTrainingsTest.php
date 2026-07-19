@@ -18,10 +18,12 @@ use App\Models\TeamsLiveAB;
 use App\Models\User;
 use Carbon\Carbon;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class FilterLiveABTrainingsTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
     public function test_get_statistics_liveab_all_params_ok(): void
     {
         $user = User::factory()->create([

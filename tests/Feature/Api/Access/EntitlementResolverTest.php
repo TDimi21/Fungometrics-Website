@@ -195,11 +195,51 @@ class EntitlementResolverTest extends TestCase
             ->assertJsonPath('data.audience', 'player')
             ->assertJsonPath('data.team.role', 'player')
             ->assertJsonPath('data.plan', 'coach_pro')
+            ->assertJsonPath('data.source_plan', 'coach_pro')
+            ->assertJsonPath('data.effective_access_tier', 'player_inherited')
+            ->assertJsonPath('data.inheritance.inherited', true)
+            ->assertJsonPath('data.inheritance.reason', 'team_access')
             ->assertJsonPath('data.source', 'subscription')
             ->assertJsonFragment(['view_advanced_stats']);
 
         $other = Team::factory()->create();
         $this->getJson("/api/me/access?team_id={$other->id}")->assertForbidden();
+    }
+
+    public function test_access_read_does_not_repair_the_legacy_compatibility_column(): void
+    {
+        $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);
+        $plan = SubscriptionPlan::where('key', 'player_basic')->firstOrFail();
+        Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'provider' => 'manual',
+            'status' => 'active',
+            'current_period_ends_at' => now()->addDay(),
+        ]);
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/me/access')->assertOk()->assertJsonPath('data.plan', 'player_basic');
+
+        $this->assertSame('player_pro', $user->fresh()->subscription_plan);
+    }
+
+    public function test_access_exposes_server_derived_administration_capability(): void
+    {
+        $admin = User::factory()->create([
+            'type' => 'coach',
+            'email' => 'admin@fungometrics.com',
+            'subscription_plan' => 'free',
+        ]);
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/me/access')->assertOk()
+            ->assertJsonPath('data.capabilities.subscription_admin', true);
+
+        $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
+        Sanctum::actingAs($coach);
+        $this->getJson('/api/me/access')->assertOk()
+            ->assertJsonPath('data.capabilities.subscription_admin', false);
     }
 
     public function test_duplicate_billing_events_are_rejected(): void

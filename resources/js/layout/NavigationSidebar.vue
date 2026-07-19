@@ -140,7 +140,7 @@ const isParentActive = (item) => {
 }
 
 const isAdminUser = computed(() =>
-  String(userData.value?.email || '').toLowerCase() === 'admin@fungometrics.com'
+  userData.value?.capabilities?.subscription_admin === true
 )
 
 const props = defineProps({
@@ -157,10 +157,6 @@ onMounted(() => {
       { title: 'Users',      iconPath: iconRoster,          url: '/admin/users' },
       { title: 'Teams',      iconPath: iconManageTeam,      url: '/admin/teams' },
       { title: 'Plans',      iconPath: iconStartPractice,   url: '/admin/plans' },
-      { title: 'Audit Logs', iconPath: iconSessionPractice, url: '/admin/audit-logs' },
-      { title: 'Reports',    iconPath: iconStartPractice,   url: '/admin/reports' },
-      { title: 'Security',   iconPath: iconDashboard,       url: '/admin/security' },
-      { title: 'Roles',      iconPath: iconDashboard,       url: '/admin/roles' },
     ]
   } else if (userData.value?.type == "player") {
     sidebarItems.value = [

@@ -3,7 +3,7 @@
  * HallOfFameWall.vue — the FMTRX facility "Hall of Fame Wall".
  *
  * ONE rotating leaderboard experience (not many cards). Every 5s it cycles to the
- * next category: the Top-25 board (left) and the #1 featured athlete (right) update
+ * next category: the Top-5 board (left) and the #1 featured athlete (right) update
  * together with a color theme, a countdown, and smooth transitions.
  *
  * Every slot in the design is rendered — trend chips, sparklines, and sub-metric
@@ -21,7 +21,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 const props = defineProps({
   categories: { type: Array, default: () => [] },
   fallbackAvatar: { type: String, default: '' },
-  interval: { type: Number, default: 12 },
+  interval: { type: Number, default: 5 },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
 })
@@ -37,9 +37,9 @@ let timer = null
 const cats = computed(() => (Array.isArray(props.categories) ? props.categories.filter(Boolean) : []))
 const active = computed(() => cats.value[idx.value] ?? cats.value[0] ?? null)
 const color = computed(() => active.value?.color || '#ef4444')
-const activeLimit = computed(() => Number(active.value?.limit) || 25)
-const rankedRows = computed(() => (Array.isArray(active.value?.rows) ? active.value.rows.slice(0, activeLimit.value) : []))
-const shouldScrollRows = computed(() => rankedRows.value.length > 5)
+const activeLimit = computed(() => Math.min(Number(active.value?.limit) || 10, 10))
+const rankedRows = computed(() => (Array.isArray(active.value?.rows) ? active.value.rows.slice(0, 5) : []))
+const fullRows = computed(() => (Array.isArray(active.value?.rows) ? active.value.rows.slice(0, activeLimit.value) : []))
 
 const advance = (step = 1) => {
   const n = cats.value.length
@@ -153,9 +153,9 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
 
           <div class="hof-cols"><span>Rank</span><span>Player</span><span class="right">Score</span></div>
 
-          <div class="hof-rows" :class="{ 'is-scrolling': shouldScrollRows, 'is-paused': paused }" :style="{ '--scroll-duration': `${interval}s` }">
+          <div class="hof-rows">
             <div class="hof-scroll-track">
-              <template v-for="copy in (shouldScrollRows ? 2 : 1)" :key="copy">
+              <template v-for="copy in 1" :key="copy">
                 <div v-for="(row, i) in rankedRows" :key="`${copy}-${row.id || row.name}-${i}`" class="hof-row" :class="{ 'is-first': i === 0 }">
                   <span class="hof-rank">{{ i + 1 }}</span>
                   <img class="hof-ava" :src="row.avatar || fallbackAvatar" @error="onAvatarError" alt="" />
@@ -177,7 +177,7 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
           </div>
 
           <button v-if="active.rows.length" class="hof-viewall" @click="showAll = true">
-            View Full Top {{ activeLimit }} <span>›</span>
+            View Full Top 10 <span>›</span>
           </button>
         </div>
 
@@ -277,7 +277,7 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
       </div>
     </div>
 
-    <!-- Full Top 25 modal -->
+    <!-- Full Top 10 modal -->
     <Transition name="hof-modal">
       <div v-if="showAll && active" class="hof-modal-bg" @click.self="showAll = false">
         <div class="hof-modal" :style="{ '--accent': color }">
@@ -289,7 +289,7 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
             <button class="hof-modal-x" @click="showAll = false" aria-label="Close">✕</button>
           </div>
           <div class="hof-modal-rows">
-            <div v-for="(row, i) in active.rows" :key="row.id || row.name" class="hof-row" :class="{ 'is-first': i === 0 }">
+            <div v-for="(row, i) in fullRows" :key="row.id || row.name" class="hof-row" :class="{ 'is-first': i === 0 }">
               <span class="hof-rank">{{ i + 1 }}</span>
               <img class="hof-ava" :src="row.avatar || fallbackAvatar" @error="onAvatarError" alt="" />
               <div class="hof-who">

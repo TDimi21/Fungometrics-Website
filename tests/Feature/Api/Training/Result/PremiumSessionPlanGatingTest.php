@@ -146,6 +146,7 @@ class PremiumSessionPlanGatingTest extends TestCase
     {
         $coach = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'free']);
         $team  = Team::factory()->create();
+        $this->grantTeamAccess($coach, $team);
         Sanctum::actingAs($coach, ['coach']);
 
         $response = $this->json('GET', "api/coach/performance-overview/{$team->id}");

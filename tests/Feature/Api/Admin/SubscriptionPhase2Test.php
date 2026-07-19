@@ -109,6 +109,45 @@ class SubscriptionPhase2Test extends TestCase
         $this->getJson('/api/admin/entitlement-grants')->assertUnauthorized();
     }
 
+    public function test_only_subscription_administrators_can_retry_failed_billing_events(): void
+    {
+        $event = BillingEvent::create([
+            'provider' => 'fake',
+            'provider_event_id' => 'admin-retry-authorization',
+            'event_type' => 'subscription.changed',
+            'payload' => [],
+            'processing_status' => 'retry_scheduled',
+            'processing_error' => 'temporary provider failure',
+            'processed_at' => null,
+        ]);
+
+        $coach = User::factory()->create(['type' => 'coach']);
+        Sanctum::actingAs($coach, ['coach']);
+        $this->postJson("/api/admin/billing/events/{$event->id}/retry")->assertForbidden();
+
+        $processor = $this->mock(BillingEventProcessor::class);
+        $processor->shouldReceive('retryFailed')->once()->andReturnUsing(
+            function (BillingEvent $retryEvent): BillingEvent {
+                $retryEvent->update([
+                    'processing_status' => 'processed',
+                    'processed_at' => now(),
+                    'processing_error' => null,
+                ]);
+
+                return $retryEvent->fresh();
+            }
+        );
+
+        $admin = User::factory()->create([
+            'type' => 'coach',
+            'email' => 'admin@fungometrics.com',
+        ]);
+        Sanctum::actingAs($admin, ['coach']);
+        $this->postJson("/api/admin/billing/events/{$event->id}/retry")
+            ->assertOk()
+            ->assertJsonPath('data.processing_status', 'processed');
+    }
+
     public function test_billing_event_duplicate_processing_is_refused_and_failure_can_retry(): void
     {
         $handler = new class () implements ProviderEventHandler {
@@ -131,8 +170,40 @@ class SubscriptionPhase2Test extends TestCase
         } catch (RuntimeException) {
         }
         $this->assertSame('temporary', $event->fresh()->processing_error);
+        $this->assertSame('retry_scheduled', $event->fresh()->processing_status);
+        $this->assertSame(1, $event->fresh()->processing_attempts);
+        $this->assertNotNull($event->fresh()->next_retry_at);
         $this->assertNotNull($processor->retryFailed($event->fresh())->processed_at);
+        $this->assertSame('processed', $event->fresh()->processing_status);
+        $this->assertSame(2, $event->fresh()->processing_attempts);
         $this->expectException(ValidationException::class);
         $processor->process($event->fresh());
+    }
+
+    public function test_terminal_billing_event_failure_is_not_retryable(): void
+    {
+        $handler = new class () implements ProviderEventHandler {
+            public function supports(string $provider, string $eventType): bool
+            {
+                return true;
+            }
+
+            public function handle(BillingEvent $event): void
+            {
+                throw ValidationException::withMessages(['event' => 'invalid provider payload']);
+            }
+        };
+        $processor = new BillingEventProcessor([$handler]);
+        $event = $processor->record('fake', 'terminal-event', 'subscription.changed', []);
+
+        try {
+            $processor->process($event);
+        } catch (ValidationException) {
+        }
+
+        $this->assertSame('terminal_failure', $event->fresh()->processing_status);
+        $this->assertNull($event->fresh()->next_retry_at);
+        $this->expectException(ValidationException::class);
+        $processor->retryFailed($event->fresh());
     }
 }

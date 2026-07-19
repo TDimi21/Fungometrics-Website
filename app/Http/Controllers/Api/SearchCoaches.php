@@ -6,7 +6,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Concerns\UserTypes;
+use App\Models\CoachTeam;
 use App\Models\User;
+use App\Services\Access\AdministrativeAccess;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +17,10 @@ use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
 class SearchCoaches extends Controller
 {
+    public function __construct(private AdministrativeAccess $administrativeAccess)
+    {
+    }
+
     /**
      * @param Request $request
      * @return JsonResponse
@@ -23,13 +29,28 @@ class SearchCoaches extends Controller
     {
         try {
             $search = trim((string) ($request->search ?? ''));
+            $isAdmin = $this->administrativeAccess->canManageSubscriptions($request->user());
+
+            if ( ! $isAdmin && mb_strlen($search) < 3) {
+                return response()->json([
+                    'code' => '043-V',
+                    'message' => 'Enter at least 3 characters to search coaches.',
+                    'status' => 'error',
+                    'data' => [],
+                ], HttpCodes::HTTP_UNPROCESSABLE_ENTITY);
+            }
 
             $query = User::with('profile')
                 ->where('type', '=', UserTypes::COACH->value)
                 ->where('is_dummy', '=', false);
 
-            // Only apply filter when a search term is actually provided.
-            // An empty search means "return all coaches".
+            if ( ! $isAdmin) {
+                $teamIds = CoachTeam::query()
+                    ->where('coach_id', $request->user()->id)
+                    ->pluck('team_id');
+                $query->whereHas('teamsCoach', fn ($membership) => $membership->whereIn('team_id', $teamIds));
+            }
+
             if ($search !== '') {
                 $query->where(function ($q) use ($search) {
                     $q->where('phone', 'LIKE', "%{$search}%")
@@ -41,7 +62,20 @@ class SearchCoaches extends Controller
                 });
             }
 
-            $data = $query->paginate();
+            $data = $query->paginate()->through(static function (User $coach) use ($isAdmin): array {
+                $profile = $coach->profile;
+                return array_filter([
+                    'id' => $coach->id,
+                    'type' => (string) $coach->type,
+                    'email' => $isAdmin ? $coach->email : null,
+                    'phone' => $isAdmin ? $coach->phone : null,
+                    'profile' => [
+                        'first_name' => $profile?->first_name,
+                        'last_name' => $profile?->last_name,
+                        'picture' => $profile?->picture,
+                    ],
+                ], static fn ($value): bool => null !== $value);
+            });
 
             $response = [
                 'code'    => '043',

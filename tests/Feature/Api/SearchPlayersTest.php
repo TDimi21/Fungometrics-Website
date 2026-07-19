@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api;
 
 use App\Models\Concerns\UserTypes;
+use App\Models\CoachTeam;
 use App\Models\Player;
 use App\Models\PlayerTeam;
 use App\Models\Profile;
@@ -28,9 +29,11 @@ class SearchPlayersTest extends TestCase
             'user_id' => User::factory()->create(['type' => UserTypes::PLAYER->value, 'phone' => '678330333'])->id
         ])->user_id]);
 
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $user->id, 'team_id' => $team->id]);
         PlayerTeam::factory()->create([
             'user_id'=>$player1->user_id,
-            'team_id' => Team::factory()->create()->id,
+            'team_id' => $team->id,
             'actual' => true,
         ]);
 
@@ -63,6 +66,21 @@ class SearchPlayersTest extends TestCase
         ]);
         $dataResponse = json_decode($response->getContent(), false, 512, JSON_THROW_ON_ERROR);
         $this->assertGreaterThan(0, count($dataResponse->data));
+        $this->assertObjectNotHasProperty('phone', $dataResponse->data[0]);
+        $this->assertObjectNotHasProperty('email', $dataResponse->data[0]);
+    }
+
+    public function test_non_admin_cannot_list_all_players_or_search_outside_their_teams(): void
+    {
+        $coach = User::factory()->create(['type' => UserTypes::COACH->value]);
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+        $outside = User::factory()->create(['type' => UserTypes::PLAYER->value, 'phone' => '678330333']);
+        Profile::factory()->create(['user_id' => $outside->id, 'first_name' => 'Jhon']);
+        Player::factory()->create(['user_id' => $outside->id]);
+
+        $this->getJson('/api/coach/search/players')->assertUnprocessable();
+        $this->getJson('/api/coach/search/players?phone=678&name=Jhon')->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_search_players_not_found(): void
@@ -78,12 +96,12 @@ class SearchPlayersTest extends TestCase
 
         $response = $this->json('GET', 'api/coach/search/players', ['phone' => '678', 'name' => 'Jhon']);
 
-        $response->assertNotFound()->assertJsonStructure([
+        $response->assertOk()->assertJsonStructure([
             'code',
             'message',
             'status',
             'data'
-        ]);
+        ])->assertJsonCount(0, 'data');
     }
 
     public function test_search_players_unauthorized(): void

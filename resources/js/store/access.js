@@ -58,11 +58,6 @@ export const useAccessStore = defineStore('access', () => {
 
   const refresh = async ({ team_id = teamId.value } = {}) => {
     const token = getAuthToken()
-    if (!token) {
-      clear()
-      return summary.value
-    }
-
     const context = team_id ? String(team_id) : null
     setTeamContext(context)
     const sequence = ++requestSequence
@@ -73,8 +68,9 @@ export const useAccessStore = defineStore('access', () => {
       const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
       const response = await axios.get(`${apiBaseUrl}me/access`, {
         params: context ? { team_id: context } : {},
+        withCredentials: true,
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           Accept: 'application/json',
         },
       })

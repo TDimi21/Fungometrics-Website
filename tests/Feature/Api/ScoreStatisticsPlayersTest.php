@@ -12,7 +12,9 @@ use App\Models\Concerns\PracticeTypes;
 use App\Models\Concerns\UserTypes;
 use App\Models\LongTossPractice;
 use App\Models\PlayerFitness;
+use App\Models\PlayerTeam;
 use App\Models\Practice;
+use App\Models\Team;
 use App\Models\User;
 use App\Models\WeightBallPractice;
 use Laravel\Sanctum\Sanctum;
@@ -28,6 +30,9 @@ class ScoreStatisticsPlayersTest extends TestCase
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
 
         $player = User::factory()->create(['type'=>UserTypes::PLAYER->value]);
+        $team = Team::factory()->create();
+        $this->grantTeamAccess($user, $team);
+        PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
         //max exit velocity -- bullpen
         BullpenPracticeResult::factory(10)->create([
             'pitcher_id' => $player->id,

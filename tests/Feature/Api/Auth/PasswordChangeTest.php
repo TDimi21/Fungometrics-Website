@@ -31,6 +31,25 @@ class PasswordChangeTest extends TestCase
         ]);
     }
 
+    public function test_change_password_revokes_every_api_token(): void
+    {
+        $user = User::factory()->create([
+            'password' => bcrypt('CurrentPassword123'),
+        ]);
+        $current = $user->createToken('current', ['player'])->plainTextToken;
+        $user->createToken('other-device', ['player']);
+
+        $this->withToken($current)->postJson('/api/password', [
+            'old' => 'CurrentPassword123',
+            'password' => 'NewPassword123',
+            'password_confirmation' => 'NewPassword123',
+        ])->assertOk();
+
+        $this->assertSame(0, $user->tokens()->count());
+        $this->app['auth']->forgetGuards();
+        $this->withToken($current)->getJson('/api/me/access')->assertUnauthorized();
+    }
+
      public function test_change_password_different_register_exception(): void
      {
          $user = User::factory()->create([

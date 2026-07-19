@@ -7,6 +7,7 @@ namespace Tests\Feature\Api\DashBoard;
 use App\Models\BattingPracticeResult;
 use App\Models\BullpenPracticeResult;
 use App\Models\CagePracticeResult;
+use App\Models\CoachTeam;
 use App\Models\Concerns\PracticeModes;
 use App\Models\Concerns\PracticeTypes;
 use App\Models\Concerns\UserTypes;
@@ -27,6 +28,7 @@ class GetDataGraphicsTest extends TestCase
         ]);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
         $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $user->id, 'team_id' => $team->id]);
         $practice = Practice::factory()->create([
             'modes' => PracticeModes::HIT_OR_PITCH->value,
             'type' => PracticeTypes::LIVE_AB->value,

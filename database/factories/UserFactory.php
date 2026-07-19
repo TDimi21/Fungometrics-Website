@@ -26,7 +26,7 @@ class UserFactory extends Factory
             'id' => fake()->uuid,
             'phone' => fake()->phoneNumber,
             'type' => $type,
-            'email' => fake()->safeEmail(),
+            'email' => fake()->unique()->safeEmail(),
             'status' => fake()->boolean,
             'password' => fake()->password,
             // Most legacy feature tests exercise application behavior rather

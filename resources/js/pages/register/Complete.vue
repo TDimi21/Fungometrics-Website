@@ -28,7 +28,7 @@ onMounted(async function () {
 });
 
 const updatePlayer = async (formData) => {
-  const {data} = await axiosPost(`complete/${user.value.id}/player`, formData);
+  const {data} = await axiosPost(`complete/${id}/player`, formData);
   console.log(data);
   toast.fire({
     icon: 'success',
@@ -41,7 +41,7 @@ const updatePlayer = async (formData) => {
 
 const updateCoach = async (formData) => {
   isLoading.status = true;
-  const {data} = await axiosPost(`complete/${user.value.id}/coach`, formData);
+  const {data} = await axiosPost(`complete/${id}/coach`, formData);
   console.log(data);
   toast.fire({
         icon: 'success',

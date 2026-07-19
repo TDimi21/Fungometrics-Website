@@ -35,6 +35,8 @@ import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.png";
 import stadiumBackground from "@/assets/img/training/baseball field.jpeg";
 import { getAuthToken } from "@/utils/authToken.js";
 import { useAccessStore } from "@/store/access.js";
+import { useAuthStore } from "@/store/auth.js";
+import { endWebSession } from '@/utils/webSession.js';
 
 const { axiosGet } = useAxiosAuth();
 const userStore = useUserStore();
@@ -42,6 +44,7 @@ const teamStore = useTeamStore();
 const playerStore = usePlayerStore();
 const trainingStore = useTrainingStore();
 const accessStore = useAccessStore();
+const authStore = useAuthStore();
 const { players, setPlayers } = storeToRefs(playerStore);
 const { isShowMsgModal } = storeToRefs(trainingStore);
 const { userData } = storeToRefs(userStore);
@@ -135,10 +138,14 @@ const toggleSidebar = () =>
 const logout = () => {
   confirm.fire().then((result) => {
     if (result.isConfirmed) {
-      accessStore.clear();
-      localStorage.clear();
-      sessionStorage.clear();
-      location.reload();
+      endWebSession(api_url).catch(() => {}).finally(() => {
+        accessStore.clear();
+        authStore.isLogged.status = false;
+        authStore.setToken('');
+        localStorage.removeItem('auth');
+        sessionStorage.clear();
+        location.reload();
+      });
     }
   });
 };

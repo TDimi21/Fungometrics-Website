@@ -21,7 +21,7 @@ describe('Hall of Fame rotating leaderboard', () => {
   })
 
   it('shows a top five, a featured athlete, the full top ten, icons, units, and controls', () => {
-    expect(component).toContain('active.rows.slice(0, 5)')
+    expect(component).toContain('active.value.rows.slice(0, 5)')
     expect(component).toContain('View Full Top 10')
     expect(component).toContain('Featured Athlete')
     expect(component).toContain("active.icon || '★'")
@@ -41,5 +41,20 @@ describe('Hall of Fame rotating leaderboard', () => {
     expect(dashboard).toContain('leaderboardServer.value = null')
     expect(dashboard).toContain(':loading="leaderboardLoading"')
     expect(dashboard).toContain(':error="leaderboardError"')
+  })
+
+  it('is safe for long-running TV presentation and clears every global resource', () => {
+    expect(component).toContain('if (timer) clearInterval(timer)')
+    expect(component).toContain("document.removeEventListener('fullscreenchange', syncFullscreenState)")
+    expect(component).toContain("document.removeEventListener('webkitfullscreenchange', syncFullscreenState)")
+    expect(component).toContain('Math.max(0, countdown.value)')
+    expect(component).toContain('Math.max(0, countdown) / interval')
+  })
+
+  it('invalidates stale responses when team or entitlement access changes', () => {
+    expect(dashboard).toContain('[canViewPerformanceOverview, activeTeamId]')
+    expect(dashboard).toContain('++leaderboardRequestId')
+    expect(dashboard).toContain('if (requestId !== leaderboardRequestId) return')
+    expect(dashboard).toContain('leaderboardServer.value = null')
   })
 })

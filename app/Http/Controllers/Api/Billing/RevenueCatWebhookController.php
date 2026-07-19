@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Billing;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\RetryBillingEvent;
 use App\Services\Billing\BillingEventProcessor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,11 +50,20 @@ class RevenueCatWebhookController extends Controller
         /** @var array<string, mixed> $body */
         $body = $payload['event'];
         $event = $processor->record('revenuecat', (string) $body['id'], (string) $body['type'], $body);
-        if (null === $event->processed_at && null === $event->processing_error) {
+        if (null === $event->processed_at && ! in_array($event->processing_status, ['terminal_failure', 'dead_letter'], true)) {
             try {
-                $processor->process($event);
+                null === $event->processing_error
+                    ? $processor->process($event)
+                    : $processor->retryFailed($event);
             } catch (ValidationException) {
                 return response()->json(['message' => 'RevenueCat event rejected.'], 422);
+            } catch (\Throwable) {
+                $failed = $event->fresh();
+                if ('retry_scheduled' === $failed->processing_status) {
+                    RetryBillingEvent::dispatch($failed->id)->delay($failed->next_retry_at);
+                }
+
+                return response()->json(['message' => 'RevenueCat event processing will be retried.'], 503);
             }
         }
         return response()->json(['received' => true]);

@@ -78,12 +78,7 @@ class IntelligenceControllerTest extends TestCase
 
         $response = $this->json('GET', "api/coach/teams/{$team->id}/intelligence");
 
-        $response->assertForbidden()->assertJsonStructure([
-            'code',
-            'message',
-            'status',
-            'data',
-        ]);
+        $response->assertNotFound();
     }
 
     public function test_coach_cannot_get_player_intelligence_for_player_not_on_team(): void
@@ -94,12 +89,7 @@ class IntelligenceControllerTest extends TestCase
 
         $response = $this->json('GET', "api/coach/teams/{$team->id}/players/{$otherPlayer->id}/intelligence");
 
-        $response->assertForbidden()->assertJsonStructure([
-            'code',
-            'message',
-            'status',
-            'data',
-        ]);
+        $response->assertNotFound();
     }
 
     private function createCoachTeamPlayer(): array

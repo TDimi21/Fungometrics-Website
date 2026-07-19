@@ -17,10 +17,12 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class FilterExitVelocityTrainingsTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
     public function test_get_statistics_exit_velocity_ok(): void
     {
         $user = User::factory()->create([

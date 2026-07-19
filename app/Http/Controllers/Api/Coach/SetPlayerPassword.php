@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Coach;
 
 use App\Http\Controllers\Controller;
+use App\Models\CoachTeam;
+use App\Models\Concerns\UserTypes;
+use App\Models\PlayerTeam;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -32,11 +35,25 @@ class SetPlayerPassword extends Controller
             'password' => ['required', 'confirmed', Password::min(6)],
         ]);
 
-        try {
-            $player = User::findOrFail($id);
+        $player = User::findOrFail($id);
+        $coach = $request->user();
+        $sharesTeam = UserTypes::PLAYER->value === (string) $player->type
+            && CoachTeam::query()
+                ->where('coach_id', $coach->id)
+                ->whereIn(
+                    'team_id',
+                    PlayerTeam::query()->where('user_id', $player->id)->select('team_id')
+                )
+                ->exists();
 
+        // Possessing a generic coach token must never allow an account
+        // takeover of an unrelated player.
+        abort_unless($sharesTeam, HttpCodes::HTTP_NOT_FOUND);
+
+        try {
             $player->password = Hash::make($request->input('password'));
             $player->save();
+            $player->tokens()->delete();
 
             return response()->json([
                 'code'    => '034',

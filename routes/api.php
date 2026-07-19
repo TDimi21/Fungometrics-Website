@@ -116,6 +116,8 @@ use App\Http\Controllers\Api\Player\GetFitness;
 use App\Http\Controllers\Api\Player\GetLiveABPractices;
 use App\Http\Controllers\Api\Player\GetTrainingPractices;
 use App\Http\Controllers\Api\Player\JoinTeamByCode;
+use App\Http\Controllers\Api\Player\JoinAuthenticatedPlayerTeam;
+use App\Http\Controllers\Api\Player\VerifyTeamJoin;
 use App\Http\Controllers\Api\Player\GetPlayerFilteredStatistics;
 use App\Http\Controllers\Api\Player\GetAthleticPerformance;
 use App\Http\Controllers\Api\Player\SaveFitness;
@@ -184,22 +186,22 @@ use App\Http\Controllers\Api\Billing\RevenueCatWebhookController;
 use App\Http\Controllers\Api\Billing\RevenueCatSyncController;
 use App\Http\Controllers\Api\Billing\RevenueCatProductsController;
 
-Route::middleware(['auth:sanctum', 'ability:coach'])->get('/opcache-clear', function () {
-    opcache_reset();
-    return response()->json(['cleared' => true, 'ts' => time()]);
-});
-
 Route::post('login', LoginController::class);
 Route::post('billing/revenuecat/webhook', RevenueCatWebhookController::class)->middleware('throttle:120,1');
 
 Route::post('/forgot-password', SendEmailRecoverController::class)->middleware(['guest']);
 
 Route::post('/recover-password', RecoverPasswordController::class)->middleware(['guest']);
-Route::get('/complete/{id}', GetUserCompleteController::class)->middleware(['guest']);
-Route::post('/complete/{user}/coach', CompleteCoachController::class)->middleware(['guest']);
-Route::post('/complete/{user}/player', CompletePlayerController::class)->middleware(['guest']);
+Route::get('/complete/{claim}', GetUserCompleteController::class)
+    ->middleware(['guest', 'throttle:20,1', 'account.claim']);
+Route::post('/complete/{claim}/coach', CompleteCoachController::class)
+    ->middleware(['guest', 'throttle:5,1', 'account.claim:coach']);
+Route::post('/complete/{claim}/player', CompletePlayerController::class)
+    ->middleware(['guest', 'throttle:5,1', 'account.claim:player']);
 
-Route::middleware(['auth:sanctum'])->group(function (): void {
+Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
+    Route::post('auth/web-session', \App\Http\Controllers\Api\Auth\CreateWebSession::class)->middleware('throttle:10,1');
+    Route::post('logout', \App\Http\Controllers\Api\Auth\LogoutController::class)->middleware('throttle:20,1');
     Route::get('me/access', \App\Http\Controllers\Api\Access\GetMyAccess::class);
     Route::post('me/billing/revenuecat/sync', RevenueCatSyncController::class)->middleware('throttle:10,1');
     Route::get('me/billing/revenuecat/products', RevenueCatProductsController::class);
@@ -226,11 +228,13 @@ Route::middleware(['auth:sanctum'])->group(function (): void {
 
 Route::prefix('player')->group(function (): void {
     Route::post('register', RegisterPlayerController::class);
-    Route::post('join', JoinTeamByCode::class);          // phone + team_code → claim profile / join team
+    Route::middleware('throttle:5,1')->post('join', JoinTeamByCode::class);
+    Route::middleware('throttle:10,1')->post('join/verify', VerifyTeamJoin::class);
     Route::middleware(['auth:sanctum'])->group(function (): void {
         Route::post('set-credentials', SetPlayerCredentials::class); // first-time email+password setup after claim
     });
-    Route::middleware(['auth:sanctum', 'ability:player'])->group(function (): void {
+    Route::middleware(['auth:sanctum', 'ability:player', 'route.scope'])->group(function (): void {
+        Route::middleware('throttle:10,1')->post('teams/join', JoinAuthenticatedPlayerTeam::class);
         Route::get('sessions/batting', GetBattingPractices::class);
         Route::get('sessions/bullpen', GetBullpenPractices::class);
         Route::get('sessions/cage', GetCagePractices::class);
@@ -264,10 +268,10 @@ Route::prefix('player')->group(function (): void {
 
 Route::prefix('coach')->group(function (): void {
     Route::post('register', RegisterCoachController::class);
-    Route::middleware(['auth:sanctum'])->get('/teams/{teamId}/operating-system-home', [CoachOperatingSystemHomeController::class, 'team']);
-    Route::middleware(['auth:sanctum'])->get('/teams/{teamId}/operating-system-home/actions', [CoachOperatingSystemHomeController::class, 'actions']);
-    Route::middleware(['auth:sanctum'])->post('/teams/{teamId}/operating-system-home/actions/execute', [CoachOperatingSystemHomeController::class, 'executeAction']);
-    Route::middleware(['auth:sanctum', 'ability:coach'])->group(function (): void {
+    Route::middleware(['auth:sanctum', 'route.scope'])->get('/teams/{teamId}/operating-system-home', [CoachOperatingSystemHomeController::class, 'team']);
+    Route::middleware(['auth:sanctum', 'route.scope'])->get('/teams/{teamId}/operating-system-home/actions', [CoachOperatingSystemHomeController::class, 'actions']);
+    Route::middleware(['auth:sanctum', 'route.scope'])->post('/teams/{teamId}/operating-system-home/actions/execute', [CoachOperatingSystemHomeController::class, 'executeAction']);
+    Route::middleware(['auth:sanctum', 'ability:coach', 'route.scope'])->group(function (): void {
         Route::post('/players/{id}/set-password', SetPlayerPassword::class);
         Route::middleware('plan:add_team')->post('/add/teams', AddTeams::class);
         Route::post('/edit', EditCoach::class);
@@ -297,8 +301,8 @@ Route::prefix('coach')->group(function (): void {
         Route::middleware('plan:performance_overview')->get('/leaderboard/{team}', GetTeamLeaderboard::class);
         Route::middleware('plan:liveab_sessions')->post('/trainingab', AddNewLiveABSession::class);
         Route::middleware('plan:liveab_sessions')->get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);
-        Route::get('/search/players', SearchPlayers::class);
-        Route::get('/search/coaches', SearchCoaches::class);
+        Route::middleware('throttle:30,1')->get('/search/players', SearchPlayers::class);
+        Route::middleware('throttle:30,1')->get('/search/coaches', SearchCoaches::class);
         Route::get('/statistics/{player}', ScoresStatisticPlayers::class);
         Route::get('/pitcher/velocity/{player}', GetPlayerPitchVelocityZones::class);
         Route::get('/pitcher/smtake/{player}', GetPlayerSmTakeZones::class);
@@ -442,7 +446,7 @@ Route::middleware(['auth:sanctum'])->prefix('training')->group(function (): void
     Route::middleware('session.entitlement')->delete('/{uuid}', DeletePractice::class);
 });
 
-Route::middleware(['auth:sanctum'])->prefix('result')->group(function (): void {
+Route::middleware(['auth:sanctum', 'route.scope'])->prefix('result')->group(function (): void {
     Route::middleware('session.entitlement')->get('/batting/{uuid}', GetBattingResultPractice::class);
     Route::middleware('session.entitlement')->post('/batting', SaveBattingResultPractice::class);
     Route::middleware('session.entitlement')->put('/batting/{uuid}', EditBattingResultPractice::class);
@@ -499,7 +503,7 @@ Route::middleware(['auth:sanctum'])->prefix('sessions')->group(function (): void
     Route::get('/mode', GetPracticeSessionByMode::class);
 });
 
-Route::middleware(['auth:sanctum'])->prefix('statistics')->group(function (): void {
+Route::middleware(['auth:sanctum', 'route.scope'])->prefix('statistics')->group(function (): void {
     Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/batting', GetBattingPracticeResults::class);
     Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/bullpen', GetBullpenPracticeResults::class);
     Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/longtoss', GetLongTossPracticeResult::class);
@@ -517,6 +521,8 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'subscription.admin'])->pref
     Route::get('/billing/entitlements', [\App\Http\Controllers\Api\Admin\PlanFeatureAdminController::class, 'entitlements']);
     Route::put('/billing/plans/{plan}/entitlements', [\App\Http\Controllers\Api\Admin\PlanFeatureAdminController::class, 'update']);
     Route::get('/billing/entitlement-audits', [\App\Http\Controllers\Api\Admin\PlanFeatureAdminController::class, 'audits']);
+    Route::get('/billing/failed-events', [\App\Http\Controllers\Api\Admin\BillingEventAdminController::class, 'failed']);
+    Route::post('/billing/events/{event}/retry', [\App\Http\Controllers\Api\Admin\BillingEventAdminController::class, 'retry']);
     Route::patch('/users/{id}/plan', UpdateUserPlan::class);
     Route::get('/users/{user}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'userIndex']);
     Route::post('/users/{user}/subscriptions', [\App\Http\Controllers\Api\Admin\SubscriptionAdminController::class, 'userStore']);

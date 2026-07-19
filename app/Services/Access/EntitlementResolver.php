@@ -103,18 +103,19 @@ class EntitlementResolver
         sort($entitlements);
         $usage = $this->usage($user, $teamId, $audience, $limits);
 
-        if (null === $teamId && $hasSubscriptionHistory && $user->subscription_plan !== $effective['plan']) {
-            $user->update(['subscription_plan' => $effective['plan']]);
-        }
-
         return [
             'plan' => $effective['plan'],
+            'source_plan' => $effective['plan'],
+            'effective_access_tier' => $this->effectiveAccessTier($effective['plan'], $audience, $teamId),
             'audience' => $audience,
             'status' => $effective['status'],
             'source' => $effective['source'],
             'provider' => $effective['provider'],
             'expires_at' => $effective['expires_at'],
             'team' => $teamId ? ['id' => $teamId, 'role' => $membership['role']] : null,
+            'inheritance' => $teamId && 'player' === $audience
+                ? ['inherited' => true, 'reason' => 'team_access', 'team_id' => $teamId]
+                : ['inherited' => false, 'reason' => null, 'team_id' => null],
             'entitlements' => $entitlements,
             'limits' => $limits,
             'usage' => $usage,
@@ -275,5 +276,14 @@ class EntitlementResolver
     {
         $rank = array_search($key, config('access.plan_priority'), true);
         return false === $rank ? 0 : $rank;
+    }
+
+    private function effectiveAccessTier(string $plan, string $audience, ?string $teamId): string
+    {
+        if ('player' === $audience && null !== $teamId && str_starts_with($plan, 'coach_')) {
+            return 'player_inherited';
+        }
+
+        return $plan;
     }
 }

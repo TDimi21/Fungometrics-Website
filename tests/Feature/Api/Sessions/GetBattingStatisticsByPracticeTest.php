@@ -16,10 +16,12 @@ use App\Models\Profile;
 use App\Models\Team;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class GetBattingStatisticsByPracticeTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
     public function test_get_statistics_batting_by_practice_ok(): void
     {
         $user = User::factory()->create();

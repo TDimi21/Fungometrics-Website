@@ -20,7 +20,11 @@ class RevenueCatTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['billing.revenuecat.webhook_auth' => 'Bearer test-hook', 'billing.revenuecat.environment' => 'test']);
+        config([
+            'billing.revenuecat.webhook_auth' => 'Bearer test-hook',
+            'billing.revenuecat.environment' => 'test',
+            'billing.revenuecat.sandbox_stores' => ['TEST_STORE', 'APP_STORE'],
+        ]);
     }
     public function test_webhook_fails_closed_without_auth_configuration(): void
     {
@@ -202,7 +206,7 @@ class RevenueCatTest extends TestCase
         }
     }
 
-    public function test_access_self_heals_a_paid_compatibility_cache_after_the_last_period_elapses(): void
+    public function test_access_fails_closed_without_mutating_a_stale_compatibility_cache_on_read(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-17 09:25:14', 'America/El_Salvador'));
         $user = User::factory()->create(['type' => 'player', 'subscription_plan' => 'player_pro']);
@@ -223,7 +227,7 @@ class RevenueCatTest extends TestCase
             ->assertJsonPath('data.source', 'legacy')
             ->assertJsonPath('data.provider', null)
             ->assertJsonPath('data.entitlements', ['notifications', 'recent_sessions', 'view_own_profile', 'view_own_sessions']);
-        $this->assertSame('free', $user->fresh()->subscription_plan);
+        $this->assertSame('player_pro', $user->fresh()->subscription_plan);
 
         Carbon::setTestNow();
     }
