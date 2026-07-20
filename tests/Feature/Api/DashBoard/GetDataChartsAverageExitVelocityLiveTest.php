@@ -16,10 +16,29 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class GetDataChartsAverageExitVelocityLiveTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        BullpenPracticeResult::created(static function (BullpenPracticeResult $pitch): void {
+            BattingPracticeResult::factory()->create([
+                'practice_id' => $pitch->practice_id,
+                'team_id' => $pitch->team_id,
+                'batter_id' => $pitch->pitcher_id,
+                'is_in_match' => true,
+                'created_at' => $pitch->created_at,
+                'updated_at' => $pitch->updated_at,
+            ]);
+        });
+    }
+
     public function test_get_charts_data_avg_exit_velocity_ok_range_all(): void
     {
         $date = Carbon::now();

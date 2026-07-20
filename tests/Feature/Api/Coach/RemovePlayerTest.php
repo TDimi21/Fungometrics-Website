@@ -40,8 +40,8 @@ class RemovePlayerTest extends TestCase
         ]);
 
         $response->assertOk();
-        $dataResponse = json_decode($response->getContent(), false, 512, JSON_THROW_ON_ERROR);
-        $this->assertNotEquals($teamPlayer->actual, $dataResponse->data->actual);
+        $response->assertJsonPath('data', true);
+        $this->assertSoftDeleted('player_teams', ['id' => $teamPlayer->id]);
     }
 
   public function test_remove_player_forbidden_when_not_head(): void

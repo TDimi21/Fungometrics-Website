@@ -14,10 +14,13 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class GetDataChartsMaxExitVelocityTrainingTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
+
     public function test_get_charts_data_max_exit_velocity_ok_range_all(): void
     {
         $date = Carbon::now();

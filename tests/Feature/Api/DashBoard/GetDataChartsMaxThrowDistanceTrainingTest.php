@@ -14,10 +14,22 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\GrantsCreatedTeamAccess;
 use Tests\TestCase;
 
 class GetDataChartsMaxThrowDistanceTrainingTest extends TestCase
 {
+    use GrantsCreatedTeamAccess;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        LongTossPractice::creating(static function (LongTossPractice $result): void {
+            $result->hop = 0;
+        });
+    }
+
     public function test_get_charts_data_max_throw_distance_ok_range_all(): void
     {
         $date = Carbon::now();

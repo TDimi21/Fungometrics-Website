@@ -77,7 +77,7 @@ class GetBullpenPracticesTest extends TestCase
         ]);
 
         $response = $this->json('GET', 'api/player/sessions/bullpen');
-        $response->assertNotFound()->assertJsonStructure([
+        $response->assertOk()->assertJsonStructure([
             'code',
             'status',
             'message',

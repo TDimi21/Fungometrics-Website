@@ -1288,7 +1288,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1303,7 +1303,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1318,7 +1318,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1333,7 +1333,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1348,7 +1348,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1364,7 +1364,7 @@ class FilterLiveABTrainingsTest extends TestCase
 
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1442,7 +1442,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1460,146 +1460,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1618,7 +1479,127 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1637,7 +1618,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1656,7 +1637,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1675,7 +1656,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1694,7 +1675,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1713,7 +1694,26 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1728,7 +1728,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1743,7 +1743,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1758,7 +1758,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1773,7 +1773,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -1796,7 +1796,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1811,7 +1811,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1826,7 +1826,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1841,7 +1841,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1856,7 +1856,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1871,7 +1871,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1886,7 +1886,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1901,7 +1901,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1916,7 +1916,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1931,7 +1931,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1946,7 +1946,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1961,7 +1961,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1976,7 +1976,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -1991,7 +1991,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2006,7 +2006,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2021,7 +2021,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2036,7 +2036,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2052,7 +2052,7 @@ class FilterLiveABTrainingsTest extends TestCase
 
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2130,7 +2130,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2148,146 +2148,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
-            'turn_pitches' => '0',
-            'pitching_result_id' => BullpenPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'pitcher_id' =>  $player[3]->user_id,
-                'is_in_match' => true,
-            ])->id,
-            'batting_result_id' => BattingPracticeResult::factory()->create([
-                'practice_id' => $practiceLiveAB->id,
-                'team_id' => $team->id,
-                'batter_id' =>  $player[1]->user_id,
-                'is_in_match' => true,
-            ])->id
-        ]);
-        LiveABPracticeResult::factory()->create([
-            'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2306,7 +2167,127 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2325,7 +2306,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2344,7 +2325,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2363,7 +2344,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2382,7 +2363,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2401,7 +2382,26 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
+            'turn_pitches' => '0',
+            'pitching_result_id' => BullpenPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'pitcher_id' =>  $player[3]->user_id,
+                'is_in_match' => true,
+
+            ])->id,
+            'batting_result_id' => BattingPracticeResult::factory()->create([
+                'practice_id' => $practiceLiveAB->id,
+                'team_id' => $team->id,
+                'batter_id' =>  $player[1]->user_id,
+                'is_in_match' => true,
+
+            ])->id
+        ]);
+        LiveABPracticeResult::factory()->create([
+            'practice_id' => $practiceLiveAB->id,
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2416,7 +2416,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2431,7 +2431,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2446,7 +2446,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2461,7 +2461,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2484,7 +2484,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2499,7 +2499,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2514,7 +2514,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2529,7 +2529,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2544,7 +2544,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2559,7 +2559,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2574,7 +2574,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2589,7 +2589,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2604,7 +2604,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2619,7 +2619,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2634,7 +2634,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2649,7 +2649,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2664,7 +2664,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2679,7 +2679,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2694,7 +2694,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2709,7 +2709,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2724,7 +2724,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2740,7 +2740,7 @@ class FilterLiveABTrainingsTest extends TestCase
 
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -2819,7 +2819,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2834,7 +2834,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2849,7 +2849,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2864,7 +2864,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2879,7 +2879,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2894,7 +2894,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2909,7 +2909,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2924,7 +2924,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2939,7 +2939,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2954,7 +2954,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2969,7 +2969,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2984,7 +2984,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -2999,7 +2999,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3014,7 +3014,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3029,7 +3029,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3044,7 +3044,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3059,7 +3059,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3074,7 +3074,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3089,7 +3089,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3104,7 +3104,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3121,12 +3121,7 @@ class FilterLiveABTrainingsTest extends TestCase
 
 
         $response = $this->json('GET', 'api/result/statistics/'.fake()->uuid, []);
-        $response->assertNotFound()->assertJsonStructure([
-            'status',
-            'message',
-            'code',
-            'data' => []
-        ]);
+        $response->assertForbidden()->assertJsonStructure(['message']);
     }
 
     public function test_get_statistics_liveab_validations_erros(): void
@@ -3162,7 +3157,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3177,7 +3172,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3192,7 +3187,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3207,7 +3202,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3222,7 +3217,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3237,7 +3232,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3252,7 +3247,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3267,7 +3262,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3282,7 +3277,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3297,7 +3292,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3312,7 +3307,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3327,7 +3322,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3342,7 +3337,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3357,7 +3352,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3372,7 +3367,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3387,7 +3382,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3402,7 +3397,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3417,7 +3412,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3432,7 +3427,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3447,7 +3442,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3463,7 +3458,7 @@ class FilterLiveABTrainingsTest extends TestCase
 
 
 
-        $response = $this->json('GET', 'api/result/statistics/'.fake()->uuid, []);
+        $response = $this->json('GET', 'api/result/statistics/'.$team->id, []);
         $response->assertUnprocessable()->assertJsonStructure([
             'status',
             'message',
@@ -3531,7 +3526,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3546,7 +3541,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3561,7 +3556,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3576,7 +3571,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3591,7 +3586,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3606,7 +3601,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3621,7 +3616,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3636,7 +3631,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3651,7 +3646,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3666,7 +3661,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3681,7 +3676,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3696,7 +3691,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3711,7 +3706,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3726,7 +3721,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3741,7 +3736,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3756,7 +3751,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3771,7 +3766,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3786,7 +3781,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3801,7 +3796,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3816,7 +3811,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB->id,
@@ -3835,7 +3830,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3850,7 +3845,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3865,7 +3860,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3880,7 +3875,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3895,7 +3890,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3910,7 +3905,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3925,7 +3920,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3940,7 +3935,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3955,7 +3950,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3970,7 +3965,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -3985,7 +3980,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -4000,7 +3995,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -4015,7 +4010,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -4030,7 +4025,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -4045,7 +4040,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -4060,7 +4055,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -4075,7 +4070,7 @@ class FilterLiveABTrainingsTest extends TestCase
         ]);
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,
@@ -4091,7 +4086,7 @@ class FilterLiveABTrainingsTest extends TestCase
 
         LiveABPracticeResult::factory()->create([
             'practice_id' => $practiceLiveAB2->id,
-            'count_s_b' => '0-0',
+            'count_b_s' => '0-0',
             'turn_pitches' => '0',
             'pitching_result_id' => BullpenPracticeResult::factory()->create([
                 'practice_id' => $practiceLiveAB2->id,

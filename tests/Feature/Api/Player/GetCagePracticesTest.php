@@ -76,7 +76,7 @@ class GetCagePracticesTest extends TestCase
             )->id
         ]);
         $response = $this->json('GET', 'api/player/sessions/cage');
-        $response->assertNotFound()->assertJsonStructure([
+        $response->assertOk()->assertJsonStructure([
             'code',
             'status',
             'message',

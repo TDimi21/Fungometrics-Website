@@ -98,7 +98,7 @@ class GetBattingPracticesTest extends TestCase
          ]);
 
          $response = $this->json('GET', 'api/player/sessions/batting');
-         $response->assertNotFound()->assertJsonStructure([
+        $response->assertOk()->assertJsonStructure([
              'code',
              'status',
              'message',

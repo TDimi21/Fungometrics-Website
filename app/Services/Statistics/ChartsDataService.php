@@ -19,7 +19,13 @@ final class ChartsDataService
 {
     public function getAverageLiveExitVelocity(array $params, int $range = 0)
     {
-        $data = $this->playersResults($params);
+        $data = BattingPracticeResult::query()
+            ->whereIn('batter_id', $params['players'])
+            ->where('is_in_match', true)
+            ->where('velocity', '>', 0);
+        if (isset($params['team'])) {
+            $data->where('team_id', $params['team']);
+        }
 
         if (0 === $data->count()) {
             throw new NotFound();
@@ -73,7 +79,10 @@ final class ChartsDataService
 
     public function getMaxExitVelocity(array $params, int $range = 0)
     {
-        $data = $this->playersResults($params);
+        $data = ExitVelocityPractice::query()->whereIn('user_id', $params['players']);
+        if (isset($params['team'])) {
+            $data->where('team_id', $params['team']);
+        }
         if (0 === $data->count()) {
             throw new NotFound();
         }

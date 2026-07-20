@@ -80,12 +80,14 @@ class LiveABEditResultPracticeTest extends TestCase
                 'is_over' => false,
             ],
             'batting' => [
+                'batter_id' => $liveab->batting->batter_id,
                 'quality_of_contact' => ContactQuality::HARD->value,
                 'field_mark' => fake()->numberBetween(),
                 'field_direction' => SidesPitchPosition::MIDDLE_RIGHT->value,
                 'velocity' => fake()->numberBetween(),
             ],
             'pitching' => [
+                'pitcher_id' => $liveab->pitching->pitcher_id,
                 'miles_per_hour' => fake()->numberBetween(),
                 'type_throw' => PitchThrowTypes::SLIDER->value,
             ],

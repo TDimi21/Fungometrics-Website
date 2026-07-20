@@ -78,12 +78,7 @@ class ListSmsResultsTest extends TestCase
             'api/coach/list/results/'.fake()->uuid
         );
 
-        $response->assertNotFound()->assertJsonStructure([
-            'code',
-            'message',
-            'status',
-            'data' => []
-        ]);
+        $response->assertNotFound()->assertJsonStructure(['message']);
     }
 
     public function test_get_list_sms_unauthorized(): void

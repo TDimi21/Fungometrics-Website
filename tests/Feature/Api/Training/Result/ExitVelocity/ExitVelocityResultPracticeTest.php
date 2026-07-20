@@ -8,6 +8,7 @@ use App\Http\Requests\Api\Training\Result\ExitVelocityRequest;
 use App\Models\Concerns\BattingTrajectory;
 use App\Models\Concerns\UserTypes;
 use App\Models\Practice;
+use App\Models\PlayerTeam;
 use App\Models\Team;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
@@ -18,11 +19,14 @@ class ExitVelocityResultPracticeTest extends TestCase
 {
     public function test_velocity_exit_practice_result_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $user = User::factory()->create(['type' => UserTypes::PLAYER->value, 'subscription_plan' => 'player_pro']);
+        $team = Team::factory()->create();
+        PlayerTeam::factory()->create(['user_id' => $user->id, 'team_id' => $team->id]);
+        Sanctum::actingAs($user);
         $data =[
-            'practice_id' => Practice::factory()->create(['type' => UserTypes::PLAYER->value])->id,
-            'user_id' => User::factory()->create()->id,
-            'team_id' => Team::factory()->create()->id,
+            'practice_id' => Practice::factory()->create(['type' => UserTypes::PLAYER->value, 'user_id' => $user->id, 'team_id' => $team->id])->id,
+            'user_id' => $user->id,
+            'team_id' => $team->id,
             'set' => fake()->numberBetween(1, 4),
             'sort' => fake()->numberBetween(1, 5),
             'trajectory' => fake()->randomElement([

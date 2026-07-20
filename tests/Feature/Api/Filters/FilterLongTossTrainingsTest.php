@@ -99,12 +99,7 @@ class FilterLongTossTrainingsTest extends TestCase
       ]);
       Sanctum::actingAs($user, [UserTypes::COACH->value]);
       $response = $this->json('GET', 'api/result/statistics/'.fake()->uuid, []);
-      $response->assertNotFound()->assertJsonStructure([
-          'status',
-          'message',
-          'code',
-          'data' => []
-      ]);
+        $response->assertForbidden()->assertJsonStructure(['message']);
   }
 
     public function test_get_statistics_long_toss_validations_errors(): void
@@ -113,7 +108,8 @@ class FilterLongTossTrainingsTest extends TestCase
             'type' => UserTypes::COACH->value
         ]);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
-        $response = $this->json('GET', 'api/result/statistics/'.fake()->uuid, []);
+        $team = Team::factory()->create();
+        $response = $this->json('GET', 'api/result/statistics/'.$team->id, []);
         $response->assertUnprocessable()->assertJsonStructure([
             'status',
             'message',

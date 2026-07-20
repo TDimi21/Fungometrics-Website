@@ -19,7 +19,7 @@ class LiveABFilters
             players: $params['players'],
             dates: $params['dates']
         );
-        if(0===count($dataProcess)) {
+        if ($dataProcess['batters']->isEmpty() && $dataProcess['pitchers']->isEmpty()) {
             return [];
         }
         $liveOptions = [

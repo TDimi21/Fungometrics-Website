@@ -31,7 +31,15 @@ class UserFactory extends Factory
             'password' => fake()->password,
             // Most legacy feature tests exercise application behavior rather
             // than plan denial. Access-control tests explicitly override this.
-            'subscription_plan' => UserTypes::COACH === $type ? 'coach_pro' : 'player_pro',
+            // Resolve from the final attributes so an explicit `type` override
+            // cannot inherit the randomly generated type's plan.
+            'subscription_plan' => static function (array $attributes): string {
+                $type = $attributes['type'] instanceof UserTypes
+                    ? $attributes['type']->value
+                    : (string) $attributes['type'];
+
+                return UserTypes::COACH->value === $type ? 'coach_pro' : 'player_pro';
+            },
         ];
     }
 

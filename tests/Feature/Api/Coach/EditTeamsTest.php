@@ -10,7 +10,6 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
-use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 class EditTeamsTest extends TestCase
@@ -21,6 +20,7 @@ class EditTeamsTest extends TestCase
         Storage::fake('s3');
         $user = User::factory()->create(['type' => UserTypes::COACH->value]);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
+        $this->grantTeamAccess($user, $team);
         $dataEdit = [
             'name' => fake()->company,
             'logo' => UploadedFile::fake()->image('team.jpg'),
@@ -38,6 +38,7 @@ class EditTeamsTest extends TestCase
         $team = Team::factory()->create();
         $user = User::factory()->create(['type' => UserTypes::COACH->value]);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
+        $this->grantTeamAccess($user, $team);
         $dataEdit = [
             'logo' => fake()->imageUrl,
             'name' => fake()->company,
@@ -54,6 +55,7 @@ class EditTeamsTest extends TestCase
       $team = Team::factory()->create();
       $user = User::factory()->create(['type' => UserTypes::COACH->value]);
       Sanctum::actingAs($user, [UserTypes::COACH->value]);
+        $this->grantTeamAccess($user, $team);
       $dataEdit = [
           'name' => fake()->company,
       ];
@@ -92,6 +94,7 @@ class EditTeamsTest extends TestCase
         $team = Team::factory()->create();
         $user = User::factory()->create(['type' => UserTypes::COACH->value]);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
+        $this->grantTeamAccess($user, $team);
         $dataEdit = [
             'logo' => null,
             'name' => null,
@@ -113,6 +116,6 @@ class EditTeamsTest extends TestCase
           'logo' => UploadedFile::fake()->image('team.jpg'),
       ];
       $response = $this->json('POST', 'api/coach/edit/teams/'.fake()->uuid, $dataEdit);
-      $response->assertStatus(Response::HTTP_INTERNAL_SERVER_ERROR);
+        $response->assertForbidden();
   }
 }
