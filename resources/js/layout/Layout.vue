@@ -542,76 +542,65 @@ watch(
     </div>
   </div>
   <div v-if="isOpen">
-    <div class="fixed inset-0 z-50 flex justify-center items-center">
-      <div
-        class="flex flex-col max-w-5xl rounded-lg shadow-xl overflow-y-auto bg-white border pt-2 pb-4 drop-shadow-xl min-h-[50%] max-h-[50%] lg:min-h-[40%] lg:max-h-[40%] w-[85%] md:w-[100%] ml-3 lg:ml-0"
-      >
-        <div>
-          <div class="flex flex-row w-[100%] items-center mb-3 px-4">
-            <h1 class="text-lg lg:text-2xl text-fungo-red font-fungo-700 my-5">
-              Add player
-            </h1>
-            <div
-              class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]"
-              @click="isOpen = false"
-            >
-              <img
-                alt="Icon close view"
-                src="../assets/img/register/cancel.svg"
-              />
-            </div>
+    <div class="add-player-dialog" role="dialog" aria-modal="true" aria-labelledby="add-player-title">
+      <button
+        type="button"
+        class="add-player-backdrop"
+        aria-label="Close add player dialog"
+        @click="isOpen = false"
+      ></button>
+      <div class="add-player-panel">
+        <div class="add-player-accent"></div>
+        <header class="add-player-header">
+          <div>
+            <span class="add-player-eyebrow">Team roster</span>
+            <h1 id="add-player-title">Add Player</h1>
+            <p>Create a player profile and add it to the active team.</p>
           </div>
-          <div
-            class="bg-fungo-gray2 flex flex-row w-[100%] items-center mb-5 py-10 px-[3%]"
+          <button
+            type="button"
+            class="add-player-close"
+            aria-label="Close add player dialog"
+            @click="isOpen = false"
           >
-            <form
-              action=""
-              name="add-player"
-              class="flex flex-col lg:flex-row flex-wrap items-center space-x-0 lg:space-x-3 w-[95%] lg:w-[100%]"
-            >
-              <div class="mb-2">
-                <div>
-                  <LabelField text="First name" :required="true" />
-                  <InputBase v-model="player.firstName" />
-                </div>
-              </div>
-              <div class="mb-2">
-                <div>
-                  <LabelField text="Last name" :required="true" />
-                  <InputBase v-model="player.lastName" />
-                </div>
-              </div>
-              <div class="mb-2">
-                <div>
-                  <LabelField text="Mobile number" :required="true" />
-                  <InutTel v-model="player.mobileNumber" inputType="tel" />
-                </div>
-              </div>
-            </form>
-          </div>
-          <div class="flex flex-row justify-center">
-            <div class="justify-center">
-              <button
-                class="grid place-items-center grid-flow-col flex-row rounded-button-right w-[200px] lg:w-[250px] px-2 py-1 text-xl md:text-[12px] lg:text-[16px] bg-fungo-red text-white hover:bg-fungo-red-hover"
-                type="submit"
-                @click="submitAddPlayer"
-              >
-                <img
-                  alt="button register coach"
-                  class="w-4 h-4 md:w-6 md:h-6 mx-2 md:mx-0"
-                  src="../assets/img/login/assteslogin/ballbutton.svg"
-                />
-                <span class="mx-2">Add</span>
-                <div class="text-white mx-2 animate-bounce-r">
-                  <ArrowRightIcon color="ffffff" w="50" h="50" />
-                </div>
-              </button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+          </button>
+        </header>
+
+        <form name="add-player" class="add-player-form" @submit.prevent="submitAddPlayer">
+          <div class="add-player-grid">
+            <div class="add-player-field">
+              <LabelField text="First name" :required="true" />
+              <InputBase v-model="player.firstName" />
+            </div>
+            <div class="add-player-field">
+              <LabelField text="Last name" :required="true" />
+              <InputBase v-model="player.lastName" />
+            </div>
+            <div class="add-player-field">
+              <LabelField text="Mobile number" :required="true" />
+              <InutTel v-model="player.mobileNumber" inputType="tel" />
             </div>
           </div>
-        </div>
+
+          <div class="add-player-actions">
+            <button type="button" class="add-player-cancel" @click="isOpen = false">
+              Cancel
+            </button>
+            <button type="submit" class="add-player-submit">
+              <img
+                alt=""
+                src="../assets/img/login/assteslogin/ballbutton.svg"
+              />
+              <span>Add Player</span>
+              <ArrowRightIcon color="ffffff" w="28" h="28" />
+            </button>
+          </div>
+        </form>
       </div>
     </div>
-    <div class="opacity-70 fixed inset-0 z-40 bg-fungo-darkblue"></div>
   </div>
   <div v-if="isChange">
     <div class="fixed inset-0 z-50 flex justify-center items-center">
@@ -800,6 +789,225 @@ watch(
   <SendMsgModal v-if="isShowMsgModal" />
 </template>
 <style lang="css" scoped>
+.add-player-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.add-player-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(37, 48, 91, .32), transparent 42%),
+    rgba(2, 6, 18, .86);
+  backdrop-filter: blur(9px);
+}
+
+.add-player-panel {
+  position: relative;
+  width: min(100%, 900px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgba(27, 36, 69, .99), rgba(7, 13, 31, .99));
+  box-shadow:
+    0 32px 90px rgba(0, 0, 0, .58),
+    inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+.add-player-accent {
+  height: 4px;
+  background: linear-gradient(90deg, #ff2b4a, #e10600);
+}
+
+.add-player-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 30px 32px 25px;
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+}
+
+.add-player-eyebrow {
+  display: block;
+  margin-bottom: 7px;
+  color: #ff4964;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.add-player-header h1 {
+  color: #fff;
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 900;
+  letter-spacing: -.02em;
+}
+
+.add-player-header p {
+  margin-top: 7px;
+  color: rgba(226, 232, 240, .66);
+  font-size: 14px;
+}
+
+.add-player-close {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .7);
+  transition: .16s ease;
+}
+
+.add-player-close:hover {
+  border-color: rgba(255, 43, 74, .48);
+  background: rgba(255, 43, 74, .14);
+  color: #fff;
+}
+
+.add-player-close svg {
+  width: 21px;
+  height: 21px;
+}
+
+.add-player-form {
+  padding: 30px 32px 32px;
+}
+
+.add-player-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.add-player-field {
+  min-width: 0;
+}
+
+.add-player-field :deep(label) {
+  display: block;
+  margin-bottom: 9px;
+  color: rgba(241, 245, 249, .88);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.add-player-field :deep(input),
+.add-player-field :deep(select) {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 11px;
+  background: rgba(3, 9, 24, .68);
+  color: #fff;
+  outline: none;
+  transition: .16s ease;
+}
+
+.add-player-field :deep(input:focus),
+.add-player-field :deep(select:focus) {
+  border-color: #ff2b4a;
+  box-shadow: 0 0 0 3px rgba(255, 43, 74, .13);
+}
+
+.add-player-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, .09);
+}
+
+.add-player-actions button {
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transition: .16s ease;
+}
+
+.add-player-cancel {
+  min-width: 122px;
+  border: 1px solid rgba(255, 255, 255, .15);
+  background: rgba(255, 255, 255, .06);
+  color: #fff;
+}
+
+.add-player-cancel:hover {
+  background: rgba(255, 255, 255, .12);
+}
+
+.add-player-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 190px;
+  border: 1px solid #ff2b4a;
+  background: #ff2b4a;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(255, 43, 74, .24);
+}
+
+.add-player-submit:hover {
+  border-color: #ff4964;
+  background: #ff4964;
+  transform: translateY(-1px);
+}
+
+.add-player-submit img {
+  width: 25px;
+  height: 25px;
+}
+
+@media (max-width: 760px) {
+  .add-player-dialog {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .add-player-panel {
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    border-radius: 20px;
+  }
+
+  .add-player-header,
+  .add-player-form {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .add-player-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .add-player-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .add-player-submit {
+    grid-row: 1;
+  }
+}
+
 .logout-dialog {
   position: relative;
   z-index: 100;
