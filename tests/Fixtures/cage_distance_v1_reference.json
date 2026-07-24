@@ -1,0 +1,4952 @@
+[
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 69.6
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 69.38
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 69.38
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 69.38
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 69.38
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 69.38
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 68.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 68.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 68.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 68.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 68.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 67.7
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 67.7
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 67.7
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 67.7
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 67.7
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 65.66
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 65.66
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 65.66
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 65.66
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 65.66
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 62.47
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 62.47
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 62.47
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 62.47
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 62.47
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 61.39
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 61.39
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 61.39
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 61.39
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 61.39
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 60.86
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 60.86
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 60.86
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 60.86
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 60.86
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 61.42
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 61.42
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 61.42
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 61.42
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 61.42
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 58.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 58.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 58.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 58.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 58.84
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 57.94
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 57.94
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 57.94
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 57.94
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 57.94
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 50.95
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 50.95
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 50.95
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 50.95
+  },
+  {
+    "exit_velocity_mph": 40,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 50.95
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 87
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 89.91
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 89.91
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 89.91
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 89.91
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 89.91
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 92.34
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 92.34
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 92.34
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 92.34
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 92.34
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 93.82
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 93.82
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 93.82
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 93.82
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 93.82
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 93.89
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 93.89
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 93.89
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 93.89
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 93.89
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 92.17
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 92.17
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 92.17
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 92.17
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 92.17
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 92.66
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 92.66
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 92.66
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 92.66
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 92.66
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 93.35
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 93.35
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 93.35
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 93.35
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 93.35
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 94.88
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 94.88
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 94.88
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 94.88
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 94.88
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 91.93
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 91.93
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 91.93
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 91.93
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 91.93
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 90.53
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 90.53
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 90.53
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 90.53
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 90.53
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 79.61
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 79.61
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 79.61
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 79.61
+  },
+  {
+    "exit_velocity_mph": 50,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 79.61
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 104.4
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 111.73
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 111.73
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 111.73
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 111.73
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 111.73
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 118.36
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 118.36
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 118.36
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 118.36
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 118.36
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 123.61
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 123.61
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 123.61
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 123.61
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 123.61
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 126.85
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 126.85
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 126.85
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 126.85
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 126.85
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 127.51
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 127.51
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 127.51
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 127.51
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 127.51
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 130.31
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 130.31
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 130.31
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 130.31
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 130.31
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 132.75
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 132.75
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 132.75
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 132.75
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 132.75
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 135.59
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 135.59
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 135.59
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 135.59
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 135.59
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 132.38
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 132.38
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 132.38
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 132.38
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 132.38
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 130.37
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 130.37
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 130.37
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 130.37
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 130.37
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 114.65
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 114.65
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 114.65
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 114.65
+  },
+  {
+    "exit_velocity_mph": 60,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 114.65
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 121.8
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 134.82
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 134.82
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 134.82
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 134.82
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 134.82
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 146.89
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 146.89
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 146.89
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 146.89
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 146.89
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 157.08
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 157.08
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 157.08
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 157.08
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 157.08
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 164.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 164.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 164.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 164.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 164.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 168.48
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 168.48
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 168.48
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 168.48
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 168.48
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 174.31
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 174.31
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 174.31
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 174.31
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 174.31
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 179.06
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 179.06
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 179.06
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 179.06
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 179.06
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 183.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 183.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 183.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 183.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 183.54
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 180.18
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 180.18
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 180.18
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 180.18
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 180.18
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 177.45
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 177.45
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 177.45
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 177.45
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 177.45
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 156.04
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 156.04
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 156.04
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 156.04
+  },
+  {
+    "exit_velocity_mph": 70,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 156.04
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 139.2
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 159.19
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 159.19
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 159.19
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 159.19
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 159.19
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 177.93
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 177.93
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 177.93
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 177.93
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 177.93
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 194.23
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 194.23
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 194.23
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 194.23
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 194.23
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 206.96
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 206.96
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 206.96
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 206.96
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 206.96
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 215.08
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 215.08
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 215.08
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 215.08
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 215.08
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 224.69
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 224.69
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 224.69
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 224.69
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 224.69
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 232.29
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 232.29
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 232.29
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 232.29
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 232.29
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 238.73
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 238.73
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 238.73
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 238.73
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 238.73
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 235.34
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 235.34
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 235.34
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 235.34
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 235.34
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 231.77
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 231.77
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 231.77
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 231.77
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 231.77
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 203.81
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 203.81
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 203.81
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 203.81
+  },
+  {
+    "exit_velocity_mph": 80,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 203.81
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 156.6
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 184.83
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 184.83
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 184.83
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 184.83
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 184.83
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 211.49
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 211.49
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 211.49
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 211.49
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 211.49
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 235.06
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 235.06
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 235.06
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 235.06
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 235.06
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 254.1
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 254.1
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 254.1
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 254.1
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 254.1
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 267.32
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 267.32
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 267.32
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 267.32
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 267.32
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 281.44
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 281.44
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 281.44
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 281.44
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 281.44
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 292.42
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 292.42
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 292.42
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 292.42
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 292.42
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 301.16
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 301.16
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 301.16
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 301.16
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 301.16
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 297.86
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 297.86
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 297.86
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 297.86
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 297.86
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 293.33
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 293.33
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 293.33
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 293.33
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 293.33
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 257.95
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 257.95
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 257.95
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 257.95
+  },
+  {
+    "exit_velocity_mph": 90,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 257.95
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 165.3
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 198.13
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 198.13
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 198.13
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 198.13
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 198.13
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 229.22
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 229.22
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 229.22
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 229.22
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 229.22
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 256.85
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 256.85
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 256.85
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 256.85
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 256.85
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 279.44
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 279.44
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 279.44
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 279.44
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 279.44
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 295.55
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 295.55
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 295.55
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 295.55
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 295.55
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 312.2
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 312.2
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 312.2
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 312.2
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 312.2
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 325.08
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 325.08
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 325.08
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 325.08
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 325.08
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 335.09
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 335.09
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 335.09
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 335.09
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 335.09
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 331.87
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 331.87
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 331.87
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 331.87
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 331.87
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 326.83
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 326.83
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 326.83
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 326.83
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 326.83
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 287.41
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 287.41
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 287.41
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 287.41
+  },
+  {
+    "exit_velocity_mph": 95,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 287.41
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 174
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 211.75
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 211.75
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 211.75
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 211.75
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 211.75
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 247.57
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 247.57
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 247.57
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 247.57
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 247.57
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 279.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 279.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 279.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 279.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 279.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 305.97
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 305.97
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 305.97
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 305.97
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 305.97
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 325.19
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 325.19
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 325.19
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 325.19
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 325.19
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 344.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 344.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 344.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 344.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 344.56
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 359.47
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 359.47
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 359.47
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 359.47
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 359.47
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 370.84
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 370.84
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 370.84
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 370.84
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 370.84
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 367.72
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 367.72
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 367.72
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 367.72
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 367.72
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 362.14
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 362.14
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 362.14
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 362.14
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 362.14
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 318.46
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 318.46
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 318.46
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 318.46
+  },
+  {
+    "exit_velocity_mph": 100,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 318.46
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 182.7
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 225.69
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 225.69
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 225.69
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 225.69
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 225.69
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 266.55
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 266.55
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 266.55
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 266.55
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 266.55
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 303.19
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 303.19
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 303.19
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 303.19
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 303.19
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 333.68
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 333.68
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 333.68
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 333.68
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 333.68
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 356.24
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 356.24
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 356.24
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 356.24
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 356.24
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 378.51
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 378.51
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 378.51
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 378.51
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 378.51
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 395.58
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 395.58
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 395.58
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 395.58
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 395.58
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 408.39
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 408.39
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 408.39
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 408.39
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 408.39
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 405.42
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 405.42
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 405.42
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 405.42
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 405.42
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 399.26
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 399.26
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 399.26
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 399.26
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 399.26
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 351.1
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 351.1
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 351.1
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 351.1
+  },
+  {
+    "exit_velocity_mph": 105,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 351.1
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 191.4
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 239.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 239.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 239.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 239.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 239.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 286.16
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 286.16
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 286.16
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 286.16
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 286.16
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 327.74
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 327.74
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 327.74
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 327.74
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 327.74
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 362.57
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 362.57
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 362.57
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 362.57
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 362.57
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 388.7
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 388.7
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 388.7
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 388.7
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 388.7
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 414.04
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 414.04
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 414.04
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 414.04
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 414.04
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 433.42
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 433.42
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 433.42
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 433.42
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 433.42
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 447.76
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 447.76
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 447.76
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 447.76
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 447.76
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 444.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 444.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 444.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 444.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 444.95
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 438.19
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 438.19
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 438.19
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 438.19
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 438.19
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 385.33
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 385.33
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 385.33
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 385.33
+  },
+  {
+    "exit_velocity_mph": 110,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 385.33
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": -5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 0,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 208.8
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 269.43
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 269.43
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 269.43
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 269.43
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 5,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 269.43
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 327.27
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 327.27
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 327.27
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 327.27
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 10,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 327.27
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 379.6
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 379.6
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 379.6
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 379.6
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 15,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 379.6
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 423.89
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 423.89
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 423.89
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 423.89
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 20,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 423.89
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 457.84
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 457.84
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 457.84
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 457.84
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 25,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 457.84
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 489.9
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 489.9
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 489.9
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 489.9
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 30,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 489.9
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 514.29
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 514.29
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 514.29
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 514.29
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 35,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 514.29
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 531.92
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 531.92
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 531.92
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 531.92
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 40,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 531.92
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 529.52
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 529.52
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 529.52
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 529.52
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 45,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 529.52
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 521.48
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 521.48
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 521.48
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 521.48
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 50,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 521.48
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -30,
+    "v1_distance_ft": 458.58
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": -15,
+    "v1_distance_ft": 458.58
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 0,
+    "v1_distance_ft": 458.58
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 15,
+    "v1_distance_ft": 458.58
+  },
+  {
+    "exit_velocity_mph": 120,
+    "launch_angle_deg": 60,
+    "spray_angle_deg": 30,
+    "v1_distance_ft": 458.58
+  }
+]

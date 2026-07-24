@@ -113,10 +113,15 @@ class CageDistanceService
      *   contact_height_max_ft, measured_spin_rpm, ground_ball, ball_profile,
      *   mode ('standardized'|'facility'), temperature_f, pressure_inhg,
      *   humidity_percent, elevation_ft, wind_speed_mph, wind_direction_deg.
+     * @param  ?int  $monteCarloSampleOverride  Additive knob for callers that need a
+     *   cheaper (or reproducible single-draw) uncertainty sweep than the
+     *   production default (500 samples) — e.g. CageDistanceValidationService's
+     *   grid generator. Leave null for every regular caller; behavior and
+     *   output are byte-for-byte identical to before this parameter existed.
      *
      * @return array<string,mixed>
      */
-    public function estimate(array $input): array
+    public function estimate(array $input, ?int $monteCarloSampleOverride = null): array
     {
         $assumptions = [];
 
@@ -230,9 +235,10 @@ class CageDistanceService
             || ($contactHeightMaxFt > $contactHeightMinFt) || ($spinMax > $spinMin);
 
         if ($rangesVary) {
+            $sampleCount = $monteCarloSampleOverride ?? self::MONTE_CARLO_SAMPLES;
             $rngState = self::MONTE_CARLO_SEED === 0 ? 1 : self::MONTE_CARLO_SEED;
             $samples = [];
-            for ($i = 0; $i < self::MONTE_CARLO_SAMPLES; $i++) {
+            for ($i = 0; $i < $sampleCount; $i++) {
                 $laSample = $this->uniform($rngState, $laMin, $laMax);
                 $saSample = $this->uniform($rngState, $saMin, $saMax);
                 $chSample = $this->uniform($rngState, $contactHeightMinFt, $contactHeightMaxFt);

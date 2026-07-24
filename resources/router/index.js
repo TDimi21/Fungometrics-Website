@@ -49,6 +49,7 @@ const AdminUsers       = () => import('@/pages/admin/AdminUsers.vue');
 const AdminUserDetail  = () => import('@/pages/admin/AdminUserDetail.vue');
 const AdminTeams       = () => import('@/pages/admin/AdminTeams.vue');
 const AdminPlans       = () => import('@/pages/admin/AdminPlans.vue');
+const CageDistanceValidationLab = () => import('@/pages/admin/CageDistanceValidationLab.vue');
 const Purchase = () => import('@/pages/Purchase.vue');
 
 //layout
@@ -378,6 +379,8 @@ const routes = [
   { name: 'admin.user-detail',path: '/admin/users/:id',      component: AdminUserDetail, meta: { requiresAuth: true }, props: true },
   { name: 'admin.teams',      path: '/admin/teams',          component: AdminTeams,      meta: { requiresAuth: true } },
   { name: 'admin.plans',      path: '/admin/plans',          component: AdminPlans,      meta: { requiresAuth: true } },
+  // Developer tool only — not linked from coach/admin navigation.
+  { name: 'admin.dev.cage-distance-validation', path: '/admin/dev/cage-distance-validation', component: CageDistanceValidationLab, meta: { requiresAuth: true } },
 
   /* only for redundant player options */
   {
