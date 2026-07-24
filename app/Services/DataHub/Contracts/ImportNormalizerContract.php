@@ -8,6 +8,9 @@ use App\Services\DataHub\DTOs\NormalizedImportResult;
 
 interface ImportNormalizerContract
 {
-    /** @param iterable<int, array<string, mixed>> $records */
-    public function normalize(iterable $records): NormalizedImportResult;
+    /**
+     * @param iterable<int, array<string, mixed>> $records
+     * @param array<string, string|null> $playerMappings
+     */
+    public function normalize(iterable $records, array $playerMappings = [], string $sessionType = 'cage'): NormalizedImportResult;
 }

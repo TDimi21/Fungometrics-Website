@@ -22,17 +22,18 @@ export const useAxiosAuth = () => {
     return getAuthToken() || null
   }
 
-  const authHeaders = () => {
+  const authHeaders = (isMultipart = false) => {
     const token = resolveToken()
     return {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      'Content-Type': 'application/json',
+      ...(!isMultipart ? { 'Content-Type': 'application/json' } : {}),
     }
   }
 
   const axiosPost = (url, data) => {
+    const isMultipart = typeof FormData !== 'undefined' && data instanceof FormData
     return withAccessRefreshSignal(axios.post(apiBaseUrl + url, data,{
-      headers: authHeaders(),
+      headers: authHeaders(isMultipart),
       withCredentials: true,
 
     }))

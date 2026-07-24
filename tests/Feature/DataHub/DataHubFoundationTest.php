@@ -116,11 +116,11 @@ class DataHubFoundationTest extends TestCase
         $this->assertTrue($registry->allows($admin, $otherTeam, ImportSessionType::Assessment));
     }
 
-    public function test_destination_contract_is_bound_without_an_import_endpoint(): void
+    public function test_destination_contract_is_bound_with_inspection_only_endpoint(): void
     {
         $this->assertInstanceOf(ImportDestinationContract::class, app(ImportDestinationContract::class));
-        $this->assertFalse(collect(app('router')->getRoutes())->contains(
-            fn ($route): bool => str_contains($route->uri(), 'data-hub')
+        $this->assertTrue(collect(app('router')->getRoutes())->contains(
+            fn ($route): bool => 'api/data-hub/inspect' === $route->uri()
         ));
     }
 

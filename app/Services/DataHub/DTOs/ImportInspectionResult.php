@@ -6,10 +6,9 @@ namespace App\Services\DataHub\DTOs;
 
 final readonly class ImportInspectionResult
 {
+    /** @param array<string, mixed> $data */
     public function __construct(
-        public ?int $rowCount = null,
-        public ?int $playerCount = null,
-        public string $status = 'not_analyzed',
+        public array $data = [],
     ) {
     }
 }

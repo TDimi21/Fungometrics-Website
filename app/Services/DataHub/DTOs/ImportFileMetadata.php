@@ -11,6 +11,7 @@ final readonly class ImportFileMetadata
         public int $sizeBytes,
         public string $extension,
         public ?string $mimeType = null,
+        public ?string $path = null,
     ) {
     }
 }

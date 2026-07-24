@@ -33,14 +33,14 @@ const choose = (files) => {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4"/></svg>
       </span>
       <strong>{{ modelValue ? modelValue.name : 'Drop your data file here' }}</strong>
-      <small v-if="modelValue">{{ (modelValue.size / 1024 / 1024).toFixed(2) }} MB · Ready for preview</small>
+      <small v-if="modelValue">{{ (modelValue.size / 1024 / 1024).toFixed(2) }} MB · Ready for inspection</small>
       <small v-else>CSV or XLSX · Maximum {{ Math.round(maxSizeBytes / 1024 / 1024) }} MB</small>
       <span class="browse">{{ modelValue ? 'Choose another file' : 'Browse files' }}</span>
     </button>
     <input ref="input" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden @change="choose($event.target.files)" />
     <p v-if="error" class="file-error">{{ error }}</p>
     <p v-else-if="warning" class="file-warning">{{ warning }}</p>
-    <p class="privacy-note">The file stays in this browser during Phase 1 and is not uploaded or imported.</p>
+    <p class="privacy-note">The file stays in this browser until you approve inspection. It is then uploaded privately, inspected, and immediately deleted.</p>
   </div>
 </template>
 

@@ -23,26 +23,26 @@ describe('Data Hub Phase 1', () => {
     expect(router).toContain("if (to.meta?.coachOnly && userData.type !== 'coach' && !isAdmin)")
   })
 
-  it('supports the complete four-step preview experience', () => {
+  it('hands the foundation forward to the five-step Phase 2A inspection experience', () => {
     const page = source('resources/js/pages/data-hub/ImportData.vue')
 
     expect(page).toContain('PlatformSelector')
     expect(page).toContain('FileDropzone')
     expect(page).toContain('DestinationSelector')
-    expect(page).toContain('ImportSummary')
-    expect(page).toContain('nextDataHubStep')
-    expect(page).toContain('Finish Preview')
+    expect(page).toContain('PlayerMapping')
+    expect(page).toContain('InspectionReview')
+    expect(page).toContain('Finish Inspection')
   })
 
-  it('does not upload, parse, or persist the selected source file', () => {
+  it('does not persist selected source files in browser storage', () => {
     const page = source('resources/js/pages/data-hub/ImportData.vue')
     const dropzone = source('resources/js/components/data-hub/FileDropzone.vue')
     const combined = `${page}\n${dropzone}`
 
-    expect(combined).not.toMatch(/\baxios\b|\bfetch\s*\(|localStorage|sessionStorage|FormData/)
+    expect(combined).not.toMatch(/localStorage|sessionStorage|indexedDB/i)
     expect(page).toContain('onBeforeRouteLeave')
     expect(page).toContain('clearWorkflow()')
-    expect(dropzone).toContain('is not uploaded or imported')
+    expect(page).toContain('selectedFile.value = null')
   })
 
   it('does not invent row or player counts before inspection exists', () => {
@@ -109,7 +109,7 @@ describe('Data Hub Phase 1', () => {
 
     expect(page).toContain('const clearWorkflow = () =>')
     expect(page).toMatch(/const cancel[\s\S]*?clearWorkflow\(\)/)
-    expect(page).toMatch(/const finishPreview[\s\S]*?clearWorkflow\(\)/)
+    expect(page).toMatch(/const finishInspection[\s\S]*?clearWorkflow\(\)/)
     expect(page).toMatch(/onBeforeRouteLeave[\s\S]*?clearWorkflow\(\)/)
     expect(page).toContain("window.addEventListener('fmtrx-logout', clearWorkflow)")
     expect(page).toContain("router.push('/data-hub')")
