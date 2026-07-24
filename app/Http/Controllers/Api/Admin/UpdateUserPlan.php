@@ -61,13 +61,6 @@ class UpdateUserPlan extends Controller
                 return $subscription;
             });
 
-            Log::info("Admin updated user #{$id} plan: {$previous} → {$plan}", [
-                'admin_id'  => $request->user()?->id,
-                'user_id'   => $id,
-                'old_plan'  => $previous,
-                'new_plan'  => $plan,
-            ]);
-
             return response()->json([
                 'code'    => 'ADMIN-PLAN-OK',
                 'message' => 'Plan updated successfully',

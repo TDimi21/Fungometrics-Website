@@ -7,7 +7,6 @@ namespace App\Listeners;
 use App\Events\UserChanged;
 use App\Models\Team;
 use App\Services\SendSmsService;
-use Illuminate\Support\Facades\Log;
 
 class SendSmsChange
 {
@@ -29,10 +28,9 @@ class SendSmsChange
             $user = $event->data['user'];
             $firstName = $user->profile->first_name ?? '';
             $message = 'Hi '.$firstName.' you are added to team: '.$teamModel->name.' in fungometrics';
-            Log::info($message);
             (new SendSmsService())->sendSms($user->phone, $message);
         } catch (\Exception $e) {
-            Log::error('SendSmsChange error: '.$e->getMessage());
+            report($e);
         }
     }
 }

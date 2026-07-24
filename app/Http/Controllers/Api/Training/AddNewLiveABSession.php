@@ -148,10 +148,8 @@ class AddNewLiveABSession extends Controller
                 'data' => [],
             ];
             Log::error('AddNewLiveABSession error', [
-                'message' => $exception->getMessage(),
-                'payload' => $request->all(),
-                'line' => $exception->getLine(),
-                'file' => $exception->getFile(),
+                'exception' => get_class($exception),
+                'request_id' => $request->header('X-Request-ID'),
             ]);
             return response()->json($response, HttpCodes::HTTP_INTERNAL_SERVER_ERROR);
         }

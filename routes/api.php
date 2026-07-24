@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Auth\CompleteCoachController;
 use App\Http\Controllers\Api\Auth\CompletePlayerController;
 use App\Http\Controllers\Api\Auth\GetUserCompleteController;
 use App\Http\Controllers\Api\Auth\LoginController;
+use App\Http\Controllers\Api\Auth\AccountDeletionController;
 use App\Http\Controllers\Api\Auth\PasswordChange;
 use App\Http\Controllers\Api\Auth\RecoverPasswordController;
 use App\Http\Controllers\Api\Auth\RegisterCoachController;
@@ -203,6 +204,12 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
     Route::post('auth/web-session', \App\Http\Controllers\Api\Auth\CreateWebSession::class)->middleware('throttle:10,1');
     Route::post('logout', \App\Http\Controllers\Api\Auth\LogoutController::class)->middleware('throttle:20,1');
     Route::get('me/access', \App\Http\Controllers\Api\Access\GetMyAccess::class);
+    Route::get('me/account-deletion/status', [AccountDeletionController::class, 'status'])
+        ->middleware('throttle:20,1');
+    Route::post('me/account-deletion/authorize', [AccountDeletionController::class, 'authorizeDeletion'])
+        ->middleware('throttle:3,10');
+    Route::delete('me/account', [AccountDeletionController::class, 'destroy'])
+        ->middleware('throttle:3,10');
     Route::post('me/billing/revenuecat/sync', RevenueCatSyncController::class)->middleware('throttle:10,1');
     Route::get('me/billing/revenuecat/products', RevenueCatProductsController::class);
     Route::middleware(['ability:coach', 'plan:edit_player'])->post('/edit/players/{id}', EditPlayers::class);

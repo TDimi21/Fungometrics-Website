@@ -93,7 +93,6 @@ final class TopTenFitnessService
             $fitness = Helper::range($range, $fitnessBase);
 
             $powerClean = $fitness->sortByDesc('power_clean')->map(function ($element) {
-                Log::info($element);
                 return [
                     'value'=>round(Helper::caseDivide($element->power_clean, $element->body_weight??0), 2),
                     'dated'=>Carbon::parse($element->fitness_date)->format('Y-m-d'),

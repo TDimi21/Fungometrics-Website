@@ -17,6 +17,7 @@ import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
 import PitchHeatmapChart from '@/components/dashboard/PitchHeatmapChart.vue'
 import PitchTypeStatsCard from '@/components/dashboard/PitchTypeStatsCard.vue'
 import PlayerCompare from '@/components/dashboard/PlayerCompare.vue'
+import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 import useChart from '@/composables/useChart.js'
 import useChartOptions from '@/composables/useChartOptions.js'
@@ -1537,6 +1538,46 @@ const openSharedPlayerDevelopmentProfile = async (player) => {
   })
 }
 
+// ── Roster card → player metrics modal (weight/height/EV/strength) ───────────
+const isOpenPlayerMetricsModal = ref(false)
+const isLoadingPlayerMetricsModal = ref(false)
+const playerMetricsItem = ref({})
+const playerMetricsData = ref([])
+const playerMetricsScore = ref({})
+
+const openPlayerMetricsModal = async (player) => {
+  const pid = player?.id
+  if (!pid) return
+
+  playerMetricsItem.value = {
+    id: pid,
+    avatar: player?.picture ?? null,
+    name: { full: player?.name ?? '—', last: '' },
+    body: {
+      ft: player?.height_ft ?? null,
+      inch: player?.height_in ?? null,
+      full_height: player?.height_ft != null ? `${player.height_ft}.${player.height_in ?? 0}` : null,
+      body_weight: player?.weight ?? null,
+    },
+    shirt_number: player?.jersey ?? null,
+    number_in_shirt: player?.jersey ?? null,
+  }
+
+  isLoadingPlayerMetricsModal.value = true
+  isOpenPlayerMetricsModal.value = true
+  try {
+    const [scoreRes, fitnessRes] = await Promise.all([
+      axiosGet(`coach/statistics/${pid}`).catch(() => null),
+      axiosGet(`player/fitness/${pid}`).catch(() => null),
+    ])
+    playerMetricsScore.value = scoreRes?.data?.data ?? {}
+    const raw = fitnessRes?.data?.data
+    playerMetricsData.value = Array.isArray(raw) ? raw : (raw ? [raw] : [])
+  } finally {
+    isLoadingPlayerMetricsModal.value = false
+  }
+}
+
 const openDevPlayerDetail = async (player) => {
   selectedDevPlayer.value = player
   selectedDevCard.value = null
@@ -2709,7 +2750,7 @@ watch(
                 v-for="p in devBoard" :key="p.id"
                 class="relative rounded-2xl overflow-hidden cursor-pointer group"
                 style="min-height: 120px;"
-                @click="openSharedPlayerDevelopmentProfile(p)"
+                @click="openPlayerMetricsModal(p)"
               >
                 <!-- Background photo -->
                 <div class="absolute inset-0">
@@ -3487,6 +3528,15 @@ watch(
         </div>
       </Transition>
     </Teleport>
+
+    <ModalPlayer
+      v-if="isOpenPlayerMetricsModal"
+      :isOpen="isOpenPlayerMetricsModal"
+      :item="playerMetricsItem"
+      :response="playerMetricsData"
+      :score="playerMetricsScore"
+      @closeModal="isOpenPlayerMetricsModal = false"
+    />
 
     <AssessmentModal
       :visible="assessmentModalOpen"

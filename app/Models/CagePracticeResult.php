@@ -26,7 +26,8 @@ class CagePracticeResult extends Model
         'practice_id'=>'string',
         'user_id'=>'string',
         'team_id'=>'string',
-        'ground_ball' => 'boolean'
+        'ground_ball' => 'boolean',
+        'distance_model_meta' => 'array'
     ];
 
     protected $fillable =[
@@ -40,7 +41,13 @@ class CagePracticeResult extends Model
         'ground_ball',
         'cage_mark',
         'cage_position',
-        'sort'
+        'sort',
+        'distance_model_version',
+        'distance_model_meta',
+        'estimated_carry_v2',
+        'estimated_carry_low_v2',
+        'estimated_carry_high_v2',
+        'distance_confidence_v2'
     ];
 
     public function practice(): BelongsTo
