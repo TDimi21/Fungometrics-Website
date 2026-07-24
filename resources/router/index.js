@@ -453,20 +453,24 @@ router.beforeEach(async (to, from, next) => {
 	}
 
 	const access = useAccessStore();
+	let accessSummary;
 	try {
-		await access.refresh();
+		accessSummary = await access.refresh();
 	} catch (_) {
-		next({ path: '/dashboard', query: { access_denied: entitlement } });
+		next({ path: '/dashboard', query: { access_denied: 'access_verification_failed' } });
 		return;
 	}
 
-	const entitlement = routeEntitlement(to, access.summary?.audience);
+	const entitlement = routeEntitlement(to, accessSummary?.audience);
 	if (!entitlement) {
 		next({ path: '/dashboard' });
 		return;
 	}
 
-	if (!access.canAccess(entitlement)) {
+	const entitlements = Array.isArray(accessSummary?.entitlements)
+		? accessSummary.entitlements
+		: [];
+	if (!entitlements.includes(entitlement)) {
 		next({ path: '/dashboard', query: { access_denied: entitlement } });
 		return;
 	}
