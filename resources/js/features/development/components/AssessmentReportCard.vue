@@ -6,7 +6,7 @@
  * rich report can be reused inline (e.g. under the dashboard Assessment tab).
  */
 import { computed, ref, watch, nextTick } from 'vue'
-import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 import { formatDOB } from '@/utils/dob.js'
 import { buildPlayerInsights } from '@/features/development/lib/assessmentInsights.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'

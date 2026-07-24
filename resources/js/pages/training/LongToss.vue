@@ -14,7 +14,7 @@ import {Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot} from 
 import { usePlayerStore } from '@/store/players.js'
 import Loader from "../../components/Loader.vue";
 import router from "../../../router";
-import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.png'
+import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.webp'
 import { useUserStore } from "@/store/user";
 
 const {team, teams} = useTeamStore();

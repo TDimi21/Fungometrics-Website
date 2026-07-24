@@ -380,7 +380,7 @@ import { getAuthToken } from '@/utils/authToken.js'
                   <div class="sidebar-hero-content">
                     <div class="sidebar-avatar-ring">
                       <img v-if="player.avatar" :src="player.avatar" alt="" class="w-full h-full object-cover">
-                      <img v-else src="../../assets/img/login/assteslogin/updatedlogo.png" alt="" class="w-full h-full object-cover">
+                      <img v-else src="../../assets/img/login/assteslogin/updatedlogo.webp" alt="" class="w-full h-full object-cover">
                     </div>
                     <div class="text-center mt-3">
                       <p class="text-white font-bold text-base leading-tight drop-shadow">{{ player.name }}</p>

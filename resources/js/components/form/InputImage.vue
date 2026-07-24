@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, ref, watch } from "vue";
-import defaultImg from "../../assets/img/login/assteslogin/updatedlogo.png";
+import defaultImg from "../../assets/img/login/assteslogin/updatedlogo.webp";
 
 const defaultImage = defaultImg;
 

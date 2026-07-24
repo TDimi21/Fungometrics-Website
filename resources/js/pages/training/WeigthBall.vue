@@ -14,7 +14,7 @@ import {Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot} from 
 import { usePlayerStore } from '@/store/players.js'
 import Loader from "../../components/Loader.vue";
 import router from "../../../router";
-import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.png'
+import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.webp'
 
 const {team, teams} = useTeamStore();
 const {axiosPost, axiosPut, axiosGet} = useAxiosAuth()

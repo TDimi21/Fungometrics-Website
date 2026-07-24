@@ -30,7 +30,7 @@ import axios from "axios";
 import { useAxiosAuth } from "@/composables/axios-auth.js";
 import TickerBar from "./TickerBar.vue";
 import PlayerTickerBar from "./PlayerTickerBar.vue";
-import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.png";
+import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.webp";
 import stadiumBackground from "@/assets/img/training/baseball field.jpeg";
 import { getAuthToken } from "@/utils/authToken.js";
 import { useAccessStore } from "@/store/access.js";
@@ -381,7 +381,7 @@ watch(
               class="grid items-center cursor-pointer"
             >
               <img
-                src="../assets/img/login/assteslogin/updatedlogo.png"
+                src="../assets/img/login/assteslogin/updatedlogo.webp"
                 alt="Main fungo logo"
                 width="170"
                 height="166"
@@ -473,7 +473,7 @@ watch(
       class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-[#C00000] hover:bg-[#A00000] transition-colors rounded-r-xl px-1 py-2 shadow-lg"
       title="Open sidebar"
     >
-      <img src="../assets/img/login/assteslogin/updatedlogo.png" alt="Open sidebar" class="w-10 h-10 object-contain" />
+      <img src="../assets/img/login/assteslogin/updatedlogo.webp" alt="Open sidebar" class="w-10 h-10 object-contain" />
     </button>
 
     <!-- Main content -->
@@ -762,7 +762,7 @@ watch(
         >
           <DialogPanel class="logout-panel">
             <div class="logout-brand">
-              <img src="../assets/img/login/assteslogin/updatedlogo.png" alt="FungoMetrics" />
+              <img src="../assets/img/login/assteslogin/updatedlogo.webp" alt="FungoMetrics" />
             </div>
             <div class="logout-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">

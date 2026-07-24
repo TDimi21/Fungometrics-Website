@@ -10,6 +10,7 @@ import {useUserStore} from "../../store/user"
 import {useTeamStore} from "../../store/team"
 import {usePlayerStore} from "../../store/players"
 import { exchangeWebToken } from '../../utils/webSession.js'
+import { prepareSessionForUser } from '../../utils/sessionCache.js'
 const props = defineProps({
   backgroundImage: {
     type: String,
@@ -97,6 +98,7 @@ const applyAuthSession = async ({ payload, apiUrl }) => {
   }
 
   await exchangeWebToken(apiUrl, token)
+  prepareSessionForUser(user.id)
   setToken('')
   isLogged.status = true
   await userStore.setData(user)
@@ -144,6 +146,7 @@ const submitForm = async () => {
         text: response.data.message,
       })
       setToken('');
+      prepareSessionForUser(response.data.data.id)
       await userStore.setData(response.data.data);
       if(response.data.data.type == 'player'){
         await router.push('/player-dashboard')

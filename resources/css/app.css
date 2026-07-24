@@ -227,7 +227,7 @@ body,
 .app-main-shell {
     background-image:
         linear-gradient(var(--design-shell-overlay), var(--design-shell-overlay)),
-        url('../js/assets/img/login/assteslogin/updatedlogo.png');
+        url('../js/assets/img/login/assteslogin/updatedlogo.webp');
     background-repeat: no-repeat;
     background-size: cover, 42% auto;
     background-position: center, center;

@@ -25,7 +25,7 @@ const goToLogin = (value) => {
         <div class="order-1  md:order-2">
           <div class="grid justify-items-center shadow-lg  xl:scale-125">
             <img alt="main banner" class="max-h-screen max-w-[350px]  lg:max-w-[550px] lg:max-h-[80%] xl:max-h-[100%]"
-                 src="../assets/img/login/assteslogin/updatedlogo.png"/>
+                 src="../assets/img/login/assteslogin/updatedlogo.webp"/>
           </div>
         </div>
         <div class="order-2 md:order-1">
@@ -64,7 +64,7 @@ const goToLogin = (value) => {
 .home-bg {
   position: absolute;
   inset: 0;
-  background-image: url("../assets/img/login/assteslogin/updatedlogo.png");
+  background-image: url("../assets/img/login/assteslogin/updatedlogo.webp");
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;

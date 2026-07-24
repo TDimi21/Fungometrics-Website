@@ -82,7 +82,7 @@ const reloadData = (status) => {
         </div>
 
         <div class="w-full lg:w-[35%] flex justify-center lg:justify-end">
-          <RouterLink :to="{name: 'manage.team'}" to="/manage/create">
+          <RouterLink :to="{ name: 'manage.team' }">
             <BigButtonField color="dark" label="New"/>
           </RouterLink>
         </div>

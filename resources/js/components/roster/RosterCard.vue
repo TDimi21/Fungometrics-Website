@@ -8,7 +8,7 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/store/players.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
-import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 import { getAuthToken } from '@/utils/authToken.js'
 
 const props = defineProps({

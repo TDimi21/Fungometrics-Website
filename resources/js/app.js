@@ -15,6 +15,7 @@ import { generateClasses } from '@formkit/themes'
 import {themeFormkit} from "./utils/theme";
 import { getUiTheme, applyUiTheme } from "./composables/useUiTheme";
 import { migrateLegacyAuthToken } from "./utils/authToken.js";
+import { ensureSessionSchema } from "./utils/sessionCache.js";
 import 'vue3-carousel/dist/carousel.css'
 import JsonExcel from "vue-json-excel3";
 import VueApexCharts from 'vue3-apexcharts'
@@ -33,9 +34,10 @@ const safeParse = (value) => {
 }
 
 const sanitizePersistedStores = () => {
+  ensureSessionSchema()
   migrateLegacyAuthToken()
 
-  const keys = ['auth', 'user', 'teams', 'players', 'training', 'liveAB']
+  const keys = ['auth', 'user', 'teams', 'players', 'trainingActive', 'liveABStore']
 
   for (const key of keys) {
     const raw = sessionStorage.getItem(key)
@@ -86,10 +88,6 @@ watch(activeTeamId, (nextTeamId) => {
   void refreshAndEnforceAccess()
 }, { immediate: true })
 
-// Populate entitlements immediately on startup. Without this call the access
-// store remains unloaded until the first 30-second interval (or a focus event),
-// leaving gated dashboard sections waiting even for authorized users.
-void refreshAndEnforceAccess()
 window.setInterval(refreshAndEnforceAccess, 30_000)
 window.addEventListener('focus', refreshAndEnforceAccess)
 window.addEventListener('fmtrx-access-forbidden', refreshAndEnforceAccess)

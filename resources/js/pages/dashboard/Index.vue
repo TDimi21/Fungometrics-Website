@@ -18,7 +18,7 @@ import PitchHeatmapChart from '@/components/dashboard/PitchHeatmapChart.vue'
 import PitchTypeStatsCard from '@/components/dashboard/PitchTypeStatsCard.vue'
 import PlayerCompare from '@/components/dashboard/PlayerCompare.vue'
 import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
-import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 import useChart from '@/composables/useChart.js'
 import useChartOptions from '@/composables/useChartOptions.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
@@ -31,6 +31,7 @@ import { buildTeamInsight } from '@/features/development/lib/assessmentInsights.
 import { resolveBornValue, toISODOB, formatDOB } from '@/utils/dob.js'
 import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
 import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
+import { sessionUserId } from '@/utils/sessionCache.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -68,7 +69,9 @@ const DASHBOARD_CACHE_TTL_MS = 2 * 60 * 1000
 
 const getDashboardCacheKey = () => {
   if (!activeTeamId.value) return null
-  return `dashboard-cache:v3:${activeTeamId.value}`
+  const userId = sessionUserId() || user.userData?.id
+  if (!userId) return null
+  return `dashboard-cache:v4:${userId}:${activeTeamId.value}`
 }
 
 const ensureActiveTeam = async () => {

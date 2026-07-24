@@ -8,7 +8,7 @@
 import { ref, computed } from 'vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
 import { useTeamStore } from '@/store/team'
-import stadiumBg from '@/assets/img/fungometrics-stadium.png'
+import stadiumBg from '@/assets/img/fungometrics-stadium.webp'
 
 const props = defineProps({
   trajectoryData: { type: Object, required: false, default: () => ({}) }, // by_player

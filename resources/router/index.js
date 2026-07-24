@@ -84,13 +84,13 @@ const routes = [
 		name: "login.coach",
 		path: "/login/coach",
 		component: LoginCoach,
-		meta: { guest: false },
+		meta: { guest: true },
 	},
 	{
 		name: "login.player",
 		path: "/login/player",
 		component: LoginPlayer,
-		meta: { guest: false },
+		meta: { guest: true },
 	},
 	{
 		name: "register.player",
@@ -426,100 +426,63 @@ const syncAuthFromToken = () => {
 	return !!auth.isLogged.status;
 };
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to) => {
 	const isAuthenticated = syncAuthFromToken();
-	if (to.matched.some((record) => record.meta.requiresAuth)) {
-		if (isAuthenticated) {
-			if (!WEB_START_PRACTICE_ENABLED && START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))) {
-				next('/dashboard');
-				return;
-			}
-			next();
-			return;
-		}
-		next("/");
-	} else {
-		next();
-	}
-});
-
-router.beforeEach(async (to, from, next) => {
-	if (!to.matched.some((record) => record.meta.requiresAuth)) {
-		next();
-		return;
-	}
-
-	const hasEntitlementGate = to.meta?.entitlement || to.meta?.entitlementByAudience || to.name === 'track.trainingMode';
-	if (!hasEntitlementGate) {
-		next();
-		return;
-	}
-
-	const access = useAccessStore();
-	let accessSummary;
-	try {
-		accessSummary = await access.refresh();
-	} catch (_) {
-		next({ path: '/dashboard', query: { access_denied: 'access_verification_failed' } });
-		return;
-	}
-
-	const entitlement = routeEntitlement(to, accessSummary?.audience);
-	if (!entitlement) {
-		next({ path: '/dashboard' });
-		return;
-	}
-
-	const entitlements = Array.isArray(accessSummary?.entitlements)
-		? accessSummary.entitlements
-		: [];
-	if (!entitlements.includes(entitlement)) {
-		next({ path: '/dashboard', query: { access_denied: entitlement } });
-		return;
-	}
-
-	next();
-});
-
-router.beforeEach((to, from, next) => {
-	const isAuthenticated = syncAuthFromToken();
-	const { userData } = useUserStore();
-
-	if (to.matched.some((record) => record.meta.guest)) {
-		if (isAuthenticated) {
-			if (canManageSubscriptions(userData)) {
-				next('/admin');
-			} else if (userData.type == "coach") {
-				next("/dashboard");
-			} else {
-				next("/player-dashboard");
-			}
-			return;
-		}
-		next();
-	} else {
-		next();
-	}
-});
-
-router.beforeEach((to, from, next) => {
+	const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+	const isGuestRoute = to.matched.some((record) => record.meta.guest);
 	const { userData } = useUserStore();
 	const isAdmin = canManageSubscriptions(userData);
 
-	if (to.path.startsWith('/admin')) {
-		if (!isAdmin) {
-			next('/dashboard');
-			return;
+	if (requiresAuth && !isAuthenticated) {
+		return "/";
+	}
+
+	if (isGuestRoute && isAuthenticated) {
+		if (isAdmin) return '/admin';
+		return userData.type === "coach" ? "/dashboard" : "/player-dashboard";
+	}
+
+	if (isAuthenticated) {
+		if (to.path.startsWith('/admin') && !isAdmin) return '/dashboard';
+		if (isAdmin && !to.path.startsWith('/admin')) return '/admin';
+	}
+
+	if (
+		requiresAuth
+		&& !WEB_START_PRACTICE_ENABLED
+		&& START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))
+	) {
+		return '/dashboard';
+	}
+
+	const hasEntitlementGate = requiresAuth
+		&& (to.meta?.entitlement || to.meta?.entitlementByAudience || to.name === 'track.trainingMode');
+
+	if (hasEntitlementGate) {
+		const access = useAccessStore();
+		let accessSummary = access.summary;
+
+		try {
+			// Use the authoritative snapshot already loaded for this context.
+			// The access store deduplicates this call when startup/team refresh
+			// is still in flight.
+			if (!access.loaded) accessSummary = await access.refresh();
+		} catch (_) {
+			return { path: '/dashboard', query: { access_denied: 'access_verification_failed' } };
+		}
+
+		const entitlement = routeEntitlement(to, accessSummary?.audience);
+		if (!entitlement) return { path: '/dashboard' };
+
+		const entitlements = Array.isArray(accessSummary?.entitlements)
+			? accessSummary.entitlements
+			: [];
+		if (!entitlements.includes(entitlement)) {
+			return { path: '/dashboard', query: { access_denied: entitlement } };
 		}
 	}
 
-	// Keep admin inside the admin section — block access to coach/player-facing pages
-	if (isAdmin && !to.path.startsWith('/admin')) {
-		next('/admin');
-		return;
-	}
-
-	next();
+	return true;
 });
 
 export default router;

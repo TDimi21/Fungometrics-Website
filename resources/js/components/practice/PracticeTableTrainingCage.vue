@@ -6,7 +6,7 @@ import {useTrainingStore} from "../../store/training";
 import { Modal } from '@/components/shared'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import {toast} from "@/utils/AlertPlugin"
-import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 
 const emit = defineEmits(["updateList"]);
 

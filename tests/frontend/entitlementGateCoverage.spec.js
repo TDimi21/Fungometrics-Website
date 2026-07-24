@@ -22,6 +22,15 @@ describe('web entitlement gate coverage', () => {
     expect(router).not.toMatch(/hasFeature\s*\(/)
   })
 
+  it('uses one deterministic global navigation guard', () => {
+    const router = source('resources/router/index.js')
+    const app = source('resources/js/app.js')
+
+    expect(router.match(/router\.beforeEach\(/g)).toHaveLength(1)
+    expect(router).toContain('if (!access.loaded) accessSummary = await access.refresh()')
+    expect(app.match(/void refreshAndEnforceAccess\(\)/g) ?? []).toHaveLength(1)
+  })
+
   it('provides an authenticated, non-checkout purchase destination', () => {
     const router = source('resources/router/index.js')
     const page = source('resources/js/pages/Purchase.vue')

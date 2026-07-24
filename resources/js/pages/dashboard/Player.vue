@@ -7,7 +7,7 @@ import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
 import PlayerWorkoutsPanel from '@/components/planner/PlayerWorkoutsPanel.vue'
 import { useUserStore } from '@/store/user'
 import { useAxiosAuth } from '@/composables/axios-auth'
-import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 
 const userStore = useUserStore()
 const { userData } = userStore

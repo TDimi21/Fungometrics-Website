@@ -63,7 +63,7 @@ const coach = reactive({
   email: userSeed?.email ?? '',
   mobileNumber: userSeed?.phone ?? '',
   city: userSeed?.city ?? userSeed?.profile?.city ?? '',
-  avatar: userSeed?.avatar ?? userSeed?.profile?.picture ?? '../../assets/img/login/assteslogin/updatedlogo.png',
+  avatar: userSeed?.avatar ?? userSeed?.profile?.picture ?? '../../assets/img/login/assteslogin/updatedlogo.webp',
   state: userSeed?.state ?? userSeed?.profile?.state ?? '',
   zipCode: userSeed?.zip ?? userSeed?.profile?.zip ?? '',
 })
@@ -72,7 +72,7 @@ const teamData = reactive({
   name: teamSeed?.name ?? '',
   zip: teamSeed?.zip ?? '',
   state: teamSeed?.state ?? '',
-  logo: teamSeed?.logo ?? '../../assets/img/login/assteslogin/updatedlogo.png',
+  logo: teamSeed?.logo ?? '../../assets/img/login/assteslogin/updatedlogo.webp',
   city: teamSeed?.city ?? '',
 })
 

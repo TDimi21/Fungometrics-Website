@@ -8,7 +8,7 @@ import {toast} from "@/utils/AlertPlugin"
 import { useTrainingStore } from "@/store/training";
 import { storeToRefs } from 'pinia'
 import { useLiveABStore } from '@/store/liveAB.js'
-import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 
 const props = defineProps({
   tableData: {

@@ -11,7 +11,7 @@ import { useUserTimezone } from '@/composables/useUserTimezone.js'
 import battingCardLogo from '@/assets/img/training/battingbglogo.svg'
 import bullpenCardLogo from '@/assets/img/training/bullpenbglogo.svg'
 import liveABCardLogo from '@/assets/img/training/liveabbglogo.svg'
-import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 
 const props = defineProps({
   tableData: {

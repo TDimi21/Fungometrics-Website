@@ -2,7 +2,7 @@
 import { computed, ref, reactive } from "vue";
 import ModalPlayer from "./dashboard/ModalPlayer.vue";
 import { useAxiosAuth } from "@/composables/axios-auth.js";
-import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.png";
+import updatedLogo from "@/assets/img/login/assteslogin/updatedlogo.webp";
 
 const { axiosGet } = useAxiosAuth();
 const props = defineProps({

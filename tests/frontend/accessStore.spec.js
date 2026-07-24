@@ -47,6 +47,31 @@ describe('web access store', () => {
     expect(access.summary.plan).toBe('free')
   })
 
+  it('shares concurrent refreshes for the same team context', async () => {
+    let resolveRequest
+    axios.get.mockImplementation(() => new Promise(resolve => { resolveRequest = resolve }))
+
+    const access = useAccessStore()
+    const first = access.refresh({ team_id: 'team-a' })
+    const second = access.refresh({ team_id: 'team-a' })
+
+    expect(axios.get).toHaveBeenCalledTimes(1)
+
+    resolveRequest({
+      data: {
+        data: {
+          plan: 'coach_pro',
+          entitlements: ['performance_overview'],
+          team: { id: 'team-a' },
+        },
+      },
+    })
+
+    const [firstSummary, secondSummary] = await Promise.all([first, second])
+    expect(firstSummary).toEqual(secondSummary)
+    expect(access.canAccess('performance_overview')).toBe(true)
+  })
+
   it('invalidates team access immediately and ignores a stale team response', async () => {
     let resolveFirst
     axios.get

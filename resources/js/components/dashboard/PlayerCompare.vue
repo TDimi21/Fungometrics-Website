@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { usePlayerStore } from '@/store/players.js'
-import defaultAvatar from '@/assets/img/login/assteslogin/updatedlogo.png'
+import defaultAvatar from '@/assets/img/login/assteslogin/updatedlogo.webp'
 
 const { axiosGet } = useAxiosAuth()
 const { players } = usePlayerStore()

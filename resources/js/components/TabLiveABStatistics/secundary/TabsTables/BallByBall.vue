@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { TableEdit } from '@/components/icons'
 import {useTrainingStore} from "../../../../store/training";
 import { useRouter, useRoute } from 'vue-router'
-import defaultIMg from '@/assets/img/login/assteslogin/updatedlogo.png'
+import defaultIMg from '@/assets/img/login/assteslogin/updatedlogo.webp'
 import { useLiveABStore } from '@/store/liveAB.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { storeToRefs } from 'pinia'

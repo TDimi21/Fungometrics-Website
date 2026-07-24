@@ -19,7 +19,7 @@ import RecoverySleepCard from '../components/RecoverySleepCard.vue'
 import StrengthMetricsCard from '../components/StrengthMetricsCard.vue'
 import MobilityAssessmentCard from '../components/MobilityAssessmentCard.vue'
 
-import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 import { buildPlayerDevelopmentModel } from '../lib/playerDevelopmentScore'
 import { getAgeGroup, getMetricPercentile, getPercentileLabel } from '../lib/percentileEngine'
 import { buildCorrelationInsights } from '../lib/correlationEngine'

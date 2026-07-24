@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
-import stadiumBg from '@/assets/img/fungometrics-stadium.png'
+import stadiumBg from '@/assets/img/fungometrics-stadium.webp'
 
 const props = defineProps({
   balls: { type: Array, default: () => [] },

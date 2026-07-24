@@ -5,7 +5,7 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
 import { useUserStore } from '@/store/user'
 import { storeToRefs } from 'pinia'
-import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 
 const { axiosGet } = useAxiosAuth()
 const teamStore = useTeamStore()

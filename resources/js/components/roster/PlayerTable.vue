@@ -126,7 +126,7 @@ const submitDelete = async () => {
             <template v-if="item.avatar != null">
                 <img :src="item.avatar" alt="" class="h-full object-center object-cover mx-auto rounded-full">
               </template>
-              <img v-else src="../../assets/img/login/assteslogin/updatedlogo.png" alt="Avatar Player" class="h-full object-center object-cover mx-auto rounded-full">
+              <img v-else src="../../assets/img/login/assteslogin/updatedlogo.webp" alt="Avatar Player" class="h-full object-center object-cover mx-auto rounded-full">
           </td>
 
 

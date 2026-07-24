@@ -9,7 +9,7 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import {toast} from "@/utils/AlertPlugin"
 import { usePlayerResume } from '@/composables/usePlayerResume.js'
 import { useUserTimezone } from '@/composables/useUserTimezone.js'
-import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
+import defaultPlayerLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 
 const activeTraining = useTrainingStore()
 const { timezone, zoneLabel } = useUserTimezone()

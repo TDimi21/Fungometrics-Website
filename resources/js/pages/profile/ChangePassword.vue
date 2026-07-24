@@ -125,7 +125,7 @@ const changePassword = async () => {
       <h1 class="text-fungo-red w-[100%] text-2xl md:text-[50px] font-fungo-700 my-5 text-center">
         Change Password
       </h1>
-      <RouterLink v-if="!userData.type == 'player'" to="/profile" class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]">
+      <RouterLink :to="userData.type === 'player' ? '/profile-player' : '/profile'" class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]">
         <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
       </RouterLink>
     </div>
@@ -138,7 +138,7 @@ const changePassword = async () => {
                 <template v-if="userData.avatar != null">
                   <img :src="userData.avatar" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
                 </template>
-                <img v-else src="../../assets/img/login/assteslogin/updatedlogo.png" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
+                <img v-else src="../../assets/img/login/assteslogin/updatedlogo.webp" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
               </div>
             </div>
             <div v-else>
@@ -146,7 +146,7 @@ const changePassword = async () => {
                 <template v-if="team.logo != null">
                   <img :src="team.logo" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px]">
                 </template>
-                <img v-else src="../../assets/img/login/assteslogin/updatedlogo.png" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
+                <img v-else src="../../assets/img/login/assteslogin/updatedlogo.webp" alt="" class="h-[85px] w-[85px] md:h-[125px] md:w-[125px] rounded-full">
               </div>
             </div>
           </div>
