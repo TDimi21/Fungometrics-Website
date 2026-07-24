@@ -7,10 +7,10 @@ return [
     |--------------------------------------------------------------------------
     | Cage Distance Model v2
     |--------------------------------------------------------------------------
-    | When enabled, CageDistanceService runs alongside the existing
-    | client-supplied distance_travel on every cage result save, storing its
-    | output in the nullable estimated_carry_v2/etc. columns without
-    | replacing or altering distance_travel or Cage Score. See
+    | When enabled, CageDistanceService becomes authoritative for
+    | distance_travel on every cage result save and stores its diagnostics in
+    | the nullable estimated_carry_v2/etc. columns. When disabled, the
+    | client-supplied distance remains unchanged. See
     | app/Services/Cage/CageDistanceService.php.
     */
     'cage_distance_v2_enabled' => env('FMTRX_CAGE_DISTANCE_V2_ENABLED', false),

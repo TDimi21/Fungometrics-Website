@@ -158,6 +158,7 @@ use App\Http\Controllers\Api\Training\GetSession;
 use App\Http\Controllers\Api\Training\Result\EditBattingResultPractice;
 use App\Http\Controllers\Api\Training\Result\EditBullpenResultPractice;
 use App\Http\Controllers\Api\Training\Result\EditCageResultPractice;
+use App\Http\Controllers\Api\Training\Result\EstimateCageBallFlight;
 use App\Http\Controllers\Api\Training\Result\EditExitVelocityResultPractice;
 use App\Http\Controllers\Api\Training\Result\EditLiveABResultPractice;
 use App\Http\Controllers\Api\Training\Result\EditLongTossResultPractice;
@@ -454,6 +455,7 @@ Route::middleware(['auth:sanctum'])->prefix('training')->group(function (): void
 });
 
 Route::middleware(['auth:sanctum', 'route.scope'])->prefix('result')->group(function (): void {
+    Route::middleware('throttle:session-write')->post('/cage/estimate', EstimateCageBallFlight::class);
     Route::middleware('session.entitlement')->get('/batting/{uuid}', GetBattingResultPractice::class);
     Route::middleware('session.entitlement')->post('/batting', SaveBattingResultPractice::class);
     Route::middleware('session.entitlement')->put('/batting/{uuid}', EditBattingResultPractice::class);

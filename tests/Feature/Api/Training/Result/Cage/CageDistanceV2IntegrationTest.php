@@ -18,9 +18,8 @@ use RuntimeException;
 use Tests\TestCase;
 
 /**
- * Covers the FMTRX Cage Distance Model v2 parallel-integration: storage
- * (migration), the feature flag, non-blocking failure handling, and that v1
- * (distance_travel) is never altered by any of it.
+ * Covers the FMTRX Cage Distance Model v2 integration: storage, the feature
+ * flag, authoritative distance selection, and non-blocking failure handling.
  */
 class CageDistanceV2IntegrationTest extends TestCase
 {
@@ -87,7 +86,7 @@ class CageDistanceV2IntegrationTest extends TestCase
 
     // ── Flag enabled ─────────────────────────────────────────────────────────
 
-    public function test_flag_enabled_populates_v2_fields_without_changing_v1(): void
+    public function test_flag_enabled_makes_v2_the_authoritative_distance(): void
     {
         config(['fmtrx.cage_distance_v2_enabled' => true]);
         Sanctum::actingAs(User::factory()->create());
@@ -97,8 +96,10 @@ class CageDistanceV2IntegrationTest extends TestCase
 
         $result = CagePracticeResult::query()->findOrFail($response->json('data.id'));
 
-        // v1 unchanged.
-        $this->assertSame(320, (int) $result->distance_travel);
+        $this->assertEquals(
+            round((float) $result->estimated_carry_v2),
+            $result->distance_travel,
+        );
         $this->assertSame(25.0, (float) $result->launch_angle);
         $this->assertSame(95.0, (float) $result->launch_angle_velocity);
 
@@ -130,7 +131,10 @@ class CageDistanceV2IntegrationTest extends TestCase
         $response->assertCreated();
 
         $result = CagePracticeResult::query()->findOrFail($response->json('data.id'));
-        $this->assertSame(12, (int) $result->distance_travel);
+        $this->assertEquals(
+            round((float) $result->distance_model_meta['air_carry_to_first_contact_ft']),
+            $result->distance_travel,
+        );
         $this->assertSame('cage_v2.0', $result->distance_model_version);
         $this->assertSame('low', $result->distance_confidence_v2);
         // Ground balls have no estimated_carry_ft (only air-carry-to-contact,

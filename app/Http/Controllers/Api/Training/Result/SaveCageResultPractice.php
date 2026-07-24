@@ -49,7 +49,7 @@ class SaveCageResultPractice extends Controller
                 }
             }
 
-            $data['sort']= $count++;
+            $data['sort'] = $count++;
             $result = (new CreateServiceData(new CagePracticeResult()))->handle($data);
 
             if (config('fmtrx.cage_distance_v2_enabled')) {
@@ -87,9 +87,10 @@ class SaveCageResultPractice extends Controller
     }
 
     /**
-     * Computes the FMTRX Cage Distance Model v2 estimate alongside the
-     * existing (unchanged) distance_travel and stores it in the nullable v2
-     * columns. Any failure here (missing inputs, a service exception, etc.)
+     * Computes the FMTRX Cage Distance Model v2 estimate and, only while the
+     * feature flag is enabled, makes it the authoritative distance_travel
+     * value. The v2 diagnostic columns retain the full estimate. Any failure
+     * here (missing inputs, a service exception, etc.)
      * is logged and swallowed — it must never block or roll back the
      * original cage result save.
      *
@@ -110,8 +111,15 @@ class SaveCageResultPractice extends Controller
                 'mode' => 'standardized',
             ]);
             $v2 = $flight['physics'];
+            $authoritativeDistance = $v2['estimated_carry_ft']
+                ?? $v2['air_carry_to_first_contact_ft']
+                ?? null;
+            $storedDistance = null !== $authoritativeDistance
+                ? (int) round((float) $authoritativeDistance)
+                : null;
 
             $result->update([
+                'distance_travel' => $storedDistance,
                 'distance_model_version' => $v2['model_version'],
                 'distance_model_meta' => [
                     'ball_flight_engine_version' => $flight['engine_version'],
@@ -125,6 +133,8 @@ class SaveCageResultPractice extends Controller
                     'maximum_height_ft' => $v2['maximum_height_ft'] ?? null,
                     'landing_x_ft' => $v2['landing_x_ft'] ?? null,
                     'landing_y_ft' => $v2['landing_y_ft'] ?? null,
+                    'authoritative_distance_ft' => $storedDistance,
+                    'air_carry_to_first_contact_ft' => $v2['air_carry_to_first_contact_ft'] ?? null,
                     'confidence_percent' => $flight['confidence']['percent'] ?? null,
                 ],
                 'estimated_carry_v2' => $v2['estimated_carry_ft'] ?? null,
@@ -133,7 +143,7 @@ class SaveCageResultPractice extends Controller
                 'distance_confidence_v2' => $v2['confidence'] ?? null,
             ]);
         } catch (Throwable $exception) {
-            Log::error('Ball Flight Intelligence estimate failed: ' . $exception->getMessage());
+            Log::error('Ball Flight Intelligence estimate failed: '.$exception->getMessage());
         }
     }
 }
