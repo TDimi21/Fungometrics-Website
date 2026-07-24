@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 return [
     'admin_emails' => array_values(array_filter(array_map('trim', explode(',', (string) env('SUBSCRIPTION_ADMIN_EMAILS', 'admin@fungometrics.com'))))),
+    'administrative_entitlements' => ['data_hub_import'],
     'plans' => [
         'free' => ['name' => 'Free', 'audience' => 'coach', 'entitlements' => [
             'create_session', 'record_pitches', 'view_session_history', 'roster_view',
@@ -29,6 +30,7 @@ return [
             'assign_workouts', 'view_workout_progress', 'manage_player_groups',
             'record_assessments', 'view_assessment_reports',
             'view_assessment_comparisons', 'view_assessment_recommendations',
+            'data_hub_import',
         ], 'limits' => ['players' => null, 'coaches' => null, 'teams' => null]],
         'player_basic' => ['name' => 'Player Basic', 'audience' => 'player', 'entitlements' => [
             'view_own_profile', 'view_own_sessions', 'personal_stats', 'arm_care',

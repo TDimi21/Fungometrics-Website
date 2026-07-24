@@ -14,6 +14,7 @@ $items = [
     'long_toss_sessions' => ['Long Toss Sessions', 'Use long-toss training sessions.', 'Advanced Sessions', 'shared'],
     'weighted_ball_sessions' => ['Weighted Ball Sessions', 'Use weighted-ball training sessions.', 'Advanced Sessions', 'shared'],
     'practice_sessions' => ['Practice Sessions', 'Use structured practice-plan sessions.', 'Advanced Sessions', 'coach'],
+    'data_hub_import' => ['Data Hub Import', 'Prepare third-party baseball data for future FMTRX analysis.', 'Data Hub', 'coach'],
 
     // Statistics and Analytics
     'view_team_stats' => ['Team Statistics', 'View team leaders and statistics.', 'Statistics and Analytics', 'coach'],
@@ -121,7 +122,7 @@ return [
     'not_implemented' => $notImplemented,
     'categories' => [
         'Core Sessions', 'Advanced Sessions', 'Statistics and Analytics', 'Reports and Recaps',
-        'Planner and Workouts', 'Assessments', 'Arm Care', 'Team and Roster',
+        'Planner and Workouts', 'Assessments', 'Arm Care', 'Team and Roster', 'Data Hub',
         'Player Development', 'Communication and AI',
     ],
     'limits' => [

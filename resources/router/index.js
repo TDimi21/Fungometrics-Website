@@ -35,6 +35,8 @@ const CreateTeam = () => import("@/pages/manage/CreateTeam.vue");
 const EditProfile = () => import("@/pages/profile/EditProfile.vue");
 const EditProfilePlayer = () => import("@/pages/profile/EditProfilePlayer.vue");
 const Settings = () => import("@/pages/profile/Settings.vue");
+const DataHubDashboard = () => import("@/pages/data-hub/DataHubDashboard.vue");
+const ImportData = () => import("@/pages/data-hub/ImportData.vue");
 const ChangePassword = () => import("@/pages/profile/ChangePassword.vue");
 const EditPlayer = () => import("@/pages/roster/EditPlayer.vue");
 const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
@@ -334,6 +336,18 @@ const routes = [
     meta: { requiresAuth: true, entitlement: 'edit_team' },
   },
 	{
+		name: "data-hub.dashboard",
+		path: "/data-hub",
+		component: DataHubDashboard,
+		meta: { requiresAuth: true, coachOnly: true, allowAdmin: true, entitlement: 'data_hub_import' },
+	},
+	{
+		name: "data-hub.import",
+		path: "/data-hub/import",
+		component: ImportData,
+		meta: { requiresAuth: true, coachOnly: true, allowAdmin: true, entitlement: 'data_hub_import' },
+	},
+	{
 		name: "settings",
 		path: "/settings",
 		component: Settings,
@@ -437,6 +451,10 @@ router.beforeEach(async (to) => {
 		return "/";
 	}
 
+	if (to.meta?.coachOnly && userData.type !== 'coach' && !isAdmin) {
+		return userData.type === 'player' ? '/player-dashboard' : '/dashboard';
+	}
+
 	if (isGuestRoute && isAuthenticated) {
 		if (isAdmin) return '/admin';
 		return userData.type === "coach" ? "/dashboard" : "/player-dashboard";
@@ -444,7 +462,7 @@ router.beforeEach(async (to) => {
 
 	if (isAuthenticated) {
 		if (to.path.startsWith('/admin') && !isAdmin) return '/dashboard';
-		if (isAdmin && !to.path.startsWith('/admin')) return '/admin';
+		if (isAdmin && !to.path.startsWith('/admin') && !to.meta?.allowAdmin) return '/admin';
 	}
 
 	if (

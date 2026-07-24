@@ -1,0 +1,124 @@
+import { describe, expect, it } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
+import { DATA_HUB_MAX_FILE_SIZE_BYTES } from '../../resources/js/data/dataHubConfig.js'
+import { DATA_HUB_PLATFORMS } from '../../resources/js/data/dataHubPlatforms.js'
+import { nextDataHubStep, validateDataHubFile } from '../../resources/js/utils/dataHubWorkflow.js'
+
+const root = path.resolve(__dirname, '../..')
+const source = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf8')
+
+describe('Data Hub Phase 1', () => {
+  it('provides a coach-only import entry point beside the account actions', () => {
+    const layout = source('resources/js/layout/Layout.vue')
+    const router = source('resources/router/index.js')
+
+    expect(layout).toContain('to="/data-hub"')
+    expect(layout).toContain('v-if="canImportData"')
+    expect(layout).toContain("accessStore.canAccess('data_hub_import')")
+    expect(router).toContain('path: "/data-hub"')
+    expect(router).toContain('path: "/data-hub/import"')
+    expect(router).toContain('coachOnly: true')
+    expect(router).toContain("entitlement: 'data_hub_import'")
+    expect(router).toContain("if (to.meta?.coachOnly && userData.type !== 'coach' && !isAdmin)")
+  })
+
+  it('supports the complete four-step preview experience', () => {
+    const page = source('resources/js/pages/data-hub/ImportData.vue')
+
+    expect(page).toContain('PlatformSelector')
+    expect(page).toContain('FileDropzone')
+    expect(page).toContain('DestinationSelector')
+    expect(page).toContain('ImportSummary')
+    expect(page).toContain('nextDataHubStep')
+    expect(page).toContain('Finish Preview')
+  })
+
+  it('does not upload, parse, or persist the selected source file', () => {
+    const page = source('resources/js/pages/data-hub/ImportData.vue')
+    const dropzone = source('resources/js/components/data-hub/FileDropzone.vue')
+    const combined = `${page}\n${dropzone}`
+
+    expect(combined).not.toMatch(/\baxios\b|\bfetch\s*\(|localStorage|sessionStorage|FormData/)
+    expect(page).toContain('onBeforeRouteLeave')
+    expect(page).toContain('clearWorkflow()')
+    expect(dropzone).toContain('is not uploaded or imported')
+  })
+
+  it('does not invent row or player counts before inspection exists', () => {
+    const summary = source('resources/js/components/data-hub/ImportSummary.vue')
+
+    expect(summary.match(/Not analyzed yet/g)).toHaveLength(2)
+    expect(summary).toContain('Ready for future analysis')
+  })
+
+  it('accepts valid CSV and XLSX browser files', () => {
+    expect(validateDataHubFile(
+      { name: 'session.csv', size: 128, type: 'text/csv' },
+      DATA_HUB_PLATFORMS[0],
+    ).valid).toBe(true)
+    expect(validateDataHubFile(
+      {
+        name: 'session.xlsx',
+        size: 128,
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+      DATA_HUB_PLATFORMS[0],
+    ).valid).toBe(true)
+  })
+
+  it('rejects invalid, empty, and oversized files with inline-safe errors', () => {
+    expect(validateDataHubFile({ name: 'session.pdf', size: 128, type: 'application/pdf' }).error)
+      .toContain('CSV or XLSX')
+    expect(validateDataHubFile({ name: 'empty.csv', size: 0, type: 'text/csv' }).error)
+      .toContain('empty')
+    expect(validateDataHubFile({
+      name: 'large.csv',
+      size: DATA_HUB_MAX_FILE_SIZE_BYTES + 1,
+      type: 'text/csv',
+    }).error).toContain('larger')
+  })
+
+  it('treats MIME metadata as advisory and enforces platform compatibility', () => {
+    const advisory = validateDataHubFile(
+      { name: 'session.csv', size: 128, type: 'application/octet-stream' },
+      DATA_HUB_PLATFORMS[0],
+    )
+    expect(advisory.valid).toBe(true)
+    expect(advisory.warning).toContain('unexpected file type')
+
+    const csvOnly = { name: 'CSV only', fileTypes: ['csv'] }
+    expect(validateDataHubFile(
+      { name: 'session.xlsx', size: 128, type: '' },
+      csvOnly,
+    ).valid).toBe(false)
+  })
+
+  it('does not allow workflow steps to be skipped', () => {
+    const empty = { platform: null, file: null, fileValid: false, team: null, sessionType: '' }
+    expect(nextDataHubStep(1, empty)).toBe(1)
+    expect(nextDataHubStep(1, { ...empty, platform: DATA_HUB_PLATFORMS[0] })).toBe(2)
+    expect(nextDataHubStep(2, { ...empty, file: {}, fileValid: false })).toBe(2)
+    expect(nextDataHubStep(2, { ...empty, file: {}, fileValid: true })).toBe(3)
+    expect(nextDataHubStep(3, { ...empty, team: {}, sessionType: '' })).toBe(3)
+    expect(nextDataHubStep(3, { ...empty, team: {}, sessionType: 'Cage' })).toBe(4)
+  })
+
+  it('clears all workflow state on cancel, completion, and route leave', () => {
+    const page = source('resources/js/pages/data-hub/ImportData.vue')
+
+    expect(page).toContain('const clearWorkflow = () =>')
+    expect(page).toMatch(/const cancel[\s\S]*?clearWorkflow\(\)/)
+    expect(page).toMatch(/const finishPreview[\s\S]*?clearWorkflow\(\)/)
+    expect(page).toMatch(/onBeforeRouteLeave[\s\S]*?clearWorkflow\(\)/)
+    expect(page).toContain("window.addEventListener('fmtrx-logout', clearWorkflow)")
+    expect(page).toContain("router.push('/data-hub')")
+  })
+
+  it('clears a selected file when a newly selected platform is incompatible', () => {
+    const page = source('resources/js/pages/data-hub/ImportData.vue')
+
+    expect(page).toContain('!platformSupportsFile(nextPlatform, selectedFile.value)')
+    expect(page).toMatch(/!platformSupportsFile[\s\S]*?selectedFile\.value = null/)
+  })
+})

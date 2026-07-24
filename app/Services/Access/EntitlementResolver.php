@@ -80,6 +80,9 @@ class EntitlementResolver
             $entitlements,
             config("access.audience_baselines.{$audience}.entitlements", [])
         );
+        if (app(AdministrativeAccess::class)->canManageSubscriptions($user)) {
+            $entitlements = array_merge($entitlements, config('access.administrative_entitlements', []));
+        }
         $nonRuntimeEntitlements = array_merge(
             config('entitlements.deprecated', []),
             config('entitlements.not_implemented', [])

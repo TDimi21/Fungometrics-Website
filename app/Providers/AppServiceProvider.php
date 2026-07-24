@@ -8,6 +8,8 @@ use App\Contracts\Billing\RevenueCatClient;
 use App\Services\Billing\BillingEventProcessor;
 use App\Services\Billing\RevenueCatApiClient;
 use App\Services\Billing\RevenueCatEventHandler;
+use App\Services\DataHub\Contracts\ImportDestinationContract;
+use App\Services\DataHub\Services\FmtrxDestination;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(RevenueCatClient::class, RevenueCatApiClient::class);
+        $this->app->bind(ImportDestinationContract::class, FmtrxDestination::class);
         $this->app->bind(BillingEventProcessor::class, fn ($app) => new BillingEventProcessor([$app->make(RevenueCatEventHandler::class)]));
 
         if ($this->app->environment('local')) {

@@ -171,6 +171,20 @@ $config = [
             ['duplicate_of_planner_create'],
             'create/view/update'
         ),
+        'data_hub_import' => $entry(
+            ['Data Hub import preview workflow'],
+            [
+                $route('SERVICE', 'DataHub/DestinationRegistry', 'Services\\DataHub\\Services\\DestinationRegistry', true),
+            ],
+            [
+                'resources/router/index.js:data-hub.import',
+                'resources/js/pages/data-hub/ImportData.vue',
+            ],
+            [],
+            'platform_wired',
+            ['phase_1_intentionally_has_no_upload_or_import_endpoint'],
+            'preview-only; no persistence'
+        ),
         'view_team_stats' => $entry(
             ['Team statistics', 'Leaders and Top 10'],
             [$route('GET', 'api/result/statistics/{team}', 'Training\\Result\\FilterTrainings', true)],
