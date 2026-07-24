@@ -5,7 +5,8 @@
  */
 
 import './bootstrap';
-import { createApp } from 'vue';
+import { createApp, h } from 'vue';
+import { RouterView } from 'vue-router';
 import Router, { routeEntitlement } from "../router";
 import {createPinia} from "pinia";
 import piniaPersisData from "pinia-plugin-persistedstate"
@@ -50,7 +51,9 @@ const sanitizePersistedStores = () => {
 
 sanitizePersistedStores()
 
-const app = createApp();
+const app = createApp({
+  render: () => h(RouterView),
+});
 applyUiTheme(getUiTheme())
 const pinia = createPinia();
 pinia.use(piniaPersisData);
