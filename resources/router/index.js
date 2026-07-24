@@ -155,7 +155,13 @@ const routes = [
 		name: 'development.player',
 		path: '/development/player/:playerId?',
 		component: PlayerDevelopmentDashboard,
-		meta: { requiresAuth: true, entitlement: 'development_graphs' },
+		meta: {
+			requiresAuth: true,
+			entitlementByAudience: {
+				coach: 'view_advanced_stats',
+				player: 'development_graphs',
+			},
+		},
 		props: true,
 	},
 	{
@@ -393,8 +399,11 @@ const router = createRouter({
 const WEB_START_PRACTICE_ENABLED = false;
 const START_PRACTICE_BLOCKED_PATHS = ['/create', '/track'];
 
-export const routeEntitlement = (to) => {
+export const routeEntitlement = (to, audience = null) => {
 	if (to.meta?.entitlement) return to.meta.entitlement;
+	if (to.meta?.entitlementByAudience) {
+		return audience ? to.meta.entitlementByAudience[audience] || null : null;
+	}
 	if (to.name !== 'track.trainingMode') return null;
 
 	return {
@@ -437,8 +446,8 @@ router.beforeEach(async (to, from, next) => {
 		return;
 	}
 
-	const entitlement = routeEntitlement(to);
-	if (!entitlement) {
+	const hasEntitlementGate = to.meta?.entitlement || to.meta?.entitlementByAudience || to.name === 'track.trainingMode';
+	if (!hasEntitlementGate) {
 		next();
 		return;
 	}
@@ -448,6 +457,12 @@ router.beforeEach(async (to, from, next) => {
 		await access.refresh();
 	} catch (_) {
 		next({ path: '/dashboard', query: { access_denied: entitlement } });
+		return;
+	}
+
+	const entitlement = routeEntitlement(to, access.summary?.audience);
+	if (!entitlement) {
+		next({ path: '/dashboard' });
 		return;
 	}
 
