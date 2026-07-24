@@ -47,6 +47,18 @@ class RouteServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
-        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('api', function (Request $request): Limit {
+            $userId = $request->user()?->id;
+
+            return $userId
+                ? Limit::perMinute(300)->by('api:user:' . $userId)
+                : Limit::perMinute(60)->by('api:ip:' . $request->ip());
+        });
+
+        // Session writes also have a dedicated authenticated ceiling. The
+        // larger authenticated API bucket prevents normal read bursts from
+        // starving creates/scores while this limiter still caps write abuse.
+        RateLimiter::for('session-write', fn (Request $request): Limit => Limit::perMinute(120)
+            ->by('session-write:user:' . $request->user()->id));
     }
 }

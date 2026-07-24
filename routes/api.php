@@ -447,7 +447,7 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
     });
 
 Route::middleware(['auth:sanctum'])->prefix('training')->group(function (): void {
-    Route::middleware('session.entitlement')->post('/', AddNewSession::class);
+    Route::middleware(['session.entitlement', 'throttle:session-write'])->post('/', AddNewSession::class);
     Route::middleware('session.entitlement')->get('/{uuid}', GetSession::class);
     Route::middleware('session.entitlement')->put('/{uuid}', FinishPractice::class);
     Route::middleware('session.entitlement')->delete('/{uuid}', DeletePractice::class);
@@ -463,7 +463,7 @@ Route::middleware(['auth:sanctum', 'route.scope'])->prefix('result')->group(func
     Route::middleware('session.entitlement')->put('/bullpen/{uuid}', EditBullpenResultPractice::class);
 
     Route::middleware('session.entitlement')->get('/cage/{uuid}', GetCageResultPractice::class);
-    Route::middleware('session.entitlement')->post('/cage', SaveCageResultPractice::class);
+    Route::middleware(['session.entitlement', 'throttle:session-write'])->post('/cage', SaveCageResultPractice::class);
     Route::middleware('session.entitlement')->put('/cage/{uuid}', EditCageResultPractice::class);
 
     Route::middleware(['ability:coach', 'plan:liveab_sessions'])->get('/liveab/{uuid}', GetLiveABResultPractice::class);
