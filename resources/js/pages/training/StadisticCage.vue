@@ -636,9 +636,9 @@ const excelDataExportCage = () => {
     'Pitch #': "id",
     'Player': "player",
     'Exit velocity': "launch_velocity",
-    'Launch angle': "launch_velocity",
-    'Spray angle': "launch_velocity",
-    'Distance': "launch_velocity",
+    'Launch angle': "launch_angle",
+    'Spray angle': "launch_spray",
+    'Distance': "launch_distance",
   }
 }
 
@@ -653,10 +653,14 @@ if(userData.type === 'coach'){
 <template>
   <Loader v-show="isSending" />
   <LayoutVue>
-    <!-- Page header: icon + title -->
-    <div class="flex items-center gap-3 mb-8 md:px-[5%]">
-      <CageIcon class="w-10 flex-shrink-0" />
-      <h1 class="text-app-red text-2xl md:text-3xl font-bold tracking-wide">Cage Practices Statistics</h1>
+    <div class="cage-app-header">
+      <button class="cage-back" type="button" @click="router.back()">
+        <span aria-hidden="true">←</span> Back
+      </button>
+      <div class="cage-title">
+        <CageIcon class="w-10 flex-shrink-0" />
+        <h1>Cage Practice Statistics</h1>
+      </div>
       <div v-if="userData.type !== 'player'" class="ml-auto flex gap-3">
         <template v-if="route.params.isComplete == 'true'">
           <form v-if="statusMsg === false" @submit.prevent="openSendMsgWindow(globalResponse.by_player)">
@@ -668,19 +672,18 @@ if(userData.type === 'coach'){
         </template>
       </div>
     </div>
-    <section class="md:px-[5%]">
+    <section class="cage-stats-app md:px-[5%]">
       <TabGroup>
-        <div class="flex items-center justify-between border-b-2 border-white/10 mb-4">
-          <TabList class="flex">
-            <Tab as="template" v-slot="{ selected }" class="mx-4" v-for="head in tabHeading">
-              <button class="outline-none pb-2 px-1 text-sm font-semibold transition-colors whitespace-nowrap"
-                :class="{ 'text-app-gold border-b-2 border-app-gold': selected, 'text-app-muted hover:text-white': !selected }">
+        <div class="cage-tabbar">
+          <TabList class="cage-tabs">
+            <Tab as="template" v-slot="{ selected }" v-for="head in tabHeading" :key="head">
+              <button class="cage-tab" :class="{ 'cage-tab--active': selected }">
                 {{ head }}
               </button>
             </Tab>
           </TabList>
           <download-excel
-            class="flex items-center gap-2 bg-app-card hover:bg-app-card-hover border border-white/10 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors mb-1 flex-shrink-0"
+            class="cage-export"
             :data="excelDataExport" :fields="excelHeaderData" :name="'cageBallxBallTable.xls'"
           >
             <svg width="14" height="17" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -689,13 +692,13 @@ if(userData.type === 'coach'){
             <span class="text-sm font-semibold">Export</span>
           </download-excel>
         </div>
-        <TabPanels>
-          <TabPanel>
+        <TabPanels class="cage-panels">
+          <TabPanel class="cage-panel cage-panel--table">
             <DynamicTable :is-sorteable="true" :is-loading="isLoading" :headings="ballxballHeadings"
               :table-data="ballxballData" :actionable="true" v-on:edit-event="getEditData($event)"
               v-on:click-header="sortBy($event)" />
           </TabPanel>
-          <TabPanel>
+          <TabPanel class="cage-panel">
             <div class="grid grid-cols-3 gap-4 p-2 mt-4 bg-fungo-lightblue">
               <div class="col-span-5 text-center uppercase md:col-span-3 xl:col-span-2">Spray Chart</div>
               <div class="hidden text-center uppercase xl:inline">QUALITY OF CONTACT BREAKDOWN</div>
@@ -830,7 +833,7 @@ if(userData.type === 'coach'){
               </div>
             </div>
           </TabPanel>
-          <TabPanel>
+          <TabPanel class="cage-panel">
             <div class="grid grid-cols-3 gap-4 p-2 mt-4 bg-fungo-lightblue">
               <div class="col-span-5 text-center uppercase md:col-span-3 xl:col-span-2">Spray Chart</div>
               <div class="hidden text-center uppercase xl:inline">TRAJECTORY BREAKDOWN</div>
@@ -960,7 +963,7 @@ if(userData.type === 'coach'){
               </div>
             </div>
           </TabPanel>
-          <TabPanel>
+          <TabPanel class="cage-panel">
             <div class="grid grid-cols-3 gap-4 p-2 mt-4 bg-fungo-lightblue">
               <div class="col-span-5 text-center uppercase md:col-span-3 xl:col-span-2">LIST OF EXIT VELOCITY</div>
               <div class="hidden text-center uppercase xl:inline">EXIT VELOCITY</div>
@@ -1064,6 +1067,160 @@ if(userData.type === 'coach'){
   </LayoutVue>
 </template>
 <style scoped>
+.cage-app-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 0 5% 18px;
+}
+
+.cage-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.cage-back span {
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.cage-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cage-title h1 {
+  color: #fff;
+  font-size: clamp(20px, 2vw, 30px);
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+
+.cage-stats-app {
+  --cage-navy: #0a1024;
+  --cage-panel: #191f3c;
+  --cage-row: #151b4b;
+  --cage-row-alt: #30375f;
+  --cage-red: #ff2b4a;
+}
+
+.cage-tabbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cage-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 2px;
+  overflow-x: auto;
+}
+
+.cage-tab {
+  min-height: 54px;
+  padding: 12px 22px;
+  border-radius: 10px;
+  background: #30323b;
+  color: #fff;
+  font-size: clamp(12px, 1.2vw, 18px);
+  font-weight: 900;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background-color .15s ease;
+}
+
+.cage-tab:hover,
+.cage-tab--active {
+  background: var(--cage-red);
+}
+
+.cage-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: 10px;
+  background: #30323b;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.cage-panels {
+  min-height: 560px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 14px;
+  background:
+    linear-gradient(rgba(10, 16, 36, .82), rgba(10, 16, 36, .82)),
+    url("../../assets/img/fungometrics-stadium.png") center / cover;
+}
+
+.cage-panel :deep(.bg-white),
+.cage-panel :deep(.bg-fungo-lightblue) {
+  background-color: rgba(25, 31, 60, .94) !important;
+  color: #fff !important;
+}
+
+.cage-panel :deep(table) {
+  color: #fff !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.cage-panel :deep(thead),
+.cage-panel :deep(thead tr),
+.cage-panel :deep(th) {
+  background: var(--cage-panel) !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, .08) !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.cage-panel :deep(tbody tr:nth-child(odd)) {
+  background: rgba(21, 27, 75, .95) !important;
+}
+
+.cage-panel :deep(tbody tr:nth-child(even)) {
+  background: rgba(48, 55, 95, .95) !important;
+}
+
+.cage-panel :deep(td) {
+  height: 58px;
+  border-color: rgba(255, 255, 255, .06) !important;
+  color: #fff !important;
+  font-weight: 700;
+}
+
+.cage-panel :deep(button:not(.cage-tab)) {
+  min-height: 46px;
+  border-radius: 9px;
+  border-color: rgba(255, 255, 255, .25) !important;
+  background: #fff;
+  color: #0a1024 !important;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.cage-panel :deep(button.is-active) {
+  border-color: var(--cage-red) !important;
+  background: var(--cage-red) !important;
+  color: #fff !important;
+}
+
 .is-active {
   @apply bg-fungo-red text-white
 }
@@ -1095,5 +1252,34 @@ if(userData.type === 'coach'){
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center;
+}
+
+@media (max-width: 900px) {
+  .cage-app-header {
+    margin-inline: 16px;
+    flex-wrap: wrap;
+  }
+
+  .cage-title {
+    order: -1;
+    width: 100%;
+  }
+
+  .cage-tabbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cage-tabs {
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+  }
+
+  .cage-export {
+    align-self: flex-end;
+  }
+
+  .cage-panels {
+    padding: 10px;
+  }
 }
 </style>
