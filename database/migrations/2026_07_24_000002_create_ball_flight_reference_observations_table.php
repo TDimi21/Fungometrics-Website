@@ -47,7 +47,9 @@ return new class extends Migration {
             $table->boolean('eligible_for_external_validation')->default(false)->index('bfro_external_eligible_idx');
             $table->string('partition')->nullable()->index('bfro_partition_idx');
             $table->text('exclusion_reason')->nullable();
-            $table->json('raw_metadata')->nullable();
+            // MariaDB 10.1 has no native JSON column type. Eloquent's array
+            // cast still serializes this payload as JSON when stored as text.
+            $table->longText('raw_metadata')->nullable();
             $table->string('import_hash', 64)->unique('bfro_import_hash_unique');
             $table->timestamps();
         });

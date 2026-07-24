@@ -30,7 +30,9 @@ return new class extends Migration {
             $table->decimal('hang_time_error_seconds', 9, 4)->nullable();
             $table->decimal('max_height_error_ft', 9, 3)->nullable();
             $table->unsignedTinyInteger('confidence_percent')->nullable();
-            $table->json('assumptions')->nullable();
+            // MariaDB 10.1 has no native JSON column type. Eloquent's array
+            // cast still serializes this payload as JSON when stored as text.
+            $table->longText('assumptions')->nullable();
             $table->timestamp('created_at')->useCurrent();
             $table->unique(
                 ['reference_observation_id', 'engine_version', 'prediction_mode', 'spin_source'],
