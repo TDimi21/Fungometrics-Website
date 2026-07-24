@@ -16,7 +16,9 @@ return new class () extends Migration {
     {
         Schema::table('cage_practice_results', function (Blueprint $table): void {
             $table->string('distance_model_version')->nullable()->after('sort');
-            $table->json('distance_model_meta')->nullable()->after('distance_model_version');
+            // MariaDB 10.1 does not support Laravel's native JSON column DDL.
+            // Eloquent's array cast still serializes this JSON payload safely in LONGTEXT.
+            $table->longText('distance_model_meta')->nullable()->after('distance_model_version');
             $table->decimal('estimated_carry_v2', 6, 1)->nullable()->after('distance_model_meta');
             $table->decimal('estimated_carry_low_v2', 6, 1)->nullable()->after('estimated_carry_v2');
             $table->decimal('estimated_carry_high_v2', 6, 1)->nullable()->after('estimated_carry_low_v2');
