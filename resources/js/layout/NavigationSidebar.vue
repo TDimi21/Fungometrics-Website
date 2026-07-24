@@ -20,7 +20,7 @@ const { userData } = storeToRefs(userStore);
 
 const sidebarItems = ref([
   {
-    title: 'Dashboard',
+    title: 'Player Directory',
     iconPath: iconDashboard,
     url: '/dashboard'
   },

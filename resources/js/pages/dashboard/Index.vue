@@ -2477,7 +2477,7 @@ watch(
         <!-- Page title -->
         <div class="flex items-center gap-3 mb-5">
           <div class="w-1 h-7 bg-[#C00000] rounded-full" />
-          <h1 class="text-2xl font-black tracking-wide text-white">Dashboard</h1>
+          <h1 class="text-2xl font-black tracking-wide text-white">Player Directory</h1>
           <span class="text-white/30 text-sm ml-auto hidden md:block">{{ team?.name }}</span>
         </div>
 
