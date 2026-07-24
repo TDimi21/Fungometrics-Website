@@ -71,26 +71,6 @@ const getDashboardCacheKey = () => {
   return `dashboard-cache:v3:${activeTeamId.value}`
 }
 
-const getTeamSessionCount = async (teamLike) => {
-  const candidates = getTeamIdCandidates(teamLike)
-  if (!candidates.length) return 0
-  try {
-    const { data } = await withTeamIdFallbackGet((id) => 'coach/sessions/lasts/' + id, teamLike)
-    const d = data?.data ?? {}
-    return [
-      d.batting,
-      d.bullpen,
-      d.cage,
-      d.live,
-      d.weight_ball,
-      d.long_toss,
-      d.exit_velocity,
-    ].reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
-  } catch {
-    return 0
-  }
-}
-
 const ensureActiveTeam = async () => {
   try {
     const { data } = await axiosGet('coach/teams')
@@ -120,22 +100,8 @@ const ensureActiveTeam = async () => {
       teamStore.setTeam(freshCurrentTeam)
     }
 
-    // If current team has no recent sessions, auto-pick the first team that does.
-    const currentCount = await getTeamSessionCount(freshCurrentTeam ?? team.value)
-    if (currentCount > 0) return
-
-    for (const candidate of teamsList) {
-      const candidateCount = await getTeamSessionCount(candidate)
-      if (candidateCount > 0) {
-        teamStore.setTeam(candidate)
-        return
-      }
-    }
-
-    const teamWithRoster = teamsList.find((candidate) => Number(candidate?.num_players ?? 0) > 0)
-    if (teamWithRoster) {
-      teamStore.setTeam(teamWithRoster)
-    }
+    // Preserve the user's selected team even when it has no recent sessions.
+    // Empty data is valid and must not silently switch the dashboard context.
   } catch (e) {
     console.warn('ensureActiveTeam', e)
   }
@@ -421,6 +387,7 @@ const perf = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null,
 const perfDetail = ref({ batting: null, bullpen: null, cage: null, ev: null, lt: null })
 const perfUnavailableTeams = ref({})
 const canViewPerformanceOverview = computed(() => access.canAccess('performance_overview'))
+let performanceRequestId = 0
 
 // Access entitlements are loaded asynchronously. If the first dashboard load
 // runs before access is ready, loadLeaderboard exits early; watch both inputs so
@@ -517,7 +484,6 @@ const longTossReviewCurve = computed(() => {
 
 const fetchPerformanceOverview = async (force = false) => {
   if (!canViewPerformanceOverview.value) {
-    clearPerformanceOverview()
     return
   }
   if (!force && Object.values(perf.value).some(v => v !== null) && (Date.now() - (perfLastFetch.value ?? 0)) < DASHBOARD_CACHE_TTL_MS) return
@@ -525,9 +491,11 @@ const fetchPerformanceOverview = async (force = false) => {
   const teamId = teamIds[0]
   if (!teamId) return
   if (!force && perfUnavailableTeams.value[teamId]) return
+  const requestId = ++performanceRequestId
   perfLoading.value = true
   try {
     const response = await withTeamIdFallbackGet((id) => 'coach/performance-overview/' + id)
+    if (requestId !== performanceRequestId || String(activeTeamId.value) !== String(teamId)) return
     const { data } = response
     const d = data?.data ?? {}
 
@@ -579,6 +547,7 @@ const fetchPerformanceOverview = async (force = false) => {
       perfUnavailableTeams.value = next
     }
   } catch (e) {
+    if (requestId !== performanceRequestId || String(activeTeamId.value) !== String(teamId)) return
     const status = e?.response?.status
     if (status === 500) {
       perfUnavailableTeams.value = {
@@ -589,16 +558,23 @@ const fetchPerformanceOverview = async (force = false) => {
       console.warn('fetchPerformanceOverview', e)
     }
   }
-  finally { perfLoading.value = false }
+  finally {
+    if (requestId === performanceRequestId) perfLoading.value = false
+  }
 }
 
 watch(
-  canViewPerformanceOverview,
-  (allowed) => {
+  [() => access.loaded, canViewPerformanceOverview, activeTeamId],
+  ([loaded, allowed, teamId]) => {
+    // An unloaded access store is not a denial. Keep cached/rendered data in
+    // place until Laravel returns the authoritative entitlement snapshot.
+    if (!loaded) return
     if (!allowed) {
+      ++performanceRequestId
       clearPerformanceOverview()
       return
     }
+    if (!teamId) return
     fetchPerformanceOverview(true).catch(e => console.warn('fetchPerformanceOverview access refresh error:', e?.message ?? e))
   },
   { immediate: true }
@@ -2439,6 +2415,7 @@ const hydrateDashboardFromCache = () => {
 watch(
   () => activeTeamId.value,
   async (teamId) => {
+    const requestedTeamId = teamId ? String(teamId) : null
     if (!teamId) {
       await ensureActiveTeam()
       if (!activeTeamId.value) return
@@ -2446,6 +2423,21 @@ watch(
       await ensureActiveTeam()
     }
 
+    const resolvedTeamId = String(activeTeamId.value || '')
+    if (!resolvedTeamId || (requestedTeamId && requestedTeamId !== resolvedTeamId)) return
+
+    // Refresh team-scoped access before any paid dashboard section decides
+    // whether to render. A page reload starts with an intentionally empty store.
+    try {
+      await access.refresh({ team_id: resolvedTeamId })
+    } catch (e) {
+      console.warn('dashboard access refresh error:', e?.message ?? e)
+      return
+    }
+    if (String(activeTeamId.value || '') !== resolvedTeamId) return
+
+    ++performanceRequestId
+    clearPerformanceOverview()
     hydrateDashboardFromCache()
 
     // Priority 1 — fast/cached, render immediately
@@ -2458,7 +2450,8 @@ watch(
 
     // Priority 2 — heavier, defer until after first paint
     setTimeout(() => {
-      fetchPerformanceOverview()
+      if (String(activeTeamId.value || '') !== resolvedTeamId) return
+      fetchPerformanceOverview(true).catch(e => console.warn('fetchPerformanceOverview team refresh error:', e?.message ?? e))
       fetchDevBoard()
       getStaticChartData().catch(e => console.warn('getStaticChartData error:', e?.message ?? e)) // contact_spray → velocity field
       fetchTeamInsight().catch(e => console.warn('fetchTeamInsight error:', e?.message ?? e))

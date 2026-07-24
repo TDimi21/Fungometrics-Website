@@ -38,10 +38,21 @@ describe('web entitlement gate coverage', () => {
     expect(dashboard).toContain("access.canAccess('performance_overview')")
     expect(dashboard).toContain('if (!canViewPerformanceOverview.value)')
     expect(dashboard).toContain('clearPerformanceOverview()')
-    expect(dashboard).toContain('watch(\n  canViewPerformanceOverview')
+    expect(dashboard).toContain('[() => access.loaded, canViewPerformanceOverview, activeTeamId]')
+    expect(dashboard).toContain('await access.refresh({ team_id: resolvedTeamId })')
+    expect(dashboard).toContain('requestId !== performanceRequestId')
+    expect(dashboard).toContain("String(activeTeamId.value) !== String(teamId)")
     expect(dashboard).toContain('v-if="!access.loaded"')
     expect(dashboard).toContain('v-else-if="!canViewPerformanceOverview"')
     expect(dashboard).not.toMatch(/subscription_plan/)
+  })
+
+  it('preserves the selected team when its dashboard has no recent data', () => {
+    const dashboard = source('resources/js/pages/dashboard/Index.vue')
+
+    expect(dashboard).toContain("Preserve the user's selected team")
+    expect(dashboard).not.toContain('auto-pick the first team that does')
+    expect(dashboard).not.toContain('const teamWithRoster = teamsList.find')
   })
 
   it('keeps the deprecated practice control out of runtime route authority', () => {
