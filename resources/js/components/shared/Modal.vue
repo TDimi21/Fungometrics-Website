@@ -1,7 +1,7 @@
 <script setup>
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
 
-defineProps({
+const props = defineProps({
   modalTitle: {
     type: String,
     required: true
@@ -9,13 +9,20 @@ defineProps({
   isOpen: {
     type: Boolean,
     required: true
+  },
+  variant: {
+    type: String,
+    default: 'light',
+    validator: value => ['light', 'dark'].includes(value)
   }
 })
+
+const emit = defineEmits(['close'])
 </script>
 
 <template>
   <TransitionRoot appear :show="isOpen" as="template">
-    <Dialog as="div" @close="closeModal" class="relative z-10">
+    <Dialog as="div" @close="emit('close')" class="relative z-50">
       <TransitionChild
         as="template"
         enter="duration-300 ease-out"
@@ -25,12 +32,12 @@ defineProps({
         leave-from="opacity-100"
         leave-to="opacity-0"
       >
-        <div class="fixed inset-0 bg-black bg-opacity-25" />
+        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
       </TransitionChild>
 
       <div class="fixed inset-0 overflow-y-auto">
         <div
-          class="flex items-center justify-center h-full p-4 text-center"
+          class="flex min-h-full items-center justify-center p-4 text-center"
         >
           <TransitionChild
             as="template"
@@ -42,16 +49,20 @@ defineProps({
             leave-to="opacity-0 scale-95"
           >
             <DialogPanel
-              class="relative max-w-[50%] min-w-[20%] h-max max-h-[70%] transform overflow-y-auto rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all"
+              class="relative h-max max-h-[85vh] w-full transform overflow-y-auto p-6 text-left align-middle shadow-2xl transition-all sm:p-8"
+              :class="props.variant === 'dark'
+                ? 'max-w-3xl rounded-[26px] border border-white/15 bg-[#0b142b]/95 text-white'
+                : 'max-w-3xl rounded-2xl bg-white text-slate-900'"
             >
               <DialogTitle
                 as="h3"
-                class="text-2xl capitalize font-medium leading-6 text-gray-900"
+                class="text-2xl capitalize font-black leading-tight"
+                :class="props.variant === 'dark' ? 'text-white' : 'text-gray-900'"
               >
                 {{ modalTitle }}
               </DialogTitle>
-              <hr class="mt-2">
-              <div class="mt-2">
+              <hr class="mt-4" :class="props.variant === 'dark' ? 'border-white/10' : 'border-slate-200'">
+              <div class="mt-5">
                 <slot name="content" />
               </div>
 

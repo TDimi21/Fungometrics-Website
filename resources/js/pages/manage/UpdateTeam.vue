@@ -2,9 +2,9 @@
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import Layout from '@/layout/Layout.vue'
-import { InputImage, InputBase, LabelField, SelectField} from '@/components/form'
+import { InputImage, InputBase, SelectField} from '@/components/form'
 import { ArrowRightIcon } from '@/components/icons'
-import { reactive, onMounted, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import {states} from '../../utils'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { toast } from "@/utils/AlertPlugin"
@@ -16,7 +16,7 @@ const teamStore = useTeamStore()
 const router = useRouter()
 const route = useRoute()
 
-let team = ''
+let team = null
 const isLoading = ref(false)
 
 const { teams } = storeToRefs(teamStore)
@@ -27,28 +27,21 @@ if (route.params.id != '') {
 const { updateTeams } = teamStore
 
 const coach = reactive({
-  name: team.name,
-  zip: team.zip,
-  state: team.state,
-  logo: team != undefined ? team.logo : ''
+  name: team?.name ?? '',
+  zip: team?.zip ?? '',
+  state: team?.state ?? '',
+  logo: team?.logo ?? ''
 });
 
 const sendData = async() => {
-  const fileTemp = coach.logo.files[0]
-
   let dataForm = new FormData();
   dataForm.append('name', coach.name)
   dataForm.append('zip', coach.zip)
   dataForm.append('state', coach.state)
-  dataForm.append('logo', fileTemp)
+  if (coach.logo instanceof File) dataForm.append('logo', coach.logo)
 
   try {
-    isLoading.value = !isLoading.value
-
-    if(coach.logo.files[0] == null){
-      dataForm.delete('logo')
-      dataForm.append('logo', team.logo)
-    }
+    isLoading.value = true
     await axiosPost(`coach/edit/teams/${team.id}`, dataForm).then(async(response) => {
       if (response.data.status == "success") {
         updateTeams(response.data.data)
@@ -73,7 +66,7 @@ const sendData = async() => {
       text: errorsMssg
     })
   } finally {
-    isLoading.value != isLoading.value
+    isLoading.value = false
   }
 
 }
@@ -82,95 +75,109 @@ const sendData = async() => {
 
 <template>
   <Loader v-show="isLoading"/>
-    <Layout class="debug">
-      <div class="flex flex-row w-[100%] items-center px-4 mt-9">
-        <!-- <p>{{ route.params }}</p>         -->
-        <h1 class="text-fungo-red w-[100%] text-2xl md:text-[50px] font-fungo-700 my-5 text-center">
-          {{ route.params.id ? 'Update' : 'Create New' }} Team
-        </h1>
-        <RouterLink to="/manage" class="absolute right-2 md:right-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]">
-          <img alt="Icon close view" src="../../assets/img/register/cancel.svg">
-        </RouterLink>
-      </div>
-      <section class="bg-fungo-gray4 w-full h-auto absolute left-0 px-[10%] md:px-[8%] mt-[150px] lg:mt-[80px]">
-        <div class="w-[100%] px-4 my-9">
-          <h1 class="text-fungo-darkblue text-2xl md:text-[40px] font-fungo-700 my-5 text-center">Team</h1>
-          <div class="flex flex-col justify-center items-center">
-            <div class="flex flex-col w-1/4">
-              <InputImage v-model="coach.logo" label="Team logo"/>
+    <Layout>
+      <main class="team-update-shell">
+        <section class="team-update-card">
+          <header class="team-update-header">
+            <div>
+              <p class="team-update-kicker">Team Management</p>
+              <h1>{{ route.params.id ? 'Update Team' : 'Create Team' }}</h1>
+              <p>Keep your team identity and location information current.</p>
             </div>
-          </div>
-          <div class="form-header mt-11 w-[100%] flex justify-between flex-col lg:flex-row">
-            <div class="box-input-col">
-              <LabelField :required="true" class="text-fungo-darkblue mt-8 mb-5" text="Team Name"/>
-              <InputBase v-model="coach.name"/>
-            </div>
-            <div class="box-input-col w-[100%] lg:w-1/4">
-              <LabelField :required="true" class="text-fungo-darkblue mb-5" text="State"/>
-              <SelectField v-model="coach.state" :options="states"/>
-            </div>
-            <div class="box-input-col">
-              <LabelField :required="true" class="text-fungo-darkblue mb-5" text="Zip code"/>
-              <InputBase v-model="coach.zip" inputType="number"/>
-            </div>
-          </div>
-          <div class="w-[100%] flex justify-center px-4 my-9">
-            <button
-              @click="sendData"
-              class="grid place-items-center grid-flow-col flex-row rounded-button-right w-[250px] lg:w-[300px]
-              px-2 py-1 text-xl md:text-[16px] lg:text-[20px] bg-fungo-red text-white hover:bg-fungo-red-hover" type="submit">
-              <img alt="button register coach" class="w-6 h-6 md:w-8 md:h-8 mx-2 md:mx-0" src="../../assets/img/login/assteslogin/ballbutton.svg">
-              <span class="mx-2">
-                {{ route.params.id ? 'Update' : 'Create' }}
-              </span>
-              <div class="text-white mx-2 animate-bounce-r">
-                <ArrowRightIcon color="ffffff" w="50" h="50"/>
-              </div>
-            </button>
-          </div>
+            <RouterLink to="/manage" class="team-update-close" aria-label="Return to Manage Team">×</RouterLink>
+          </header>
 
-        </div>
-      </section>
+          <form class="team-update-form" @submit.prevent="sendData">
+            <section class="team-logo-card">
+              <div class="team-section-heading">
+                <span>01</span>
+                <div>
+                  <h2>Team identity</h2>
+                  <p>Upload a square logo for the best display across FMTRX.</p>
+                </div>
+              </div>
+              <div class="team-logo-input">
+                <InputImage v-model="coach.logo" label="Team logo"/>
+              </div>
+            </section>
+
+            <section class="team-details-card">
+              <div class="team-section-heading">
+                <span>02</span>
+                <div>
+                  <h2>Team details</h2>
+                  <p>These details are used throughout rosters, reports, and sessions.</p>
+                </div>
+              </div>
+
+              <div class="team-field-grid">
+                <label class="team-field">
+                  <span>Team name <b>*</b></span>
+                  <InputBase v-model="coach.name" required="required" placeholder="Enter team name"/>
+                </label>
+                <label class="team-field">
+                  <span>State <b>*</b></span>
+                  <SelectField v-model="coach.state" :options="states"/>
+                </label>
+                <label class="team-field">
+                  <span>ZIP code <b>*</b></span>
+                  <InputBase v-model="coach.zip" required="required" inputType="text" placeholder="Enter ZIP code"/>
+                </label>
+              </div>
+            </section>
+
+            <footer class="team-update-actions">
+              <RouterLink to="/manage" class="team-cancel-button">Cancel</RouterLink>
+              <button class="team-save-button" type="submit" :disabled="isLoading">
+                <img alt="" src="../../assets/img/login/assteslogin/ballbutton.svg">
+                <span>{{ isLoading ? 'Saving…' : 'Save Team' }}</span>
+                <ArrowRightIcon color="ffffff" w="32" h="32"/>
+              </button>
+            </footer>
+          </form>
+        </section>
+      </main>
     </Layout>
 </template>
 
 <style scoped>
-@keyframes bounce {
-  0%, 100% {
-    transform: translateX(-25%);
-    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
-  }
-  50% {
-    transform: none;
-    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
-  }
-}
-
-.animate-bounce-r {
-  animation: bounce 1s infinite;
-}
-
-@keyframes bouncel {
-  0%, 100% {
-    transform: translateX(25%);
-    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
-  }
-  50% {
-    transform: none;
-    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
-  }
-}
-
-.animate-bounce-l {
-  animation: bouncel 1s infinite;
-}
-
-.rounded-button-right {
-  border-radius: 30px 10px 10px 30px;
-}
-
-.rounded-button-left {
-  border-radius: 10px 30px 30px 10px;
+.team-update-shell { width: min(1180px, calc(100% - 2rem)); margin: 1.5rem auto 3rem; }
+.team-update-card { overflow: hidden; border: 1px solid rgba(255,255,255,.16); border-radius: 28px; background: rgba(6,15,36,.9); box-shadow: 0 28px 80px rgba(0,0,0,.32); color: white; }
+.team-update-header { display: flex; justify-content: space-between; gap: 2rem; padding: 2rem 2.25rem; border-bottom: 1px solid rgba(255,255,255,.1); background: linear-gradient(135deg, rgba(255,43,74,.12), transparent 42%); }
+.team-update-kicker { color: #fb7185 !important; font-size: .72rem; font-weight: 900; letter-spacing: .24em; text-transform: uppercase; }
+.team-update-header h1 { margin-top: .35rem; font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 900; line-height: 1; }
+.team-update-header p:last-child { margin-top: .65rem; color: rgba(255,255,255,.55); }
+.team-update-close { display: grid; width: 46px; height: 46px; flex: 0 0 auto; place-items: center; border: 1px solid rgba(255,255,255,.15); border-radius: 14px; background: rgba(255,255,255,.05); color: rgba(255,255,255,.72); font-size: 2rem; line-height: 1; transition: .18s ease; }
+.team-update-close:hover { border-color: rgba(255,43,74,.55); background: rgba(255,43,74,.14); color: white; }
+.team-update-form { padding: 2rem 2.25rem 2.25rem; }
+.team-logo-card, .team-details-card { border: 1px solid rgba(255,255,255,.1); border-radius: 22px; background: rgba(255,255,255,.035); padding: 1.5rem; }
+.team-details-card { margin-top: 1rem; }
+.team-section-heading { display: flex; align-items: flex-start; gap: 1rem; }
+.team-section-heading > span { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; background: #ff2b4a; font-size: .75rem; font-weight: 900; }
+.team-section-heading h2 { font-size: 1.15rem; font-weight: 900; }
+.team-section-heading p { margin-top: .25rem; color: rgba(255,255,255,.48); font-size: .85rem; }
+.team-logo-input { width: min(320px, 100%); margin: 1.5rem auto 0; }
+.team-field-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+.team-field { display: flex; flex-direction: column; gap: .55rem; }
+.team-field > span { color: rgba(255,255,255,.72); font-size: .78rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.team-field b { color: #fb7185; }
+.team-field :deep(input), .team-field :deep(select) { width: 100%; min-height: 48px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 12px !important; background: rgba(255,255,255,.07) !important; color: white !important; padding: 0 .9rem; }
+.team-field :deep(option) { color: #0f172a; }
+.team-logo-input :deep(.image-input-label) { color: rgba(255,255,255,.7); font-weight: 800; }
+.team-logo-input :deep(.image-preview-panel) { min-height: 220px; border-color: rgba(255,255,255,.12); background: rgba(2,8,23,.65); }
+.team-update-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.5rem; }
+.team-cancel-button, .team-save-button { display: inline-flex; min-height: 50px; align-items: center; justify-content: center; gap: .7rem; border-radius: 14px; padding: .75rem 1.35rem; font-weight: 900; transition: .18s ease; }
+.team-cancel-button { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.045); color: white; }
+.team-cancel-button:hover { background: rgba(255,255,255,.09); }
+.team-save-button { min-width: 190px; background: #e10600; color: white; }
+.team-save-button:hover { background: #ff2b24; transform: translateY(-1px); }
+.team-save-button:disabled { cursor: wait; opacity: .65; }
+.team-save-button img { width: 30px; height: 30px; }
+@media (max-width: 760px) {
+  .team-update-header, .team-update-form { padding: 1.35rem; }
+  .team-field-grid { grid-template-columns: 1fr; }
+  .team-update-actions { flex-direction: column-reverse; }
+  .team-cancel-button, .team-save-button { width: 100%; }
 }
 
 </style>

@@ -212,24 +212,38 @@ onMounted(() => {
 
     <!-- modal for show players -->
     <Modal
-      modalTitle="players"
+      modalTitle="Team Players"
       :isOpen="isOpenPlayerModal"
+      variant="dark"
+      @close="isOpenPlayerModal = false"
     >
       <template #content>
-        <section class="space-y-5 grid grid-cols-2 md:grid-cols-3">
-          <div v-if="playersOfTeam.players.length <= 0">
-            <p>This team has no players</p>
-          </div>
-          <ul
-            v-else
-            v-for="player in playersOfTeam.players"
-            class="flex flex-row flex-nowrap items-center space-x-4">
+        <section>
+          <div class="mb-5 flex items-center justify-between gap-4">
             <div>
-              <li>
-                <img :src="player.avatar" :alt="`Photo of ${player.name.full}`" class="w-14 h-14 rounded-full">
-              </li>
-              <li>{{ player.name.full }}</li>
+              <p class="text-xs font-black uppercase tracking-[.22em] text-red-400">Roster</p>
+              <p class="mt-1 text-sm text-white/55">
+                {{ playersOfTeam.name || 'Selected team' }} · {{ playersOfTeam.players?.length || 0 }} players
+              </p>
             </div>
+          </div>
+          <div v-if="!playersOfTeam.players?.length" class="rounded-2xl border border-dashed border-white/15 bg-white/[.03] px-6 py-12 text-center">
+            <div class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-white/[.06] text-2xl">⚾</div>
+            <p class="font-bold text-white">No players on this team yet</p>
+            <p class="mt-1 text-sm text-white/50">Players added to this team will appear here.</p>
+          </div>
+          <ul v-else class="grid gap-3 sm:grid-cols-2">
+            <li
+              v-for="player in playersOfTeam.players"
+              :key="player.id"
+              class="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[.045] p-4"
+            >
+              <img :src="player.avatar" :alt="`Photo of ${player.name.full}`" class="h-14 w-14 rounded-full border border-white/15 object-cover">
+              <div class="min-w-0">
+                <p class="truncate font-black text-white">{{ player.name.full }}</p>
+                <p class="text-xs uppercase tracking-wider text-white/45">Player</p>
+              </div>
+            </li>
           </ul>
         </section>
       </template>
@@ -237,7 +251,7 @@ onMounted(() => {
       <template #actions>
         <button
           type="button"
-          class="inline-flex justify-center rounded-md bg-[#002060] text-white px-4 py-1"
+          class="inline-flex min-h-[44px] justify-center rounded-xl border border-white/15 bg-white/[.06] px-6 py-3 font-black text-white transition hover:bg-white/10"
           @click="isOpenPlayerModal = false"
         >
           Close
@@ -249,10 +263,12 @@ onMounted(() => {
     <Modal
       modalTitle="delete team"
       :isOpen="isOpenDelteModal"
+      variant="dark"
+      @close="isOpenDelteModal = false"
     >
       <template #content>
         <section>
-          <p>Are you sure delete this team?</p>
+          <p class="text-white/70">Are you sure you want to permanently delete this team?</p>
         </section>
       </template>
 
@@ -260,14 +276,14 @@ onMounted(() => {
         <div class="flex justify-between items-center w-90% mx-auto">
           <button
             @click="confirmDelete"
-            class="bg-red-500 text-white px-4 py-1 rounded-md"
+            class="min-h-[44px] rounded-xl bg-red-600 px-5 py-3 font-black text-white hover:bg-red-500"
           >
             Yes, delete
           </button>
 
           <button
             @click=" isOpenDelteModal = false"
-            class="bg-[#002060] text-white px-4 py-1 rounded-md"
+            class="min-h-[44px] rounded-xl border border-white/15 bg-white/[.06] px-5 py-3 font-black text-white hover:bg-white/10"
           >
             Cancel
           </button>
