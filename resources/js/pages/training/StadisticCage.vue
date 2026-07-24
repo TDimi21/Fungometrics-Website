@@ -17,6 +17,7 @@ import { useTrainingStore } from "../../store/training";
 import { SendMsgModal, SendMsgStatusModal } from '@/components/shared'
 import useSendMsg from '@/composables/useSendMsg.js'
 import Loader from '@/components/Loader.vue'
+import CageFieldStats from '@/components/statistics/CageFieldStats.vue'
 
 const useTeam = useTeamStore()
 const { team } = storeToRefs(useTeam)
@@ -698,7 +699,13 @@ if(userData.type === 'coach'){
               :table-data="ballxballData" :actionable="true" v-on:edit-event="getEditData($event)"
               v-on:click-header="sortBy($event)" />
           </TabPanel>
-          <TabPanel class="cage-panel">
+          <TabPanel class="cage-panel cage-panel--unified">
+            <CageFieldStats
+              class="cage-unified"
+              mode="contact"
+              :balls="globalResponse.ball_x_ball || []"
+              :team-name="team?.name || 'Team'"
+            />
             <div class="grid grid-cols-3 gap-4 p-2 mt-4 bg-fungo-lightblue">
               <div class="col-span-5 text-center uppercase md:col-span-3 xl:col-span-2">Spray Chart</div>
               <div class="hidden text-center uppercase xl:inline">QUALITY OF CONTACT BREAKDOWN</div>
@@ -833,7 +840,13 @@ if(userData.type === 'coach'){
               </div>
             </div>
           </TabPanel>
-          <TabPanel class="cage-panel">
+          <TabPanel class="cage-panel cage-panel--unified">
+            <CageFieldStats
+              class="cage-unified"
+              mode="trajectory"
+              :balls="globalResponse.ball_x_ball || []"
+              :team-name="team?.name || 'Team'"
+            />
             <div class="grid grid-cols-3 gap-4 p-2 mt-4 bg-fungo-lightblue">
               <div class="col-span-5 text-center uppercase md:col-span-3 xl:col-span-2">Spray Chart</div>
               <div class="hidden text-center uppercase xl:inline">TRAJECTORY BREAKDOWN</div>
@@ -963,7 +976,13 @@ if(userData.type === 'coach'){
               </div>
             </div>
           </TabPanel>
-          <TabPanel class="cage-panel">
+          <TabPanel class="cage-panel cage-panel--unified">
+            <CageFieldStats
+              class="cage-unified"
+              mode="velocity"
+              :balls="globalResponse.ball_x_ball || []"
+              :team-name="team?.name || 'Team'"
+            />
             <div class="grid grid-cols-3 gap-4 p-2 mt-4 bg-fungo-lightblue">
               <div class="col-span-5 text-center uppercase md:col-span-3 xl:col-span-2">LIST OF EXIT VELOCITY</div>
               <div class="hidden text-center uppercase xl:inline">EXIT VELOCITY</div>
@@ -1167,6 +1186,14 @@ if(userData.type === 'coach'){
   background:
     linear-gradient(rgba(10, 16, 36, .82), rgba(10, 16, 36, .82)),
     url("../../assets/img/fungometrics-stadium.png") center / cover;
+}
+
+.cage-panel--unified > :not(.cage-unified) {
+  display: none;
+}
+
+.cage-unified {
+  width: 100%;
 }
 
 .cage-panel :deep(.bg-white),

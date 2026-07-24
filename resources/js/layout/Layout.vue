@@ -3,7 +3,6 @@ import { ref, reactive, onMounted, onUnmounted, watch, computed } from "vue";
 import { useUserStore } from "../store/user";
 import { useTeamStore } from "../store/team";
 import NavSidebar from "./NavigationSidebar.vue";
-import { confirm } from "../utils/AlertPlugin";
 import { toast } from "@/utils/AlertPlugin";
 import {
   InputBase,
@@ -107,6 +106,8 @@ let player = reactive({
 import { getUiTheme, applyUiTheme } from "@/composables/useUiTheme";
 let hasSidebar = reactive({ active: false });
 const uiTheme = ref(getUiTheme());
+const isLogoutModalOpen = ref(false);
+const isLoggingOut = ref(false);
 const teamHeaderLogo = ref(updatedLogo);
 const teamHeaderBackground = ref(stadiumBackground);
 const socialLinks = {
@@ -136,17 +137,18 @@ const handleThemeChange = (event) => {
 const toggleSidebar = () =>
   hasSidebar.active ? (hasSidebar.active = false) : (hasSidebar.active = true);
 const logout = () => {
-  confirm.fire().then((result) => {
-    if (result.isConfirmed) {
-      endWebSession(api_url).catch(() => {}).finally(() => {
-        accessStore.clear();
-        authStore.isLogged.status = false;
-        authStore.setToken('');
-        localStorage.removeItem('auth');
-        sessionStorage.clear();
-        location.reload();
-      });
-    }
+  isLogoutModalOpen.value = true;
+};
+const confirmLogout = () => {
+  if (isLoggingOut.value) return;
+  isLoggingOut.value = true;
+  endWebSession(api_url).catch(() => {}).finally(() => {
+    accessStore.clear();
+    authStore.isLogged.status = false;
+    authStore.setToken('');
+    localStorage.removeItem('auth');
+    sessionStorage.clear();
+    location.reload();
   });
 };
 
@@ -734,9 +736,218 @@ watch(
     <div class="opacity-70 fixed inset-0 z-40 bg-fungo-darkblue"></div>
   </div>
 
+  <TransitionRoot appear :show="isLogoutModalOpen" as="template">
+    <Dialog as="div" class="logout-dialog" @close="isLogoutModalOpen = false">
+      <TransitionChild
+        as="template"
+        enter="duration-200 ease-out"
+        enter-from="opacity-0"
+        enter-to="opacity-100"
+        leave="duration-150 ease-in"
+        leave-from="opacity-100"
+        leave-to="opacity-0"
+      >
+        <div class="logout-backdrop" />
+      </TransitionChild>
+
+      <div class="logout-dialog-shell">
+        <TransitionChild
+          as="template"
+          enter="duration-200 ease-out"
+          enter-from="opacity-0 scale-95"
+          enter-to="opacity-100 scale-100"
+          leave="duration-150 ease-in"
+          leave-from="opacity-100 scale-100"
+          leave-to="opacity-0 scale-95"
+        >
+          <DialogPanel class="logout-panel">
+            <div class="logout-brand">
+              <img src="../assets/img/login/assteslogin/updatedlogo.png" alt="FungoMetrics" />
+            </div>
+            <div class="logout-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H8m5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </div>
+            <DialogTitle class="logout-title">Log out of FungoMetrics?</DialogTitle>
+            <DialogDescription class="logout-description">
+              You’ll need to sign in again to access your teams, players, and training data.
+            </DialogDescription>
+            <div class="logout-actions">
+              <button
+                type="button"
+                class="logout-cancel"
+                :disabled="isLoggingOut"
+                @click="isLogoutModalOpen = false"
+              >
+                Stay signed in
+              </button>
+              <button
+                type="button"
+                class="logout-confirm"
+                :disabled="isLoggingOut"
+                @click="confirmLogout"
+              >
+                {{ isLoggingOut ? 'Logging out…' : 'Log out' }}
+              </button>
+            </div>
+          </DialogPanel>
+        </TransitionChild>
+      </div>
+    </Dialog>
+  </TransitionRoot>
+
   <SendMsgModal v-if="isShowMsgModal" />
 </template>
 <style lang="css" scoped>
+.logout-dialog {
+  position: relative;
+  z-index: 100;
+}
+
+.logout-backdrop {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(37, 48, 91, .28), transparent 40%),
+    rgba(2, 6, 18, .84);
+  backdrop-filter: blur(8px);
+}
+
+.logout-dialog-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 101;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.logout-panel {
+  position: relative;
+  width: min(100%, 460px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgba(28, 36, 70, .98), rgba(8, 14, 32, .99));
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, .55),
+    inset 0 1px 0 rgba(255, 255, 255, .08);
+  padding: 32px;
+  text-align: center;
+}
+
+.logout-panel::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #ff2b4a, #e10600);
+  content: "";
+}
+
+.logout-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.logout-brand img {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .35));
+}
+
+.logout-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  border: 1px solid rgba(255, 43, 74, .4);
+  border-radius: 18px;
+  background: rgba(255, 43, 74, .12);
+  color: #ff4964;
+}
+
+.logout-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.logout-title {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -.01em;
+}
+
+.logout-description {
+  max-width: 360px;
+  margin: 10px auto 26px;
+  color: rgba(226, 232, 240, .72);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.logout-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.logout-actions button {
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transition: .16s ease;
+}
+
+.logout-actions button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.logout-cancel {
+  border: 1px solid rgba(255, 255, 255, .16);
+  background: rgba(255, 255, 255, .07);
+  color: #fff;
+}
+
+.logout-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, .13);
+}
+
+.logout-confirm {
+  border: 1px solid #ff2b4a;
+  background: #ff2b4a;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(255, 43, 74, .22);
+}
+
+.logout-confirm:hover:not(:disabled) {
+  border-color: #ff4964;
+  background: #ff4964;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 520px) {
+  .logout-panel {
+    padding: 28px 20px 22px;
+  }
+
+  .logout-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 @keyframes bounce {
   0%,
   100% {
