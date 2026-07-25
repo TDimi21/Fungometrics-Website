@@ -14,6 +14,11 @@ enum ImportSessionType: string
     case Assessment = 'assessment';
     case BattingPractice = 'batting_practice';
     case PitchingPractice = 'pitching_practice';
+    case LongToss = 'long_toss';
+    case WeightedBalls = 'weighted_balls';
+    case ExitVelocity = 'exit_velocity';
+    case SpeedAgility = 'speed_agility';
+    case Recovery = 'recovery';
 
     public function label(): string
     {
@@ -26,6 +31,11 @@ enum ImportSessionType: string
             self::Assessment => 'Assessment',
             self::BattingPractice => 'Batting Practice',
             self::PitchingPractice => 'Pitching Practice',
+            self::LongToss => 'Long Toss',
+            self::WeightedBalls => 'Weighted Balls',
+            self::ExitVelocity => 'Exit Velocity',
+            self::SpeedAgility => 'Speed & Agility',
+            self::Recovery => 'Recovery',
         };
     }
 }

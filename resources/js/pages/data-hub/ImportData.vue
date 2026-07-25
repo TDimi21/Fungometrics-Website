@@ -10,7 +10,7 @@ import DestinationSelector from '@/components/data-hub/DestinationSelector.vue'
 import PlayerMapping from '@/components/data-hub/PlayerMapping.vue'
 import ColumnMapping from '@/components/data-hub/ColumnMapping.vue'
 import InspectionReview from '@/components/data-hub/InspectionReview.vue'
-import { DATA_HUB_PLATFORMS, DATA_HUB_SESSION_TYPES } from '@/data/dataHubPlatforms.js'
+import { DATA_HUB_DESTINATION_GROUPS, DATA_HUB_PLATFORMS, DATA_HUB_SESSION_TYPES } from '@/data/dataHubPlatforms.js'
 import { DATA_HUB_MAX_FILE_SIZE_BYTES, platformSupportsFile } from '@/data/dataHubConfig.js'
 import { validateDataHubFile } from '@/utils/dataHubWorkflow.js'
 import { useTeamStore } from '@/store/team.js'
@@ -45,13 +45,12 @@ const inspectionComplete = ref(false)
 const sessionValues = {
   Cage: 'cage', 'Live AB': 'live_ab', Bullpen: 'bullpen', Strength: 'strength',
   Mobility: 'mobility', Assessment: 'assessment', 'Batting Practice': 'batting_practice',
-  'Pitching Practice': 'pitching_practice',
+  'Pitching Practice': 'pitching_practice', 'Long Toss': 'long_toss', 'Weighted Balls': 'weighted_balls',
+  'Exit Velocity': 'exit_velocity', 'Speed & Agility': 'speed_agility', Recovery: 'recovery',
 }
 const selectedPlatform = computed(() => DATA_HUB_PLATFORMS.find(item => item.key === platformKey.value) || null)
 const selectedTeam = computed(() => teams.value.find(item => String(item?.id_team ?? item?.id ?? '') === teamId.value) || null)
-const allowedSessionTypes = computed(() => selectedPlatform.value
-  ? DATA_HUB_SESSION_TYPES.filter(type => selectedPlatform.value.sessionTypes.includes(type))
-  : DATA_HUB_SESSION_TYPES)
+const allowedSessionTypes = computed(() => DATA_HUB_SESSION_TYPES)
 const mappingValues = computed(() => Object.values(mappings).filter(Boolean))
 const hasDuplicates = computed(() => {
   const ids = mappingValues.value
@@ -339,7 +338,7 @@ onBeforeRouteLeave(clearWorkflow)
         </div>
         <PlatformSelector v-if="step === 1" :platforms="DATA_HUB_PLATFORMS" :model-value="platformKey" @update:model-value="setPlatform" />
         <FileDropzone v-else-if="step === 2" :model-value="selectedFile" :error="fileError" :warning="fileWarning" :max-size-bytes="DATA_HUB_MAX_FILE_SIZE_BYTES" @update:model-value="setFile" />
-        <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="setTeam" @update:session-type="sessionType = $event" />
+        <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :destination-groups="DATA_HUB_DESTINATION_GROUPS" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="setTeam" @update:session-type="sessionType = $event" />
         <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" :confirmed-duplicates="confirmedDuplicateTargets" @update:mapping="updateMapping" @confirm:duplicate="confirmDuplicate" @refresh-roster="loadTeamPlayers" />
         <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" @update:entry="updateColumnEntry" @submit-concept="submitConcept" />
         <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" :column-entries="columnEntries" />

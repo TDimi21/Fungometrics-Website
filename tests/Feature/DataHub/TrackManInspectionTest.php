@@ -89,6 +89,14 @@ class TrackManInspectionTest extends TestCase
         Sanctum::actingAs($coach, ['coach']);
         $this->post('/api/data-hub/inspect', $payload + ['file' => UploadedFile::fake()->createWithContent('trackman.csv', "Batter,ExitSpeed,Angle\nTom Smith,92,20\n")])
             ->assertOk()->assertJsonPath('data.detected_format.data_type', 'hitting');
+        $this->post('/api/data-hub/inspect', [
+            'platform' => 'trackman',
+            'team_id' => $team->id,
+            'session_type' => 'strength',
+            'file' => UploadedFile::fake()->createWithContent('trackman.csv', "Batter,ExitSpeed,Angle\nTom Smith,92,20\n"),
+        ])->assertOk()
+            ->assertJsonPath('data.destination_recommendation.selected', 'Strength')
+            ->assertJsonPath('data.destination_recommendation.advisory_only', true);
         Storage::disk('local')->assertDirectoryEmpty('data-hub/tmp');
         $this->post('/api/data-hub/inspect', ['platform' => 'trackman', 'team_id' => $other->id, 'session_type' => 'cage', 'file' => UploadedFile::fake()->createWithContent('trackman.csv', "Batter,ExitSpeed,Angle\nTom Smith,92,20\n")])
             ->assertForbidden();

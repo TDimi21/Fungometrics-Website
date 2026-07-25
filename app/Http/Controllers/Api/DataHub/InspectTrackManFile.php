@@ -67,11 +67,22 @@ final class InspectTrackManFile extends Controller
                 default => false,
             };
             if ( ! $compatible) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'The detected TrackMan data is not compatible with the selected destination.',
-                    'detected_format' => $result['detected_format'],
-                ], 422);
+                $recommended = match ($type) {
+                    'hitting' => ['Cage', 'Batting Practice', 'Live AB'],
+                    'pitching' => ['Bullpen', 'Pitching Practice', 'Live AB'],
+                    default => [],
+                };
+                $result['warnings'][] = sprintf(
+                    'The selected destination is allowed, but %s is recommended for this %s file.',
+                    implode(', ', $recommended),
+                    $type
+                );
+                $result['destination_recommendation'] = [
+                    'detected_data_type' => $type,
+                    'recommended' => $recommended,
+                    'selected' => $sessionType->label(),
+                    'advisory_only' => true,
+                ];
             }
 
             return response()->json(['success' => true, 'data' => $result]);

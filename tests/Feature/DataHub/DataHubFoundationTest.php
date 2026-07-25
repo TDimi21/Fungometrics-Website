@@ -56,6 +56,15 @@ class DataHubFoundationTest extends TestCase
         );
     }
 
+    public function test_destination_catalog_is_complete_and_independent_from_platform_capabilities(): void
+    {
+        $this->assertSame([
+            'cage', 'live_ab', 'bullpen', 'strength', 'mobility', 'assessment',
+            'batting_practice', 'pitching_practice', 'long_toss', 'weighted_balls',
+            'exit_velocity', 'speed_agility', 'recovery',
+        ], $this->sessionValues(app(DestinationRegistry::class)->all()));
+    }
+
     public function test_data_hub_entitlement_is_assigned_only_to_coach_pro_and_administrators(): void
     {
         $resolver = app(EntitlementResolver::class);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { DATA_HUB_MAX_FILE_SIZE_BYTES } from '../../resources/js/data/dataHubConfig.js'
-import { DATA_HUB_PLATFORMS } from '../../resources/js/data/dataHubPlatforms.js'
+import { DATA_HUB_DESTINATION_GROUPS, DATA_HUB_PLATFORMS, DATA_HUB_SESSION_TYPES } from '../../resources/js/data/dataHubPlatforms.js'
 import { nextDataHubStep, validateDataHubFile } from '../../resources/js/utils/dataHubWorkflow.js'
 
 const root = path.resolve(__dirname, '../..')
@@ -32,6 +32,24 @@ describe('Data Hub Phase 1', () => {
     expect(page).toContain('PlayerMapping')
     expect(page).toContain('InspectionReview')
     expect(page).toContain('Finish Inspection')
+  })
+
+  it('offers the complete grouped FMTRX destination catalog independent of platform', () => {
+    const page = source('resources/js/pages/data-hub/ImportData.vue')
+    const selector = source('resources/js/components/data-hub/DestinationSelector.vue')
+
+    expect(DATA_HUB_DESTINATION_GROUPS.map(group => group.label)).toEqual([
+      'Game & Competition', 'Hitting', 'Pitching', 'Throwing', 'Performance Testing',
+    ])
+    expect(DATA_HUB_SESSION_TYPES).toEqual(expect.arrayContaining([
+      'Live AB', 'Cage', 'Batting Practice', 'Bullpen', 'Pitching Practice',
+      'Long Toss', 'Weighted Balls', 'Exit Velocity', 'Assessment', 'Strength',
+      'Mobility', 'Speed & Agility', 'Recovery',
+    ]))
+    expect(page).toContain('computed(() => DATA_HUB_SESSION_TYPES)')
+    expect(page).not.toContain('sessionTypes.includes(type)')
+    expect(selector).toContain('<optgroup')
+    expect(selector).toContain('The source platform does not restrict your destination.')
   })
 
   it('does not persist selected source files in browser storage', () => {

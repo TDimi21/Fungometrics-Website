@@ -2,6 +2,7 @@
 defineProps({
   teams: { type: Array, required: true },
   sessionTypes: { type: Array, required: true },
+  destinationGroups: { type: Array, required: true },
   teamId: { type: String, default: '' },
   sessionType: { type: String, default: '' },
   loading: { type: Boolean, default: false },
@@ -25,9 +26,11 @@ const teamIdOf = (team) => String(team?.id_team ?? team?.id ?? '')
       <span>Session type</span>
       <select :value="sessionType" @change="$emit('update:sessionType', $event.target.value)">
         <option value="">Select a destination</option>
-        <option v-for="type in sessionTypes" :key="type" :value="type">{{ type }}</option>
+        <optgroup v-for="group in destinationGroups" :key="group.label" :label="group.label">
+          <option v-for="type in group.sessionTypes.filter(item => sessionTypes.includes(item))" :key="type" :value="type">{{ type }}</option>
+        </optgroup>
       </select>
-      <small>This selection does not create or modify an FMTRX session.</small>
+      <small>Choose what this data should become in FMTRX. The source platform does not restrict your destination.</small>
     </label>
   </div>
 </template>
@@ -41,4 +44,3 @@ select:focus { border-color:#ff2b4a; box-shadow:0 0 0 3px rgba(255,43,74,.12); }
 small { color:rgba(148,163,184,.72); font-size:11px; line-height:1.45; }
 @media (max-width:700px) { .destination-grid { grid-template-columns:1fr; padding:18px; } }
 </style>
-

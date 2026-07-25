@@ -42,12 +42,25 @@ export const DATA_HUB_PLATFORMS = [
 ]
 
 export const DATA_HUB_SESSION_TYPES = [
-  'Cage',
   'Live AB',
+  'Cage',
+  'Batting Practice',
   'Bullpen',
+  'Pitching Practice',
+  'Long Toss',
+  'Weighted Balls',
+  'Exit Velocity',
+  'Assessment',
   'Strength',
   'Mobility',
-  'Assessment',
-  'Batting Practice',
-  'Pitching Practice',
+  'Speed & Agility',
+  'Recovery',
+]
+
+export const DATA_HUB_DESTINATION_GROUPS = [
+  { label: 'Game & Competition', sessionTypes: ['Live AB'] },
+  { label: 'Hitting', sessionTypes: ['Cage', 'Batting Practice'] },
+  { label: 'Pitching', sessionTypes: ['Bullpen', 'Pitching Practice'] },
+  { label: 'Throwing', sessionTypes: ['Long Toss', 'Weighted Balls'] },
+  { label: 'Performance Testing', sessionTypes: ['Exit Velocity', 'Assessment', 'Strength', 'Mobility', 'Speed & Agility', 'Recovery'] },
 ]

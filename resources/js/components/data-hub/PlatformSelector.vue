@@ -20,7 +20,7 @@ defineEmits(['update:modelValue'])
       <span class="platform-copy">
         <strong>{{ platform.name }}</strong>
         <small>{{ platform.description }}</small>
-        <em>{{ platform.sessionTypes.join(' · ') }}</em>
+        <em>Common uses: {{ platform.sessionTypes.join(' · ') }}</em>
       </span>
       <span class="platform-check">{{ modelValue === platform.key ? '✓' : '→' }}</span>
     </button>
@@ -40,4 +40,3 @@ defineEmits(['update:modelValue'])
 .platform-check { color:#ff4964; font-size:18px; font-weight:900; }
 @media (max-width:820px) { .platform-grid { grid-template-columns:1fr; } }
 </style>
-
