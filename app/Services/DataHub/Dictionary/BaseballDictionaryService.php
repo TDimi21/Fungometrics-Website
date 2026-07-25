@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\DataHub\Dictionary;
 
 use App\Models\BaseballConcept;
+use App\Models\BaseballConceptAlias;
 use App\Models\BaseballDomain;
 use App\Models\UnitDefinition;
 
@@ -12,7 +13,30 @@ final class BaseballDictionaryService
 {
     public function catalog(): array
     {
-        return ['domains' => BaseballDomain::query()->where('is_active', true)->orderBy('sort_order')->get(),'concepts' => BaseballConcept::query()->where('status', 'active')->orderBy('display_name')->get(),'units' => UnitDefinition::query()->orderBy('display_name')->get()];
+        $aliases = BaseballConceptAlias::query()
+            ->where('status', 'active')
+            ->orderBy('alias')
+            ->get(['baseball_concept_id', 'alias'])
+            ->groupBy('baseball_concept_id');
+        $concepts = BaseballConcept::query()
+            ->where('status', 'active')
+            ->orderBy('display_name')
+            ->get()
+            ->map(function (BaseballConcept $concept) use ($aliases): BaseballConcept {
+                $concept->setAttribute('aliases', $aliases
+                    ->get($concept->id, collect())
+                    ->pluck('alias')
+                    ->values()
+                    ->all());
+
+                return $concept;
+            });
+
+        return [
+            'domains' => BaseballDomain::query()->where('is_active', true)->orderBy('sort_order')->get(),
+            'concepts' => $concepts,
+            'units' => UnitDefinition::query()->orderBy('display_name')->get(),
+        ];
     }
     public function validate(BaseballConcept $concept, mixed $value): array
     {

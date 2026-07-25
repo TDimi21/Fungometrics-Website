@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { compatibilityForConcept, rankConceptsForDestination } from '@/utils/dataHubConceptCompatibility.js'
+import { compatibilityForConcept } from '@/utils/dataHubConceptCompatibility.js'
+import ConceptSelector from '@/components/data-hub/ConceptSelector.vue'
 
 const props = defineProps({
   columns: { type: Array, default: () => [] },
@@ -12,18 +13,9 @@ const props = defineProps({
   confirmedDuplicates: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['update:entry', 'submit-concept', 'confirm:warning', 'confirm:duplicate'])
-const search = ref('')
-const domain = ref('')
 const filter = ref('needs_review')
-const compatibleOnly = ref(false)
 const expanded = ref('')
 
-const filteredConcepts = computed(() => rankConceptsForDestination(props.concepts.filter(concept => {
-  const matchesSearch = !search.value || `${concept.display_name} ${concept.definition} ${concept.canonical_key}`.toLowerCase().includes(search.value.toLowerCase())
-  const compatibility = compatibilityForConcept(props.destination, concept, props.domains)
-  return matchesSearch && (!domain.value || concept.domain_id === domain.value) && (!compatibleOnly.value || compatibility.level === 'compatible')
-}), props.destination, props.domains))
-const domainName = id => props.domains.find(item => item.id === id)?.name || '—'
 const concept = id => props.concepts.find(item => item.id === id)
 const compatibility = column => compatibilityForConcept(props.destination, concept(props.entries[column.source_column_name]?.baseball_concept_id), props.domains)
 const status = column => {
@@ -56,19 +48,11 @@ const update = (column, patch) => emit('update:entry', column.source_column_name
 <template>
   <section class="mapping-shell">
     <header class="column-summary"><div v-for="(value,key) in summary" :key="key"><strong>{{ value }}</strong><span>{{ key.replace(/([A-Z])/g,' $1') }}</span></div></header>
-    <div class="mapping-toolbar">
-      <input v-model="search" type="search" placeholder="Search Baseball Concepts">
-      <select v-model="domain"><option value="">All domains</option><option v-for="item in domains" :key="item.id" :value="item.id">{{ item.name }}</option></select>
-      <label><input v-model="compatibleOnly" type="checkbox"> Compatible only</label>
-    </div>
     <nav class="column-filters"><button v-for="item in ['needs_review','connected','not_importing','unknown','all']" :key="item" :class="{active:filter===item}" @click="filter=item">{{ item.replace('_',' ') }}</button></nav>
     <section v-if="duplicateGroups.length" class="duplicate-columns"><article v-for="[conceptId,items] in duplicateGroups" :key="conceptId"><strong>Multiple source columns are connected to {{ concept(conceptId)?.display_name }}.</strong><span>{{ items.map(item=>item.source_column_name).join(' · ') }}</span><label><input type="checkbox" :checked="confirmedDuplicates.includes(conceptId)" @change="emit('confirm:duplicate',conceptId,$event.target.checked)"> Confirm these columns represent the same measurement</label></article></section>
     <article v-for="column in visibleColumns" :key="column.source_column_name" :class="['mapping-row',status(column)]">
       <div class="source"><strong>{{ column.source_column_name }}</strong><span>{{ column.sample_values?.join(' · ') || 'No sample values' }}</span></div>
-      <select :value="entries[column.source_column_name]?.baseball_concept_id || ''" @change="update(column,{ baseball_concept_id:$event.target.value || null, action:$event.target.value ? 'map' : 'ignore' })">
-        <option value="">— Not Importing —</option>
-        <option v-for="item in filteredConcepts" :key="item.id" :value="item.id">{{ item.display_name }} · {{ domainName(item.domain_id) }}{{ item.canonical_unit_key ? ` (${item.canonical_unit_key})` : '' }}</option>
-      </select>
+      <ConceptSelector :concepts="concepts" :domains="domains" :selected-concept-id="entries[column.source_column_name]?.baseball_concept_id || ''" :destination="destination" :source-column="column" @select="update(column,{ baseball_concept_id:$event, action:'map' })" @special="update(column,{ action:$event, baseball_concept_id:null })" />
       <select :value="entries[column.source_column_name]?.source_unit_key || ''" @change="update(column,{ source_unit_key:$event.target.value || null })">
         <option value="">Source unit</option><option value="mph">mph</option><option value="deg">degrees</option><option value="ft">feet</option><option value="in">inches</option><option value="rpm">rpm</option><option value="sec">seconds</option>
       </select>

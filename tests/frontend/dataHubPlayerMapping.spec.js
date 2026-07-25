@@ -9,6 +9,7 @@ describe('Data Hub TrackMan Player Mapping', () => {
   const page = source('resources/js/pages/data-hub/ImportData.vue')
   const component = source('resources/js/components/data-hub/PlayerMapping.vue')
   const columns = source('resources/js/components/data-hub/ColumnMapping.vue')
+  const conceptSelector = source('resources/js/components/data-hub/ConceptSelector.vue')
   const review = source('resources/js/components/data-hub/InspectionReview.vue')
 
   it('keys decisions by stable source identity and approves before column mapping', () => {
@@ -49,9 +50,9 @@ describe('Data Hub TrackMan Player Mapping', () => {
   })
 
   it('applies the connected-player and connected-concept import gates', () => {
-    expect(columns).toContain('— Not Importing —')
+    expect(conceptSelector).toContain('— Not Importing —')
     expect(columns).toContain('Connected Baseball Concept')
-    expect(columns).toContain('Compatible only')
+    expect(conceptSelector).toContain("'compatible'")
     expect(columns).toContain('Multiple source columns are connected to')
     expect(page).toContain('confirmed_duplicate_concepts')
     expect(page).toContain('warning_confirmed')

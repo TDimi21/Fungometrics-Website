@@ -8,6 +8,7 @@ const source = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 describe('Data Hub Phase 2B.1 mapping foundation', () => {
   const page = source('resources/js/pages/data-hub/ImportData.vue')
   const mapping = source('resources/js/components/data-hub/ColumnMapping.vue')
+  const selector = source('resources/js/components/data-hub/ConceptSelector.vue')
   const unknown = source('resources/js/pages/data-hub/UnknownColumns.vue')
   const stepper = source('resources/js/components/data-hub/ImportStepper.vue')
 
@@ -38,5 +39,61 @@ describe('Data Hub Phase 2B.1 mapping foundation', () => {
   it('does not add event, practice, statistics, or import writes', () => {
     expect(page).not.toMatch(/axiosPost\(['"`][^'"`]*(?:external-session|canonical-event|practice|statistics|import)/)
     expect(unknown).not.toMatch(/localStorage|sessionStorage|indexedDB/i)
+  })
+
+  it('groups concepts in the required order with destination recommendations', () => {
+    expect(selector).toContain("'session_context', 'hitting', 'pitching', 'throwing', 'strength', 'mobility'")
+    expect(selector).toContain("'speed_agility', 'body_composition', 'recovery', 'assessment', 'game_outcome'")
+    expect(selector).toContain("'defense', 'vision', 'mental_performance'")
+    expect(selector).toContain('Other / Deprecated')
+    expect(selector).toContain('Recommended for {{ destination }}')
+    expect(selector).toContain("'Live AB'")
+    expect(selector).toContain('Bullpen:')
+    expect(selector).toContain('Cage:')
+    expect(selector).toContain('Strength:')
+    expect(selector).toContain('Mobility:')
+    expect(selector).toContain('Recovery:')
+  })
+
+  it('keeps special actions above searchable grouped concepts', () => {
+    const notImporting = selector.indexOf('— Not Importing —')
+    const unknown = selector.indexOf('Store as Unknown')
+    const submit = selector.indexOf('Submit New Concept')
+    const conceptList = selector.indexOf('class="concept-list"')
+    expect(notImporting).toBeGreaterThan(-1)
+    expect(unknown).toBeGreaterThan(notImporting)
+    expect(submit).toBeGreaterThan(unknown)
+    expect(conceptList).toBeGreaterThan(submit)
+    expect(selector).toContain('concept.display_name, concept.canonical_key, concept.definition')
+    expect(selector).toContain("map(word => word[0]).join('')")
+    expect(selector).toContain('...(concept.aliases || [])')
+  })
+
+  it('supports recommended compatible and all filters with disabled incompatibilities', () => {
+    expect(selector).toContain("['recommended','compatible','all']")
+    expect(selector).toContain("view.value === 'compatible'")
+    expect(selector).toContain("view.value === 'recommended'")
+    expect(selector).toContain(':disabled="compatibility(item).level === \'incompatible\'"')
+    expect(selector).toContain('compatibility(item).reason')
+  })
+
+  it('supports accessible keyboard navigation, selection scrolling, and a mobile sheet', () => {
+    expect(selector).toContain("event.key === 'ArrowDown'")
+    expect(selector).toContain("event.key === 'ArrowUp'")
+    expect(selector).toContain("event.key === 'Enter'")
+    expect(selector).toContain("event.key === 'Escape'")
+    expect(selector).toContain("scrollIntoView({ block: 'nearest' })")
+    expect(selector).toContain('role="dialog"')
+    expect(selector).toContain('role="listbox"')
+    expect(selector).toContain('aria-selected')
+    expect(selector).toContain('@media(max-width:700px)')
+    expect(selector).toContain('align-items:flex-end')
+  })
+
+  it('uses an isolated selector instance for each source column', () => {
+    expect(mapping).toContain('<ConceptSelector')
+    expect(mapping).toContain(':source-column="column"')
+    expect(mapping).toContain("@select=\"update(column,{ baseball_concept_id:$event, action:'map' })\"")
+    expect(selector).toContain("emit('select', concept.id)")
   })
 })
