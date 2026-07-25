@@ -71,7 +71,8 @@ class TrackManInspectionTest extends TestCase
 
         $matches = app(PlayerMatchingService::class)->suggestions((string) $team->id, 'Tom Smith');
         $this->assertSame((string) $tom->id, $matches[0]['player_id']);
-        $this->assertSame('normalized', $matches[0]['match_type']);
+        $this->assertSame('nickname', $matches[0]['match_type']);
+        $this->assertFalse($matches[0]['auto_select']);
         $this->assertCount(1, $matches);
     }
 
@@ -103,7 +104,7 @@ class TrackManInspectionTest extends TestCase
 
     private function player(Team $team, string $first, string $last): User
     {
-        $user = User::factory()->create(['type' => 'player']);
+        $user = User::factory()->create(['type' => 'player', 'status' => true]);
         Profile::factory()->create(['user_id' => $user->id, 'first_name' => $first, 'last_name' => $last]);
         PlayerTeam::factory()->create(['user_id' => $user->id, 'team_id' => $team->id]);
 

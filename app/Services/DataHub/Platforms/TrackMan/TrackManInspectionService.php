@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\DataHub\Platforms\TrackMan;
 
+use App\Models\PlatformDefinition;
 use App\Services\DataHub\DTOs\ImportFileMetadata;
 use App\Services\DataHub\Dictionary\TemplateFingerprintService;
 use App\Services\DataHub\Services\PlayerMatchingService;
@@ -16,6 +17,7 @@ final class TrackManInspectionService
         private readonly TrackManRowValidator $validator,
         private readonly PlayerMatchingService $matching,
         private readonly TemplateFingerprintService $fingerprints,
+        private readonly TrackManPlayerExtractor $playerExtractor,
     ) {
     }
 
@@ -25,26 +27,13 @@ final class TrackManInspectionService
         $rows = iterator_to_array($this->parser->parse($file), false);
         $dataType = (string) ($rows[0]['_data_type'] ?? 'unsupported');
         $dates = $this->unique($rows, 'date');
-        $players = [];
         $invalid = 0;
         $metrics = [];
         foreach ($rows as $row) {
-            $name = trim((string) ($row['batter'] ?? $row['pitcher'] ?? ''));
-            if ('' !== $name) {
-                $key = $this->matching->normalize($name);
-                $players[$key] ??= [
-                    'external_name' => $name,
-                    'external_identifier' => $row['batter_id'] ?? $row['pitcher_id'] ?? null,
-                    'row_count' => 0,
-                    'data_types' => [],
-                ];
-                ++$players[$key]['row_count'];
-                $players[$key]['data_types'][] = 'mixed' === $dataType
-                    ? (isset($row['batter']) && '' !== trim((string) $row['batter']) ? 'hitting' : 'pitching')
-                    : $dataType;
-            }
             $rowType = 'pitching' === $dataType ? 'pitching' : 'hitting';
-            if ([] !== $this->validator->warnings($row, $rowType) || '' === $name) {
+            $hasPlayer = '' !== trim((string) ($row['batter'] ?? ''))
+                || '' !== trim((string) ($row['pitcher'] ?? ''));
+            if ([] !== $this->validator->warnings($row, $rowType) || ! $hasPlayer) {
                 ++$invalid;
             }
             foreach (array_keys($row) as $field) {
@@ -55,9 +44,22 @@ final class TrackManInspectionService
                 }
             }
         }
+        $players = $this->playerExtractor->extract($rows);
+        $platformId = (string) PlatformDefinition::query()->where('key', 'trackman')->value('id');
         foreach ($players as &$player) {
-            $player['data_types'] = array_values(array_unique($player['data_types']));
-            $player['suggested_matches'] = $this->matching->suggestions($teamId, $player['external_name']);
+            $suggestions = $this->matching->suggestions(
+                $teamId,
+                $player['source_name'],
+                $player['external_player_id'],
+                $platformId,
+            );
+            $player['suggested_matches'] = $suggestions;
+            $player['suggested_player'] = $suggestions[0] ?? null;
+            $player['mapping_status'] = ($suggestions[0]['auto_select'] ?? false) ? 'matched' : 'suggested';
+            // Transitional aliases for the existing review DTO.
+            $player['external_name'] = $player['source_name'];
+            $player['external_identifier'] = $player['external_player_id'];
+            $player['data_types'] = $player['roles'];
         }
         unset($player);
         $normalized = $this->normalizer->normalize($rows, [], $sessionType)->records;

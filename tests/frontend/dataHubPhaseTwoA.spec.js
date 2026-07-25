@@ -17,12 +17,12 @@ describe('Data Hub Phase 2A', () => {
     expect(page).toContain('inspectionError.value')
   })
 
-  it('requires every player resolution and explicit duplicate override', () => {
+  it('requires every player resolution and explicit duplicate confirmation', () => {
     expect(page).toContain('unresolved')
     expect(page).toContain('hasDuplicates')
-    expect(page).toContain('duplicateOverride')
+    expect(page).toContain('confirmedDuplicateTargets')
     expect(mapping).toContain('Skip Player')
-    expect(mapping).toContain('Create New Player — disabled')
+    expect(mapping).toContain('Player not on roster')
   })
 
   it('releases file and clears inspection state on every lifecycle boundary', () => {

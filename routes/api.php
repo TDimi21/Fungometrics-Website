@@ -189,6 +189,7 @@ use App\Http\Controllers\Api\Billing\RevenueCatSyncController;
 use App\Http\Controllers\Api\Billing\RevenueCatProductsController;
 use App\Http\Controllers\Api\DataHub\InspectTrackManFile;
 use App\Http\Controllers\Api\DataHub\DictionaryController;
+use App\Http\Controllers\Api\DataHub\PlayerMappingController;
 
 Route::post('login', LoginController::class);
 Route::post('billing/revenuecat/webhook', RevenueCatWebhookController::class)->middleware('throttle:120,1');
@@ -213,6 +214,8 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
         Route::get('unknown-columns', [DictionaryController::class, 'unknown']);
         Route::patch('unknown-columns/{unknown}', [DictionaryController::class, 'updateUnknown'])->middleware('throttle:30,1');
         Route::post('concept-submissions', [DictionaryController::class, 'submit'])->middleware('throttle:10,1');
+        Route::get('player-mappings/roster', [PlayerMappingController::class, 'roster']);
+        Route::post('player-mappings/approve', [PlayerMappingController::class, 'approve'])->middleware('throttle:20,1');
     });
     Route::post('auth/web-session', \App\Http\Controllers\Api\Auth\CreateWebSession::class)->middleware('throttle:10,1');
     Route::post('logout', \App\Http\Controllers\Api\Auth\LogoutController::class)->middleware('throttle:20,1');

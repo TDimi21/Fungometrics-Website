@@ -38,7 +38,9 @@ const dictionary = ref({ domains: [], concepts: [], units: [] })
 const mappingApproved = ref(false)
 const mappingError = ref('')
 const approvingMapping = ref(false)
-const duplicateOverride = ref(false)
+const approvingPlayers = ref(false)
+const confirmedDuplicateTargets = ref([])
+const playerMappingApproved = ref(false)
 const inspectionComplete = ref(false)
 const sessionValues = {
   Cage: 'cage', 'Live AB': 'live_ab', Bullpen: 'bullpen', Strength: 'strength',
@@ -51,7 +53,7 @@ const allowedSessionTypes = computed(() => selectedPlatform.value
   ? DATA_HUB_SESSION_TYPES.filter(type => selectedPlatform.value.sessionTypes.includes(type))
   : DATA_HUB_SESSION_TYPES)
 const mappingValues = computed(() => Object.values(mappings).filter(Boolean))
-const unresolved = computed(() => inspection.value?.players?.some(player => !mappings[player.external_name]) ?? true)
+const unresolved = computed(() => inspection.value?.players?.some(player => !mappings[player.source_key]) ?? true)
 const hasDuplicates = computed(() => {
   const ids = mappingValues.value.filter(value => value !== '__skip__')
   return new Set(ids).size !== ids.length
@@ -60,7 +62,10 @@ const canContinue = computed(() => {
   if (step.value === 1) return platformKey.value === 'trackman'
   if (step.value === 2) return Boolean(selectedFile.value) && !fileError.value
   if (step.value === 3) return Boolean(selectedTeam.value && sessionType.value) && !inspecting.value
-  if (step.value === 4) return !unresolved.value && (!hasDuplicates.value || duplicateOverride.value)
+  if (step.value === 4) {
+    const duplicateTargets = mappingValues.value.filter((id, index, values) => id !== '__skip__' && values.indexOf(id) !== index)
+    return !unresolved.value && duplicateTargets.every(id => confirmedDuplicateTargets.value.includes(id)) && !approvingPlayers.value
+  }
   if (step.value === 5) {
     return inspection.value?.source_columns?.every(column => {
       const entry = columnEntries[column.source_column_name]
@@ -75,7 +80,10 @@ const reviewInspection = computed(() => {
     ...inspection.value,
     sample_rows: inspection.value.sample_rows.map(row => ({
       ...row,
-      player_id: mappings[row.player_external_name] === '__skip__' ? null : mappings[row.player_external_name] || null,
+      player_id: (() => {
+        const source = inspection.value.players.find(player => player.source_name === row.player_external_name)
+        return mappings[source?.source_key] === '__skip__' ? null : mappings[source?.source_key] || null
+      })(),
     })),
   }
 })
@@ -84,6 +92,10 @@ const setPlatform = nextKey => {
   const nextPlatform = DATA_HUB_PLATFORMS.find(item => item.key === nextKey)
   if (selectedFile.value && !platformSupportsFile(nextPlatform, selectedFile.value)) selectedFile.value = null
   platformKey.value = nextKey
+  if (inspection.value) {
+    inspection.value = null
+    Object.keys(mappings).forEach(key => delete mappings[key])
+  }
   sessionType.value = ''
   inspectionError.value = nextKey === 'trackman' ? '' : 'TrackMan is the only inspection platform available in Phase 2A.'
 }
@@ -92,15 +104,30 @@ const setFile = file => {
   selectedFile.value = file
   fileError.value = result.error
   fileWarning.value = result.warning
+  Object.keys(mappings).forEach(key => delete mappings[key])
+  playerMappingApproved.value = false
+}
+const setTeam = value => {
+  if (teamId.value !== value && inspection.value) {
+    inspection.value = null
+    Object.keys(mappings).forEach(key => delete mappings[key])
+    playerMappingApproved.value = false
+  }
+  teamId.value = value
 }
 const updateMapping = (name, value) => {
   mappings[name] = value
-  duplicateOverride.value = false
+  confirmedDuplicateTargets.value = confirmedDuplicateTargets.value.filter(id => id !== value)
+  playerMappingApproved.value = false
+}
+const confirmDuplicate = (target, confirmed) => {
+  confirmedDuplicateTargets.value = confirmed
+    ? [...new Set([...confirmedDuplicateTargets.value, target])]
+    : confirmedDuplicateTargets.value.filter(id => id !== target)
 }
 const loadTeamPlayers = async () => {
-  const response = await axiosGet(`coach/teams/${teamId.value}`)
-  const payload = response?.data?.data ?? response?.data ?? {}
-  teamPlayers.value = Array.isArray(payload) ? payload : (payload.players ?? payload.team_players ?? [])
+  const response = await axiosGet('data-hub/player-mappings/roster', { team_id: teamId.value })
+  teamPlayers.value = response.data.data
 }
 const inspectFile = async () => {
   inspectionError.value = ''
@@ -115,8 +142,8 @@ const inspectFile = async () => {
     inspection.value = response.data.data
     Object.keys(mappings).forEach(key => delete mappings[key])
     inspection.value.players.forEach(player => {
-      const exact = player.suggested_matches?.find(match => match.match_type === 'exact')
-      if (exact) mappings[player.external_name] = exact.player_id
+      const automatic = player.suggested_matches?.find(match => match.auto_select)
+      if (automatic) mappings[player.source_key] = automatic.player_id
     })
     const headers = inspection.value.source_columns?.map(column => column.source_column_name) || []
     const [catalogResponse, resolutionResponse] = await Promise.all([
@@ -158,11 +185,12 @@ const next = async () => {
     return
   }
   if (step.value === 3) {
-    await inspectFile()
+    if (inspection.value) step.value = 4
+    else await inspectFile()
     return
   }
   if (step.value === 4) {
-    step.value = 5
+    await approvePlayerMapping()
     return
   }
   if (step.value === 5) {
@@ -170,6 +198,31 @@ const next = async () => {
     return
   }
   finishInspection()
+}
+const approvePlayerMapping = async () => {
+  mappingError.value = ''
+  approvingPlayers.value = true
+  try {
+    await axiosPost('data-hub/player-mappings/approve', {
+      team_id: teamId.value,
+      platform: platformKey.value,
+      mappings: inspection.value.players.map(player => ({
+        source_key: player.source_key,
+        source_name: player.source_name,
+        external_player_id: player.external_player_id,
+        roles: player.roles,
+        fmtrx_player_id: mappings[player.source_key] === '__skip__' ? null : mappings[player.source_key] || null,
+        skipped: mappings[player.source_key] === '__skip__',
+      })),
+      confirmed_duplicate_targets: confirmedDuplicateTargets.value,
+    })
+    playerMappingApproved.value = true
+    step.value = 5
+  } catch (error) {
+    mappingError.value = error?.response?.data?.message || 'The player mapping could not be approved.'
+  } finally {
+    approvingPlayers.value = false
+  }
 }
 const updateColumnEntry = (name, entry) => {
   columnEntries[name] = entry
@@ -217,9 +270,7 @@ const submitConcept = async column => {
 }
 const back = () => {
   if (step.value === 4) {
-    inspection.value = null
-    Object.keys(mappings).forEach(key => delete mappings[key])
-    step.value = 2
+    step.value = 3
     return
   }
   if (step.value > 1) step.value -= 1
@@ -240,7 +291,8 @@ const clearWorkflow = () => {
   dictionary.value = { domains: [], concepts: [], units: [] }
   mappingApproved.value = false
   mappingError.value = ''
-  duplicateOverride.value = false
+  confirmedDuplicateTargets.value = []
+  playerMappingApproved.value = false
   inspectionComplete.value = false
 }
 const cancel = () => {
@@ -288,17 +340,16 @@ onBeforeRouteLeave(clearWorkflow)
         </div>
         <PlatformSelector v-if="step === 1" :platforms="DATA_HUB_PLATFORMS" :model-value="platformKey" @update:model-value="setPlatform" />
         <FileDropzone v-else-if="step === 2" :model-value="selectedFile" :error="fileError" :warning="fileWarning" :max-size-bytes="DATA_HUB_MAX_FILE_SIZE_BYTES" @update:model-value="setFile" />
-        <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="teamId = $event" @update:session-type="sessionType = $event" />
-        <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" @update:mapping="updateMapping" />
+        <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="setTeam" @update:session-type="sessionType = $event" />
+        <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" :confirmed-duplicates="confirmedDuplicateTargets" @update:mapping="updateMapping" @confirm:duplicate="confirmDuplicate" @refresh-roster="loadTeamPlayers" />
         <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" @update:entry="updateColumnEntry" @submit-concept="submitConcept" />
         <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" />
         <p v-if="inspectionError" class="error-message">{{ inspectionError }}</p>
         <p v-if="mappingError" class="error-message">{{ mappingError }}</p>
-        <label v-if="step === 4 && hasDuplicates" class="override"><input v-model="duplicateOverride" type="checkbox"> I understand that multiple TrackMan names will map to the same FMTRX player.</label>
         <div v-if="inspectionComplete" class="complete-message"><strong>Inspection complete.</strong><span>No data was imported and no FMTRX records were changed.</span></div>
         <footer class="wizard-actions">
           <button type="button" class="cancel-button" @click="cancel">Cancel</button>
-          <div><button v-if="step > 1" type="button" class="back-button" @click="back">Back</button><button type="button" class="continue-button" :disabled="!canContinue" @click="next">{{ inspecting ? 'Inspecting…' : approvingMapping ? 'Approving…' : step === 3 ? 'Approve & Inspect' : step === 5 ? 'Approve Mapping' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
+          <div><button v-if="step > 1" type="button" class="back-button" @click="back">Back</button><button type="button" class="continue-button" :disabled="!canContinue" @click="next">{{ inspecting ? 'Inspecting…' : approvingPlayers ? 'Approving players…' : approvingMapping ? 'Approving…' : step === 3 ? 'Approve & Inspect' : step === 4 ? 'Approve Player Mapping' : step === 5 ? 'Approve Mapping' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
         </footer>
       </div>
     </section>

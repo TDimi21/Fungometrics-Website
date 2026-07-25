@@ -10,8 +10,12 @@ final class TrackManFieldMap
     public const ALIASES = [
         'batter' => ['Batter', 'BatterName', 'Batter Name', 'Hitter'],
         'batter_id' => ['BatterId', 'BatterID', 'Batter Id', 'PlayerId'],
+        'batter_team' => ['BatterTeam', 'Batter Team'],
+        'batter_side' => ['BatterSide', 'Batter Side'],
         'pitcher' => ['Pitcher', 'PitcherName', 'Pitcher Name'],
         'pitcher_id' => ['PitcherId', 'PitcherID', 'Pitcher Id'],
+        'pitcher_team' => ['PitcherTeam', 'Pitcher Team'],
+        'pitcher_throws' => ['PitcherThrows', 'Pitcher Throws'],
         'date' => ['Date', 'GameDate', 'SessionDate'],
         'time' => ['Time', 'PitchTime', 'Timestamp'],
         'stadium' => ['Stadium', 'Venue', 'Facility'],
