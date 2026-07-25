@@ -190,6 +190,7 @@ use App\Http\Controllers\Api\Billing\RevenueCatProductsController;
 use App\Http\Controllers\Api\DataHub\InspectTrackManFile;
 use App\Http\Controllers\Api\DataHub\DictionaryController;
 use App\Http\Controllers\Api\DataHub\PlayerMappingController;
+use App\Http\Controllers\Api\DataHub\FmtrxTemplateController;
 
 Route::post('login', LoginController::class);
 Route::post('billing/revenuecat/webhook', RevenueCatWebhookController::class)->middleware('throttle:120,1');
@@ -216,6 +217,8 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
         Route::post('concept-submissions', [DictionaryController::class, 'submit'])->middleware('throttle:10,1');
         Route::get('player-mappings/roster', [PlayerMappingController::class, 'roster']);
         Route::post('player-mappings/approve', [PlayerMappingController::class, 'approve'])->middleware('throttle:20,1');
+        Route::get('templates', [FmtrxTemplateController::class, 'index']);
+        Route::get('templates/download', [FmtrxTemplateController::class, 'download'])->middleware('throttle:20,1');
     });
     Route::post('auth/web-session', \App\Http\Controllers\Api\Auth\CreateWebSession::class)->middleware('throttle:10,1');
     Route::post('logout', \App\Http\Controllers\Api\Auth\LogoutController::class)->middleware('throttle:20,1');

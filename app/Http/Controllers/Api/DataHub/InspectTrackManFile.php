@@ -10,6 +10,7 @@ use App\Services\DataHub\DTOs\ImportFileMetadata;
 use App\Services\DataHub\Enums\ImportSessionType;
 use App\Services\DataHub\Platforms\TrackMan\TrackManInspectionService;
 use App\Services\DataHub\Services\FmtrxDestination;
+use App\Services\DataHub\Templates\FmtrxTemplateInspector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -19,11 +20,11 @@ use RuntimeException;
 
 final class InspectTrackManFile extends Controller
 {
-    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection): JsonResponse
+    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection, FmtrxTemplateInspector $fmtrxTemplates): JsonResponse
     {
         $maxKb = (int) ceil(((int) config('data_hub.max_file_size_bytes')) / 1024);
         $data = $request->validate([
-            'platform' => ['required', Rule::in(['trackman'])],
+            'platform' => ['required', Rule::in(['trackman', 'generic-csv'])],
             'team_id' => ['required', 'uuid', 'exists:teams,id'],
             'session_type' => ['required', Rule::enum(ImportSessionType::class)],
             'file' => ['required', 'file', "max:{$maxKb}"],
@@ -31,7 +32,7 @@ final class InspectTrackManFile extends Controller
         $file = $request->file('file');
         $extension = mb_strtolower((string) $file->getClientOriginalExtension());
         if ( ! in_array($extension, ['csv', 'xlsx'], true)) {
-            return response()->json(['success' => false, 'message' => 'Choose a TrackMan CSV or XLSX file.'], 422);
+            return response()->json(['success' => false, 'message' => 'Choose a CSV or XLSX file.'], 422);
         }
         if (0 === (int) $file->getSize()) {
             return response()->json(['success' => false, 'message' => 'The selected file is empty.'], 422);
@@ -42,7 +43,7 @@ final class InspectTrackManFile extends Controller
             return response()->json(['success' => false, 'message' => 'The uploaded file content type is not valid for its extension.'], 422);
         }
         if ('xlsx' === $extension) {
-            return response()->json(['success' => false, 'message' => 'TrackMan XLSX inspection is awaiting approval of a maintained PHP spreadsheet reader. Export CSV to continue.'], 422);
+            return response()->json(['success' => false, 'message' => 'XLSX inspection is awaiting approval of a maintained PHP spreadsheet reader. Export CSV to continue.'], 422);
         }
         $team = Team::query()->findOrFail($data['team_id']);
         $sessionType = ImportSessionType::from($data['session_type']);
@@ -59,6 +60,11 @@ final class InspectTrackManFile extends Controller
                 $file->getMimeType(),
                 Storage::disk('local')->path($key),
             );
+            if ('generic-csv' === $data['platform']) {
+                $result = $fmtrxTemplates->inspect($metadata, (string) $team->id);
+
+                return response()->json(['success' => true, 'data' => $result]);
+            }
             $result = $inspection->inspect($metadata, (string) $team->id, $sessionType->value);
             $type = $result['detected_format']['data_type'];
             $compatible = match ($type) {

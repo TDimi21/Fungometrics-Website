@@ -57,7 +57,7 @@ const hasDuplicates = computed(() => {
   return new Set(ids).size !== ids.length
 })
 const canContinue = computed(() => {
-  if (step.value === 1) return platformKey.value === 'trackman'
+  if (step.value === 1) return ['trackman', 'generic-csv'].includes(platformKey.value)
   if (step.value === 2) return Boolean(selectedFile.value) && !fileError.value
   if (step.value === 3) return Boolean(selectedTeam.value && sessionType.value) && !inspecting.value
   if (step.value === 4) {
@@ -95,7 +95,7 @@ const setPlatform = nextKey => {
     Object.keys(mappings).forEach(key => delete mappings[key])
   }
   sessionType.value = ''
-  inspectionError.value = nextKey === 'trackman' ? '' : 'TrackMan is the only inspection platform available in Phase 2A.'
+  inspectionError.value = ['trackman', 'generic-csv'].includes(nextKey) ? '' : 'This platform is not available for inspection yet.'
 }
 const setFile = file => {
   const result = validateDataHubFile(file, selectedPlatform.value)
@@ -144,10 +144,19 @@ const inspectFile = async () => {
       if (automatic) mappings[player.source_key] = automatic.player_id
     })
     const headers = inspection.value.source_columns?.map(column => column.source_column_name) || []
-    const [catalogResponse, resolutionResponse] = await Promise.all([
-      axiosGet('data-hub/dictionary'),
-      axiosPost('data-hub/mappings/resolve', { team_id: teamId.value, platform: platformKey.value, headers }),
-    ])
+    const catalogResponse = await axiosGet('data-hub/dictionary')
+    const resolutionResponse = platformKey.value === 'generic-csv'
+      ? { data: { data: { columns: inspection.value.source_columns.map(column => ({
+        source_column_name: column.source_column_name,
+        normalized_source_column: column.normalized_source_column,
+        concept_id: column.canonical_concept_id,
+        source_unit_key: column.source_unit_key,
+        transformation_key: null,
+        resolution_source: column.canonical_concept_id ? 'fmtrx_canonical_key' : 'unresolved',
+        relationship_type: column.canonical_concept_id ? 'exact_equivalent' : null,
+        confidence: column.canonical_concept_id ? 100 : 0,
+      })) } } }
+      : await axiosPost('data-hub/mappings/resolve', { team_id: teamId.value, platform: platformKey.value, headers })
     dictionary.value = catalogResponse.data.data
     Object.keys(columnEntries).forEach(key => delete columnEntries[key])
     resolutionResponse.data.data.columns.forEach(resolution => {
@@ -171,7 +180,7 @@ const inspectFile = async () => {
     selectedFile.value = null
     step.value = 4
   } catch (error) {
-    inspectionError.value = error?.response?.data?.message || 'TrackMan inspection failed. Check the file and try again.'
+    inspectionError.value = error?.response?.data?.message || 'File inspection failed. Check the file and try again.'
   } finally {
     inspecting.value = false
   }
@@ -201,6 +210,11 @@ const approvePlayerMapping = async () => {
   mappingError.value = ''
   approvingPlayers.value = true
   try {
+    if (platformKey.value === 'generic-csv') {
+      playerMappingApproved.value = true
+      step.value = 5
+      return
+    }
     await axiosPost('data-hub/player-mappings/approve', {
       team_id: teamId.value,
       platform: platformKey.value,
@@ -245,6 +259,11 @@ const approveColumnMapping = async () => {
     metadata: entry.metadata || null,
   }))
   try {
+    if (platformKey.value === 'generic-csv') {
+      mappingApproved.value = true
+      step.value = 6
+      return
+    }
     await axiosPost('data-hub/mappings/approve', {
       team_id: teamId.value,
       platform: platformKey.value,

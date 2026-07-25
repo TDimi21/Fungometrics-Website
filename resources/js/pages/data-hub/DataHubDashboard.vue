@@ -1,6 +1,7 @@
 <script setup>
 import Layout from '@/layout/Layout.vue'
 import { DATA_HUB_PLATFORMS } from '@/data/dataHubPlatforms.js'
+import TemplateDownloads from '@/components/data-hub/TemplateDownloads.vue'
 </script>
 
 <template>
@@ -23,6 +24,7 @@ import { DATA_HUB_PLATFORMS } from '@/data/dataHubPlatforms.js'
           <p>Select a platform, choose a local file, set its future destination, and review the setup. No data is uploaded or imported in Phase 1.</p>
         </div>
       </div>
+      <TemplateDownloads />
 
       <div class="platform-section">
         <div class="section-heading">

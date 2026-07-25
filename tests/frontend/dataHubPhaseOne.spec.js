@@ -52,6 +52,19 @@ describe('Data Hub Phase 1', () => {
     expect(selector).toContain('The source platform does not restrict your destination.')
   })
 
+  it('offers team-scoped FMTRX template downloads with priority groups', () => {
+    const dashboard = source('resources/js/pages/data-hub/DataHubDashboard.vue')
+    const downloads = source('resources/js/components/data-hub/TemplateDownloads.vue')
+
+    expect(dashboard).toContain('TemplateDownloads')
+    expect(downloads).toContain("axiosGet('data-hub/templates')")
+    expect(downloads).toContain('data-hub/templates/download')
+    expect(downloads).toContain('Priority web-form templates')
+    expect(downloads).toContain('Ball-by-ball templates')
+    expect(downloads).toContain('FMTRX Player ID')
+    expect(downloads).not.toMatch(/localStorage|sessionStorage|indexedDB/i)
+  })
+
   it('does not persist selected source files in browser storage', () => {
     const page = source('resources/js/pages/data-hub/ImportData.vue')
     const dropzone = source('resources/js/components/data-hub/FileDropzone.vue')
