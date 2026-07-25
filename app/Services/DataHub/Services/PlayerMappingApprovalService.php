@@ -27,6 +27,12 @@ final class PlayerMappingApprovalService
         }
         unset($mapping);
 
+        if (0 === count(array_filter($mappings, fn (array $mapping): bool => ! empty($mapping['fmtrx_player_id'])))) {
+            throw ValidationException::withMessages([
+                'mappings' => 'Connect at least one imported player to an FMTRX roster player before continuing.',
+            ]);
+        }
+
         $targetCounts = array_count_values(array_filter(array_column($mappings, 'fmtrx_player_id')));
         $unconfirmed = array_keys(array_filter(
             $targetCounts,

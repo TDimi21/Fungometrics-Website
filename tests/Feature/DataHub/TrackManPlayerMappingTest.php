@@ -112,7 +112,8 @@ final class TrackManPlayerMappingTest extends TestCase
         $base = ['team_id' => $team->id, 'platform' => 'trackman', 'confirmed_duplicate_targets' => []];
         $notImporting = [['source_key' => 'a', 'source_name' => 'A', 'external_player_id' => null, 'roles' => ['batter'], 'fmtrx_player_id' => null, 'not_importing' => true]];
         $this->postJson('/api/data-hub/player-mappings/approve', $base + ['mappings' => $notImporting])
-            ->assertOk()->assertJsonPath('data.not_importing_source_keys.0', 'a');
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('mappings');
         $duplicates = [
             ['source_key' => 'a', 'source_name' => 'A', 'external_player_id' => '1', 'roles' => ['batter'], 'fmtrx_player_id' => $target->id, 'not_importing' => false],
             ['source_key' => 'b', 'source_name' => 'B', 'external_player_id' => '2', 'roles' => ['pitcher'], 'fmtrx_player_id' => $target->id, 'not_importing' => false],

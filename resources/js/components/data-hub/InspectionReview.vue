@@ -12,12 +12,14 @@ const notImportingPlayers = computed(() => props.inspection.players.filter(playe
 const importingEvents = computed(() => connectedPlayers.value.reduce((total, player) => total + player.row_count, 0))
 const ignoredEvents = computed(() => notImportingPlayers.value.reduce((total, player) => total + player.row_count, 0))
 const connectedColumns = computed(() => Object.values(props.columnEntries).filter(entry => entry.action === 'map' && entry.baseball_concept_id))
-const ignoredColumns = computed(() => Object.values(props.columnEntries).filter(entry => entry.action !== 'map' || !entry.baseball_concept_id))
+const unknownColumns = computed(() => Object.values(props.columnEntries).filter(entry => ['store_unknown', 'submit_new'].includes(entry.action)))
+const ignoredColumns = computed(() => Object.values(props.columnEntries).filter(entry => entry.action === 'ignore' || (entry.action === 'map' && !entry.baseball_concept_id)))
+const unitConversions = computed(() => connectedColumns.value.filter(entry => entry.transformation_key))
 </script>
 
 <template>
   <div class="review-grid">
-    <div><span>Platform</span><strong>TrackMan</strong></div>
+    <div><span>Platform</span><strong>{{ inspection.detected_format.provider }}</strong></div>
     <div><span>File</span><strong>{{ inspection.file.name }}</strong></div>
     <div><span>Team / destination</span><strong>{{ teamName }} · {{ destination }}</strong></div>
     <div><span>Format detected</span><strong>{{ inspection.detected_format.data_type }}</strong></div>
@@ -25,7 +27,8 @@ const ignoredColumns = computed(() => Object.values(props.columnEntries).filter(
     <div><span>Total / usable / invalid</span><strong>{{ inspection.counts.total_rows }} / {{ inspection.counts.usable_rows }} / {{ inspection.counts.invalid_rows }}</strong></div>
     <div><span>Players found</span><strong>{{ inspection.counts.players_found }}</strong></div>
     <div><span>Connected / Not Importing</span><strong>{{ connectedPlayers.length }} / {{ notImportingPlayers.length }}</strong></div>
-    <div><span>Connected / Not Importing columns</span><strong>{{ connectedColumns.length }} / {{ ignoredColumns.length }}</strong></div>
+    <div><span>Connected / Not Importing / Unknown columns</span><strong>{{ connectedColumns.length }} / {{ ignoredColumns.length }} / {{ unknownColumns.length }}</strong></div>
+    <div><span>Unit conversions</span><strong>{{ unitConversions.length }}</strong><small>{{ unitConversions.map(entry=>entry.transformation_key).join(', ') || 'None' }}</small></div>
   </div>
   <section class="import-summary">
     <div><span>Total events</span><strong>{{ importingEvents + ignoredEvents }}</strong></div><div><span>Importing</span><strong>{{ importingEvents }}</strong></div><div><span>Ignored</span><strong>{{ ignoredEvents }}</strong></div>

@@ -20,6 +20,8 @@ describe('Data Hub TrackMan Player Mapping', () => {
 
   it('shows summary filters roster metadata and review-first behavior', () => {
     expect(component).toContain('Players found')
+    expect(component).toContain('Eligible rows')
+    expect(component).toContain('Needs Review')
     expect(component).toContain('Not Importing')
     expect(component).toContain('Pitchers')
     expect(component).toContain('Batters')
@@ -38,7 +40,8 @@ describe('Data Hub TrackMan Player Mapping', () => {
   it('preserves mapping for destination-only changes and clears it for team or file changes', () => {
     expect(page).toMatch(/const setTeam[\s\S]*Object\.keys\(mappings\)/)
     expect(page).toMatch(/const setFile[\s\S]*Object\.keys\(mappings\)/)
-    expect(page).toContain("@update:session-type=\"sessionType = $event\"")
+    expect(page).toContain('@update:session-type="setSessionType"')
+    expect(page).toMatch(/const setSessionType[\s\S]*mappingApproved\.value = false/)
   })
 
   it('does not create sessions events practices profiles or statistics', () => {
@@ -48,6 +51,10 @@ describe('Data Hub TrackMan Player Mapping', () => {
   it('applies the connected-player and connected-concept import gates', () => {
     expect(columns).toContain('— Not Importing —')
     expect(columns).toContain('Connected Baseball Concept')
+    expect(columns).toContain('Compatible only')
+    expect(columns).toContain('Multiple source columns are connected to')
+    expect(page).toContain('confirmed_duplicate_concepts')
+    expect(page).toContain('warning_confirmed')
     expect(review).toContain('Connected / Not Importing')
     expect(review).toContain('Total events')
     expect(review).toContain('Ignored')

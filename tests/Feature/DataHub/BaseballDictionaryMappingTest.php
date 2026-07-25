@@ -72,11 +72,11 @@ final class BaseballDictionaryMappingTest extends TestCase
         $fingerprint = app(TemplateFingerprintService::class)->fingerprint(['ExitSpeed']);
         $payload = [
             'team_id' => $team->id, 'platform' => 'trackman', 'template_fingerprint' => $fingerprint,
-            'headers' => ['ExitSpeed'], 'remember' => true, 'entries' => [[
+            'headers' => ['ExitSpeed'], 'remember' => true, 'destination' => 'cage', 'confirmed_duplicate_concepts' => [], 'entries' => [[
                 'source_column_name' => 'ExitSpeed', 'normalized_source_column' => 'exitspeed',
                 'baseball_concept_id' => $concept->id, 'source_unit_id' => null, 'canonical_unit_id' => null,
                 'transformation_key' => null, 'resolution_source' => 'official_platform_alias',
-                'confidence' => 100, 'required_type' => null, 'action' => 'map', 'metadata' => null,
+                'confidence' => 100, 'required_type' => null, 'action' => 'map', 'compatibility_level' => 'compatible', 'warning_confirmed' => false, 'metadata' => null,
             ]],
         ];
         $before = ['practices' => DB::table('practices')->count(), 'cage' => DB::table('cage_practice_results')->count()];
@@ -95,8 +95,10 @@ final class BaseballDictionaryMappingTest extends TestCase
         CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id]);
         Sanctum::actingAs($coach, ['coach']);
         $fingerprint = app(TemplateFingerprintService::class)->fingerprint(['Batter']);
-        $entry = ['source_column_name' => 'Batter', 'normalized_source_column' => 'batter', 'baseball_concept_id' => null, 'source_unit_id' => null, 'canonical_unit_id' => null, 'transformation_key' => null, 'resolution_source' => 'manual', 'confidence' => 0, 'required_type' => 'player_identity', 'action' => 'ignore', 'metadata' => ['sample_values' => ['A Player']]];
-        $this->postJson('/api/data-hub/mappings/approve', ['team_id' => $team->id, 'platform' => 'trackman', 'template_fingerprint' => $fingerprint, 'headers' => ['Batter'], 'entries' => [$entry], 'remember' => true])->assertOk();
+        $concept = DB::table('baseball_concepts')->where('canonical_key', 'hitting.exit_velocity')->first();
+        $entry = ['source_column_name' => 'Batter', 'normalized_source_column' => 'batter', 'baseball_concept_id' => null, 'source_unit_id' => null, 'canonical_unit_id' => null, 'transformation_key' => null, 'resolution_source' => 'manual', 'confidence' => 0, 'required_type' => 'player_identity', 'action' => 'ignore', 'compatibility_level' => 'not_importing', 'warning_confirmed' => false, 'metadata' => ['sample_values' => ['A Player']]];
+        $performance = ['source_column_name' => 'ExitSpeed', 'normalized_source_column' => 'exitspeed', 'baseball_concept_id' => $concept->id, 'source_unit_id' => null, 'canonical_unit_id' => null, 'transformation_key' => null, 'resolution_source' => 'official_platform_alias', 'confidence' => 100, 'required_type' => null, 'action' => 'map', 'compatibility_level' => 'compatible', 'warning_confirmed' => false, 'metadata' => ['sample_values' => ['91']]];
+        $this->postJson('/api/data-hub/mappings/approve', ['team_id' => $team->id, 'platform' => 'trackman', 'template_fingerprint' => $fingerprint, 'headers' => ['Batter', 'ExitSpeed'], 'entries' => [$entry, $performance], 'destination' => 'cage', 'confirmed_duplicate_concepts' => [], 'remember' => true])->assertOk();
         $this->postJson('/api/data-hub/concept-submissions', ['team_id' => $team->id, 'source_column_name' => 'Mystery', 'proposed_display_name' => 'Mystery Metric'])->assertCreated();
         $this->assertDatabaseHas('concept_submissions', ['team_id' => $team->id, 'status' => 'pending']);
     }

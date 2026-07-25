@@ -13,6 +13,7 @@ import InspectionReview from '@/components/data-hub/InspectionReview.vue'
 import { DATA_HUB_DESTINATION_GROUPS, DATA_HUB_PLATFORMS, DATA_HUB_SESSION_TYPES } from '@/data/dataHubPlatforms.js'
 import { DATA_HUB_MAX_FILE_SIZE_BYTES, platformSupportsFile } from '@/data/dataHubConfig.js'
 import { validateDataHubFile } from '@/utils/dataHubWorkflow.js'
+import { compatibilityForConcept } from '@/utils/dataHubConceptCompatibility.js'
 import { useTeamStore } from '@/store/team.js'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 
@@ -40,6 +41,8 @@ const mappingError = ref('')
 const approvingMapping = ref(false)
 const approvingPlayers = ref(false)
 const confirmedDuplicateTargets = ref([])
+const confirmedWarningColumns = ref([])
+const confirmedDuplicateConcepts = ref([])
 const playerMappingApproved = ref(false)
 const inspectionComplete = ref(false)
 const sessionValues = {
@@ -62,10 +65,31 @@ const canContinue = computed(() => {
   if (step.value === 3) return Boolean(selectedTeam.value && sessionType.value) && !inspecting.value
   if (step.value === 4) {
     const duplicateTargets = mappingValues.value.filter((id, index, values) => values.indexOf(id) !== index)
-    return duplicateTargets.every(id => confirmedDuplicateTargets.value.includes(id)) && !approvingPlayers.value
+    const everyPlayerDecided = inspection.value?.players?.every(player => Object.prototype.hasOwnProperty.call(mappings, player.source_key))
+    return everyPlayerDecided && mappingValues.value.length > 0 && duplicateTargets.every(id => confirmedDuplicateTargets.value.includes(id)) && !approvingPlayers.value
   }
   if (step.value === 5) {
-    return inspection.value?.source_columns?.every(column => {
+    const entries = Object.values(columnEntries)
+    const mapped = entries.filter(entry => entry.action === 'map' && entry.baseball_concept_id)
+    const performanceMapped = mapped.filter(entry => {
+      const concept = dictionary.value.concepts.find(item => item.id === entry.baseball_concept_id)
+      const domain = dictionary.value.domains.find(item => item.id === concept?.domain_id)?.key
+      return domain && domain !== 'session_context'
+    })
+    const incompatible = mapped.some(entry => {
+      const concept = dictionary.value.concepts.find(item => item.id === entry.baseball_concept_id)
+      return compatibilityForConcept(sessionType.value, concept, dictionary.value.domains).level === 'incompatible'
+    })
+    const unconfirmedWarnings = mapped.some(entry => {
+      const concept = dictionary.value.concepts.find(item => item.id === entry.baseball_concept_id)
+      return compatibilityForConcept(sessionType.value, concept, dictionary.value.domains).level === 'warning'
+        && !confirmedWarningColumns.value.includes(entry.source_column_name)
+    })
+    const conceptIds = mapped.map(entry => entry.baseball_concept_id)
+    const duplicateConcepts = conceptIds.filter((id, index) => conceptIds.indexOf(id) !== index)
+    return performanceMapped.length > 0 && !incompatible && !unconfirmedWarnings
+      && duplicateConcepts.every(id => confirmedDuplicateConcepts.value.includes(id))
+      && inspection.value?.source_columns?.every(column => {
       const entry = columnEntries[column.source_column_name]
       return entry && (entry.action !== 'map' || entry.baseball_concept_id)
     }) && !approvingMapping.value
@@ -93,6 +117,7 @@ const setPlatform = nextKey => {
   if (inspection.value) {
     inspection.value = null
     Object.keys(mappings).forEach(key => delete mappings[key])
+    Object.keys(columnEntries).forEach(key => delete columnEntries[key])
   }
   sessionType.value = ''
   inspectionError.value = ['trackman', 'generic-csv'].includes(nextKey) ? '' : 'This platform is not available for inspection yet.'
@@ -103,18 +128,30 @@ const setFile = file => {
   fileError.value = result.error
   fileWarning.value = result.warning
   Object.keys(mappings).forEach(key => delete mappings[key])
+  Object.keys(columnEntries).forEach(key => delete columnEntries[key])
   playerMappingApproved.value = false
+  mappingApproved.value = false
 }
-const setTeam = value => {
+const setTeam = async value => {
   if (teamId.value !== value && inspection.value) {
-    inspection.value = null
     Object.keys(mappings).forEach(key => delete mappings[key])
+    inspection.value.players = inspection.value.players.map(player => ({ ...player, suggested_player: null, suggested_matches: [] }))
     playerMappingApproved.value = false
   }
   teamId.value = value
+  if (inspection.value && value) await loadTeamPlayers()
+}
+const setSessionType = value => {
+  if (sessionType.value !== value) {
+    sessionType.value = value
+    mappingApproved.value = false
+    confirmedWarningColumns.value = []
+    confirmedDuplicateConcepts.value = []
+  }
 }
 const updateMapping = (name, value) => {
-  mappings[name] = value
+  if (value === null) delete mappings[name]
+  else mappings[name] = value
   confirmedDuplicateTargets.value = confirmedDuplicateTargets.value.filter(id => id !== value)
   playerMappingApproved.value = false
 }
@@ -122,6 +159,16 @@ const confirmDuplicate = (target, confirmed) => {
   confirmedDuplicateTargets.value = confirmed
     ? [...new Set([...confirmedDuplicateTargets.value, target])]
     : confirmedDuplicateTargets.value.filter(id => id !== target)
+}
+const confirmWarning = (column, confirmed) => {
+  confirmedWarningColumns.value = confirmed
+    ? [...new Set([...confirmedWarningColumns.value, column])]
+    : confirmedWarningColumns.value.filter(item => item !== column)
+}
+const confirmDuplicateConcept = (conceptId, confirmed) => {
+  confirmedDuplicateConcepts.value = confirmed
+    ? [...new Set([...confirmedDuplicateConcepts.value, conceptId])]
+    : confirmedDuplicateConcepts.value.filter(item => item !== conceptId)
 }
 const loadTeamPlayers = async () => {
   const response = await axiosGet('data-hub/player-mappings/roster', { team_id: teamId.value })
@@ -238,6 +285,8 @@ const approvePlayerMapping = async () => {
 }
 const updateColumnEntry = (name, entry) => {
   columnEntries[name] = entry
+  confirmedWarningColumns.value = confirmedWarningColumns.value.filter(item => item !== name)
+  confirmedDuplicateConcepts.value = []
   mappingApproved.value = false
 }
 const approveColumnMapping = async () => {
@@ -256,6 +305,10 @@ const approveColumnMapping = async () => {
     confidence: Number(entry.confidence || 0),
     required_type: entry.required_type || null,
     action: entry.action,
+    compatibility_level: entry.action === 'map'
+      ? compatibilityForConcept(sessionType.value, conceptById(entry.baseball_concept_id), dictionary.value.domains).level
+      : 'not_importing',
+    warning_confirmed: confirmedWarningColumns.value.includes(entry.source_column_name),
     metadata: entry.metadata || null,
   }))
   try {
@@ -270,6 +323,8 @@ const approveColumnMapping = async () => {
       template_fingerprint: inspection.value.template_fingerprint,
       headers: inspection.value.source_columns.map(column => column.source_column_name),
       entries,
+      destination: sessionValues[sessionType.value],
+      confirmed_duplicate_concepts: confirmedDuplicateConcepts.value,
       remember: true,
     })
     mappingApproved.value = true
@@ -309,6 +364,8 @@ const clearWorkflow = () => {
   mappingApproved.value = false
   mappingError.value = ''
   confirmedDuplicateTargets.value = []
+  confirmedWarningColumns.value = []
+  confirmedDuplicateConcepts.value = []
   playerMappingApproved.value = false
   inspectionComplete.value = false
 }
@@ -357,9 +414,9 @@ onBeforeRouteLeave(clearWorkflow)
         </div>
         <PlatformSelector v-if="step === 1" :platforms="DATA_HUB_PLATFORMS" :model-value="platformKey" @update:model-value="setPlatform" />
         <FileDropzone v-else-if="step === 2" :model-value="selectedFile" :error="fileError" :warning="fileWarning" :max-size-bytes="DATA_HUB_MAX_FILE_SIZE_BYTES" @update:model-value="setFile" />
-        <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :destination-groups="DATA_HUB_DESTINATION_GROUPS" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="setTeam" @update:session-type="sessionType = $event" />
+        <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :destination-groups="DATA_HUB_DESTINATION_GROUPS" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="setTeam" @update:session-type="setSessionType" />
         <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" :confirmed-duplicates="confirmedDuplicateTargets" @update:mapping="updateMapping" @confirm:duplicate="confirmDuplicate" @refresh-roster="loadTeamPlayers" />
-        <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" @update:entry="updateColumnEntry" @submit-concept="submitConcept" />
+        <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" :destination="sessionType" :confirmed-warnings="confirmedWarningColumns" :confirmed-duplicates="confirmedDuplicateConcepts" @update:entry="updateColumnEntry" @submit-concept="submitConcept" @confirm:warning="confirmWarning" @confirm:duplicate="confirmDuplicateConcept" />
         <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" :column-entries="columnEntries" />
         <p v-if="inspectionError" class="error-message">{{ inspectionError }}</p>
         <p v-if="mappingError" class="error-message">{{ mappingError }}</p>
