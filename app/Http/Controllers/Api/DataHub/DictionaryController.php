@@ -47,10 +47,6 @@ final class DictionaryController extends Controller
         ]);
         $this->team($request, $data['team_id']);
         $platform = PlatformDefinition::query()->where('key', $data['platform'])->firstOrFail();
-        $required = array_filter($data['entries'], fn ($e) => ! empty($e['required_type']) && empty($e['baseball_concept_id']));
-        if($required) {
-            return response()->json(['success' => false,'message' => 'Required identity or session mappings remain unresolved.'], 422);
-        }
         foreach($data['entries'] as $entry) {
             if(($entry['action'] ?? '') === 'store_unknown') {
                 $unknown->remember($data['team_id'], $platform->id, $data['template_fingerprint'], $entry['source_column_name'], $entry['metadata']['sample_values'] ?? []);

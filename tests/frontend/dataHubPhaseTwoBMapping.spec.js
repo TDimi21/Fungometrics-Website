@@ -21,8 +21,9 @@ describe('Data Hub Phase 2B.1 mapping foundation', () => {
   it('shows mapping evidence and all governed actions', () => {
     expect(mapping).toContain('sample_values')
     expect(mapping).toContain('inferred_data_type')
-    expect(mapping).toContain('Map to concept')
-    expect(mapping).toContain('Store as unknown')
+    expect(mapping).toContain('Connected Baseball Concept')
+    expect(mapping).toContain('Not Importing')
+    expect(mapping).toContain('Remember as unknown')
     expect(mapping).toContain('Submit new concept')
     expect(mapping).toContain('relationship_type')
   })

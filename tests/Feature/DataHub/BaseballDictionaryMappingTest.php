@@ -88,7 +88,7 @@ final class BaseballDictionaryMappingTest extends TestCase
         $this->postJson('/api/data-hub/mappings/resolve', ['team_id' => $other->id, 'platform' => 'trackman', 'headers' => ['ExitSpeed']])->assertForbidden();
     }
 
-    public function test_required_mapping_cannot_be_ignored_and_unknowns_and_submissions_are_scoped(): void
+    public function test_not_importing_column_is_allowed_and_unknowns_and_submissions_are_scoped(): void
     {
         $team = Team::factory()->create();
         $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
@@ -96,7 +96,7 @@ final class BaseballDictionaryMappingTest extends TestCase
         Sanctum::actingAs($coach, ['coach']);
         $fingerprint = app(TemplateFingerprintService::class)->fingerprint(['Batter']);
         $entry = ['source_column_name' => 'Batter', 'normalized_source_column' => 'batter', 'baseball_concept_id' => null, 'source_unit_id' => null, 'canonical_unit_id' => null, 'transformation_key' => null, 'resolution_source' => 'manual', 'confidence' => 0, 'required_type' => 'player_identity', 'action' => 'ignore', 'metadata' => ['sample_values' => ['A Player']]];
-        $this->postJson('/api/data-hub/mappings/approve', ['team_id' => $team->id, 'platform' => 'trackman', 'template_fingerprint' => $fingerprint, 'headers' => ['Batter'], 'entries' => [$entry], 'remember' => true])->assertUnprocessable();
+        $this->postJson('/api/data-hub/mappings/approve', ['team_id' => $team->id, 'platform' => 'trackman', 'template_fingerprint' => $fingerprint, 'headers' => ['Batter'], 'entries' => [$entry], 'remember' => true])->assertOk();
         $this->postJson('/api/data-hub/concept-submissions', ['team_id' => $team->id, 'source_column_name' => 'Mystery', 'proposed_display_name' => 'Mystery Metric'])->assertCreated();
         $this->assertDatabaseHas('concept_submissions', ['team_id' => $team->id, 'status' => 'pending']);
     }

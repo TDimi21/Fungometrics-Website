@@ -53,9 +53,8 @@ const allowedSessionTypes = computed(() => selectedPlatform.value
   ? DATA_HUB_SESSION_TYPES.filter(type => selectedPlatform.value.sessionTypes.includes(type))
   : DATA_HUB_SESSION_TYPES)
 const mappingValues = computed(() => Object.values(mappings).filter(Boolean))
-const unresolved = computed(() => inspection.value?.players?.some(player => !mappings[player.source_key]) ?? true)
 const hasDuplicates = computed(() => {
-  const ids = mappingValues.value.filter(value => value !== '__skip__')
+  const ids = mappingValues.value
   return new Set(ids).size !== ids.length
 })
 const canContinue = computed(() => {
@@ -63,8 +62,8 @@ const canContinue = computed(() => {
   if (step.value === 2) return Boolean(selectedFile.value) && !fileError.value
   if (step.value === 3) return Boolean(selectedTeam.value && sessionType.value) && !inspecting.value
   if (step.value === 4) {
-    const duplicateTargets = mappingValues.value.filter((id, index, values) => id !== '__skip__' && values.indexOf(id) !== index)
-    return !unresolved.value && duplicateTargets.every(id => confirmedDuplicateTargets.value.includes(id)) && !approvingPlayers.value
+    const duplicateTargets = mappingValues.value.filter((id, index, values) => values.indexOf(id) !== index)
+    return duplicateTargets.every(id => confirmedDuplicateTargets.value.includes(id)) && !approvingPlayers.value
   }
   if (step.value === 5) {
     return inspection.value?.source_columns?.every(column => {
@@ -82,7 +81,7 @@ const reviewInspection = computed(() => {
       ...row,
       player_id: (() => {
         const source = inspection.value.players.find(player => player.source_name === row.player_external_name)
-        return mappings[source?.source_key] === '__skip__' ? null : mappings[source?.source_key] || null
+        return mappings[source?.source_key] || null
       })(),
     })),
   }
@@ -166,7 +165,7 @@ const inspectFile = async () => {
         relationship_type: resolution.relationship_type || null,
         confidence: resolution.confidence,
         required_type: identityColumns.includes(resolution.normalized_source_column) ? 'player_identity' : (dateColumns.includes(resolution.normalized_source_column) ? 'session_date' : null),
-        action: resolution.concept_id ? 'map' : 'store_unknown',
+        action: resolution.concept_id ? 'map' : 'ignore',
         metadata: { sample_values: source?.sample_values || [] },
       }
     })
@@ -211,8 +210,8 @@ const approvePlayerMapping = async () => {
         source_name: player.source_name,
         external_player_id: player.external_player_id,
         roles: player.roles,
-        fmtrx_player_id: mappings[player.source_key] === '__skip__' ? null : mappings[player.source_key] || null,
-        skipped: mappings[player.source_key] === '__skip__',
+        fmtrx_player_id: mappings[player.source_key] || null,
+        not_importing: !mappings[player.source_key],
       })),
       confirmed_duplicate_targets: confirmedDuplicateTargets.value,
     })
@@ -343,7 +342,7 @@ onBeforeRouteLeave(clearWorkflow)
         <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="setTeam" @update:session-type="sessionType = $event" />
         <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" :confirmed-duplicates="confirmedDuplicateTargets" @update:mapping="updateMapping" @confirm:duplicate="confirmDuplicate" @refresh-roster="loadTeamPlayers" />
         <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" @update:entry="updateColumnEntry" @submit-concept="submitConcept" />
-        <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" />
+        <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" :column-entries="columnEntries" />
         <p v-if="inspectionError" class="error-message">{{ inspectionError }}</p>
         <p v-if="mappingError" class="error-message">{{ mappingError }}</p>
         <div v-if="inspectionComplete" class="complete-message"><strong>Inspection complete.</strong><span>No data was imported and no FMTRX records were changed.</span></div>

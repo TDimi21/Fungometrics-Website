@@ -29,19 +29,19 @@ const update = (column, patch) => emit('update:entry', column.source_column_name
     </div>
     <article v-for="column in columns" :key="column.source_column_name" class="mapping-row">
       <div class="source"><strong>{{ column.source_column_name }}</strong><span>{{ column.sample_values?.join(' · ') || 'No sample values' }}</span></div>
-      <select :value="entries[column.source_column_name]?.baseball_concept_id || ''" @change="update(column,{ baseball_concept_id:$event.target.value || null, action:$event.target.value ? 'map' : 'store_unknown' })">
-        <option value="">Unresolved</option>
+      <select :value="entries[column.source_column_name]?.baseball_concept_id || ''" @change="update(column,{ baseball_concept_id:$event.target.value || null, action:$event.target.value ? 'map' : 'ignore' })">
+        <option value="">— Not Importing —</option>
         <option v-for="item in filteredConcepts" :key="item.id" :value="item.id">{{ item.display_name }} · {{ domainName(item.domain_id) }}{{ item.canonical_unit_key ? ` (${item.canonical_unit_key})` : '' }}</option>
       </select>
       <select :value="entries[column.source_column_name]?.source_unit_key || ''" @change="update(column,{ source_unit_key:$event.target.value || null })">
         <option value="">Source unit</option><option value="mph">mph</option><option value="deg">degrees</option><option value="ft">feet</option><option value="in">inches</option><option value="rpm">rpm</option><option value="sec">seconds</option>
       </select>
-      <select :value="entries[column.source_column_name]?.action || 'store_unknown'" @change="update(column,{ action:$event.target.value, baseball_concept_id:$event.target.value === 'map' ? entries[column.source_column_name]?.baseball_concept_id : null })">
-        <option value="map">Map to concept</option><option value="ignore">Ignore</option><option value="store_unknown">Store as unknown</option><option value="submit_new">Submit new concept</option>
+      <select :value="entries[column.source_column_name]?.action || 'ignore'" @change="update(column,{ action:$event.target.value, baseball_concept_id:$event.target.value === 'map' ? entries[column.source_column_name]?.baseball_concept_id : null })">
+        <option value="map">Connected Baseball Concept</option><option value="ignore">Not Importing</option><option value="store_unknown">Remember as unknown</option><option value="submit_new">Submit new concept</option>
       </select>
       <div class="status">
         <b>{{ entries[column.source_column_name]?.confidence || 0 }}%</b>
-        <span>{{ entries[column.source_column_name]?.resolution_source || 'unresolved' }}</span>
+        <span>{{ entries[column.source_column_name]?.action === 'map' ? (entries[column.source_column_name]?.resolution_source || 'manual') : 'not importing' }}</span>
         <button type="button" @click="expanded = expanded === column.source_column_name ? '' : column.source_column_name">Details</button>
       </div>
       <div v-if="expanded === column.source_column_name" class="details">

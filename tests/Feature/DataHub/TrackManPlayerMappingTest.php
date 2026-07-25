@@ -77,7 +77,7 @@ final class TrackManPlayerMappingTest extends TestCase
         $this->assertSame('remembered_name', $matching->suggestions((string) $team->id, 'Bob Jones', null, (string) $platform->id)[0]['match_type']);
     }
 
-    public function test_roster_and_approval_are_team_scoped_and_skip_is_not_remembered(): void
+    public function test_roster_and_approval_are_team_scoped_and_not_importing_is_not_remembered(): void
     {
         $team = Team::factory()->create();
         $other = Team::factory()->create();
@@ -91,18 +91,18 @@ final class TrackManPlayerMappingTest extends TestCase
             ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', (string) $target->id);
         $before = ['practices' => DB::table('practices')->count(), 'cage' => DB::table('cage_practice_results')->count()];
         $payload = ['team_id' => $team->id, 'platform' => 'trackman', 'confirmed_duplicate_targets' => [], 'mappings' => [
-            ['source_key' => 'trackman:id:77', 'source_name' => 'Tom Dimitroff', 'external_player_id' => '77', 'roles' => ['batter'], 'fmtrx_player_id' => $target->id, 'skipped' => false],
-            ['source_key' => 'trackman:id:88', 'source_name' => 'Missing Player', 'external_player_id' => '88', 'roles' => ['pitcher'], 'fmtrx_player_id' => null, 'skipped' => true],
+            ['source_key' => 'trackman:id:77', 'source_name' => 'Tom Dimitroff', 'external_player_id' => '77', 'roles' => ['batter'], 'fmtrx_player_id' => $target->id, 'not_importing' => false],
+            ['source_key' => 'trackman:id:88', 'source_name' => 'Missing Player', 'external_player_id' => '88', 'roles' => ['pitcher'], 'fmtrx_player_id' => null, 'not_importing' => true],
         ]];
         $this->postJson('/api/data-hub/player-mappings/approve', $payload)
-            ->assertOk()->assertJsonPath('data.skipped_source_keys.0', 'trackman:id:88');
+            ->assertOk()->assertJsonPath('data.not_importing_source_keys.0', 'trackman:id:88');
         $this->assertDatabaseCount('external_player_mappings', 1);
         $this->assertSame($before['practices'], DB::table('practices')->count());
         $this->assertSame($before['cage'], DB::table('cage_practice_results')->count());
         $this->getJson('/api/data-hub/player-mappings/roster?team_id='.$other->id)->assertForbidden();
     }
 
-    public function test_unresolved_and_unconfirmed_duplicate_targets_block_approval(): void
+    public function test_not_importing_is_allowed_but_unconfirmed_duplicate_targets_block_approval(): void
     {
         $team = Team::factory()->create();
         $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
@@ -110,11 +110,12 @@ final class TrackManPlayerMappingTest extends TestCase
         $target = $this->player($team, 'Thomas', 'Dimitroff');
         Sanctum::actingAs($coach, ['coach']);
         $base = ['team_id' => $team->id, 'platform' => 'trackman', 'confirmed_duplicate_targets' => []];
-        $unresolved = [['source_key' => 'a', 'source_name' => 'A', 'external_player_id' => null, 'roles' => ['batter'], 'fmtrx_player_id' => null, 'skipped' => false]];
-        $this->postJson('/api/data-hub/player-mappings/approve', $base + ['mappings' => $unresolved])->assertUnprocessable();
+        $notImporting = [['source_key' => 'a', 'source_name' => 'A', 'external_player_id' => null, 'roles' => ['batter'], 'fmtrx_player_id' => null, 'not_importing' => true]];
+        $this->postJson('/api/data-hub/player-mappings/approve', $base + ['mappings' => $notImporting])
+            ->assertOk()->assertJsonPath('data.not_importing_source_keys.0', 'a');
         $duplicates = [
-            ['source_key' => 'a', 'source_name' => 'A', 'external_player_id' => '1', 'roles' => ['batter'], 'fmtrx_player_id' => $target->id, 'skipped' => false],
-            ['source_key' => 'b', 'source_name' => 'B', 'external_player_id' => '2', 'roles' => ['pitcher'], 'fmtrx_player_id' => $target->id, 'skipped' => false],
+            ['source_key' => 'a', 'source_name' => 'A', 'external_player_id' => '1', 'roles' => ['batter'], 'fmtrx_player_id' => $target->id, 'not_importing' => false],
+            ['source_key' => 'b', 'source_name' => 'B', 'external_player_id' => '2', 'roles' => ['pitcher'], 'fmtrx_player_id' => $target->id, 'not_importing' => false],
         ];
         $this->postJson('/api/data-hub/player-mappings/approve', $base + ['mappings' => $duplicates])->assertUnprocessable();
         $this->postJson('/api/data-hub/player-mappings/approve', array_merge($base, ['mappings' => $duplicates, 'confirmed_duplicate_targets' => [$target->id]]))->assertOk();

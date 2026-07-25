@@ -17,11 +17,11 @@ describe('Data Hub Phase 2A', () => {
     expect(page).toContain('inspectionError.value')
   })
 
-  it('requires every player resolution and explicit duplicate confirmation', () => {
-    expect(page).toContain('unresolved')
+  it('allows Not Importing players and requires explicit duplicate confirmation', () => {
+    expect(page).toContain('not_importing')
     expect(page).toContain('hasDuplicates')
     expect(page).toContain('confirmedDuplicateTargets')
-    expect(mapping).toContain('Skip Player')
+    expect(mapping).toContain('Not Importing')
     expect(mapping).toContain('Player not on roster')
   })
 

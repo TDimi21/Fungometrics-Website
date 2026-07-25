@@ -19,10 +19,13 @@ final class PlayerMappingApprovalService
         array $mappings,
         array $confirmedDuplicateTargets,
     ): array {
-        $unresolved = array_filter($mappings, fn (array $mapping): bool => ! ($mapping['skipped'] ?? false) && empty($mapping['fmtrx_player_id']));
-        if ($unresolved) {
-            throw ValidationException::withMessages(['mappings' => 'Every imported player must be mapped or explicitly skipped.']);
+        foreach ($mappings as &$mapping) {
+            if (($mapping['not_importing'] ?? false) || empty($mapping['fmtrx_player_id'])) {
+                $mapping['fmtrx_player_id'] = null;
+                $mapping['not_importing'] = true;
+            }
         }
+        unset($mapping);
 
         $targetCounts = array_count_values(array_filter(array_column($mappings, 'fmtrx_player_id')));
         $unconfirmed = array_keys(array_filter(
@@ -48,7 +51,7 @@ final class PlayerMappingApprovalService
 
         DB::transaction(function () use ($user, $teamId, $platformId, $mappings): void {
             foreach ($mappings as $mapping) {
-                if (($mapping['skipped'] ?? false) || empty($mapping['fmtrx_player_id'])) {
+                if (empty($mapping['fmtrx_player_id'])) {
                     continue;
                 }
                 $normalized = app(PlayerMatchingService::class)->normalize($mapping['source_name']);
@@ -84,10 +87,10 @@ final class PlayerMappingApprovalService
 
         return [
             'approved' => true,
-            'mapped_count' => count(array_filter($mappings, fn (array $mapping): bool => ! empty($mapping['fmtrx_player_id']))),
-            'skipped_source_keys' => array_values(array_map(
+            'connected_count' => count(array_filter($mappings, fn (array $mapping): bool => ! empty($mapping['fmtrx_player_id']))),
+            'not_importing_source_keys' => array_values(array_map(
                 fn (array $mapping): string => $mapping['source_key'],
-                array_filter($mappings, fn (array $mapping): bool => (bool) ($mapping['skipped'] ?? false))
+                array_filter($mappings, fn (array $mapping): bool => empty($mapping['fmtrx_player_id']))
             )),
         ];
     }

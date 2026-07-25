@@ -35,7 +35,7 @@ final class PlayerMappingController extends Controller
             'mappings.*.roles' => ['required', 'array'],
             'mappings.*.roles.*' => ['in:batter,pitcher'],
             'mappings.*.fmtrx_player_id' => ['nullable', 'uuid'],
-            'mappings.*.skipped' => ['required', 'boolean'],
+            'mappings.*.not_importing' => ['required', 'boolean'],
             'confirmed_duplicate_targets' => ['array'],
             'confirmed_duplicate_targets.*' => ['uuid'],
         ]);

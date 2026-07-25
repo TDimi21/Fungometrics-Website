@@ -1,10 +1,18 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+const props = defineProps({
   inspection: { type: Object, required: true },
   teamName: { type: String, required: true },
   destination: { type: String, required: true },
   mappings: { type: Object, required: true },
+  columnEntries: { type: Object, required: true },
 })
+const connectedPlayers = computed(() => props.inspection.players.filter(player => props.mappings[player.source_key]))
+const notImportingPlayers = computed(() => props.inspection.players.filter(player => !props.mappings[player.source_key]))
+const importingEvents = computed(() => connectedPlayers.value.reduce((total, player) => total + player.row_count, 0))
+const ignoredEvents = computed(() => notImportingPlayers.value.reduce((total, player) => total + player.row_count, 0))
+const connectedColumns = computed(() => Object.values(props.columnEntries).filter(entry => entry.action === 'map' && entry.baseball_concept_id))
+const ignoredColumns = computed(() => Object.values(props.columnEntries).filter(entry => entry.action !== 'map' || !entry.baseball_concept_id))
 </script>
 
 <template>
@@ -16,8 +24,14 @@ defineProps({
     <div><span>Session</span><strong>{{ inspection.session.primary_date || 'Not detected' }}</strong><small>{{ inspection.session.facility || 'Facility not detected' }}</small></div>
     <div><span>Total / usable / invalid</span><strong>{{ inspection.counts.total_rows }} / {{ inspection.counts.usable_rows }} / {{ inspection.counts.invalid_rows }}</strong></div>
     <div><span>Players found</span><strong>{{ inspection.counts.players_found }}</strong></div>
-    <div><span>Mapped / skipped</span><strong>{{ Object.values(mappings).filter(v => v && v !== '__skip__').length }} / {{ Object.values(mappings).filter(v => v === '__skip__').length }}</strong></div>
+    <div><span>Connected / Not Importing</span><strong>{{ connectedPlayers.length }} / {{ notImportingPlayers.length }}</strong></div>
+    <div><span>Connected / Not Importing columns</span><strong>{{ connectedColumns.length }} / {{ ignoredColumns.length }}</strong></div>
   </div>
+  <section class="import-summary">
+    <div><span>Total events</span><strong>{{ importingEvents + ignoredEvents }}</strong></div><div><span>Importing</span><strong>{{ importingEvents }}</strong></div><div><span>Ignored</span><strong>{{ ignoredEvents }}</strong></div>
+    <article><h3>Connected players</h3><p v-for="player in connectedPlayers" :key="player.source_key">✓ {{ player.source_name }} — {{ player.row_count }}</p><p v-if="!connectedPlayers.length">No players connected.</p></article>
+    <article><h3>Not Importing</h3><p v-for="player in notImportingPlayers" :key="player.source_key">{{ player.source_name }} — {{ player.row_count }}</p><p v-if="!notImportingPlayers.length">All source players are connected.</p></article>
+  </section>
   <section class="metrics"><span>Metrics detected</span><p>{{ inspection.metrics_detected.join(', ') || 'None' }}</p></section>
   <section v-if="inspection.warnings.length" class="warnings"><strong>Warnings</strong><p v-for="warning in inspection.warnings" :key="warning">{{ warning }}</p></section>
   <section class="samples"><h3>Normalized sample records</h3><pre v-for="(row,index) in inspection.sample_rows" :key="index">{{ JSON.stringify(row, null, 2) }}</pre></section>
