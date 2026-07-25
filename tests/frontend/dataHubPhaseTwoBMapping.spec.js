@@ -75,6 +75,10 @@ describe('Data Hub Phase 2B.1 mapping foundation', () => {
     expect(selector).toContain("view.value === 'recommended'")
     expect(selector).toContain(':disabled="compatibility(item).level === \'incompatible\'"')
     expect(selector).toContain('compatibility(item).reason')
+    expect(selector).toContain("key:'hitting',label:'Hitting'")
+    expect(selector).toContain("key:'pitching',label:'Pitching'")
+    expect(selector).toContain("key:'session_context',label:'User / Session'")
+    expect(selector).toContain("category.value !== 'all' && conceptDomain !== category.value")
   })
 
   it('supports accessible keyboard navigation, selection scrolling, and a mobile sheet', () => {

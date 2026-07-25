@@ -66,6 +66,7 @@ const recommendations = {
 const open = ref(false)
 const query = ref('')
 const view = ref('recommended')
+const category = ref('all')
 const activeIndex = ref(0)
 const collapsed = ref({})
 const searchInput = ref(null)
@@ -85,9 +86,11 @@ const matchesQuery = concept => !normalizedQuery.value || searchable(concept).in
 const compatibility = concept => compatibilityForConcept(props.destination, concept, props.domains)
 const included = concept => {
   if (!matchesQuery(concept)) return false
+  const conceptDomain = domainById.value[concept.domain_id]?.key
+  if (category.value !== 'all' && conceptDomain !== category.value) return false
   if (view.value === 'recommended') {
     return recommendedKeys.value.has(concept.canonical_key)
-      || domainById.value[concept.domain_id]?.key === 'session_context'
+      || conceptDomain === 'session_context'
   }
   if (view.value === 'compatible') return compatibility(concept).level === 'compatible'
   return true
@@ -159,7 +162,7 @@ const keydown = event => {
   nextTick(() => optionElements.value[activeIndex.value]?.scrollIntoView({ block: 'nearest' }))
 }
 const toggleGroup = key => { collapsed.value = { ...collapsed.value, [key]: !collapsed.value[key] } }
-watch([query, view], () => { activeIndex.value = 0 })
+watch([query, view, category], () => { activeIndex.value = 0 })
 const onWindowKeydown = event => { if (open.value && event.key === 'Escape') close() }
 window.addEventListener('keydown', onWindowKeydown)
 onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
@@ -180,6 +183,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
             <input ref="searchInput" v-model="query" type="search" aria-label="Search Baseball Concepts" placeholder="Search names, keys, definitions, or aliases">
             <nav aria-label="Concept visibility">
               <button v-for="mode in ['recommended','compatible','all']" :key="mode" type="button" :class="{ active: view === mode }" @click="view = mode">{{ mode === 'all' ? 'All Concepts' : mode }}</button>
+            </nav>
+            <nav class="category-tabs" aria-label="Concept area">
+              <button v-for="item in [{key:'all',label:'All Areas'},{key:'hitting',label:'Hitting'},{key:'pitching',label:'Pitching'},{key:'session_context',label:'User / Session'}]" :key="item.key" type="button" :class="{ active: category === item.key }" @click="category = item.key">{{ item.label }}</button>
             </nav>
           </div>
           <div class="special-options" aria-label="Mapping actions">
@@ -210,4 +216,5 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
 <style scoped>
 .selector-trigger{width:100%;min-height:49px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid rgba(255,255,255,.13);border-radius:9px;background:#111a32;color:#fff;text-align:left}.selector-trigger span{display:grid;gap:2px}.selector-trigger small{color:#94a3b8;font-size:9px}.selector-backdrop{position:fixed;z-index:10000;inset:0;display:grid;place-items:center;padding:20px;background:rgba(2,7,20,.78);backdrop-filter:blur(6px)}.selector-panel{width:min(680px,100%);max-height:min(760px,90vh);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.15);border-radius:18px;background:#091329;box-shadow:0 30px 90px rgba(0,0,0,.55);color:#fff}.selector-panel>header{display:flex;justify-content:space-between;padding:20px 22px;border-bottom:1px solid rgba(255,255,255,.1)}.selector-panel header span{color:#ff4964;font-size:9px;font-weight:800;text-transform:uppercase}.selector-panel h3{margin:3px 0;font-size:22px}.selector-panel p{margin:0;color:#94a3b8;font-size:11px}.selector-panel header button{border:0;background:transparent;color:#94a3b8;font-size:28px}.selector-controls{position:sticky;top:0;z-index:3;padding:14px 18px 10px;background:#091329}.selector-controls input{width:100%;min-height:44px;padding:0 13px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:#111a32;color:#fff}.selector-controls nav{display:flex;gap:6px;margin-top:9px}.selector-controls button,.special-options button{padding:8px 11px;border:1px solid rgba(255,255,255,.12);border-radius:7px;background:transparent;color:#cbd5e1;font-size:9px;text-transform:capitalize}.selector-controls button.active{border-color:#ff2b4a;background:#ff2b4a;color:#fff}.special-options{display:flex;gap:7px;padding:0 18px 12px;border-bottom:1px solid rgba(255,255,255,.1)}.special-options button:first-child{color:#ffb43b}.concept-list{overflow-y:auto;padding:0 18px 18px}.concept-list>h4,.group-heading{position:sticky;top:0;z-index:2;width:100%;margin:0;padding:12px 8px 7px;border:0;background:#091329;color:#ff7187;font-size:9px;font-weight:800;letter-spacing:.08em;text-align:left;text-transform:uppercase}.group-heading{display:flex;justify-content:space-between;color:#8ea4c9}.concept-option{width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid transparent;border-bottom-color:rgba(255,255,255,.07);background:transparent;color:#fff;text-align:left}.concept-option:hover,.concept-option:focus,.concept-option.active{border-color:rgba(255,43,74,.55);border-radius:9px;background:rgba(255,43,74,.09);outline:0}.concept-option:disabled{cursor:not-allowed;opacity:.42}.concept-option span{display:grid;gap:3px}.concept-option small,.concept-option em,.concept-option i{color:#94a3b8;font-size:9px;font-style:normal}.concept-option i{color:#ff7187}.concept-option b{color:#62ddb0}.no-results{padding:30px;text-align:center;color:#94a3b8}@media(max-width:700px){.selector-backdrop{align-items:flex-end;padding:0}.selector-panel{width:100%;max-height:92vh;border-radius:18px 18px 0 0}.selector-controls nav,.special-options{overflow-x:auto}.selector-controls button,.special-options button{flex:0 0 auto}}
+.selector-controls .category-tabs{padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.selector-controls .category-tabs button{font-weight:800}
 </style>
