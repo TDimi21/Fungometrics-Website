@@ -12,7 +12,7 @@ import { DATA_HUB_PLATFORMS } from '@/data/dataHubPlatforms.js'
           <h1>One home for every player-development signal.</h1>
           <p>Prepare data from baseball technology platforms for a connected FMTRX development profile.</p>
         </div>
-        <RouterLink to="/data-hub/import">Start Preview <b>→</b></RouterLink>
+        <div class="hub-actions"><RouterLink class="secondary" to="/data-hub/unknown-columns">Unknown Columns</RouterLink><RouterLink to="/data-hub/import">Start Preview <b>→</b></RouterLink></div>
       </header>
 
       <div class="phase-card">
@@ -48,6 +48,7 @@ header span,.section-heading span,.phase-card span { color:#ff4964; font-size:10
 header h1 { max-width:720px; margin-top:8px; font-size:clamp(32px,4.8vw,56px); font-weight:900; letter-spacing:-.04em; line-height:1.02; }
 header p { max-width:680px; margin-top:14px; color:rgba(226,232,240,.65); font-size:14px; line-height:1.65; }
 header a { display:inline-flex; align-items:center; justify-content:center; gap:22px; min-width:190px; min-height:52px; border:1px solid #ff2b4a; border-radius:12px; background:#ff2b4a; color:#fff; font-size:12px; font-weight:900; letter-spacing:.06em; text-transform:uppercase; box-shadow:0 12px 28px rgba(255,43,74,.22); }
+.hub-actions{display:flex;gap:10px}.hub-actions .secondary{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.04);box-shadow:none}
 .phase-card { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:24px; margin-top:16px; padding:24px 28px; border:1px solid rgba(255,255,255,.1); border-radius:18px; background:rgba(18,27,53,.78); }
 .phase-number { color:rgba(255,255,255,.1); font-size:56px; font-weight:900; line-height:1; }
 .phase-card h2,.section-heading h2 { margin-top:4px; font-size:23px; font-weight:900; }

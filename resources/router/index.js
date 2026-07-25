@@ -37,6 +37,7 @@ const EditProfilePlayer = () => import("@/pages/profile/EditProfilePlayer.vue");
 const Settings = () => import("@/pages/profile/Settings.vue");
 const DataHubDashboard = () => import("@/pages/data-hub/DataHubDashboard.vue");
 const ImportData = () => import("@/pages/data-hub/ImportData.vue");
+const UnknownColumns = () => import("@/pages/data-hub/UnknownColumns.vue");
 const ChangePassword = () => import("@/pages/profile/ChangePassword.vue");
 const EditPlayer = () => import("@/pages/roster/EditPlayer.vue");
 const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
@@ -345,6 +346,12 @@ const routes = [
 		name: "data-hub.import",
 		path: "/data-hub/import",
 		component: ImportData,
+		meta: { requiresAuth: true, coachOnly: true, allowAdmin: true, entitlement: 'data_hub_import' },
+	},
+	{
+		name: "data-hub.unknown-columns",
+		path: "/data-hub/unknown-columns",
+		component: UnknownColumns,
 		meta: { requiresAuth: true, coachOnly: true, allowAdmin: true, entitlement: 'data_hub_import' },
 	},
 	{

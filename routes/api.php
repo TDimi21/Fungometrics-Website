@@ -188,6 +188,7 @@ use App\Http\Controllers\Api\Billing\RevenueCatWebhookController;
 use App\Http\Controllers\Api\Billing\RevenueCatSyncController;
 use App\Http\Controllers\Api\Billing\RevenueCatProductsController;
 use App\Http\Controllers\Api\DataHub\InspectTrackManFile;
+use App\Http\Controllers\Api\DataHub\DictionaryController;
 
 Route::post('login', LoginController::class);
 Route::post('billing/revenuecat/webhook', RevenueCatWebhookController::class)->middleware('throttle:120,1');
@@ -205,6 +206,14 @@ Route::post('/complete/{claim}/player', CompletePlayerController::class)
 Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
     Route::post('data-hub/inspect', InspectTrackManFile::class)
         ->middleware(['plan:data_hub_import', 'throttle:10,1']);
+    Route::middleware('plan:data_hub_import')->prefix('data-hub')->group(function (): void {
+        Route::get('dictionary', [DictionaryController::class, 'index']);
+        Route::post('mappings/resolve', [DictionaryController::class, 'resolve'])->middleware('throttle:30,1');
+        Route::post('mappings/approve', [DictionaryController::class, 'approve'])->middleware('throttle:10,1');
+        Route::get('unknown-columns', [DictionaryController::class, 'unknown']);
+        Route::patch('unknown-columns/{unknown}', [DictionaryController::class, 'updateUnknown'])->middleware('throttle:30,1');
+        Route::post('concept-submissions', [DictionaryController::class, 'submit'])->middleware('throttle:10,1');
+    });
     Route::post('auth/web-session', \App\Http\Controllers\Api\Auth\CreateWebSession::class)->middleware('throttle:10,1');
     Route::post('logout', \App\Http\Controllers\Api\Auth\LogoutController::class)->middleware('throttle:20,1');
     Route::get('me/access', \App\Http\Controllers\Api\Access\GetMyAccess::class);

@@ -63,4 +63,55 @@ final class TrackManParser implements ImportParserContract
             fclose($handle);
         }
     }
+
+    /** @return array<int, array<string, mixed>> */
+    public function inspectSourceColumns(ImportFileMetadata $file): array
+    {
+        if ('csv' !== mb_strtolower($file->extension) || ! $file->path || ! is_readable($file->path)) {
+            return [];
+        }
+
+        $handle = fopen($file->path, 'rb');
+        if (false === $handle) {
+            return [];
+        }
+
+        try {
+            $headers = fgetcsv($handle);
+            if (false === $headers) {
+                return [];
+            }
+            $headers = array_map(fn ($header): string => preg_replace('/^\xEF\xBB\xBF/', '', trim((string) $header)), $headers);
+            $valuesByColumn = array_fill_keys($headers, []);
+            while (($values = fgetcsv($handle)) !== false) {
+                $values = array_pad(array_slice($values, 0, count($headers)), count($headers), null);
+                foreach ($headers as $index => $header) {
+                    $value = trim((string) ($values[$index] ?? ''));
+                    if ('' !== $value && count($valuesByColumn[$header]) < 25) {
+                        $valuesByColumn[$header][] = $value;
+                    }
+                }
+            }
+
+            return array_map(function (string $header) use ($valuesByColumn): array {
+                $values = $valuesByColumn[$header];
+                $numeric = array_values(array_filter($values, 'is_numeric'));
+                $isNumeric = count($values) > 0 && count($numeric) === count($values);
+
+                return [
+                    'source_column_name' => $header,
+                    'sample_values' => array_slice(array_values(array_unique($values)), 0, 5),
+                    'details' => [
+                        'inferred_data_type' => $isNumeric ? 'numeric' : 'text',
+                        'minimum' => $isNumeric ? min(array_map('floatval', $numeric)) : null,
+                        'maximum' => $isNumeric ? max(array_map('floatval', $numeric)) : null,
+                        'average' => $isNumeric ? array_sum(array_map('floatval', $numeric)) / count($numeric) : null,
+                        'unique_value_count' => count(array_unique($values)),
+                    ],
+                ];
+            }, $headers);
+        } finally {
+            fclose($handle);
+        }
+    }
 }

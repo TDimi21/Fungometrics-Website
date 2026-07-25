@@ -55,6 +55,12 @@ export const useAxiosAuth = () => {
 
     }))
   }
+  const axiosPatch = (url, data) => {
+    return withAccessRefreshSignal(axios.patch(apiBaseUrl + url, data, {
+      headers: authHeaders(),
+      withCredentials: true,
+    }))
+  }
   const axiosDelete = (url, id) => {
     return withAccessRefreshSignal(axios.delete(apiBaseUrl + url + id, {
       headers: authHeaders(),
@@ -65,6 +71,7 @@ export const useAxiosAuth = () => {
     axiosPost,
     axiosGet,
     axiosPut,
+    axiosPatch,
     axiosDelete,
   }
 }

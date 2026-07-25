@@ -8,6 +8,7 @@ import PlatformSelector from '@/components/data-hub/PlatformSelector.vue'
 import FileDropzone from '@/components/data-hub/FileDropzone.vue'
 import DestinationSelector from '@/components/data-hub/DestinationSelector.vue'
 import PlayerMapping from '@/components/data-hub/PlayerMapping.vue'
+import ColumnMapping from '@/components/data-hub/ColumnMapping.vue'
 import InspectionReview from '@/components/data-hub/InspectionReview.vue'
 import { DATA_HUB_PLATFORMS, DATA_HUB_SESSION_TYPES } from '@/data/dataHubPlatforms.js'
 import { DATA_HUB_MAX_FILE_SIZE_BYTES, platformSupportsFile } from '@/data/dataHubConfig.js'
@@ -32,6 +33,11 @@ const inspectionError = ref('')
 const inspection = ref(null)
 const teamPlayers = ref([])
 const mappings = reactive({})
+const columnEntries = reactive({})
+const dictionary = ref({ domains: [], concepts: [], units: [] })
+const mappingApproved = ref(false)
+const mappingError = ref('')
+const approvingMapping = ref(false)
 const duplicateOverride = ref(false)
 const inspectionComplete = ref(false)
 const sessionValues = {
@@ -55,6 +61,12 @@ const canContinue = computed(() => {
   if (step.value === 2) return Boolean(selectedFile.value) && !fileError.value
   if (step.value === 3) return Boolean(selectedTeam.value && sessionType.value) && !inspecting.value
   if (step.value === 4) return !unresolved.value && (!hasDuplicates.value || duplicateOverride.value)
+  if (step.value === 5) {
+    return inspection.value?.source_columns?.every(column => {
+      const entry = columnEntries[column.source_column_name]
+      return entry && (entry.action !== 'map' || entry.baseball_concept_id)
+    }) && !approvingMapping.value
+  }
   return true
 })
 const reviewInspection = computed(() => {
@@ -106,6 +118,31 @@ const inspectFile = async () => {
       const exact = player.suggested_matches?.find(match => match.match_type === 'exact')
       if (exact) mappings[player.external_name] = exact.player_id
     })
+    const headers = inspection.value.source_columns?.map(column => column.source_column_name) || []
+    const [catalogResponse, resolutionResponse] = await Promise.all([
+      axiosGet('data-hub/dictionary'),
+      axiosPost('data-hub/mappings/resolve', { team_id: teamId.value, platform: platformKey.value, headers }),
+    ])
+    dictionary.value = catalogResponse.data.data
+    Object.keys(columnEntries).forEach(key => delete columnEntries[key])
+    resolutionResponse.data.data.columns.forEach(resolution => {
+      const source = inspection.value.source_columns.find(column => column.source_column_name === resolution.source_column_name)
+      const identityColumns = ['batter', 'battername', 'hitter', 'pitcher', 'pitchername']
+      const dateColumns = ['date', 'gamedate', 'sessiondate']
+      columnEntries[resolution.source_column_name] = {
+        source_column_name: resolution.source_column_name,
+        normalized_source_column: resolution.normalized_source_column,
+        baseball_concept_id: resolution.concept_id,
+        source_unit_key: resolution.source_unit_key || null,
+        transformation_key: resolution.transformation_key || null,
+        resolution_source: resolution.resolution_source,
+        relationship_type: resolution.relationship_type || null,
+        confidence: resolution.confidence,
+        required_type: identityColumns.includes(resolution.normalized_source_column) ? 'player_identity' : (dateColumns.includes(resolution.normalized_source_column) ? 'session_date' : null),
+        action: resolution.concept_id ? 'map' : 'store_unknown',
+        metadata: { sample_values: source?.sample_values || [] },
+      }
+    })
     selectedFile.value = null
     step.value = 4
   } catch (error) {
@@ -128,7 +165,55 @@ const next = async () => {
     step.value = 5
     return
   }
+  if (step.value === 5) {
+    await approveColumnMapping()
+    return
+  }
   finishInspection()
+}
+const updateColumnEntry = (name, entry) => {
+  columnEntries[name] = entry
+  mappingApproved.value = false
+}
+const approveColumnMapping = async () => {
+  mappingError.value = ''
+  approvingMapping.value = true
+  const unitId = key => dictionary.value.units.find(unit => unit.key === key)?.id || null
+  const conceptById = id => dictionary.value.concepts.find(concept => concept.id === id)
+  const entries = Object.values(columnEntries).map(entry => ({
+    source_column_name: entry.source_column_name,
+    normalized_source_column: entry.normalized_source_column,
+    baseball_concept_id: entry.baseball_concept_id || null,
+    source_unit_id: unitId(entry.source_unit_key),
+    canonical_unit_id: unitId(conceptById(entry.baseball_concept_id)?.canonical_unit_key),
+    transformation_key: entry.transformation_key || null,
+    resolution_source: entry.resolution_source || 'manual',
+    confidence: Number(entry.confidence || 0),
+    required_type: entry.required_type || null,
+    action: entry.action,
+    metadata: entry.metadata || null,
+  }))
+  try {
+    await axiosPost('data-hub/mappings/approve', {
+      team_id: teamId.value,
+      platform: platformKey.value,
+      template_fingerprint: inspection.value.template_fingerprint,
+      headers: inspection.value.source_columns.map(column => column.source_column_name),
+      entries,
+      remember: true,
+    })
+    mappingApproved.value = true
+    step.value = 6
+  } catch (error) {
+    mappingError.value = error?.response?.data?.message || 'The column mapping could not be approved.'
+  } finally {
+    approvingMapping.value = false
+  }
+}
+const submitConcept = async column => {
+  const proposed = window.prompt(`Proposed Baseball Concept name for "${column.source_column_name}"`, column.source_column_name)
+  if (!proposed) return
+  await axiosPost('data-hub/concept-submissions', { team_id: teamId.value, source_column_name: column.source_column_name, proposed_display_name: proposed, sample_values: column.sample_values || [] })
 }
 const back = () => {
   if (step.value === 4) {
@@ -151,6 +236,10 @@ const clearWorkflow = () => {
   inspectionError.value = ''
   teamPlayers.value = []
   Object.keys(mappings).forEach(key => delete mappings[key])
+  Object.keys(columnEntries).forEach(key => delete columnEntries[key])
+  dictionary.value = { domains: [], concepts: [], units: [] }
+  mappingApproved.value = false
+  mappingError.value = ''
   duplicateOverride.value = false
   inspectionComplete.value = false
 }
@@ -194,20 +283,22 @@ onBeforeRouteLeave(clearWorkflow)
       <ImportStepper :current-step="step" />
       <div class="wizard-card">
         <div class="wizard-heading">
-          <div><span>Step {{ step }} of 5</span><h2>{{ ['Choose TrackMan','Select a data file','Choose the destination','Map imported players','Review normalized data'][step - 1] }}</h2></div>
+        <div><span>Step {{ step }} of 6</span><h2>{{ ['Choose TrackMan','Select a data file','Choose the destination','Map imported players','Map source columns','Review normalized data'][step - 1] }}</h2></div>
           <p>{{ step === 3 ? 'Continue uploads the file temporarily for inspection.' : 'No FMTRX sessions or statistics are created.' }}</p>
         </div>
         <PlatformSelector v-if="step === 1" :platforms="DATA_HUB_PLATFORMS" :model-value="platformKey" @update:model-value="setPlatform" />
         <FileDropzone v-else-if="step === 2" :model-value="selectedFile" :error="fileError" :warning="fileWarning" :max-size-bytes="DATA_HUB_MAX_FILE_SIZE_BYTES" @update:model-value="setFile" />
         <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="teamId = $event" @update:session-type="sessionType = $event" />
         <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" @update:mapping="updateMapping" />
+        <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" @update:entry="updateColumnEntry" @submit-concept="submitConcept" />
         <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" />
         <p v-if="inspectionError" class="error-message">{{ inspectionError }}</p>
+        <p v-if="mappingError" class="error-message">{{ mappingError }}</p>
         <label v-if="step === 4 && hasDuplicates" class="override"><input v-model="duplicateOverride" type="checkbox"> I understand that multiple TrackMan names will map to the same FMTRX player.</label>
         <div v-if="inspectionComplete" class="complete-message"><strong>Inspection complete.</strong><span>No data was imported and no FMTRX records were changed.</span></div>
         <footer class="wizard-actions">
           <button type="button" class="cancel-button" @click="cancel">Cancel</button>
-          <div><button v-if="step > 1" type="button" class="back-button" @click="back">Back</button><button type="button" class="continue-button" :disabled="!canContinue" @click="next">{{ inspecting ? 'Inspecting…' : step === 3 ? 'Approve & Inspect' : step === 5 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
+          <div><button v-if="step > 1" type="button" class="back-button" @click="back">Back</button><button type="button" class="continue-button" :disabled="!canContinue" @click="next">{{ inspecting ? 'Inspecting…' : approvingMapping ? 'Approving…' : step === 3 ? 'Approve & Inspect' : step === 5 ? 'Approve Mapping' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
         </footer>
       </div>
     </section>

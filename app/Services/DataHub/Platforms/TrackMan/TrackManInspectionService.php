@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\DataHub\Platforms\TrackMan;
 
 use App\Services\DataHub\DTOs\ImportFileMetadata;
+use App\Services\DataHub\Dictionary\TemplateFingerprintService;
 use App\Services\DataHub\Services\PlayerMatchingService;
 
 final class TrackManInspectionService
@@ -14,6 +15,7 @@ final class TrackManInspectionService
         private readonly TrackManNormalizer $normalizer,
         private readonly TrackManRowValidator $validator,
         private readonly PlayerMatchingService $matching,
+        private readonly TemplateFingerprintService $fingerprints,
     ) {
     }
 
@@ -67,6 +69,8 @@ final class TrackManInspectionService
             $warnings[] = "{$invalid} row(s) contain missing players or invalid numeric values.";
         }
 
+        $sourceColumns = $this->parser->inspectSourceColumns($file);
+
         return [
             'platform' => 'trackman',
             'file' => ['name' => $file->name, 'size_bytes' => $file->sizeBytes, 'extension' => $file->extension],
@@ -88,6 +92,8 @@ final class TrackManInspectionService
             'metrics_detected' => array_values(array_unique($metrics)),
             'warnings' => $warnings,
             'sample_rows' => array_slice($normalized, 0, 10),
+            'source_columns' => $sourceColumns,
+            'template_fingerprint' => $this->fingerprints->fingerprint(array_column($sourceColumns, 'source_column_name')),
         ];
     }
 
