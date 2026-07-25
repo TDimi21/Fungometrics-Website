@@ -39,7 +39,7 @@ class DataHubFoundationTest extends TestCase
             $this->sessionValues($registry->get(ImportPlatform::TrackMan)->supportedSessionTypes())
         );
         $this->assertSame(
-            ['cage', 'live_ab', 'batting_practice'],
+            ['cage', 'batting_practice'],
             $this->sessionValues($registry->get(ImportPlatform::HitTrax)->supportedSessionTypes())
         );
         $this->assertSame(

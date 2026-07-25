@@ -13,7 +13,7 @@ export const DATA_HUB_PLATFORMS = [
     initials: 'HT',
     fileTypes: ['csv', 'xlsx'],
     description: 'Indoor hitting, game, and batted-ball session data.',
-    sessionTypes: ['Cage', 'Live AB', 'Batting Practice'],
+    sessionTypes: ['Cage', 'Batting Practice'],
   },
   {
     key: 'rapsodo',

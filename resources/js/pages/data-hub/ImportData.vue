@@ -60,7 +60,7 @@ const hasDuplicates = computed(() => {
   return new Set(ids).size !== ids.length
 })
 const canContinue = computed(() => {
-  if (step.value === 1) return ['trackman', 'generic-csv'].includes(platformKey.value)
+  if (step.value === 1) return ['trackman', 'hittrax', 'generic-csv'].includes(platformKey.value)
   if (step.value === 2) return Boolean(selectedFile.value) && !fileError.value
   if (step.value === 3) return Boolean(selectedTeam.value && sessionType.value) && !inspecting.value
   if (step.value === 4) {
@@ -120,7 +120,7 @@ const setPlatform = nextKey => {
     Object.keys(columnEntries).forEach(key => delete columnEntries[key])
   }
   sessionType.value = ''
-  inspectionError.value = ['trackman', 'generic-csv'].includes(nextKey) ? '' : 'This platform is not available for inspection yet.'
+  inspectionError.value = ['trackman', 'hittrax', 'generic-csv'].includes(nextKey) ? '' : 'This platform is not available for inspection yet.'
 }
 const setFile = file => {
   const result = validateDataHubFile(file, selectedPlatform.value)
@@ -208,20 +208,20 @@ const inspectFile = async () => {
     Object.keys(columnEntries).forEach(key => delete columnEntries[key])
     resolutionResponse.data.data.columns.forEach(resolution => {
       const source = inspection.value.source_columns.find(column => column.source_column_name === resolution.source_column_name)
-      const identityColumns = ['batter', 'battername', 'hitter', 'pitcher', 'pitchername']
-      const dateColumns = ['date', 'gamedate', 'sessiondate']
+      const identityColumns = ['batter', 'battername', 'hitter', 'pitcher', 'pitchername', 'user']
+      const dateColumns = ['date', 'gamedate', 'sessiondate', 'eventtimestamp']
       columnEntries[resolution.source_column_name] = {
         source_column_name: resolution.source_column_name,
         normalized_source_column: resolution.normalized_source_column,
-        baseball_concept_id: resolution.concept_id,
+        baseball_concept_id: source?.default_not_importing ? null : resolution.concept_id,
         source_unit_key: resolution.source_unit_key || null,
         transformation_key: resolution.transformation_key || null,
-        resolution_source: resolution.resolution_source,
+        resolution_source: source?.default_not_importing ? 'source_quality_default' : resolution.resolution_source,
         relationship_type: resolution.relationship_type || null,
-        confidence: resolution.confidence,
+        confidence: source?.default_not_importing ? 0 : resolution.confidence,
         required_type: identityColumns.includes(resolution.normalized_source_column) ? 'player_identity' : (dateColumns.includes(resolution.normalized_source_column) ? 'session_date' : null),
-        action: resolution.concept_id ? 'map' : 'ignore',
-        metadata: { sample_values: source?.sample_values || [] },
+        action: source?.default_not_importing ? 'ignore' : (resolution.concept_id ? 'map' : 'ignore'),
+        metadata: { sample_values: source?.sample_values || [], source_warnings: source?.warnings || [] },
       }
     })
     selectedFile.value = null
@@ -415,7 +415,7 @@ onBeforeRouteLeave(clearWorkflow)
         <PlatformSelector v-if="step === 1" :platforms="DATA_HUB_PLATFORMS" :model-value="platformKey" @update:model-value="setPlatform" />
         <FileDropzone v-else-if="step === 2" :model-value="selectedFile" :error="fileError" :warning="fileWarning" :max-size-bytes="DATA_HUB_MAX_FILE_SIZE_BYTES" @update:model-value="setFile" />
         <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :destination-groups="DATA_HUB_DESTINATION_GROUPS" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="setTeam" @update:session-type="setSessionType" />
-        <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" :confirmed-duplicates="confirmedDuplicateTargets" @update:mapping="updateMapping" @confirm:duplicate="confirmDuplicate" @refresh-roster="loadTeamPlayers" />
+        <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" :platform-name="inspection.detected_format?.provider || selectedPlatform?.name" :confirmed-duplicates="confirmedDuplicateTargets" @update:mapping="updateMapping" @confirm:duplicate="confirmDuplicate" @refresh-roster="loadTeamPlayers" />
         <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" :destination="sessionType" :confirmed-warnings="confirmedWarningColumns" :confirmed-duplicates="confirmedDuplicateConcepts" @update:entry="updateColumnEntry" @submit-concept="submitConcept" @confirm:warning="confirmWarning" @confirm:duplicate="confirmDuplicateConcept" />
         <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" :column-entries="columnEntries" />
         <p v-if="inspectionError" class="error-message">{{ inspectionError }}</p>

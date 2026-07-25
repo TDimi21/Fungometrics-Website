@@ -5,6 +5,7 @@ const props = defineProps({
   players: { type: Array, required: true },
   mappings: { type: Object, required: true },
   teamPlayers: { type: Array, required: true },
+  platformName: { type: String, default: 'Imported' },
   confirmedDuplicates: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['update:mapping', 'confirm:duplicate', 'refresh-roster'])
@@ -54,7 +55,7 @@ const rosterLabel = player => [
 <template>
   <section class="player-mapping">
     <header class="summary">
-      <div><span>Player mapping</span><h3>Connect TrackMan players to your FMTRX roster</h3><p>Map each unique player once. Every matching source row will use the approved decision.</p></div>
+      <div><span>Player mapping</span><h3>Connect {{ platformName }} players to your FMTRX roster</h3><p>Map each unique player once. Every matching source row will use the approved decision.</p></div>
       <div class="counts"><b>{{ summary.found }}<small>Players found</small></b><b>{{ summary.connected }}<small>Connected</small></b><b>{{ summary.suggested }}<small>Suggested</small></b><b>{{ summary.notImporting }}<small>Not Importing</small></b><b>{{ summary.needsReview }}<small>Needs Review</small></b><b>{{ summary.eligibleRows }}<small>Eligible rows</small></b><b>{{ summary.excludedRows }}<small>Excluded rows</small></b></div>
     </header>
     <nav class="filters"><button v-for="[key,label] in filters" :key="key" :class="{active:filter===key}" @click="filter=key">{{ label }}</button><button class="refresh" @click="emit('refresh-roster')">↻ Refresh roster</button></nav>
@@ -67,7 +68,7 @@ const rosterLabel = player => [
     </div>
     <div class="cards">
       <article v-for="player in visible" :key="player.source_key" :class="['player-card',status(player)]">
-        <div class="identity"><span>TrackMan player</span><h4>{{ player.source_name }}</h4><small v-if="player.external_player_id">ID: {{ player.external_player_id }}</small><div class="tags"><b v-for="role in player.roles" :key="role">{{ role }}</b></div><p>{{ player.row_count }} rows<span v-if="player.batter_row_count"> · {{ player.batter_row_count }} batting</span><span v-if="player.pitcher_row_count"> · {{ player.pitcher_row_count }} pitching</span></p><p v-if="player.source_team_names?.length">{{ player.source_team_names.join(', ') }}</p></div>
+        <div class="identity"><span>{{ platformName }} player</span><h4>{{ player.source_name }}</h4><small v-if="player.external_player_id">ID: {{ player.external_player_id }}</small><div class="tags"><b v-for="role in player.roles" :key="role">{{ role }}</b></div><p>{{ player.row_count }} rows<span v-if="player.tracked_batted_ball_count != null"> · {{ player.tracked_batted_ball_count }} tracked batted balls</span><span v-if="player.batter_row_count && player.tracked_batted_ball_count == null"> · {{ player.batter_row_count }} batting</span><span v-if="player.pitcher_row_count"> · {{ player.pitcher_row_count }} pitching</span></p><p v-if="player.source_team_names?.length">{{ player.source_team_names.join(', ') }}</p></div>
         <div class="suggestion"><span>Best suggestion</span><strong>{{ player.suggested_player?.display_name || 'No roster suggestion' }}</strong><small v-if="player.suggested_player">{{ player.suggested_player.confidence }}% · {{ player.suggested_player.resolution_source.replaceAll('_',' ') }}</small><small v-else>Player not on roster. Only connect players this team manages.</small></div>
         <label class="selector"><span>FMTRX roster player</span><select :value="mappedValue(player)" @change="emit('update:mapping',player.source_key,$event.target.value)"><option value="">— Not Importing —</option><option v-for="candidate in teamPlayers" :key="candidate.id" :value="candidate.id">{{ rosterLabel(candidate) }}</option></select><small>{{ status(player).replace('_',' ') }}<template v-if="duplicateFor(player)"> · duplicate target</template></small><div><button v-if="status(player)!=='not_importing'" @click="emit('update:mapping',player.source_key,'')">Set to Not Importing</button><button v-if="Object.prototype.hasOwnProperty.call(mappings,player.source_key)" @click="emit('update:mapping',player.source_key,null)">Clear Selection</button></div></label>
       </article>

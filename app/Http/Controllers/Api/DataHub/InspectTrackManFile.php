@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Team;
 use App\Services\DataHub\DTOs\ImportFileMetadata;
 use App\Services\DataHub\Enums\ImportSessionType;
+use App\Services\DataHub\Platforms\HitTrax\HitTraxInspectionService;
 use App\Services\DataHub\Platforms\TrackMan\TrackManInspectionService;
 use App\Services\DataHub\Services\FmtrxDestination;
 use App\Services\DataHub\Templates\FmtrxTemplateInspector;
@@ -20,11 +21,11 @@ use RuntimeException;
 
 final class InspectTrackManFile extends Controller
 {
-    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection, FmtrxTemplateInspector $fmtrxTemplates): JsonResponse
+    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection, HitTraxInspectionService $hitTraxInspection, FmtrxTemplateInspector $fmtrxTemplates): JsonResponse
     {
         $maxKb = (int) ceil(((int) config('data_hub.max_file_size_bytes')) / 1024);
         $data = $request->validate([
-            'platform' => ['required', Rule::in(['trackman', 'generic-csv'])],
+            'platform' => ['required', Rule::in(['trackman', 'hittrax', 'generic-csv'])],
             'team_id' => ['required', 'uuid', 'exists:teams,id'],
             'session_type' => ['required', Rule::enum(ImportSessionType::class)],
             'file' => ['required', 'file', "max:{$maxKb}"],
@@ -62,6 +63,15 @@ final class InspectTrackManFile extends Controller
             );
             if ('generic-csv' === $data['platform']) {
                 $result = $fmtrxTemplates->inspect($metadata, (string) $team->id);
+
+                return response()->json(['success' => true, 'data' => $result]);
+            }
+            if ('hittrax' === $data['platform']) {
+                $result = $hitTraxInspection->inspect($metadata, (string) $team->id);
+                $result['destination_recommendation']['selected'] = $sessionType->label();
+                if ( ! in_array($sessionType, [ImportSessionType::BattingPractice, ImportSessionType::Cage], true)) {
+                    $result['warnings'][] = 'Batting Practice or Cage is recommended for this HitTrax hitting export.';
+                }
 
                 return response()->json(['success' => true, 'data' => $result]);
             }

@@ -81,11 +81,53 @@ final class BaseballDictionarySeeder extends Seeder
             ['session_context.facility','session_context','Facility','Source facility or venue name.','text',null,null,null],
             ['session_context.system','session_context','Measurement System','Source measurement system identifier.','text',null,null,null],
             ['session_context.event_identifier','session_context','Event Identifier','Stable source event identifier.','text',null,null,null],
+            ['session_context.event_number','session_context','Event Number','Sequential event number supplied by the source platform.','integer','count',0,null],
+            ['game_outcome.plate_appearance_number','game_outcome','Plate Appearance Number','Source plate-appearance sequence number.','integer','count',0,null],
+            ['session_context.event_timestamp','session_context','Event Timestamp','Source timestamp associated with an event.','datetime',null,null,null],
+            ['session_context.elapsed_time','session_context','Session Elapsed Time','Elapsed time from the start of the source session.','text',null,null,null],
+            ['hitting.inbound_pitch_velocity','hitting','Inbound Pitch Velocity','Pitch velocity observed by a hitting system at its declared measurement point.','numeric','mph',0,110],
+            ['pitching.zone_number','pitching','Strike Zone Number','Source-defined strike-zone cell or region number.','integer','count',null,null],
+            ['hitting.inbound_pitch_type','hitting','Inbound Pitch Type','Source classification of the pitch delivered to the hitter.','text',null,null,null],
+            ['game_outcome.simulated_play_result','game_outcome','Simulated Play Result','Platform-simulated outcome; not an official real-game result.','text',null,null,null],
+            ['hitting.trajectory_automatic','hitting','Automatic Hit Trajectory','Platform-generated batted-ball trajectory classification.','text',null,null,null],
+            ['hitting.hand_speed','hitting','Hand Speed','Source-measured hand speed during the swing.','numeric','mph',0,null],
+            ['hitting.bat_velocity','hitting','Bat Velocity','Source-measured bat velocity; distinct from hand speed.','numeric','mph',0,null],
+            ['hitting.trigger_to_impact','hitting','Trigger to Impact','Elapsed time from swing trigger to impact.','numeric','sec',0,null],
+            ['hitting.attack_angle','hitting','Attack Angle','Vertical direction of bat travel at impact.','numeric','deg',null,null],
+            ['hitting.impact_momentum','hitting','Impact Momentum','Source-defined impact momentum measurement.','numeric',null,0,null],
+            ['session_context.strike_zone_bottom','session_context','Strike Zone Bottom','Configured bottom of the source session strike zone.','numeric','in',null,null],
+            ['session_context.strike_zone_top','session_context','Strike Zone Top','Configured top of the source session strike zone.','numeric','in',null,null],
+            ['session_context.strike_zone_width','session_context','Strike Zone Width','Configured width of the source session strike zone.','numeric','in',0,null],
+            ['pitching.location_vertical_distance','pitching','Location Vertical Distance','Source-specific vertical pitch-location distance with an unverified origin and sign convention.','numeric','in',null,null],
+            ['pitching.location_horizontal_distance','pitching','Location Horizontal Distance','Source-specific horizontal pitch-location distance with an unverified origin and sign convention.','numeric','in',null,null],
+            ['hitting.point_of_impact_x','hitting','Point of Impact X','Source-specific X coordinate of point of impact.','numeric','in',null,null],
+            ['hitting.point_of_impact_y','hitting','Point of Impact Y','Source-specific Y coordinate of point of impact.','numeric','in',null,null],
+            ['hitting.point_of_impact_z','hitting','Point of Impact Z','Source-specific Z coordinate of point of impact.','numeric','in',null,null],
+            ['hitting.bat_material','hitting','Bat Material','Source-reported bat material.','text',null,null,null],
+            ['hitting.inbound_pitch_angle','hitting','Inbound Pitch Angle','Source-measured inbound pitch angle.','numeric','deg',null,null],
+            ['hitting.batter_side','hitting','Batter Side','Side from which the hitter batted.','text',null,null,null],
+            ['session_context.competition_level','session_context','Competition Level','Source-reported competition or player level.','text',null,null,null],
+            ['session_context.opposing_player_identity','session_context','Opposing Player Identity','Optional opposing-player identity from the source event.','text',null,null,null],
+            ['session_context.event_note','session_context','Event Note','Source note or tag associated with an event.','text',null,null,null],
+            ['hitting.hittrax_points','hitting','HitTrax Points','Proprietary HitTrax platform score.','numeric','count',0,null],
         ];
         foreach ($concepts as $c) {
             $domainId = DB::table('baseball_domains')->where('key', $c[1])->value('id');
             DB::table('baseball_concepts')->updateOrInsert(['canonical_key' => $c[0]], ['id' => $this->existingId('baseball_concepts', 'canonical_key', $c[0]),'domain_id' => $domainId,'display_name' => $c[2],'definition' => $c[3],'data_type' => $c[4],'canonical_unit_key' => $c[5],'valid_min' => $c[6],'valid_max' => $c[7],'validation_severity' => 'warning','research_eligible' => false,'profile_visible' => true,'status' => 'active','created_at' => $now,'updated_at' => $now]);
         }
+        foreach (['session_context.strike_zone_bottom','session_context.strike_zone_top','session_context.strike_zone_width'] as $key) {
+            DB::table('baseball_concepts')->where('canonical_key', $key)->update(['profile_visible' => false,'research_eligible' => false]);
+        }
+        foreach (['pitching.location_vertical_distance','pitching.location_horizontal_distance','hitting.point_of_impact_x','hitting.point_of_impact_y','hitting.point_of_impact_z','hitting.impact_momentum','hitting.hittrax_points'] as $key) {
+            DB::table('baseball_concepts')->where('canonical_key', $key)->update([
+                'research_eligible' => false,
+                'metadata' => json_encode(['source_specific' => true,'source_platform' => 'hittrax','comparison_status' => 'comparable_with_caution']),
+            ]);
+        }
+        DB::table('baseball_concepts')->where('canonical_key', 'hitting.hittrax_points')->update([
+            'profile_visible' => false,
+            'metadata' => json_encode(['source_specific' => true,'source_platform' => 'hittrax','derived' => true,'comparison_status' => 'source_only']),
+        ]);
         DB::table('platform_definitions')->updateOrInsert(['key' => 'trackman'], ['id' => $this->existingId('platform_definitions', 'key', 'trackman'),'name' => 'TrackMan','description' => 'TrackMan CSV data exports.','is_active' => true,'created_at' => $now,'updated_at' => $now]);
         $platformId = DB::table('platform_definitions')->where('key', 'trackman')->value('id');
         $conversions = [['kph','mph','kph_to_mph'],['mph','kph','mph_to_kph'],['m','ft','m_to_ft'],['ft','m','ft_to_m'],['cm','in','cm_to_in'],['in','cm','in_to_cm'],['kg','lbs','kg_to_lbs'],['lbs','kg','lbs_to_kg']];
@@ -111,6 +153,32 @@ final class BaseballDictionarySeeder extends Seeder
             $conceptId = DB::table('baseball_concepts')->where('canonical_key', $key)->value('id');
             $normalized = Str::lower(preg_replace('/[^a-z0-9]/i', '', $alias));
             DB::table('baseball_concept_aliases')->updateOrInsert(['platform_definition_id' => $platformId,'normalized_alias' => $normalized], ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $platformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => 'exact_equivalent','confidence' => 100,'is_official' => true,'status' => 'active','created_at' => $now,'updated_at' => $now]);
+        }
+        DB::table('platform_definitions')->updateOrInsert(['key' => 'hittrax'], ['id' => $this->existingId('platform_definitions', 'key', 'hittrax'),'name' => 'HitTrax','description' => 'HitTrax hitting-session CSV exports.','is_active' => true,'created_at' => $now,'updated_at' => $now]);
+        $hitTraxPlatformId = DB::table('platform_definitions')->where('key', 'hittrax')->value('id');
+        $hitTraxAliases = [
+            '#' => 'session_context.event_number','AB' => 'game_outcome.plate_appearance_number','Date' => 'session_context.event_timestamp',
+            'Time Stamp' => 'session_context.elapsed_time','Pitch' => 'hitting.inbound_pitch_velocity','Strike Zone' => 'pitching.zone_number',
+            'P. Type' => 'hitting.inbound_pitch_type','Velo' => 'hitting.exit_velocity','LA' => 'hitting.launch_angle',
+            'Dist' => 'hitting.projected_distance','Res' => 'game_outcome.simulated_play_result','Type' => 'hitting.trajectory_automatic',
+            'Horiz. Angle' => 'hitting.spray_angle','Pts' => 'hitting.hittrax_points','Hand Speed' => 'hitting.hand_speed',
+            'BV' => 'hitting.bat_velocity','Trigger to Impact' => 'hitting.trigger_to_impact','AA' => 'hitting.attack_angle',
+            'Impact Momentum' => 'hitting.impact_momentum','Strike Zone Bottom' => 'session_context.strike_zone_bottom',
+            'Strike Zone Top' => 'session_context.strike_zone_top','Strike Zone Width' => 'session_context.strike_zone_width',
+            'Vertical Distance' => 'pitching.location_vertical_distance','Horizontal Distance' => 'pitching.location_horizontal_distance',
+            'POI X' => 'hitting.point_of_impact_x','POI Y' => 'hitting.point_of_impact_y','POI Z' => 'hitting.point_of_impact_z',
+            'Bat Material' => 'hitting.bat_material','User' => 'session_context.player_identity','Pitch Angle' => 'hitting.inbound_pitch_angle',
+            'Batting' => 'hitting.batter_side','Level' => 'session_context.competition_level',
+            'Opposing Player' => 'session_context.opposing_player_identity','Tag' => 'session_context.event_note',
+        ];
+        foreach($hitTraxAliases as $alias => $key) {
+            $conceptId = DB::table('baseball_concepts')->where('canonical_key', $key)->value('id');
+            $normalized = Str::lower(preg_replace('/[^a-z0-9]/i', '', $alias));
+            $relationship = in_array($alias, ['Vertical Distance','Horizontal Distance'], true) ? 'comparable_with_caution' : 'exact_equivalent';
+            DB::table('baseball_concept_aliases')->updateOrInsert(
+                ['platform_definition_id' => $hitTraxPlatformId,'normalized_alias' => $normalized],
+                ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $hitTraxPlatformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => $relationship,'confidence' => 'exact_equivalent' === $relationship ? 100 : 75,'is_official' => true,'status' => 'active','metadata' => json_encode(['source_platform' => 'hittrax']),'created_at' => $now,'updated_at' => $now]
+            );
         }
     }
 

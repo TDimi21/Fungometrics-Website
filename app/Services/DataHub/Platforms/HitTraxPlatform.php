@@ -19,6 +19,6 @@ final class HitTraxPlatform extends AbstractImportPlatform
     }
     public function supportedSessionTypes(): array
     {
-        return [ImportSessionType::Cage, ImportSessionType::LiveAb, ImportSessionType::BattingPractice];
+        return [ImportSessionType::Cage, ImportSessionType::BattingPractice];
     }
 }

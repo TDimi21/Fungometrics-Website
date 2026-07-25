@@ -20,6 +20,9 @@ export const compatibilityForConcept = (destination, concept, domains = []) => {
   const compatible = destinationDomains[destination] || []
   if (compatible.includes(domain)) return { level: 'compatible', reason: `${concept.display_name} is compatible with ${destination}.` }
   if (domain === 'session_context') return { level: 'compatible', reason: 'Session context supports every destination.' }
+  if (['pitching', 'game_outcome'].includes(domain) && ['Cage', 'Batting Practice'].includes(destination)) {
+    return { level: 'warning', reason: `${concept.display_name} is source context inside a hitting session; confirm the HitTrax meaning before importing.` }
+  }
   if (['assessment', 'body_composition', 'speed_agility'].includes(domain)) {
     return { level: 'warning', reason: `${concept.display_name} is unusual for ${destination}; confirm this context is intentional.` }
   }

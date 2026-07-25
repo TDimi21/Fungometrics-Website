@@ -31,6 +31,10 @@ final class ConceptCompatibilityService
         if (in_array($domain, self::DESTINATION_DOMAINS[$destination] ?? [], true)) {
             return 'compatible';
         }
+        if (in_array($domain, ['pitching', 'game_outcome'], true)
+            && in_array($destination, ['cage', 'batting_practice'], true)) {
+            return 'warning';
+        }
         if (in_array($domain, ['assessment', 'body_composition', 'speed_agility'], true)) {
             return 'warning';
         }
