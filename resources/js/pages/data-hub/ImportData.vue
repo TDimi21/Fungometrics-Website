@@ -60,7 +60,7 @@ const hasDuplicates = computed(() => {
   return new Set(ids).size !== ids.length
 })
 const canContinue = computed(() => {
-  if (step.value === 1) return ['trackman', 'hittrax', 'rapsodo', 'generic-csv'].includes(platformKey.value)
+  if (step.value === 1) return ['trackman', 'hittrax', 'rapsodo', 'blast-motion', 'generic-csv'].includes(platformKey.value)
   if (step.value === 2) return Boolean(selectedFile.value) && !fileError.value
   if (step.value === 3) return Boolean(selectedTeam.value && sessionType.value) && !inspecting.value
   if (step.value === 4) {
@@ -119,8 +119,8 @@ const setPlatform = nextKey => {
     Object.keys(mappings).forEach(key => delete mappings[key])
     Object.keys(columnEntries).forEach(key => delete columnEntries[key])
   }
-  sessionType.value = nextKey === 'rapsodo' ? 'Bullpen' : ''
-  inspectionError.value = ['trackman', 'hittrax', 'rapsodo', 'generic-csv'].includes(nextKey) ? '' : 'This platform is not available for inspection yet.'
+  sessionType.value = nextKey === 'rapsodo' ? 'Bullpen' : (nextKey === 'blast-motion' ? 'Batting Practice' : '')
+  inspectionError.value = ['trackman', 'hittrax', 'rapsodo', 'blast-motion', 'generic-csv'].includes(nextKey) ? '' : 'This platform is not available for inspection yet.'
 }
 const setFile = file => {
   const result = validateDataHubFile(file, selectedPlatform.value)
@@ -225,6 +225,7 @@ const inspectFile = async () => {
           sample_values: source?.sample_values || [],
           source_warnings: source?.warnings || [],
           controlled_value_transformations: source?.controlled_value_transformations || [],
+          source_specific: source?.source_specific || false,
         },
       }
     })

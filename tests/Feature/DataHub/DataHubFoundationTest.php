@@ -33,6 +33,7 @@ class DataHubFoundationTest extends TestCase
         $this->assertSame(['csv', 'xlsx'], $registry->get(ImportPlatform::TrackMan)->supportedFileTypes());
         $this->assertSame(['csv', 'xlsx'], $registry->get(ImportPlatform::HitTrax)->supportedFileTypes());
         $this->assertSame(['xlsx'], $registry->get(ImportPlatform::Rapsodo)->supportedFileTypes());
+        $this->assertSame(['csv'], $registry->get(ImportPlatform::BlastMotion)->supportedFileTypes());
 
         $this->assertSame(
             ['cage', 'live_ab', 'batting_practice', 'pitching_practice'],

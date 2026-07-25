@@ -26,6 +26,7 @@ final class BaseballDictionarySeeder extends Seeder
             'score_1_5' => ['Score 1–5','score','score','neutral'],'kph' => ['Kilometers per hour','kph','velocity','metric'],
             'm' => ['Meters','m','distance','metric'],'cm' => ['Centimeters','cm','distance','metric'],'kg' => ['Kilograms','kg','mass','metric'],
             'percent' => ['Percent','%','ratio','neutral'],
+            'g_force' => ['G-force','g','acceleration','neutral'],'kw' => ['Kilowatts','kW','power','neutral'],
         ];
         foreach ($units as $key => $unit) {
             DB::table('unit_definitions')->updateOrInsert(['key' => $key], ['id' => $this->existingId('unit_definitions', 'key', $key),'display_name' => $unit[0],'symbol' => $unit[1],'measurement_family' => $unit[2],'system' => $unit[3],'created_at' => $now,'updated_at' => $now]);
@@ -119,6 +120,19 @@ final class BaseballDictionarySeeder extends Seeder
             ['pitching.gyro_degree','pitching','Gyro Degree','Source-measured gyro degree.','numeric','deg',null,null],
             ['pitching.release_angle','pitching','Release Angle','Source-specific release-angle measurement whose plane must be confirmed.','numeric','deg',null,null],
             ['pitching.horizontal_release_angle','pitching','Horizontal Release Angle','Horizontal pitch angle at release.','numeric','deg',null,null],
+            ['hitting.bat_equipment','hitting','Bat Equipment','Exact source description of the bat or training implement.','text',null,null,null],
+            ['hitting.swing_details','hitting','Swing Details','Source-provided swing session or drill classification.','text',null,null,null],
+            ['hitting.blast_plane_score','hitting','Blast Plane Score','Proprietary Blast Motion plane composite score.','numeric',null,null,null],
+            ['hitting.blast_connection_score','hitting','Blast Connection Score','Proprietary Blast Motion connection composite score.','numeric',null,null,null],
+            ['hitting.blast_rotation_score','hitting','Blast Rotation Score','Proprietary Blast Motion rotation composite score.','numeric',null,null,null],
+            ['hitting.rotational_acceleration','hitting','Rotational Acceleration','Measured rotational acceleration under the declared device definition.','numeric','g_force',0,null],
+            ['hitting.on_plane_efficiency','hitting','On-Plane Efficiency','Percentage of the swing during which the bat is on the source-defined swing plane.','numeric','percent',0,100],
+            ['hitting.early_connection','hitting','Early Connection','Source-measured connection angle early in the swing.','numeric','deg',null,null],
+            ['hitting.connection_at_impact','hitting','Connection at Impact','Source-measured connection angle at impact.','numeric','deg',null,null],
+            ['hitting.vertical_bat_angle','hitting','Vertical Bat Angle','Vertical orientation of the bat at impact under the declared convention.','numeric','deg',null,null],
+            ['hitting.blast_swing_power','hitting','Blast Swing Power','Proprietary Blast Motion calculated swing-power value.','numeric','kw',0,null],
+            ['hitting.time_to_contact','hitting','Time to Contact','Elapsed time to contact under the declared sensor definition.','numeric','sec',0,null],
+            ['hitting.peak_hand_speed','hitting','Peak Hand Speed','Peak measured hand speed during the swing.','numeric','mph',0,null],
         ];
         foreach ($concepts as $c) {
             $domainId = DB::table('baseball_domains')->where('key', $c[1])->value('id');
@@ -141,6 +155,12 @@ final class BaseballDictionarySeeder extends Seeder
             'research_eligible' => false,
             'metadata' => json_encode(['source_specific' => true,'source_platform' => 'rapsodo','comparison_status' => 'definition_unverified']),
         ]);
+        foreach (['hitting.blast_plane_score','hitting.blast_connection_score','hitting.blast_rotation_score','hitting.blast_swing_power'] as $key) {
+            DB::table('baseball_concepts')->where('canonical_key', $key)->update([
+                'research_eligible' => false,
+                'metadata' => json_encode(['source_specific' => true,'source_platform' => 'blast-motion','derived' => true,'comparison_status' => 'source_only']),
+            ]);
+        }
         DB::table('platform_definitions')->updateOrInsert(['key' => 'trackman'], ['id' => $this->existingId('platform_definitions', 'key', 'trackman'),'name' => 'TrackMan','description' => 'TrackMan CSV data exports.','is_active' => true,'created_at' => $now,'updated_at' => $now]);
         $platformId = DB::table('platform_definitions')->where('key', 'trackman')->value('id');
         $conversions = [['kph','mph','kph_to_mph'],['mph','kph','mph_to_kph'],['m','ft','m_to_ft'],['ft','m','ft_to_m'],['cm','in','cm_to_in'],['in','cm','in_to_cm'],['kg','lbs','kg_to_lbs'],['lbs','kg','lbs_to_kg']];
@@ -219,6 +239,38 @@ final class BaseballDictionarySeeder extends Seeder
             DB::table('baseball_concept_aliases')->updateOrInsert(
                 ['platform_definition_id' => $rapsodoPlatformId,'normalized_alias' => $normalized],
                 ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $rapsodoPlatformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => 'exact_equivalent','source_unit_key' => $unit,'confidence' => 100,'is_official' => true,'status' => 'active','metadata' => json_encode(['source_platform' => 'rapsodo']),'created_at' => $now,'updated_at' => $now]
+            );
+        }
+        DB::table('platform_definitions')->updateOrInsert(['key' => 'blast-motion'], ['id' => $this->existingId('platform_definitions', 'key', 'blast-motion'),'name' => 'Blast Motion','description' => 'Blast Motion baseball swing-sensor CSV exports.','is_active' => true,'created_at' => $now,'updated_at' => $now]);
+        $blastPlatformId = DB::table('platform_definitions')->where('key', 'blast-motion')->value('id');
+        $blastAliases = [
+            'Date' => ['session_context.event_timestamp', null],
+            'Equipment' => ['hitting.bat_equipment', null],
+            'Handedness' => ['hitting.batter_side', null],
+            'Swing Details' => ['hitting.swing_details', null],
+            'Plane Score' => ['hitting.blast_plane_score', null],
+            'Connection Score' => ['hitting.blast_connection_score', null],
+            'Rotation Score' => ['hitting.blast_rotation_score', null],
+            'Bat Speed (mph)' => ['hitting.bat_speed', 'mph'],
+            'Rotational Acceleration (g)' => ['hitting.rotational_acceleration', 'g_force'],
+            'On Plane Efficiency (%)' => ['hitting.on_plane_efficiency', 'percent'],
+            'Attack Angle (deg)' => ['hitting.attack_angle', 'deg'],
+            'Early Connection (deg)' => ['hitting.early_connection', 'deg'],
+            'Connection at Impact (deg)' => ['hitting.connection_at_impact', 'deg'],
+            'Vertical Bat Angle (deg)' => ['hitting.vertical_bat_angle', 'deg'],
+            'Power (kW)' => ['hitting.blast_swing_power', 'kw'],
+            'Time to Contact (sec)' => ['hitting.time_to_contact', 'sec'],
+            'Peak Hand Speed (mph)' => ['hitting.peak_hand_speed', 'mph'],
+            'Exit Velocity (mph)' => ['hitting.exit_velocity', 'mph'],
+            'Launch Angle (deg)' => ['hitting.launch_angle', 'deg'],
+            'Estimated Distance (feet)' => ['hitting.projected_distance', 'ft'],
+        ];
+        foreach($blastAliases as $alias => [$key, $unit]) {
+            $conceptId = DB::table('baseball_concepts')->where('canonical_key', $key)->value('id');
+            $normalized = Str::lower(preg_replace('/[^a-z0-9]/i', '', $alias));
+            DB::table('baseball_concept_aliases')->updateOrInsert(
+                ['platform_definition_id' => $blastPlatformId,'normalized_alias' => $normalized],
+                ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $blastPlatformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => 'exact_equivalent','source_unit_key' => $unit,'confidence' => 100,'is_official' => true,'status' => 'active','metadata' => json_encode(['source_platform' => 'blast-motion']),'created_at' => $now,'updated_at' => $now]
             );
         }
     }

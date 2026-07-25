@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Team;
 use App\Services\DataHub\DTOs\ImportFileMetadata;
 use App\Services\DataHub\Enums\ImportSessionType;
+use App\Services\DataHub\Platforms\BlastMotion\BlastMotionInspectionService;
 use App\Services\DataHub\Platforms\HitTrax\HitTraxInspectionService;
 use App\Services\DataHub\Platforms\Rapsodo\RapsodoInspectionService;
 use App\Services\DataHub\Platforms\TrackMan\TrackManInspectionService;
@@ -22,11 +23,11 @@ use RuntimeException;
 
 final class InspectTrackManFile extends Controller
 {
-    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection, HitTraxInspectionService $hitTraxInspection, RapsodoInspectionService $rapsodoInspection, FmtrxTemplateInspector $fmtrxTemplates): JsonResponse
+    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection, HitTraxInspectionService $hitTraxInspection, RapsodoInspectionService $rapsodoInspection, BlastMotionInspectionService $blastMotionInspection, FmtrxTemplateInspector $fmtrxTemplates): JsonResponse
     {
         $maxKb = (int) ceil(((int) config('data_hub.max_file_size_bytes')) / 1024);
         $data = $request->validate([
-            'platform' => ['required', Rule::in(['trackman', 'hittrax', 'rapsodo', 'generic-csv'])],
+            'platform' => ['required', Rule::in(['trackman', 'hittrax', 'rapsodo', 'blast-motion', 'generic-csv'])],
             'team_id' => ['required', 'uuid', 'exists:teams,id'],
             'session_type' => ['required', Rule::enum(ImportSessionType::class)],
             'file' => ['required', 'file', "max:{$maxKb}"],
@@ -87,6 +88,19 @@ final class InspectTrackManFile extends Controller
                         ImportSessionType::PitchingPractice => 'Pitching Practice is compatible, but Bullpen is recommended for this workbook.',
                         ImportSessionType::Assessment => 'Assessment requires confirmation because this workbook contains a pitching session.',
                         default => 'This destination is incompatible with the detected Rapsodo pitching workbook. Choose Bullpen or Pitching Practice.',
+                    };
+                }
+
+                return response()->json(['success' => true, 'data' => $result]);
+            }
+            if ('blast-motion' === $data['platform']) {
+                $result = $blastMotionInspection->inspect($metadata);
+                $result['destination_recommendation']['selected'] = $sessionType->label();
+                if (ImportSessionType::BattingPractice !== $sessionType) {
+                    $result['warnings'][] = match ($sessionType) {
+                        ImportSessionType::Cage => 'Cage is compatible, but Batting Practice is recommended for this Blast Motion report.',
+                        ImportSessionType::Assessment => 'Assessment is compatible for baseline sensor measurements.',
+                        default => 'This destination is incompatible with the detected Blast Motion swing-sensor report.',
                     };
                 }
 

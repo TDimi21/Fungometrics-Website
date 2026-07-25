@@ -46,6 +46,11 @@ const recommendations = {
     'hitting.impact_momentum', 'hitting.point_of_impact_x', 'hitting.point_of_impact_y',
     'hitting.point_of_impact_z', 'hitting.bat_material', 'hitting.inbound_pitch_angle',
     'hitting.batter_side', 'hitting.hittrax_points', 'game_outcome.simulated_play_result',
+    'hitting.bat_equipment', 'hitting.swing_details', 'hitting.bat_speed',
+    'hitting.blast_plane_score', 'hitting.blast_connection_score', 'hitting.blast_rotation_score',
+    'hitting.rotational_acceleration', 'hitting.on_plane_efficiency', 'hitting.early_connection',
+    'hitting.connection_at_impact', 'hitting.vertical_bat_angle', 'hitting.blast_swing_power',
+    'hitting.time_to_contact', 'hitting.peak_hand_speed',
   ],
   'Batting Practice': [
     'session_context.player_identity', 'session_context.event_date', 'hitting.exit_velocity',
@@ -58,6 +63,11 @@ const recommendations = {
     'hitting.impact_momentum', 'hitting.point_of_impact_x', 'hitting.point_of_impact_y',
     'hitting.point_of_impact_z', 'hitting.bat_material', 'hitting.inbound_pitch_angle',
     'hitting.batter_side', 'hitting.hittrax_points', 'game_outcome.simulated_play_result',
+    'hitting.bat_equipment', 'hitting.swing_details', 'hitting.bat_speed',
+    'hitting.blast_plane_score', 'hitting.blast_connection_score', 'hitting.blast_rotation_score',
+    'hitting.rotational_acceleration', 'hitting.on_plane_efficiency', 'hitting.early_connection',
+    'hitting.connection_at_impact', 'hitting.vertical_bat_angle', 'hitting.blast_swing_power',
+    'hitting.time_to_contact', 'hitting.peak_hand_speed',
   ],
   Strength: [
     'session_context.player_identity', 'session_context.event_date', 'strength.bench_press',

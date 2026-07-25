@@ -16,7 +16,7 @@ describe('Data Hub Rapsodo pitching inspection', () => {
     expect(platforms).toMatch(/key:\s*'rapsodo'[\s\S]*fileTypes:\s*\['xlsx'\]/)
     expect(platforms).toMatch(/key:\s*'rapsodo'[\s\S]*sessionTypes:\s*\['Bullpen',\s*'Pitching Practice',\s*'Assessment'\]/)
     expect(page).toContain("nextKey === 'rapsodo'")
-    expect(page).toContain("? 'Bullpen' : ''")
+    expect(page).toContain("? 'Bullpen' :")
   })
 
   it('uses controlled session assignment when the workbook has no player identity', () => {

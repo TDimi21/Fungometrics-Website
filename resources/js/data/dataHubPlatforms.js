@@ -27,7 +27,7 @@ export const DATA_HUB_PLATFORMS = [
     key: 'blast-motion',
     name: 'Blast Motion',
     initials: 'BM',
-    fileTypes: ['csv', 'xlsx'],
+    fileTypes: ['csv'],
     description: 'Bat-sensor swing metrics and movement data.',
     sessionTypes: ['Cage', 'Batting Practice', 'Assessment'],
   },

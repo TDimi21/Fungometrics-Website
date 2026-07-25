@@ -4,7 +4,27 @@ Generated from the Phase 2B.1 seed on MariaDB 10.1.48. Review before canonical i
 
 > Compatible sessions are not yet persisted as concept metadata in Phase 2B.1. The report marks them as “Not constrained” rather than inferring compatibility.
 
-Current seed totals after the HitTrax and Rapsodo inspection additions: **14 domains, 90 concepts, 107 platform aliases, 17 units, and 8 conversions**.
+Current seed totals after the HitTrax, Rapsodo, and Blast Motion inspection additions: **14 domains, 103 concepts, 127 platform aliases, 19 units, and 8 conversions**.
+
+## Blast Motion additions
+
+The observed Blast baseball sensor CSV adds 20 platform-specific aliases. Existing concepts are reused for Event Timestamp, Batter Side, Bat Speed, Attack Angle, Exit Velocity, Launch Angle, and Projected Distance.
+
+| Concept | Canonical key | Unit | Source policy |
+|---|---|---|---|
+| Bat Equipment | `hitting.bat_equipment` | — | Shared source description |
+| Swing Details | `hitting.swing_details` | — | Shared source drill/session context |
+| Blast Plane Score | `hitting.blast_plane_score` | — | Blast-specific, derived, source-only |
+| Blast Connection Score | `hitting.blast_connection_score` | — | Blast-specific, derived, source-only |
+| Blast Rotation Score | `hitting.blast_rotation_score` | — | Blast-specific, derived, source-only |
+| Rotational Acceleration | `hitting.rotational_acceleration` | g-force | Shared physical measurement |
+| On-Plane Efficiency | `hitting.on_plane_efficiency` | percent | Shared physical measurement |
+| Early Connection | `hitting.early_connection` | deg | Shared physical measurement |
+| Connection at Impact | `hitting.connection_at_impact` | deg | Shared physical measurement |
+| Vertical Bat Angle | `hitting.vertical_bat_angle` | deg | Shared physical measurement |
+| Blast Swing Power | `hitting.blast_swing_power` | kW | Blast-specific, derived, source-only |
+| Time to Contact | `hitting.time_to_contact` | sec | Kept distinct from Trigger to Impact |
+| Peak Hand Speed | `hitting.peak_hand_speed` | mph | Kept distinct from Bat Speed |
 
 | Domain | Concept | Canonical key | Definition | Unit | Valid range | Compatible sessions | TrackMan aliases | Research eligible | Profile visible |
 |---|---|---|---|---|---|---|---|---:|---:|

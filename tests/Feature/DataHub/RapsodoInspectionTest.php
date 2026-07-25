@@ -86,9 +86,9 @@ final class RapsodoInspectionTest extends TestCase
         ];
         $this->assertSame([
             'domains' => 14,
-            'concepts' => 90,
-            'aliases' => 107,
-            'units' => 17,
+            'concepts' => 103,
+            'aliases' => 127,
+            'units' => 19,
             'conversions' => 8,
         ], $before);
         $this->seed(BaseballDictionarySeeder::class);

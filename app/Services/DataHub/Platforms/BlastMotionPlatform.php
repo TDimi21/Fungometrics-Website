@@ -17,6 +17,10 @@ final class BlastMotionPlatform extends AbstractImportPlatform
     {
         return 'Blast Motion';
     }
+    public function supportedFileTypes(): array
+    {
+        return ['csv'];
+    }
     public function supportedSessionTypes(): array
     {
         return [ImportSessionType::Cage, ImportSessionType::BattingPractice, ImportSessionType::Assessment];
