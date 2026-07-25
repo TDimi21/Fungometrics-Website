@@ -33,9 +33,9 @@ export const DATA_HUB_PLATFORMS = [
   },
   {
     key: 'generic-csv',
-    name: 'Generic CSV',
+    name: 'Generic Spreadsheet',
     initials: 'CSV',
-    fileTypes: ['csv', 'xlsx'],
+    fileTypes: ['csv', 'xlsx', 'tsv'],
     description: 'A flexible starting point for other baseball data sources.',
     sessionTypes: ['Cage', 'Live AB', 'Bullpen', 'Strength', 'Mobility', 'Assessment', 'Batting Practice', 'Pitching Practice'],
   },

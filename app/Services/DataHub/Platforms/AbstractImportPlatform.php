@@ -11,6 +11,6 @@ abstract class AbstractImportPlatform implements ImportPlatformContract
     /** @return array<int, string> */
     public function supportedFileTypes(): array
     {
-        return config('data_hub.extensions', ['csv', 'xlsx']);
+        return ['csv', 'xlsx'];
     }
 }

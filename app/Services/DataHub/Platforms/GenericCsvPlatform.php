@@ -15,7 +15,11 @@ final class GenericCsvPlatform extends AbstractImportPlatform
     }
     public function name(): string
     {
-        return 'Generic CSV';
+        return 'Generic Spreadsheet';
+    }
+    public function supportedFileTypes(): array
+    {
+        return ['csv', 'xlsx', 'tsv'];
     }
     public function supportedSessionTypes(): array
     {

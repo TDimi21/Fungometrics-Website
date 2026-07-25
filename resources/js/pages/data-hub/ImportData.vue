@@ -7,6 +7,7 @@ import ImportStepper from '@/components/data-hub/ImportStepper.vue'
 import PlatformSelector from '@/components/data-hub/PlatformSelector.vue'
 import FileDropzone from '@/components/data-hub/FileDropzone.vue'
 import DestinationSelector from '@/components/data-hub/DestinationSelector.vue'
+import FileStructure from '@/components/data-hub/FileStructure.vue'
 import PlayerMapping from '@/components/data-hub/PlayerMapping.vue'
 import ColumnMapping from '@/components/data-hub/ColumnMapping.vue'
 import InspectionReview from '@/components/data-hub/InspectionReview.vue'
@@ -45,6 +46,7 @@ const confirmedWarningColumns = ref([])
 const confirmedDuplicateConcepts = ref([])
 const playerMappingApproved = ref(false)
 const inspectionComplete = ref(false)
+const structurePending = ref(false)
 const sessionValues = {
   Cage: 'cage', 'Live AB': 'live_ab', Bullpen: 'bullpen', Strength: 'strength',
   Mobility: 'mobility', Assessment: 'assessment', 'Batting Practice': 'batting_practice',
@@ -64,6 +66,7 @@ const canContinue = computed(() => {
   if (step.value === 2) return Boolean(selectedFile.value) && !fileError.value
   if (step.value === 3) return Boolean(selectedTeam.value && sessionType.value) && !inspecting.value
   if (step.value === 4) {
+    if (structurePending.value) return false
     const duplicateTargets = mappingValues.value.filter((id, index, values) => values.indexOf(id) !== index)
     const everyPlayerDecided = inspection.value?.players?.every(player => Object.prototype.hasOwnProperty.call(mappings, player.source_key))
     return everyPlayerDecided && mappingValues.value.length > 0 && duplicateTargets.every(id => confirmedDuplicateTargets.value.includes(id)) && !approvingPlayers.value
@@ -174,7 +177,7 @@ const loadTeamPlayers = async () => {
   const response = await axiosGet('data-hub/player-mappings/roster', { team_id: teamId.value })
   teamPlayers.value = response.data.data
 }
-const inspectFile = async () => {
+const inspectFile = async (structure = null) => {
   inspectionError.value = ''
   inspecting.value = true
   const form = new FormData()
@@ -182,9 +185,11 @@ const inspectFile = async () => {
   form.append('team_id', teamId.value)
   form.append('session_type', sessionValues[sessionType.value])
   form.append('file', selectedFile.value)
+  if (structure) form.append('structure', JSON.stringify({ ...structure, platform: platformKey.value }))
   try {
     const [response] = await Promise.all([axiosPost('data-hub/inspect', form), loadTeamPlayers()])
     inspection.value = response.data.data
+    structurePending.value = platformKey.value === 'generic-csv' && !structure
     Object.keys(mappings).forEach(key => delete mappings[key])
     inspection.value.players.forEach(player => {
       const automatic = player.suggested_matches?.find(match => match.auto_select)
@@ -229,13 +234,17 @@ const inspectFile = async () => {
         },
       }
     })
-    selectedFile.value = null
+    if (platformKey.value !== 'generic-csv') selectedFile.value = null
     step.value = 4
   } catch (error) {
     inspectionError.value = error?.response?.data?.message || 'File inspection failed. Check the file and try again.'
   } finally {
     inspecting.value = false
   }
+}
+const applyStructure = async structure => {
+  await inspectFile(structure)
+  structurePending.value = false
 }
 const next = async () => {
   if (!canContinue.value) return
@@ -374,6 +383,7 @@ const clearWorkflow = () => {
   confirmedDuplicateConcepts.value = []
   playerMappingApproved.value = false
   inspectionComplete.value = false
+  structurePending.value = false
 }
 const cancel = () => {
   clearWorkflow()
@@ -421,6 +431,7 @@ onBeforeRouteLeave(clearWorkflow)
         <PlatformSelector v-if="step === 1" :platforms="DATA_HUB_PLATFORMS" :model-value="platformKey" @update:model-value="setPlatform" />
         <FileDropzone v-else-if="step === 2" :model-value="selectedFile" :error="fileError" :warning="fileWarning" :max-size-bytes="DATA_HUB_MAX_FILE_SIZE_BYTES" @update:model-value="setFile" />
         <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :destination-groups="DATA_HUB_DESTINATION_GROUPS" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="setTeam" @update:session-type="setSessionType" />
+        <FileStructure v-else-if="step === 4 && structurePending" :inspection="inspection" :applying="inspecting" @apply="applyStructure" />
         <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" :platform-name="inspection.detected_format?.provider || selectedPlatform?.name" :confirmed-duplicates="confirmedDuplicateTargets" @update:mapping="updateMapping" @confirm:duplicate="confirmDuplicate" @refresh-roster="loadTeamPlayers" />
         <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" :destination="sessionType" :confirmed-warnings="confirmedWarningColumns" :confirmed-duplicates="confirmedDuplicateConcepts" @update:entry="updateColumnEntry" @submit-concept="submitConcept" @confirm:warning="confirmWarning" @confirm:duplicate="confirmDuplicateConcept" />
         <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" :column-entries="columnEntries" />
@@ -429,7 +440,7 @@ onBeforeRouteLeave(clearWorkflow)
         <div v-if="inspectionComplete" class="complete-message"><strong>Inspection complete.</strong><span>No data was imported and no FMTRX records were changed.</span></div>
         <footer class="wizard-actions">
           <button type="button" class="cancel-button" @click="cancel">Cancel</button>
-          <div><button v-if="step > 1" type="button" class="back-button" @click="back">Back</button><button type="button" class="continue-button" :disabled="!canContinue" @click="next">{{ inspecting ? 'Inspecting…' : approvingPlayers ? 'Approving players…' : approvingMapping ? 'Approving…' : step === 3 ? 'Approve & Inspect' : step === 4 ? 'Approve Player Mapping' : step === 5 ? 'Approve Mapping' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
+          <div><button v-if="step > 1" type="button" class="back-button" @click="back">Back</button><button v-if="!structurePending" type="button" class="continue-button" :disabled="!canContinue" @click="next">{{ inspecting ? 'Inspecting…' : approvingPlayers ? 'Approving players…' : approvingMapping ? 'Approving…' : step === 3 ? 'Approve & Inspect' : step === 4 ? 'Approve Player Mapping' : step === 5 ? 'Approve Mapping' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
         </footer>
       </div>
     </section>

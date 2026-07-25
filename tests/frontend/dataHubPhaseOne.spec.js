@@ -100,7 +100,7 @@ describe('Data Hub Phase 1', () => {
 
   it('rejects invalid, empty, and oversized files with inline-safe errors', () => {
     expect(validateDataHubFile({ name: 'session.pdf', size: 128, type: 'application/pdf' }).error)
-      .toContain('CSV or XLSX')
+      .toContain('CSV, XLSX, or TSV')
     expect(validateDataHubFile({ name: 'empty.csv', size: 0, type: 'text/csv' }).error)
       .toContain('empty')
     expect(validateDataHubFile({

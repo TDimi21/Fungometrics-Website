@@ -4,7 +4,7 @@ const configuredMaxSize = typeof document === 'undefined'
 
 export const DATA_HUB_MAX_FILE_SIZE_BYTES = Number(configuredMaxSize || 25 * 1024 * 1024)
 
-export const DATA_HUB_EXTENSIONS = ['csv', 'xlsx']
+export const DATA_HUB_EXTENSIONS = ['csv', 'xlsx', 'tsv']
 
 export const DATA_HUB_MIME_TYPES = {
   csv: ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'],
@@ -12,6 +12,7 @@ export const DATA_HUB_MIME_TYPES = {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/zip',
   ],
+  tsv: ['text/tab-separated-values', 'text/plain', 'application/octet-stream'],
 }
 
 export const fileExtension = file =>

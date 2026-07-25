@@ -11,7 +11,7 @@ export const validateDataHubFile = (file, platform = null) => {
 
   const extension = fileExtension(file)
   if (!DATA_HUB_EXTENSIONS.includes(extension)) {
-    return { valid: false, error: 'Choose a CSV or XLSX file.', warning: '' }
+    return { valid: false, error: 'Choose a supported CSV, XLSX, or TSV spreadsheet.', warning: '' }
   }
   if (file.size === 0) {
     return {
@@ -54,4 +54,3 @@ export const nextDataHubStep = (step, state) => {
   if (step >= 4) return 4
   return allowed[step] ? step + 1 : step
 }
-

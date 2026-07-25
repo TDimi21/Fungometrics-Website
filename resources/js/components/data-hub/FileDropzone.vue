@@ -34,10 +34,10 @@ const choose = (files) => {
       </span>
       <strong>{{ modelValue ? modelValue.name : 'Drop your data file here' }}</strong>
       <small v-if="modelValue">{{ (modelValue.size / 1024 / 1024).toFixed(2) }} MB · Ready for inspection</small>
-      <small v-else>CSV or XLSX · Maximum {{ Math.round(maxSizeBytes / 1024 / 1024) }} MB</small>
+      <small v-else>CSV, XLSX, or TSV · Maximum {{ Math.round(maxSizeBytes / 1024 / 1024) }} MB</small>
       <span class="browse">{{ modelValue ? 'Choose another file' : 'Browse files' }}</span>
     </button>
-    <input ref="input" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden @change="choose($event.target.files)" />
+    <input ref="input" type="file" accept=".csv,.xlsx,.tsv,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden @change="choose($event.target.files)" />
     <p v-if="error" class="file-error">{{ error }}</p>
     <p v-else-if="warning" class="file-warning">{{ warning }}</p>
     <p class="privacy-note">The file stays in this browser until you approve inspection. It is then uploaded privately, inspected, and immediately deleted.</p>
