@@ -60,7 +60,7 @@ const hasDuplicates = computed(() => {
   return new Set(ids).size !== ids.length
 })
 const canContinue = computed(() => {
-  if (step.value === 1) return ['trackman', 'hittrax', 'generic-csv'].includes(platformKey.value)
+  if (step.value === 1) return ['trackman', 'hittrax', 'rapsodo', 'generic-csv'].includes(platformKey.value)
   if (step.value === 2) return Boolean(selectedFile.value) && !fileError.value
   if (step.value === 3) return Boolean(selectedTeam.value && sessionType.value) && !inspecting.value
   if (step.value === 4) {
@@ -119,8 +119,8 @@ const setPlatform = nextKey => {
     Object.keys(mappings).forEach(key => delete mappings[key])
     Object.keys(columnEntries).forEach(key => delete columnEntries[key])
   }
-  sessionType.value = ''
-  inspectionError.value = ['trackman', 'hittrax', 'generic-csv'].includes(nextKey) ? '' : 'This platform is not available for inspection yet.'
+  sessionType.value = nextKey === 'rapsodo' ? 'Bullpen' : ''
+  inspectionError.value = ['trackman', 'hittrax', 'rapsodo', 'generic-csv'].includes(nextKey) ? '' : 'This platform is not available for inspection yet.'
 }
 const setFile = file => {
   const result = validateDataHubFile(file, selectedPlatform.value)
@@ -221,7 +221,11 @@ const inspectFile = async () => {
         confidence: source?.default_not_importing ? 0 : resolution.confidence,
         required_type: identityColumns.includes(resolution.normalized_source_column) ? 'player_identity' : (dateColumns.includes(resolution.normalized_source_column) ? 'session_date' : null),
         action: source?.default_not_importing ? 'ignore' : (resolution.concept_id ? 'map' : 'ignore'),
-        metadata: { sample_values: source?.sample_values || [], source_warnings: source?.warnings || [] },
+        metadata: {
+          sample_values: source?.sample_values || [],
+          source_warnings: source?.warnings || [],
+          controlled_value_transformations: source?.controlled_value_transformations || [],
+        },
       }
     })
     selectedFile.value = null
@@ -272,6 +276,7 @@ const approvePlayerMapping = async () => {
         roles: player.roles,
         fmtrx_player_id: mappings[player.source_key] || null,
         not_importing: !mappings[player.source_key],
+        remember_mapping: player.remember_mapping !== false,
       })),
       confirmed_duplicate_targets: confirmedDuplicateTargets.value,
     })

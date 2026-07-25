@@ -26,10 +26,13 @@ const recommendations = {
     'hitting.projected_distance', 'game_outcome.play_result', 'pitching.strike_result',
   ],
   Bullpen: [
-    'session_context.player_identity', 'session_context.event_date', 'pitching.release_velocity',
+    'session_context.player_identity', 'session_context.event_date', 'session_context.event_number',
+    'session_context.event_time', 'pitching.release_velocity',
     'pitching.tagged_pitch_type', 'pitching.automatic_pitch_type', 'pitching.spin_rate',
-    'pitching.spin_axis', 'pitching.induced_vertical_break', 'pitching.horizontal_break',
+    'pitching.true_spin_rate', 'pitching.spin_efficiency', 'pitching.spin_direction_clock',
+    'pitching.spin_axis', 'pitching.induced_vertical_break', 'pitching.vertical_break', 'pitching.horizontal_break',
     'pitching.extension', 'pitching.release_height', 'pitching.release_side',
+    'pitching.release_angle', 'pitching.horizontal_release_angle', 'pitching.gyro_degree',
     'pitching.plate_location_height', 'pitching.plate_location_side', 'pitching.strike_result',
   ],
   Cage: [

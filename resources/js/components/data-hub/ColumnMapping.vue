@@ -54,7 +54,7 @@ const update = (column, patch) => emit('update:entry', column.source_column_name
       <div class="source"><strong>{{ column.source_column_name }}</strong><span>{{ column.sample_values?.join(' · ') || 'No sample values' }}</span></div>
       <ConceptSelector :concepts="concepts" :domains="domains" :selected-concept-id="entries[column.source_column_name]?.baseball_concept_id || ''" :destination="destination" :source-column="column" @select="update(column,{ baseball_concept_id:$event, action:'map' })" @special="update(column,{ action:$event, baseball_concept_id:null })" />
       <select :value="entries[column.source_column_name]?.source_unit_key || ''" @change="update(column,{ source_unit_key:$event.target.value || null })">
-        <option value="">Source unit</option><option value="mph">mph</option><option value="deg">degrees</option><option value="ft">feet</option><option value="in">inches</option><option value="rpm">rpm</option><option value="sec">seconds</option>
+        <option value="">Source unit</option><option value="mph">mph</option><option value="deg">degrees</option><option value="ft">feet</option><option value="in">inches</option><option value="rpm">rpm</option><option value="percent">percent</option><option value="sec">seconds</option>
       </select>
       <select :value="entries[column.source_column_name]?.action || 'ignore'" @change="update(column,{ action:$event.target.value, baseball_concept_id:$event.target.value === 'map' ? entries[column.source_column_name]?.baseball_concept_id : null })">
         <option value="map">Connected Baseball Concept</option><option value="ignore">Not Importing</option><option value="store_unknown">Remember as unknown</option><option value="submit_new">Submit new concept</option>
@@ -77,6 +77,7 @@ const update = (column, patch) => emit('update:entry', column.source_column_name
           <span>{{ compatibility(column).reason }}</span>
         </template>
         <span>Type: {{ column.details?.inferred_data_type || 'unknown' }}</span><span>Min: {{ column.details?.minimum ?? '—' }}</span><span>Max: {{ column.details?.maximum ?? '—' }}</span><span>Average: {{ column.details?.average == null ? '—' : Number(column.details.average).toFixed(2) }}</span><span>Unique: {{ column.details?.unique_value_count ?? '—' }}</span>
+        <span v-if="column.controlled_value_transformations?.length">Transformations: {{ column.controlled_value_transformations.join(' · ') }}</span>
         <button v-if="entries[column.source_column_name]?.action === 'submit_new'" type="button" @click="emit('submit-concept', column)">Submit candidate</button>
       </div>
     </article>

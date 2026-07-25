@@ -25,6 +25,7 @@ final class BaseballDictionarySeeder extends Seeder
             'score_0_10' => ['Score 0–10','score','score','neutral'],'hours' => ['Hours','hr','time','neutral'],
             'score_1_5' => ['Score 1–5','score','score','neutral'],'kph' => ['Kilometers per hour','kph','velocity','metric'],
             'm' => ['Meters','m','distance','metric'],'cm' => ['Centimeters','cm','distance','metric'],'kg' => ['Kilograms','kg','mass','metric'],
+            'percent' => ['Percent','%','ratio','neutral'],
         ];
         foreach ($units as $key => $unit) {
             DB::table('unit_definitions')->updateOrInsert(['key' => $key], ['id' => $this->existingId('unit_definitions', 'key', $key),'display_name' => $unit[0],'symbol' => $unit[1],'measurement_family' => $unit[2],'system' => $unit[3],'created_at' => $now,'updated_at' => $now]);
@@ -110,6 +111,14 @@ final class BaseballDictionarySeeder extends Seeder
             ['session_context.opposing_player_identity','session_context','Opposing Player Identity','Optional opposing-player identity from the source event.','text',null,null,null],
             ['session_context.event_note','session_context','Event Note','Source note or tag associated with an event.','text',null,null,null],
             ['hitting.hittrax_points','hitting','HitTrax Points','Proprietary HitTrax platform score.','numeric','count',0,null],
+            ['session_context.event_time','session_context','Event Time','Displayed source time associated with an event.','time',null,null,null],
+            ['pitching.true_spin_rate','pitching','True Spin Rate','Component of total spin contributing to pitch movement.','numeric','rpm',0,null],
+            ['pitching.spin_efficiency','pitching','Spin Efficiency','Percentage of total spin contributing to movement.','numeric','percent',0,100],
+            ['pitching.spin_direction_clock','pitching','Spin Direction Clock','Clock-face representation of pitch spin direction.','text',null,null,null],
+            ['pitching.vertical_break','pitching','Vertical Break','Observed vertical pitch break under the source definition; distinct from induced vertical break.','numeric','in',null,null],
+            ['pitching.gyro_degree','pitching','Gyro Degree','Source-measured gyro degree.','numeric','deg',null,null],
+            ['pitching.release_angle','pitching','Release Angle','Source-specific release-angle measurement whose plane must be confirmed.','numeric','deg',null,null],
+            ['pitching.horizontal_release_angle','pitching','Horizontal Release Angle','Horizontal pitch angle at release.','numeric','deg',null,null],
         ];
         foreach ($concepts as $c) {
             $domainId = DB::table('baseball_domains')->where('key', $c[1])->value('id');
@@ -127,6 +136,10 @@ final class BaseballDictionarySeeder extends Seeder
         DB::table('baseball_concepts')->where('canonical_key', 'hitting.hittrax_points')->update([
             'profile_visible' => false,
             'metadata' => json_encode(['source_specific' => true,'source_platform' => 'hittrax','derived' => true,'comparison_status' => 'source_only']),
+        ]);
+        DB::table('baseball_concepts')->where('canonical_key', 'pitching.release_angle')->update([
+            'research_eligible' => false,
+            'metadata' => json_encode(['source_specific' => true,'source_platform' => 'rapsodo','comparison_status' => 'definition_unverified']),
         ]);
         DB::table('platform_definitions')->updateOrInsert(['key' => 'trackman'], ['id' => $this->existingId('platform_definitions', 'key', 'trackman'),'name' => 'TrackMan','description' => 'TrackMan CSV data exports.','is_active' => true,'created_at' => $now,'updated_at' => $now]);
         $platformId = DB::table('platform_definitions')->where('key', 'trackman')->value('id');
@@ -178,6 +191,34 @@ final class BaseballDictionarySeeder extends Seeder
             DB::table('baseball_concept_aliases')->updateOrInsert(
                 ['platform_definition_id' => $hitTraxPlatformId,'normalized_alias' => $normalized],
                 ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $hitTraxPlatformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => $relationship,'confidence' => 'exact_equivalent' === $relationship ? 100 : 75,'is_official' => true,'status' => 'active','metadata' => json_encode(['source_platform' => 'hittrax']),'created_at' => $now,'updated_at' => $now]
+            );
+        }
+        DB::table('platform_definitions')->updateOrInsert(['key' => 'rapsodo'], ['id' => $this->existingId('platform_definitions', 'key', 'rapsodo'),'name' => 'Rapsodo','description' => 'Rapsodo pitching XLSX exports.','is_active' => true,'created_at' => $now,'updated_at' => $now]);
+        $rapsodoPlatformId = DB::table('platform_definitions')->where('key', 'rapsodo')->value('id');
+        $rapsodoAliases = [
+            'no' => ['session_context.event_number', null],
+            'time' => ['session_context.event_time', null],
+            'pitch_type' => ['pitching.tagged_pitch_type', null],
+            'velocity' => ['pitching.release_velocity', 'mph'],
+            'spin_rate' => ['pitching.spin_rate', 'rpm'],
+            'true_spin' => ['pitching.true_spin_rate', 'rpm'],
+            'spin_eff' => ['pitching.spin_efficiency', 'percent'],
+            'spin_direction' => ['pitching.spin_direction_clock', null],
+            'horz_break' => ['pitching.horizontal_break', 'in'],
+            'vert_break' => ['pitching.vertical_break', 'in'],
+            'strike' => ['pitching.strike_result', null],
+            'rel_ht' => ['pitching.release_height', 'ft'],
+            'rel_side' => ['pitching.release_side', 'ft'],
+            'r_angle' => ['pitching.release_angle', 'deg'],
+            'h_angle' => ['pitching.horizontal_release_angle', 'deg'],
+            'gyro' => ['pitching.gyro_degree', 'deg'],
+        ];
+        foreach($rapsodoAliases as $alias => [$key, $unit]) {
+            $conceptId = DB::table('baseball_concepts')->where('canonical_key', $key)->value('id');
+            $normalized = Str::lower(preg_replace('/[^a-z0-9]/i', '', $alias));
+            DB::table('baseball_concept_aliases')->updateOrInsert(
+                ['platform_definition_id' => $rapsodoPlatformId,'normalized_alias' => $normalized],
+                ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $rapsodoPlatformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => 'exact_equivalent','source_unit_key' => $unit,'confidence' => 100,'is_official' => true,'status' => 'active','metadata' => json_encode(['source_platform' => 'rapsodo']),'created_at' => $now,'updated_at' => $now]
             );
         }
     }

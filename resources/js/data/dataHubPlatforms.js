@@ -19,9 +19,9 @@ export const DATA_HUB_PLATFORMS = [
     key: 'rapsodo',
     name: 'Rapsodo',
     initials: 'RA',
-    fileTypes: ['csv', 'xlsx'],
+    fileTypes: ['xlsx'],
     description: 'Pitching and hitting performance measurements.',
-    sessionTypes: ['Cage', 'Bullpen', 'Batting Practice', 'Pitching Practice'],
+    sessionTypes: ['Bullpen', 'Pitching Practice', 'Assessment'],
   },
   {
     key: 'blast-motion',

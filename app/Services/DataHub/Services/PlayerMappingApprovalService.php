@@ -57,7 +57,7 @@ final class PlayerMappingApprovalService
 
         DB::transaction(function () use ($user, $teamId, $platformId, $mappings): void {
             foreach ($mappings as $mapping) {
-                if (empty($mapping['fmtrx_player_id'])) {
+                if (empty($mapping['fmtrx_player_id']) || false === ($mapping['remember_mapping'] ?? true)) {
                     continue;
                 }
                 $normalized = app(PlayerMatchingService::class)->normalize($mapping['source_name']);

@@ -9,6 +9,7 @@ use App\Models\Team;
 use App\Services\DataHub\DTOs\ImportFileMetadata;
 use App\Services\DataHub\Enums\ImportSessionType;
 use App\Services\DataHub\Platforms\HitTrax\HitTraxInspectionService;
+use App\Services\DataHub\Platforms\Rapsodo\RapsodoInspectionService;
 use App\Services\DataHub\Platforms\TrackMan\TrackManInspectionService;
 use App\Services\DataHub\Services\FmtrxDestination;
 use App\Services\DataHub\Templates\FmtrxTemplateInspector;
@@ -21,11 +22,11 @@ use RuntimeException;
 
 final class InspectTrackManFile extends Controller
 {
-    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection, HitTraxInspectionService $hitTraxInspection, FmtrxTemplateInspector $fmtrxTemplates): JsonResponse
+    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection, HitTraxInspectionService $hitTraxInspection, RapsodoInspectionService $rapsodoInspection, FmtrxTemplateInspector $fmtrxTemplates): JsonResponse
     {
         $maxKb = (int) ceil(((int) config('data_hub.max_file_size_bytes')) / 1024);
         $data = $request->validate([
-            'platform' => ['required', Rule::in(['trackman', 'hittrax', 'generic-csv'])],
+            'platform' => ['required', Rule::in(['trackman', 'hittrax', 'rapsodo', 'generic-csv'])],
             'team_id' => ['required', 'uuid', 'exists:teams,id'],
             'session_type' => ['required', Rule::enum(ImportSessionType::class)],
             'file' => ['required', 'file', "max:{$maxKb}"],
@@ -43,8 +44,11 @@ final class InspectTrackManFile extends Controller
         if ('' !== $mime && 'application/octet-stream' !== $mime && ! in_array($mime, $allowedMimes, true)) {
             return response()->json(['success' => false, 'message' => 'The uploaded file content type is not valid for its extension.'], 422);
         }
-        if ('xlsx' === $extension) {
+        if ('xlsx' === $extension && 'rapsodo' !== $data['platform']) {
             return response()->json(['success' => false, 'message' => 'XLSX inspection is awaiting approval of a maintained PHP spreadsheet reader. Export CSV to continue.'], 422);
+        }
+        if ('rapsodo' === $data['platform'] && 'xlsx' !== $extension) {
+            return response()->json(['success' => false, 'message' => 'This Rapsodo pitching format requires an XLSX workbook.'], 422);
         }
         $team = Team::query()->findOrFail($data['team_id']);
         $sessionType = ImportSessionType::from($data['session_type']);
@@ -71,6 +75,19 @@ final class InspectTrackManFile extends Controller
                 $result['destination_recommendation']['selected'] = $sessionType->label();
                 if ( ! in_array($sessionType, [ImportSessionType::BattingPractice, ImportSessionType::Cage], true)) {
                     $result['warnings'][] = 'Batting Practice or Cage is recommended for this HitTrax hitting export.';
+                }
+
+                return response()->json(['success' => true, 'data' => $result]);
+            }
+            if ('rapsodo' === $data['platform']) {
+                $result = $rapsodoInspection->inspect($metadata);
+                $result['destination_recommendation']['selected'] = $sessionType->label();
+                if (ImportSessionType::Bullpen !== $sessionType) {
+                    $result['warnings'][] = match ($sessionType) {
+                        ImportSessionType::PitchingPractice => 'Pitching Practice is compatible, but Bullpen is recommended for this workbook.',
+                        ImportSessionType::Assessment => 'Assessment requires confirmation because this workbook contains a pitching session.',
+                        default => 'This destination is incompatible with the detected Rapsodo pitching workbook. Choose Bullpen or Pitching Practice.',
+                    };
                 }
 
                 return response()->json(['success' => true, 'data' => $result]);

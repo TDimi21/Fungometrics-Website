@@ -17,8 +17,12 @@ final class RapsodoPlatform extends AbstractImportPlatform
     {
         return 'Rapsodo';
     }
+    public function supportedFileTypes(): array
+    {
+        return ['xlsx'];
+    }
     public function supportedSessionTypes(): array
     {
-        return [ImportSessionType::Cage, ImportSessionType::Bullpen, ImportSessionType::BattingPractice, ImportSessionType::PitchingPractice];
+        return [ImportSessionType::Bullpen, ImportSessionType::PitchingPractice, ImportSessionType::Assessment];
     }
 }

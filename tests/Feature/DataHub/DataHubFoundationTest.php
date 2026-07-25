@@ -30,9 +30,9 @@ class DataHubFoundationTest extends TestCase
     public function test_platform_file_and_session_capabilities_are_exact(): void
     {
         $registry = app(PlatformRegistry::class);
-        foreach ($registry->all() as $platform) {
-            $this->assertSame(['csv', 'xlsx'], $platform->supportedFileTypes());
-        }
+        $this->assertSame(['csv', 'xlsx'], $registry->get(ImportPlatform::TrackMan)->supportedFileTypes());
+        $this->assertSame(['csv', 'xlsx'], $registry->get(ImportPlatform::HitTrax)->supportedFileTypes());
+        $this->assertSame(['xlsx'], $registry->get(ImportPlatform::Rapsodo)->supportedFileTypes());
 
         $this->assertSame(
             ['cage', 'live_ab', 'batting_practice', 'pitching_practice'],
@@ -43,7 +43,7 @@ class DataHubFoundationTest extends TestCase
             $this->sessionValues($registry->get(ImportPlatform::HitTrax)->supportedSessionTypes())
         );
         $this->assertSame(
-            ['cage', 'bullpen', 'batting_practice', 'pitching_practice'],
+            ['bullpen', 'pitching_practice', 'assessment'],
             $this->sessionValues($registry->get(ImportPlatform::Rapsodo)->supportedSessionTypes())
         );
         $this->assertSame(

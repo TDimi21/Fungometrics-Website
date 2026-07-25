@@ -4,6 +4,8 @@ Generated from the Phase 2B.1 seed on MariaDB 10.1.48. Review before canonical i
 
 > Compatible sessions are not yet persisted as concept metadata in Phase 2B.1. The report marks them as “Not constrained” rather than inferring compatibility.
 
+Current seed totals after the HitTrax and Rapsodo inspection additions: **14 domains, 90 concepts, 107 platform aliases, 17 units, and 8 conversions**.
+
 | Domain | Concept | Canonical key | Definition | Unit | Valid range | Compatible sessions | TrackMan aliases | Research eligible | Profile visible |
 |---|---|---|---|---|---|---|---|---:|---:|
 | Body Composition | Body Weight | `body_composition.body_weight` | Measured body weight. | lbs | 0.000000 to ∞ | Not constrained | — | No | Yes |
@@ -35,12 +37,20 @@ Generated from the Phase 2B.1 seed on MariaDB 10.1.48. Review before canonical i
 | Pitching | Release Height | `pitching.release_height` | Vertical release position. | ft | 0.000000 to ∞ | Not constrained | ReleaseHeight | No | Yes |
 | Pitching | Release Side | `pitching.release_side` | Horizontal release position under the declared convention. | ft | Unbounded warning range | Not constrained | ReleaseSide | No | Yes |
 | Pitching | Release Velocity | `pitching.release_velocity` | Ball velocity at or near release under the declared source method. | mph | 0.000000 to 110.000000 | Not constrained | PitchVelocity, ReleaseSpeed, RelSpeed | No | Yes |
+| Pitching | Gyro Degree | `pitching.gyro_degree` | Source-measured gyro degree. | deg | Unbounded warning range | Bullpen, Pitching Practice, Assessment | Rapsodo: gyro | No | Yes |
+| Pitching | Horizontal Release Angle | `pitching.horizontal_release_angle` | Horizontal pitch angle at release. | deg | Unbounded warning range | Bullpen, Pitching Practice, Assessment | Rapsodo: h_angle | No | Yes |
+| Pitching | Release Angle | `pitching.release_angle` | Source-specific release-angle measurement whose plane must be confirmed. | deg | Unbounded warning range | Bullpen, Pitching Practice, Assessment | Rapsodo: r_angle | No | Yes |
+| Pitching | Spin Direction Clock | `pitching.spin_direction_clock` | Clock-face representation of pitch spin direction. | — | Validated clock representation | Bullpen, Pitching Practice, Assessment | Rapsodo: spin_direction | No | Yes |
+| Pitching | Spin Efficiency | `pitching.spin_efficiency` | Percentage of total spin contributing to movement. | percent | 0.000000 to 100.000000 | Bullpen, Pitching Practice, Assessment | Rapsodo: spin_eff | No | Yes |
 | Pitching | Strike Result | `pitching.strike_result` | Whether the pitch was recorded as a strike. | — | Unbounded warning range | Not constrained | — | No | Yes |
 | Pitching | Tagged Pitch Type | `pitching.tagged_pitch_type` | Human-tagged pitch classification. | — | Unbounded warning range | Not constrained | Tagged Pitch Type | No | Yes |
+| Pitching | True Spin Rate | `pitching.true_spin_rate` | Component of total spin contributing to pitch movement. | rpm | 0.000000 to ∞ | Bullpen, Pitching Practice, Assessment | Rapsodo: true_spin | No | Yes |
+| Pitching | Vertical Break | `pitching.vertical_break` | Observed vertical pitch break under the source definition; distinct from induced vertical break. | in | Unbounded warning range | Bullpen, Pitching Practice, Assessment | Rapsodo: vert_break | No | Yes |
 | Recovery | Sleep Duration | `recovery.sleep_duration` | Reported sleep duration. | hours | 0.000000 to 24.000000 | Not constrained | — | No | Yes |
 | Recovery | Sleep Quality | `recovery.sleep_quality` | Reported sleep quality on a 1–5 scale. | score_1_5 | 1.000000 to 5.000000 | Not constrained | — | No | Yes |
 | Session Context | Event Date | `session_context.event_date` | Source date associated with an event or session. | — | Unbounded warning range | Not constrained | Date, GameDate, SessionDate | No | Yes |
 | Session Context | Event Identifier | `session_context.event_identifier` | Stable source event identifier. | — | Unbounded warning range | Not constrained | EventId, PitchNo, PitchNumber, PitchUID | No | Yes |
+| Session Context | Event Time | `session_context.event_time` | Displayed source time associated with an event. | — | Time-of-day representation | Bullpen, Pitching Practice, Assessment | Rapsodo: time | No | Yes |
 | Session Context | Facility | `session_context.facility` | Source facility or venue name. | — | Unbounded warning range | Not constrained | Facility, Stadium, Venue | No | Yes |
 | Session Context | Measurement System | `session_context.system` | Source measurement system identifier. | — | Unbounded warning range | Not constrained | RadarSystem, System, TrackingSystem | No | Yes |
 | Session Context | Player Identity | `session_context.player_identity` | Source participant identity used for player mapping. | — | Unbounded warning range | Not constrained | Batter, Batter Name, Hitter, Pitcher, Pitcher Name | No | Yes |
