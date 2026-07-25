@@ -9,7 +9,13 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        Schema::create('baseball_domains', function (Blueprint $table): void {
+        $create = static function (string $name, callable $definition): void {
+            if ( ! Schema::hasTable($name)) {
+                Schema::create($name, $definition);
+            }
+        };
+
+        $create('baseball_domains', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('key', 64)->unique();
             $table->string('name');
@@ -18,7 +24,7 @@ return new class () extends Migration {
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
-        Schema::create('unit_definitions', function (Blueprint $table): void {
+        $create('unit_definitions', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('key', 64)->unique();
             $table->string('display_name');
@@ -27,7 +33,7 @@ return new class () extends Migration {
             $table->string('system', 32);
             $table->timestamps();
         });
-        Schema::create('baseball_concepts', function (Blueprint $table): void {
+        $create('baseball_concepts', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('domain_id')->constrained('baseball_domains');
             $table->string('canonical_key', 128)->unique();
@@ -44,7 +50,7 @@ return new class () extends Migration {
             $table->longText('metadata')->nullable();
             $table->timestamps();
         });
-        Schema::create('platform_definitions', function (Blueprint $table): void {
+        $create('platform_definitions', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('key', 64)->unique();
             $table->string('name');
@@ -53,7 +59,7 @@ return new class () extends Migration {
             $table->longText('metadata')->nullable();
             $table->timestamps();
         });
-        Schema::create('baseball_concept_aliases', function (Blueprint $table): void {
+        $create('baseball_concept_aliases', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('baseball_concept_id')->constrained('baseball_concepts');
             $table->foreignUuid('platform_definition_id')->nullable()->constrained('platform_definitions');
@@ -69,7 +75,7 @@ return new class () extends Migration {
             $table->timestamps();
             $table->unique(['platform_definition_id', 'normalized_alias'], 'concept_alias_platform_unique');
         });
-        Schema::create('unit_conversions', function (Blueprint $table): void {
+        $create('unit_conversions', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('source_unit_id')->constrained('unit_definitions');
             $table->foreignUuid('target_unit_id')->constrained('unit_definitions');
@@ -78,7 +84,7 @@ return new class () extends Migration {
             $table->timestamps();
             $table->unique(['source_unit_id', 'target_unit_id'], 'unit_conversion_unique');
         });
-        Schema::create('mapping_templates', function (Blueprint $table): void {
+        $create('mapping_templates', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('team_id')->constrained('teams');
             $table->foreignUuid('platform_definition_id')->constrained('platform_definitions');
@@ -90,7 +96,7 @@ return new class () extends Migration {
             $table->timestamps();
             $table->unique(['team_id', 'platform_definition_id', 'template_fingerprint'], 'mapping_template_scope_unique');
         });
-        Schema::create('mapping_template_versions', function (Blueprint $table): void {
+        $create('mapping_template_versions', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('mapping_template_id')->constrained('mapping_templates')->cascadeOnDelete();
             $table->unsignedInteger('version');
@@ -103,7 +109,7 @@ return new class () extends Migration {
             $table->timestamps();
             $table->unique(['mapping_template_id', 'version'], 'mapping_template_version_unique');
         });
-        Schema::create('mapping_entries', function (Blueprint $table): void {
+        $create('mapping_entries', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('mapping_template_version_id')->constrained('mapping_template_versions')->cascadeOnDelete();
             $table->string('source_column_name');
@@ -120,7 +126,7 @@ return new class () extends Migration {
             $table->timestamps();
             $table->unique(['mapping_template_version_id', 'normalized_source_column'], 'mapping_entry_source_unique');
         });
-        Schema::create('unknown_source_columns', function (Blueprint $table): void {
+        $create('unknown_source_columns', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('team_id')->constrained('teams');
             $table->foreignUuid('platform_definition_id')->constrained('platform_definitions');
@@ -130,14 +136,14 @@ return new class () extends Migration {
             $table->longText('sample_values')->nullable();
             $table->string('inferred_data_type', 32)->nullable();
             $table->unsignedInteger('occurrence_count')->default(1);
-            $table->timestamp('first_seen_at');
-            $table->timestamp('last_seen_at');
+            $table->timestamp('first_seen_at')->nullable();
+            $table->timestamp('last_seen_at')->nullable();
             $table->string('status', 32)->default('unresolved');
             $table->foreignUuid('resolved_concept_id')->nullable()->constrained('baseball_concepts');
             $table->timestamps();
             $table->unique(['team_id', 'platform_definition_id', 'template_fingerprint', 'normalized_source_column'], 'unknown_column_scope_unique');
         });
-        Schema::create('concept_submissions', function (Blueprint $table): void {
+        $create('concept_submissions', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('team_id')->constrained('teams');
             $table->foreignUuid('submitted_by')->constrained('users');
