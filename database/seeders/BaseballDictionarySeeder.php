@@ -167,7 +167,7 @@ final class BaseballDictionarySeeder extends Seeder
         foreach($conversions as [$source,$target,$key]) {
             DB::table('unit_conversions')->updateOrInsert(['source_unit_id' => DB::table('unit_definitions')->where('key', $source)->value('id'),'target_unit_id' => DB::table('unit_definitions')->where('key', $target)->value('id')], ['id' => $this->existingId('unit_conversions', 'transformation_key', $key),'transformation_key' => $key,'is_active' => true,'created_at' => $now,'updated_at' => $now]);
         }
-        $aliases = ['ExitSpeed' => 'hitting.exit_velocity','Angle' => 'hitting.launch_angle','Direction' => 'hitting.spray_angle','Distance' => 'hitting.projected_distance','LastTrackedDistance' => 'hitting.last_tracked_distance','HangTime' => 'hitting.hang_time','MaxHeight' => 'hitting.maximum_height','HitSpinRate' => 'hitting.ball_spin_rate','HitSpinAxis' => 'hitting.ball_spin_axis','TaggedHitType' => 'hitting.trajectory','AutoHitType' => 'hitting.trajectory','RelSpeed' => 'pitching.release_velocity','TaggedPitchType' => 'pitching.tagged_pitch_type','AutoPitchType' => 'pitching.automatic_pitch_type','SpinRate' => 'pitching.spin_rate','SpinAxis' => 'pitching.spin_axis','InducedVertBreak' => 'pitching.induced_vertical_break','HorzBreak' => 'pitching.horizontal_break','Extension' => 'pitching.extension','ReleaseHeight' => 'pitching.release_height','ReleaseSide' => 'pitching.release_side','PlateLocHeight' => 'pitching.plate_location_height','PlateLocSide' => 'pitching.plate_location_side'];
+        $aliases = ['ExitSpeed' => 'hitting.exit_velocity','Angle' => 'hitting.launch_angle','Direction' => 'hitting.spray_angle','Distance' => 'hitting.projected_distance','LastTrackedDistance' => 'hitting.last_tracked_distance','HangTime' => 'hitting.hang_time','MaxHeight' => 'hitting.maximum_height','HitSpinRate' => 'hitting.ball_spin_rate','HitSpinAxis' => 'hitting.ball_spin_axis','TaggedHitType' => 'hitting.trajectory','AutoHitType' => 'hitting.trajectory_automatic','RelSpeed' => 'pitching.release_velocity','TaggedPitchType' => 'pitching.tagged_pitch_type','AutoPitchType' => 'pitching.automatic_pitch_type','SpinRate' => 'pitching.spin_rate','SpinAxis' => 'pitching.spin_axis','InducedVertBreak' => 'pitching.induced_vertical_break','HorzBreak' => 'pitching.horizontal_break','Extension' => 'pitching.extension','ReleaseHeight' => 'pitching.release_height','ReleaseSide' => 'pitching.release_side','PlateLocHeight' => 'pitching.plate_location_height','PlateLocSide' => 'pitching.plate_location_side'];
         $aliases = ['Batter' => 'session_context.player_identity','Pitcher' => 'session_context.player_identity','Date' => 'session_context.event_date','Stadium' => 'session_context.facility','System' => 'session_context.system','PitchUID' => 'session_context.event_identifier'] + $aliases;
         $aliases += [
             'BatterName' => 'session_context.player_identity','Batter Name' => 'session_context.player_identity','Hitter' => 'session_context.player_identity',
@@ -178,14 +178,25 @@ final class BaseballDictionarySeeder extends Seeder
             'LaunchAngle' => 'hitting.launch_angle','Launch Angle' => 'hitting.launch_angle','SprayAngle' => 'hitting.spray_angle','Spray Angle' => 'hitting.spray_angle',
             'CarryDistance' => 'hitting.projected_distance','HitDistance' => 'hitting.projected_distance','Last Tracked Distance' => 'hitting.last_tracked_distance',
             'Hit Spin Rate' => 'hitting.ball_spin_rate','Hit Spin Axis' => 'hitting.ball_spin_axis','Hang Time' => 'hitting.hang_time','MaximumHeight' => 'hitting.maximum_height','Max Height' => 'hitting.maximum_height',
-            'Tagged Hit Type' => 'hitting.trajectory','AutomaticHitType' => 'hitting.trajectory','ReleaseSpeed' => 'pitching.release_velocity','PitchVelocity' => 'pitching.release_velocity',
+            'Tagged Hit Type' => 'hitting.trajectory','AutomaticHitType' => 'hitting.trajectory_automatic','ReleaseSpeed' => 'pitching.release_velocity','PitchVelocity' => 'pitching.release_velocity',
             'Tagged Pitch Type' => 'pitching.tagged_pitch_type','AutomaticPitchType' => 'pitching.automatic_pitch_type','PitchSpinRate' => 'pitching.spin_rate',
             'IVB' => 'pitching.induced_vertical_break','HorizontalBreak' => 'pitching.horizontal_break','ReleaseExtension' => 'pitching.extension',
+        ];
+        $trackManUnits = [
+            'ExitSpeed' => 'mph','ExitVelocity' => 'mph','Exit Velo' => 'mph','ExitSpeedMPH' => 'mph',
+            'Angle' => 'deg','LaunchAngle' => 'deg','Launch Angle' => 'deg','Direction' => 'deg','SprayAngle' => 'deg','Spray Angle' => 'deg',
+            'Distance' => 'ft','CarryDistance' => 'ft','HitDistance' => 'ft','LastTrackedDistance' => 'ft','Last Tracked Distance' => 'ft',
+            'HangTime' => 'sec','Hang Time' => 'sec','MaxHeight' => 'ft','MaximumHeight' => 'ft','Max Height' => 'ft',
+            'HitSpinRate' => 'rpm','Hit Spin Rate' => 'rpm','HitSpinAxis' => 'deg','Hit Spin Axis' => 'deg',
+            'RelSpeed' => 'mph','ReleaseSpeed' => 'mph','PitchVelocity' => 'mph','SpinRate' => 'rpm','PitchSpinRate' => 'rpm',
+            'SpinAxis' => 'deg','InducedVertBreak' => 'in','IVB' => 'in','HorzBreak' => 'in','HorizontalBreak' => 'in',
+            'Extension' => 'ft','ReleaseExtension' => 'ft','ReleaseHeight' => 'ft','ReleaseSide' => 'ft',
+            'PlateLocHeight' => 'ft','PlateLocSide' => 'ft',
         ];
         foreach($aliases as $alias => $key) {
             $conceptId = DB::table('baseball_concepts')->where('canonical_key', $key)->value('id');
             $normalized = Str::lower(preg_replace('/[^a-z0-9]/i', '', $alias));
-            DB::table('baseball_concept_aliases')->updateOrInsert(['platform_definition_id' => $platformId,'normalized_alias' => $normalized], ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $platformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => 'exact_equivalent','confidence' => 100,'is_official' => true,'status' => 'active','created_at' => $now,'updated_at' => $now]);
+            DB::table('baseball_concept_aliases')->updateOrInsert(['platform_definition_id' => $platformId,'normalized_alias' => $normalized], ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $platformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => 'exact_equivalent','source_unit_key' => $trackManUnits[$alias] ?? null,'confidence' => 100,'is_official' => true,'status' => 'active','created_at' => $now,'updated_at' => $now]);
         }
         DB::table('platform_definitions')->updateOrInsert(['key' => 'hittrax'], ['id' => $this->existingId('platform_definitions', 'key', 'hittrax'),'name' => 'HitTrax','description' => 'HitTrax hitting-session CSV exports.','is_active' => true,'created_at' => $now,'updated_at' => $now]);
         $hitTraxPlatformId = DB::table('platform_definitions')->where('key', 'hittrax')->value('id');
@@ -204,13 +215,19 @@ final class BaseballDictionarySeeder extends Seeder
             'Batting' => 'hitting.batter_side','Level' => 'session_context.competition_level',
             'Opposing Player' => 'session_context.opposing_player_identity','Tag' => 'session_context.event_note',
         ];
+        $hitTraxUnits = [
+            'Pitch' => 'mph','Velo' => 'mph','LA' => 'deg','Dist' => 'ft','Horiz. Angle' => 'deg',
+            'Hand Speed' => 'mph','BV' => 'mph','Trigger to Impact' => 'sec','AA' => 'deg',
+            'Strike Zone Bottom' => 'in','Strike Zone Top' => 'in','Strike Zone Width' => 'in',
+            'Vertical Distance' => 'in','Horizontal Distance' => 'in','Pitch Angle' => 'deg',
+        ];
         foreach($hitTraxAliases as $alias => $key) {
             $conceptId = DB::table('baseball_concepts')->where('canonical_key', $key)->value('id');
             $normalized = Str::lower(preg_replace('/[^a-z0-9]/i', '', $alias));
             $relationship = in_array($alias, ['Vertical Distance','Horizontal Distance'], true) ? 'comparable_with_caution' : 'exact_equivalent';
             DB::table('baseball_concept_aliases')->updateOrInsert(
                 ['platform_definition_id' => $hitTraxPlatformId,'normalized_alias' => $normalized],
-                ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $hitTraxPlatformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => $relationship,'confidence' => 'exact_equivalent' === $relationship ? 100 : 75,'is_official' => true,'status' => 'active','metadata' => json_encode(['source_platform' => 'hittrax']),'created_at' => $now,'updated_at' => $now]
+                ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $hitTraxPlatformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => $relationship,'source_unit_key' => $hitTraxUnits[$alias] ?? null,'confidence' => 'exact_equivalent' === $relationship ? 100 : 75,'is_official' => true,'status' => 'active','metadata' => json_encode(['source_platform' => 'hittrax']),'created_at' => $now,'updated_at' => $now]
             );
         }
         DB::table('platform_definitions')->updateOrInsert(['key' => 'rapsodo'], ['id' => $this->existingId('platform_definitions', 'key', 'rapsodo'),'name' => 'Rapsodo','description' => 'Rapsodo pitching XLSX exports.','is_active' => true,'created_at' => $now,'updated_at' => $now]);

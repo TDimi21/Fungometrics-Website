@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "purpose": "FMTRX Baseball Translation Engine v1 cross-platform semantic certification",
+  "equivalence_groups": [
+    {
+      "id": "exit_velocity",
+      "canonical_key": "hitting.exit_velocity",
+      "canonical_unit": "mph",
+      "cases": [
+        {"platform": "trackman", "source_header": "ExitSpeed", "source_unit": "mph", "raw_value": 103.2, "normalized_value": 103.2, "relationship_type": "exact_equivalent"},
+        {"platform": "hittrax", "source_header": "Velo", "source_unit": "mph", "raw_value": 103.2, "normalized_value": 103.2, "relationship_type": "exact_equivalent"},
+        {"platform": "blast-motion", "source_header": "Exit Velocity (mph)", "source_unit": "mph", "raw_value": 103.2, "normalized_value": 103.2, "relationship_type": "exact_equivalent"}
+      ]
+    },
+    {
+      "id": "launch_angle",
+      "canonical_key": "hitting.launch_angle",
+      "canonical_unit": "deg",
+      "cases": [
+        {"platform": "trackman", "source_header": "Angle", "source_unit": "deg", "raw_value": 24.5, "normalized_value": 24.5, "relationship_type": "exact_equivalent"},
+        {"platform": "hittrax", "source_header": "LA", "source_unit": "deg", "raw_value": 24.5, "normalized_value": 24.5, "relationship_type": "exact_equivalent"},
+        {"platform": "blast-motion", "source_header": "Launch Angle (deg)", "source_unit": "deg", "raw_value": 24.5, "normalized_value": 24.5, "relationship_type": "exact_equivalent"}
+      ]
+    },
+    {
+      "id": "spray_angle",
+      "canonical_key": "hitting.spray_angle",
+      "canonical_unit": "deg",
+      "cases": [
+        {"platform": "trackman", "source_header": "Direction", "source_unit": "deg", "raw_value": -8.2, "normalized_value": -8.2, "relationship_type": "exact_equivalent", "source_metadata": {"sign_convention": "preserve_source_until_approved"}},
+        {"platform": "hittrax", "source_header": "Horiz. Angle", "source_unit": "deg", "raw_value": -8.2, "normalized_value": -8.2, "relationship_type": "exact_equivalent", "source_metadata": {"sign_convention": "preserve_source_until_approved"}}
+      ]
+    },
+    {
+      "id": "release_velocity",
+      "canonical_key": "pitching.release_velocity",
+      "canonical_unit": "mph",
+      "cases": [
+        {"platform": "trackman", "source_header": "RelSpeed", "source_unit": "mph", "raw_value": 92.4, "normalized_value": 92.4, "relationship_type": "exact_equivalent"},
+        {"platform": "rapsodo", "source_header": "velocity", "source_unit": "mph", "raw_value": 92.4, "normalized_value": 92.4, "relationship_type": "exact_equivalent"}
+      ]
+    }
+  ],
+  "non_equivalence_cases": [
+    {"id": "inbound_vs_release_velocity", "platform": "hittrax", "source_header": "Pitch", "canonical_key": "hitting.inbound_pitch_velocity", "must_not_equal": "pitching.release_velocity", "semantic_relationship": "related_but_separate", "source_unit": "mph"},
+    {"id": "bat_speed_vs_exit_velocity", "platform": "blast-motion", "source_header": "Bat Speed (mph)", "canonical_key": "hitting.bat_speed", "must_not_equal": "hitting.exit_velocity"},
+    {"id": "hand_speed_vs_bat_speed", "platform": "blast-motion", "source_header": "Peak Hand Speed (mph)", "canonical_key": "hitting.peak_hand_speed", "must_not_equal": "hitting.bat_speed"},
+    {"id": "projected_vs_measured_carry", "platform": "trackman", "source_header": "Distance", "canonical_key": "hitting.projected_distance", "must_not_equal": "hitting.measured_carry_distance"},
+    {"id": "simulated_vs_real_result", "platform": "hittrax", "source_header": "Res", "canonical_key": "game_outcome.simulated_play_result", "must_not_equal": "game_outcome.play_result"},
+    {"id": "tagged_vs_automatic_trajectory", "platform": "trackman", "source_header": "TaggedHitType", "canonical_key": "hitting.trajectory", "must_not_equal": "hitting.trajectory_automatic", "paired_source_header": "AutoHitType"},
+    {"id": "automatic_vs_tagged_trajectory", "platform": "trackman", "source_header": "AutoHitType", "canonical_key": "hitting.trajectory_automatic", "must_not_equal": "hitting.trajectory"},
+    {"id": "spin_axis_vs_clock", "platform": "trackman", "source_header": "SpinAxis", "canonical_key": "pitching.spin_axis", "must_not_equal": "pitching.spin_direction_clock"},
+    {"id": "vertical_vs_induced_break", "platform": "rapsodo", "source_header": "vert_break", "canonical_key": "pitching.vertical_break", "must_not_equal": "pitching.induced_vertical_break"}
+  ],
+  "value_normalization": [
+    {"source_unit": "mph", "canonical_unit": "mph", "raw_value": 92.4, "expected_value": 92.4, "transformation_key": null},
+    {"source_unit": "kph", "canonical_unit": "mph", "raw_value": 148.703, "expected_value": 92.4, "transformation_key": "kph_to_mph", "tolerance": 0.01},
+    {"source_unit": "m", "canonical_unit": "ft", "raw_value": 100, "expected_value": 328.084, "transformation_key": "m_to_ft", "tolerance": 0.001},
+    {"source_unit": "percent", "canonical_unit": "percent", "raw_value": 87.5, "expected_value": 87.5, "transformation_key": null},
+    {"source_unit": "deg", "canonical_unit": "deg", "raw_value": -8.2, "expected_value": -8.2, "transformation_key": null}
+  ]
+}

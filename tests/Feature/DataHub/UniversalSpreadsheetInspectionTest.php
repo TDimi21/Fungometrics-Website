@@ -118,6 +118,16 @@ final class UniversalSpreadsheetInspectionTest extends TestCase
         $this->post('/api/data-hub/inspect', $payload($team->id))->assertOk()
             ->assertJsonPath('data.normalized_inspection.file_type', 'tsv')
             ->assertJsonPath('data.normalized_inspection.detected_layout', 'players_in_rows');
+        $genericCsv = file_get_contents($this->delimited([
+            ['Player Name', 'Bench Press', 'Back Squat'],
+            ['Tom', '185', '275'],
+        ]));
+        $this->post('/api/data-hub/inspect', [
+            'platform' => 'generic-csv', 'team_id' => $team->id, 'session_type' => 'strength',
+            'file' => UploadedFile::fake()->createWithContent('ordinary-generic.csv', $genericCsv),
+        ])->assertOk()
+            ->assertJsonPath('data.detected_format.provider', 'Generic Spreadsheet')
+            ->assertJsonPath('data.normalized_inspection.detected_layout', 'players_in_rows');
         $this->post('/api/data-hub/inspect', $payload($other->id))->assertForbidden();
         $this->post('/api/data-hub/inspect', [
             'platform' => 'generic-csv', 'team_id' => $team->id, 'session_type' => 'strength',

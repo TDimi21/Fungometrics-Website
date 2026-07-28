@@ -189,7 +189,9 @@ const inspectFile = async (structure = null) => {
   try {
     const [response] = await Promise.all([axiosPost('data-hub/inspect', form), loadTeamPlayers()])
     inspection.value = response.data.data
-    structurePending.value = platformKey.value === 'generic-csv' && !structure
+    structurePending.value = Boolean(
+      inspection.value.normalized_inspection?.requires_structure_confirmation
+    ) && !structure
     Object.keys(mappings).forEach(key => delete mappings[key])
     inspection.value.players.forEach(player => {
       const automatic = player.suggested_matches?.find(match => match.auto_select)
@@ -419,7 +421,7 @@ onBeforeRouteLeave(clearWorkflow)
   <Layout>
     <section class="data-hub-shell">
       <header class="data-hub-hero">
-        <div><span class="eyebrow">FMTRX Data Hub</span><h1>Inspect TrackMan Data</h1><p>Detect sessions and players, then map them before any future import.</p></div>
+        <div><span class="eyebrow">FMTRX Data Hub</span><h1>Inspect Data</h1><p>Detect file structure, sessions, and players, then map them before any future import.</p></div>
         <div class="phase-badge"><strong>Phase 2A</strong><span>Inspection only</span></div>
       </header>
       <ImportStepper :current-step="step" />
@@ -434,7 +436,7 @@ onBeforeRouteLeave(clearWorkflow)
         <FileStructure v-else-if="step === 4 && structurePending" :inspection="inspection" :applying="inspecting" @apply="applyStructure" />
         <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" :platform-name="inspection.detected_format?.provider || selectedPlatform?.name" :confirmed-duplicates="confirmedDuplicateTargets" @update:mapping="updateMapping" @confirm:duplicate="confirmDuplicate" @refresh-roster="loadTeamPlayers" />
         <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" :destination="sessionType" :confirmed-warnings="confirmedWarningColumns" :confirmed-duplicates="confirmedDuplicateConcepts" @update:entry="updateColumnEntry" @submit-concept="submitConcept" @confirm:warning="confirmWarning" @confirm:duplicate="confirmDuplicateConcept" />
-        <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" :column-entries="columnEntries" />
+        <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" :column-entries="columnEntries" :team-players="teamPlayers" :concepts="dictionary.concepts" :domains="dictionary.domains" :confirmed-warning-columns="confirmedWarningColumns" :confirmed-duplicate-targets="confirmedDuplicateTargets" :confirmed-duplicate-concepts="confirmedDuplicateConcepts" />
         <p v-if="inspectionError" class="error-message">{{ inspectionError }}</p>
         <p v-if="mappingError" class="error-message">{{ mappingError }}</p>
         <div v-if="inspectionComplete" class="complete-message"><strong>Inspection complete.</strong><span>No data was imported and no FMTRX records were changed.</span></div>

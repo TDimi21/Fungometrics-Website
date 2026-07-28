@@ -73,16 +73,9 @@ final class InspectTrackManFile extends Controller
             );
             if ('generic-csv' === $data['platform']) {
                 $structure = json_decode((string) ($data['structure'] ?? '{}'), true) ?: [];
-                try {
-                    $result = 'csv' === $extension
-                        ? $fmtrxTemplates->inspect($metadata, (string) $team->id)
-                        : $genericInspection->inspect($metadata, $structure);
-                } catch (RuntimeException $exception) {
-                    if ( ! str_contains($exception->getMessage(), 'not a versioned FMTRX template')) {
-                        throw $exception;
-                    }
-                    $result = $genericInspection->inspect($metadata, $structure);
-                }
+                $result = 'csv' === $extension && $this->isFmtrxTemplate($metadata)
+                    ? $fmtrxTemplates->inspect($metadata, (string) $team->id)
+                    : $genericInspection->inspect($metadata, $structure);
                 $result['destination_recommendation']['selected'] = $sessionType->label();
 
                 return response()->json(['success' => true, 'data' => $result]);
@@ -153,6 +146,25 @@ final class InspectTrackManFile extends Controller
             return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
         } finally {
             Storage::disk('local')->delete($key);
+        }
+    }
+
+    private function isFmtrxTemplate(ImportFileMetadata $file): bool
+    {
+        if ( ! $file->path || ! is_readable($file->path)) {
+            return false;
+        }
+        $handle = fopen($file->path, 'rb');
+        if (false === $handle) {
+            return false;
+        }
+        try {
+            $firstRow = fgetcsv($handle) ?: [];
+            $marker = preg_replace('/^\xEF\xBB\xBF/', '', trim((string) ($firstRow[0] ?? '')));
+
+            return 'FMTRX_TEMPLATE' === $marker;
+        } finally {
+            fclose($handle);
         }
     }
 }

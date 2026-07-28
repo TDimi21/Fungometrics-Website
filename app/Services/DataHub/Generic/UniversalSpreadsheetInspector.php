@@ -240,8 +240,13 @@ final class UniversalSpreadsheetInspector
         $player = $this->detectPlayerColumn($headers);
         if ('' !== $player) {
             $normalized = array_map([TemplateFingerprintService::class, 'normalize'], $headers);
+            $playerValues = array_values(array_filter(array_column($records, $player)));
+            $hasRepeatedPlayer = count($playerValues) > count(array_unique($playerValues));
+            $hasEventNumber = [] !== array_intersect($normalized, [
+                'eventnumber', 'swingnumber', 'thrownumber', 'pitchnumber',
+            ]);
 
-            return [] !== array_intersect($normalized, self::DATE_LABELS) ? 'events_in_rows' : 'players_in_rows';
+            return $hasRepeatedPlayer || $hasEventNumber ? 'events_in_rows' : 'players_in_rows';
         }
         if (count($tables) > 1 && count(array_filter($tables, fn (array $table): bool => count($table['rows']) > 1)) > 1) {
             return 'worksheet_per_player';
