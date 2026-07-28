@@ -50,6 +50,10 @@ Until that approval is granted, the following are prohibited:
 2. [Constitutional Invariants](./02-constitutional-invariants.md)
 3. [Terminology](./03-terminology.md)
 4. [The Canonical Data Model](./04-canonical-data-model.md)
+5. [The FMTRX Baseball Dictionary](./05-baseball-dictionary.md)
+6. [Platform Dictionaries](./06-platform-dictionaries.md)
+7. [The FMTRX Translation Engine](./07-translation-engine.md)
+8. [Certification & Governance](./08-certification-and-governance.md)
 
 ## Planned Backbone
 
