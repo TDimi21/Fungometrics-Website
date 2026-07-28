@@ -1197,7 +1197,7 @@ The following are prohibited:
 
 # Translation Engine Freeze
 
-The FMTRX Translation Engine v1 is considered certified and frozen once Chapter 8 confirms its certification framework.
+The FMTRX Translation Engine architecture is frozen by this approved specification. Formal Certified and Complete status is not granted by documentation alone. That declaration requires the certification evidence, deterministic verification, and passing regression gates defined in Chapter 8.
 
 After freeze, changes are limited to:
 

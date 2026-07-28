@@ -18,8 +18,10 @@ It defines the permanent architectural foundation upon which the FMTRX Baseball 
 
 ## Current Status
 
-- Era 1 — Translation: Certified and Frozen
-- Data Hub Backbone: In Progress
+- Era 1 — Translation Specification: Complete
+- Translation Engine Architecture: Frozen
+- Certification Evidence: Pending Verification
+- Era 1 Certified and Complete Declaration: Pending
 - Era 2 — Persistence: Not Authorized
 - Era 3 — Intelligence: Not Started
 - Player DNA: Not Started
@@ -63,10 +65,10 @@ Until that approval is granted, the following are prohibited:
 2. Constitutional Invariants
 3. Terminology
 4. The Canonical Data Model
-5. FMTRX Baseball Dictionary
+5. The FMTRX Baseball Dictionary
 6. Platform Dictionaries
-7. Translation Engine
-8. Certification
+7. The FMTRX Translation Engine
+8. Certification & Governance
 
 ### Part II — Persistence
 

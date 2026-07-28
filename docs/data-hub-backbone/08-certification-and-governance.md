@@ -788,7 +788,7 @@ It must document:
 
 # Translation Engine Freeze
 
-After Era 1 certification, the Translation Engine is frozen.
+Approval of this specification freezes the Translation Engine architecture. Formal Certified and Complete status remains pending until the required Era 1 certification evidence and regression gates pass.
 
 Allowed changes include:
 
@@ -911,6 +911,26 @@ Era 1 — Translation may be declared complete only when:
 * The regression suite passes.
 * The Translation Engine is formally frozen.
 * No Persistence implementation is mixed into the Translation Engine.
+
+---
+
+# Specification Completion Is Not Certification Execution
+
+Approval of Chapters 1 through 8 completes the Era 1 Translation specification.
+
+It does not independently prove that every certification fixture, semantic-equivalence test, protected non-equivalence test, deterministic Translation Snapshot comparison, frontend workflow test, backend certification test, and regression suite currently passes.
+
+The formal Era 1 Certified and Complete declaration may be made only after the evidence required by this chapter has been executed, reviewed, and approved.
+
+Until then:
+
+```text
+Era 1 Translation Specification: Complete
+Translation Engine Architecture: Frozen
+Certification Evidence: Pending Verification
+Era 1 Certified and Complete Declaration: Pending
+Era 2 Persistence: Not Authorized
+```
 
 ---
 

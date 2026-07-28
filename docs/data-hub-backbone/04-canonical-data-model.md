@@ -103,33 +103,43 @@ No persistence object may exist without an approved Translation Snapshot.
 
 ## The Canonical Hierarchy
 
-The permanent athlete history follows this logical hierarchy:
+The canonical model has two complementary logical views.
+
+The persistence transaction lineage is:
+
+```text
+Approved Translation Snapshot
+        ↓
+Import Batch
+        ├── External Session — Athlete A
+        │       └── Canonical Event
+        │               └── Canonical Metric
+        │
+        ├── External Session — Athlete B
+        │       └── Canonical Event
+        │               └── Canonical Metric
+        │
+        └── External Session — Athlete C
+                └── Canonical Event
+                        └── Canonical Metric
+```
+
+The athlete-centered permanent development-history view is:
 
 ```text
 Athlete
-    │
-    └── Import Batch
-            │
-            └── External Session
-                    │
-                    └── Canonical Event
-                            │
-                            └── Canonical Metric
+    └── External Sessions
+            └── Canonical Events
+                    └── Canonical Metrics
 ```
 
-The Translation Snapshot sits immediately before the Import Batch and governs its creation.
+The Import Batch view explains persistence transaction lineage.
 
-```text
-Translation Snapshot
-        │
-        └── Import Batch
-                │
-                └── External Session
-                        │
-                        └── Canonical Event
-                                │
-                                └── Canonical Metric
-```
+The Athlete view explains permanent development-history ownership.
+
+One Import Batch may contain multiple approved mapped Athletes. The Import Batch represents one approved persistence transaction and does not belong to one Athlete.
+
+Athlete ownership begins at the External Session. Every External Session belongs to exactly one Import Batch and exactly one Athlete.
 
 Each object has one primary responsibility.
 
@@ -155,6 +165,7 @@ The Athlete:
 
 * Imported information may only be persisted for source players mapped to an Athlete.
 * A source player marked Not Importing creates no Athlete data.
+* Athlete ownership begins at the External Session and continues through its Canonical Events and Canonical Metrics.
 * Team or organization changes must not fragment one Athlete into multiple histories.
 * Athlete identity must remain separate from platform identity.
 
@@ -163,6 +174,7 @@ The Athlete:
 * Automatically creating Athlete records for every source player without approval
 * Treating a platform player ID as the permanent FMTRX Athlete identity
 * Assigning imported records to unmapped players
+* Allowing an External Session, Canonical Event, or Canonical Metric to cross Athlete ownership
 * Making Team the permanent owner of the Athlete’s history
 
 ---
@@ -242,6 +254,8 @@ The Import Batch records:
 ### Invariants
 
 * Every Import Batch references exactly one approved Translation Snapshot.
+* An Import Batch is a transaction-level and provenance object, not an athlete-owned object.
+* One Import Batch may include multiple approved mapped Athletes.
 * An Import Batch may produce records only for approved mapped players.
 * Import Batch execution must be auditable.
 * Import Batch results must be reproducible from the Snapshot and persistence version.
@@ -252,6 +266,7 @@ The Import Batch records:
 
 * Persisting from a live, mutable Translation Review
 * Combining unrelated Snapshots into one Import Batch
+* Assigning an Import Batch to one Athlete when the approved transaction covers multiple Athletes
 * Creating imported records outside an Import Batch
 * Silently ignoring partial failures
 * Deleting the Import Batch after rollback
@@ -292,6 +307,7 @@ An External Session preserves:
 ### Invariants
 
 * Every External Session belongs to exactly one Import Batch.
+* Every External Session belongs to exactly one Athlete.
 * Every imported Canonical Event belongs to exactly one External Session.
 * External Session context may help interpret an event but may not redefine a Baseball Concept.
 * Session grouping rules must be deterministic and versioned.
@@ -302,6 +318,7 @@ An External Session preserves:
 * Creating External Sessions before approval
 * Creating External Sessions without an Import Batch
 * Combining multiple Athletes into one athlete-owned session
+* Creating an External Session for a Not Importing player
 * Using a platform-specific session structure as the canonical model
 * Storing aggregate statistics as the Session’s canonical facts
 
@@ -344,6 +361,7 @@ A Canonical Event preserves:
 
 * Every Canonical Event belongs to exactly one External Session.
 * Every Canonical Event belongs to exactly one Athlete.
+* A Canonical Event’s Athlete must be the same Athlete that owns its External Session.
 * An Event represents an occurrence, not an aggregate.
 * Event identity and deduplication rules must be deterministic.
 * Event type must be canonical rather than vendor-specific.
@@ -404,6 +422,7 @@ A Canonical Metric preserves:
 
 * Every Canonical Metric belongs to exactly one Canonical Event.
 * Every Canonical Metric references exactly one Baseball Concept.
+* A Canonical Metric inherits Athlete ownership through its Canonical Event and may not cross that ownership boundary.
 * The value must satisfy the Baseball Concept’s data type and validation rules.
 * Unit conversion must be deterministic and traceable.
 * Missing values remain unavailable rather than becoming zero.
@@ -463,17 +482,18 @@ The system must always be able to explain:
 
 The logical relationships are:
 
-* One approved Translation Snapshot may create one or more Import Batch attempts, depending on the future replay policy.
-* One Import Batch references exactly one Translation Snapshot.
+* One approved Translation Snapshot may produce one or more governed Import Batch attempts, subject to future replay rules.
+* One Import Batch references exactly one approved Translation Snapshot.
+* One Import Batch may include multiple approved mapped Athletes.
 * One Import Batch may create many External Sessions.
-* One External Session belongs to one Import Batch.
-* One External Session belongs to one Athlete.
+* Every External Session belongs to exactly one Import Batch.
+* Every External Session belongs to exactly one Athlete.
+* One Athlete may have multiple External Sessions within the same Import Batch when deterministic session-grouping rules require it.
 * One External Session may contain many Canonical Events.
-* One Canonical Event belongs to one External Session.
+* Every Canonical Event belongs to exactly one External Session and one Athlete.
 * One Canonical Event may contain many Canonical Metrics.
-* One Canonical Metric belongs to one Canonical Event.
-* One Canonical Metric references one Baseball Concept.
-* One Athlete may have many Import Batches, Sessions, Events, and Metrics over time.
+* Every Canonical Metric belongs to exactly one Canonical Event.
+* Every Canonical Metric references exactly one Baseball Concept.
 
 Exact replay cardinality and active-state rules will be defined in the Persistence chapters.
 

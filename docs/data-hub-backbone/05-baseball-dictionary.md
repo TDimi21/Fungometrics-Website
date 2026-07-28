@@ -1,6 +1,4 @@
-# Chapter 5
-
-# The FMTRX Baseball Dictionary
+# Chapter 5 — The FMTRX Baseball Dictionary
 
 ## One Baseball Language
 
