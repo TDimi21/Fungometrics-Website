@@ -132,7 +132,9 @@ final class UniversalSpreadsheetInspectionTest extends TestCase
         $this->post('/api/data-hub/inspect', [
             'platform' => 'generic-csv', 'team_id' => $team->id, 'session_type' => 'strength',
             'file' => UploadedFile::fake()->create('report.pdf', 10, 'application/pdf'),
-        ])->assertUnprocessable();
+        ])->assertUnprocessable()
+            ->assertJsonPath('code', 'unsupported_file_type')
+            ->assertJsonPath('warning.severity', 'blocking');
 
         Storage::disk('local')->assertDirectoryEmpty('data-hub/tmp');
         $this->assertSame($before['practices'], DB::table('practices')->count());

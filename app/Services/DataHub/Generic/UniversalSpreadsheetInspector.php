@@ -6,6 +6,8 @@ namespace App\Services\DataHub\Generic;
 
 use App\Services\DataHub\Dictionary\TemplateFingerprintService;
 use App\Services\DataHub\DTOs\ImportFileMetadata;
+use App\Services\DataHub\Exceptions\TranslationFailureException;
+use App\Services\DataHub\Services\TranslationFailureCatalog;
 use App\Services\DataHub\Support\SecureXlsxReader;
 use RuntimeException;
 
@@ -17,6 +19,7 @@ final class UniversalSpreadsheetInspector
     public function __construct(
         private readonly SecureXlsxReader $xlsx,
         private readonly TemplateFingerprintService $fingerprints,
+        private readonly TranslationFailureCatalog $failures,
     ) {
     }
 
@@ -27,17 +30,26 @@ final class UniversalSpreadsheetInspector
             'csv' => [$this->delimited($file, ',')],
             'tsv' => [$this->delimited($file, "\t")],
             'xlsx' => $this->workbook($file),
-            default => throw new RuntimeException('Generic Spreadsheet supports CSV, TSV, and XLSX files.'),
+            default => throw new TranslationFailureException($this->failures->warning(
+                'unsupported_file_type',
+                ['extension' => mb_strtolower($file->extension)],
+            )),
         };
         if ([] === $tables) {
-            throw new RuntimeException('No readable spreadsheet table was found.');
+            throw new TranslationFailureException($this->failures->warning(
+                'missing_header',
+                ['file_type' => mb_strtolower($file->extension)],
+            ));
         }
 
         $selectedIndex = min(max((int) ($override['worksheet_index'] ?? 0), 0), count($tables) - 1);
         $table = $tables[$selectedIndex];
         $headerRow = (int) ($override['header_row'] ?? $this->detectHeaderRow($table['rows']));
         if ($headerRow < 1 || $headerRow > count($table['rows'])) {
-            throw new RuntimeException('The selected header row is outside the detected table bounds.');
+            throw new TranslationFailureException($this->failures->warning(
+                'missing_header',
+                ['worksheet' => $table['name']],
+            ));
         }
         $firstDataRow = (int) ($override['first_data_row'] ?? ($headerRow + 1));
         if ($firstDataRow <= $headerRow || $firstDataRow > count($table['rows']) + 1) {
@@ -138,6 +150,18 @@ final class UniversalSpreadsheetInspector
         if (false === $handle) {
             throw new RuntimeException('The spreadsheet could not be opened.');
         }
+        $contents = file_get_contents($file->path);
+        if (false === $contents) {
+            fclose($handle);
+            throw new RuntimeException('The spreadsheet could not be read.');
+        }
+        if ($this->hasUnclosedQuotedField($contents)) {
+            fclose($handle);
+            throw new TranslationFailureException($this->failures->warning(
+                'malformed_csv',
+                ['file_type' => mb_strtolower($file->extension)],
+            ));
+        }
         $rows = [];
         $blank = 0;
         try {
@@ -185,7 +209,7 @@ final class UniversalSpreadsheetInspector
 
     private function detectHeaderRow(array $rows): int
     {
-        $best = ['row' => 1, 'score' => -1];
+        $best = ['row' => 0, 'score' => -1];
         foreach (array_slice($rows, 0, 50, true) as $index => $row) {
             $populated = array_values(array_filter($row, fn ($value): bool => '' !== trim((string) $value)));
             $text = array_filter($populated, fn ($value): bool => ! is_numeric($value));
@@ -197,6 +221,23 @@ final class UniversalSpreadsheetInspector
         }
 
         return $best['row'];
+    }
+
+    private function hasUnclosedQuotedField(string $contents): bool
+    {
+        $insideQuotedField = false;
+        for ($index = 0; isset($contents[$index]); ++$index) {
+            if ('"' !== $contents[$index]) {
+                continue;
+            }
+            if ($insideQuotedField && isset($contents[$index + 1]) && '"' === $contents[$index + 1]) {
+                ++$index;
+                continue;
+            }
+            $insideQuotedField = ! $insideQuotedField;
+        }
+
+        return $insideQuotedField;
     }
 
     private function headers(array $values): array

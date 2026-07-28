@@ -9,6 +9,7 @@ use App\Models\PlatformDefinition;
 use App\Services\DataHub\Dictionary\MappingResolutionService;
 use App\Services\DataHub\Dictionary\TemplateFingerprintService;
 use App\Services\DataHub\Dictionary\UnitConversionService;
+use App\Services\DataHub\Support\CertificationVersions;
 use Database\Seeders\BaseballDictionarySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,9 @@ final class DataHubSemanticCertificationTest extends TestCase
             true,
             flags: JSON_THROW_ON_ERROR
         );
+        $this->assertSame(CertificationVersions::PLATFORM_DICTIONARY, $this->manifest['certification_metadata']['platform_dictionary_version']);
+        $this->assertSame(CertificationVersions::BASEBALL_DICTIONARY, $this->manifest['certification_metadata']['baseball_dictionary_version']);
+        $this->assertSame(CertificationVersions::TRANSLATION_ENGINE, $this->manifest['certification_metadata']['translation_engine_version']);
     }
 
     public function test_exact_equivalence_groups_resolve_to_one_canonical_concept(): void
