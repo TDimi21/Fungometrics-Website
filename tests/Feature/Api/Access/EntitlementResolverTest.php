@@ -51,6 +51,76 @@ class EntitlementResolverTest extends TestCase
         $this->assertTrue($this->resolver->hasEntitlement($coach, 'add_coaches'));
     }
 
+    public function test_temporary_full_access_unlocks_role_appropriate_features_and_limits(): void
+    {
+        config([
+            'access.temporary_full_access.enabled' => true,
+            'access.temporary_full_access.ends_at' => now()->addWeek()->toIso8601String(),
+        ]);
+
+        $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
+        $player = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);
+
+        $coachSummary = $this->resolver->getAccessSummary($coach);
+        $this->assertSame('coach_pro', $coachSummary['plan']);
+        $this->assertSame('temporary_full_access', $coachSummary['source']);
+        $this->assertTrue($coachSummary['temporary_access']['active']);
+        $this->assertTrue($this->resolver->hasEntitlement($coach, 'view_team_stats'));
+        $this->assertTrue($this->resolver->hasEntitlement($coach, 'data_hub_import'));
+        $this->assertSame(
+            ['players' => null, 'coaches' => null, 'teams' => null],
+            $coachSummary['limits']
+        );
+        Sanctum::actingAs($coach, ['coach']);
+        $this->getJson('/api/me/access')->assertOk()
+            ->assertJsonPath('data.plan', 'coach_pro')
+            ->assertJsonPath('data.source', 'temporary_full_access')
+            ->assertJsonPath('data.temporary_access.active', true)
+            ->assertJsonFragment(['view_team_stats'])
+            ->assertJsonFragment(['data_hub_import']);
+        $this->assertSame('free', $coach->fresh()->subscription_plan);
+        $this->assertDatabaseCount('subscriptions', 0);
+
+        $playerSummary = $this->resolver->getAccessSummary($player);
+        $this->assertSame('player_pro', $playerSummary['plan']);
+        $this->assertSame('temporary_full_access', $playerSummary['source']);
+        $this->assertTrue($this->resolver->hasEntitlement($player, 'view_advanced_stats'));
+        $this->assertFalse($this->resolver->hasEntitlement($player, 'edit_team'));
+    }
+
+    public function test_temporary_full_access_requires_a_valid_future_expiration(): void
+    {
+        $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
+
+        config([
+            'access.temporary_full_access.enabled' => true,
+            'access.temporary_full_access.ends_at' => null,
+        ]);
+        $this->assertFalse($this->resolver->hasEntitlement($coach, 'view_team_stats'));
+
+        config(['access.temporary_full_access.ends_at' => 'not-a-date']);
+        $this->assertFalse($this->resolver->hasEntitlement($coach, 'view_team_stats'));
+
+        config(['access.temporary_full_access.ends_at' => now()->subSecond()->toIso8601String()]);
+        $summary = $this->resolver->getAccessSummary($coach);
+        $this->assertFalse($this->resolver->hasEntitlement($coach, 'view_team_stats'));
+        $this->assertFalse($summary['temporary_access']['active']);
+    }
+
+    public function test_temporary_full_access_does_not_bypass_team_membership(): void
+    {
+        config([
+            'access.temporary_full_access.enabled' => true,
+            'access.temporary_full_access.ends_at' => now()->addWeek()->toIso8601String(),
+        ]);
+
+        $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
+        $unrelatedTeam = Team::factory()->create();
+
+        $this->expectException(\Illuminate\Validation\UnauthorizedException::class);
+        $this->resolver->getAccessSummary($coach, $unrelatedTeam->id);
+    }
+
     public function test_player_free_access_is_denied_every_coach_only_entitlement_by_middleware(): void
     {
         $player = User::factory()->create(['type' => 'player', 'subscription_plan' => 'free']);

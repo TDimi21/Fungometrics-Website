@@ -14,6 +14,7 @@ use BackedEnum;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\UnauthorizedException;
+use Throwable;
 
 class EntitlementResolver
 {
@@ -46,6 +47,7 @@ class EntitlementResolver
         $sources = [];
         $audience = $this->audience($user);
         $hasSubscriptionHistory = false;
+        $temporaryAccess = $this->temporaryFullAccessSource($audience);
 
         if (Schema::hasTable('subscriptions')) {
             $hasSubscriptionHistory = Subscription::query()->where('user_id', $user->id)->exists();
@@ -71,6 +73,9 @@ class EntitlementResolver
                 $sources[] = $this->catalogSource($legacyTeamPlan, 'team_legacy', null, null, $membership['role'], $audience);
             }
         }
+        if (null !== $temporaryAccess) {
+            $sources[] = $temporaryAccess;
+        }
 
         $entitlements = [];
         foreach ($sources as $source) {
@@ -93,7 +98,12 @@ class EntitlementResolver
         usort($sources, fn (array $a, array $b): int => $this->sourceRank($b) <=> $this->sourceRank($a)
             ?: strcmp($a['identity'], $b['identity']));
         $effective = $sources[0];
-        $limits = $this->limits($effective['plan'], $audience);
+        $limits = 'temporary_full_access' === $effective['source']
+            ? array_replace(
+                ['players' => null, 'coaches' => null, 'teams' => null],
+                config('access.temporary_full_access.limits', [])
+            )
+            : $this->limits($effective['plan'], $audience);
         if (
             'coach' === $audience
             && (null === $limits['teams'] || $limits['teams'] > 1)
@@ -115,6 +125,10 @@ class EntitlementResolver
             'source' => $effective['source'],
             'provider' => $effective['provider'],
             'expires_at' => $effective['expires_at'],
+            'temporary_access' => [
+                'active' => 'temporary_full_access' === $effective['source'],
+                'ends_at' => $temporaryAccess['expires_at'] ?? null,
+            ],
             'team' => $teamId ? ['id' => $teamId, 'role' => $membership['role']] : null,
             'inheritance' => $teamId && 'player' === $audience
                 ? ['inherited' => true, 'reason' => 'team_access', 'team_id' => $teamId]
@@ -268,8 +282,53 @@ class EntitlementResolver
         return $user->type instanceof BackedEnum ? (string) $user->type->value : (string) $user->type;
     }
 
+    /** @return array<string, mixed>|null */
+    private function temporaryFullAccessSource(string $audience): ?array
+    {
+        if (true !== config('access.temporary_full_access.enabled')) {
+            return null;
+        }
+
+        $plan = config("access.temporary_full_access.plans.{$audience}");
+        $endsAt = trim((string) config('access.temporary_full_access.ends_at'));
+        if ( ! is_string($plan) || '' === $plan || '' === $endsAt) {
+            return null;
+        }
+
+        try {
+            $expires = Carbon::parse($endsAt);
+        } catch (Throwable) {
+            return null;
+        }
+
+        if ( ! now()->lt($expires)) {
+            return null;
+        }
+
+        $entitlements = config("access.plans.{$plan}.entitlements");
+        if ( ! is_array($entitlements)) {
+            return null;
+        }
+
+        return $this->source(
+            $plan,
+            $entitlements,
+            'temporary_full_access',
+            'active',
+            null,
+            $expires,
+            "temporary-full-access:{$audience}",
+            null,
+            $audience
+        );
+    }
+
     private function sourceRank(array $source): int
     {
+        if ('temporary_full_access' === $source['source']) {
+            return PHP_INT_MAX;
+        }
+
         return $this->planRank($source['plan']) * 100 + match ($source['source']) {
             'subscription' => 30, 'grant' => 20, 'team_legacy' => 10, default => 0,
         };
