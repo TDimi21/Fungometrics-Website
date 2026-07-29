@@ -71,7 +71,18 @@ describe('Data Hub Translation Review', () => {
     expect(semantic.equivalence_groups.map(group => group.id)).toEqual([
       'exit_velocity', 'launch_angle', 'spray_angle', 'release_velocity',
     ])
-    expect(semantic.non_equivalence_cases).toHaveLength(9)
+    expect(semantic.non_equivalence_cases.map(item => item.id)).toEqual([
+      'inbound_vs_release_velocity',
+      'bat_speed_vs_exit_velocity',
+      'hand_speed_vs_bat_speed',
+      'projected_vs_measured_carry',
+      'simulated_vs_real_result',
+      'tagged_vs_automatic_trajectory',
+      'automatic_vs_tagged_trajectory',
+      'spin_axis_vs_clock',
+      'vertical_vs_induced_break',
+      'true_spin_vs_total_spin',
+    ])
     expect(semantic.non_equivalence_cases.find(item => item.id === 'inbound_vs_release_velocity')).toMatchObject({
       canonical_key: 'hitting.inbound_pitch_velocity',
       must_not_equal: 'pitching.release_velocity',
