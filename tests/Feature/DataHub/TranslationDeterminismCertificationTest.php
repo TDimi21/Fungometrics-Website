@@ -525,6 +525,7 @@ final class TranslationDeterminismCertificationTest extends TestCase
             CertificationVersions::TRANSLATION_SNAPSHOT_SCHEMA,
         )->toArray();
         $this->assertSame($review['versions'], array_intersect_key($snapshot['versions'], $review['versions']));
+        $this->assertSame($snapshot['schema_version'], $snapshot['versions']['translation_snapshot_schema']);
         $this->assertSame('2026-07-27T16:00:00.000000Z', $snapshot['approval']['approved_at']);
 
         foreach ([
@@ -556,6 +557,63 @@ final class TranslationDeterminismCertificationTest extends TestCase
         }
     }
 
+    public function test_snapshot_rejects_correctly_rehashed_internal_version_contradictions(): void
+    {
+        $fixture = $this->fixture('platform-trackman');
+        $metadata = $this->metadata($fixture);
+        $inspection = app(TrackManInspectionService::class)->inspect(
+            $metadata,
+            'certification-no-team',
+            'live_ab',
+        );
+        $review = app(TranslationReviewPayloadBuilder::class)->build(
+            $inspection,
+            $this->reviewContext($inspection, $metadata, 'live_ab'),
+        );
+        $policy = app(TranslationWarningPolicy::class);
+        $factory = app(TranslationSnapshotPayloadFactory::class);
+
+        $contradictions = [
+            'review schema' => static function (array &$payload): void {
+                $payload['schema_version'] = '9.9.9';
+            },
+            'warning rules' => static function (array &$payload) use ($policy): void {
+                $payload['warnings'] = [$policy->warning(
+                    'version_certification_probe',
+                    TranslationWarningSeverity::Informational,
+                    'Version certification probe.',
+                    ['fixture' => 'platform-trackman'],
+                    [],
+                    '9.9.9',
+                )];
+                $payload['approval_status'] = $policy->approvalStatus($payload['warnings'], []);
+            },
+            'snapshot schema' => static function (array &$payload): void {
+                $payload['versions']['translation_snapshot_schema'] = '9.9.9';
+            },
+        ];
+
+        foreach ($contradictions as $label => $contradict) {
+            $contradictoryReview = $review;
+            unset($contradictoryReview['review_content_hash']);
+            $contradict($contradictoryReview);
+            $contradictoryReview['review_content_hash'] = CanonicalPayload::sha256($contradictoryReview);
+
+            try {
+                $factory->create(
+                    $contradictoryReview,
+                    'coach-one',
+                    '2026-07-27T12:00:00-04:00',
+                    [],
+                    CertificationVersions::TRANSLATION_SNAPSHOT_SCHEMA,
+                );
+                $this->fail("A correctly rehashed {$label} contradiction was accepted.");
+            } catch (TranslationContractException $exception) {
+                $this->assertSame('translation_version_mismatch', $exception->errorCode(), $label);
+            }
+        }
+    }
+
     public function test_real_player_and_column_mapping_recommendations_are_deterministic(): void
     {
         $team = Team::factory()->create();
@@ -563,9 +621,6 @@ final class TranslationDeterminismCertificationTest extends TestCase
         $this->player($team, 'Carter', 'Moon');
         $trackman = PlatformDefinition::query()->where('key', 'trackman')->firstOrFail();
         $generic = PlatformDefinition::query()->where('key', 'generic-csv')->firstOrFail();
-        $playerMatching = app(PlayerMatchingService::class);
-        $columnMatching = app(MappingResolutionService::class);
-
         $knownFixture = $this->fixture('platform-trackman');
         $knownMetadata = $this->metadata($knownFixture);
         $knownInspection = app(TrackManInspectionService::class)->inspect(
@@ -573,44 +628,26 @@ final class TranslationDeterminismCertificationTest extends TestCase
             (string) $team->id,
             'live_ab',
         );
-        foreach ($knownInspection['players'] as $player) {
-            $first = $playerMatching->suggestions(
-                (string) $team->id,
-                $player['source_name'],
-                $player['external_player_id'] ?? null,
-                (string) $trackman->id,
-            );
-            $second = $playerMatching->suggestions(
-                (string) $team->id,
-                $player['source_name'],
-                $player['external_player_id'] ?? null,
-                (string) $trackman->id,
-            );
-            $this->assertSame($first, $second);
-        }
-        $knownColumns = array_column($knownInspection['source_columns'], 'source_column_name');
-        $this->assertSame(
-            $columnMatching->resolve((string) $team->id, (string) $trackman->id, $knownInspection['template_fingerprint'], $knownColumns),
-            $columnMatching->resolve((string) $team->id, (string) $trackman->id, $knownInspection['template_fingerprint'], $knownColumns),
+        $this->assertMappingCertificationIsDeterministic(
+            'known platform',
+            $knownInspection,
+            $team,
+            $trackman,
+            'live_ab',
+            true,
         );
 
         $genericFixture = $this->fixture('generic-assessment-rows');
         $genericInspection = app(UniversalSpreadsheetInspector::class)->inspect($this->metadata($genericFixture));
-        $genericColumns = array_column($genericInspection['source_columns'], 'source_column_name');
-        $firstGeneric = $columnMatching->resolve(
-            (string) $team->id,
-            (string) $generic->id,
-            $genericInspection['template_fingerprint'],
-            $genericColumns,
+        $genericResult = $this->assertMappingCertificationIsDeterministic(
+            'generic spreadsheet',
+            $genericInspection,
+            $team,
+            $generic,
+            'assessment',
+            true,
         );
-        $secondGeneric = $columnMatching->resolve(
-            (string) $team->id,
-            (string) $generic->id,
-            $genericInspection['template_fingerprint'],
-            $genericColumns,
-        );
-        $this->assertSame($firstGeneric, $secondGeneric);
-        $this->assertContains('unresolved', array_column($firstGeneric, 'resolution_source'));
+        $this->assertContains('unresolved', array_column($genericResult['column_recommendations'], 'resolution_source'));
 
         $exitVelocity = BaseballConcept::query()->where('canonical_key', 'hitting.exit_velocity')->firstOrFail();
         foreach (['ExitSpeed', 'Ball Speed', 'EV'] as $alias) {
@@ -629,22 +666,154 @@ final class TranslationDeterminismCertificationTest extends TestCase
         }
         $conflictFixture = $this->fixture('column-duplicate-concepts');
         $conflictInspection = app(UniversalSpreadsheetInspector::class)->inspect($this->metadata($conflictFixture));
-        $conflictColumns = array_column($conflictInspection['source_columns'], 'source_column_name');
-        $firstConflict = $columnMatching->resolve(
-            (string) $team->id,
-            (string) $generic->id,
-            $conflictInspection['template_fingerprint'],
-            $conflictColumns,
+        $conflictResult = $this->assertMappingCertificationIsDeterministic(
+            'conflict fixture',
+            $conflictInspection,
+            $team,
+            $generic,
+            'cage',
+            false,
         );
-        $secondConflict = $columnMatching->resolve(
-            (string) $team->id,
-            (string) $generic->id,
-            $conflictInspection['template_fingerprint'],
-            $conflictColumns,
+        $this->assertSame(
+            1,
+            count(array_unique(array_column($conflictResult['column_recommendations'], 'concept_id'))),
         );
-        $this->assertSame($firstConflict, $secondConflict);
-        $this->assertSame(1, count(array_unique(array_column($firstConflict, 'concept_id'))));
-        $this->assertSame([100], array_values(array_unique(array_column($firstConflict, 'confidence'))));
+        $this->assertSame(
+            [100],
+            array_values(array_unique(array_column($conflictResult['column_recommendations'], 'confidence'))),
+        );
+        $this->assertSame(
+            ['hitting.exit_velocity' => ['Ball Speed', 'EV', 'ExitSpeed']],
+            $conflictResult['conflicts'],
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $inspection
+     *
+     * @return array<string, mixed>
+     */
+    private function assertMappingCertificationIsDeterministic(
+        string $label,
+        array $inspection,
+        Team $team,
+        PlatformDefinition $platform,
+        string $destination,
+        bool $expectsNotImporting,
+    ): array {
+        $first = $this->mappingCertificationResult($inspection, $team, $platform, $destination);
+        $second = $this->mappingCertificationResult($inspection, $team, $platform, $destination);
+
+        $this->assertSame($first, $second, "{$label} mapping services changed between independent runs.");
+        $this->assertNotSame([], $first['player_recommendations'], "{$label} did not exercise player matching.");
+        $this->assertNotSame([], $first['column_recommendations'], "{$label} did not exercise column mapping.");
+        $this->assertSame(
+            count($first['column_recommendations']),
+            count(array_filter(
+                $first['column_recommendations'],
+                static fn (array $recommendation): bool => array_key_exists('confidence', $recommendation)
+                    && array_key_exists('compatibility', $recommendation),
+            )),
+            "{$label} did not certify confidence and destination compatibility for every column.",
+        );
+
+        $decisions = array_column($first['player_recommendations'], 'decision');
+        if ($expectsNotImporting) {
+            $this->assertContains('not_importing', $decisions, "{$label} did not certify Not Importing.");
+        } else {
+            $this->assertNotContains('not_importing', $decisions, "{$label} unexpectedly excluded a roster player.");
+        }
+
+        return $first;
+    }
+
+    /**
+     * @param array<string, mixed> $inspection
+     *
+     * @return array{
+     *   player_recommendations: array<int, array<string, mixed>>,
+     *   column_recommendations: array<int, array<string, mixed>>,
+     *   conflicts: array<string, array<int, string>>
+     * }
+     */
+    private function mappingCertificationResult(
+        array $inspection,
+        Team $team,
+        PlatformDefinition $platform,
+        string $destination,
+    ): array {
+        $playerMatching = app(PlayerMatchingService::class);
+        $playerRecommendations = array_map(
+            static function (array $player) use ($playerMatching, $team, $platform): array {
+                $suggestions = $playerMatching->suggestions(
+                    (string) $team->id,
+                    (string) $player['source_name'],
+                    $player['external_player_id'] ?? null,
+                    (string) $platform->id,
+                );
+                $selected = $suggestions[0] ?? null;
+
+                return [
+                    'source_key' => (string) $player['source_key'],
+                    'source_name' => (string) $player['source_name'],
+                    'decision' => ($selected['auto_select'] ?? false) ? 'connected' : 'not_importing',
+                    'selected_player_id' => ($selected['auto_select'] ?? false)
+                        ? $selected['player_id']
+                        : null,
+                    'suggestions' => $suggestions,
+                ];
+            },
+            (array) ($inspection['players'] ?? []),
+        );
+
+        $sourceColumns = array_column((array) ($inspection['source_columns'] ?? []), 'source_column_name');
+        $columnRecommendations = app(MappingResolutionService::class)->resolve(
+            (string) $team->id,
+            (string) $platform->id,
+            (string) $inspection['template_fingerprint'],
+            $sourceColumns,
+        );
+        $concepts = BaseballConcept::query()
+            ->whereIn('id', array_values(array_filter(array_column($columnRecommendations, 'concept_id'))))
+            ->get()
+            ->keyBy(fn (BaseballConcept $concept): string => (string) $concept->id);
+        $domainKeys = DB::table('baseball_domains')->pluck('key', 'id');
+        $compatibility = app(ConceptCompatibilityService::class);
+        $columnRecommendations = array_map(
+            static function (array $recommendation) use ($compatibility, $concepts, $domainKeys, $destination): array {
+                $concept = $concepts->get((string) ($recommendation['concept_id'] ?? ''));
+                $recommendation['canonical_key'] = $concept?->canonical_key;
+                $recommendation['compatibility'] = $compatibility->classify(
+                    $destination,
+                    $concept ? ($domainKeys[$concept->domain_id] ?? null) : null,
+                );
+
+                return $recommendation;
+            },
+            $columnRecommendations,
+        );
+
+        $mappedFields = [];
+        foreach ($columnRecommendations as $recommendation) {
+            if (null !== $recommendation['canonical_key']) {
+                $mappedFields[$recommendation['canonical_key']][] = $recommendation['source_column_name'];
+            }
+        }
+        $conflicts = array_filter(
+            $mappedFields,
+            static fn (array $sourceFields): bool => count($sourceFields) > 1,
+        );
+        foreach ($conflicts as &$sourceFields) {
+            sort($sourceFields, SORT_STRING);
+        }
+        unset($sourceFields);
+        ksort($conflicts, SORT_STRING);
+
+        return [
+            'player_recommendations' => $playerRecommendations,
+            'column_recommendations' => $columnRecommendations,
+            'conflicts' => $conflicts,
+        ];
     }
 
     public function testTranslationReviewAndTranslationSnapshotPayloadVectorMatchesTheManifestHashes(): void

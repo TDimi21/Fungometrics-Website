@@ -63,7 +63,21 @@ final class TranslationSnapshotPayloadFactory
             );
         }
 
+        $reviewVersions = $this->reviewVersions($review, $translationSnapshotSchemaVersion);
         $warnings = $this->warningPolicy->normalize((array) ($review['warnings'] ?? []));
+        foreach ($warnings as $warning) {
+            if ($warning['warning_rules_version'] !== $reviewVersions['warning_rules']) {
+                throw new TranslationContractException(
+                    'translation_version_mismatch',
+                    'A Translation Review warning was produced under a different warning-rules version.',
+                    [
+                        'review_warning_rules_version' => $reviewVersions['warning_rules'],
+                        'warning_rules_version' => $warning['warning_rules_version'],
+                        'warning_code' => $warning['code'],
+                    ],
+                );
+            }
+        }
         $reviewAcknowledgments = $this->warningPolicy->validateAcknowledgments(
             $warnings,
             (array) ($review['warning_acknowledgments'] ?? []),
@@ -84,22 +98,6 @@ final class TranslationSnapshotPayloadFactory
             );
         }
 
-        $reviewVersions = (array) ($review['versions'] ?? []);
-        foreach ([
-            'platform_dictionary',
-            'baseball_dictionary',
-            'translation_engine',
-            'translation_review_schema',
-            'warning_rules',
-        ] as $requiredVersion) {
-            if ('' === trim((string) ($reviewVersions[$requiredVersion] ?? ''))) {
-                throw new TranslationContractException(
-                    'missing_translation_version',
-                    'The approved Translation Review is missing an authoritative version.',
-                    ['missing_version' => $requiredVersion],
-                );
-            }
-        }
         $snapshot = [
             'schema_version' => $translationSnapshotSchemaVersion,
             'translation_review_content_hash' => $suppliedReviewHash,
@@ -141,6 +139,58 @@ final class TranslationSnapshotPayloadFactory
         $snapshot['content_hash'] = CanonicalPayload::sha256($snapshot);
 
         return new TranslationSnapshotPayload(CanonicalPayload::normalize($snapshot));
+    }
+
+    /**
+     * @param array<string, mixed> $review
+     *
+     * @return array<string, mixed>
+     */
+    private function reviewVersions(array $review, string $translationSnapshotSchemaVersion): array
+    {
+        $reviewVersions = (array) ($review['versions'] ?? []);
+        foreach ([
+            'platform_dictionary',
+            'baseball_dictionary',
+            'translation_engine',
+            'translation_review_schema',
+            'warning_rules',
+        ] as $requiredVersion) {
+            if ('' === trim((string) ($reviewVersions[$requiredVersion] ?? ''))) {
+                throw new TranslationContractException(
+                    'missing_translation_version',
+                    'The approved Translation Review is missing an authoritative version.',
+                    ['missing_version' => $requiredVersion],
+                );
+            }
+        }
+
+        $reviewSchemaVersion = (string) ($review['schema_version'] ?? '');
+        if ($reviewSchemaVersion !== (string) $reviewVersions['translation_review_schema']) {
+            throw new TranslationContractException(
+                'translation_version_mismatch',
+                'The Translation Review schema fields contradict each other.',
+                [
+                    'review_schema_version' => $reviewSchemaVersion,
+                    'recorded_review_schema_version' => $reviewVersions['translation_review_schema'],
+                ],
+            );
+        }
+
+        $reviewSnapshotSchemaVersion = $reviewVersions['translation_snapshot_schema'] ?? null;
+        if (null !== $reviewSnapshotSchemaVersion
+            && (string) $reviewSnapshotSchemaVersion !== $translationSnapshotSchemaVersion) {
+            throw new TranslationContractException(
+                'translation_version_mismatch',
+                'The Translation Snapshot schema fields contradict each other.',
+                [
+                    'snapshot_schema_version' => $translationSnapshotSchemaVersion,
+                    'review_snapshot_schema_version' => $reviewSnapshotSchemaVersion,
+                ],
+            );
+        }
+
+        return $reviewVersions;
     }
 
     private function approvalTimestamp(string $timestamp): string
