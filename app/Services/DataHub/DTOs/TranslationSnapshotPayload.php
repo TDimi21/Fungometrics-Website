@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\DataHub\DTOs;
+
+use JsonSerializable;
+
+final class TranslationSnapshotPayload implements JsonSerializable
+{
+    /** @param array<string, mixed> $payload */
+    public function __construct(private readonly array $payload)
+    {
+    }
+
+    /** @return array<string, mixed> */
+    public function toArray(): array
+    {
+        return $this->payload;
+    }
+
+    /** @return array<string, mixed> */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
+    }
+}

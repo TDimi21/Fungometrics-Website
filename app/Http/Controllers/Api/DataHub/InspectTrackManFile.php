@@ -8,12 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Team;
 use App\Services\DataHub\DTOs\ImportFileMetadata;
 use App\Services\DataHub\Enums\ImportSessionType;
+use App\Services\DataHub\Exceptions\TranslationFailureException;
 use App\Services\DataHub\Generic\UniversalSpreadsheetInspector;
 use App\Services\DataHub\Platforms\BlastMotion\BlastMotionInspectionService;
 use App\Services\DataHub\Platforms\HitTrax\HitTraxInspectionService;
 use App\Services\DataHub\Platforms\Rapsodo\RapsodoInspectionService;
 use App\Services\DataHub\Platforms\TrackMan\TrackManInspectionService;
 use App\Services\DataHub\Services\FmtrxDestination;
+use App\Services\DataHub\Services\TranslationFailureCatalog;
 use App\Services\DataHub\Templates\FmtrxTemplateInspector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +26,7 @@ use RuntimeException;
 
 final class InspectTrackManFile extends Controller
 {
-    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection, HitTraxInspectionService $hitTraxInspection, RapsodoInspectionService $rapsodoInspection, BlastMotionInspectionService $blastMotionInspection, FmtrxTemplateInspector $fmtrxTemplates, UniversalSpreadsheetInspector $genericInspection): JsonResponse
+    public function __invoke(Request $request, FmtrxDestination $destination, TrackManInspectionService $inspection, HitTraxInspectionService $hitTraxInspection, RapsodoInspectionService $rapsodoInspection, BlastMotionInspectionService $blastMotionInspection, FmtrxTemplateInspector $fmtrxTemplates, UniversalSpreadsheetInspector $genericInspection, TranslationFailureCatalog $failures): JsonResponse
     {
         $maxKb = (int) ceil(((int) config('data_hub.max_file_size_bytes')) / 1024);
         $data = $request->validate([
@@ -37,7 +39,14 @@ final class InspectTrackManFile extends Controller
         $file = $request->file('file');
         $extension = mb_strtolower((string) $file->getClientOriginalExtension());
         if ( ! in_array($extension, ['csv', 'xlsx', 'tsv'], true)) {
-            return response()->json(['success' => false, 'message' => 'Choose a supported CSV, XLSX, or TSV spreadsheet.'], 422);
+            $warning = $failures->warning('unsupported_file_type', ['extension' => $extension]);
+
+            return response()->json([
+                'success' => false,
+                'code' => $warning['code'],
+                'message' => $warning['message'],
+                'warning' => $warning,
+            ], 422);
         }
         if (0 === (int) $file->getSize()) {
             return response()->json(['success' => false, 'message' => 'The selected file is empty.'], 422);
@@ -142,6 +151,13 @@ final class InspectTrackManFile extends Controller
             }
 
             return response()->json(['success' => true, 'data' => $result]);
+        } catch (TranslationFailureException $exception) {
+            return response()->json([
+                'success' => false,
+                'code' => $exception->errorCode(),
+                'message' => $exception->getMessage(),
+                'warning' => $exception->warning(),
+            ], 422);
         } catch (RuntimeException $exception) {
             return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
         } finally {

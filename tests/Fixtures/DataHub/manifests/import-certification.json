@@ -2,10 +2,31 @@
     "schema_version": "1.0",
     "generated_at": "2026-07-27T00:00:00-04:00",
     "purpose": "FMTRX Data Hub inspection and mapping regression certification; never production import.",
+    "certification_metadata": {
+        "fixture_generator_version": "1.2.0",
+        "platform_dictionary_version": "1.0.0",
+        "baseball_dictionary_version": "1.0.0",
+        "translation_engine_version": "1.1.0",
+        "translation_review_schema_version": "1.1.0",
+        "translation_snapshot_schema_version": "1.1.0",
+        "warning_rules_version": "1.1.0"
+    },
     "test_roster": [
         "Thomas Dimitroff",
         "Carter Moon"
     ],
+    "failure_integration": {
+        "malformed_csv": "integrated",
+        "missing_header": "integrated",
+        "ambiguous_platform": "integrated",
+        "unknown_required_unit": "integrated",
+        "destination_incompatibility": "integrated",
+        "unknown_required_controlled_value": "integrated",
+        "conflicting_mappings": "integrated",
+        "unresolved_required_player": "integrated",
+        "unsupported_file_type": "integrated",
+        "corrupted_spreadsheet": "integrated"
+    },
     "fixtures": [
         {
             "id": "generic-assessment-rows",

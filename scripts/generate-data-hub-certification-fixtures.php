@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Services\DataHub\Support\CertificationVersions;
+
 require_once dirname(__DIR__).'/vendor/autoload.php';
 
 $root = dirname(__DIR__).'/tests/Fixtures/DataHub';
@@ -365,7 +367,28 @@ $manifest = [
     'schema_version' => '1.0',
     'generated_at' => '2026-07-27T00:00:00-04:00',
     'purpose' => 'FMTRX Data Hub inspection and mapping regression certification; never production import.',
+    'certification_metadata' => [
+        'fixture_generator_version' => CertificationVersions::FIXTURE_GENERATOR,
+        'platform_dictionary_version' => CertificationVersions::PLATFORM_DICTIONARY,
+        'baseball_dictionary_version' => CertificationVersions::BASEBALL_DICTIONARY,
+        'translation_engine_version' => CertificationVersions::TRANSLATION_ENGINE,
+        'translation_review_schema_version' => CertificationVersions::TRANSLATION_REVIEW_SCHEMA,
+        'translation_snapshot_schema_version' => CertificationVersions::TRANSLATION_SNAPSHOT_SCHEMA,
+        'warning_rules_version' => CertificationVersions::WARNING_RULES,
+    ],
     'test_roster' => ['Thomas Dimitroff', 'Carter Moon'],
+    'failure_integration' => array_fill_keys([
+        'malformed_csv',
+        'missing_header',
+        'ambiguous_platform',
+        'unknown_required_unit',
+        'destination_incompatibility',
+        'unknown_required_controlled_value',
+        'conflicting_mappings',
+        'unresolved_required_player',
+        'unsupported_file_type',
+        'corrupted_spreadsheet',
+    ], 'integrated'),
     'fixtures' => $fixtures,
 ];
 file_put_contents($root.'/manifests/import-certification.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");

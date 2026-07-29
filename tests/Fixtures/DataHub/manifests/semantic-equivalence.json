@@ -1,6 +1,15 @@
 {
   "schema_version": "1.0",
   "purpose": "FMTRX Baseball Translation Engine v1 cross-platform semantic certification",
+  "certification_metadata": {
+    "fixture_generator_version": "1.2.0",
+    "platform_dictionary_version": "1.0.0",
+    "baseball_dictionary_version": "1.0.0",
+    "translation_engine_version": "1.1.0",
+    "translation_review_schema_version": "1.1.0",
+    "translation_snapshot_schema_version": "1.1.0",
+    "warning_rules_version": "1.1.0"
+  },
   "equivalence_groups": [
     {
       "id": "exit_velocity",
@@ -50,7 +59,8 @@
     {"id": "tagged_vs_automatic_trajectory", "platform": "trackman", "source_header": "TaggedHitType", "canonical_key": "hitting.trajectory", "must_not_equal": "hitting.trajectory_automatic", "paired_source_header": "AutoHitType"},
     {"id": "automatic_vs_tagged_trajectory", "platform": "trackman", "source_header": "AutoHitType", "canonical_key": "hitting.trajectory_automatic", "must_not_equal": "hitting.trajectory"},
     {"id": "spin_axis_vs_clock", "platform": "trackman", "source_header": "SpinAxis", "canonical_key": "pitching.spin_axis", "must_not_equal": "pitching.spin_direction_clock"},
-    {"id": "vertical_vs_induced_break", "platform": "rapsodo", "source_header": "vert_break", "canonical_key": "pitching.vertical_break", "must_not_equal": "pitching.induced_vertical_break"}
+    {"id": "vertical_vs_induced_break", "platform": "rapsodo", "source_header": "vert_break", "canonical_key": "pitching.vertical_break", "must_not_equal": "pitching.induced_vertical_break"},
+    {"id": "true_spin_vs_total_spin", "platform": "rapsodo", "source_header": "true_spin", "canonical_key": "pitching.true_spin_rate", "must_not_equal": "pitching.spin_rate", "paired_source_header": "spin_rate"}
   ],
   "value_normalization": [
     {"source_unit": "mph", "canonical_unit": "mph", "raw_value": 92.4, "expected_value": 92.4, "transformation_key": null},

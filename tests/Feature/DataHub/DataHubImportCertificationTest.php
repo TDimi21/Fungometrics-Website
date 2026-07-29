@@ -10,6 +10,7 @@ use App\Services\DataHub\Platforms\BlastMotion\BlastMotionInspectionService;
 use App\Services\DataHub\Platforms\HitTrax\HitTraxInspectionService;
 use App\Services\DataHub\Platforms\Rapsodo\RapsodoInspectionService;
 use App\Services\DataHub\Platforms\TrackMan\TrackManInspectionService;
+use App\Services\DataHub\Support\CertificationVersions;
 use App\Services\DataHub\Templates\FmtrxCsvTemplateService;
 use Database\Seeders\BaseballDictionarySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,6 +45,15 @@ final class DataHubImportCertificationTest extends TestCase
         $manifest = $this->manifest();
 
         $this->assertSame('1.0', $manifest['schema_version']);
+        $this->assertSame([
+            'fixture_generator_version' => CertificationVersions::FIXTURE_GENERATOR,
+            'platform_dictionary_version' => CertificationVersions::PLATFORM_DICTIONARY,
+            'baseball_dictionary_version' => CertificationVersions::BASEBALL_DICTIONARY,
+            'translation_engine_version' => CertificationVersions::TRANSLATION_ENGINE,
+            'translation_review_schema_version' => CertificationVersions::TRANSLATION_REVIEW_SCHEMA,
+            'translation_snapshot_schema_version' => CertificationVersions::TRANSLATION_SNAPSHOT_SCHEMA,
+            'warning_rules_version' => CertificationVersions::WARNING_RULES,
+        ], $manifest['certification_metadata']);
         $this->assertCount(30, $manifest['fixtures']);
         $this->assertSame(count($manifest['fixtures']), count(array_unique(array_column($manifest['fixtures'], 'id'))));
         foreach ($manifest['fixtures'] as $fixture) {
@@ -212,6 +222,12 @@ final class DataHubImportCertificationTest extends TestCase
         $files = [];
         foreach ($this->manifest()['fixtures'] as $fixture) {
             $files[$fixture['filename']] = hash_file('sha256', $this->fixturePath($fixture));
+        }
+        foreach (['import-certification.json', 'import-certification.md'] as $manifest) {
+            $files["manifests/{$manifest}"] = hash_file(
+                'sha256',
+                base_path("tests/Fixtures/DataHub/manifests/{$manifest}")
+            );
         }
         ksort($files);
 

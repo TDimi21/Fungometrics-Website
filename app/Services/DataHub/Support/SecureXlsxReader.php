@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\DataHub\Support;
 
+use App\Services\DataHub\Exceptions\TranslationFailureException;
+use App\Services\DataHub\Services\TranslationFailureCatalog;
 use RuntimeException;
 use SimpleXMLElement;
 use ZipArchive;
@@ -16,6 +18,10 @@ final class SecureXlsxReader
     private const MAX_ENTRIES = 2000;
     private const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
 
+    public function __construct(private readonly TranslationFailureCatalog $failures)
+    {
+    }
+
     /**
      * @return array{
      *   sheets: array<int, array{name: string, rows: array<int, array<string, string>>, formulas: int, merged_ranges: array<int, string>}>,
@@ -26,7 +32,7 @@ final class SecureXlsxReader
     {
         $zip = new ZipArchive();
         if (true !== $zip->open($path, ZipArchive::RDONLY)) {
-            throw new RuntimeException('The Excel workbook could not be opened.');
+            throw $this->corrupted('archive_open_failed');
         }
         try {
             $warnings = $this->validateArchive($zip);
@@ -47,7 +53,7 @@ final class SecureXlsxReader
                 $sheets[] = $this->worksheet($zip, $worksheetPath, (string) $sheet['name'], $sharedStrings);
             }
             if ([] === $sheets) {
-                throw new RuntimeException('No readable worksheets were found in the Excel workbook.');
+                throw $this->corrupted('no_readable_worksheets');
             }
 
             return ['sheets' => $sheets, 'warnings' => $warnings];
@@ -84,7 +90,7 @@ final class SecureXlsxReader
         }
         foreach (['[Content_Types].xml', 'xl/workbook.xml', 'xl/_rels/workbook.xml.rels'] as $required) {
             if (false === $zip->locateName($required)) {
-                throw new RuntimeException('The file is not a valid supported Excel workbook.');
+                throw $this->corrupted('missing_required_package_part');
             }
         }
 
@@ -171,13 +177,13 @@ final class SecureXlsxReader
     {
         $contents = $zip->getFromName($path);
         if (false === $contents) {
-            throw new RuntimeException("The Excel workbook is missing {$path}.");
+            throw $this->corrupted('missing_referenced_package_part');
         }
         $previous = libxml_use_internal_errors(true);
         try {
             $xml = simplexml_load_string($contents, SimpleXMLElement::class, LIBXML_NONET | LIBXML_COMPACT);
             if (false === $xml) {
-                throw new RuntimeException("The Excel workbook contains invalid XML in {$path}.");
+                throw $this->corrupted('invalid_workbook_xml');
             }
 
             return $xml;
@@ -185,5 +191,13 @@ final class SecureXlsxReader
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
         }
+    }
+
+    private function corrupted(string $reason): TranslationFailureException
+    {
+        return new TranslationFailureException($this->failures->warning(
+            'corrupted_spreadsheet',
+            ['reason' => $reason],
+        ));
     }
 }
