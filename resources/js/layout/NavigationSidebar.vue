@@ -156,6 +156,7 @@ onMounted(() => {
       { title: 'Dashboard',  iconPath: iconAdmin,           url: '/admin' },
       { title: 'Users',      iconPath: iconRoster,          url: '/admin/users' },
       { title: 'Teams',      iconPath: iconManageTeam,      url: '/admin/teams' },
+      { title: 'Teams & Players by State/Level', iconPath: iconRoster, url: '/admin/teams-players' },
       { title: 'Plans',      iconPath: iconStartPractice,   url: '/admin/plans' },
     ]
   } else if (userData.value?.type == "player") {

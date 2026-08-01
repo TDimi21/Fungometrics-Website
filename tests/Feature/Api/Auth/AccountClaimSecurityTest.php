@@ -79,6 +79,62 @@ class AccountClaimSecurityTest extends TestCase
         $this->assertSame(0, $player->tokens()->count());
     }
 
+    public function test_allowlisted_fake_phone_uses_expiring_test_code_without_sending_sms(): void
+    {
+        config([
+            'security.test_phone_verification.enabled' => true,
+            'security.test_phone_verification.code' => '246810',
+            'security.test_phone_verification.phones' => ['5550001234'],
+            'security.test_phone_verification.ends_at' => now()->addHour()->toIso8601String(),
+        ]);
+        $this->mock(SendSmsService::class, function ($mock): void {
+            $mock->shouldNotReceive('sendSms');
+        });
+        $team = Team::factory()->create(['join_code' => 'TST123']);
+        $player = User::factory()->create(['type' => 'player', 'phone' => '5550001234']);
+
+        $response = $this->postJson('/api/player/join', [
+            'phone' => '5550001234',
+            'team_code' => 'TST123',
+        ])->assertStatus(202)
+            ->assertJsonPath('data.verification_mode', 'test')
+            ->assertJsonMissingPath('data.verification_code');
+
+        $this->postJson('/api/player/join/verify', [
+            'challenge_id' => $response->json('data.challenge_id'),
+            'verification_code' => '246810',
+        ])->assertOk()->assertJsonPath('status', 'success');
+        $this->assertDatabaseHas('player_teams', ['user_id' => $player->id, 'team_id' => $team->id]);
+        $this->assertDatabaseHas('security_audits', [
+            'action' => 'team_join.requested',
+            'user_id' => $player->id,
+        ]);
+    }
+
+    public function test_test_phone_mode_fails_closed_when_expired(): void
+    {
+        config([
+            'security.test_phone_verification.enabled' => true,
+            'security.test_phone_verification.code' => '246810',
+            'security.test_phone_verification.phones' => ['5550001234'],
+            'security.test_phone_verification.ends_at' => now()->subSecond()->toIso8601String(),
+        ]);
+        $this->mock(SendSmsService::class, function ($mock): void {
+            $mock->shouldReceive('sendSms')->once()->andReturnTrue();
+        });
+        Team::factory()->create(['join_code' => 'TST124']);
+
+        $response = $this->postJson('/api/player/join', [
+            'phone' => '5550001234',
+            'team_code' => 'TST124',
+        ])->assertStatus(202)->assertJsonPath('data.verification_mode', 'sms');
+
+        $this->postJson('/api/player/join/verify', [
+            'challenge_id' => $response->json('data.challenge_id'),
+            'verification_code' => '246810',
+        ])->assertUnprocessable();
+    }
+
     public function test_verified_player_join_is_single_use_and_coach_cannot_use_player_flow(): void
     {
         $team = Team::factory()->create();

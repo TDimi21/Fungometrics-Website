@@ -29,13 +29,18 @@ class JoinTeamByCode extends Controller
             ], 422);
         }
 
+        $testMode = 'allowlisted_test_phone' === $challenge->getAttribute('verification_mode');
+
         return response()->json([
             'code' => '018-VERIFY',
-            'message' => 'Enter the verification code sent to the supplied phone number.',
+            'message' => $testMode
+                ? 'Testing number recognized. Enter the test verification code configured by your administrator.'
+                : 'Enter the verification code sent to the supplied phone number.',
             'status' => 'verification_required',
             'data' => [
                 'challenge_id' => $challenge->id,
                 'expires_at' => $challenge->expires_at->toIso8601String(),
+                'verification_mode' => $testMode ? 'test' : 'sms',
             ],
         ], 202);
     }

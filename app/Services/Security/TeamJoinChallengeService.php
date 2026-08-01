@@ -12,9 +12,11 @@ use App\Models\TeamJoinChallenge;
 use App\Models\User;
 use App\Services\SendSmsService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class TeamJoinChallengeService
 {
@@ -33,7 +35,8 @@ class TeamJoinChallengeService
 
         $normalizedPhone = preg_replace('/\D+/', '', $phone) ?? '';
         $user = User::query()->where('phone', $normalizedPhone)->first();
-        $code = (string) random_int(100000, 999999);
+        $testCode = $this->testVerificationCode($normalizedPhone);
+        $code = $testCode ?? (string) random_int(100000, 999999);
         $challenge = TeamJoinChallenge::create([
             'user_id' => $user?->id,
             'team_id' => $team->id,
@@ -42,16 +45,47 @@ class TeamJoinChallengeService
             'expires_at' => now()->addMinutes(config('security.team_join_ttl_minutes')),
         ]);
 
-        $this->sms->sendSms(
-            $normalizedPhone,
-            "Your FungoMetrics team verification code is {$code}. It expires soon.",
-            type: 'team_join_verification',
-            user: $user?->id,
-            sensitive: true
-        );
-        $this->audit->record('team_join.requested', $user?->id, $team->id, $request);
+        if (null === $testCode) {
+            $this->sms->sendSms(
+                $normalizedPhone,
+                "Your FungoMetrics team verification code is {$code}. It expires soon.",
+                type: 'team_join_verification',
+                user: $user?->id,
+                sensitive: true
+            );
+        }
+        $mode = null === $testCode ? 'sms' : 'allowlisted_test_phone';
+        $this->audit->record('team_join.requested', $user?->id, $team->id, $request, ['verification_mode' => $mode]);
+        // Transient response metadata only; no verification code is returned.
+        $challenge->setAttribute('verification_mode', $mode);
 
         return $challenge;
+    }
+
+    private function testVerificationCode(string $normalizedPhone): ?string
+    {
+        if (true !== config('security.test_phone_verification.enabled')) {
+            return null;
+        }
+
+        $code = trim((string) config('security.test_phone_verification.code'));
+        $phones = (array) config('security.test_phone_verification.phones', []);
+        $endsAt = trim((string) config('security.test_phone_verification.ends_at'));
+        if (1 !== preg_match('/^\d{6}$/', $code)
+            || ! in_array($normalizedPhone, $phones, true)
+            || '' === $endsAt) {
+            return null;
+        }
+
+        try {
+            if (Carbon::parse($endsAt)->isPast()) {
+                return null;
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $code;
     }
 
     /** @return array<string, mixed> */
