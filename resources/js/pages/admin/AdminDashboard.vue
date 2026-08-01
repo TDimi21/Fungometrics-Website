@@ -15,6 +15,7 @@ const MENU_ITEMS = [
   { key: 'admin.players',   label: 'Players',         countKey: 'players', desc: 'View and manage all players',                           icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
   { key: 'admin.teams',     label: 'Teams',           countKey: 'teams',   desc: 'Manage teams, rosters and assignments',                 icon: 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9' },
   { key: 'admin.teams-players', label: 'Teams & Players by State/Level', countKey: null, desc: 'Browse all teams and players filtered by state and level', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z' },
+  { key: 'admin.activity',  label: 'Login & Session Activity', countKey: null, desc: 'Review recent coach/player logins and recorded sessions', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
   { key: 'admin.plans',     label: 'Plan Features',   countKey: null,      desc: 'Control which features each subscription tier unlocks',  icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
 ]
 

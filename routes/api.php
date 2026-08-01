@@ -562,6 +562,7 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'subscription.admin'])->pref
     // Org-wide (not coach-scoped) team/player directory, filterable by state/level.
     Route::get('/teams', [\App\Http\Controllers\Api\Admin\TeamPlayerAdminController::class, 'teams']);
     Route::get('/players', [\App\Http\Controllers\Api\Admin\TeamPlayerAdminController::class, 'players']);
+    Route::get('/activity', \App\Http\Controllers\Api\Admin\UserActivityAdminController::class);
     // Dev/admin-only Cage Distance Validation Lab preview — gated by
     // CAGE_DISTANCE_VALIDATION_ENABLED (off by default, including prod).
     Route::post('/cage-distance/validate', [\App\Http\Controllers\Api\Admin\CageDistanceValidationController::class, 'check']);

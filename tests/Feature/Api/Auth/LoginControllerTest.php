@@ -39,6 +39,7 @@ class LoginControllerTest extends TestCase
             'password' => 'password',
         ]);
         $response->assertOk();
+        $this->assertNotNull($user->fresh()->last_login_at);
         $data = json_decode($response->getContent(), false, 512, JSON_THROW_ON_ERROR);
         $this->assertNotNull($data->data->token);
     }
@@ -94,7 +95,7 @@ class LoginControllerTest extends TestCase
         Profile::factory()->create([
             'user_id' => $user->id,
         ]);
-        Player::factory()->create(['user_id'=>$user->id]);
+        Player::factory()->create(['user_id' => $user->id]);
         PlayerPosition::factory()->count(5)->create([
             'player_id' => $user->id,
         ]);
@@ -133,7 +134,7 @@ class LoginControllerTest extends TestCase
         self::assertNotNull($cookie);
         self::assertTrue($cookie->isHttpOnly());
         self::assertTrue($cookie->isSecure());
-        self::assertSame('strict', strtolower((string) $cookie->getSameSite()));
+        self::assertSame('strict', mb_strtolower((string) $cookie->getSameSite()));
     }
 
     public function test_mobile_login_still_returns_bearer_token_without_web_cookie(): void
@@ -186,6 +187,7 @@ class LoginControllerTest extends TestCase
             'password' => 'password',
         ]);
         $response->assertUnauthorized();
+        $this->assertNull($user->fresh()->last_login_at);
     }
 
     public function test_login_user_validation_fail(): void

@@ -17,6 +17,7 @@ use App\Services\Access\AdministrativeAccess;
 use App\Services\Security\ApiTokenCookie;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
@@ -44,6 +45,9 @@ class LoginController extends Controller
               // Resolves the user by email, or by phone as a fallback (single
               // request instead of the app retrying multiple email formats).
               $user = AuthUtils::authCredentials($request);
+              $loggedInAt = now();
+              DB::table('users')->where('id', $user->id)->update(['last_login_at' => $loggedInAt]);
+              $user->setAttribute('last_login_at', $loggedInAt);
               $data = AuthUtils::createTokenFromUser($user);
               $isWebClient = 'web' === $request->header('X-FMTRX-Client');
               if ( ! $isWebClient) {

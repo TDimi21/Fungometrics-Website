@@ -57,6 +57,7 @@ class User extends Authenticatable
         'status' => 'boolean',
         'id' => 'string',
         'subscription_plan' => 'string',
+        'last_login_at' => 'datetime',
     ];
 
     public function planHasFeature(string $feature): bool
