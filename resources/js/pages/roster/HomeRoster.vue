@@ -681,7 +681,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
           </div>
 
           <div class="rounded-xl border border-app-blue/30 bg-app-blue/10 px-3 py-2">
-            <p class="text-app-blue text-xs font-bold uppercase tracking-wider">Claim Code</p>
+            <p class="text-app-blue text-xs font-bold uppercase tracking-wider">Team Code</p>
             <p class="text-white text-sm mt-1">
               Players claim from the app with their mobile number + team code
               <span class="font-bold text-app-blue">{{ teamJoinCode ? ` ${teamJoinCode}` : ' (not available)' }}</span>.

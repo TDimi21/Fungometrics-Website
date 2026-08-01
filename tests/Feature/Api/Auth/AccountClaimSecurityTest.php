@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\Auth;
 
+use App\Events\UserCreated;
+use App\Listeners\SendSmsInvitation;
 use App\Models\AccountClaim;
+use App\Models\PlayerTeam;
 use App\Models\Team;
-use App\Models\TeamJoinChallenge;
 use App\Models\User;
 use App\Services\Security\AccountClaimService;
-use App\Services\Security\TeamJoinChallengeService;
+use App\Services\Security\PlayerProfileClaimService;
 use App\Services\SendSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
 use RuntimeException;
 use Tests\TestCase;
@@ -62,29 +65,40 @@ class AccountClaimSecurityTest extends TestCase
         $this->assertNull(AccountClaim::where('user_id', $user->id)->firstOrFail()->used_at);
     }
 
-    public function test_public_team_join_requires_phone_otp_before_membership_or_authentication(): void
+    public function test_unclaimed_roster_player_can_start_claim_with_phone_and_team_code(): void
     {
-        $this->mock(SendSmsService::class, function ($mock): void {
-            $mock->shouldReceive('sendSms')->once()->andReturnTrue();
-        });
         $team = Team::factory()->create(['join_code' => 'ABC123']);
-        $player = User::factory()->create(['type' => 'player', 'phone' => '5558675309']);
+        $player = User::factory()->create([
+            'type' => 'player',
+            'phone' => '(555) 867-5309',
+            'email' => null,
+            'password' => null,
+            'status' => true,
+        ]);
+        PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
 
-        $this->postJson('/api/player/join', [
+        $response = $this->postJson('/api/player/join', [
             'phone' => '5558675309',
             'team_code' => 'ABC123',
-        ])->assertStatus(202)
-            ->assertJsonPath('status', 'verification_required')
-            ->assertJsonMissingPath('data.token');
+        ])->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonStructure(['data' => ['token']])
+            ->assertJsonMissingPath('data.user')
+            ->assertJsonMissingPath('data.team')
+            ->assertJsonMissingPath('data.challenge_id');
 
-        $this->assertDatabaseMissing('player_teams', ['user_id' => $player->id, 'team_id' => $team->id]);
-        $this->assertSame(0, $player->tokens()->count());
+        $token = PersonalAccessToken::findToken($response->json('data.token'));
+        $this->assertNotNull($token);
+        $this->assertSame(['profile-claim'], $token->abilities);
+        $this->assertTrue($token->expires_at->isFuture());
+        $this->assertDatabaseCount('team_join_challenges', 0);
+        $this->assertDatabaseCount('sms_logs', 0);
     }
 
-    public function test_team_join_never_exposes_unexpected_database_errors(): void
+    public function test_profile_claim_never_exposes_unexpected_database_errors(): void
     {
-        $this->mock(TeamJoinChallengeService::class, function ($mock): void {
-            $mock->shouldReceive('request')
+        $this->mock(PlayerProfileClaimService::class, function ($mock): void {
+            $mock->shouldReceive('claim')
                 ->once()
                 ->andThrow(new RuntimeException('SQLSTATE sensitive details'));
         });
@@ -94,100 +108,102 @@ class AccountClaimSecurityTest extends TestCase
             'phone' => '5556666600',
             'team_code' => 'SAFE12',
         ])->assertStatus(503)
-            ->assertJsonPath('message', 'Phone verification is temporarily unavailable. Please try again.');
+            ->assertJsonPath('message', 'Profile claiming is temporarily unavailable. Please try again.');
 
         $this->assertStringNotContainsString('SQLSTATE', (string) $response->getContent());
     }
 
-    public function test_allowlisted_fake_phone_uses_expiring_test_code_without_sending_sms(): void
+    public function test_phone_must_match_an_unclaimed_player_already_on_the_roster(): void
     {
-        config([
-            'security.test_phone_verification.enabled' => true,
-            'security.test_phone_verification.code' => '246810',
-            'security.test_phone_verification.phones' => ['5550001234'],
-            'security.test_phone_verification.ends_at' => now()->addHour()->toIso8601String(),
-        ]);
-        $this->mock(SendSmsService::class, function ($mock): void {
-            $mock->shouldNotReceive('sendSms');
-        });
         $team = Team::factory()->create(['join_code' => 'TST123']);
-        $player = User::factory()->create(['type' => 'player', 'phone' => '5550001234']);
+        User::factory()->create([
+            'type' => 'player',
+            'phone' => '5550001234',
+            'email' => null,
+            'password' => null,
+            'status' => true,
+        ]);
 
-        $response = $this->postJson('/api/player/join', [
+        $this->postJson('/api/player/join', [
             'phone' => '5550001234',
             'team_code' => 'TST123',
-        ])->assertStatus(202)
-            ->assertJsonPath('data.verification_mode', 'test')
-            ->assertJsonMissingPath('data.verification_code');
-
-        $this->postJson('/api/player/join/verify', [
-            'challenge_id' => $response->json('data.challenge_id'),
-            'verification_code' => '246810',
-        ])->assertOk()->assertJsonPath('status', 'success');
-        $this->assertDatabaseHas('player_teams', ['user_id' => $player->id, 'team_id' => $team->id]);
-        $this->assertDatabaseHas('security_audits', [
-            'action' => 'team_join.requested',
-            'user_id' => $player->id,
-        ]);
+        ])->assertUnprocessable()
+            ->assertJsonMissingPath('data.token');
     }
 
-    public function test_test_phone_mode_fails_closed_when_expired(): void
+    public function test_completed_player_profile_cannot_be_reclaimed(): void
     {
-        config([
-            'security.test_phone_verification.enabled' => true,
-            'security.test_phone_verification.code' => '246810',
-            'security.test_phone_verification.phones' => ['5550001234'],
-            'security.test_phone_verification.ends_at' => now()->subSecond()->toIso8601String(),
+        $team = Team::factory()->create(['join_code' => 'TST124']);
+        $player = User::factory()->create([
+            'type' => 'player',
+            'phone' => '5550001234',
+            'email' => 'claimed@example.com',
+            'password' => Hash::make('password123'),
+            'status' => true,
         ]);
-        $this->mock(SendSmsService::class, function ($mock): void {
-            $mock->shouldReceive('sendSms')->once()->andReturnTrue();
-        });
-        Team::factory()->create(['join_code' => 'TST124']);
+        PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
 
-        $response = $this->postJson('/api/player/join', [
+        $this->postJson('/api/player/join', [
             'phone' => '5550001234',
             'team_code' => 'TST124',
-        ])->assertStatus(202)->assertJsonPath('data.verification_mode', 'sms');
-
-        $this->postJson('/api/player/join/verify', [
-            'challenge_id' => $response->json('data.challenge_id'),
-            'verification_code' => '246810',
-        ])->assertUnprocessable();
+        ])->assertUnprocessable()
+            ->assertJsonMissingPath('data.token');
     }
 
-    public function test_verified_player_join_is_single_use_and_coach_cannot_use_player_flow(): void
+    public function test_setting_credentials_replaces_restricted_claim_token_with_player_token(): void
     {
-        $team = Team::factory()->create();
-        $player = User::factory()->create(['type' => 'player']);
-        $challenge = TeamJoinChallenge::create([
+        $team = Team::factory()->create(['join_code' => 'NEW123']);
+        $player = User::factory()->create([
+            'type' => 'player',
+            'phone' => '5558675309',
+            'email' => null,
+            'password' => null,
+            'status' => true,
+        ]);
+        PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
+
+        $claim = $this->postJson('/api/player/join', [
+            'phone' => '5558675309',
+            'team_code' => 'NEW123',
+        ])->assertOk();
+        $claimToken = $claim->json('data.token');
+
+        $credentials = $this->withToken($claimToken)->postJson('/api/player/set-credentials', [
+            'email' => 'newplayer@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertOk()
+            ->assertJsonPath('data.user.email', 'newplayer@example.com')
+            ->assertJsonStructure(['data' => ['token', 'user', 'team']]);
+
+        $this->assertNull(PersonalAccessToken::findToken($claimToken));
+        $playerToken = PersonalAccessToken::findToken($credentials->json('data.token'));
+        $this->assertNotNull($playerToken);
+        $this->assertSame(['player'], $playerToken->abilities);
+        $this->assertTrue(Hash::check('password123', $player->fresh()->password));
+        $this->assertDatabaseHas('security_audits', [
+            'action' => 'player_profile.credentials_set',
             'user_id' => $player->id,
             'team_id' => $team->id,
-            'phone_hash' => hash('sha256', '5558675309'),
-            'code_hash' => Hash::make('123456'),
-            'expires_at' => now()->addMinutes(10),
         ]);
 
-        $payload = ['challenge_id' => $challenge->id, 'verification_code' => '123456'];
-        $this->postJson('/api/player/join/verify', $payload)->assertOk()
-            ->assertJsonPath('status', 'success')
-            ->assertJsonStructure(['data' => ['token']]);
-        $this->assertDatabaseHas('player_teams', ['user_id' => $player->id, 'team_id' => $team->id]);
-        $this->postJson('/api/player/join/verify', $payload)->assertUnprocessable();
+        $this->postJson('/api/player/join/verify', [])->assertStatus(405);
+    }
 
-        $coach = User::factory()->create(['type' => 'coach']);
-        $coachChallenge = TeamJoinChallenge::create([
-            'user_id' => $coach->id,
-            'team_id' => $team->id,
-            'phone_hash' => hash('sha256', '5558675310'),
-            'code_hash' => Hash::make('654321'),
-            'expires_at' => now()->addMinutes(10),
-        ]);
-        $this->postJson('/api/player/join/verify', [
-            'challenge_id' => $coachChallenge->id,
-            'verification_code' => '654321',
-        ])->assertUnprocessable();
-        $this->assertDatabaseMissing('coach_teams', ['coach_id' => $coach->id, 'team_id' => $team->id]);
-        $this->assertSame(0, $coach->tokens()->count());
+    public function test_new_players_do_not_receive_sms_claim_tokens(): void
+    {
+        $player = User::factory()->create(['type' => 'player']);
+        $claims = $this->mock(AccountClaimService::class, function ($mock): void {
+            $mock->shouldNotReceive('issue');
+        });
+        $sms = $this->mock(SendSmsService::class, function ($mock): void {
+            $mock->shouldNotReceive('sendSms');
+        });
+
+        (new SendSmsInvitation($claims, $sms))->handle(new UserCreated($player));
+
+        $this->assertDatabaseMissing('account_claims', ['user_id' => $player->id]);
+        $this->assertDatabaseMissing('sms_logs', ['user_id' => $player->id]);
     }
 
     public function test_authenticated_player_can_join_without_receiving_a_new_token(): void

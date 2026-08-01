@@ -32,13 +32,11 @@ const formData = reactive({user: '', password: '', remember: false})
 const loginMode = ref(props.title === 'player' ? 'claim' : 'email')
 const claimForm = reactive({ phone: '', teamCode: '' })
 const claimStep = ref('find')
-const claimChallenge = reactive({ id: '', code: '' })
 const claimedSession = ref(null)
 const claimCredentials = reactive({ email: '', password: '', confirmPassword: '' })
 const isPlayerLogin = computed(() => props.title === 'player')
 const isClaimMode = computed(() => isPlayerLogin.value && loginMode.value === 'claim')
 const isClaimCredentialsStep = computed(() => isClaimMode.value && claimStep.value === 'credentials')
-const isClaimVerificationStep = computed(() => isClaimMode.value && claimStep.value === 'verify')
 
 const normalizeDigits = (value) => String(value || '').replace(/\D+/g, '')
 
@@ -117,12 +115,6 @@ const applyAuthSession = async ({ payload, apiUrl }) => {
   await playerStore.setPlayers(user?.players || [])
   await router.push('/dashboard')
 }
-
-const userNeedsCredentials = (user) => {
-  const email = String(user?.email || '').trim()
-  return !email || !email.includes('@')
-}
-
 
 const submitForm = async () => {
   isLoading.status =!isLoading.status;
@@ -219,64 +211,20 @@ const submitClaimForm = async () => {
     const response = await axios.post(api_url + 'player/join', dataForm)
     const body = response?.data || {}
 
-    if (body?.status !== 'verification_required' || !body?.data?.challenge_id) {
-      throw new Error(body?.message || 'Could not start verification')
-    }
-
-    claimChallenge.id = body.data.challenge_id
-    claimChallenge.code = ''
-    claimStep.value = 'verify'
-    await toast.fire({ icon: 'info', title: 'Verification Required', text: body.message })
-  } catch (error) {
-    const message = error?.response?.data?.message || error?.message || 'Could not claim profile. Please try again.'
-    await toast.fire({ icon: 'error', title: 'Claim Error', text: message })
-  } finally {
-    isLoading.status = true
-  }
-}
-
-const submitClaimVerification = async () => {
-  const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
-  if (!/^\d{6}$/.test(claimChallenge.code)) {
-    await toast.fire({ icon: 'warning', title: 'Verification', text: 'Enter the 6-digit code sent to your phone.' })
-    return
-  }
-
-  isLoading.status = false
-  try {
-    const response = await axios.post(api_url + 'player/join/verify', {
-      challenge_id: claimChallenge.id,
-      verification_code: claimChallenge.code,
-    })
-    const body = response?.data || {}
-
-    if (body?.status === 'registration_required') {
-      await toast.fire({ icon: 'info', title: 'Create Player Account', text: body.message })
-      await router.push('/register/player')
-      return
-    }
     if (body?.status !== 'success' || !body?.data?.token) {
-      throw new Error(body?.message || 'Verification failed')
+      throw new Error(body?.message || 'Could not claim profile')
     }
 
-    const token = body?.data?.token
-    const user = body?.data?.user
-    if (userNeedsCredentials(user)) {
-      claimedSession.value = body.data
-      claimCredentials.email = String(user?.email || '').trim().toLowerCase()
-      claimCredentials.password = ''
-      claimCredentials.confirmPassword = ''
-      claimStep.value = 'credentials'
-      await toast.fire({
-        icon: 'info',
-        title: 'Set Login Credentials',
-        text: 'Set your email and password to finish claiming your profile.',
-      })
-      return
-    }
-
-    await applyAuthSession({ payload: body.data, apiUrl: api_url })
-    await toast.fire({ icon: 'success', title: 'Claim Complete', text: body?.message || 'Profile claimed successfully.' })
+    claimedSession.value = { token: body.data.token }
+    claimCredentials.email = ''
+    claimCredentials.password = ''
+    claimCredentials.confirmPassword = ''
+    claimStep.value = 'credentials'
+    await toast.fire({
+      icon: 'info',
+      title: 'Create Your Login',
+      text: 'Set your email and password to finish claiming your profile.',
+    })
   } catch (error) {
     const message = error?.response?.data?.message || error?.message || 'Could not claim profile. Please try again.'
     await toast.fire({ icon: 'error', title: 'Claim Error', text: message })
@@ -331,12 +279,9 @@ const submitClaimCredentials = async () => {
       throw new Error(body?.message || 'Could not save credentials')
     }
 
-    const payload = {
-      ...(claimedSession.value || {}),
-      user: {
-        ...(claimedSession.value?.user || {}),
-        email,
-      },
+    const payload = body?.data
+    if (!payload?.token || !payload?.user) {
+      throw new Error('Your login was created, but no player session was returned. Sign in with your new email and password.')
     }
 
     await applyAuthSession({ payload, apiUrl: api_url })
@@ -381,7 +326,7 @@ const submitClaimCredentials = async () => {
             :class="loginMode === 'claim' ? 'bg-[#C00000] text-white' : 'text-white/75 hover:text-white'"
             @click="loginMode = 'claim'"
           >
-            Claim Code
+            Claim Profile
           </button>
         </div>
       </div>
@@ -414,7 +359,7 @@ const submitClaimCredentials = async () => {
 </div>
       </FormKit>
 
-      <form v-else-if="!isClaimCredentialsStep && !isClaimVerificationStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
+      <form v-else-if="!isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
         <div class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-sm font-bold text-white mb-2">Mobile Number</label>
@@ -439,33 +384,11 @@ const submitClaimCredentials = async () => {
             />
           </div>
           <p class="text-xs text-white/75">
-            Use the same mobile number your coach used when adding your profile.
+            Use the same mobile number your coach used and your team's six-character code. No text message is required.
           </p>
           <div class="grid place-content-center">
             <BigButtonField color="red" label="Claim Profile" type="submit"></BigButtonField>
           </div>
-        </div>
-      </form>
-
-      <form v-else-if="isClaimVerificationStep" class="w-full max-w-xl" @submit.prevent="submitClaimVerification">
-        <div class="grid grid-cols-1 gap-4">
-          <div>
-            <label class="block text-sm font-bold text-white mb-2">Verification Code</label>
-            <input
-              v-model="claimChallenge.code"
-              type="text"
-              inputmode="numeric"
-              maxlength="6"
-              autocomplete="one-time-code"
-              placeholder="123456"
-              class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2 tracking-[0.24em]"
-            />
-          </div>
-          <p class="text-xs text-white/75">Enter the one-time code sent to the supplied phone number.</p>
-          <div class="grid place-content-center">
-            <BigButtonField color="red" label="Verify and Join" type="submit"></BigButtonField>
-          </div>
-          <button type="button" class="text-xs font-bold text-white/80" @click="claimStep = 'find'">Start over</button>
         </div>
       </form>
 

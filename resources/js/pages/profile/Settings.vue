@@ -96,7 +96,7 @@ const setTheme = (next) => {
 
           <div v-if="isPlayer" class="settings-tile rounded-xl border border-white/15 bg-white/5 p-5 md:col-span-2">
             <p class="text-xs font-black uppercase tracking-widest text-white/50">Join Team</p>
-            <p class="mt-1 text-lg font-black text-white">Team Claim Code</p>
+            <p class="mt-1 text-lg font-black text-white">Team Code</p>
             <p class="mt-1 text-sm font-bold text-white/65">
               Enter your 6-character team code to join while signed in.
             </p>

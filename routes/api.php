@@ -118,7 +118,6 @@ use App\Http\Controllers\Api\Player\GetLiveABPractices;
 use App\Http\Controllers\Api\Player\GetTrainingPractices;
 use App\Http\Controllers\Api\Player\JoinTeamByCode;
 use App\Http\Controllers\Api\Player\JoinAuthenticatedPlayerTeam;
-use App\Http\Controllers\Api\Player\VerifyTeamJoin;
 use App\Http\Controllers\Api\Player\GetPlayerFilteredStatistics;
 use App\Http\Controllers\Api\Player\GetAthleticPerformance;
 use App\Http\Controllers\Api\Player\SaveFitness;
@@ -255,8 +254,7 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
 Route::prefix('player')->group(function (): void {
     Route::post('register', RegisterPlayerController::class);
     Route::middleware('throttle:5,1')->post('join', JoinTeamByCode::class);
-    Route::middleware('throttle:10,1')->post('join/verify', VerifyTeamJoin::class);
-    Route::middleware(['auth:sanctum'])->group(function (): void {
+    Route::middleware(['auth:sanctum', 'ability:profile-claim'])->group(function (): void {
         Route::post('set-credentials', SetPlayerCredentials::class); // first-time email+password setup after claim
     });
     Route::middleware(['auth:sanctum', 'ability:player', 'route.scope'])->group(function (): void {
