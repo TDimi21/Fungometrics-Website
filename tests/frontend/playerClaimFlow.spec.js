@@ -25,3 +25,24 @@ describe('player profile claim flow', () => {
     expect(routes).not.toContain('VerifyTeamJoin')
   })
 })
+
+describe('duplicate account recovery flow', () => {
+  it('routes existing players to claim or login based on account state', () => {
+    const registration = read('resources/js/pages/register/Player.vue')
+
+    expect(registration).toContain("next_action === 'claim_player_profile'")
+    expect(registration).toContain("next_action === 'login_or_recover'")
+    expect(registration).toContain("path: '/login/player', query: { phone: player.mobileNumber }")
+  })
+
+  it('lets invited coaches complete their existing profile with the head coach code', () => {
+    const registration = read('resources/js/pages/register/Coach.vue')
+    const roster = read('resources/js/pages/roster/HomeRoster.vue')
+
+    expect(registration).toContain("next_action === 'claim_coach_invitation'")
+    expect(registration).toContain('complete/${normalizedClaimCode}/coach')
+    expect(registration).toContain('12-character one-time code supplied by the head coach')
+    expect(roster).toContain('invite.claim_code')
+    expect(roster).toContain('invite.claim_url')
+  })
+})

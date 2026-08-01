@@ -112,14 +112,42 @@ const submitPlayer = async () => {
       await router.replace('/login/player')
 
     }).catch(async function (error){
-      console.log('err', error.response.data.data);
-      let errors = []
+      const body = error?.response?.data || {}
+      const existingAccount = body?.data?.existing_account
+      if (existingAccount?.next_action === 'claim_player_profile') {
+        const choice = await toast.fire({
+          icon: 'info',
+          title: 'Player Profile Found',
+          text: 'An unclaimed player profile already uses this mobile number.',
+          showCancelButton: true,
+          confirmButtonText: 'Claim Profile',
+          cancelButtonText: 'Email Login',
+        })
+        isLoading.status = true
+        if (choice.isConfirmed) {
+          await router.push({ path: '/login/player', query: { phone: player.mobileNumber } })
+        } else {
+          await router.push('/login/player')
+        }
+        return
+      }
+      if (existingAccount?.next_action === 'login_or_recover') {
+        await toast.fire({
+          icon: 'info',
+          title: 'Account Already Exists',
+          text: 'Sign in with the existing account email and password, or use Password Recovery.',
+        })
+        isLoading.status = true
+        await router.push('/login/player')
+        return
+      }
 
-      Object.values(error.response.data.data.errors).forEach((item) => {
+      const errors = []
+      Object.values(body?.data?.errors || {}).forEach((item) => {
         errors.push('\n' + item[0])
       })
 
-      if (error.response.data.code === '001V' || error.response.status === 422 ) {
+      if (body.code === '001V' || error?.response?.status === 422 ) {
         toast.fire({
           icon: 'warning',
           title: 'Player Warning !!!',

@@ -91,7 +91,11 @@ class RegisterCoachControllerTest extends TestCase
 
     public function test_register_coach_validation_phone_exist(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'type' => 'coach',
+            'email' => null,
+            'password' => null,
+        ]);
         Storage::fake('s3');
         $data = [
             'email' => fake()->safeEmail,
@@ -113,12 +117,10 @@ class RegisterCoachControllerTest extends TestCase
         ];
         $response = $this->json('POST', 'api/coach/register', $data);
 
-        $response->assertUnprocessable()->assertJsonStructure([
-            'code',
-            'message',
-            'status',
-            'data' => ['errors'],
-        ]);
+        $response->assertUnprocessable()
+            ->assertJsonPath('data.existing_account.type', 'coach')
+            ->assertJsonPath('data.existing_account.claimable', true)
+            ->assertJsonPath('data.existing_account.next_action', 'claim_coach_invitation');
     }
 
     public function test_register_coach_fail(): void

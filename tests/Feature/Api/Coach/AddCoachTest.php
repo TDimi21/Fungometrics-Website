@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\Coach;
 
 use App\Events\UserChanged;
-use App\Events\UserCreated;
 use App\Http\Requests\Api\Coach\AddUserRequest;
 use App\Models\CoachTeam;
+use App\Models\AccountClaim;
 use App\Models\Concerns\UserTypes;
 use App\Models\Profile;
 use App\Models\Team;
@@ -41,10 +41,15 @@ class AddCoachTest extends TestCase
             ],
         ];
 
-        Event::fake([UserCreated::class]);
         $response = $this->json('POST', 'api/coach/add/coaches', $data);
-        $response->assertOk();
-        Event::assertDispatched(UserCreated::class);
+        $response->assertOk()
+            ->assertJsonPath('data.next_action', 'claim_coach_invitation')
+            ->assertJsonStructure(['data' => ['claim_code', 'claim_url', 'expires_at']]);
+
+        $claimCode = $response->json('data.claim_code');
+        $this->assertMatchesRegularExpression('/^[A-HJ-NP-Z2-9]{12}$/', $claimCode);
+        $this->assertDatabaseHas('account_claims', ['token_hash' => hash('sha256', $claimCode)]);
+        $this->assertSame(1, AccountClaim::query()->count());
     }
 
     public function test_add_exist_coach_ok(): void
@@ -73,7 +78,10 @@ class AddCoachTest extends TestCase
         ];
         Event::fake([UserChanged::class]);
         $response = $this->json('POST', 'api/coach/add/coaches', $data);
-        $response->assertOk();
+        $response->assertOk()
+            ->assertJsonPath('data.account_state', 'claimed')
+            ->assertJsonPath('data.next_action', 'login_or_recover')
+            ->assertJsonMissingPath('data.claim_code');
         Event::assertDispatched(UserChanged::class);
     }
 

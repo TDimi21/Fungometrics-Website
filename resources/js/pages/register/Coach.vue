@@ -41,6 +41,8 @@ const coach = reactive({
 const router = useRouter()
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const isLoading = reactive({status: true})
+const claimExisting = ref(false)
+const claimCode = ref('')
 const userStore = useUserStore();
 const teamStore = useTeamStore();
 
@@ -52,6 +54,15 @@ const submitCoach = async () => {
       text: 'The passwords are not the same',
     })
     return;
+  }
+  const normalizedClaimCode = String(claimCode.value || '').trim().toUpperCase()
+  if (claimExisting.value && !/^[A-HJ-NP-Z2-9]{12}$/.test(normalizedClaimCode)) {
+    await toast.fire({
+      icon: 'warning',
+      title: 'Claim Code Required',
+      text: 'Enter the 12-character one-time code supplied by the head coach.',
+    })
+    return
   }
 
   isLoading.status =!isLoading.status;
@@ -78,7 +89,10 @@ const submitCoach = async () => {
   // InputImage now emits the selected File directly via v-model.
   const imageTemp = coach.teamLogo instanceof File ? coach.teamLogo : '';
   dataForm.append('logo', imageTemp)
-  await axios.post(api_url+'coach/register', dataForm
+  const endpoint = claimExisting.value
+    ? api_url + `complete/${normalizedClaimCode}/coach`
+    : api_url + 'coach/register'
+  await axios.post(endpoint, dataForm
     ).then(async function (response) {
     //   await userStore.setData(response.data.data.user);
     //   await teamStore.setTeam(response.data.data.team);
@@ -94,8 +108,29 @@ const submitCoach = async () => {
 
       await router.replace("/login/coach")
     }).catch(async function (error){
-      console.log(error)
-    if (error.response.data.code === '001V' || error.response.status === 422 ) {
+    const body = error?.response?.data || {}
+    const existingAccount = body?.data?.existing_account
+    if (existingAccount?.next_action === 'claim_coach_invitation') {
+      claimExisting.value = true
+      await toast.fire({
+        icon: 'info',
+        title: 'Coach Profile Found',
+        text: 'Enter the one-time claim code supplied by the head coach, then submit again.',
+      })
+      isLoading.status = true
+      return
+    }
+    if (existingAccount?.next_action === 'login_or_recover') {
+      await toast.fire({
+        icon: 'info',
+        title: 'Account Already Exists',
+        text: 'Sign in with the existing account email and password, or use Password Recovery.',
+      })
+      isLoading.status = true
+      await router.push('/login/coach')
+      return
+    }
+    if (body.code === '001V' || error?.response?.status === 422 ) {
       await toast.fire({
         icon: 'warning',
         title: 'Coach Warning !!!',
@@ -176,6 +211,18 @@ const submitCoach = async () => {
             </div>
           </div>
 
+          <div v-if="claimExisting" class="form-row">
+            <div class="box-input-col">
+              <LabelField :required="true" class="mb-2 text-white" text="One-time coach claim code"/>
+              <InputBase
+                v-model="claimCode"
+                inputClasses="w-full uppercase tracking-[0.18em]"
+                maxlength="12"
+              />
+              <p class="mt-2 text-xs text-white/70">Ask the head coach who invited you for this code.</p>
+            </div>
+          </div>
+
           <!-- third row -->
           <div class="form-row">
             <div class="box-input-col">
@@ -199,7 +246,7 @@ const submitCoach = async () => {
               <InputBase v-model="coach.zipCode" inputClasses="w-full"/>
             </div>
             <div class="box-input-col sm:flex-row sm:justify-end sm:items-end">
-              <BigButtonField color="red" label="Register" type="submit"/>
+              <BigButtonField color="red" :label="claimExisting ? 'Claim Coach Profile' : 'Register'" type="submit"/>
             </div>
           </div>
         </div>

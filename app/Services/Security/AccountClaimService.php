@@ -22,7 +22,7 @@ class AccountClaimService
             throw ValidationException::withMessages(['claim' => 'This account is already complete.']);
         }
 
-        $rawToken = bin2hex(random_bytes(32));
+        $rawToken = $this->generateHumanClaimCode();
         DB::transaction(function () use ($user, $rawToken): void {
             AccountClaim::query()->where('user_id', $user->id)->whereNull('used_at')
                 ->update(['used_at' => now()]);
@@ -77,5 +77,19 @@ class AccountClaimService
     private function isCompleted(User $user): bool
     {
         return filled($user->email) || filled($user->password);
+    }
+
+    private function generateHumanClaimCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+        do {
+            $code = '';
+            for ($index = 0; $index < 12; $index++) {
+                $code .= $alphabet[random_int(0, mb_strlen($alphabet) - 1)];
+            }
+        } while (AccountClaim::query()->where('token_hash', hash('sha256', $code))->exists());
+
+        return $code;
     }
 }

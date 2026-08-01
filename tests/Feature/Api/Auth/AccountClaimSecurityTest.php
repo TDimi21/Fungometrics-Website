@@ -65,6 +65,37 @@ class AccountClaimSecurityTest extends TestCase
         $this->assertNull(AccountClaim::where('user_id', $user->id)->firstOrFail()->used_at);
     }
 
+    public function test_invited_coach_can_complete_existing_profile_with_human_claim_code(): void
+    {
+        $coach = User::factory()->create([
+            'type' => 'coach',
+            'phone' => '5552223333',
+            'email' => null,
+            'password' => null,
+        ]);
+        $code = app(AccountClaimService::class)->issue($coach);
+
+        $this->assertMatchesRegularExpression('/^[A-HJ-NP-Z2-9]{12}$/', $code);
+
+        $this->postJson("/api/complete/{$code}/coach", [
+            'phone' => '5552223333',
+            'email' => 'assistant@example.com',
+            'password' => 'password123',
+            'city' => 'Tampa',
+            'state' => 'FL',
+            'zip' => '33602',
+            'profile' => [
+                'name' => ['first' => 'Assistant', 'last' => 'Coach'],
+                'level' => 'MID',
+            ],
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        $coach->refresh();
+        $this->assertSame('assistant@example.com', $coach->email);
+        $this->assertTrue(Hash::check('password123', $coach->password));
+        $this->assertNotNull(AccountClaim::where('user_id', $coach->id)->firstOrFail()->used_at);
+    }
+
     public function test_unclaimed_roster_player_can_start_claim_with_phone_and_team_code(): void
     {
         $team = Team::factory()->create(['join_code' => 'ABC123']);

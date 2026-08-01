@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Coach;
 
 use App\Events\UserChanged;
-use App\Events\UserCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Coach\AddUserRequest;
 use App\Models\CoachTeam;
@@ -14,6 +13,7 @@ use App\Models\Concerns\UserTypes;
 use App\Models\User;
 use App\Services\CreateServiceData;
 use App\Services\ListServiceData;
+use App\Services\Security\AccountClaimService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +26,7 @@ class AddCoaches extends Controller
      * @param  AddUserRequest  $request
      * @return JsonResponse
      */
-    public function __invoke(AddUserRequest $request): JsonResponse
+    public function __invoke(AddUserRequest $request, AccountClaimService $claims): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -60,12 +60,13 @@ class AddCoaches extends Controller
                     ->first();
 
                 if ($existing && ! $existing->trashed()) {
+                    $claimData = $this->claimData($user, $claims);
                     DB::commit();
                     return response()->json([
                         'code' => '005',
                         'message' => 'the coach is added to team',
                         'status' => 'success',
-                        'data' => [],
+                        'data' => $claimData,
                     ], HttpCodes::HTTP_OK);
                 }
             }
@@ -84,7 +85,7 @@ class AddCoaches extends Controller
 
             if ( ! isset($user)) {
                 $saved = CoachUtils::saveNewUser($data, UserTypes::COACH->value);
-                event(new UserCreated($saved['user']));
+                $targetCoach = $saved['user'];
             } else {
                 // Ensure existing user is promoted to coach type
                 if ($user->type !== UserTypes::COACH->value) {
@@ -102,13 +103,16 @@ class AddCoaches extends Controller
                     ]);
                 }
                 $changedEventData = ['user' => $user, 'team' => $membership];
+                $targetCoach = $user;
             }
+
+            $claimData = $this->claimData($targetCoach, $claims);
 
             $response = [
                 'code' => '005',
                 'message' => 'the coach is added to team',
                 'status' => 'success',
-                'data' => [],
+                'data' => $claimData,
             ];
             DB::commit();
             if (null !== $changedEventData) {
@@ -128,5 +132,26 @@ class AddCoaches extends Controller
 
             return response()->json($response, HttpCodes::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /** @return array<string, mixed> */
+    private function claimData(User $coach, AccountClaimService $claims): array
+    {
+        if (filled($coach->email) || filled($coach->password)) {
+            return [
+                'account_state' => 'claimed',
+                'next_action' => 'login_or_recover',
+            ];
+        }
+
+        $code = $claims->issue($coach);
+
+        return [
+            'account_state' => 'unclaimed',
+            'next_action' => 'claim_coach_invitation',
+            'claim_code' => $code,
+            'claim_url' => rtrim((string) config('app.url'), '/').'/complete/'.$code,
+            'expires_at' => now()->addMinutes((int) config('security.account_claim_ttl_minutes'))->toIso8601String(),
+        ];
     }
 }

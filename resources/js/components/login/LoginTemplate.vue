@@ -11,6 +11,7 @@ import {useTeamStore} from "../../store/team"
 import {usePlayerStore} from "../../store/players"
 import { exchangeWebToken } from '../../utils/webSession.js'
 import { prepareSessionForUser } from '../../utils/sessionCache.js'
+import { useRoute } from 'vue-router'
 const props = defineProps({
   backgroundImage: {
     type: String,
@@ -24,13 +25,17 @@ const props = defineProps({
 })
 
 const {isLogged,setToken} = useAuthStore();
+const route = useRoute();
 const userStore = useUserStore();
 const teamStore = useTeamStore();
 const playerStore = usePlayerStore();
 const isLoading = reactive({status: true})
 const formData = reactive({user: '', password: '', remember: false})
 const loginMode = ref(props.title === 'player' ? 'claim' : 'email')
-const claimForm = reactive({ phone: '', teamCode: '' })
+const claimForm = reactive({
+  phone: String(route.query.phone || ''),
+  teamCode: String(route.query.team_code || '').toUpperCase(),
+})
 const claimStep = ref('find')
 const claimedSession = ref(null)
 const claimCredentials = reactive({ email: '', password: '', confirmPassword: '' })

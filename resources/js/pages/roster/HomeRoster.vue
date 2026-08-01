@@ -327,11 +327,31 @@ const submitAddCoach = async () => {
       headers: { Authorization: `Bearer ${token}` }
     };
     await axios.post(api_url+'coach/add/coaches', dataForm, config).then(async function (response) {
-      toast.fire({
+      const invite = response?.data?.data || {}
+      await toast.fire({
         icon: 'success',
         title: 'Coach Register',
         text: response.data.message,
       })
+      if (invite.next_action === 'claim_coach_invitation') {
+        const choice = await toast.fire({
+          icon: 'info',
+          title: 'One-Time Coach Claim Code',
+          html: `<p class="mb-2">Give this code to the invited coach:</p><strong>${invite.claim_code}</strong>`,
+          showCancelButton: true,
+          confirmButtonText: 'Copy Code & Link',
+          cancelButtonText: 'Done',
+        })
+        if (choice.isConfirmed) {
+          await copyText(`${invite.claim_code}\n${invite.claim_url}`, 'Coach claim code and link copied')
+        }
+      } else {
+        await toast.fire({
+          icon: 'info',
+          title: 'Existing Coach Account',
+          text: 'This coach can sign in with their existing email and password.',
+        })
+      }
       dataCoach.firstName = '',
       dataCoach.lastName = '',
       dataCoach.mobileNumber = '',
@@ -460,7 +480,7 @@ const buildPlayerClaimMessage = ({ playerName, coachName, teamName, teamCode }) 
   return [
     `Hi ${playerName}!`,
     `Coach ${coachName} has added you to ${teamName} on Fungometrics.`,
-    'Download the Fungometrics app, then tap "CLAIM CODE" on the login screen.',
+    'Download the Fungometrics app, then tap "CLAIM PROFILE" on the login screen.',
     `Use your cell number and team code${code ? ` (${code})` : ''} to claim your profile.`,
   ].join('\n')
 }

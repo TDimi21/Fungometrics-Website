@@ -34,7 +34,7 @@ class RegisterPlayerControllerTest extends TestCase
                 'ft' => 7,
                 'inch' => 2,
                 'born' => fake()->date,
-                'shirt'=>fake()->randomDigit()
+                'shirt' => fake()->randomDigit()
             ],
             'positions' => [
                 ['position' => PlayerPositions::PITCHER->value],
@@ -103,11 +103,15 @@ class RegisterPlayerControllerTest extends TestCase
 
     public function test_register_player_validation_fail_phone_exist(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'type' => 'player',
+            'email' => null,
+            'password' => null,
+        ]);
         Storage::fake('s3');
         $data = [
-            'email' => $user->email,
-            'phone' => fake()->phoneNumber,
+            'email' => fake()->safeEmail,
+            'phone' => $user->phone,
             'password' => bcrypt('password'),
             'picture' => UploadedFile::fake()->image('avatar.jpg'),
             'profile' => [
@@ -131,12 +135,10 @@ class RegisterPlayerControllerTest extends TestCase
         ];
         $response = $this->json('POST', 'api/player/register', $data);
 
-        $response->assertUnprocessable()->assertJsonStructure([
-            'code',
-            'message',
-            'status',
-            'data' => ['errors'],
-        ]);
+        $response->assertUnprocessable()
+            ->assertJsonPath('data.existing_account.type', 'player')
+            ->assertJsonPath('data.existing_account.claimable', true)
+            ->assertJsonPath('data.existing_account.next_action', 'claim_player_profile');
     }
 
     public function test_register_player_fail(): void
