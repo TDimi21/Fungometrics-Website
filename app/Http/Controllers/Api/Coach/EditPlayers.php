@@ -10,6 +10,8 @@ use App\Http\Requests\Api\Coach\EditPlayerRequest;
 use App\Models\User;
 use App\Models\CoachTeam;
 use App\Models\PlayerTeam;
+use App\Services\Access\AdministrativeAccess;
+use App\Services\Access\EntitlementResolver;
 use App\Services\UploadS3File;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -23,18 +25,48 @@ class EditPlayers extends Controller
      * @param EditPlayerRequest $request
      * @return JsonResponse
      */
-    public function __invoke(EditPlayerRequest $request): JsonResponse
-    {
-        $sharedTeam = CoachTeam::query()->where('coach_id', $request->user()->id)
-            ->whereIn('team_id', PlayerTeam::query()->where('user_id', $request->id)->select('team_id'))
-            ->exists();
-        if ( ! $sharedTeam) {
-            return response()->json(['message' => 'You may edit only players on your teams.'], HttpCodes::HTTP_FORBIDDEN);
+    public function __invoke(
+        EditPlayerRequest $request,
+        AdministrativeAccess $administration,
+        EntitlementResolver $entitlements
+    ): JsonResponse {
+        $actor = $request->user();
+        $playerId = (string) $request->route('id');
+        $isSelfEdit = 'player' === (string) $actor->type && (string) $actor->id === $playerId;
+        $isAdministrator = $administration->canManageSubscriptions($actor);
+
+        if ( ! $isSelfEdit && ! $isAdministrator) {
+            if ('coach' !== (string) $actor->type) {
+                return response()->json([
+                    'message' => 'Players may edit only their own profile.',
+                    'status' => false,
+                ], HttpCodes::HTTP_FORBIDDEN);
+            }
+
+            $sharedTeamId = CoachTeam::query()->where('coach_id', $actor->id)
+                ->whereIn('team_id', PlayerTeam::query()
+                    ->where('user_id', $playerId)
+                    ->where('actual', true)
+                    ->select('team_id'))
+                ->value('team_id');
+            if ( ! $sharedTeamId) {
+                return response()->json([
+                    'message' => 'You may edit only active players on your teams.',
+                    'status' => false,
+                ], HttpCodes::HTTP_FORBIDDEN);
+            }
+            if ( ! $entitlements->hasEntitlement($actor, 'edit_player', (string) $sharedTeamId)) {
+                return response()->json([
+                    'message' => 'Your current plan does not include player editing.',
+                    'required_entitlement' => 'edit_player',
+                    'status' => false,
+                ], HttpCodes::HTTP_FORBIDDEN);
+            }
         }
 
         try {
             DB::beginTransaction();
-            $player = User::findOrFail($request->id);
+            $player = User::findOrFail($playerId);
             $dataEdit = [
                 'email' => $request->email,
                 'phone' => $request->phone,
@@ -60,7 +92,7 @@ class EditPlayers extends Controller
                     );
                 } catch (Exception $photoException) {
                     $photoError = $photoException->getMessage();
-                    Log::error('Player photo upload failed for '.$request->id.': '.$photoError);
+                    Log::error('Player photo upload failed for '.$playerId.': '.$photoError);
                 }
             }
             $player->profile->update($playerProfile);
@@ -80,15 +112,15 @@ class EditPlayers extends Controller
 
             $player->player()->updateOrCreate(['user_id' => $player->id], $playerData);
 
-            $player->positions->where('player_id', $request->id)->each->delete();
-            PlayerUtils::savePositionsPlayer($request, $request->id);
+            $player->positions->where('player_id', $playerId)->each->delete();
+            PlayerUtils::savePositionsPlayer($request, $playerId);
 
             $response = [
                 'code' => '033',
                 'message' => $photoError ? 'player updated (photo not saved)' : 'player updated',
                 'status' => 'success',
                 'photo_uploaded' => null === $photoError,
-                'data' => User::with('profile', 'player', 'positions')->find($request->id),
+                'data' => User::with('profile', 'player', 'positions')->find($playerId),
             ];
             if ($photoError) {
                 $response['photo_error'] = 'Photo could not be stored; other changes were saved.';

@@ -38,6 +38,9 @@ class AuthorizeRouteScope
         }
 
         $player = $this->firstRouteValue($request, ['player', 'playerId']);
+        if ( ! $player && str_ends_with((string) $request->route()?->uri(), 'edit/players/{id}')) {
+            $player = $request->route('id');
+        }
         $playerId = $player ? $this->modelId($player) : null;
         if ($playerId && User::query()->whereKey($playerId)->exists() && ! $this->canAccessPlayer($user, $playerId)) {
             abort(404);
@@ -77,7 +80,10 @@ class AuthorizeRouteScope
 
         return CoachTeam::query()
             ->where('coach_id', $user->id)
-            ->whereIn('team_id', PlayerTeam::query()->where('user_id', $playerId)->select('team_id'))
+            ->whereIn('team_id', PlayerTeam::query()
+                ->where('user_id', $playerId)
+                ->where('actual', true)
+                ->select('team_id'))
             ->exists();
     }
 

@@ -230,7 +230,7 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
         ->middleware('throttle:3,10');
     Route::post('me/billing/revenuecat/sync', RevenueCatSyncController::class)->middleware('throttle:10,1');
     Route::get('me/billing/revenuecat/products', RevenueCatProductsController::class);
-    Route::middleware(['ability:coach', 'plan:edit_player'])->post('/edit/players/{id}', EditPlayers::class);
+    Route::post('/edit/players/{id}', EditPlayers::class);
     Route::get('player/me', \App\Http\Controllers\Api\Player\GetMe::class);
     Route::post('player/fitness', SaveFitness::class);
     Route::get('player/fitness/{id}', GetFitness::class);
