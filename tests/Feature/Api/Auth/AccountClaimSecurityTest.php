@@ -9,11 +9,13 @@ use App\Models\Team;
 use App\Models\TeamJoinChallenge;
 use App\Models\User;
 use App\Services\Security\AccountClaimService;
+use App\Services\Security\TeamJoinChallengeService;
 use App\Services\SendSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
+use RuntimeException;
 use Tests\TestCase;
 
 class AccountClaimSecurityTest extends TestCase
@@ -77,6 +79,24 @@ class AccountClaimSecurityTest extends TestCase
 
         $this->assertDatabaseMissing('player_teams', ['user_id' => $player->id, 'team_id' => $team->id]);
         $this->assertSame(0, $player->tokens()->count());
+    }
+
+    public function test_team_join_never_exposes_unexpected_database_errors(): void
+    {
+        $this->mock(TeamJoinChallengeService::class, function ($mock): void {
+            $mock->shouldReceive('request')
+                ->once()
+                ->andThrow(new RuntimeException('SQLSTATE sensitive details'));
+        });
+        Team::factory()->create(['join_code' => 'SAFE12']);
+
+        $response = $this->postJson('/api/player/join', [
+            'phone' => '5556666600',
+            'team_code' => 'SAFE12',
+        ])->assertStatus(503)
+            ->assertJsonPath('message', 'Phone verification is temporarily unavailable. Please try again.');
+
+        $this->assertStringNotContainsString('SQLSTATE', (string) $response->getContent());
     }
 
     public function test_allowlisted_fake_phone_uses_expiring_test_code_without_sending_sms(): void

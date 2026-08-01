@@ -8,7 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Services\Security\TeamJoinChallengeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class JoinTeamByCode extends Controller
 {
@@ -27,6 +29,15 @@ class JoinTeamByCode extends Controller
                 'message' => 'The team join request could not be started.',
                 'errors' => $exception->errors(),
             ], 422);
+        } catch (Throwable $exception) {
+            Log::error('Team join challenge creation failed.', [
+                'exception' => $exception::class,
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Phone verification is temporarily unavailable. Please try again.',
+            ], 503);
         }
 
         $testMode = 'allowlisted_test_phone' === $challenge->getAttribute('verification_mode');

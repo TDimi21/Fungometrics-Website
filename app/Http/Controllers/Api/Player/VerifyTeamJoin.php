@@ -8,7 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Services\Security\TeamJoinChallengeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class VerifyTeamJoin extends Controller
 {
@@ -27,6 +29,15 @@ class VerifyTeamJoin extends Controller
                 'message' => 'Verification failed.',
                 'errors' => $exception->errors(),
             ], 422);
+        } catch (Throwable $exception) {
+            Log::error('Team join verification failed unexpectedly.', [
+                'exception' => $exception::class,
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Phone verification is temporarily unavailable. Please try again.',
+            ], 503);
         }
 
         return response()->json([
