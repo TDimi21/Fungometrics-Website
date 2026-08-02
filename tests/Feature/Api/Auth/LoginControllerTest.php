@@ -40,6 +40,7 @@ class LoginControllerTest extends TestCase
         ]);
         $response->assertOk();
         $this->assertNotNull($user->fresh()->last_login_at);
+        $this->assertDatabaseHas('user_login_history', ['user_id' => $user->id]);
         $data = json_decode($response->getContent(), false, 512, JSON_THROW_ON_ERROR);
         $this->assertNotNull($data->data->token);
     }

@@ -46,7 +46,13 @@ class LoginController extends Controller
               // request instead of the app retrying multiple email formats).
               $user = AuthUtils::authCredentials($request);
               $loggedInAt = now();
-              DB::table('users')->where('id', $user->id)->update(['last_login_at' => $loggedInAt]);
+              DB::transaction(function () use ($user, $loggedInAt): void {
+                  DB::table('users')->where('id', $user->id)->update(['last_login_at' => $loggedInAt]);
+                  DB::table('user_login_history')->insert([
+                      'user_id' => $user->id,
+                      'logged_in_at' => $loggedInAt,
+                  ]);
+              });
               $user->setAttribute('last_login_at', $loggedInAt);
               $data = AuthUtils::createTokenFromUser($user);
               $isWebClient = 'web' === $request->header('X-FMTRX-Client');

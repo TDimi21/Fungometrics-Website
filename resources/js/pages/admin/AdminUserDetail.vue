@@ -16,6 +16,9 @@ const saving      = ref(false)
 const currentPlan = ref(null)   // null = unknown (player search doesn't return plan)
 const saveMsg     = ref('')
 const saveMsgType = ref('success')
+const loginHistory = ref([])
+const loginHistoryLoading = ref(false)
+const loginHistoryError = ref('')
 
 const COACH_PLANS  = ['free', 'coach_basic', 'coach_pro']
 const PLAYER_PLANS = ['free', 'player_basic', 'player_pro']
@@ -87,13 +90,37 @@ async function loadUser() {
   loading.value = false
 }
 
-onMounted(loadUser)
+async function loadLoginHistory() {
+  loginHistoryLoading.value = true
+  loginHistoryError.value = ''
+  try {
+    const res = await axiosGet(`admin/users/${route.params.id}/login-history`)
+    loginHistory.value = Array.isArray(res.data?.data) ? res.data.data : []
+  } catch (e) {
+    loginHistoryError.value = e?.response?.data?.message || 'Login history could not be loaded.'
+  } finally {
+    loginHistoryLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  await loadUser()
+  if (user.value?._role === 'Coach') await loadLoginHistory()
+})
 
 const isCoach       = computed(() => user.value?._role === 'Coach')
 const availablePlans = computed(() => isCoach.value ? COACH_PLANS : PLAYER_PLANS)
 const featureGroups  = computed(() => groupFeatures(currentPlan.value || 'free'))
 const roleColor      = computed(() => TAB_COLORS[user.value?._role] ?? { bg: 'rgba(255,255,255,0.1)', text: '#fff' })
 const planLabel      = computed(() => currentPlan.value ? (PLAN_LABELS[currentPlan.value] ?? currentPlan.value) : 'Unknown')
+
+function formatLoginDate(value) {
+  if (!value) return ''
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
 
 async function savePlan(plan) {
   if (plan === currentPlan.value) return
@@ -180,6 +207,30 @@ async function savePlan(plan) {
           <span class="inline-block mt-2 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg"
             :style="{ backgroundColor: roleColor.bg, color: roleColor.text }">{{ user._role }}</span>
         </div>
+      </div>
+
+      <!-- Coach login history -->
+      <div v-if="isCoach" class="bg-white/4 border border-white/10 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-white/35 text-xs font-bold tracking-widest uppercase">Recent Logins</p>
+          <span class="text-white/25 text-xs">Last 20</span>
+        </div>
+
+        <div v-if="loginHistoryLoading" class="flex items-center justify-center gap-2 py-5 text-white/40 text-xs">
+          <div class="w-4 h-4 border border-app-red border-t-transparent rounded-full animate-spin"></div>
+          Loading login history...
+        </div>
+        <p v-else-if="loginHistoryError" class="text-app-red text-sm text-center py-4">{{ loginHistoryError }}</p>
+        <p v-else-if="!loginHistory.length" class="text-white/30 text-sm text-center py-4">
+          No login history recorded yet.
+        </p>
+        <ol v-else class="divide-y divide-white/5">
+          <li v-for="(login, index) in loginHistory" :key="`${login.logged_in_at}-${index}`"
+            class="flex items-center gap-3 py-2.5">
+            <span class="w-6 text-right text-white/20 text-xs tabular-nums">{{ index + 1 }}</span>
+            <span class="text-white/70 text-sm">{{ formatLoginDate(login.logged_in_at) }}</span>
+          </li>
+        </ol>
       </div>
 
       <!-- Plan Selector -->

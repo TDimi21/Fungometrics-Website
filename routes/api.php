@@ -566,6 +566,7 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'subscription.admin'])->pref
     Route::get('/coaches', [\App\Http\Controllers\Api\Admin\AdminDirectoryController::class, 'coaches']);
     Route::get('/players', [\App\Http\Controllers\Api\Admin\AdminDirectoryController::class, 'players']);
     Route::get('/activity', \App\Http\Controllers\Api\Admin\UserActivityAdminController::class);
+    Route::get('/users/{user}/login-history', \App\Http\Controllers\Api\Admin\UserLoginHistoryAdminController::class);
     // Dev/admin-only Cage Distance Validation Lab preview — gated by
     // CAGE_DISTANCE_VALIDATION_ENABLED (off by default, including prod).
     Route::post('/cage-distance/validate', [\App\Http\Controllers\Api\Admin\CageDistanceValidationController::class, 'check']);
