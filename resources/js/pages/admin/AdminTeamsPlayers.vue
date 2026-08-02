@@ -149,7 +149,7 @@ function switchTab(tab) {
           <div v-for="player in group.items" :key="player.id"
             class="flex items-center gap-4 bg-white/5 border border-white/8 rounded-xl p-4">
             <div class="flex-1">
-              <p class="text-white font-bold text-sm">{{ player.name }}</p>
+              <p class="text-white font-bold text-sm">{{ player.name?.full || player.name }}</p>
               <p class="text-white/40 text-xs mt-0.5">{{ player.team?.name || 'No team' }}</p>
             </div>
             <div class="bg-white/10 text-white/70 text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0">

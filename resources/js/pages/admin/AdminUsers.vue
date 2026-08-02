@@ -21,7 +21,13 @@ const players  = ref([])
 const loading  = ref(false)
 const search   = ref('')
 const apiError = ref('')   // shows actual API error instead of silent "no users found"
-const activeTab = ref(TABS.includes(route.query.tab) ? route.query.tab : 'All')
+// admin.coaches (/admin/coaches) and admin.players (/admin/players) are
+// legacy direct-URL routes that render this same component but never set
+// ?tab= — without this they silently mis-loaded into the generic "All" tab.
+const ROUTE_NAME_TAB = { 'admin.coaches': 'Coaches', 'admin.players': 'Players' }
+const activeTab = ref(
+  TABS.includes(route.query.tab) ? route.query.tab : (ROUTE_NAME_TAB[route.name] || 'All')
+)
 
 // ── Bulk upgrade ─────────────────────────────────────────────────────────────
 const bulk = ref({ running: false, done: 0, total: 0, errors: 0, msg: '' })
@@ -109,53 +115,35 @@ function dedupeById(arr) {
   })
 }
 
-// coaches: res.data.data is Laravel paginator { data:[...], last_page }
-// players: res.data.data is flat array (SearchPlayersResource, no last_page exposed)
-async function fetchAllPages(endpoint, label) {
-  const all = []
-  let page = 1
-  while (true) {
-    try {
-      const sep   = endpoint.includes('?') ? '&' : '?'
-      const res   = await axiosGet(`${endpoint}${sep}page=${page}`)
-      const outer = res.data?.data
-      const arr   = Array.isArray(outer?.data) ? outer.data
-                  : Array.isArray(outer)        ? outer
-                  : []
-      if (!arr.length) break
-      all.push(...arr)
-      if (outer?.last_page != null && page >= outer.last_page) break
-      page++
-    } catch (err) {
-      const status  = err?.response?.status
-      const message = err?.response?.data?.message || err?.message || 'Unknown error'
-      // 404 = "no results" from the backend (not a real error for page overflow)
-      if (status !== 404) {
-        apiError.value += `${label}: HTTP ${status ?? '?'} — ${message}. `
-      }
-      break
-    }
+// Single unpaginated, org-wide call per list — this used to page through
+// the throttled (30 req/min) coach/search/* endpoints on every mount, which
+// reliably exhausted the limit. See AdminDirectoryController.
+async function fetchList(endpoint, label) {
+  try {
+    const res = await axiosGet(endpoint)
+    const arr = res.data?.data
+    return Array.isArray(arr) ? arr : []
+  } catch (err) {
+    const status  = err?.response?.status
+    const message = err?.response?.data?.message || err?.message || 'Unknown error'
+    apiError.value += `${label}: HTTP ${status ?? '?'} — ${message}. `
+    return []
   }
-  return all
 }
 
 async function fetchAll() {
   loading.value  = true
   apiError.value = ''
-  try {
-    const [rawCoaches, rawPlayers] = await Promise.all([
-      fetchAllPages('coach/search/coaches?search=', 'Coaches'),
-      fetchAllPages('coach/search/players?search=', 'Players'),
-    ])
-    coaches.value = dedupeById(rawCoaches)
-      .map(u => normalizeUser(u, 'Coach'))
-      .sort((a, b) => a._first.toLowerCase().localeCompare(b._first.toLowerCase()))
-    players.value = dedupeById(rawPlayers)
-      .map(u => normalizeUser(u, 'Player'))
-      .sort((a, b) => a._first.toLowerCase().localeCompare(b._first.toLowerCase()))
-  } catch (e) {
-    apiError.value = `Fetch failed: ${e?.message || e}`
-  }
+  const [rawCoaches, rawPlayers] = await Promise.all([
+    fetchList('admin/coaches', 'Coaches'),
+    fetchList('admin/players', 'Players'),
+  ])
+  coaches.value = dedupeById(rawCoaches)
+    .map(u => normalizeUser(u, 'Coach'))
+    .sort((a, b) => a._first.toLowerCase().localeCompare(b._first.toLowerCase()))
+  players.value = dedupeById(rawPlayers)
+    .map(u => normalizeUser(u, 'Player'))
+    .sort((a, b) => a._first.toLowerCase().localeCompare(b._first.toLowerCase()))
   loading.value = false
 }
 

@@ -559,9 +559,12 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'subscription.admin'])->pref
     Route::get('/entitlement-grants', [\App\Http\Controllers\Api\Admin\EntitlementGrantAdminController::class, 'index']);
     Route::post('/entitlement-grants', [\App\Http\Controllers\Api\Admin\EntitlementGrantAdminController::class, 'store']);
     Route::post('/entitlement-grants/{grant}/revoke', [\App\Http\Controllers\Api\Admin\EntitlementGrantAdminController::class, 'revoke']);
-    // Org-wide (not coach-scoped) team/player directory, filterable by state/level.
-    Route::get('/teams', [\App\Http\Controllers\Api\Admin\TeamPlayerAdminController::class, 'teams']);
-    Route::get('/players', [\App\Http\Controllers\Api\Admin\TeamPlayerAdminController::class, 'players']);
+    // Org-wide (not coach-scoped) team/coach/player directory, filterable by
+    // state/level/team_id. Replaces the old admin pattern of paging through
+    // the throttled coach/search/* endpoints to build a full user list.
+    Route::get('/teams', [\App\Http\Controllers\Api\Admin\AdminDirectoryController::class, 'teams']);
+    Route::get('/coaches', [\App\Http\Controllers\Api\Admin\AdminDirectoryController::class, 'coaches']);
+    Route::get('/players', [\App\Http\Controllers\Api\Admin\AdminDirectoryController::class, 'players']);
     Route::get('/activity', \App\Http\Controllers\Api\Admin\UserActivityAdminController::class);
     // Dev/admin-only Cage Distance Validation Lab preview — gated by
     // CAGE_DISTANCE_VALIDATION_ENABLED (off by default, including prod).

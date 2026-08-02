@@ -19,58 +19,25 @@ const MENU_ITEMS = [
   { key: 'admin.plans',     label: 'Plan Features',   countKey: null,      desc: 'Control which features each subscription tier unlocks',  icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
 ]
 
-// coaches: res.data.data = paginator { data:[...], last_page }
-// players: res.data.data = flat array  (SearchPlayersResource transforms fields)
-async function fetchAllPages(endpoint) {
-  const all = []
-  let page = 1
-  while (true) {
-    try {
-      const sep = endpoint.includes('?') ? '&' : '?'
-      const res   = await axiosGet(`${endpoint}${sep}page=${page}`)
-      const outer = res.data?.data                          // paginator obj OR flat array
-      const arr   = Array.isArray(outer?.data) ? outer.data  // coaches: paginator
-                  : Array.isArray(outer)        ? outer       // players: flat array
-                  : []
-      if (!arr.length) break
-      all.push(...arr)
-      if (outer?.last_page != null && page >= outer.last_page) break
-      page++
-    } catch (_) { break }                                   // 404 = no more pages
-  }
-  return all
-}
-
-// coaches have profile.first_name; players have name.{first,last} (via SearchPlayersResource)
-function normalizeName(u) {
-  const nameObj = u.name && typeof u.name === 'object' ? u.name : null
-  const first   = String(nameObj?.first || u.first_name || u.profile?.first_name || '').trim()
-  const last    = String(nameObj?.last  || u.last_name  || u.profile?.last_name  || '').trim()
-  const full    = nameObj?.full || (first && last ? `${first} ${last}` : first || last || u.email || '—')
-  const initials = [first[0], last[0]].filter(Boolean).join('').toUpperCase() || '?'
-  return { full, initials, email: u.email || u.phone || '' }
-}
-
 onMounted(async () => {
   try {
-    const [coaches, players] = await Promise.all([
-      fetchAllPages('coach/search/coaches?search='),
-      fetchAllPages('coach/search/players?search='),
+    // Single unpaginated call per list — the admin panel used to page through
+    // the throttled (30 req/min) coach/search/* endpoints on every mount,
+    // which reliably exhausted the limit. See AdminDirectoryController.
+    const [coachesRes, playersRes, teamsRes] = await Promise.all([
+      axiosGet('admin/coaches'),
+      axiosGet('admin/players'),
+      axiosGet('admin/teams'),
     ])
-
-    // Teams from players' actual_team (the field name after SearchPlayersResource transforms)
-    const teamNames = new Set()
-    players.forEach(p => {
-      if (Array.isArray(p.actual_team)) {
-        p.actual_team.forEach(t => { if (t.name?.trim()) teamNames.add(t.name.trim()) })
-      }
-    })
+    const coaches = coachesRes.data?.data ?? []
+    const players = playersRes.data?.data ?? []
+    const teams   = teamsRes.data?.data ?? []
 
     stats.value = {
       coaches: coaches.length,
       players: players.length,
       users:   coaches.length + players.length,
-      teams:   teamNames.size || '—',
+      teams:   teams.length,
     }
 
   } catch (e) {

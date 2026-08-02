@@ -43,24 +43,19 @@ function normalizeUser(u, role) {
   }
 }
 
-async function findInPages(endpoint, role) {
+// Single unpaginated, org-wide call — this used to page through every page
+// of the throttled (30 req/min) coach/search/* endpoints just to find one
+// row by id. See AdminDirectoryController.
+async function findIn(endpoint, role) {
   const id = String(route.params.id)
-  let page = 1
-  while (true) {
-    try {
-      const sep   = endpoint.includes('?') ? '&' : '?'
-      const res   = await axiosGet(`${endpoint}${sep}page=${page}`)
-      const outer = res.data?.data
-      const arr   = Array.isArray(outer?.data) ? outer.data
-                  : Array.isArray(outer)        ? outer
-                  : []
-      const found = arr.find(u => String(u.id) === id)
-      if (found) return normalizeUser(found, role)
-      if (!arr.length || (outer?.last_page != null && page >= outer.last_page)) break
-      page++
-    } catch (_) { break }
+  try {
+    const res = await axiosGet(endpoint)
+    const arr = Array.isArray(res.data?.data) ? res.data.data : []
+    const found = arr.find(u => String(u.id) === id)
+    return found ? normalizeUser(found, role) : null
+  } catch (_) {
+    return null
   }
-  return null
 }
 
 async function loadUser() {
@@ -78,10 +73,10 @@ async function loadUser() {
     }
   } catch (_) {}
 
-  // Fallback: search all pages (coaches first, then players)
+  // Fallback: direct nav/refresh/bookmark with no sessionStorage cache
   try {
-    const found = await findInPages('coach/search/coaches?search=', 'Coach')
-              ?? await findInPages('coach/search/players?search=', 'Player')
+    const found = await findIn('admin/coaches', 'Coach')
+              ?? await findIn('admin/players', 'Player')
     if (found) {
       user.value        = found
       currentPlan.value = found._plan

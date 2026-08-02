@@ -7,79 +7,33 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 const router = useRouter()
 const { axiosGet } = useAxiosAuth()
 
-const teams      = ref([])
-const coachesMap = ref({})   // keyed by team_id → [{ id, name }]
-const loading    = ref(false)
-const search     = ref('')
-const selected   = ref(null)
-const codeCopied = ref(false)
+const teams        = ref([])
+const coachesMap   = ref({})   // keyed by team_id → [{ id, name }]
+const loading      = ref(false)
+const rosterLoading = ref(false)
+const search       = ref('')
+const selected     = ref(null)
+const codeCopied   = ref(false)
 
-// players: res.data.data is flat array (SearchPlayersResource)
-async function fetchAllPages(endpoint) {
-  const all = []
-  let page = 1
-  while (true) {
-    try {
-      const sep   = endpoint.includes('?') ? '&' : '?'
-      const res   = await axiosGet(`${endpoint}${sep}page=${page}`)
-      const outer = res.data?.data
-      const arr   = Array.isArray(outer?.data) ? outer.data
-                  : Array.isArray(outer)        ? outer
-                  : []
-      if (!arr.length) break
-      all.push(...arr)
-      if (outer?.last_page != null && page >= outer.last_page) break
-      page++
-    } catch (_) { break }
-  }
-  return all
-}
-
+// Single unpaginated, org-wide call with counts pre-aggregated server-side —
+// this used to page through every player across the throttled (30 req/min)
+// coach/search/players endpoint just to group them by team client-side.
+// See AdminDirectoryController.
 async function fetchTeams() {
   loading.value = true
   try {
-    // Players come back with actual_team (SearchPlayersResource renames teams → actual_team)
-    const allPlayers = await fetchAllPages('coach/search/players?search=')
-
-    const teamMap = new Map()
-    for (const player of allPlayers) {
-      const playerTeams = Array.isArray(player.actual_team) ? player.actual_team : []
-      for (const t of playerTeams) {
-        const name = t.name?.trim()
-        if (!name) continue
-        const key = t.id ?? name
-        if (!teamMap.has(key)) {
-          teamMap.set(key, { id: t.id ?? null, key, name, join_code: t.join_code ?? '', players: [] })
-        }
-        // player name: SearchPlayersResource gives name.full
-        const fullName = player.name?.full
-          ?? `${player.name?.first ?? ''} ${player.name?.last ?? ''}`.trim()
-          ?? player._full
-        if (fullName) teamMap.get(key).players.push({ id: player.id, name: fullName })
-      }
-    }
-    teams.value = Array.from(teamMap.values()).sort((a, b) => a.name.localeCompare(b.name))
-
-    // Coaches per team — GetCoachesList (CoachesResource) returns team_associate = team_id
-    try {
-      const coachRes  = await axiosGet('coach/roster/coaches')
-      const coachList = Array.isArray(coachRes.data?.data)
-        ? coachRes.data.data
-        : Array.isArray(coachRes.data)
-        ? coachRes.data
-        : []
-      const map = {}
-      for (const c of coachList) {
-        const tid = c.team_associate
-        if (tid != null) {
-          if (!map[tid]) map[tid] = []
-          const fullName = c.name?.full ?? `${c.name?.first ?? ''} ${c.name?.last ?? ''}`.trim()
-          if (fullName) map[tid].push({ id: c.coach_id ?? c.id, name: fullName })
-        }
-      }
-      coachesMap.value = map
-    } catch (_) {}
-
+    const res  = await axiosGet('admin/teams')
+    const rows = Array.isArray(res.data?.data) ? res.data.data : []
+    teams.value = rows
+      .map(t => ({
+        id: t.id,
+        key: t.id,
+        name: t.name,
+        join_code: t.join_code ?? '',
+        players_count: t.players_count ?? 0,
+        coaches_count: t.coaches_count ?? 0,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
   } catch (e) {
     console.error('AdminTeams error', e)
   }
@@ -87,6 +41,34 @@ async function fetchTeams() {
 }
 
 onMounted(fetchTeams)
+
+// Roster (coaches + players) for one team, loaded lazily only when its
+// detail sheet is opened — not fetched up front for every team.
+async function loadRoster(team) {
+  if (coachesMap.value[team.id]) return // already loaded
+  rosterLoading.value = true
+  try {
+    const [coachRes, playerRes] = await Promise.all([
+      axiosGet('admin/coaches', { team_id: team.id }),
+      axiosGet('admin/players', { team_id: team.id }),
+    ])
+    const coachRows  = Array.isArray(coachRes.data?.data) ? coachRes.data.data : []
+    const playerRows = Array.isArray(playerRes.data?.data) ? playerRes.data.data : []
+    coachesMap.value = {
+      ...coachesMap.value,
+      [team.id]: coachRows.map(c => ({
+        id: c.id,
+        name: `${c.profile?.first_name ?? ''} ${c.profile?.last_name ?? ''}`.trim(),
+      })),
+    }
+    if (selected.value?.id === team.id) {
+      selected.value = { ...selected.value, players: playerRows.map(p => ({ id: p.id, name: p.name?.full ?? '' })) }
+    }
+  } catch (e) {
+    console.error('AdminTeams roster error', e)
+  }
+  rosterLoading.value = false
+}
 
 const filtered = computed(() => {
   if (!search.value) return teams.value
@@ -105,7 +87,8 @@ function copyCode(code) {
 
 function openTeam(team) {
   codeCopied.value = false
-  selected.value   = team
+  selected.value   = { ...team, players: [] }
+  loadRoster(team)
 }
 </script>
 
@@ -148,15 +131,12 @@ function openTeam(team) {
         <div class="flex-1">
           <p class="text-white font-bold text-sm">{{ team.name }}</p>
           <p class="text-white/40 text-xs mt-0.5">
-            {{ team.players.length }} players
-            <span v-if="team.id !== null && coachesMap[team.id]?.length">
-              · {{ coachesMap[team.id].length }} coaches
-            </span>
+            {{ team.players_count }} players · {{ team.coaches_count }} coaches
           </p>
           <p v-if="team.join_code" class="text-amber-400/60 text-xs mt-0.5 font-mono">{{ team.join_code }}</p>
         </div>
         <div class="text-center flex-shrink-0 mr-2">
-          <p class="text-amber-400 font-black text-xl">{{ team.players.length }}</p>
+          <p class="text-amber-400 font-black text-xl">{{ team.players_count }}</p>
           <p class="text-white/30 text-xs">players</p>
         </div>
         <svg class="w-4 h-4 text-white/25 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -195,8 +175,13 @@ function openTeam(team) {
             <p class="text-white/30 text-xs">No join code available</p>
           </div>
 
+          <!-- Roster loading -->
+          <div v-if="rosterLoading" class="flex justify-center py-8">
+            <div class="w-6 h-6 border-2 border-app-red border-t-transparent rounded-full animate-spin"></div>
+          </div>
+
           <!-- Scrollable roster -->
-          <div class="overflow-y-auto flex-1 space-y-1">
+          <div v-else class="overflow-y-auto flex-1 space-y-1">
             <!-- Coaches -->
             <p class="text-white/35 text-xs font-bold tracking-widest uppercase mb-2">
               COACHES ({{ selected.id !== null ? (coachesMap[selected.id]?.length ?? 0) : 0 }})
