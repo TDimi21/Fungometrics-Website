@@ -157,6 +157,7 @@ const sessionTypeColor = {
   long_toss:    { bg: 'bg-pink-500/20',    border: 'border-pink-500/50',    text: 'text-pink-300',    label: 'LONG TOSS' },
   weight_ball:  { bg: 'bg-yellow-500/20',  border: 'border-yellow-500/50',  text: 'text-yellow-300',  label: 'WEIGHT BALL' },
   exit_velocity:{ bg: 'bg-red-500/20',     border: 'border-red-500/50',     text: 'text-red-300',     label: 'EXIT VEL' },
+  blast:        { bg: 'bg-cyan-500/20',    border: 'border-cyan-400/50',    text: 'text-cyan-300',    label: 'BLAST REPORT' },
 }
 const sessionReportTypeMap = {
   batting:       'batting',
@@ -167,6 +168,10 @@ const sessionReportTypeMap = {
   exit_velocity: 'exit_velocity',
 }
 const openSessionReport = (session) => {
+  if (session._type === 'blast') {
+    router.push({ name: 'data-hub.blast-report', params: { batch: session.id } })
+    return
+  }
   const type = sessionReportTypeMap[session._type]
   if (!type) return
   const note = session.end_note || session.notes || null
@@ -188,6 +193,21 @@ const getRecentSessions = async (force = false) => {
     const all = []
     for (const [type, items] of Object.entries(d)) {
       if (Array.isArray(items)) items.forEach(item => all.push({ ...item, _type: type }))
+    }
+    try {
+      const { data: importsResponse } = await withTeamIdFallbackGet((id) => `data-hub/imports?team_id=${id}`)
+      const imports = Array.isArray(importsResponse?.data) ? importsResponse.data : []
+      imports.filter(item => item.platform === 'Blast Motion' && item.status === 'completed').forEach(item => all.push({
+        ...item,
+        _type: 'blast',
+        created_at: item.completed_at,
+        updated_at: item.completed_at,
+        is_completed: true,
+        lineup: [{ name: { full: `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim() } }],
+      }))
+    } catch (e) {
+      // The dashboard remains usable when this account cannot access Data Hub reports.
+      if (![401, 403, 404].includes(e?.response?.status)) console.warn('getRecentBlastReports', e)
     }
     all.sort((a, b) => new Date(b.updated_at ?? b.created_at) - new Date(a.updated_at ?? a.created_at))
     recentSessions.value = all.slice(0, 8)

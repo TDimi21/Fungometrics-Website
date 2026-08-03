@@ -25,20 +25,22 @@ describe('Data Hub Phase 2A', () => {
     expect(mapping).toContain('Player not on roster')
   })
 
-  it('releases file and clears inspection state on every lifecycle boundary', () => {
-    expect(page).toMatch(/inspection\.value = response\.data\.data[\s\S]*selectedFile\.value = null/)
+  it('retains the source file through Blast confirmation and clears it on lifecycle boundaries', () => {
+    expect(page).not.toMatch(/inspection\.value = response\.data\.data[\s\S]*selectedFile\.value = null[\s\S]*step\.value = 4/)
     expect(page).toContain("window.addEventListener('fmtrx-logout', clearWorkflow)")
     expect(page).toContain('onBeforeRouteLeave(clearWorkflow)')
     expect(page).toMatch(/const cancel[\s\S]*clearWorkflow\(\)/)
-    expect(page).toMatch(/const finishInspection[\s\S]*clearWorkflow\(\)/)
+    expect(page).toMatch(/const clearWorkflow[\s\S]*selectedFile\.value = null/)
+    expect(page).toMatch(/const finishInspection[\s\S]*inspectionComplete\.value = true/)
   })
 
-  it('shows normalized totals and never issues an import request', () => {
+  it('shows normalized totals and only commits through the governed Blast endpoint', () => {
     expect(review).toContain('inspection.counts.total_rows')
     expect(review).toContain('inspection.counts.usable_rows')
     expect(review).toContain('inspection.counts.invalid_rows')
     expect(review).toContain('Normalized sample records')
-    expect(page).not.toMatch(/axiosPost\(['"`][^'"`]*(?:import|session|statistics)/)
+    expect(page).toContain("axiosPost('data-hub/imports/blast', form)")
+    expect(page).not.toMatch(/axiosPost\(['"`][^'"`]*(?:external-session|canonical-event|practice|statistics)/)
   })
 
   it('uses no persistent browser storage for the inspection workflow', () => {

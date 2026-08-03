@@ -36,8 +36,9 @@ describe('Data Hub Phase 2B.1 mapping foundation', () => {
     expect(unknown).toContain("axiosPost('data-hub/concept-submissions'")
   })
 
-  it('does not add event, practice, statistics, or import writes', () => {
-    expect(page).not.toMatch(/axiosPost\(['"`][^'"`]*(?:external-session|canonical-event|practice|statistics|import)/)
+  it('keeps mapping free of direct persistence writes and uses only the governed Blast commit endpoint', () => {
+    expect(page).toContain("axiosPost('data-hub/imports/blast', form)")
+    expect(page).not.toMatch(/axiosPost\(['"`][^'"`]*(?:external-session|canonical-event|practice|statistics)/)
     expect(unknown).not.toMatch(/localStorage|sessionStorage|indexedDB/i)
   })
 

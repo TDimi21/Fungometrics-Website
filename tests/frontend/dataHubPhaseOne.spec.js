@@ -135,12 +135,13 @@ describe('Data Hub Phase 1', () => {
     expect(nextDataHubStep(3, { ...empty, team: {}, sessionType: 'Cage' })).toBe(4)
   })
 
-  it('clears all workflow state on cancel, completion, and route leave', () => {
+  it('clears workflow state on cancel, route leave, and logout while retaining import confirmation', () => {
     const page = source('resources/js/pages/data-hub/ImportData.vue')
 
     expect(page).toContain('const clearWorkflow = () =>')
     expect(page).toMatch(/const cancel[\s\S]*?clearWorkflow\(\)/)
-    expect(page).toMatch(/const finishInspection[\s\S]*?clearWorkflow\(\)/)
+    expect(page).toMatch(/const finishInspection[\s\S]*?inspectionComplete\.value = true/)
+    expect(page).toContain('Import complete.')
     expect(page).toMatch(/onBeforeRouteLeave[\s\S]*?clearWorkflow\(\)/)
     expect(page).toContain("window.addEventListener('fmtrx-logout', clearWorkflow)")
     expect(page).toContain("router.push('/data-hub')")
