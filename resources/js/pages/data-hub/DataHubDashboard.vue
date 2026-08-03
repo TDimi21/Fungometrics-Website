@@ -1,7 +1,24 @@
 <script setup>
+import { onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import Layout from '@/layout/Layout.vue'
 import { DATA_HUB_PLATFORMS } from '@/data/dataHubPlatforms.js'
 import TemplateDownloads from '@/components/data-hub/TemplateDownloads.vue'
+import { useAxiosAuth } from '@/composables/axios-auth.js'
+import { useTeamStore } from '@/store/team.js'
+
+const imports = ref([])
+const teamStore = useTeamStore()
+const { team } = storeToRefs(teamStore)
+const { axiosGet } = useAxiosAuth()
+const formatDate = value => value ? new Date(value).toLocaleString() : ''
+onMounted(async () => {
+  const available = await teamStore.getTeamsFromApi()
+  if (available.length) teamStore.setTeams(available)
+  const teamId = String(team.value?.id_team ?? team.value?.id ?? available[0]?.id_team ?? available[0]?.id ?? '')
+  if (!teamId) return
+  try { imports.value = (await axiosGet('data-hub/imports', { team_id: teamId })).data.data || [] } catch (_) {}
+})
 </script>
 
 <template>
@@ -13,7 +30,7 @@ import TemplateDownloads from '@/components/data-hub/TemplateDownloads.vue'
           <h1>One home for every player-development signal.</h1>
           <p>Prepare data from baseball technology platforms for a connected FMTRX development profile.</p>
         </div>
-        <div class="hub-actions"><RouterLink class="secondary" to="/data-hub/unknown-columns">Unknown Columns</RouterLink><RouterLink to="/data-hub/import">Start Preview <b>→</b></RouterLink></div>
+        <div class="hub-actions"><RouterLink class="secondary" to="/data-hub/unknown-columns">Unknown Columns</RouterLink><RouterLink to="/data-hub/import">Import Data <b>→</b></RouterLink></div>
       </header>
 
       <div class="phase-card">
@@ -21,8 +38,12 @@ import TemplateDownloads from '@/components/data-hub/TemplateDownloads.vue'
         <div>
           <span>Current phase</span>
           <h2>Import Experience</h2>
-          <p>Select a platform, choose a local file, set its future destination, and review the setup. No data is uploaded or imported in Phase 1.</p>
+          <p>Inspect and map supported source files. Blast Motion CSV files can now be committed to a connected player’s permanent FMTRX history.</p>
         </div>
+      </div>
+      <div v-if="imports.length" class="platform-section">
+        <div class="section-heading"><div><span>Permanent history</span><h2>Recent imports</h2></div><small>Completed import batches with direct access to player metrics.</small></div>
+        <div class="import-list"><RouterLink v-for="item in imports" :key="item.id" :to="`/data-hub/players/${item.player_id}/metrics`"><div><strong>{{ item.platform }} · {{ item.first_name }} {{ item.last_name }}</strong><small>{{ item.source_file_name }} · {{ formatDate(item.completed_at) }}</small></div><span>{{ item.event_count }} swings · {{ item.metric_count }} metrics →</span></RouterLink></div>
       </div>
       <TemplateDownloads />
 
@@ -65,5 +86,6 @@ header a { display:inline-flex; align-items:center; justify-content:center; gap:
 .platform-list article strong { font-size:14px; }
 .platform-list article small { overflow:hidden; color:rgba(226,232,240,.56); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
 .platform-list article > span { color:rgba(148,163,184,.58); font-size:9px; letter-spacing:.08em; }
+.import-list{display:grid;gap:8px}.import-list a{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:rgba(255,255,255,.035);color:#fff}.import-list a div{display:flex;flex-direction:column;gap:4px}.import-list small{color:#94a3b8}.import-list a>span{color:#ff4964;font-size:11px;font-weight:800}
 @media(max-width:760px){.hub-dashboard{width:calc(100% - 20px)}.hub-dashboard>header,.section-heading{align-items:flex-start;flex-direction:column}.platform-list{grid-template-columns:1fr}.platform-list article>span{display:none}.phase-card{grid-template-columns:1fr}.section-heading>small{text-align:left}}
 </style>

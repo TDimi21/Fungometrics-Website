@@ -168,7 +168,8 @@ const warnings = computed(() => [
     <div class="samples"><pre v-for="(row,index) in inspection.sample_rows" :key="index">{{ JSON.stringify(row, null, 2) }}</pre></div>
   </details>
 
-  <div class="notice"><strong>Inspection only.</strong> No FMTRX import, session, event, assessment, profile, or statistics record will be created.</div>
+  <div v-if="inspection.platform === 'blast-motion'" class="notice"><strong>Ready to import.</strong> Confirming will save this approved Blast session, its swings, metrics, and source provenance to the connected player.</div>
+  <div v-else class="notice"><strong>Inspection only.</strong> No FMTRX import, session, event, assessment, profile, or statistics record will be created.</div>
 </template>
 
 <style scoped>

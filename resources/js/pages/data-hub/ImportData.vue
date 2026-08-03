@@ -46,6 +46,9 @@ const confirmedWarningColumns = ref([])
 const confirmedDuplicateConcepts = ref([])
 const playerMappingApproved = ref(false)
 const inspectionComplete = ref(false)
+const importing = ref(false)
+const importResult = ref(null)
+const importError = ref('')
 const structurePending = ref(false)
 const sessionValues = {
   Cage: 'cage', 'Live AB': 'live_ab', Bullpen: 'bullpen', Strength: 'strength',
@@ -236,7 +239,6 @@ const inspectFile = async (structure = null) => {
         },
       }
     })
-    if (platformKey.value !== 'generic-csv') selectedFile.value = null
     step.value = 4
   } catch (error) {
     inspectionError.value = error?.response?.data?.message || 'File inspection failed. Check the file and try again.'
@@ -385,18 +387,38 @@ const clearWorkflow = () => {
   confirmedDuplicateConcepts.value = []
   playerMappingApproved.value = false
   inspectionComplete.value = false
+  importing.value = false
+  importResult.value = null
+  importError.value = ''
   structurePending.value = false
 }
 const cancel = () => {
   clearWorkflow()
   router.push('/data-hub')
 }
-const finishInspection = () => {
-  inspectionComplete.value = true
-  window.setTimeout(() => {
-    clearWorkflow()
-    router.push('/data-hub')
-  }, 1200)
+const finishInspection = async () => {
+  if (platformKey.value !== 'blast-motion') {
+    inspectionComplete.value = true
+    return
+  }
+  importing.value = true
+  importError.value = ''
+  const form = new FormData()
+  form.append('platform', platformKey.value)
+  form.append('team_id', teamId.value)
+  form.append('player_id', mappings[inspection.value.players[0].source_key])
+  form.append('destination', sessionValues[sessionType.value])
+  form.append('template_fingerprint', inspection.value.template_fingerprint)
+  form.append('file', selectedFile.value)
+  try {
+    const response = await axiosPost('data-hub/imports/blast', form)
+    importResult.value = response.data.data
+    inspectionComplete.value = true
+  } catch (error) {
+    importError.value = error?.response?.data?.message || 'The Blast data could not be imported.'
+  } finally {
+    importing.value = false
+  }
 }
 onMounted(async () => {
   window.addEventListener('fmtrx-logout', clearWorkflow)
@@ -439,10 +461,12 @@ onBeforeRouteLeave(clearWorkflow)
         <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" :column-entries="columnEntries" :team-players="teamPlayers" :concepts="dictionary.concepts" :domains="dictionary.domains" :confirmed-warning-columns="confirmedWarningColumns" :confirmed-duplicate-targets="confirmedDuplicateTargets" :confirmed-duplicate-concepts="confirmedDuplicateConcepts" />
         <p v-if="inspectionError" class="error-message">{{ inspectionError }}</p>
         <p v-if="mappingError" class="error-message">{{ mappingError }}</p>
-        <div v-if="inspectionComplete" class="complete-message"><strong>Inspection complete.</strong><span>No data was imported and no FMTRX records were changed.</span></div>
+        <p v-if="importError" class="error-message">{{ importError }}</p>
+        <div v-if="inspectionComplete && importResult" class="complete-message"><strong>Import complete.</strong><span>{{ importResult.events }} swings and {{ importResult.metrics }} metrics are now saved to the player’s FMTRX history.</span></div>
+        <div v-else-if="inspectionComplete" class="complete-message"><strong>Inspection complete.</strong><span>No FMTRX records were changed for this platform.</span></div>
         <footer class="wizard-actions">
           <button type="button" class="cancel-button" @click="cancel">Cancel</button>
-          <div><button v-if="step > 1" type="button" class="back-button" @click="back">Back</button><button v-if="!structurePending" type="button" class="continue-button" :disabled="!canContinue" @click="next">{{ inspecting ? 'Inspecting…' : approvingPlayers ? 'Approving players…' : approvingMapping ? 'Approving…' : step === 3 ? 'Approve & Inspect' : step === 4 ? 'Approve Player Mapping' : step === 5 ? 'Approve Mapping' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
+          <div><button v-if="step > 1 && !inspectionComplete" type="button" class="back-button" @click="back">Back</button><button v-if="!structurePending && !inspectionComplete" type="button" class="continue-button" :disabled="!canContinue || importing" @click="next">{{ inspecting ? 'Inspecting…' : approvingPlayers ? 'Approving players…' : approvingMapping ? 'Approving…' : importing ? 'Importing…' : step === 3 ? 'Approve & Inspect' : step === 4 ? 'Approve Player Mapping' : step === 5 ? 'Approve Mapping' : step === 6 && platformKey === 'blast-motion' ? 'Import Blast Data' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
         </footer>
       </div>
     </section>
