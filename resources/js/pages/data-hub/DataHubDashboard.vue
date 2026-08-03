@@ -43,7 +43,7 @@ onMounted(async () => {
       </div>
       <div v-if="imports.length" class="platform-section">
         <div class="section-heading"><div><span>Permanent history</span><h2>Recent imports</h2></div><small>Completed import batches with direct access to player metrics.</small></div>
-        <div class="import-list"><RouterLink v-for="item in imports" :key="item.id" :to="`/data-hub/players/${item.player_id}/metrics`"><div><strong>{{ item.platform }} · {{ item.first_name }} {{ item.last_name }}</strong><small>{{ item.source_file_name }} · {{ formatDate(item.completed_at) }}</small></div><span>{{ item.event_count }} swings · {{ item.metric_count }} metrics →</span></RouterLink></div>
+        <div class="import-list"><RouterLink v-for="item in imports" :key="item.id" :to="item.platform === 'Blast Motion' ? `/data-hub/imports/${item.id}/blast-report` : `/data-hub/players/${item.player_id}/metrics`"><div><strong>{{ item.platform }} · {{ item.first_name }} {{ item.last_name }}</strong><small>{{ item.source_file_name }} · {{ formatDate(item.completed_at) }}</small></div><span>{{ item.event_count }} swings · {{ item.metric_count }} metrics →</span></RouterLink></div>
       </div>
       <TemplateDownloads />
 

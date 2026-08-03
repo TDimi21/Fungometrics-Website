@@ -39,6 +39,7 @@ const DataHubDashboard = () => import("@/pages/data-hub/DataHubDashboard.vue");
 const ImportData = () => import("@/pages/data-hub/ImportData.vue");
 const UnknownColumns = () => import("@/pages/data-hub/UnknownColumns.vue");
 const PlayerImportedMetrics = () => import("@/pages/data-hub/PlayerImportedMetrics.vue");
+const BlastSessionDevelopmentReportPage = () => import("@/pages/data-hub/BlastSessionDevelopmentReportPage.vue");
 const ChangePassword = () => import("@/pages/profile/ChangePassword.vue");
 const EditPlayer = () => import("@/pages/roster/EditPlayer.vue");
 const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
@@ -361,6 +362,12 @@ const routes = [
 		name: "data-hub.player-metrics",
 		path: "/data-hub/players/:id/metrics",
 		component: PlayerImportedMetrics,
+		meta: { requiresAuth: true, coachOnly: true, allowAdmin: true, entitlement: 'data_hub_import' },
+	},
+	{
+		name: "data-hub.blast-report",
+		path: "/data-hub/imports/:batch/blast-report",
+		component: BlastSessionDevelopmentReportPage,
 		meta: { requiresAuth: true, coachOnly: true, allowAdmin: true, entitlement: 'data_hub_import' },
 	},
 	{

@@ -218,6 +218,7 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
         Route::post('player-mappings/approve', [PlayerMappingController::class, 'approve'])->middleware('throttle:20,1');
         Route::post('imports/blast', [\App\Http\Controllers\Api\DataHub\BlastImportController::class, 'store'])->middleware('throttle:10,1');
         Route::get('imports', [\App\Http\Controllers\Api\DataHub\BlastImportController::class, 'history']);
+        Route::get('imports/{batch}/blast-report', \App\Http\Controllers\Api\DataHub\BlastSessionDevelopmentReportController::class);
         Route::get('players/{player}/metrics', [\App\Http\Controllers\Api\DataHub\BlastImportController::class, 'playerMetrics']);
         Route::get('templates', [FmtrxTemplateController::class, 'index']);
         Route::get('templates/download', [FmtrxTemplateController::class, 'download'])->middleware('throttle:20,1');

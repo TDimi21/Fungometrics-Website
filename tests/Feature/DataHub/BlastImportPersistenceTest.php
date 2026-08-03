@@ -59,6 +59,7 @@ final class BlastImportPersistenceTest extends TestCase
         ];
         $response = $this->post('/api/data-hub/imports/blast', $payload());
         $response->assertCreated()->assertJsonPath('data.status', 'completed')->assertJsonPath('data.events', 1);
+        $batchId = $response->json('data.batch_id');
         $this->assertDatabaseCount('translation_snapshots', 1);
         $this->assertDatabaseCount('import_batches', 1);
         $this->assertDatabaseCount('external_sessions', 1);
@@ -70,6 +71,26 @@ final class BlastImportPersistenceTest extends TestCase
             ->assertOk()->assertJsonFragment(['canonical_key' => 'hitting.bat_speed', 'display_name' => 'Bat Speed']);
         $this->getJson('/api/data-hub/imports?team_id='.$team->id)
             ->assertOk()->assertJsonPath('data.0.status', 'completed')->assertJsonPath('data.0.event_count', 1);
+
+        $beforeReport = [DB::table('translation_snapshots')->count(), DB::table('canonical_events')->count(), DB::table('canonical_metrics')->count()];
+        $report = $this->getJson("/api/data-hub/imports/{$batchId}/blast-report?benchmark_level=high_school_varsity");
+        $report->assertOk()->assertJsonPath('data.session.total_swings', 1)->assertJsonPath('data.ball_flight_available', false);
+        $batSpeed = collect($report->json('data.metrics'))->firstWhere('key', 'bat_speed');
+        $this->assertSame(78.1, $batSpeed['average']);
+        $this->assertSame(78.1, $batSpeed['best_swing']);
+        $this->assertSame('above_benchmark', $batSpeed['benchmark']['status']);
+        foreach (['exit_velocity', 'launch_angle', 'estimated_distance'] as $key) {
+            $metric = collect($report->json('data.metrics'))->firstWhere('key', $key);
+            $this->assertFalse($metric['available']);
+            $this->assertNull($metric['average']);
+        }
+        $this->assertSame($beforeReport, [DB::table('translation_snapshots')->count(), DB::table('canonical_events')->count(), DB::table('canonical_metrics')->count()]);
+        $this->getJson("/api/data-hub/imports/{$batchId}/blast-report?benchmark_level=made_up")->assertUnprocessable();
+
+        $outsider = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
+        Sanctum::actingAs($outsider, ['coach']);
+        $this->getJson("/api/data-hub/imports/{$batchId}/blast-report?benchmark_level=high_school_varsity")->assertForbidden();
+        Sanctum::actingAs($coach, ['coach']);
 
         $this->post('/api/data-hub/imports/blast', $payload())
             ->assertStatus(409)->assertJsonPath('message', 'This Blast CSV has already been imported for this team.');
