@@ -19,6 +19,7 @@ use App\Services\DataHub\Dictionary\UnknownColumnService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 final class DictionaryController extends Controller
@@ -29,7 +30,7 @@ final class DictionaryController extends Controller
     }
     public function resolve(Request $request, TemplateFingerprintService $fingerprints, MappingResolutionService $resolver): JsonResponse
     {
-        $data = $request->validate(['team_id' => ['required','uuid'],'platform' => ['required','string'],'headers' => ['required','array'],'headers.*' => ['string']]);
+        $data = $request->validate(['team_id' => ['required','uuid'],'platform' => ['required','string', Rule::exists('platform_definitions', 'key')->where('is_active', true)],'headers' => ['required','array'],'headers.*' => ['string']]);
         $this->team($request, $data['team_id']);
         $platform = PlatformDefinition::query()->where('key', $data['platform'])->firstOrFail();
         $fingerprint = $fingerprints->fingerprint($data['headers']);
@@ -38,7 +39,7 @@ final class DictionaryController extends Controller
     public function approve(Request $request, MappingApprovalService $approval, UnknownColumnService $unknown, ConceptCompatibilityService $compatibility): JsonResponse
     {
         $data = $request->validate([
-            'team_id' => ['required','uuid'],'platform' => ['required','string'],'template_fingerprint' => ['required','size:64'],
+            'team_id' => ['required','uuid'],'platform' => ['required','string', Rule::exists('platform_definitions', 'key')->where('is_active', true)],'template_fingerprint' => ['required','size:64'],
             'headers' => ['required','array'],'headers.*' => ['required','string','max:255'],'entries' => ['required','array','min:1'],
             'entries.*.source_column_name' => ['required','string','max:255'],'entries.*.normalized_source_column' => ['required','string','max:255'],
             'entries.*.baseball_concept_id' => ['nullable','uuid','exists:baseball_concepts,id'],

@@ -48,6 +48,21 @@ final class BaseballDictionaryMappingTest extends TestCase
         $this->assertFalse($resolved[1]['trusted']);
     }
 
+    public function test_missing_platform_configuration_returns_a_validation_error_instead_of_a_model_exception(): void
+    {
+        $team = Team::factory()->create();
+        $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id]);
+        Sanctum::actingAs($coach, ['coach']);
+        DB::table('platform_definitions')->where('key', 'blast-motion')->update(['is_active' => false]);
+
+        $this->postJson('/api/data-hub/mappings/resolve', [
+            'team_id' => $team->id,
+            'platform' => 'blast-motion',
+            'headers' => ['Bat Speed (mph)'],
+        ])->assertUnprocessable()->assertJsonValidationErrors('platform');
+    }
+
     public function test_units_defaults_ranges_and_fingerprint_are_deterministic(): void
     {
         $units = app(UnitConversionService::class);
