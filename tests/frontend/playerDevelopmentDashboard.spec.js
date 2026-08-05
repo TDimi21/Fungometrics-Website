@@ -26,6 +26,14 @@ const intelligence = {
     benchmark_confidence: { overall: 'medium' },
     metrics: [{ metric_key: 'max_exit_velocity', display_name: 'Max EV', category: 'hitting', raw_value: 99, unit: 'mph', percentile: 93, label: 'elite', confidence: 'high', source: 'composite' }],
   },
+  summary: {
+    assessment: {
+      assessment_date: '2026-08-01',
+      squat: 315,
+      metric_percentiles: { squat: 82, bat_speed: 76 },
+    },
+    physical: { front_squat: 315, back_squat: 275, bat_speed: 72 },
+  },
 }
 
 describe('Player Development Dashboard redesign', () => {
@@ -56,16 +64,31 @@ describe('Player Development Dashboard redesign', () => {
       .flatMap((group) => group.metrics)
       .find((metric) => metric.key === 'avg_exit_velocity')
     expect(missing.percentile).toBeNull()
-    expect(missing.status_label).toBe('Benchmark Needs Data')
+    expect(missing.status_label).toBe('Benchmark Not Configured')
     expect(percentile).toContain('Math.max(0, Math.min(100')
     expect(percentile).toContain("{ dashed: !metric.available }")
     expect(percentile).toContain(':aria-label="aria"')
+  })
+
+  it('restores saved assessment percentiles without applying a shared benchmark to the wrong raw value', () => {
+    const withStrength = {
+      ...live,
+      current: { ...live.current, front_squat: 315, back_squat: 275, bat_speed: 72 },
+    }
+    const rows = buildPlayerDevelopmentDashboard(withStrength, intelligence).percentileGroups.flatMap((group) => group.metrics)
+    expect(rows.find((metric) => metric.key === 'front_squat').percentile).toBe(82)
+    expect(rows.find((metric) => metric.key === 'front_squat').source).toBe('saved_assessment_percentile')
+    expect(rows.find((metric) => metric.key === 'back_squat').percentile).toBeNull()
+    expect(rows.find((metric) => metric.key === 'back_squat').status_label).toBe('Benchmark Not Configured')
+    expect(rows.find((metric) => metric.key === 'bat_speed').percentile).toBe(76)
   })
 
   it('renders goal, gap, trend, status text, and grouped scale independently from color', () => {
     for (const field of ['metric.goal_display', 'metric.gap_display', 'metric.status_label', 'metric.trend']) expect(percentile).toContain(field)
     for (const tick of ['>0<', '>25<', '>50<', '>75<', '>100<']) expect(source('resources/js/features/development/components/PercentileScaleLegend.vue')).toContain(tick)
     expect(percentilePanel).toContain('PercentileCategorySection')
+    expect(percentilePanel).toContain('font-size:16px')
+    expect(percentile).toContain('.metric-name{font-size:12px')
   })
 
   it('uses a fallback silhouette, protected coach actions, and read-only player mode', () => {

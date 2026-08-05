@@ -7,6 +7,8 @@ namespace Tests\Feature\Api\Coach;
 use App\Models\CoachTeam;
 use App\Models\Concerns\UserTypes;
 use App\Models\Player;
+use App\Models\PlayerAssessment;
+use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
 use App\Models\Profile;
 use App\Models\Team;
@@ -65,6 +67,51 @@ class IntelligenceControllerTest extends TestCase
 
         $response->assertJsonPath('team_id', (string) $team->id);
         $response->assertJsonPath('player_id', (string) $player->id);
+    }
+
+    public function test_player_intelligence_preserves_saved_assessment_percentiles_and_physical_metrics(): void
+    {
+        [$coach, $team, $player] = $this->createCoachTeamPlayer();
+        PlayerAssessment::query()->create([
+            'user_id' => $player->id,
+            'team_id' => $team->id,
+            'assessed_by' => $coach->id,
+            'assessment_date' => '2026-08-01',
+            'type' => 'full',
+            'squat_lbs' => 315,
+            'squat_percentile' => 82,
+            'bench_lbs' => 225,
+            'bench_press_percentile' => 74,
+            'bat_speed_percentile' => 76,
+            'team_percentiles' => ['squat_percentile' => 79],
+            'age_group_percentiles' => ['squat_percentile' => 85],
+        ]);
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-08-01',
+            'front_squat' => 315,
+            'back_squat' => 275,
+            'power_clean' => 205,
+            'hand_strength' => 58,
+            'med_ball_rotational_throw' => 44,
+            'bat_speed' => 72,
+        ]);
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+
+        $response = $this->json('GET', "api/coach/teams/{$team->id}/players/{$player->id}/intelligence?days=60");
+
+        $response->assertOk()
+            ->assertJsonPath('summary.assessment.metric_percentiles.squat', 82)
+            ->assertJsonPath('summary.assessment.metric_percentiles.bench_press', 74)
+            ->assertJsonPath('summary.assessment.metric_percentiles.bat_speed', 76)
+            ->assertJsonPath('summary.assessment.team_percentiles.squat_percentile', 79)
+            ->assertJsonPath('summary.assessment.age_group_percentiles.squat_percentile', 85)
+            ->assertJsonPath('summary.physical.front_squat', 315)
+            ->assertJsonPath('summary.physical.back_squat', 275)
+            ->assertJsonPath('summary.physical.power_clean', 205)
+            ->assertJsonPath('summary.physical.hand_strength', 58)
+            ->assertJsonPath('summary.physical.med_ball_rotational_throw', 44)
+            ->assertJsonPath('summary.physical.bat_speed', 72);
     }
 
     public function test_coach_cannot_get_intelligence_for_team_they_do_not_coach(): void

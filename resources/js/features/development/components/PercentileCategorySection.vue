@@ -9,5 +9,5 @@ defineProps({ group: { type: Object, required: true } })
   </section>
 </template>
 <style scoped>
-.category h3{display:flex;align-items:center;gap:7px;padding:7px 9px;background:#061521;color:#ef3340;text-transform:uppercase;font-size:10px;letter-spacing:.08em}.category h3 span{font-size:7px}.category+ .category{border-top:1px solid #345064}
+.category h3{display:flex;align-items:center;gap:8px;padding:9px 11px;background:#061521;color:#ff4b56;text-transform:uppercase;font-size:11px;font-weight:900;letter-spacing:.09em}.category h3 span{font-size:8px}.category+ .category{border-top:1px solid #345064}
 </style>

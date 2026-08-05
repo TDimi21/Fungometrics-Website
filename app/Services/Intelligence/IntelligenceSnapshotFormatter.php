@@ -74,6 +74,7 @@ class IntelligenceSnapshotFormatter
             'player' => $assembled['player_context'] ?? [],
             'team' => $assembled['team_context'] ?? [],
             'assessment' => $assembled['assessment_summary'] ?? [],
+            'physical' => $assembled['physical_development'] ?? [],
             'session_summary' => $assembled['session_summary'] ?? [],
         ];
     }

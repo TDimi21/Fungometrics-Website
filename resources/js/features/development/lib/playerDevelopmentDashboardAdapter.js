@@ -34,10 +34,10 @@ const metricAliases = {
   bullpen_score: ['bullpen_score'],
   bp_score: ['bp_score', 'batting_practice_score'],
   body_weight: ['body_weight', 'bodyweight'],
-  front_squat: ['front_squat'],
+  front_squat: ['front_squat', 'squat'],
   bench_press: ['bench_press'],
   dead_lift: ['dead_lift', 'trap_bar_deadlift', 'deadlift'],
-  back_squat: ['back_squat'],
+  back_squat: ['back_squat', 'squat'],
   power_clean: ['power_clean'],
   hand_strength: ['hand_strength', 'grip_strength'],
   vertical_jump: ['vertical_jump', 'vertical_jump_inches'],
@@ -73,6 +73,45 @@ const findBenchmark = (metrics, key) => {
   return metrics.find((metric) => aliases.includes(String(metric?.metric_key || '').toLowerCase())) || null
 }
 
+const savedAssessmentBenchmark = (intelligence, key, value) => {
+  const assessment = intelligence?.summary?.assessment || {}
+  const physical = intelligence?.summary?.physical || {}
+  const storedKey = {
+    front_squat: 'squat', back_squat: 'squat', dead_lift: 'deadlift',
+    max_exit_velocity: 'exit_velocity', avg_exit_velocity: 'exit_velocity',
+  }[key] || key
+  const percentile = numberOrNull(assessment?.metric_percentiles?.[storedKey])
+  if (percentile === null) return null
+
+  const savedRaw = numberOrNull({
+    squat: assessment.squat ?? physical.squat,
+    deadlift: assessment.deadlift ?? physical.deadlift,
+    bench_press: assessment.bench_press ?? physical.bench_press,
+    broad_jump: assessment.broad_jump ?? physical.broad_jump,
+    vertical_jump: assessment.vertical_jump ?? physical.vertical_jump,
+    med_ball_rotational_throw: physical.med_ball_rotational_throw,
+    exit_velocity: assessment.baseline_exit_velocity ?? physical.exit_velocity,
+    bat_speed: physical.bat_speed,
+  }[storedKey])
+
+  // A stored squat or exit-velocity percentile describes one saved raw
+  // measurement. Do not attach it to a different current variant merely
+  // because the fields share a family name.
+  if (savedRaw !== null && value !== null && Math.abs(savedRaw - value) > 0.11) return null
+
+  return {
+    metric_key: storedKey,
+    raw_value: savedRaw ?? value,
+    percentile,
+    score_0_100: percentile,
+    label: null,
+    source: 'saved_assessment_percentile',
+    confidence: 'saved',
+    unit: valueUnits[key] || null,
+    calculated_at: assessment.assessment_date || intelligence?.generated_at || null,
+  }
+}
+
 const displayValue = (value, unit = '') => {
   const number = numberOrNull(value)
   if (number === null) return null
@@ -104,8 +143,20 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
   const metrics = Array.isArray(intelligence?.benchmark_profile?.metrics)
     ? intelligence.benchmark_profile.metrics
     : []
-  const benchmark = findBenchmark(metrics, key)
-  const value = numberOrNull(benchmark?.raw_value) ?? currentValue(current, key)
+  const currentRaw = currentValue(current, key)
+  let benchmark = findBenchmark(metrics, key)
+  if (
+    benchmark?.metric_key === 'squat'
+    && currentRaw !== null
+    && numberOrNull(benchmark?.raw_value) !== null
+    && Math.abs(Number(benchmark.raw_value) - currentRaw) > 0.11
+  ) {
+    benchmark = null
+  }
+  const value = currentRaw ?? numberOrNull(benchmark?.raw_value)
+  benchmark = numberOrNull(benchmark?.percentile) !== null
+    ? benchmark
+    : (savedAssessmentBenchmark(intelligence, key, value) || benchmark)
   const percentile = numberOrNull(benchmark?.percentile)
   const goal = numberOrNull(benchmark?.goal ?? benchmark?.goal_value)
   const gap = numberOrNull(benchmark?.gap ?? benchmark?.gap_to_goal)
@@ -118,15 +169,17 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
     percentile: percentile === null ? null : clamp(percentile),
     value,
     display_value: displayValue(value, unit),
-    status: percentile === null ? 'needs_data' : String(benchmark?.label || 'benchmark_available').toLowerCase(),
-    status_label: percentile === null ? 'Benchmark Needs Data' : statusForScore(percentile, benchmark?.label),
+    status: percentile === null ? (value === null ? 'needs_data' : 'benchmark_unavailable') : String(benchmark?.label || 'benchmark_available').toLowerCase(),
+    status_label: percentile === null
+      ? (value === null ? 'Measurement Needs Data' : (benchmark ? 'Benchmark Needs Context' : 'Benchmark Not Configured'))
+      : statusForScore(percentile, benchmark?.label),
     goal_display: displayValue(goal, unit),
     gap_display: displayValue(gap, unit),
     trend: trendDirection(live, intelligence, key),
     available: percentile !== null,
     source: textOrNull(benchmark?.source),
     confidence: textOrNull(benchmark?.confidence),
-    calculated_at: textOrNull(intelligence?.generated_at),
+    calculated_at: textOrNull(benchmark?.calculated_at) || textOrNull(intelligence?.generated_at),
     evidence: benchmark?.evidence || null,
   }
 }

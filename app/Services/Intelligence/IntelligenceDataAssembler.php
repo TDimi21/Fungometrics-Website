@@ -366,6 +366,24 @@ class IntelligenceDataAssembler
             'hitting_data' => $hittingData,
             'overall_team_percentile' => $this->numberOrNull($assessment?->overall_team_percentile),
             'overall_age_percentile' => $this->numberOrNull($assessment?->overall_age_percentile),
+            // These percentiles were already calculated and persisted by the
+            // governed assessment workflow. Keep them in the intelligence
+            // payload so report consumers do not discard saved benchmark data.
+            'metric_percentiles' => [
+                'squat' => $this->numberOrNull($assessment?->squat_percentile),
+                'deadlift' => $this->numberOrNull($assessment?->deadlift_percentile),
+                'bench_press' => $this->numberOrNull($assessment?->bench_press_percentile),
+                'pull_ups' => $this->numberOrNull($assessment?->pull_up_percentile),
+                'pushups' => $this->numberOrNull($assessment?->push_up_percentile),
+                'broad_jump' => $this->numberOrNull($assessment?->broad_jump_percentile),
+                'vertical_jump' => $this->numberOrNull($assessment?->vertical_jump_percentile),
+                'sprint_10yd' => $this->numberOrNull($assessment?->sprint_10yd_percentile),
+                'med_ball_rotational_throw' => $this->numberOrNull($assessment?->med_ball_rotational_percentile),
+                'exit_velocity' => $this->numberOrNull($assessment?->exit_velocity_percentile),
+                'bat_speed' => $this->numberOrNull($assessment?->bat_speed_percentile),
+            ],
+            'team_percentiles' => is_array($assessment?->team_percentiles) ? $assessment->team_percentiles : [],
+            'age_group_percentiles' => is_array($assessment?->age_group_percentiles) ? $assessment->age_group_percentiles : [],
         ];
     }
 
@@ -377,6 +395,8 @@ class IntelligenceDataAssembler
             'bench_press' => $this->numberOrNull($latest?->bench_press),
             'front_squat' => $this->numberOrNull($latest?->front_squat),
             'back_squat' => $this->numberOrNull($latest?->back_squat),
+            'power_clean' => $this->numberOrNull($latest?->power_clean),
+            'hand_strength' => $this->numberOrNull($latest?->hand_strength),
             'squat' => max(array_filter([
                 $this->numberOrNull($latest?->back_squat),
                 $this->numberOrNull($latest?->front_squat),
@@ -386,6 +406,9 @@ class IntelligenceDataAssembler
             'pushups' => $this->numberOrNull($latest?->push_ups),
             'vertical_jump' => $this->numberOrNull($latest?->vertical_jump),
             'broad_jump' => $this->numberOrNull($latest?->broad_jump),
+            'med_ball_rotational_throw' => $this->numberOrNull($latest?->med_ball_rotational_throw),
+            'bat_speed' => $this->numberOrNull($latest?->bat_speed),
+            'sprint_10yd' => $this->numberOrNull($latest?->sprint_10yd),
             '40_yard_dash' => $this->numberOrNull($latest?->yd_40_dash),
             '60_yard_dash' => $this->numberOrNull($latest?->yd_60_dash),
             'exit_velocity' => $this->numberOrNull($latest?->exit_velo),
