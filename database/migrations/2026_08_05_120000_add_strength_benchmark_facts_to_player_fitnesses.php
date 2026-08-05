@@ -14,7 +14,10 @@ return new class () extends Migration {
             $table->unsignedFloat('grip_strength_left')->nullable()->after('hand_strength');
             $table->unsignedFloat('grip_strength_right')->nullable()->after('grip_strength_left');
             $table->unsignedFloat('plank_hold')->nullable()->after('push_ups');
-            $table->json('strength_test_metadata')->nullable()->after('plank_hold');
+            // The production MariaDB version does not support MySQL's native JSON
+            // column syntax. Eloquent's array cast still provides JSON semantics
+            // while LONGTEXT keeps the migration portable across supported databases.
+            $table->longText('strength_test_metadata')->nullable()->after('plank_hold');
         });
     }
 

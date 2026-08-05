@@ -11,6 +11,7 @@ use App\Models\Profile;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\PlayerFitness;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -83,6 +84,11 @@ class SaveFitnessTest extends TestCase
         $this->assertSame(90.0, $fitness->grip_strength_right);
         $this->assertSame(120.0, $fitness->plank_hold);
         $this->assertSame(5, $fitness->strength_test_metadata['metrics']['deadlift']['repetitions']);
+        $storedMetadata = DB::table('player_fitnesses')
+            ->where('user_id', $player->user_id)
+            ->value('strength_test_metadata');
+        $this->assertIsString($storedMetadata);
+        $this->assertSame(5, json_decode($storedMetadata, true, 512, JSON_THROW_ON_ERROR)['metrics']['deadlift']['repetitions']);
         $this->assertNull($fitness->strength_score, 'A client-provided score must not override an ineligible governed result.');
     }
 

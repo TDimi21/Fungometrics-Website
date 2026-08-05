@@ -44,7 +44,7 @@ Hang clean is not an accepted input in v1 and is not inferred from power clean. 
 
 ## Raw facts and versioned 1RM
 
-`player_fitnesses` stores body weight on the same dated row as the test. V1 adds separate trap-bar, left grip, right grip, plank, and `strength_test_metadata` fields. The JSON metadata retains repetitions, declared method, grip device/protocol, push-up/plank protocol, and medicine-ball weight/protocol.
+`player_fitnesses` stores body weight on the same dated row as the test. V1 adds separate trap-bar, left grip, right grip, plank, and `strength_test_metadata` fields. The metadata is JSON-encoded in a portable long-text column so it works with the production MariaDB version. It retains repetitions, declared method, grip device/protocol, push-up/plank protocol, and medicine-ball weight/protocol.
 
 Epley v1 is a pure calculation:
 
