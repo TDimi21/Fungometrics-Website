@@ -1,48 +1,17 @@
 <script setup>
-defineProps({
-  insights: { type: Array, default: () => [] },
-  summary: { type: Object, default: () => ({}) },
-})
+defineProps({ correlation: { type: Object, default: () => ({ available: false }) } })
 </script>
-
 <template>
-  <div class="rounded-xl border border-white/10 bg-slate-900/70 p-4">
-    <h3 class="text-lg font-semibold text-white">Correlation Insights</h3>
-    <p class="mt-1 text-xs text-slate-400">What appears to be driving or limiting player development.</p>
-
-    <div v-if="summary?.fallback" class="mt-3 rounded-lg border border-white/10 p-3 text-sm text-slate-300">
-      More paired sessions are needed to calculate true correlations. Continue collecting mobility, strength, bullpen, and long toss data.
+  <section class="insights" data-testid="correlation-insights">
+    <header><h2>Correlation Insights</h2><p>Observed associations in connected player data; these do not establish causation.</p></header>
+    <div v-if="correlation.available" class="insight-grid">
+      <article class="positive"><span>Positive relationship</span><strong>{{ correlation.positive?.value ?? '—' }}</strong><p>{{ correlation.positive?.label || 'Needs Data' }}</p></article>
+      <article class="negative"><span>Negative relationship</span><strong>{{ correlation.negative?.value ?? '—' }}</strong><p>{{ correlation.negative?.label || 'Needs Data' }}</p></article>
+      <article><span>Confidence</span><strong class="capitalize">{{ correlation.confidence }}</strong><p>Observed association only</p></article>
     </div>
-
-    <div v-else class="mt-3 space-y-3 text-sm text-slate-300">
-      <div class="rounded-lg border border-white/10 p-3">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Top Contributors</p>
-        <ol class="mt-2 space-y-1">
-          <li v-for="(item, idx) in summary?.topContributors || []" :key="item" class="flex justify-between gap-3">
-            <span>{{ idx + 1 }}. {{ item }}</span>
-          </li>
-          <li v-if="!(summary?.topContributors || []).length" class="text-slate-500">Needs Data</li>
-        </ol>
-      </div>
-
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div class="rounded-lg border border-amber-300/15 bg-amber-500/10 p-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-amber-200/80">Current Limiter</p>
-          <p class="mt-1 font-black text-white">{{ summary?.limiter || 'Needs More Paired Data' }}</p>
-        </div>
-        <div class="rounded-lg border border-cyan-300/15 bg-cyan-500/10 p-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-cyan-200/80">Confidence</p>
-          <p class="mt-1 font-black capitalize text-white">{{ summary?.confidence || 'low' }}</p>
-        </div>
-      </div>
-
-      <div class="rounded-lg border border-white/10 p-3">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Evidence</p>
-        <ul class="mt-2 space-y-1 text-xs text-slate-400">
-          <li v-for="(item, idx) in summary?.evidence || insights" :key="idx">{{ item }}</li>
-          <li v-if="!(summary?.evidence || insights || []).length">Needs Data</li>
-        </ul>
-      </div>
-    </div>
-  </div>
+    <p v-else class="empty">Not enough connected data yet</p>
+  </section>
 </template>
+<style scoped>
+.insights{padding:12px;background:#071725;border:1px solid #254154;border-radius:10px;color:#edf5fa}.insights h2{text-transform:uppercase;font-size:12px;font-weight:900}.insights header p{font-size:9px;color:#7890a0}.insight-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:9px}.insight-grid article{border:1px solid #235068;border-radius:7px;padding:9px;text-align:center}.insight-grid span{display:block;color:#6fc9e7;font-size:8px;text-transform:uppercase}.insight-grid strong{font-size:12px}.insight-grid p{color:#8298a7;font-size:8px}.positive{border-color:#317051!important}.negative{border-color:#743648!important}.empty{margin-top:8px;border:1px dashed #3b5364;border-radius:6px;padding:12px;text-align:center;color:#849aaa;font-size:10px}@media(max-width:520px){.insight-grid{grid-template-columns:1fr}}
+</style>

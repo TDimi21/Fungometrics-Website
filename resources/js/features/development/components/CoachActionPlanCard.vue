@@ -1,36 +1,25 @@
 <script setup>
-defineProps({
-  recommendations: { type: Array, default: () => [] },
-  coachNotes: { type: String, default: '' },
-})
+defineProps({ actions: { type: Array, default: () => [] }, canAddToPlanner: { type: Boolean, default: false }, readOnly: { type: Boolean, default: true } })
 </script>
-
 <template>
-  <div class="rounded-xl border border-white/10 bg-slate-900/70 p-4">
-    <h3 class="text-lg font-semibold text-white">Coach Action Plan</h3>
-    <p class="mt-1 text-xs text-slate-400">Simple execution plan for the next 1–2 weeks based on current data.</p>
-
-    <div v-if="recommendations.length" class="mt-3 space-y-3 text-sm text-slate-300">
-      <div v-for="item in recommendations.slice(0, 3)" :key="item.id || item.title" class="rounded-lg border border-white/10 bg-white/5 p-3">
-        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <p class="text-[10px] font-black uppercase tracking-widest"
-            :class="item.priority === 'high' ? 'text-red-300' : item.priority === 'medium' ? 'text-yellow-300' : 'text-cyan-300'">
-            {{ item.priority || 'medium' }} priority
-          </p>
-          <p class="text-[10px] font-black uppercase tracking-widest text-white/35">
-            Confidence: {{ item.confidence || 'low' }}
-          </p>
+  <section class="action-card" data-testid="coach-action-plan">
+    <header><div><p>Coach Action Plan</p><span>Current recommendation payload · next 1–2 weeks</span></div></header>
+    <div v-if="actions.length" class="actions">
+      <article v-for="action in actions.slice(0,3)" :key="action.id">
+        <b>{{ action.rank }}</b>
+        <div>
+          <span class="meta">{{ action.priority }} priority · {{ action.category }} · Confidence {{ action.confidence }}</span>
+          <h3>{{ action.title }}</h3>
+          <p><strong>Why:</strong> {{ action.why || action.description }}</p>
+          <p><strong>Action:</strong> {{ action.action || 'Review with the coach.' }}</p>
+          <p v-if="action.expected_gain" class="gain"><strong>Expected Gain:</strong> {{ action.expected_gain }}</p>
         </div>
-        <p class="font-black text-white">{{ item.title }}</p>
-        <p class="mt-2 text-xs leading-relaxed text-slate-400"><strong class="text-slate-200">Why:</strong> {{ item.why || item.recommendation || 'More session data will sharpen this recommendation.' }}</p>
-        <p class="mt-1 text-xs leading-relaxed text-slate-400"><strong class="text-slate-200">Action:</strong> {{ item.action || item.recommendation || 'Score the next relevant session.' }}</p>
-        <p v-if="item.expected_gain" class="mt-2 text-xs font-black text-emerald-300">Expected Gain: {{ item.expected_gain }}</p>
-      </div>
-      <p class="text-xs text-slate-500"><strong>Coach notes:</strong> {{ coachNotes || 'No coach notes yet.' }}</p>
+      </article>
+      <RouterLink v-if="canAddToPlanner && !readOnly" to="/practice-planner" class="planner-action">Add to Planner</RouterLink>
     </div>
-
-    <div v-else class="mt-3 rounded-lg border border-white/10 p-3 text-sm text-slate-300">
-      Score a bullpen, long toss, exit velocity, or assessment session to unlock action plans.
-    </div>
-  </div>
+    <p v-else class="empty">Needs Data — no governed coach actions are available yet.</p>
+  </section>
 </template>
+<style scoped>
+.action-card{padding:14px;background:#071725;border:1px solid #254154;border-radius:10px;color:#edf5fa}.action-card header p{font-size:13px;text-transform:uppercase;font-weight:900}.action-card header span{font-size:9px;color:#728898}.actions{display:grid;gap:10px;margin-top:11px}.actions article{display:grid;grid-template-columns:25px 1fr;gap:8px}.actions article>b{width:21px;height:21px;border-radius:50%;display:grid;place-items:center;background:#0a7674;font-size:10px}.meta{display:block;text-transform:uppercase;color:#7fdad5;font-size:8px;letter-spacing:.05em}.actions h3{font-size:11px}.actions p{font-size:9px;color:#8fa5b4;line-height:1.4}.actions p strong{color:#c8d3da}.gain{color:#7ed9a7!important}.planner-action{justify-self:start;border:1px solid #ef3340;border-radius:5px;padding:6px 10px;color:#fff;font-size:9px;font-weight:800}.empty{margin-top:10px;color:#859aa9;font-size:10px}
+</style>

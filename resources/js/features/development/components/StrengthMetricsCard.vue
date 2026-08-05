@@ -1,16 +1,9 @@
 <script setup>
-defineProps({ strength: { type: Object, default: () => ({}) } })
+defineProps({ metrics: { type: Array, default: () => [] } })
 </script>
-
 <template>
-  <div class="rounded-xl border border-white/10 bg-slate-900/70 p-4">
-    <h3 class="text-lg font-semibold text-white">Strength Metrics</h3>
-    <p class="mt-1 text-xs text-slate-400">Sub-scores used to build the overall Strength score.</p>
-    <div class="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300">
-      <div>Lower Body Strength: <strong>{{ strength.parts?.lowerBodyStrength ?? '—' }}</strong></div>
-      <div>Upper Body Strength: <strong>{{ strength.parts?.upperBodyStrength ?? '—' }}</strong></div>
-      <div>Explosive Power: <strong>{{ strength.parts?.explosivePower ?? '—' }}</strong></div>
-      <div>Rotational Power: <strong>{{ strength.parts?.rotationalPower ?? '—' }}</strong></div>
-    </div>
-  </div>
+  <section class="support" data-testid="strength-metrics"><h2>Strength Metrics</h2><p>Governed assessment categories.</p><article v-for="metric in metrics" :key="metric.label"><div><span>{{ metric.label }}</span><strong>{{ metric.display_value || 'Needs Data' }}</strong></div><div class="bar" :class="{ dashed: !metric.available }"><i :style="{ width: `${Math.max(0, Math.min(100, metric.value || 0))}%` }" /></div><small>{{ metric.description }}</small></article></section>
 </template>
+<style scoped>
+.support{padding:12px;background:#071725;border:1px solid #254154;border-radius:10px;color:#edf5fa}.support h2{text-transform:uppercase;font-size:11px;font-weight:900}.support>p,small{font-size:8px;color:#7890a0}.support article{margin-top:8px}.support article>div:first-child{display:flex;justify-content:space-between;font-size:9px}.bar{height:4px;background:#263d4d;margin-top:3px}.bar i{display:block;height:100%;background:#ef7b32}.bar.dashed{background:repeating-linear-gradient(90deg,#425766 0 7px,transparent 7px 11px)}
+</style>
