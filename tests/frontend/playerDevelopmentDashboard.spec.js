@@ -31,6 +31,9 @@ const intelligence = {
       assessment_date: '2026-08-01',
       squat: 315,
       metric_percentiles: { squat: 82, bat_speed: 76 },
+      shoulder_mobility_score: 4,
+      ankle_mobility_score: 3,
+      t_spine_mobility_score: 5,
     },
     physical: { front_squat: 315, back_squat: 275, bat_speed: 72 },
   },
@@ -55,6 +58,14 @@ describe('Player Development Dashboard redesign', () => {
     expect(strength.status).toBe('Needs Data')
     expect(recovery.score).toBeNull()
     expect(recovery.status).toBe('Needs Data')
+  })
+
+  it('maps the latest player assessment mobility categories onto the assessment five-point scale', () => {
+    const model = buildPlayerDevelopmentDashboard(live, intelligence)
+    expect(model.mobility.map((metric) => metric.display_value)).toEqual(['4/5', '3/5', '5/5'])
+    expect(model.mobility.map((metric) => metric.bar_value)).toEqual([80, 60, 100])
+    expect(model.mobility.every((metric) => metric.available)).toBe(true)
+    expect(source('resources/js/features/development/components/MobilityAssessmentCard.vue')).toContain('metric.bar_value ?? metric.value ?? 0')
   })
 
   it('clamps percentile marker positions and provides dashed accessible missing states', () => {

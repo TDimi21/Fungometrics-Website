@@ -83,6 +83,9 @@ class IntelligenceControllerTest extends TestCase
             'bench_lbs' => 225,
             'bench_press_percentile' => 74,
             'bat_speed_percentile' => 76,
+            'shoulder_mobility' => 4,
+            'ankle_mobility' => 3,
+            'rotational_mobility' => 5,
             'team_percentiles' => ['squat_percentile' => 79],
             'age_group_percentiles' => ['squat_percentile' => 85],
         ]);
@@ -104,6 +107,9 @@ class IntelligenceControllerTest extends TestCase
             ->assertJsonPath('summary.assessment.metric_percentiles.squat', 82)
             ->assertJsonPath('summary.assessment.metric_percentiles.bench_press', 74)
             ->assertJsonPath('summary.assessment.metric_percentiles.bat_speed', 76)
+            ->assertJsonPath('summary.assessment.shoulder_mobility_score', 4)
+            ->assertJsonPath('summary.assessment.ankle_mobility_score', 3)
+            ->assertJsonPath('summary.assessment.t_spine_mobility_score', 5)
             ->assertJsonPath('summary.assessment.team_percentiles.squat_percentile', 79)
             ->assertJsonPath('summary.assessment.age_group_percentiles.squat_percentile', 85)
             ->assertJsonPath('summary.physical.front_squat', 315)

@@ -297,6 +297,20 @@ const supportMetric = (label, value, description = '') => ({
   available: numberOrNull(value) !== null,
 })
 
+const mobilityAssessmentMetric = (label, value) => {
+  const score = numberOrNull(value)
+  const rounded = score === null ? null : Math.round(score * 10) / 10
+
+  return {
+    label,
+    value: score,
+    bar_value: score === null ? null : clamp(score * 20),
+    display_value: rounded === null ? null : `${rounded}/5`,
+    description: 'Latest saved player assessment score.',
+    available: score !== null,
+  }
+}
+
 export function buildPlayerDevelopmentDashboard(livePayload = {}, intelligencePayload = {}, options = {}) {
   const live = livePayload || {}
   const intelligence = intelligencePayload || {}
@@ -348,9 +362,9 @@ export function buildPlayerDevelopmentDashboard(livePayload = {}, intelligencePa
       supportMetric('Power Band', athletic.relative_strength_score, 'Strength relative to the current assessment context.'),
     ],
     mobility: [
-      supportMetric('Shoulder Horizontal Range', assessment.shoulder_horizontal_range ?? assessment.shoulder_hr),
-      supportMetric('Ankle Dorsiflexion', assessment.ankle_dorsiflexion),
-      supportMetric('T-Spine', assessment.t_spine ?? assessment.thoracic_rotation),
+      mobilityAssessmentMetric('Shoulder Horizontal Range', assessment.shoulder_mobility_score ?? assessment.shoulder_mobility ?? assessment.shoulder_horizontal_range ?? assessment.shoulder_hr),
+      mobilityAssessmentMetric('Ankle Dorsiflexion', assessment.ankle_mobility_score ?? assessment.ankle_mobility ?? assessment.ankle_dorsiflexion),
+      mobilityAssessmentMetric('T-Spine', assessment.t_spine_mobility_score ?? assessment.rotational_mobility ?? assessment.t_spine ?? assessment.thoracic_rotation),
     ],
     dataQuality: {
       liveGaps: live.data_gaps || {},
