@@ -29,7 +29,10 @@ class PlayerFitness extends Model
         'back_squat',
         'power_clean',
         'hand_strength',
+        'grip_strength_left',
+        'grip_strength_right',
         'dead_lift',
+        'trap_bar_deadlift',
         'vertical_jump',
         'broad_jump',
         'med_ball_rotational_throw',
@@ -49,18 +52,23 @@ class PlayerFitness extends Model
         'overall_api_score',
         'pull_ups',
         'push_ups',
+        'plank_hold',
+        'strength_test_metadata',
     ];
 
-    protected $casts =[
+    protected $casts = [
         'fitness_date' => 'date',
         'id' => 'string',
         'user_id' => 'string',
-        'bench_press'=>'integer',
-        'front_squat'=>'integer',
-        'back_squat'=>'integer',
-        'power_clean'=>'integer',
+        'bench_press' => 'integer',
+        'front_squat' => 'integer',
+        'back_squat' => 'integer',
+        'power_clean' => 'integer',
         'hand_strength' => 'float',
-        'dead_lift'=>'integer',
+        'grip_strength_left' => 'float',
+        'grip_strength_right' => 'float',
+        'dead_lift' => 'integer',
+        'trap_bar_deadlift' => 'float',
         'vertical_jump' => 'float',
         'broad_jump' => 'float',
         'med_ball_rotational_throw' => 'float',
@@ -77,6 +85,8 @@ class PlayerFitness extends Model
         'overall_api_score' => 'float',
         'pull_ups' => 'integer',
         'push_ups' => 'integer',
+        'plank_hold' => 'float',
+        'strength_test_metadata' => 'array',
     ];
 
     public function user(): BelongsTo

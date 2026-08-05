@@ -36,10 +36,14 @@ const metricAliases = {
   body_weight: ['body_weight', 'bodyweight'],
   front_squat: ['front_squat', 'squat'],
   bench_press: ['bench_press'],
-  dead_lift: ['dead_lift', 'trap_bar_deadlift', 'deadlift'],
+  dead_lift: ['dead_lift', 'deadlift'],
+  trap_bar_deadlift: ['trap_bar_deadlift'],
   back_squat: ['back_squat', 'squat'],
   power_clean: ['power_clean'],
-  hand_strength: ['hand_strength', 'grip_strength'],
+  hand_strength: ['grip_strength_average', 'hand_strength', 'grip_strength'],
+  grip_strength_left: ['grip_strength_left'], grip_strength_right: ['grip_strength_right'],
+  pull_ups: ['pull_ups'], pushups: ['pushups', 'push_ups'], plank_hold: ['plank_hold'],
+  sprint_10yd: ['sprint_10yd'], forty_yard_dash: ['forty_yard_dash', 'yd_40_dash'], sixty_yard_dash: ['sixty_yard_dash', 'yd_60_dash'],
   vertical_jump: ['vertical_jump', 'vertical_jump_inches'],
   broad_jump: ['broad_jump', 'broad_jump_inches'],
   med_ball_rotational_throw: ['med_ball_rotational_throw', 'rotational_med_ball_throw'],
@@ -54,7 +58,9 @@ const valueUnits = {
   max_exit_velocity: 'mph', avg_exit_velocity: 'mph', max_fb_velocity: 'mph', avg_fb_velocity: 'mph',
   body_weight: 'lb', front_squat: 'lb', bench_press: 'lb', dead_lift: 'lb', back_squat: 'lb',
   power_clean: 'lb', hand_strength: 'lb', vertical_jump: 'in', broad_jump: 'in',
-  med_ball_rotational_throw: 'mph', bat_speed: 'mph', sleep_hours: 'hrs',
+  trap_bar_deadlift: 'lb', grip_strength_left: 'lb', grip_strength_right: 'lb',
+  pull_ups: 'reps', pushups: 'reps', plank_hold: 'sec', sprint_10yd: 'sec', forty_yard_dash: 'sec', sixty_yard_dash: 'sec',
+  med_ball_rotational_throw: 'ft', bat_speed: 'mph', sleep_hours: 'hrs',
 }
 
 const metricLabels = {
@@ -63,6 +69,8 @@ const metricLabels = {
   bullpen_score: 'Bullpen Score', bp_score: 'Batting Practice Score', body_weight: 'Body Weight',
   front_squat: 'Front Squat', bench_press: 'Bench Press', dead_lift: 'Deadlift', back_squat: 'Back Squat',
   power_clean: 'Power Clean', hand_strength: 'Hand Strength', vertical_jump: 'Vertical Jump',
+  trap_bar_deadlift: 'Trap-bar Deadlift', grip_strength_left: 'Grip Strength Left', grip_strength_right: 'Grip Strength Right',
+  pull_ups: 'Pull-ups', pushups: 'Push-ups', plank_hold: 'Plank Hold', sprint_10yd: '10 Yard Sprint', forty_yard_dash: '40 Yard Dash', sixty_yard_dash: '60 Yard Dash',
   broad_jump: 'Broad Jump', med_ball_rotational_throw: 'Med Ball Rotational Throw', bat_speed: 'Bat Speed',
   sleep_hours: 'Sleep Average', recovery_score: 'Recovery Score', mobility_score: 'Mobility Score',
   strength_score: 'Strength Score', hard_contact_percentage: 'Hard-Hit Percentage', launch_angle: 'Launch Angle',
@@ -161,6 +169,7 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
   const goal = numberOrNull(benchmark?.goal ?? benchmark?.goal_value)
   const gap = numberOrNull(benchmark?.gap ?? benchmark?.gap_to_goal)
   const unit = textOrNull(benchmark?.unit) || valueUnits[key] || ''
+  const relative = numberOrNull(benchmark?.relative_value)
 
   return {
     key,
@@ -169,6 +178,7 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
     percentile: percentile === null ? null : clamp(percentile),
     value,
     display_value: displayValue(value, unit),
+    relative_display: relative === null ? null : `${Math.round(relative * 100) / 100}× BW`,
     status: percentile === null ? (value === null ? 'needs_data' : 'benchmark_unavailable') : String(benchmark?.label || 'benchmark_available').toLowerCase(),
     status_label: percentile === null
       ? (value === null ? 'Measurement Needs Data' : (benchmark ? 'Benchmark Needs Context' : 'Benchmark Not Configured'))
@@ -181,6 +191,7 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
     confidence: textOrNull(benchmark?.confidence),
     calculated_at: textOrNull(benchmark?.calculated_at) || textOrNull(intelligence?.generated_at),
     evidence: benchmark?.evidence || null,
+    peer_group: Array.isArray(benchmark?.peer_group) ? benchmark.peer_group.filter(Boolean).join(' · ') : null,
   }
 }
 
@@ -188,8 +199,8 @@ const percentileGroups = (live, intelligence) => {
   const keys = [
     ['hitting', 'Hitting', ['max_exit_velocity', 'avg_exit_velocity', 'bp_score', 'bat_speed']],
     ['pitching', 'Pitching', ['max_fb_velocity', 'avg_fb_velocity', 'bullpen_score']],
-    ['strength', 'Strength / Body', ['body_weight', 'front_squat', 'bench_press', 'dead_lift', 'back_squat', 'power_clean', 'hand_strength']],
-    ['athletic', 'Athletic / Mobility', ['vertical_jump', 'broad_jump', 'med_ball_rotational_throw', 'mobility_score']],
+    ['strength', 'Strength / Body', ['body_weight', 'front_squat', 'back_squat', 'bench_press', 'dead_lift', 'trap_bar_deadlift', 'power_clean', 'pull_ups', 'pushups', 'plank_hold', 'grip_strength_left', 'grip_strength_right']],
+    ['athletic', 'Athletic / Mobility', ['vertical_jump', 'broad_jump', 'med_ball_rotational_throw', 'sprint_10yd', 'forty_yard_dash', 'sixty_yard_dash', 'mobility_score']],
     ['recovery', 'Recovery', ['sleep_hours', 'recovery_score']],
   ]
 

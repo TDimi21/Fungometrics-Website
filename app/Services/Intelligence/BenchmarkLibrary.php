@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
+use Throwable;
+
 class BenchmarkLibrary
 {
     public const BUCKET_EXACT_PEER = 'exact_peer';
@@ -45,7 +47,7 @@ class BenchmarkLibrary
     public function legacyDefinition(string $metricKey): ?array
     {
         $metric = $this->metric($metricKey);
-        if (! $metric) {
+        if ( ! $metric) {
             return null;
         }
 
@@ -82,26 +84,26 @@ class BenchmarkLibrary
 
         return match ($level) {
             self::BUCKET_GLOBAL_CLEAN => 'global_clean_population',
-            self::BUCKET_AGE_ONLY => 'age:' . strtolower($context['age_group']),
+            self::BUCKET_AGE_ONLY => 'age:'.mb_strtolower($context['age_group']),
             self::BUCKET_AGE_ROLE => implode('|', [
-                'age:' . strtolower($context['age_group']),
-                'level:' . $context['level'],
-                'position:' . $context['position'],
+                'age:'.mb_strtolower($context['age_group']),
+                'level:'.$context['level'],
+                'position:'.$context['position'],
             ]),
             self::BUCKET_ATHLETIC_PEER => implode('|', [
-                'age:' . strtolower($context['age_group']),
-                'level:' . $context['level'],
-                'position:' . $context['position'],
-                'body:' . $context['bodyweight_band'],
+                'age:'.mb_strtolower($context['age_group']),
+                'level:'.$context['level'],
+                'position:'.$context['position'],
+                'body:'.$context['bodyweight_band'],
             ]),
             default => implode('|', [
-                'age:' . strtolower($context['age_group']),
-                'level:' . $context['level'],
-                'position:' . $context['position'],
-                'body:' . $context['bodyweight_band'],
-                'height:' . $context['height_band'],
-                'throws:' . $context['throws'],
-                'bats:' . $context['bats'],
+                'age:'.mb_strtolower($context['age_group']),
+                'level:'.$context['level'],
+                'position:'.$context['position'],
+                'body:'.$context['bodyweight_band'],
+                'height:'.$context['height_band'],
+                'throws:'.$context['throws'],
+                'bats:'.$context['bats'],
             ]),
         };
     }
@@ -114,7 +116,7 @@ class BenchmarkLibrary
             'teamId' => $context['teamId'] ?? null,
             'player_id' => $context['player_id'] ?? null,
             'playerId' => $context['playerId'] ?? null,
-        ], fn ($value) => $value !== null && $value !== '');
+        ], fn ($value) => null !== $value && '' !== $value);
 
         return match ($level) {
             self::BUCKET_GLOBAL_CLEAN => $passthrough,
@@ -167,11 +169,11 @@ class BenchmarkLibrary
         $bodyWeight = $context['body_weight'] ?? $context['bodyweight'] ?? null;
         $ageGroup = $context['age_group'] ?? null;
 
-        if ((! $ageGroup || strtoupper((string) $ageGroup) === BenchmarkDefinitions::AGE_UNKNOWN) && ! empty($context['dob'])) {
+        if (( ! $ageGroup || BenchmarkDefinitions::AGE_UNKNOWN === mb_strtoupper((string) $ageGroup)) && ! empty($context['dob'])) {
             $ageGroup = $this->ageGroupFromDate($context['dob']);
         }
 
-        if ((! $ageGroup || strtoupper((string) $ageGroup) === BenchmarkDefinitions::AGE_UNKNOWN) && is_numeric($context['age'] ?? null)) {
+        if (( ! $ageGroup || BenchmarkDefinitions::AGE_UNKNOWN === mb_strtoupper((string) $ageGroup)) && is_numeric($context['age'] ?? null)) {
             $ageGroup = BenchmarkDefinitions::ageGroup((int) $context['age']);
         }
 
@@ -191,11 +193,11 @@ class BenchmarkLibrary
 
     public function bodyweightBand(mixed $value): string
     {
-        if (is_string($value) && preg_match('/^(under_120|120_149|150_179|180_209|210_plus)$/', strtolower($value))) {
-            return strtolower($value);
+        if (is_string($value) && preg_match('/^(under_120|120_149|150_179|180_209|210_plus)$/', mb_strtolower($value))) {
+            return mb_strtolower($value);
         }
 
-        if (! is_numeric($value) || (float) $value <= 0) {
+        if ( ! is_numeric($value) || (float) $value <= 0) {
             return 'unknown';
         }
 
@@ -212,11 +214,11 @@ class BenchmarkLibrary
 
     public function heightBand(mixed $value): string
     {
-        if (is_string($value) && preg_match('/^(under_63|63_65|66_68|69_71|72_74|75_plus)$/', strtolower($value))) {
-            return strtolower($value);
+        if (is_string($value) && preg_match('/^(under_63|63_65|66_68|69_71|72_74|75_plus)$/', mb_strtolower($value))) {
+            return mb_strtolower($value);
         }
 
-        if (! is_numeric($value) || (float) $value <= 0) {
+        if ( ! is_numeric($value) || (float) $value <= 0) {
             return 'unknown';
         }
 
@@ -240,7 +242,7 @@ class BenchmarkLibrary
 
         $positions = collect($items)
             ->map(fn ($item) => $this->normalizeOnePosition($item))
-            ->filter(fn (string $item) => $item !== '' && $item !== 'unknown')
+            ->filter(fn (string $item) => '' !== $item && 'unknown' !== $item)
             ->unique()
             ->sort()
             ->values()
@@ -251,7 +253,7 @@ class BenchmarkLibrary
 
     public function normalizeLevel(mixed $value): string
     {
-        $value = strtolower(trim((string) $value));
+        $value = mb_strtolower(trim((string) $value));
         $value = str_replace(['-', ' '], '_', $value);
 
         return match ($value) {
@@ -260,25 +262,25 @@ class BenchmarkLibrary
             'college', 'juco', 'ncaa', 'naia' => 'college',
             'pro', 'professional' => 'professional',
             'youth', 'travel', 'club' => $value,
-            default => $value !== '' ? $value : 'unknown',
+            default => '' !== $value ? $value : 'unknown',
         };
     }
 
     public function normalizeSide(mixed $value): string
     {
-        $value = strtolower(trim((string) $value));
+        $value = mb_strtolower(trim((string) $value));
 
         return match ($value) {
             'r', 'right', 'rhp', 'rhh' => 'r',
             'l', 'left', 'lhp', 'lhh' => 'l',
             's', 'switch', 'both' => 's',
-            default => $value !== '' ? $value : 'unknown',
+            default => '' !== $value ? $value : 'unknown',
         };
     }
 
     public function normalizeAgeGroup(mixed $value): string
     {
-        $value = strtoupper(trim((string) $value));
+        $value = mb_strtoupper(trim((string) $value));
         $value = str_replace(['-', ' '], '_', $value);
 
         return in_array($value, BenchmarkDefinitions::AGE_GROUPS, true)
@@ -288,20 +290,20 @@ class BenchmarkLibrary
 
     private function ageGroupFromDate(mixed $date): string
     {
-        if (! $date) {
+        if ( ! $date) {
             return BenchmarkDefinitions::AGE_UNKNOWN;
         }
 
         try {
             return BenchmarkDefinitions::ageGroup(\Carbon\Carbon::parse((string) $date)->age);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return BenchmarkDefinitions::AGE_UNKNOWN;
         }
     }
 
     private function normalizeOnePosition(mixed $value): string
     {
-        $value = strtolower(trim((string) $value));
+        $value = mb_strtolower(trim((string) $value));
         $value = str_replace(['-', '_'], ' ', $value);
 
         return match ($value) {
@@ -317,7 +319,7 @@ class BenchmarkLibrary
             'right field', 'rightfield', 'rf' => 'rf',
             'utility', 'util', 'ut' => 'ut',
             'designated hitter', 'dh' => 'dh',
-            default => $value !== '' ? str_replace(' ', '_', $value) : 'unknown',
+            default => '' !== $value ? str_replace(' ', '_', $value) : 'unknown',
         };
     }
 
@@ -405,6 +407,20 @@ class BenchmarkLibrary
                 [135, 175, 215, 255, 315],
             ]),
             'squat' => $this->metricDefinition('squat', 'Squat', 'strength', 'lbs', true, 0.8, 'low', [
+                [75, 105, 135, 165, 205],
+                [105, 145, 185, 225, 275],
+                [135, 185, 235, 285, 345],
+                [165, 225, 285, 345, 415],
+                [185, 255, 325, 395, 475],
+            ]),
+            'front_squat' => $this->metricDefinition('front_squat', 'Front Squat', 'strength', 'lbs', true, 0.75, 'low', [
+                [45, 65, 85, 105, 130],
+                [75, 95, 115, 135, 165],
+                [95, 125, 155, 185, 225],
+                [115, 155, 185, 225, 275],
+                [135, 175, 215, 255, 315],
+            ]),
+            'back_squat' => $this->metricDefinition('back_squat', 'Back Squat', 'strength', 'lbs', true, 0.8, 'low', [
                 [75, 105, 135, 165, 205],
                 [105, 145, 185, 225, 275],
                 [135, 185, 235, 285, 345],

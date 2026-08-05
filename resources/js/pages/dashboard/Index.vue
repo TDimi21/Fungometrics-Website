@@ -2176,31 +2176,11 @@ const fmtrxSectionRows = computed(() => {
 
 const strengthFormComplete = computed(() => {
   const f = strengthForm.value
-  return (
-    !!f.fitness_date &&
-    f.body_weight_lbs !== '' &&
-    f.front_squat_lbs !== '' &&
-    f.back_squat_lbs !== '' &&
-    f.bench_press_lbs !== '' &&
-    f.dead_lift_lbs !== '' &&
-    f.power_clean_lbs !== '' &&
-    f.hand_strength_lbs !== '' &&
-    f.push_ups !== '' &&
-    f.pull_ups !== '' &&
-    f.vertical_jump_inches !== '' &&
-    f.broad_jump_inches !== '' &&
-    f.med_ball_rotational_throw_ft !== '' &&
-    f.sprint_10yd_sec !== '' &&
-    f.exit_velocity_mph !== '' &&
-    f.bat_speed_mph !== '' &&
-    f.throwing_velo_mph !== '' &&
-    f.pitch_velo_mph !== '' &&
-    f.yd_40_dash_sec !== '' &&
-    f.yd_60_dash_sec !== '' &&
-    f.sleep_hours !== '' &&
-    f.sleep_quality_1_to_5 !== '' &&
-    f.recovery_score !== ''
-  )
+  const present = (key) => f[key] !== '' && Number(f[key]) > 0
+  const maximum = ['front_squat_lbs', 'back_squat_lbs', 'bench_press_lbs', 'dead_lift_lbs'].filter(present)
+  const lower = ['front_squat_lbs', 'back_squat_lbs', 'dead_lift_lbs'].some(present)
+  const support = ['power_clean_lbs', 'vertical_jump_inches', 'broad_jump_inches', 'med_ball_rotational_throw_ft', 'pull_ups', 'push_ups'].some(present)
+  return !!f.fitness_date && present('body_weight_lbs') && maximum.length >= 2 && lower && support
 })
 
 const latestStrengthRecord = computed(() =>
@@ -2310,36 +2290,34 @@ const submitStrengthAssessment = async () => {
   }
   strengthSaving.value = true
   try {
-    await axiosPost('player/fitness', {
+    const payload = {
       user_id: strengthSelectedPlayerId.value,
       fitness_date: strengthForm.value.fitness_date,
-      body_weight: Number(strengthForm.value.body_weight_lbs || 0),
-      front_squat: Number(strengthForm.value.front_squat_lbs || 0),
-      back_squat: Number(strengthForm.value.back_squat_lbs || 0),
-      bench_press: Number(strengthForm.value.bench_press_lbs || 0),
-      dead_lift: Number(strengthForm.value.dead_lift_lbs || 0),
-      power_clean: Number(strengthForm.value.power_clean_lbs || 0),
-      hand_strength: Number(strengthForm.value.hand_strength_lbs || 0),
-      push_ups: Number(strengthForm.value.push_ups || 0),
-      pull_ups: Number(strengthForm.value.pull_ups || 0),
-      vertical_jump: Number(strengthForm.value.vertical_jump_inches || 0),
-      broad_jump: Number(strengthForm.value.broad_jump_inches || 0),
-      med_ball_rotational_throw: Number(strengthForm.value.med_ball_rotational_throw_ft || 0),
-      sprint_10yd: Number(strengthForm.value.sprint_10yd_sec || 0),
-      exit_velo: Number(strengthForm.value.exit_velocity_mph || 0),
-      bat_speed: Number(strengthForm.value.bat_speed_mph || 0),
-      throwing_velo: Number(strengthForm.value.throwing_velo_mph || 0),
-      pitch_velo: Number(strengthForm.value.pitch_velo_mph || 0),
-      yd_40_dash: Number(strengthForm.value.yd_40_dash_sec || 0),
-      yd_60_dash: Number(strengthForm.value.yd_60_dash_sec || 0),
-      sleep_hours: Number(strengthForm.value.sleep_hours || 0),
-      sleep_quality_1_to_5: Number(strengthForm.value.sleep_quality_1_to_5 || 0),
-      recovery_score: Number(strengthForm.value.recovery_score || 0),
       ...(latestStrengthMobilityScore.value !== null ? { mobility_score: latestStrengthMobilityScore.value } : {}),
-      strength_score: computedStrength.value.score,
+    }
+    const optionalFields = {
+      body_weight: 'body_weight_lbs', front_squat: 'front_squat_lbs', back_squat: 'back_squat_lbs',
+      bench_press: 'bench_press_lbs', dead_lift: 'dead_lift_lbs', power_clean: 'power_clean_lbs',
+      hand_strength: 'hand_strength_lbs', push_ups: 'push_ups', pull_ups: 'pull_ups',
+      vertical_jump: 'vertical_jump_inches', broad_jump: 'broad_jump_inches',
+      med_ball_rotational_throw: 'med_ball_rotational_throw_ft', sprint_10yd: 'sprint_10yd_sec',
+      exit_velo: 'exit_velocity_mph', bat_speed: 'bat_speed_mph', throwing_velo: 'throwing_velo_mph',
+      pitch_velo: 'pitch_velo_mph', yd_40_dash: 'yd_40_dash_sec', yd_60_dash: 'yd_60_dash_sec',
+      sleep_hours: 'sleep_hours', sleep_quality_1_to_5: 'sleep_quality_1_to_5', recovery_score: 'recovery_score',
+    }
+    Object.entries(optionalFields).forEach(([target, source]) => {
+      if (strengthForm.value[source] !== '') payload[target] = Number(strengthForm.value[source])
     })
+    const res = await axiosPost('player/fitness', payload)
     await fetchStrengthHistory()
-    strengthMessage.value = { type: 'success', text: `Saved! Strength score ${computedStrength.value.score} (${computedStrength.value.labels.overall}) saved to player record.` }
+    const governedRaw = res?.data?.data?.strength_score
+    const governedScore = governedRaw === null || governedRaw === undefined || governedRaw === '' ? null : Number(governedRaw)
+    strengthMessage.value = {
+      type: 'success',
+      text: governedScore !== null && Number.isFinite(governedScore)
+        ? `Saved. Governed strength score: ${governedScore}.`
+        : 'Saved. Strength Score needs more benchmark data; the recorded measurements were preserved.',
+    }
   } catch {
     strengthMessage.value = { type: 'error', text: 'Could not save strength assessment.' }
   } finally {

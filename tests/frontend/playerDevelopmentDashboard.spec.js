@@ -91,6 +91,33 @@ describe('Player Development Dashboard redesign', () => {
     expect(percentile).toContain('.metric-name{font-size:12px')
   })
 
+  it('renders strength v1 absolute relative peer confidence and descriptive body-weight states', () => {
+    const strengthIntelligence = {
+      ...intelligence,
+      benchmark_profile: {
+        ...intelligence.benchmark_profile,
+        metrics: [
+          ...intelligence.benchmark_profile.metrics,
+          { metric_key: 'front_squat', display_name: 'Front Squat', category: 'maximum_strength', raw_value: 225, relative_value: 1.25, unit: 'lb', percentile: 72, label: 'Average', confidence: 'medium', source: 'composite', peer_group: ['15U_16U', '170_189', 'high_school'], goal: 240, gap: 15 },
+          { metric_key: 'body_weight', display_name: 'Body Weight', category: 'body_context', raw_value: 180, unit: 'lb', percentile: 38, label: 'Descriptive', confidence: 'medium', source: 'fmtrx_population', peer_group: ['15U_16U', 'high_school'] },
+        ],
+      },
+    }
+    const rows = buildPlayerDevelopmentDashboard(live, strengthIntelligence).percentileGroups.flatMap((group) => group.metrics)
+    const squat = rows.find((metric) => metric.key === 'front_squat')
+    const weight = rows.find((metric) => metric.key === 'body_weight')
+    expect(squat.display_value).toBe('225 lb')
+    expect(squat.relative_display).toBe('1.25× BW')
+    expect(squat.peer_group).toBe('15U_16U · 170_189 · high_school')
+    expect(squat.confidence).toBe('medium')
+    expect(squat.goal_display).toBe('240 lb')
+    expect(squat.gap_display).toBe('15 lb')
+    expect(weight.status_label).toBe('Descriptive')
+    expect(percentile).toContain('relative value')
+    expect(percentile).toContain('peer group')
+    expect(percentile).toContain('confidence')
+  })
+
   it('uses a fallback silhouette, protected coach actions, and read-only player mode', () => {
     expect(identity).toContain('player-photo-fallback')
     expect(actions).toContain('canAddToPlanner && !readOnly')

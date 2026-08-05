@@ -11,6 +11,9 @@ use App\Models\PlayerPosition;
 use App\Models\PlayerTeam;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
+use App\Services\Intelligence\BenchmarkDefinitions;
+use App\Services\Intelligence\StrengthBenchmarkService;
+use Throwable;
 
 class AthleticPerformanceIndexService
 {
@@ -18,8 +21,8 @@ class AthleticPerformanceIndexService
      * Metric fields that should be coalesced from history (latest non-zero wins).
      */
     private const COALESCE_FIELDS = [
-        'body_weight', 'front_squat', 'back_squat', 'bench_press', 'dead_lift',
-        'power_clean', 'hand_strength', 'push_ups', 'pull_ups', 'vertical_jump',
+        'body_weight', 'front_squat', 'back_squat', 'bench_press', 'dead_lift', 'trap_bar_deadlift',
+        'power_clean', 'hand_strength', 'grip_strength_left', 'grip_strength_right', 'push_ups', 'pull_ups', 'plank_hold', 'vertical_jump',
         'broad_jump', 'med_ball_rotational_throw', 'sprint_10yd', 'yd_40_dash',
         'yd_60_dash', 'exit_velo', 'bat_speed', 'throwing_velo', 'pitch_velo',
         'sleep_hours', 'sleep_quality_1_to_5', 'recovery_score', 'mobility_score',
@@ -60,6 +63,7 @@ class AthleticPerformanceIndexService
 
     public function calculate(PlayerFitness $assessment): array
     {
+        $strengthAssessment = $this->assessmentForStrengthBenchmark($assessment);
         // Score from the latest KNOWN value per metric, not just this row.
         $assessment = $this->coalesceFitness($assessment);
 
@@ -141,11 +145,24 @@ class AthleticPerformanceIndexService
             ['value' => $pushUpScore, 'weight' => 0.40],
         ]);
 
-        $strengthScore = $this->weightedScore([
+        $legacyStrengthScore = $this->weightedScore([
             ['value' => $lowerBodyStrength, 'weight' => 0.40],
             ['value' => $upperBodyStrength, 'weight' => 0.40],
             ['value' => $relativeStrength, 'weight' => 0.20],
         ]);
+
+        $strengthBenchmark = app(StrengthBenchmarkService::class)->benchmark($strengthAssessment, null, [
+            'age' => $ageYears,
+            'age_group' => BenchmarkDefinitions::ageGroup($ageYears),
+            'dob' => $this->resolveDob((string) $assessment->user_id),
+            'role' => $role,
+            'position' => $role,
+            'level' => null !== $ageYears && $ageYears <= 18 ? 'high_school' : 'college',
+            'player_id' => (string) $assessment->user_id,
+        ]);
+        $strengthScore = is_numeric($strengthBenchmark['score'] ?? null)
+            ? (float) $strengthBenchmark['score']
+            : null;
 
         $powerScore = $this->weightedScore([
             ['value' => $powerCleanScore, 'weight' => 0.15],
@@ -258,6 +275,8 @@ class AthleticPerformanceIndexService
                 'age_years' => $ageYears,
             ],
             'category_scores' => $categoryScores,
+            'strength_benchmark_v1' => $strengthBenchmark,
+            'legacy_strength_score' => $legacyStrengthScore,
         ];
     }
 
@@ -300,8 +319,8 @@ class AthleticPerformanceIndexService
         $strength = $payload['strength_score'] ?? null;
         $overall = $payload['overall_api_score'] ?? null;
         $assessment->forceFill([
-            'strength_score' => $strength !== null ? (int) round((float) $strength) : null,
-            'overall_api_score' => $overall !== null ? round((float) $overall, 2) : null,
+            'strength_score' => null !== $strength ? (int) round((float) $strength) : null,
+            'overall_api_score' => null !== $overall ? round((float) $overall, 2) : null,
         ])->saveQuietly();
 
         return $score;
@@ -309,7 +328,7 @@ class AthleticPerformanceIndexService
 
     public function getTrend(?float $latest, ?float $previous): string
     {
-        if ($latest === null || $previous === null) {
+        if (null === $latest || null === $previous) {
             return 'no_change';
         }
 
@@ -324,18 +343,51 @@ class AthleticPerformanceIndexService
         return 'no_change';
     }
 
+    private function resolveDob(string $userId): ?string
+    {
+        $value = Player::query()->where('user_id', $userId)->value('born_date');
+
+        return $value ? (string) $value : null;
+    }
+
+    private function assessmentForStrengthBenchmark(PlayerFitness $assessment): PlayerFitness
+    {
+        $hasBodyWeight = $this->toFloat($assessment->body_weight) > 0;
+        $maximumCount = collect(['front_squat', 'back_squat', 'bench_press', 'dead_lift', 'trap_bar_deadlift'])
+            ->filter(fn (string $field): bool => $this->toFloat($assessment->{$field}) > 0)
+            ->count();
+        $hasSupport = collect(['power_clean', 'vertical_jump', 'broad_jump', 'med_ball_rotational_throw', 'pull_ups', 'push_ups', 'plank_hold'])
+            ->contains(fn (string $field): bool => $this->toFloat($assessment->{$field}) > 0);
+
+        if ($hasBodyWeight && $maximumCount >= 2 && $hasSupport) {
+            return $assessment;
+        }
+
+        return PlayerFitness::query()
+            ->where('user_id', (string) $assessment->user_id)
+            ->where('body_weight', '>', 0)
+            ->where(function ($query): void {
+                foreach (['front_squat', 'back_squat', 'bench_press', 'dead_lift', 'trap_bar_deadlift'] as $field) {
+                    $query->orWhere($field, '>', 0);
+                }
+            })
+            ->orderByDesc('fitness_date')
+            ->orderByDesc('created_at')
+            ->first() ?? $assessment;
+    }
+
     /**
      * @param array<int|string, float|int> $benchmarks
      */
     public function scoreHigherIsBetter(?float $value, array $benchmarks): ?float
     {
-        if ($value === null || $value <= 0 || empty($benchmarks)) {
+        if (null === $value || $value <= 0 || empty($benchmarks)) {
             return null;
         }
 
         $pairs = [];
         foreach ($benchmarks as $percentile => $rawValue) {
-            if (!is_numeric($percentile) || !is_numeric($rawValue)) {
+            if ( ! is_numeric($percentile) || ! is_numeric($rawValue)) {
                 continue;
             }
             $pairs[] = ['value' => (float) $rawValue, 'percentile' => (float) $percentile];
@@ -375,13 +427,13 @@ class AthleticPerformanceIndexService
      */
     public function scoreLowerIsBetter(?float $value, array $benchmarks): ?float
     {
-        if ($value === null || $value <= 0 || empty($benchmarks)) {
+        if (null === $value || $value <= 0 || empty($benchmarks)) {
             return null;
         }
 
         $inverted = [];
         foreach ($benchmarks as $percentile => $rawValue) {
-            if (!is_numeric($percentile) || !is_numeric($rawValue)) {
+            if ( ! is_numeric($percentile) || ! is_numeric($rawValue)) {
                 continue;
             }
             $inverted[(string) $percentile] = -1 * (float) $rawValue;
@@ -392,7 +444,7 @@ class AthleticPerformanceIndexService
 
     public function getGradeLabel(?float $score): string
     {
-        if ($score === null) {
+        if (null === $score) {
             return 'Foundation Needed';
         }
 
@@ -421,7 +473,7 @@ class AthleticPerformanceIndexService
 
     public function getProjectionLabel(?float $score): string
     {
-        if ($score === null) {
+        if (null === $score) {
             return 'Foundation Needed';
         }
 
@@ -453,16 +505,16 @@ class AthleticPerformanceIndexService
      */
     public function getPercentile(?float $playerValue, array $peerValues, bool $higherIsBetter): ?int
     {
-        if ($playerValue === null) {
+        if (null === $playerValue) {
             return null;
         }
 
         $clean = array_values(array_filter(
             array_map(fn ($v) => is_numeric($v) ? (float) $v : null, $peerValues),
-            fn ($v) => $v !== null
+            fn ($v) => null !== $v
         ));
 
-        if (count($clean) === 0) {
+        if (0 === count($clean)) {
             return null;
         }
 
@@ -480,7 +532,7 @@ class AthleticPerformanceIndexService
 
         $pct = (($less + (0.5 * $equal)) / $n) * 100.0;
 
-        if (!$higherIsBetter) {
+        if ( ! $higherIsBetter) {
             $pct = 100.0 - $pct;
         }
 
@@ -495,14 +547,14 @@ class AthleticPerformanceIndexService
     {
         $clean = array_values(array_filter(
             array_map(fn ($v) => is_numeric($v) ? (float) $v : null, $teamScores),
-            fn ($v) => $v !== null
+            fn ($v) => null !== $v
         ));
 
-        if ($playerScore !== null) {
+        if (null !== $playerScore) {
             $clean[] = $playerScore;
         }
 
-        if (count($clean) === 0) {
+        if (0 === count($clean)) {
             return ['rank' => null, 'count' => 0];
         }
 
@@ -510,7 +562,7 @@ class AthleticPerformanceIndexService
         $rank = null;
 
         foreach ($clean as $idx => $score) {
-            if ($playerScore !== null && $score === $playerScore) {
+            if (null !== $playerScore && $score === $playerScore) {
                 $rank = $idx + 1;
                 break;
             }
@@ -530,7 +582,7 @@ class AthleticPerformanceIndexService
     {
         $rows = [];
         foreach ($scores as $metric => $score) {
-            if ($score === null) {
+            if (null === $score) {
                 continue;
             }
             $rows[] = ['metric' => $metric, 'score' => round($score, 1)];
@@ -548,7 +600,7 @@ class AthleticPerformanceIndexService
     {
         $rows = [];
         foreach ($scores as $metric => $score) {
-            if ($score === null) {
+            if (null === $score) {
                 continue;
             }
             $rows[] = ['metric' => $metric, 'score' => round($score, 1)];
@@ -592,9 +644,9 @@ class AthleticPerformanceIndexService
      */
     private function weightedScore(array $items): ?float
     {
-        $valid = array_values(array_filter($items, fn (array $row) => $row['value'] !== null));
+        $valid = array_values(array_filter($items, fn (array $row) => null !== $row['value']));
 
-        if (count($valid) === 0) {
+        if (0 === count($valid)) {
             return null;
         }
 
@@ -616,7 +668,7 @@ class AthleticPerformanceIndexService
      */
     private function scoreMetric(string $metricName, ?float $value, array $benchmarks, bool $forceLowerIsBetter = false): ?float
     {
-        if ($value === null) {
+        if (null === $value) {
             return null;
         }
 
@@ -655,15 +707,15 @@ class AthleticPerformanceIndexService
         $positions = PlayerPosition::query()
             ->where('player_id', $playerId)
             ->pluck('position')
-            ->map(fn ($pos) => strtoupper((string) $pos))
+            ->map(fn ($pos) => mb_strtoupper((string) $pos))
             ->all();
 
         if (empty($positions)) {
             return 'hitter';
         }
 
-        $hasPitch = collect($positions)->contains(fn ($pos) => $pos === 'P' || str_contains($pos, 'PITCH'));
-        $hasNonPitch = collect($positions)->contains(fn ($pos) => $pos !== 'P' && !str_contains($pos, 'PITCH'));
+        $hasPitch = collect($positions)->contains(fn ($pos) => 'P' === $pos || str_contains($pos, 'PITCH'));
+        $hasNonPitch = collect($positions)->contains(fn ($pos) => 'P' !== $pos && ! str_contains($pos, 'PITCH'));
 
         if ($hasPitch && $hasNonPitch) {
             return 'two_way';
@@ -675,7 +727,7 @@ class AthleticPerformanceIndexService
     private function resolveAgeYears(string $playerId, ?string $asOfDate): ?int
     {
         $player = Player::query()->where('user_id', $playerId)->first();
-        if (!$player || !$player->born_date) {
+        if ( ! $player || ! $player->born_date) {
             return null;
         }
 
@@ -683,14 +735,14 @@ class AthleticPerformanceIndexService
             $dob = Carbon::parse((string) $player->born_date);
             $asOf = $asOfDate ? Carbon::parse($asOfDate) : now();
             return max(0, $dob->diffInYears($asOf));
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
     }
 
     private function resolveAgeGroup(?int $ageYears): string
     {
-        if ($ageYears === null) {
+        if (null === $ageYears) {
             return '15-18';
         }
 
@@ -707,7 +759,7 @@ class AthleticPerformanceIndexService
 
     private function ratio(?float $numerator, ?float $denominator): ?float
     {
-        if ($numerator === null || $denominator === null || $denominator <= 0) {
+        if (null === $numerator || null === $denominator || $denominator <= 0) {
             return null;
         }
 
@@ -716,11 +768,11 @@ class AthleticPerformanceIndexService
 
     private function toFloat(mixed $value): ?float
     {
-        if ($value === null || $value === '') {
+        if (null === $value || '' === $value) {
             return null;
         }
 
-        if (!is_numeric($value)) {
+        if ( ! is_numeric($value)) {
             return null;
         }
 

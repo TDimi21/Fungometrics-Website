@@ -120,6 +120,7 @@ class SaveAssessment extends Controller
      */
     private function buildFitnessSnapshotData(array $data): array
     {
+        $snapshot = is_array($data['fitness_snapshot'] ?? null) ? $data['fitness_snapshot'] : [];
         $toFloat = static fn ($k) => isset($data[$k]) && '' !== $data[$k] && null !== $data[$k]
             ? (float) $data[$k]
             : null;
@@ -138,7 +139,7 @@ class SaveAssessment extends Controller
             ? (int) round((array_sum($mobilityVals) / count($mobilityVals)) * 10)
             : null;
 
-        return array_filter([
+        $fitness = [
             'user_id' => (string) ($data['user_id'] ?? ''),
             'fitness_date' => isset($data['assessment_date']) && $data['assessment_date'] ? (string) $data['assessment_date'] : now()->toDateString(),
             'body_weight' => $toFloat('body_weight_lbs'),
@@ -150,7 +151,26 @@ class SaveAssessment extends Controller
             'sprint_10yd' => $toFloat('sprint_10yd_sec'),
             'mobility_score' => $mobilityScore,
             'strength_score' => isset($data['strength_overall_score']) ? (int) $data['strength_overall_score'] : null,
-        ], fn ($v) => null !== $v && '' !== $v);
+        ];
+
+        foreach ([
+            'front_squat', 'back_squat', 'bench_press', 'dead_lift', 'trap_bar_deadlift',
+            'power_clean', 'pull_ups', 'push_ups', 'grip_strength_left', 'grip_strength_right',
+            'vertical_jump', 'broad_jump', 'med_ball_rotational_throw', 'plank_hold',
+            'yd_40_dash', 'yd_60_dash', 'strength_test_metadata',
+        ] as $field) {
+            if (array_key_exists($field, $snapshot) && null !== $snapshot[$field] && '' !== $snapshot[$field]) {
+                $fitness[$field] = $snapshot[$field];
+            }
+        }
+
+        $left = isset($fitness['grip_strength_left']) ? (float) $fitness['grip_strength_left'] : null;
+        $right = isset($fitness['grip_strength_right']) ? (float) $fitness['grip_strength_right'] : null;
+        if (null !== $left || null !== $right) {
+            $fitness['hand_strength'] = (null !== $left && null !== $right) ? (($left + $right) / 2) : ($left ?? $right);
+        }
+
+        return array_filter($fitness, fn ($v) => null !== $v && '' !== $v);
     }
 
     public function __invoke(AssessmentRequest $request): JsonResponse
@@ -164,6 +184,11 @@ class SaveAssessment extends Controller
 
         try {
             $data = $request->validated();
+            $fitnessSnapshotInput = $data['fitness_snapshot'] ?? null;
+            unset($data['fitness_snapshot']);
+            if (is_array($fitnessSnapshotInput)) {
+                $data['fitness_snapshot'] = $fitnessSnapshotInput;
+            }
 
             if ( ! isset($data['assessed_by']) || ! $data['assessed_by']) {
                 $data['assessed_by'] = (string) optional($request->user())->id;
@@ -330,7 +355,9 @@ class SaveAssessment extends Controller
                 'age_group_years'              => $ageYears,
             ]);
 
-            $assessment = (new CreateServiceData(new PlayerAssessment()))->handle($data);
+            $assessmentData = $data;
+            unset($assessmentData['fitness_snapshot']);
+            $assessment = (new CreateServiceData(new PlayerAssessment()))->handle($assessmentData);
 
             // Keep player metrics in sync with coach assessment (assessment is authoritative).
             try {

@@ -24,8 +24,8 @@ This suite is inspection-only. It creates no FMTRX practices, sessions, canonica
 | `column-manual-baseball` | CSV | players_in_rows | cage | 2 | 5 | Expected review / manual confirmation |
 | `column-duplicate-concepts` | CSV | players_in_rows | cage | 2 | 3 | Expected blocked/rejected: Duplicate concept mappings require explicit confirmation or Not Importing decisions. |
 | `player-twenty-events` | CSV | events_in_rows | exit_velocity | 1 | 3 | Expected review / manual confirmation |
-| `fmtrx-generated-template` | CSV | players_in_rows | strength | 4 | 17 | Expected success |
-| `fmtrx-altered-template` | CSV | players_in_rows | strength | 4 | 17 | Expected blocked/rejected: FMTRX canonical-key row was altered. |
+| `fmtrx-generated-template` | CSV | players_in_rows | strength | 4 | 31 | Expected success |
+| `fmtrx-altered-template` | CSV | players_in_rows | strength | 4 | 31 | Expected blocked/rejected: FMTRX canonical-key row was altered. |
 | `invalid-bad-xlsx` | XLSX | worksheet_per_player | assessment | 2 | 3 | Expected blocked/rejected: Ambiguous structure and columns must be corrected or ignored. |
 | `invalid-extension` | TXT | unknown | assessment | 0 | 0 | Expected blocked/rejected: Unsupported extension. |
 | `invalid-malformed-csv` | CSV | unknown | assessment | 0 | 0 | Expected blocked/rejected: Malformed CSV must not crash inspection. |

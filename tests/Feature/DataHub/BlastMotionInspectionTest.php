@@ -83,7 +83,7 @@ final class BlastMotionInspectionTest extends TestCase
             'units' => DB::table('unit_definitions')->count(),
             'conversions' => DB::table('unit_conversions')->count(),
         ];
-        $this->assertSame(['domains' => 14, 'concepts' => 103, 'aliases' => 127, 'units' => 19, 'conversions' => 8], $before);
+        $this->assertSame(['domains' => 14, 'concepts' => 114, 'aliases' => 127, 'units' => 19, 'conversions' => 8], $before);
         $this->seed(BaseballDictionarySeeder::class);
         $this->assertSame($before['concepts'], DB::table('baseball_concepts')->count());
         $this->assertSame($before['aliases'], DB::table('baseball_concept_aliases')->count());

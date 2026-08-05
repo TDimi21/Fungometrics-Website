@@ -25,7 +25,7 @@ class BenchmarkDefinitions
     public static function ageGroup(?int $age): string
     {
         return match (true) {
-            $age === null => self::AGE_UNKNOWN,
+            null === $age => self::AGE_UNKNOWN,
             $age <= 12 => self::AGE_10U_12U,
             $age <= 14 => self::AGE_13U_14U,
             $age <= 16 => self::AGE_15U_16U,
@@ -61,8 +61,15 @@ class BenchmarkDefinitions
             '40_yard_dash', 'forty_yard_sec', 'yd_40_dash' => 'forty_yard_dash',
             '60_yard_dash', 'sixty_yard_sec', 'yd_60_dash' => 'sixty_yard_dash',
             'push_ups' => 'pushups',
-            'dead_lift' => 'deadlift',
-            'back_squat', 'front_squat' => 'squat',
+            'dead_lift', 'conventional_deadlift' => 'deadlift',
+            'trap_bar', 'trapbar_deadlift', 'trap_bar_deadlift_lbs' => 'trap_bar_deadlift',
+            'front_squat_lbs' => 'front_squat',
+            'back_squat_lbs' => 'back_squat',
+            'power_clean_lbs' => 'power_clean',
+            'grip_left', 'hand_strength_left' => 'grip_strength_left',
+            'grip_right', 'hand_strength_right' => 'grip_strength_right',
+            'plank_hold_sec' => 'plank_hold',
+            'sprint_10yd_sec', 'ten_yard_sec', '10_yard_dash' => 'sprint_10yd',
             'avg_fastball', 'avg_fastball_velocity', 'avg_pitch_velocity', 'bullpen_avg_velocity' => 'average_fastball_velocity',
             'max_fastball', 'max_pitch_velocity', 'bullpen_max_velocity' => 'max_fastball_velocity',
             'strike_pct' => 'strike_percentage',
@@ -91,6 +98,20 @@ class BenchmarkDefinitions
                     self::AGE_15U_16U => [135, 185, 235, 285, 345],
                     self::AGE_17U_18U => [165, 225, 285, 345, 415],
                     self::AGE_COLLEGE_19_PLUS => [185, 255, 325, 395, 475],
+                ]),
+                'front_squat' => self::metric('higher', 'lbs', [
+                    [45, 65, 85, 105, 130],
+                    [75, 95, 115, 135, 165],
+                    [95, 125, 155, 185, 225],
+                    [115, 155, 185, 225, 275],
+                    [135, 175, 215, 255, 315],
+                ]),
+                'back_squat' => self::metric('higher', 'lbs', [
+                    [75, 105, 135, 165, 205],
+                    [105, 145, 185, 225, 275],
+                    [135, 185, 235, 285, 345],
+                    [165, 225, 285, 345, 415],
+                    [185, 255, 325, 395, 475],
                 ]),
                 'deadlift' => self::metric('higher', 'lbs', [
                     self::AGE_10U_12U => [95, 125, 155, 195, 235],
@@ -249,14 +270,14 @@ class BenchmarkDefinitions
                 'average' => $row[2],
                 'good' => $row[3],
                 'elite' => $row[4],
-                'higher_is_better' => $direction === 'higher',
+                'higher_is_better' => 'higher' === $direction,
                 'unit' => $unit,
             ];
         }
 
         return [
             'direction' => $direction,
-            'higher_is_better' => $direction === 'higher',
+            'higher_is_better' => 'higher' === $direction,
             'unit' => $unit,
             'benchmarks' => $benchmarks,
         ];

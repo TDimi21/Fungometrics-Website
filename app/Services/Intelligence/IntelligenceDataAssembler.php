@@ -28,6 +28,7 @@ use App\Services\Statistics\ExitVelocityStatisticsService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class IntelligenceDataAssembler
 {
@@ -54,12 +55,12 @@ class IntelligenceDataAssembler
             ->where('user_id', $playerId)
             ->first();
 
-        $this->markSource($sources, 'team', $team !== null);
-        $this->markSource($sources, 'profile', $user?->profile !== null);
-        $this->markSource($sources, 'player', $user?->player !== null);
-        $this->markSource($sources, 'player_team', $playerTeam !== null);
+        $this->markSource($sources, 'team', null !== $team);
+        $this->markSource($sources, 'profile', null !== $user?->profile);
+        $this->markSource($sources, 'player', null !== $user?->player);
+        $this->markSource($sources, 'player_team', null !== $playerTeam);
 
-        if (! $user) {
+        if ( ! $user) {
             $gaps[] = $this->gap('user', 'player_id', 'Player identity could not be loaded.', 'Confirm the player exists before generating intelligence.');
         }
 
@@ -90,7 +91,7 @@ class IntelligenceDataAssembler
 
         $assessmentLatest = PlayerAssessment::query()
             ->where('user_id', $playerId)
-            ->where(function ($query) use ($teamId) {
+            ->where(function ($query) use ($teamId): void {
                 $query->where('team_id', $teamId)->orWhereNull('team_id');
             })
             ->orderByDesc('assessment_date')
@@ -99,7 +100,7 @@ class IntelligenceDataAssembler
 
         $athleticLatest = AthleticPerformanceScore::query()
             ->where('player_id', $playerId)
-            ->where(function ($query) use ($teamId) {
+            ->where(function ($query) use ($teamId): void {
                 $query->where('team_id', $teamId)->orWhereNull('team_id');
             })
             ->orderByDesc('calculated_at')
@@ -113,15 +114,15 @@ class IntelligenceDataAssembler
             ->orderByDesc('created_at')
             ->first();
 
-        $this->markSource($sources, 'player_fitness', $fitnessLatest !== null);
-        $this->markSource($sources, 'player_assessment', $assessmentLatest !== null);
-        $this->markSource($sources, 'athletic_performance_score', $athleticLatest !== null);
+        $this->markSource($sources, 'player_fitness', null !== $fitnessLatest);
+        $this->markSource($sources, 'player_assessment', null !== $assessmentLatest);
+        $this->markSource($sources, 'athletic_performance_score', null !== $athleticLatest);
 
-        if (! $fitnessLatest) {
+        if ( ! $fitnessLatest) {
             $gaps[] = $this->gap('player_fitness', 'latest_fitness', 'Strength, recovery, sleep, and athletic trend signals are limited.', 'Log a player fitness or recovery entry.');
         }
 
-        if (! $assessmentLatest) {
+        if ( ! $assessmentLatest) {
             $gaps[] = $this->gap('player_assessment', 'latest_assessment', 'Baseline development and assessment-driven context are limited.', 'Complete or sync a player assessment.');
         }
 
@@ -139,7 +140,7 @@ class IntelligenceDataAssembler
 
         $liveAb = LiveABPracticeResult::query()
             ->whereHas('practice', fn ($query) => $query->where('team_id', $teamId))
-            ->where(function ($query) use ($playerId) {
+            ->where(function ($query) use ($playerId): void {
                 $query->whereHas('batting', fn ($q) => $q->where('batter_id', $playerId))
                     ->orWhereHas('pitching', fn ($q) => $q->where('pitcher_id', $playerId));
             })
@@ -154,7 +155,7 @@ class IntelligenceDataAssembler
 
         $weightedBall = WeightBallPractice::query()
             ->where('user_id', $playerId)
-            ->where(function ($query) use ($teamId) {
+            ->where(function ($query) use ($teamId): void {
                 $query->where('team_id', $teamId)->orWhereNull('team_id');
             })
             ->where('created_at', '>=', $since)
@@ -162,7 +163,7 @@ class IntelligenceDataAssembler
 
         $exitVelocity = ExitVelocityPractice::query()
             ->where('user_id', $playerId)
-            ->where(function ($query) use ($teamId) {
+            ->where(function ($query) use ($teamId): void {
                 $query->where('team_id', $teamId)->orWhereNull('team_id');
             })
             ->where('created_at', '>=', $since)
@@ -170,21 +171,21 @@ class IntelligenceDataAssembler
 
         $longToss = LongTossPractice::query()
             ->where('user_id', $playerId)
-            ->where(function ($query) use ($teamId) {
+            ->where(function ($query) use ($teamId): void {
                 $query->where('team_id', $teamId)->orWhereNull('team_id');
             })
             ->where('created_at', '>=', $since)
             ->get();
 
         $armCare = $this->armCareRows($teamId, $playerId, $since);
-        if (! Schema::hasTable('arm_care_sessions')) {
+        if ( ! Schema::hasTable('arm_care_sessions')) {
             $gaps[] = $this->gap('arm_care_sessions', 'table', 'Arm care intelligence is unavailable in this database.', 'Run the arm care migration before using arm care intelligence.');
         }
 
         $practices = Practice::query()
             ->where('team_id', $teamId)
             ->where('created_at', '>=', $since)
-            ->where(function ($query) use ($playerId) {
+            ->where(function ($query) use ($playerId): void {
                 $query->where('user_id', $playerId)
                     ->orWhereHas('lineup', fn ($q) => $q->where('user_id', $playerId));
             })
@@ -254,11 +255,11 @@ class IntelligenceDataAssembler
         $sources = [];
         $gaps = [];
 
-        $this->markSource($sources, 'team', $team !== null);
+        $this->markSource($sources, 'team', null !== $team);
         $this->markSource($sources, 'player_team', $playerIds->isNotEmpty());
         $this->markSource($sources, 'coach_team', $coachCount > 0);
 
-        if (! $team) {
+        if ( ! $team) {
             $gaps[] = $this->gap('team', 'team_id', 'Team identity could not be loaded.', 'Confirm the team exists before generating intelligence.');
         }
 
@@ -290,7 +291,7 @@ class IntelligenceDataAssembler
     {
         return [
             'id' => $user?->id,
-            'name' => $user?->profile ? trim(($user->profile->first_name ?? '') . ' ' . ($user->profile->last_name ?? '')) : null,
+            'name' => $user?->profile ? trim(($user->profile->first_name ?? '').' '.($user->profile->last_name ?? '')) : null,
             'first_name' => $user?->profile?->first_name,
             'last_name' => $user?->profile?->last_name,
             'level' => $user?->profile?->level,
@@ -397,13 +398,18 @@ class IntelligenceDataAssembler
             'back_squat' => $this->numberOrNull($latest?->back_squat),
             'power_clean' => $this->numberOrNull($latest?->power_clean),
             'hand_strength' => $this->numberOrNull($latest?->hand_strength),
+            'grip_strength_left' => $this->numberOrNull($latest?->grip_strength_left),
+            'grip_strength_right' => $this->numberOrNull($latest?->grip_strength_right),
             'squat' => max(array_filter([
                 $this->numberOrNull($latest?->back_squat),
                 $this->numberOrNull($latest?->front_squat),
-            ], fn ($value) => $value !== null) ?: [null]),
+            ], fn ($value) => null !== $value) ?: [null]),
             'deadlift' => $this->numberOrNull($latest?->dead_lift),
+            'trap_bar_deadlift' => $this->numberOrNull($latest?->trap_bar_deadlift),
             'pull_ups' => $this->numberOrNull($latest?->pull_ups),
             'pushups' => $this->numberOrNull($latest?->push_ups),
+            'plank_hold' => $this->numberOrNull($latest?->plank_hold),
+            'strength_test_metadata' => $latest?->strength_test_metadata ?? [],
             'vertical_jump' => $this->numberOrNull($latest?->vertical_jump),
             'broad_jump' => $this->numberOrNull($latest?->broad_jump),
             'med_ball_rotational_throw' => $this->numberOrNull($latest?->med_ball_rotational_throw),
@@ -439,7 +445,7 @@ class IntelligenceDataAssembler
     private function battingSummary(Collection $rows): array
     {
         $stats = $rows->isNotEmpty() ? $this->battingStatistics->fps($rows) : [];
-        $evRows = $rows->filter(fn ($row) => $this->positiveNumber($row->velocity) !== null);
+        $evRows = $rows->filter(fn ($row) => null !== $this->positiveNumber($row->velocity));
 
         return [
             'result_count' => $rows->count(),
@@ -453,7 +459,7 @@ class IntelligenceDataAssembler
     private function bullpenSummary(Collection $rows): array
     {
         $stats = $rows->isNotEmpty() ? $this->bullpenStatistics->bps($rows) : [];
-        $veloRows = $rows->filter(fn ($row) => $this->positiveNumber($row->miles_per_hour) !== null);
+        $veloRows = $rows->filter(fn ($row) => null !== $this->positiveNumber($row->miles_per_hour));
 
         return [
             'result_count' => $rows->count(),
@@ -492,7 +498,7 @@ class IntelligenceDataAssembler
     private function weightedBallSummary(Collection $rows): array
     {
         $byWeight = $rows
-            ->filter(fn ($row) => $this->positiveNumber($row->weight) !== null && $this->positiveNumber($row->velocity) !== null)
+            ->filter(fn ($row) => null !== $this->positiveNumber($row->weight) && null !== $this->positiveNumber($row->velocity))
             ->groupBy(fn ($row) => (string) (float) $row->weight)
             ->map(function (Collection $weightRows, string $weight) {
                 return [
@@ -521,10 +527,10 @@ class IntelligenceDataAssembler
             'max_velocity' => count($byWeight) ? max(array_column($byWeight, 'max_velocity')) : null,
             'five_oz_avg_velocity' => $avg5,
             'five_oz_max_velocity' => $max5,
-            'velocity_ratio_5_to_3' => $max5 !== null && $max3 !== null && $max3 > 0 ? round($max5 / $max3, 3) : null,
-            'speed_reserve_3_to_5' => $max3 !== null && $max5 !== null ? round($max3 - $max5, 1) : null,
-            'strength_reserve_5_to_7' => $max5 !== null && $max7 !== null ? round($max5 - $max7, 1) : null,
-            'force_drop_off_per_oz' => $max3 !== null && $max7 !== null ? round(($max3 - $max7) / 4, 1) : null,
+            'velocity_ratio_5_to_3' => null !== $max5 && null !== $max3 && $max3 > 0 ? round($max5 / $max3, 3) : null,
+            'speed_reserve_3_to_5' => null !== $max3 && null !== $max5 ? round($max3 - $max5, 1) : null,
+            'strength_reserve_5_to_7' => null !== $max5 && null !== $max7 ? round($max5 - $max7, 1) : null,
+            'force_drop_off_per_oz' => null !== $max3 && null !== $max7 ? round(($max3 - $max7) / 4, 1) : null,
             'profile_label' => $this->weightedBallProfileLabel($max3, $max5, $max7),
             'total_throws' => $rows->count() ?: null,
         ];
@@ -533,7 +539,7 @@ class IntelligenceDataAssembler
     private function exitVelocitySummary(Collection $rows): array
     {
         $stats = $rows->isNotEmpty() ? $this->exitVelocityStatistics->evs($rows) : [];
-        $veloRows = $rows->filter(fn ($row) => $this->positiveNumber($row->velocity) !== null);
+        $veloRows = $rows->filter(fn ($row) => null !== $this->positiveNumber($row->velocity));
 
         return [
             'result_count' => $rows->count(),
@@ -546,7 +552,7 @@ class IntelligenceDataAssembler
 
     private function longTossSummary(Collection $rows): array
     {
-        $distanceRows = $rows->filter(fn ($row) => $this->positiveNumber($row->distance) !== null);
+        $distanceRows = $rows->filter(fn ($row) => null !== $this->positiveNumber($row->distance));
 
         return [
             'result_count' => $rows->count(),
@@ -595,12 +601,12 @@ class IntelligenceDataAssembler
         $current = $rows
             ->filter(fn ($row) => $row->created_at && $row->created_at->gte($last30))
             ->map(fn ($row) => $this->positiveNumber($row->{$field} ?? null))
-            ->filter(fn ($value) => $value !== null);
+            ->filter(fn ($value) => null !== $value);
 
         $previous = $rows
             ->filter(fn ($row) => $row->created_at && $row->created_at->lt($last30) && $row->created_at->gte($prev30Start))
             ->map(fn ($row) => $this->positiveNumber($row->{$field} ?? null))
-            ->filter(fn ($value) => $value !== null);
+            ->filter(fn ($value) => null !== $value);
 
         $currentAvg = $current->isNotEmpty() ? round((float) $current->avg(), 1) : null;
         $previousAvg = $previous->isNotEmpty() ? round((float) $previous->avg(), 1) : null;
@@ -613,13 +619,13 @@ class IntelligenceDataAssembler
 
     private function armCareRows(string $teamId, string $playerId, Carbon $since): Collection
     {
-        if (! class_exists(ArmCareSession::class) || ! Schema::hasTable('arm_care_sessions')) {
+        if ( ! class_exists(ArmCareSession::class) || ! Schema::hasTable('arm_care_sessions')) {
             return collect();
         }
 
         return ArmCareSession::query()
             ->where('user_id', $playerId)
-            ->where(function ($query) use ($teamId) {
+            ->where(function ($query) use ($teamId): void {
                 $query->where('team_id', $teamId)->orWhereNull('team_id');
             })
             ->where('created_at', '>=', $since)
@@ -631,8 +637,8 @@ class IntelligenceDataAssembler
         return [
             'current' => $current,
             'previous' => $previous,
-            'delta' => $current !== null && $previous !== null ? round($current - $previous, 1) : null,
-            'direction' => $current === null || $previous === null ? null : ($current > $previous ? 'up' : ($current < $previous ? 'down' : 'flat')),
+            'delta' => null !== $current && null !== $previous ? round($current - $previous, 1) : null,
+            'direction' => null === $current || null === $previous ? null : ($current > $previous ? 'up' : ($current < $previous ? 'down' : 'flat')),
         ];
     }
 
@@ -655,24 +661,24 @@ class IntelligenceDataAssembler
 
     private function ageFromDate(mixed $date): ?int
     {
-        if (! $date) {
+        if ( ! $date) {
             return null;
         }
 
         try {
             return Carbon::parse((string) $date)->age;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
     }
 
     private function numberOrNull(mixed $value): ?float
     {
-        if ($value === null || $value === '') {
+        if (null === $value || '' === $value) {
             return null;
         }
 
-        if (! is_numeric($value)) {
+        if ( ! is_numeric($value)) {
             return null;
         }
 
@@ -683,7 +689,7 @@ class IntelligenceDataAssembler
     {
         $number = $this->numberOrNull($value);
 
-        return $number !== null && $number > 0 ? $number : null;
+        return null !== $number && $number > 0 ? $number : null;
     }
 
     private function firstNestedNumber(array $data, array $keys): ?float
@@ -691,7 +697,7 @@ class IntelligenceDataAssembler
         foreach ($keys as $key) {
             $value = $this->findNestedValue($data, $key);
             $number = $this->positiveNumber($value);
-            if ($number !== null) {
+            if (null !== $number) {
                 return $number;
             }
         }
@@ -702,13 +708,13 @@ class IntelligenceDataAssembler
     private function findNestedValue(array $data, string $targetKey): mixed
     {
         foreach ($data as $key => $value) {
-            if (strtolower((string) $key) === strtolower($targetKey)) {
+            if (mb_strtolower((string) $key) === mb_strtolower($targetKey)) {
                 return $value;
             }
 
             if (is_array($value)) {
                 $nested = $this->findNestedValue($value, $targetKey);
-                if ($nested !== null && $nested !== '') {
+                if (null !== $nested && '' !== $nested) {
                     return $nested;
                 }
             }
@@ -719,7 +725,7 @@ class IntelligenceDataAssembler
 
     private function weightedBallProfileLabel(?float $max3, ?float $max5, ?float $max7): ?string
     {
-        if ($max3 === null || $max5 === null || $max7 === null) {
+        if (null === $max3 || null === $max5 || null === $max7) {
             return null;
         }
 

@@ -56,7 +56,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                     $isOnTeam = true;
                 }
 
-                if (! $isOnTeam) {
+                if ( ! $isOnTeam) {
                     return response()->json([
                         'code'    => '066-TEAM',
                         'message' => 'Player is not linked to this team',
@@ -67,7 +67,7 @@ class GetPlayerDevelopmentDashboard extends Controller
             }
 
             $teamScopeId = $isPlayerRequest ? null : $teamId;
-            if (! $teamScopeId && ! $isPlayerRequest) {
+            if ( ! $teamScopeId && ! $isPlayerRequest) {
                 return response()->json([
                     'code'    => '066-TEAM',
                     'message' => 'Team is required for coach development dashboard',
@@ -82,7 +82,7 @@ class GetPlayerDevelopmentDashboard extends Controller
             // Check player exists before entering the cache closure so a missing
             // player never gets cached as an empty array.
             $player = User::with(['profile', 'player', 'positions'])->find($playerId);
-            if (!$player) {
+            if ( ! $player) {
                 return response()->json([
                     'code'    => '066-NF',
                     'message' => 'Player not found',
@@ -135,7 +135,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $evCurrentQuery = ExitVelocityPractice::where('user_id', $playerId)
                     ->where('created_at', '>=', $since);
                 if ($teamScopeId) {
-                    $evCurrentQuery->where(function ($query) use ($teamScopeId) {
+                    $evCurrentQuery->where(function ($query) use ($teamScopeId): void {
                         $query->where('team_id', $teamScopeId)->orWhereNull('team_id');
                     });
                 }
@@ -178,7 +178,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $assessmentBaseQuery = PlayerAssessment::query()
                     ->where('user_id', $playerId);
                 if ($teamScopeId) {
-                    $assessmentBaseQuery->where(function ($query) use ($teamScopeId) {
+                    $assessmentBaseQuery->where(function ($query) use ($teamScopeId): void {
                         $query->where('team_id', $teamScopeId)->orWhereNull('team_id');
                     });
                 }
@@ -238,18 +238,18 @@ class GetPlayerDevelopmentDashboard extends Controller
                 // Single source of truth: use the canonical strength_score from
                 // the athletic index; fall back to the local formula only when a
                 // player has no scored assessment yet.
-                $strengthScore = $athleticLatest?->strength_score !== null
+                $strengthScore = null !== $athleticLatest?->strength_score
                     ? (float) $athleticLatest->strength_score
                     : $this->computeStrengthScore($fitnessLatest);
-                $strengthPrev = $athleticPrev?->strength_score !== null
+                $strengthPrev = null !== $athleticPrev?->strength_score
                     ? (float) $athleticPrev->strength_score
                     : $this->computeStrengthScore($fitnessPrev);
                 $mobilityScore = $this->mobilityScore($fitnessLatest, $assessmentLatest);
                 $mobilityPrev = $this->mobilityScore($fitnessPrev, $assessmentPrev);
                 $mobilityInitial = $this->mobilityScore($fitnessInitial, $assessmentInitial);
-                $mobilitySource = $fitnessLatest?->mobility_score !== null
+                $mobilitySource = null !== $fitnessLatest?->mobility_score
                     ? 'fitness'
-                    : ($mobilityScore !== null ? 'assessment' : null);
+                    : (null !== $mobilityScore ? 'assessment' : null);
 
                 $performanceScore = $this->averageAvailable([
                     $bpScore,
@@ -270,61 +270,64 @@ class GetPlayerDevelopmentDashboard extends Controller
                     'bullpen_score' => $this->deltaBlock($bullpenScore, $bullpenScore ? $bullpenScore - 2 : null),
                     'rotational_power_score' => $this->deltaBlock($strengthScore, $strengthPrev),
                     'athletic_performance_index' => $this->deltaBlock(
-                        $athleticLatest?->overall_api_score !== null ? (float) $athleticLatest->overall_api_score : null,
-                        $athleticPrev?->overall_api_score !== null ? (float) $athleticPrev->overall_api_score : null
+                        null !== $athleticLatest?->overall_api_score ? (float) $athleticLatest->overall_api_score : null,
+                        null !== $athleticPrev?->overall_api_score ? (float) $athleticPrev->overall_api_score : null
                     ),
                     'mobility_score' => $this->deltaBlock(
                         $mobilityScore,
                         $mobilityPrev
                     ),
                     'recovery_score' => $this->deltaBlock(
-                        $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null,
-                        $fitnessPrev?->recovery_score !== null ? (float) $fitnessPrev->recovery_score : null
+                        null !== $fitnessLatest?->recovery_score ? (float) $fitnessLatest->recovery_score : null,
+                        null !== $fitnessPrev?->recovery_score ? (float) $fitnessPrev->recovery_score : null
                     ),
                     'sleep_hours' => $this->deltaBlock(
-                        $fitnessLatest?->sleep_hours !== null ? (float) $fitnessLatest->sleep_hours : null,
-                        $fitnessPrev?->sleep_hours !== null ? (float) $fitnessPrev->sleep_hours : null
+                        null !== $fitnessLatest?->sleep_hours ? (float) $fitnessLatest->sleep_hours : null,
+                        null !== $fitnessPrev?->sleep_hours ? (float) $fitnessPrev->sleep_hours : null
                     ),
                 ];
 
                 $trendScore = $this->computeTrendScore($trend);
-                $recoveryScore = $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null;
-                $verticalJump = ($fitnessLatest?->vertical_jump !== null && (float) $fitnessLatest->vertical_jump > 0)
+                $recoveryScore = null !== $fitnessLatest?->recovery_score ? (float) $fitnessLatest->recovery_score : null;
+                $verticalJump = (null !== $fitnessLatest?->vertical_jump && (float) $fitnessLatest->vertical_jump > 0)
                     ? (float) $fitnessLatest->vertical_jump
                     : ($this->latestPositiveFitnessMetric($playerId, 'vertical_jump')
                         ?? $this->latestPositiveAssessmentMetric($playerId, 'vertical_jump_in'));
-                $broadJump = ($fitnessLatest?->broad_jump !== null && (float) $fitnessLatest->broad_jump > 0)
+                $broadJump = (null !== $fitnessLatest?->broad_jump && (float) $fitnessLatest->broad_jump > 0)
                     ? (float) $fitnessLatest->broad_jump
                     : ($this->latestPositiveFitnessMetric($playerId, 'broad_jump')
                         ?? $this->latestPositiveAssessmentMetric($playerId, 'broad_jump_in'));
-                $bodyWeight = ($fitnessLatest?->body_weight !== null && (float) $fitnessLatest->body_weight > 0)
+                $bodyWeight = (null !== $fitnessLatest?->body_weight && (float) $fitnessLatest->body_weight > 0)
                     ? (float) $fitnessLatest->body_weight
                     : $this->latestPositiveFitnessMetric($playerId, 'body_weight');
-                $benchPress = ($fitnessLatest?->bench_press !== null && (float) $fitnessLatest->bench_press > 0)
+                $benchPress = (null !== $fitnessLatest?->bench_press && (float) $fitnessLatest->bench_press > 0)
                     ? (float) $fitnessLatest->bench_press
                     : $this->latestPositiveFitnessMetric($playerId, 'bench_press');
-                $backSquat = ($fitnessLatest?->back_squat !== null && (float) $fitnessLatest->back_squat > 0)
+                $backSquat = (null !== $fitnessLatest?->back_squat && (float) $fitnessLatest->back_squat > 0)
                     ? (float) $fitnessLatest->back_squat
                     : $this->latestPositiveFitnessMetric($playerId, 'back_squat');
-                $frontSquat = ($fitnessLatest?->front_squat !== null && (float) $fitnessLatest->front_squat > 0)
+                $frontSquat = (null !== $fitnessLatest?->front_squat && (float) $fitnessLatest->front_squat > 0)
                     ? (float) $fitnessLatest->front_squat
                     : $this->latestPositiveFitnessMetric($playerId, 'front_squat');
-                $deadLift = ($fitnessLatest?->dead_lift !== null && (float) $fitnessLatest->dead_lift > 0)
+                $deadLift = (null !== $fitnessLatest?->dead_lift && (float) $fitnessLatest->dead_lift > 0)
                     ? (float) $fitnessLatest->dead_lift
                     : $this->latestPositiveFitnessMetric($playerId, 'dead_lift');
-                $powerClean = ($fitnessLatest?->power_clean !== null && (float) $fitnessLatest->power_clean > 0)
+                $trapBarDeadlift = (null !== $fitnessLatest?->trap_bar_deadlift && (float) $fitnessLatest->trap_bar_deadlift > 0)
+                    ? (float) $fitnessLatest->trap_bar_deadlift
+                    : $this->latestPositiveFitnessMetric($playerId, 'trap_bar_deadlift');
+                $powerClean = (null !== $fitnessLatest?->power_clean && (float) $fitnessLatest->power_clean > 0)
                     ? (float) $fitnessLatest->power_clean
                     : $this->latestPositiveFitnessMetric($playerId, 'power_clean');
-                $handStrength = ($fitnessLatest?->hand_strength !== null && (float) $fitnessLatest->hand_strength > 0)
+                $handStrength = (null !== $fitnessLatest?->hand_strength && (float) $fitnessLatest->hand_strength > 0)
                     ? (float) $fitnessLatest->hand_strength
                     : $this->latestPositiveFitnessMetric($playerId, 'hand_strength');
-                $medBallRotThrow = ($fitnessLatest?->med_ball_rotational_throw !== null && (float) $fitnessLatest->med_ball_rotational_throw > 0)
+                $medBallRotThrow = (null !== $fitnessLatest?->med_ball_rotational_throw && (float) $fitnessLatest->med_ball_rotational_throw > 0)
                     ? (float) $fitnessLatest->med_ball_rotational_throw
                     : $this->latestPositiveFitnessMetric($playerId, 'med_ball_rotational_throw');
-                $exitVelo = ($fitnessLatest?->exit_velo !== null && (float) $fitnessLatest->exit_velo > 0)
+                $exitVelo = (null !== $fitnessLatest?->exit_velo && (float) $fitnessLatest->exit_velo > 0)
                     ? (float) $fitnessLatest->exit_velo
                     : $this->latestPositiveFitnessMetric($playerId, 'exit_velo');
-                $batSpeed = ($fitnessLatest?->bat_speed !== null && (float) $fitnessLatest->bat_speed > 0)
+                $batSpeed = (null !== $fitnessLatest?->bat_speed && (float) $fitnessLatest->bat_speed > 0)
                     ? (float) $fitnessLatest->bat_speed
                     : $this->latestPositiveFitnessMetric($playerId, 'bat_speed');
 
@@ -341,11 +344,11 @@ class GetPlayerDevelopmentDashboard extends Controller
                 return [
                     'player' => [
                         'id' => $playerId,
-                        'name' => trim(($player->profile?->first_name ?? '') . ' ' . ($player->profile?->last_name ?? '')),
+                        'name' => trim(($player->profile?->first_name ?? '').' '.($player->profile?->last_name ?? '')),
                         'picture' => $player->profile?->picture,
                         'age' => $this->resolveAge($player->player?->born_date),
                         'grade' => null,
-                        'position' => $role === 'two-way' ? 'Two-way' : ucfirst($role),
+                        'position' => 'two-way' === $role ? 'Two-way' : ucfirst($role),
                         'positions' => $player->positions->pluck('position')->toArray(),
                         'jersey' => $player->player?->number_in_shirt,
                         'throws' => $player->player?->throw_side,
@@ -389,10 +392,14 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'bench_press' => $benchPress,
                         'back_squat' => $backSquat,
                         'front_squat' => $frontSquat,
-                        'trap_bar_deadlift' => $deadLift,
+                        'trap_bar_deadlift' => $trapBarDeadlift,
                         'dead_lift' => $deadLift,
                         'power_clean' => $powerClean,
                         'hand_strength' => $handStrength,
+                        'grip_strength_left' => $fitnessLatest?->grip_strength_left,
+                        'grip_strength_right' => $fitnessLatest?->grip_strength_right,
+                        'plank_hold' => $fitnessLatest?->plank_hold,
+                        'sprint_10yd' => $fitnessLatest?->sprint_10yd,
                         'yd_40_dash' => $fitnessLatest?->yd_40_dash,
                         'yd_60_dash' => $fitnessLatest?->yd_60_dash,
                         'pull_ups' => $fitnessLatest?->pull_ups,
@@ -508,7 +515,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                             $athleticLatest->overall_api_score,
                             $athleticPrev?->overall_api_score,
                         ),
-                        'change' => ($athleticLatest->overall_api_score !== null && $athleticPrev?->overall_api_score !== null)
+                        'change' => (null !== $athleticLatest->overall_api_score && null !== $athleticPrev?->overall_api_score)
                             ? round((float) $athleticLatest->overall_api_score - (float) $athleticPrev->overall_api_score, 2)
                             : null,
                     ] : null,
@@ -526,8 +533,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                     'growth' => [
                         'from_previous' => [
                             'overall_api_score' => $this->deltaBlock(
-                                $athleticLatest?->overall_api_score !== null ? (float) $athleticLatest->overall_api_score : null,
-                                $athleticPrev?->overall_api_score !== null ? (float) $athleticPrev->overall_api_score : null
+                                null !== $athleticLatest?->overall_api_score ? (float) $athleticLatest->overall_api_score : null,
+                                null !== $athleticPrev?->overall_api_score ? (float) $athleticPrev->overall_api_score : null
                             ),
                             'strength_score' => $this->deltaBlock($strengthScore, $strengthPrev),
                             'mobility_score' => $this->deltaBlock(
@@ -535,14 +542,14 @@ class GetPlayerDevelopmentDashboard extends Controller
                                 $mobilityPrev
                             ),
                             'recovery_score' => $this->deltaBlock(
-                                $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null,
-                                $fitnessPrev?->recovery_score !== null ? (float) $fitnessPrev->recovery_score : null
+                                null !== $fitnessLatest?->recovery_score ? (float) $fitnessLatest->recovery_score : null,
+                                null !== $fitnessPrev?->recovery_score ? (float) $fitnessPrev->recovery_score : null
                             ),
                         ],
                         'from_initial' => [
                             'overall_api_score' => $this->deltaBlock(
-                                $athleticLatest?->overall_api_score !== null ? (float) $athleticLatest->overall_api_score : null,
-                                $athleticInitial?->overall_api_score !== null ? (float) $athleticInitial->overall_api_score : null
+                                null !== $athleticLatest?->overall_api_score ? (float) $athleticLatest->overall_api_score : null,
+                                null !== $athleticInitial?->overall_api_score ? (float) $athleticInitial->overall_api_score : null
                             ),
                             'strength_score' => $this->deltaBlock(
                                 $strengthScore,
@@ -553,15 +560,15 @@ class GetPlayerDevelopmentDashboard extends Controller
                                 $mobilityInitial
                             ),
                             'recovery_score' => $this->deltaBlock(
-                                $fitnessLatest?->recovery_score !== null ? (float) $fitnessLatest->recovery_score : null,
-                                $fitnessInitial?->recovery_score !== null ? (float) $fitnessInitial->recovery_score : null
+                                null !== $fitnessLatest?->recovery_score ? (float) $fitnessLatest->recovery_score : null,
+                                null !== $fitnessInitial?->recovery_score ? (float) $fitnessInitial->recovery_score : null
                             ),
                         ],
                     ],
                     'data_gaps' => [
-                        'mobility' => $mobilityScore === null,
-                        'recovery' => $fitnessLatest?->recovery_score === null,
-                        'sleep' => $fitnessLatest?->sleep_hours === null,
+                        'mobility' => null === $mobilityScore,
+                        'recovery' => null === $fitnessLatest?->recovery_score,
+                        'sleep' => null === $fitnessLatest?->sleep_hours,
                     ],
                     'source' => [
                         'mode' => 'live_sessions',
@@ -573,7 +580,7 @@ class GetPlayerDevelopmentDashboard extends Controller
             });
 
             // Guard: a stale cache entry written before this fix could be []
-            if (empty($data) || !isset($data['player'])) {
+            if (empty($data) || ! isset($data['player'])) {
                 Cache::forget($cacheKey);
                 return response()->json([
                     'code'    => '066-E',
@@ -590,7 +597,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                 'data' => $data,
             ], HttpCodes::HTTP_OK);
         } catch (Exception $exception) {
-            Log::error('GetPlayerDevelopmentDashboard: ' . $exception->getMessage());
+            Log::error('GetPlayerDevelopmentDashboard: '.$exception->getMessage());
 
             return response()->json([
                 'code' => '066-E',
@@ -612,7 +619,7 @@ class GetPlayerDevelopmentDashboard extends Controller
         $hard = $batting->filter(fn ($row) => is_numeric($row->velocity) && (float) $row->velocity >= 85)->count();
         $weak = $batting->filter(fn ($row) => is_numeric($row->velocity) && (float) $row->velocity > 0 && (float) $row->velocity < 70)->count();
         $lineDrive = $batting->filter(function ($row) {
-            $hit = strtolower((string) ($row->type_of_hit ?? ''));
+            $hit = mb_strtolower((string) ($row->type_of_hit ?? ''));
             return str_contains($hit, 'line');
         })->count();
 
@@ -650,7 +657,7 @@ class GetPlayerDevelopmentDashboard extends Controller
 
     private function computeStrengthScore(?PlayerFitness $fitness): ?float
     {
-        if (!$fitness) {
+        if ( ! $fitness) {
             return null;
         }
 
@@ -719,13 +726,13 @@ class GetPlayerDevelopmentDashboard extends Controller
      */
     private function mapHigherBetter(?float $value, array $anchors): ?float
     {
-        if ($value === null || $value <= 0) {
+        if (null === $value || $value <= 0) {
             return null;
         }
 
         usort($anchors, fn (array $a, array $b) => (float) $a[0] <=> (float) $b[0]);
 
-        if (count($anchors) === 0) {
+        if (0 === count($anchors)) {
             return null;
         }
 
@@ -752,13 +759,13 @@ class GetPlayerDevelopmentDashboard extends Controller
      */
     private function mapLowerBetter(?float $value, array $anchors): ?float
     {
-        if ($value === null || $value <= 0) {
+        if (null === $value || $value <= 0) {
             return null;
         }
 
         usort($anchors, fn (array $a, array $b) => (float) $a[0] <=> (float) $b[0]);
 
-        if (count($anchors) === 0) {
+        if (0 === count($anchors)) {
             return null;
         }
 
@@ -784,12 +791,12 @@ class GetPlayerDevelopmentDashboard extends Controller
     {
         $valid = array_values(array_filter($items, function (array $item): bool {
             return array_key_exists('value', $item)
-                && $item['value'] !== null
+                && null !== $item['value']
                 && is_numeric($item['value'])
                 && is_finite((float) $item['value']);
         }));
 
-        if (count($valid) === 0) {
+        if (0 === count($valid)) {
             return $fallback;
         }
 
@@ -824,8 +831,8 @@ class GetPlayerDevelopmentDashboard extends Controller
 
     private function averageAvailable(array $values): ?float
     {
-        $usable = array_filter($values, fn ($value) => $value !== null);
-        if (count($usable) === 0) {
+        $usable = array_filter($values, fn ($value) => null !== $value);
+        if (0 === count($usable)) {
             return null;
         }
 
@@ -834,7 +841,7 @@ class GetPlayerDevelopmentDashboard extends Controller
 
     private function deltaBlock(?float $current, ?float $previous): array
     {
-        if ($current === null || $previous === null || abs($previous) < 0.0001) {
+        if (null === $current || null === $previous || abs($previous) < 0.0001) {
             return [
                 'current' => $current,
                 'previous' => $previous,
@@ -864,9 +871,9 @@ class GetPlayerDevelopmentDashboard extends Controller
         $score = 50;
         foreach ($trend as $row) {
             $direction = (string) ($row['direction'] ?? 'flat');
-            if ($direction === 'up') {
+            if ('up' === $direction) {
                 $score += 4;
-            } elseif ($direction === 'down') {
+            } elseif ('down' === $direction) {
                 $score -= 4;
             }
         }
@@ -906,7 +913,7 @@ class GetPlayerDevelopmentDashboard extends Controller
 
     private function resolveAge(?string $bornDate): ?int
     {
-        if (!$bornDate) {
+        if ( ! $bornDate) {
             return null;
         }
 
@@ -919,7 +926,7 @@ class GetPlayerDevelopmentDashboard extends Controller
 
     private function resolveHeight($ft, $in): ?string
     {
-        if ($ft === null && $in === null) {
+        if (null === $ft && null === $in) {
             return null;
         }
 
@@ -931,7 +938,7 @@ class GetPlayerDevelopmentDashboard extends Controller
 
     private function mobilityScore(?PlayerFitness $fitness, ?PlayerAssessment $assessment): ?float
     {
-        if ($fitness?->mobility_score !== null && is_numeric($fitness->mobility_score)) {
+        if (null !== $fitness?->mobility_score && is_numeric($fitness->mobility_score)) {
             return (float) $fitness->mobility_score;
         }
 
@@ -940,11 +947,11 @@ class GetPlayerDevelopmentDashboard extends Controller
 
     private function assessmentMobilityScore(?PlayerAssessment $assessment): ?float
     {
-        if (! $assessment) {
+        if ( ! $assessment) {
             return null;
         }
 
-        if ($assessment->mobility_overall_score !== null && is_numeric($assessment->mobility_overall_score) && (float) $assessment->mobility_overall_score > 0) {
+        if (null !== $assessment->mobility_overall_score && is_numeric($assessment->mobility_overall_score) && (float) $assessment->mobility_overall_score > 0) {
             return (float) $assessment->mobility_overall_score;
         }
 
@@ -968,7 +975,7 @@ class GetPlayerDevelopmentDashboard extends Controller
 
     private function latestPositiveFitnessMetric(string $playerId, string $metric): ?float
     {
-        if (!in_array($metric, [
+        if ( ! in_array($metric, [
             'vertical_jump',
             'broad_jump',
             'body_weight',
@@ -993,12 +1000,12 @@ class GetPlayerDevelopmentDashboard extends Controller
             ->orderByDesc('created_at')
             ->value($metric);
 
-        return $value !== null ? (float) $value : null;
+        return null !== $value ? (float) $value : null;
     }
 
     private function latestPositiveAssessmentMetric(string $playerId, string $metric): ?float
     {
-        if (!in_array($metric, ['vertical_jump_in', 'broad_jump_in'], true)) {
+        if ( ! in_array($metric, ['vertical_jump_in', 'broad_jump_in'], true)) {
             return null;
         }
 
@@ -1010,12 +1017,12 @@ class GetPlayerDevelopmentDashboard extends Controller
             ->orderByDesc('created_at')
             ->value($metric);
 
-        return $value !== null ? (float) $value : null;
+        return null !== $value ? (float) $value : null;
     }
 
     private function resolveTrendLabel($current, $previous): string
     {
-        if (!is_numeric($current) || !is_numeric($previous)) {
+        if ( ! is_numeric($current) || ! is_numeric($previous)) {
             return 'no_change';
         }
 

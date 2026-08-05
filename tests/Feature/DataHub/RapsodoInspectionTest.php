@@ -86,7 +86,7 @@ final class RapsodoInspectionTest extends TestCase
         ];
         $this->assertSame([
             'domains' => 14,
-            'concepts' => 103,
+            'concepts' => 114,
             'aliases' => 127,
             'units' => 19,
             'conversions' => 8,

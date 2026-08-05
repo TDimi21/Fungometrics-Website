@@ -58,6 +58,8 @@ const blankForm = () => ({
   vertical_jump_inches: '', broad_jump_inches: '', med_ball_rotational_throw_ft: '', plank_hold: '',
   yd_40_dash_sec: '', sleep_hours: '', sleep_quality_1_to_5: '', recovery_score: '',
   strength_notes: '',
+  lift_repetitions: {}, lift_test_methods: {}, push_up_protocol: '', plank_protocol: '',
+  grip_device: '', grip_protocol: '', med_ball_weight_lbs: '', med_ball_protocol: '',
   // mobility (0-5)
   shoulder_mobility: '', hip_mobility: '', ankle_mobility: '', hamstring_mobility: '',
   t_spine_rotation: '', overhead_squat: '', single_leg_balance: '',
@@ -265,6 +267,7 @@ const buildPayload = () => {
   const s = fmtrx.value
   const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null }
   const int = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n > 0 ? n : null }
+  const count = (v) => { if (v === '' || v === null || v === undefined) return null; const n = Math.round(Number(v)); return Number.isFinite(n) && n >= 0 ? n : null }
   const p = {
     user_id: String(activePlayerId.value),
     assessment_date: form.fitness_date || null,
@@ -281,6 +284,34 @@ const buildPayload = () => {
   add('vertical_jump_in', int(form.vertical_jump_inches))
   add('sprint_10yd_sec', num(form.sprint_10yd_sec))
   add('body_weight_lbs', num(form.body_weight_lbs))
+  p.fitness_snapshot = {
+    front_squat: int(form.front_squat_lbs),
+    back_squat: int(form.back_squat_lbs),
+    bench_press: int(form.bench_press_lbs),
+    dead_lift: int(form.dead_lift_lbs),
+    trap_bar_deadlift: num(form.trap_bar_deadlift),
+    power_clean: int(form.power_clean_lbs),
+    pull_ups: count(form.pull_ups),
+    push_ups: count(form.push_ups),
+    grip_strength_left: num(form.grip_strength_left),
+    grip_strength_right: num(form.grip_strength_right),
+    vertical_jump: num(form.vertical_jump_inches),
+    broad_jump: num(form.broad_jump_inches),
+    med_ball_rotational_throw: num(form.med_ball_rotational_throw_ft),
+    plank_hold: num(form.plank_hold),
+    yd_40_dash: num(form.yd_40_dash_sec),
+    yd_60_dash: num(form.yd_60_dash_sec),
+    strength_test_metadata: {
+      metrics: Object.fromEntries(Object.entries(form.lift_repetitions || {}).map(([key, repetitions]) => [key, {
+        repetitions: int(repetitions), method: form.lift_test_methods?.[key] || (Number(repetitions) === 1 ? 'tested_1rm' : 'rep_max'),
+      }])),
+      protocols: {
+        push_ups: form.push_up_protocol || null, plank_hold: form.plank_protocol || null,
+        grip_device: form.grip_device || null, grip: form.grip_protocol || null,
+        med_ball_weight_lbs: num(form.med_ball_weight_lbs), med_ball: form.med_ball_protocol || null,
+      },
+    },
+  }
   // mobility (0-5 fits the 0-10 validation)
   add('shoulder_mobility', int(form.shoulder_mobility))
   add('hip_mobility', int(form.hip_mobility))
@@ -420,25 +451,36 @@ const onSave = async () => {
                       <div class="text-xs font-black uppercase tracking-widest text-white/55 mb-1.5">🧱 Strength · <span :style="{ color: scoreColor(fmtrx.strength) }">{{ dash(fmtrx.strength) }} / 100</span></div>
                       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input v-model="form.body_weight_lbs" type="number" placeholder="Weight (lbs)" class="am-input" />
-                        <input v-model="form.front_squat_lbs" type="number" placeholder="Front Squat (lbs)" class="am-input" />
-                        <input v-model="form.back_squat_lbs" type="number" placeholder="Back Squat (lbs)" class="am-input" />
-                        <input v-model="form.bench_press_lbs" type="number" placeholder="Bench Press (lbs)" class="am-input" />
-                        <input v-model="form.dead_lift_lbs" type="number" placeholder="Deadlift (lbs)" class="am-input" />
+                        <div v-for="lift in [
+                          { field: 'front_squat_lbs', key: 'front_squat', label: 'Front Squat' },
+                          { field: 'back_squat_lbs', key: 'back_squat', label: 'Back Squat' },
+                          { field: 'bench_press_lbs', key: 'bench_press', label: 'Bench Press' },
+                          { field: 'dead_lift_lbs', key: 'deadlift', label: 'Deadlift' },
+                          { field: 'trap_bar_deadlift', key: 'trap_bar_deadlift', label: 'Trap-bar Deadlift' },
+                        ]" :key="lift.key" class="grid grid-cols-[1fr_72px] gap-1">
+                          <input v-model="form[lift.field]" type="number" :placeholder="`${lift.label} (lbs)`" class="am-input" />
+                          <input v-model="form.lift_repetitions[lift.key]" type="number" min="1" max="10" :aria-label="`${lift.label} repetitions`" placeholder="Reps" class="am-input" />
+                        </div>
                         <input v-model="form.pull_ups" type="number" placeholder="Pull-Ups (reps)" class="am-input" />
                         <input v-model="form.push_ups" type="number" placeholder="Push-Ups (reps)" class="am-input" />
-                        <input v-model="form.trap_bar_deadlift" type="number" placeholder="Trap Bar Deadlift (lbs)" class="am-input" />
+                        <input v-model="form.push_up_protocol" type="text" placeholder="Push-Up Protocol" class="am-input" />
                       </div>
                     </div>
                     <div>
                       <div class="text-xs font-black uppercase tracking-widest text-white/55 mb-1.5">⚡ Power · <span :style="{ color: scoreColor(fmtrx.power) }">{{ dash(fmtrx.power) }} / 100</span></div>
                       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <input v-model="form.power_clean_lbs" type="number" placeholder="Power Clean (lbs)" class="am-input" />
+                        <div class="grid grid-cols-[1fr_72px] gap-1"><input v-model="form.power_clean_lbs" type="number" placeholder="Power Clean (lbs)" class="am-input" /><input v-model="form.lift_repetitions.power_clean" type="number" min="1" max="10" aria-label="Power Clean repetitions" placeholder="Reps" class="am-input" /></div>
                         <input v-model="form.grip_strength_left" type="number" placeholder="Grip Strength Left (lbs)" class="am-input" />
                         <input v-model="form.grip_strength_right" type="number" placeholder="Grip Strength Right (lbs)" class="am-input" />
                         <input v-model="form.vertical_jump_inches" type="number" placeholder="Vertical Jump (in)" class="am-input" />
                         <input v-model="form.broad_jump_inches" type="number" placeholder="Broad Jump (in)" class="am-input" />
                         <input v-model="form.med_ball_rotational_throw_ft" type="number" placeholder="Med Ball Rotational (ft)" class="am-input" />
                         <input v-model="form.plank_hold" type="number" placeholder="Plank Hold (sec)" class="am-input" />
+                        <input v-model="form.plank_protocol" type="text" placeholder="Plank Protocol" class="am-input" />
+                        <input v-model="form.med_ball_weight_lbs" type="number" placeholder="Med Ball Weight (lbs)" class="am-input" />
+                        <input v-model="form.med_ball_protocol" type="text" placeholder="Med Ball Protocol" class="am-input" />
+                        <input v-model="form.grip_device" type="text" placeholder="Grip Device" class="am-input" />
+                        <input v-model="form.grip_protocol" type="text" placeholder="Grip Protocol" class="am-input" />
                       </div>
                     </div>
                     <div>

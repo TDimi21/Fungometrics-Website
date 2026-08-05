@@ -32,6 +32,12 @@ class FmtrxTemplateTest extends TestCase
         $this->assertSame(['fmtrx_player_id', 'player_name', 'team_id', 'record_date'], array_column(array_slice($templates['assessment']['fields'], 0, 4), 'key'));
         $this->assertContains('sleep_quality_1_to_5', array_column($templates['recovery']['fields'], 'key'));
         $this->assertContains('t_spine_rotation', array_column($templates['mobility']['fields'], 'key'));
+        $strengthKeys = array_column($templates['strength']['fields'], 'key');
+        $this->assertContains('trap_bar_deadlift_lbs', $strengthKeys);
+        $this->assertContains('plank_hold_sec', $strengthKeys);
+        $this->assertContains('grip_strength_left', $strengthKeys);
+        $this->assertContains('grip_strength_right', $strengthKeys);
+        $this->assertContains('med_ball_weight_lbs', $strengthKeys);
     }
 
     public function test_csv_contains_versioned_metadata_canonical_keys_labels_and_active_roster_rows(): void

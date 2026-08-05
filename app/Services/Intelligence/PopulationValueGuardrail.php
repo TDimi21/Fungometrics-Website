@@ -19,9 +19,19 @@ class PopulationValueGuardrail
         'weighted_ball_5oz_velocity' => [30, 115],
         'bench_press' => [25, 450],
         'squat' => [25, 700],
+        'front_squat' => [25, 600],
+        'back_squat' => [25, 800],
         'deadlift' => [25, 750],
+        'trap_bar_deadlift' => [25, 900],
+        'power_clean' => [20, 500],
         'pull_ups' => [0, 40],
         'pushups' => [0, 150],
+        'plank_hold' => [0, 7200],
+        'grip_strength_left' => [5, 300],
+        'grip_strength_right' => [5, 300],
+        'body_weight' => [40, 500],
+        'sprint_10yd' => [1.0, 5.0],
+        'med_ball_rotational_throw' => [1, 500],
         'forty_yard_dash' => [4.0, 10.0],
         'sixty_yard_dash' => [5.5, 12.0],
         'broad_jump' => [24, 140],
@@ -49,25 +59,25 @@ class PopulationValueGuardrail
     {
         $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
 
-        if ($value === null) {
+        if (null === $value) {
             return $this->invalid($metricKey, $value, 'null_value');
         }
 
-        if (is_string($value) && trim($value) === '') {
+        if (is_string($value) && '' === trim($value)) {
             return $this->invalid($metricKey, $value, 'empty_value');
         }
 
         $number = $this->numberOrNull($value);
-        if ($number === null) {
+        if (null === $number) {
             return $this->invalid($metricKey, $value, 'non_numeric');
         }
 
-        if ($number == 0.0 && ! $this->zeroCanBeReal($metricKey)) {
+        if (0.0 === $number && ! $this->zeroCanBeReal($metricKey)) {
             return $this->invalid($metricKey, $value, 'zero_placeholder', $number);
         }
 
         $range = $this->rangeForMetric($metricKey);
-        if ($range === null) {
+        if (null === $range) {
             return $this->invalid($metricKey, $value, 'unknown_metric', $number);
         }
 
@@ -143,7 +153,7 @@ class PopulationValueGuardrail
 
         $seconds = 0.0;
         foreach ($parts as $part) {
-            if (! is_numeric($part)) {
+            if ( ! is_numeric($part)) {
                 return null;
             }
             $seconds = ($seconds * 60) + (float) $part;

@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class PopulationMetricRepository
 {
@@ -23,9 +24,19 @@ class PopulationMetricRepository
         'weighted_ball_5oz_velocity',
         'bench_press',
         'squat',
+        'front_squat',
+        'back_squat',
         'deadlift',
+        'trap_bar_deadlift',
+        'power_clean',
         'pull_ups',
         'pushups',
+        'plank_hold',
+        'grip_strength_left',
+        'grip_strength_right',
+        'body_weight',
+        'sprint_10yd',
+        'med_ball_rotational_throw',
         'forty_yard_dash',
         'sixty_yard_dash',
         'broad_jump',
@@ -39,7 +50,8 @@ class PopulationMetricRepository
     public function __construct(
         private readonly PopulationValueGuardrail $guardrail,
         private readonly BenchmarkLibrary $benchmarkLibrary,
-    ) {}
+    ) {
+    }
 
     public function valuesForMetric(string $metricKey, array $context = [], int $days = 365): array
     {
@@ -68,7 +80,7 @@ class PopulationMetricRepository
             $rows = $this->filterRowsByContextWithAudit($rows, $context, $stats);
             $values = $rows
                 ->map(fn (array $row) => $this->numberOrNull($row['value'] ?? null, $metricKey))
-                ->filter(fn (?float $value) => $value !== null)
+                ->filter(fn (?float $value) => null !== $value)
                 ->values()
                 ->all();
             $trustedFinalCount = $rows
@@ -130,7 +142,7 @@ class PopulationMetricRepository
                 'values' => $values,
                 'final_values' => $values,
             ];
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [
                 'metric_key' => BenchmarkDefinitions::normalizeMetricKey($metricKey),
                 'days' => max(1, $days),
@@ -214,7 +226,7 @@ class PopulationMetricRepository
         $rows = $this->filterRowsByContext($rows, $context);
         $values = $rows
             ->map(fn (array $row) => $this->numberOrNull($row['value'] ?? null, $metricKey))
-            ->filter(fn (?float $value) => $value !== null)
+            ->filter(fn (?float $value) => null !== $value)
             ->values()
             ->all();
 
@@ -265,7 +277,7 @@ class PopulationMetricRepository
             $task->submitted_payload['payload']['values'] ?? null,
             $task->approved_payload ?? null,
         ] as $values) {
-            if (! is_array($values)) {
+            if ( ! is_array($values)) {
                 continue;
             }
 
@@ -295,20 +307,20 @@ class PopulationMetricRepository
     private function trustedTaskPayloadRowsForMetric(string $metricKey, array $context, int $days, array &$stats): Collection
     {
         $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
-        if (! in_array($metricKey, self::SUPPORTED_METRICS, true)) {
+        if ( ! in_array($metricKey, self::SUPPORTED_METRICS, true)) {
             return collect();
         }
 
         try {
             $query = $this->trustedTaskQuery($context, $days);
-            if ($query === null) {
+            if (null === $query) {
                 return collect();
             }
 
             $rows = $query->get()
                 ->map(function (BenchmarkCollectionTask $task) use ($metricKey, &$stats) {
                     $value = $this->trustedMetricValue($task, $metricKey);
-                    if ($value === null) {
+                    if (null === $value) {
                         return null;
                     }
 
@@ -341,19 +353,19 @@ class PopulationMetricRepository
             $stats['trusted_task_values_included_before_dedupe'] = $rows->count();
 
             return $this->aggregateTrustedRows($rows, $this->aggregateForMetric($metricKey));
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return collect();
         }
     }
 
     private function trustedTaskQuery(array $context, int $days)
     {
-        if (! Schema::hasTable('benchmark_collection_tasks')) {
+        if ( ! Schema::hasTable('benchmark_collection_tasks')) {
             return null;
         }
 
         foreach (['review_status', 'status', 'promotion_status', 'promotion_mode', 'assigned_to_player_id'] as $column) {
-            if (! Schema::hasColumn('benchmark_collection_tasks', $column)) {
+            if ( ! Schema::hasColumn('benchmark_collection_tasks', $column)) {
                 return null;
             }
         }
@@ -388,11 +400,11 @@ class PopulationMetricRepository
             });
         }
 
-        if (! empty($context['team_id'] ?? $context['teamId'] ?? null) && Schema::hasColumn('benchmark_collection_tasks', 'team_id')) {
+        if ( ! empty($context['team_id'] ?? $context['teamId'] ?? null) && Schema::hasColumn('benchmark_collection_tasks', 'team_id')) {
             $query->where('team_id', (string) ($context['team_id'] ?? $context['teamId']));
         }
 
-        if (! empty($context['player_id'] ?? $context['playerId'] ?? null)) {
+        if ( ! empty($context['player_id'] ?? $context['playerId'] ?? null)) {
             $query->where('assigned_to_player_id', (string) ($context['player_id'] ?? $context['playerId']));
         }
 
@@ -401,12 +413,12 @@ class PopulationMetricRepository
 
     private function recordIneligibleTrustedTaskPayloads(string $metricKey, array $context, int $days, array &$stats): void
     {
-        if (! Schema::hasTable('benchmark_collection_tasks')) {
+        if ( ! Schema::hasTable('benchmark_collection_tasks')) {
             return;
         }
 
         foreach (['review_status', 'status', 'promotion_status', 'promotion_mode', 'assigned_to_player_id'] as $column) {
-            if (! Schema::hasColumn('benchmark_collection_tasks', $column)) {
+            if ( ! Schema::hasColumn('benchmark_collection_tasks', $column)) {
                 return;
             }
         }
@@ -437,23 +449,23 @@ class PopulationMetricRepository
                 $query->where('created_at', '>=', now()->subDays($days));
             }
 
-            if (! empty($context['team_id'] ?? $context['teamId'] ?? null) && Schema::hasColumn('benchmark_collection_tasks', 'team_id')) {
+            if ( ! empty($context['team_id'] ?? $context['teamId'] ?? null) && Schema::hasColumn('benchmark_collection_tasks', 'team_id')) {
                 $query->where('team_id', (string) ($context['team_id'] ?? $context['teamId']));
             }
 
-            if (! empty($context['player_id'] ?? $context['playerId'] ?? null)) {
+            if ( ! empty($context['player_id'] ?? $context['playerId'] ?? null)) {
                 $query->where('assigned_to_player_id', (string) ($context['player_id'] ?? $context['playerId']));
             }
 
             $query->get()->each(function (BenchmarkCollectionTask $task) use ($metricKey, &$stats): void {
                 $value = $this->trustedMetricValue($task, $metricKey);
-                if ($value === null) {
+                if (null === $value) {
                     return;
                 }
 
                 $this->recordTrustedStatusExcluded($stats, $task, $metricKey, $value);
             });
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return;
         }
     }
@@ -476,7 +488,7 @@ class PopulationMetricRepository
 
         foreach ($trustedRows as $row) {
             $userId = (string) ($row['user_id'] ?? '');
-            if ($userId === '') {
+            if ('' === $userId) {
                 $stats['trusted_task_deduped_count']++;
                 continue;
             }
@@ -501,7 +513,7 @@ class PopulationMetricRepository
                 $values = $playerRows
                     ->pluck('value')
                     ->map(fn ($value) => is_numeric($value) ? (float) $value : null)
-                    ->filter(fn ($value) => $value !== null);
+                    ->filter(fn ($value) => null !== $value);
 
                 if ($values->isEmpty()) {
                     $value = null;
@@ -555,6 +567,11 @@ class PopulationMetricRepository
             'pushups' => ['pushups', 'push_ups'],
             'deadlift' => ['deadlift', 'dead_lift'],
             'squat' => ['squat', 'back_squat', 'front_squat'],
+            'front_squat' => ['front_squat', 'front_squat_lbs'],
+            'back_squat' => ['back_squat', 'back_squat_lbs'],
+            'trap_bar_deadlift' => ['trap_bar_deadlift', 'trapbar_deadlift'],
+            'grip_strength_left' => ['grip_strength_left', 'grip_left'],
+            'grip_strength_right' => ['grip_strength_right', 'grip_right'],
             default => [$metricKey],
         };
 
@@ -597,10 +614,10 @@ class PopulationMetricRepository
     private function recordTrustedStatusExcluded(array &$stats, BenchmarkCollectionTask $task, string $metricKey, mixed $value): void
     {
         $reason = match (true) {
-            $task->status !== BenchmarkCollectionTask::STATUS_COMPLETED => 'task_not_completed',
-            $task->review_status === BenchmarkCollectionTask::REVIEW_PENDING => 'pending_review',
-            $task->review_status === BenchmarkCollectionTask::REVIEW_REJECTED => 'rejected',
-            $task->review_status === BenchmarkCollectionTask::REVIEW_CORRECTION_REQUESTED => 'correction_requested',
+            BenchmarkCollectionTask::STATUS_COMPLETED !== $task->status => 'task_not_completed',
+            BenchmarkCollectionTask::REVIEW_PENDING === $task->review_status => 'pending_review',
+            BenchmarkCollectionTask::REVIEW_REJECTED === $task->review_status => 'rejected',
+            BenchmarkCollectionTask::REVIEW_CORRECTION_REQUESTED === $task->review_status => 'correction_requested',
             ! in_array($task->review_status, [
                 BenchmarkCollectionTask::REVIEW_APPROVED,
                 BenchmarkCollectionTask::REVIEW_NOT_REQUIRED,
@@ -608,7 +625,7 @@ class PopulationMetricRepository
             ! in_array($task->promotion_status, [
                 BenchmarkCollectionTask::PROMOTION_PROMOTED,
                 BenchmarkCollectionTask::PROMOTION_PARTIAL,
-            ], true) && $task->promotion_mode !== BenchmarkCollectionTask::MODE_TRUSTED_PAYLOAD_ONLY => 'task_not_promoted',
+            ], true) && BenchmarkCollectionTask::MODE_TRUSTED_PAYLOAD_ONLY !== $task->promotion_mode => 'task_not_promoted',
             default => 'task_not_population_eligible',
         };
 
@@ -645,15 +662,47 @@ class PopulationMetricRepository
                 ['player_fitnesses', 'user_id', 'front_squat'],
                 ['player_assessments', 'user_id', 'squat_lbs'],
             ], 'max', $metricKey, $stats),
+            'front_squat' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'front_squat'],
+            ], 'max', $metricKey, $stats),
+            'back_squat' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'back_squat'],
+                ['player_assessments', 'user_id', 'squat_lbs'],
+            ], 'max', $metricKey, $stats),
             'deadlift' => $this->strengthRows($context, $days, [
                 ['player_fitnesses', 'user_id', 'dead_lift'],
                 ['player_assessments', 'user_id', 'deadlift_lbs'],
+            ], 'max', $metricKey, $stats),
+            'trap_bar_deadlift' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'trap_bar_deadlift'],
+            ], 'max', $metricKey, $stats),
+            'power_clean' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'power_clean'],
             ], 'max', $metricKey, $stats),
             'pull_ups' => $this->strengthRows($context, $days, [
                 ['player_fitnesses', 'user_id', 'pull_ups'],
             ], 'max', $metricKey, $stats),
             'pushups' => $this->strengthRows($context, $days, [
                 ['player_fitnesses', 'user_id', 'push_ups'],
+            ], 'max', $metricKey, $stats),
+            'plank_hold' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'plank_hold'],
+            ], 'max', $metricKey, $stats),
+            'grip_strength_left' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'grip_strength_left'],
+            ], 'max', $metricKey, $stats),
+            'grip_strength_right' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'grip_strength_right'],
+            ], 'max', $metricKey, $stats),
+            'body_weight' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'body_weight'],
+            ], 'latest', $metricKey, $stats),
+            'sprint_10yd' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'sprint_10yd'],
+                ['player_assessments', 'user_id', 'sprint_10yd_sec'],
+            ], 'min', $metricKey, $stats),
+            'med_ball_rotational_throw' => $this->strengthRows($context, $days, [
+                ['player_fitnesses', 'user_id', 'med_ball_rotational_throw'],
             ], 'max', $metricKey, $stats),
             'forty_yard_dash' => $this->strengthRows($context, $days, [
                 ['player_fitnesses', 'user_id', 'yd_40_dash'],
@@ -716,7 +765,7 @@ class PopulationMetricRepository
             ->map(function (Collection $playerRows) {
                 $values = $playerRows
                     ->map(fn (array $row) => $this->numberOrNull($row['value'] ?? null, 'strike_percentage'))
-                    ->filter(fn ($value) => $value !== null);
+                    ->filter(fn ($value) => null !== $value);
 
                 return [
                     'user_id' => $playerRows->first()['user_id'] ?? null,
@@ -730,7 +779,7 @@ class PopulationMetricRepository
 
     private function sourceRows(string $table, string $userColumn, string $valueColumn, array $context, int $days, string $metricKey, array &$stats, array $where = []): Collection
     {
-        if (! $this->hasColumns($table, [$userColumn, $valueColumn])) {
+        if ( ! $this->hasColumns($table, [$userColumn, $valueColumn])) {
             return collect();
         }
 
@@ -791,7 +840,7 @@ class PopulationMetricRepository
                 $values = $playerRows
                     ->pluck('value')
                     ->map(fn ($value) => is_numeric($value) ? (float) $value : null)
-                    ->filter(fn ($value) => $value !== null);
+                    ->filter(fn ($value) => null !== $value);
 
                 if ($values->isEmpty()) {
                     $value = null;
@@ -865,7 +914,7 @@ class PopulationMetricRepository
         $stats['raw_samples'][] = [
             'table' => $table,
             'column' => $valueColumn,
-            'user_id' => $userId !== null ? (string) $userId : null,
+            'user_id' => null !== $userId ? (string) $userId : null,
             'raw_value' => $value,
         ];
     }
@@ -879,7 +928,7 @@ class PopulationMetricRepository
         $stats['raw_included_samples'][] = [
             'table' => $table,
             'column' => $valueColumn,
-            'user_id' => $userId !== null ? (string) $userId : null,
+            'user_id' => null !== $userId ? (string) $userId : null,
             'value' => $value,
         ];
     }
@@ -894,7 +943,7 @@ class PopulationMetricRepository
             'valid_range' => $validation['range'] ?? null,
             'table' => $table,
             'column' => $valueColumn,
-            'user_id' => $userId !== null ? (string) $userId : null,
+            'user_id' => null !== $userId ? (string) $userId : null,
             'stage' => $stage,
         ];
     }
@@ -938,17 +987,17 @@ class PopulationMetricRepository
     private function applyTeamScope($query, string $table, string $userColumn, array $context): void
     {
         $teamId = $context['team_id'] ?? $context['teamId'] ?? null;
-        if (! $teamId) {
+        if ( ! $teamId) {
             return;
         }
 
         $rosterIds = $this->rosterUserIds((string) $teamId);
-        if (! empty($rosterIds)) {
+        if ( ! empty($rosterIds)) {
             $query->whereIn($userColumn, $rosterIds);
         }
 
         if (Schema::hasColumn($table, 'team_id')) {
-            $query->where(function ($scope) use ($teamId) {
+            $query->where(function ($scope) use ($teamId): void {
                 $scope->where('team_id', $teamId)->orWhereNull('team_id');
             });
         }
@@ -956,7 +1005,7 @@ class PopulationMetricRepository
 
     private function filterRowsByContext(Collection $rows, array $context): Collection
     {
-        if (! $this->hasBucketFilters($context)) {
+        if ( ! $this->hasBucketFilters($context)) {
             return $rows;
         }
 
@@ -966,7 +1015,7 @@ class PopulationMetricRepository
         return $rows->filter(function (array $row) use ($context, $userContexts) {
             $userContext = $userContexts[(string) ($row['user_id'] ?? '')] ?? null;
 
-            return $userContext !== null && $this->matchesContext($userContext, $context);
+            return null !== $userContext && $this->matchesContext($userContext, $context);
         })->values();
     }
 
@@ -975,7 +1024,7 @@ class PopulationMetricRepository
         $stats['bucket_filter_applied'] = $this->hasBucketFilters($context);
         $stats['bucket_context_before_count'] = $rows->count();
 
-        if (! $stats['bucket_filter_applied']) {
+        if ( ! $stats['bucket_filter_applied']) {
             $stats['bucket_context_after_count'] = $rows->count();
             $stats['bucket_context_removed_count'] = 0;
 
@@ -988,7 +1037,7 @@ class PopulationMetricRepository
 
         foreach ($rows as $row) {
             $userContext = $userContexts[(string) ($row['user_id'] ?? '')] ?? null;
-            $matches = $userContext !== null && $this->matchesContext($userContext, $context);
+            $matches = null !== $userContext && $this->matchesContext($userContext, $context);
 
             if ($matches) {
                 $kept->push($row);
@@ -999,7 +1048,7 @@ class PopulationMetricRepository
                 $stats['bucket_context_removed_samples'][] = [
                     'user_id' => $row['user_id'] ?? null,
                     'value' => $row['value'] ?? null,
-                    'reason' => $userContext === null ? 'missing_player_context' : 'context_mismatch',
+                    'reason' => null === $userContext ? 'missing_player_context' : 'context_mismatch',
                 ];
             }
         }
@@ -1043,11 +1092,11 @@ class PopulationMetricRepository
             return false;
         }
 
-        if ($this->filled($context['height_band'] ?? null) && $this->benchmarkLibrary->heightBand($context['height_band']) !== $this->benchmarkLibrary->heightBand($userContext['height_inches'] ?? null)) {
-            return false;
-        }
+        return ! ($this->filled($context['height_band'] ?? null) && $this->benchmarkLibrary->heightBand($context['height_band']) !== $this->benchmarkLibrary->heightBand($userContext['height_inches'] ?? null))
 
-        return true;
+
+
+        ;
     }
 
     private function userContexts(array $userIds): array
@@ -1080,7 +1129,7 @@ class PopulationMetricRepository
     private function playerBodyWeight(User $user): ?float
     {
         $playerWeight = $user->player && isset($user->player->weight) ? $this->numberOrNull($user->player->weight) : null;
-        if ($playerWeight !== null) {
+        if (null !== $playerWeight) {
             return $playerWeight;
         }
 
@@ -1092,7 +1141,7 @@ class PopulationMetricRepository
                 ->orderByDesc('created_at')
                 ->value('body_weight');
 
-            if ($this->numberOrNull($fitnessWeight) !== null) {
+            if (null !== $this->numberOrNull($fitnessWeight)) {
                 return (float) $fitnessWeight;
             }
         }
@@ -1113,7 +1162,7 @@ class PopulationMetricRepository
 
     private function rosterUserIds(string $teamId): array
     {
-        if (! $this->hasColumns('player_teams', ['team_id', 'user_id'])) {
+        if ( ! $this->hasColumns('player_teams', ['team_id', 'user_id'])) {
             return [];
         }
 
@@ -1140,12 +1189,12 @@ class PopulationMetricRepository
 
     private function hasColumns(string $table, array $columns): bool
     {
-        if (! Schema::hasTable($table)) {
+        if ( ! Schema::hasTable($table)) {
             return false;
         }
 
         foreach ($columns as $column) {
-            if (! Schema::hasColumn($table, $column)) {
+            if ( ! Schema::hasColumn($table, $column)) {
                 return false;
             }
         }
@@ -1155,7 +1204,7 @@ class PopulationMetricRepository
 
     private function numberOrNull(mixed $value, ?string $metricKey = null): ?float
     {
-        if ($value === null || $value === '') {
+        if (null === $value || '' === $value) {
             return null;
         }
 
@@ -1163,7 +1212,7 @@ class PopulationMetricRepository
             return $this->timeStringToSeconds($value);
         }
 
-        if (! is_numeric($value)) {
+        if ( ! is_numeric($value)) {
             return null;
         }
 
@@ -1178,13 +1227,13 @@ class PopulationMetricRepository
     private function timeStringToSeconds(string $value): ?float
     {
         $parts = array_map('trim', explode(':', $value));
-        if (count($parts) === 0) {
+        if (0 === count($parts)) {
             return null;
         }
 
         $seconds = 0.0;
         foreach ($parts as $part) {
-            if (! is_numeric($part)) {
+            if ( ! is_numeric($part)) {
                 return null;
             }
             $seconds = ($seconds * 60) + (float) $part;
@@ -1195,7 +1244,7 @@ class PopulationMetricRepository
 
     private function validPopulationValue(string $metricKey, float $value): bool
     {
-        if ($metricKey === 'strike_percentage') {
+        if ('strike_percentage' === $metricKey) {
             return $value >= 0;
         }
 
@@ -1204,13 +1253,13 @@ class PopulationMetricRepository
 
     private function ageGroupFromDate(mixed $date): string
     {
-        if (! $date) {
+        if ( ! $date) {
             return BenchmarkDefinitions::AGE_UNKNOWN;
         }
 
         try {
             return BenchmarkDefinitions::ageGroup(Carbon::parse((string) $date)->age);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return BenchmarkDefinitions::AGE_UNKNOWN;
         }
     }
@@ -1233,7 +1282,7 @@ class PopulationMetricRepository
 
         return collect($items)
             ->map(fn ($item) => $this->benchmarkLibrary->normalizePosition($item))
-            ->filter(fn (string $item) => $item !== '' && $item !== 'unknown')
+            ->filter(fn (string $item) => '' !== $item && 'unknown' !== $item)
             ->unique()
             ->values()
             ->all();
@@ -1244,7 +1293,7 @@ class PopulationMetricRepository
         $feet = is_numeric($feet) ? (float) $feet : null;
         $inches = is_numeric($inches) ? (float) $inches : null;
 
-        if ($feet === null && $inches === null) {
+        if (null === $feet && null === $inches) {
             return null;
         }
 
@@ -1254,7 +1303,7 @@ class PopulationMetricRepository
     private function bodyWeightBand(mixed $value): string
     {
         $value = $this->numberOrNull($value);
-        if ($value === null || $value <= 0) {
+        if (null === $value || $value <= 0) {
             return 'unknown';
         }
 
@@ -1270,7 +1319,7 @@ class PopulationMetricRepository
     private function heightBand(mixed $value): string
     {
         $value = $this->numberOrNull($value);
-        if ($value === null || $value <= 0) {
+        if (null === $value || $value <= 0) {
             return 'unknown';
         }
 
@@ -1287,11 +1336,11 @@ class PopulationMetricRepository
     private function filled(mixed $value): bool
     {
         if (is_array($value)) {
-            return ! empty(array_filter($value, fn ($item) => trim((string) $item) !== ''));
+            return ! empty(array_filter($value, fn ($item) => '' !== trim((string) $item)));
         }
 
         $value = trim((string) $value);
 
-        return $value !== '' && strtolower($value) !== 'unknown';
+        return '' !== $value && 'unknown' !== mb_strtolower($value);
     }
 }

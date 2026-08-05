@@ -18,6 +18,7 @@ class PlayerIntelligenceService
         private readonly AgeBenchmarkEngine $ageBenchmarkEngine,
         private readonly CompositeBenchmarkEngine $compositeBenchmarkEngine,
         private readonly BenchmarkLibrary $benchmarkLibrary,
+        private readonly StrengthBenchmarkService $strengthBenchmarkService,
     ) {
     }
 
@@ -85,7 +86,7 @@ class PlayerIntelligenceService
             $definition = $this->benchmarkLibrary->metric($metricKey);
             $raw = is_array($ageBenchmark) ? ($ageBenchmark['raw_value'] ?? null) : null;
 
-            if (! $definition) {
+            if ( ! $definition) {
                 $missingMetrics[] = [
                     'metric_key' => $metricKey,
                     'reason' => 'No benchmark definition exists for this metric.',
@@ -94,7 +95,7 @@ class PlayerIntelligenceService
                 continue;
             }
 
-            if (! is_numeric($raw)) {
+            if ( ! is_numeric($raw)) {
                 $missingMetrics[] = [
                     'metric_key' => $metricKey,
                     'display_name' => $definition['display_name'] ?? $metricKey,
@@ -107,7 +108,7 @@ class PlayerIntelligenceService
 
             $result = $this->compositeBenchmarkEngine->benchmarkMetric($metricKey, (float) $raw, $dob, $context);
 
-            if (! is_numeric($result['score_0_100'] ?? null)) {
+            if ( ! is_numeric($result['score_0_100'] ?? null)) {
                 $missingMetrics[] = [
                     'metric_key' => $metricKey,
                     'display_name' => $definition['display_name'] ?? $metricKey,
@@ -144,6 +145,49 @@ class PlayerIntelligenceService
             ];
         }
 
+        $strengthBenchmark = $this->strengthBenchmarkService->benchmark(
+            $assembled['physical_development'] ?? [],
+            null,
+            $context,
+        );
+        $strengthKeys = collect($strengthBenchmark['metrics'] ?? [])->pluck('metric_key')->all();
+        $metrics = collect($metrics)
+            ->reject(fn (array $metric): bool => in_array($metric['metric_key'] ?? null, $strengthKeys, true)
+                || (($metric['metric_key'] ?? null) === 'squat' && (in_array('front_squat', $strengthKeys, true) || in_array('back_squat', $strengthKeys, true))))
+            ->values()
+            ->all();
+        foreach ($strengthBenchmark['metrics'] ?? [] as $strengthMetric) {
+            if (($strengthMetric['available'] ?? false) !== true) {
+                continue;
+            }
+            $test = $strengthMetric['test'] ?? [];
+            $benchmark = $strengthMetric['benchmark'] ?? [];
+            $goal = $strengthMetric['goal'] ?? [];
+            $rawValue = $test['estimated_1rm'] ?? $test['actual_load'] ?? $test['actual_value'] ?? null;
+            $metrics[] = [
+                'metric_key' => $strengthMetric['metric_key'],
+                'display_name' => $strengthMetric['label'],
+                'category' => $strengthMetric['category'],
+                'raw_value' => $rawValue,
+                'relative_value' => $test['relative_strength'] ?? null,
+                'unit' => $strengthMetric['unit'] ?? null,
+                'percentile' => $benchmark['percentile'] ?? null,
+                'score_0_100' => $benchmark['percentile'] ?? null,
+                'label' => $benchmark['classification'] ?? 'Benchmark Needs Data',
+                'goal' => $goal['target_value'] ?? null,
+                'gap' => $goal['gap'] ?? null,
+                'confidence' => $benchmark['confidence'] ?? 'insufficient',
+                'source' => $benchmark['source_type'] ?? 'benchmark_needs_data',
+                'peer_group' => array_filter([
+                    $benchmark['age_group'] ?? null,
+                    $benchmark['bodyweight_band'] ?? null,
+                    $benchmark['level'] ?? null,
+                ]),
+                'evidence' => $strengthMetric['evidence'] ?? [],
+                'data_quality' => $strengthMetric['data_quality'] ?? [],
+            ];
+        }
+
         return [
             'metrics' => $metrics,
             'category_scores' => $this->categoryScores($metrics),
@@ -168,6 +212,7 @@ class PlayerIntelligenceService
                 'team_id' => $context['team_id'],
                 'player_id' => $context['player_id'],
             ],
+            'strength_v1' => $strengthBenchmark,
         ];
     }
 
@@ -192,7 +237,7 @@ class PlayerIntelligenceService
     {
         $ranked = collect($metrics)
             ->filter(fn (array $metric) => is_numeric($metric['score_0_100'] ?? null))
-            ->sortBy(fn (array $metric) => (float) $metric['score_0_100'], SORT_REGULAR, $direction === 'desc')
+            ->sortBy(fn (array $metric) => (float) $metric['score_0_100'], SORT_REGULAR, 'desc' === $direction)
             ->take(5)
             ->map(fn (array $metric) => [
                 'metric_key' => $metric['metric_key'],
@@ -223,7 +268,7 @@ class PlayerIntelligenceService
         $counts = ['high' => 0, 'medium' => 0, 'low' => 0];
 
         foreach ($metrics as $metric) {
-            $confidence = strtolower((string) ($metric['confidence'] ?? 'low'));
+            $confidence = mb_strtolower((string) ($metric['confidence'] ?? 'low'));
             $confidence = in_array($confidence, ['high', 'medium', 'low'], true) ? $confidence : 'low';
             $counts[$confidence]++;
         }
@@ -231,7 +276,7 @@ class PlayerIntelligenceService
         $total = max(1, count($metrics));
         $weighted = (($counts['high'] * 3) + ($counts['medium'] * 2) + $counts['low']) / $total;
         $overall = match (true) {
-            count($metrics) === 0 => 'low',
+            0 === count($metrics) => 'low',
             $weighted >= 2.5 => 'high',
             $weighted >= 1.6 => 'medium',
             default => 'low',
@@ -257,14 +302,14 @@ class PlayerIntelligenceService
             $source = (string) ($metric['source'] ?? '');
             if (in_array($source, ['composite', 'composite_benchmark'], true)) {
                 $counts['composite']++;
-            } elseif ($source === 'fmtrx_population') {
+            } elseif ('fmtrx_population' === $source) {
                 $counts['population']++;
             } else {
                 $counts['research']++;
             }
 
             $bucketCount = $this->numberOrNull($metric['source_mix']['population_bucket_count'] ?? null);
-            if ($bucketCount !== null) {
+            if (null !== $bucketCount) {
                 $populationBucketCounts[] = $bucketCount;
             }
         }
@@ -307,11 +352,11 @@ class PlayerIntelligenceService
     {
         $evidence = $result['evidence'] ?? [];
 
-        if (! is_array($evidence)) {
+        if ( ! is_array($evidence)) {
             $evidence = ['message' => $evidence];
         }
 
-        if (! empty($contextEvidence)) {
+        if ( ! empty($contextEvidence)) {
             $evidence['context_warnings'] = $contextEvidence;
         }
 
@@ -322,12 +367,12 @@ class PlayerIntelligenceService
     {
         $value = $this->numberOrNull($value);
 
-        return $value === null ? null : round($value, 1);
+        return null === $value ? null : round($value, 1);
     }
 
     private function numberOrNull(mixed $value): ?float
     {
-        if ($value === null || $value === '' || ! is_numeric($value)) {
+        if (null === $value || '' === $value || ! is_numeric($value)) {
             return null;
         }
 
@@ -348,7 +393,7 @@ class PlayerIntelligenceService
             'bats' => 'unknown',
         ] as $key => $emptyValue) {
             $value = $context[$key] ?? null;
-            if ($value === $emptyValue || $value === null || $value === '' || $value === []) {
+            if ($value === $emptyValue || null === $value || '' === $value || [] === $value) {
                 $missing[] = $key;
             }
         }
@@ -363,7 +408,7 @@ class PlayerIntelligenceService
     private function bodyWeightBand(mixed $value): string
     {
         $value = $this->numberOrNull($value);
-        if ($value === null || $value <= 0) {
+        if (null === $value || $value <= 0) {
             return 'unknown';
         }
 
@@ -379,7 +424,7 @@ class PlayerIntelligenceService
     private function heightBand(mixed $value): string
     {
         $value = $this->numberOrNull($value);
-        if ($value === null || $value <= 0) {
+        if (null === $value || $value <= 0) {
             return 'unknown';
         }
 
@@ -398,7 +443,7 @@ class PlayerIntelligenceService
         $feet = is_numeric($feet) ? (float) $feet : null;
         $inches = is_numeric($inches) ? (float) $inches : null;
 
-        if ($feet === null && $inches === null) {
+        if (null === $feet && null === $inches) {
             return null;
         }
 
@@ -409,6 +454,6 @@ class PlayerIntelligenceService
     {
         $value = trim((string) $value);
 
-        return $value !== '' ? $value : null;
+        return '' !== $value ? $value : null;
     }
 }
