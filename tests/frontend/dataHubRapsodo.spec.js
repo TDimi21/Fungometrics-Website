@@ -5,7 +5,7 @@ import path from 'node:path'
 const root = path.resolve(__dirname, '../..')
 const source = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 
-describe('Data Hub Rapsodo pitching inspection', () => {
+describe('Data Hub Rapsodo pitching import', () => {
   const platforms = source('resources/js/data/dataHubPlatforms.js')
   const page = source('resources/js/pages/data-hub/ImportData.vue')
   const players = source('resources/js/components/data-hub/PlayerMapping.vue')
@@ -35,8 +35,13 @@ describe('Data Hub Rapsodo pitching inspection', () => {
     expect(review).toContain('source_unit_key')
   })
 
-  it('keeps this inspection-only with no canonical or legacy import write', () => {
+  it('commits only through the governed Rapsodo import endpoint', () => {
     expect(page).toContain("axiosPost('data-hub/inspect'")
+    expect(page).toContain("axiosPost('data-hub/imports/rapsodo', form)")
+    expect(page).toContain('Import Rapsodo Data')
+    expect(page).toContain('View Rapsodo Report')
+    expect(review).toContain("['blast-motion','rapsodo'].includes(inspection.platform)")
+    expect(review).toContain("inspection.platform === 'rapsodo' ? 'pitches' : 'swings'")
     expect(page).not.toMatch(/axiosPost\(['"`][^'"`]*(?:canonical-event|external-session|bullpen|practice-result)/)
     expect(page).not.toMatch(/localStorage|sessionStorage|indexedDB/i)
   })

@@ -57,6 +57,8 @@ const sessionValues = {
   'Exit Velocity': 'exit_velocity', 'Speed & Agility': 'speed_agility', Recovery: 'recovery',
 }
 const selectedPlatform = computed(() => DATA_HUB_PLATFORMS.find(item => item.key === platformKey.value) || null)
+const isLiveImport = computed(() => ['blast-motion', 'rapsodo'].includes(platformKey.value))
+const importedEventLabel = computed(() => platformKey.value === 'rapsodo' ? 'pitches' : 'swings')
 const selectedTeam = computed(() => teams.value.find(item => String(item?.id_team ?? item?.id ?? '') === teamId.value) || null)
 const allowedSessionTypes = computed(() => DATA_HUB_SESSION_TYPES)
 const mappingValues = computed(() => Object.values(mappings).filter(Boolean))
@@ -397,7 +399,7 @@ const cancel = () => {
   router.push('/data-hub')
 }
 const finishInspection = async () => {
-  if (platformKey.value !== 'blast-motion') {
+  if (!isLiveImport.value) {
     inspectionComplete.value = true
     return
   }
@@ -411,11 +413,13 @@ const finishInspection = async () => {
   form.append('template_fingerprint', inspection.value.template_fingerprint)
   form.append('file', selectedFile.value)
   try {
-    const response = await axiosPost('data-hub/imports/blast', form)
+    const response = platformKey.value === 'rapsodo'
+      ? await axiosPost('data-hub/imports/rapsodo', form)
+      : await axiosPost('data-hub/imports/blast', form)
     importResult.value = response.data.data
     inspectionComplete.value = true
   } catch (error) {
-    importError.value = error?.response?.data?.message || 'The Blast data could not be imported.'
+    importError.value = error?.response?.data?.message || `The ${selectedPlatform.value?.name || 'source'} data could not be imported.`
   } finally {
     importing.value = false
   }
@@ -443,14 +447,14 @@ onBeforeRouteLeave(clearWorkflow)
   <Layout>
     <section class="data-hub-shell">
       <header class="data-hub-hero">
-        <div><span class="eyebrow">FMTRX Data Hub</span><h1>Inspect Data</h1><p>Detect file structure, sessions, and players, then map them before any future import.</p></div>
-        <div class="phase-badge"><strong>Phase 2A</strong><span>Inspection only</span></div>
+        <div><span class="eyebrow">FMTRX Data Hub</span><h1>Import Data</h1><p>Inspect and map source data, then save approved Blast and Rapsodo sessions to FMTRX.</p></div>
+        <div class="phase-badge"><strong>Live Import</strong><span>Blast + Rapsodo</span></div>
       </header>
       <ImportStepper :current-step="step" />
       <div class="wizard-card">
         <div class="wizard-heading">
-        <div><span>Step {{ step }} of 6</span><h2>{{ ['Choose TrackMan','Select a data file','Choose the destination','Map imported players','Map source columns','Review normalized data'][step - 1] }}</h2></div>
-          <p>{{ step === 3 ? 'Continue uploads the file temporarily for inspection.' : 'No FMTRX sessions or statistics are created.' }}</p>
+        <div><span>Step {{ step }} of 6</span><h2>{{ ['Choose a data platform','Select a data file','Choose the destination','Map imported players','Map source columns','Review normalized data'][step - 1] }}</h2></div>
+          <p>{{ step === 3 ? 'Continue uploads the file privately for inspection.' : isLiveImport ? 'FMTRX records are created only after final import approval.' : 'This platform remains inspection-only.' }}</p>
         </div>
         <PlatformSelector v-if="step === 1" :platforms="DATA_HUB_PLATFORMS" :model-value="platformKey" @update:model-value="setPlatform" />
         <FileDropzone v-else-if="step === 2" :model-value="selectedFile" :error="fileError" :warning="fileWarning" :max-size-bytes="DATA_HUB_MAX_FILE_SIZE_BYTES" @update:model-value="setFile" />
@@ -462,11 +466,11 @@ onBeforeRouteLeave(clearWorkflow)
         <p v-if="inspectionError" class="error-message">{{ inspectionError }}</p>
         <p v-if="mappingError" class="error-message">{{ mappingError }}</p>
         <p v-if="importError" class="error-message">{{ importError }}</p>
-        <div v-if="inspectionComplete && importResult" class="complete-message"><strong>Import complete.</strong><span>{{ importResult.events }} swings and {{ importResult.metrics }} metrics are now saved to the player’s FMTRX history.</span></div>
+        <div v-if="inspectionComplete && importResult" class="complete-message"><strong>Import complete.</strong><span>{{ importResult.events }} {{ importedEventLabel }} and {{ importResult.metrics }} metrics are now saved to the player’s FMTRX history.</span><RouterLink v-if="platformKey === 'rapsodo' && importResult.report_path" :to="importResult.report_path">View Rapsodo Report →</RouterLink></div>
         <div v-else-if="inspectionComplete" class="complete-message"><strong>Inspection complete.</strong><span>No FMTRX records were changed for this platform.</span></div>
         <footer class="wizard-actions">
           <button type="button" class="cancel-button" @click="cancel">Cancel</button>
-          <div><button v-if="step > 1 && !inspectionComplete" type="button" class="back-button" @click="back">Back</button><button v-if="!structurePending && !inspectionComplete" type="button" class="continue-button" :disabled="!canContinue || importing" @click="next">{{ inspecting ? 'Inspecting…' : approvingPlayers ? 'Approving players…' : approvingMapping ? 'Approving…' : importing ? 'Importing…' : step === 3 ? 'Approve & Inspect' : step === 4 ? 'Approve Player Mapping' : step === 5 ? 'Approve Mapping' : step === 6 && platformKey === 'blast-motion' ? 'Import Blast Data' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
+          <div><button v-if="step > 1 && !inspectionComplete" type="button" class="back-button" @click="back">Back</button><button v-if="!structurePending && !inspectionComplete" type="button" class="continue-button" :disabled="!canContinue || importing" @click="next">{{ inspecting ? 'Inspecting…' : approvingPlayers ? 'Approving players…' : approvingMapping ? 'Approving…' : importing ? 'Importing…' : step === 3 ? 'Approve & Inspect' : step === 4 ? 'Approve Player Mapping' : step === 5 ? 'Approve Mapping' : step === 6 && platformKey === 'blast-motion' ? 'Import Blast Data' : step === 6 && platformKey === 'rapsodo' ? 'Import Rapsodo Data' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
         </footer>
       </div>
     </section>
@@ -475,4 +479,5 @@ onBeforeRouteLeave(clearWorkflow)
 
 <style scoped>
 .data-hub-shell{width:min(1180px,calc(100% - 36px));margin:0 auto;padding:18px 0 50px}.data-hub-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:20px;padding:26px 28px;border:1px solid rgba(255,255,255,.12);border-radius:20px;background:linear-gradient(135deg,rgba(25,35,69,.86),rgba(7,14,31,.88))}.eyebrow,.wizard-heading span{color:#ff4964;font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.data-hub-hero h1{margin-top:6px;color:#fff;font-size:clamp(30px,4vw,46px);font-weight:900}.data-hub-hero p,.wizard-heading p{margin-top:6px;color:#94a3b8;font-size:13px}.phase-badge{display:flex;flex-direction:column;padding:12px 15px;border:1px solid rgba(255,43,74,.25);border-radius:12px;background:rgba(255,43,74,.08);text-align:right}.phase-badge strong{color:#ff4964}.phase-badge span{color:#94a3b8;font-size:10px}.wizard-card{margin-top:14px;padding:28px;border:1px solid rgba(255,255,255,.12);border-radius:20px;background:linear-gradient(145deg,rgba(26,35,67,.94),rgba(7,13,31,.96))}.wizard-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,.09)}.wizard-heading h2{margin-top:5px;color:#fff;font-size:24px;font-weight:900}.wizard-actions{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:28px;padding-top:22px;border-top:1px solid rgba(255,255,255,.09)}.wizard-actions>div{display:flex;gap:10px}.wizard-actions button{min-height:46px;padding:0 20px;border-radius:11px;font-size:11px;font-weight:900;text-transform:uppercase}.cancel-button,.back-button{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#fff}.continue-button{border:1px solid #ff2b4a;background:#ff2b4a;color:#fff}.continue-button:disabled{opacity:.38}.error-message,.override,.complete-message{display:flex;gap:8px;margin-top:14px;padding:13px 15px;border:1px solid rgba(255,73,100,.25);border-radius:11px;background:rgba(255,43,74,.08);color:#ffd1d8;font-size:12px}.override{border-color:rgba(255,190,64,.3);color:#ffe3ac}.complete-message{border-color:rgba(59,211,154,.25);color:#bff5df}@media(max-width:700px){.data-hub-shell{width:calc(100% - 20px)}.data-hub-hero,.wizard-heading{align-items:flex-start;flex-direction:column}.wizard-card{padding:18px}.wizard-actions{align-items:stretch;flex-direction:column-reverse}.wizard-actions>div{display:grid;grid-template-columns:1fr 1fr}}
+.complete-message{align-items:center;flex-wrap:wrap}.complete-message a{margin-left:auto;color:#64e6b4;font-weight:900;text-transform:uppercase}
 </style>

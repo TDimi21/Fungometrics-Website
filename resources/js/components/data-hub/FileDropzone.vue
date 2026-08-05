@@ -40,7 +40,7 @@ const choose = (files) => {
     <input ref="input" type="file" accept=".csv,.xlsx,.tsv,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden @change="choose($event.target.files)" />
     <p v-if="error" class="file-error">{{ error }}</p>
     <p v-else-if="warning" class="file-warning">{{ warning }}</p>
-    <p class="privacy-note">The file stays in this browser until you approve inspection. It is then uploaded privately, inspected, and immediately deleted.</p>
+    <p class="privacy-note">The file stays in this browser until you approve inspection. It is uploaded privately; approved live imports retain a protected source copy for audit provenance.</p>
   </div>
 </template>
 

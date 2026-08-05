@@ -22,14 +22,16 @@ It defines the permanent architectural foundation upon which the FMTRX Baseball 
 - Translation Engine Architecture: Frozen
 - Certification Evidence: Pending Verification
 - Era 1 Certified and Complete Declaration: Pending
-- Era 2 — Persistence: Not Authorized
+- Era 2 — Persistence: Scoped authorization for completed Blast Motion and Rapsodo imports
 - Era 3 — Intelligence: Not Started
 - Player DNA: Not Started
 - AI: Not Started
 
 ## Repository Protection Rule
 
-No persistence implementation may begin until the complete FMTRX Data Hub Backbone has been reviewed and explicitly approved.
+The scoped persistence authorization covers only the existing Translation Snapshot, Import Batch, External Session, Canonical Event, and Canonical Metric workflow for Blast Motion and Rapsodo. TrackMan, HitTrax, generic spreadsheet, statistics projection, Player DNA, benchmark, and AI persistence remain unauthorized unless separately approved.
+
+No additional persistence implementation may begin until the complete FMTRX Data Hub Backbone has been reviewed and explicitly approved.
 
 Until that approval is granted, the following are prohibited:
 
@@ -104,4 +106,4 @@ Every completed chapter must eventually define:
 - Explicit prohibitions
 - Certification criteria
 
-The Backbone must be completed and approved before Era 2 begins.
+The Backbone must be completed and approved before Era 2 expands beyond the explicitly authorized Blast Motion and Rapsodo workflows.
