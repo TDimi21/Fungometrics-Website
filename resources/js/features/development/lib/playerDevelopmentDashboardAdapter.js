@@ -199,7 +199,7 @@ const percentileGroups = (live, intelligence) => {
   const keys = [
     ['hitting', 'Hitting', ['max_exit_velocity', 'avg_exit_velocity', 'bp_score', 'bat_speed']],
     ['pitching', 'Pitching', ['max_fb_velocity', 'avg_fb_velocity', 'bullpen_score']],
-    ['strength', 'Strength / Body', ['body_weight', 'front_squat', 'back_squat', 'bench_press', 'dead_lift', 'trap_bar_deadlift', 'power_clean', 'pull_ups', 'pushups', 'plank_hold', 'grip_strength_left', 'grip_strength_right']],
+    ['strength', 'Strength / Body', ['body_weight', 'front_squat', 'back_squat', 'bench_press', 'dead_lift', 'trap_bar_deadlift', 'power_clean', 'hand_strength', 'pull_ups', 'pushups', 'plank_hold', 'grip_strength_left', 'grip_strength_right']],
     ['athletic', 'Athletic / Mobility', ['vertical_jump', 'broad_jump', 'med_ball_rotational_throw', 'sprint_10yd', 'forty_yard_dash', 'sixty_yard_dash', 'mobility_score']],
     ['recovery', 'Recovery', ['sleep_hours', 'recovery_score']],
   ]

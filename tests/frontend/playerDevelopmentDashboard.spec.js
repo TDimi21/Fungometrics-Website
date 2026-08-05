@@ -14,7 +14,7 @@ const correlation = source('resources/js/features/development/components/Correla
 
 const live = {
   player: { id: 'p1', name: 'Test Player', role: 'two-way', level: 'high school' },
-  current: { max_exit_velocity: 99, avg_exit_velocity: 83.3, avg_fb_velocity: 86.1, recovery_score: null },
+  current: { max_exit_velocity: 99, avg_exit_velocity: 83.3, avg_fb_velocity: 86.1, hand_strength: 62, recovery_score: null },
   scores: { current_development_score: 64, performance_score: 71, strength_score: null, mobility_score: 52, recovery_score: null, trend_score: 68 },
   data_gaps: { recovery: true },
 }
@@ -66,6 +66,14 @@ describe('Player Development Dashboard redesign', () => {
     expect(model.mobility.map((metric) => metric.bar_value)).toEqual([80, 60, 100])
     expect(model.mobility.every((metric) => metric.available)).toBe(true)
     expect(source('resources/js/features/development/components/MobilityAssessmentCard.vue')).toContain('metric.bar_value ?? metric.value ?? 0')
+  })
+
+  it('shows the most recent Athletic Testing hand-strength measurement', () => {
+    const row = buildPlayerDevelopmentDashboard(live, intelligence).percentileGroups
+      .flatMap((group) => group.metrics)
+      .find((metric) => metric.key === 'hand_strength')
+    expect(row.value).toBe(62)
+    expect(row.display_value).toBe('62 lb')
   })
 
   it('clamps percentile marker positions and provides dashed accessible missing states', () => {

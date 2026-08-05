@@ -120,6 +120,32 @@ class IntelligenceControllerTest extends TestCase
             ->assertJsonPath('summary.physical.bat_speed', 72);
     }
 
+    public function test_player_development_uses_most_recent_recorded_athletic_hand_strength(): void
+    {
+        [$coach, $team, $player] = $this->createCoachTeamPlayer();
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-07-01',
+            'hand_strength' => 48,
+        ]);
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-08-01',
+            'hand_strength' => 62,
+        ]);
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-08-05',
+            'front_squat' => 225,
+            'hand_strength' => null,
+        ]);
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+
+        $this->getJson("api/coach/development/teams/{$team->id}/players/{$player->id}?days=365")
+            ->assertOk()
+            ->assertJsonPath('data.current.hand_strength', 62);
+    }
+
     public function test_coach_cannot_get_intelligence_for_team_they_do_not_coach(): void
     {
         [$coach, $team] = $this->createCoachTeamPlayer();
