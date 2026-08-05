@@ -12,6 +12,12 @@ const teamStore = useTeamStore()
 const { team } = storeToRefs(teamStore)
 const { axiosGet } = useAxiosAuth()
 const formatDate = value => value ? new Date(value).toLocaleString() : ''
+const importPath = item => item.platform === 'Blast Motion'
+  ? `/data-hub/imports/${item.id}/blast-report`
+  : item.platform === 'Rapsodo'
+    ? `/data-hub/imports/${item.id}/rapsodo-report?player_id=${item.player_id}`
+    : `/data-hub/players/${item.player_id}/metrics`
+const eventLabel = item => item.platform === 'Rapsodo' ? 'pitches' : 'swings'
 onMounted(async () => {
   const available = await teamStore.getTeamsFromApi()
   if (available.length) teamStore.setTeams(available)
@@ -43,7 +49,7 @@ onMounted(async () => {
       </div>
       <div v-if="imports.length" class="platform-section">
         <div class="section-heading"><div><span>Permanent history</span><h2>Recent imports</h2></div><small>Completed import batches with direct access to player metrics.</small></div>
-        <div class="import-list"><RouterLink v-for="item in imports" :key="item.id" :to="item.platform === 'Blast Motion' ? `/data-hub/imports/${item.id}/blast-report` : `/data-hub/players/${item.player_id}/metrics`"><div><strong>{{ item.platform }} · {{ item.first_name }} {{ item.last_name }}</strong><small>{{ item.source_file_name }} · {{ formatDate(item.completed_at) }}</small></div><span>{{ item.event_count }} swings · {{ item.metric_count }} metrics →</span></RouterLink></div>
+        <div class="import-list"><RouterLink v-for="item in imports" :key="item.id" :to="importPath(item)"><div><strong>{{ item.platform }} · {{ item.first_name }} {{ item.last_name }}</strong><small>{{ item.source_file_name }} · {{ formatDate(item.completed_at) }}</small></div><span>{{ item.event_count }} {{ eventLabel(item) }} · {{ item.metric_count }} metrics · View Report →</span></RouterLink></div>
       </div>
       <TemplateDownloads />
 

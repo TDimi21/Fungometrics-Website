@@ -23,6 +23,7 @@ const TYPE_COLOR = {
   long_toss:     { bg: 'bg-pink-500/20',    border: 'border-pink-500/40',    text: 'text-pink-300',    dot: '#F472B6', label: 'LONG TOSS'   },
   weight_ball:   { bg: 'bg-yellow-500/20',  border: 'border-yellow-500/40',  text: 'text-yellow-300',  dot: '#FBBF24', label: 'WEIGHT BALL' },
   exit_velocity: { bg: 'bg-red-500/20',     border: 'border-red-500/40',     text: 'text-red-300',     dot: '#F87171', label: 'EXIT VEL'    },
+  rapsodo:      { bg: 'bg-teal-500/20',    border: 'border-teal-500/40',    text: 'text-teal-300',    dot: '#2DD4BF', label: 'RAPSODO'     },
 }
 
 const SESSION_REPORT_TYPE = {
@@ -48,6 +49,7 @@ const FILTERS = [
   { key: 'long_toss',     label: 'Long Toss'    },
   { key: 'weight_ball',   label: 'Weight Ball'  },
   { key: 'exit_velocity', label: 'Exit Vel'     },
+  { key: 'rapsodo',      label: 'Rapsodo'      },
 ]
 
 const formatDate = (d) => {
@@ -171,17 +173,23 @@ const loadCoachSessions = async () => {
   for (const [type, items] of Object.entries(d)) {
     if (Array.isArray(items)) items.forEach((item) => all.push({ ...item, _type: type }))
   }
+  const reports = await axiosGet('data-hub/rapsodo-reports').catch(() => null)
+  ;(reports?.data?.data || []).forEach((item) => all.push({
+    ...item, _type: 'rapsodo', _date: item.completed_at, _reportType: 'rapsodo', total_balls: item.pitch_count,
+    is_completed: 2, lineup: [{ name: { full: item.player_name } }],
+  }))
   all.sort((a, b) => new Date(b.updated_at ?? b.created_at) - new Date(a.updated_at ?? a.created_at))
   sessions.value = all
 }
 
 const loadPlayerSessions = async () => {
-  const [battingRes, bullpenRes, cageRes, trainingRes, createdRes] = await Promise.all([
+  const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, rapsodoRes] = await Promise.all([
     axiosGet('player/sessions/batting').catch(() => null),
     axiosGet('player/sessions/bullpen').catch(() => null),
     axiosGet('player/sessions/cage').catch(() => null),
     axiosGet('player/sessions/training').catch(() => null),
     axiosGet('player/sessions/created').catch(() => null),
+    axiosGet('data-hub/rapsodo-reports').catch(() => null),
   ])
 
   const batting = battingRes?.data?.data?.data || []
@@ -209,6 +217,10 @@ const loadPlayerSessions = async () => {
     ...cageWithCreated.map((s) => mapPlayerSession(s, 'C', selfCreatedIds.has(s?.id))),
     ...liveabWithCreated.map((s) => mapPlayerSession(s, 'L', selfCreatedIds.has(s?.id))),
     ...trainingWithCreated.map((s) => mapPlayerSession(s, 'T', selfCreatedIds.has(s?.id))),
+    ...(rapsodoRes?.data?.data || []).map((item) => ({
+      ...item, _type: 'rapsodo', _date: item.completed_at, _reportType: 'rapsodo', total_balls: item.pitch_count,
+      is_completed: 2, lineup: [{ name: { full: item.player_name } }],
+    })),
   ]
     .filter((s) => s?.id)
     .filter(shouldShowPlayerSession)
@@ -232,6 +244,10 @@ onMounted(async () => {
 })
 
 const openReport = (session) => {
+  if (session?._reportType === 'rapsodo') {
+    router.push(session.report_path || { name: 'player.rapsodo-report', params: { batch: session.id } })
+    return
+  }
   const type = session?._reportType || SESSION_REPORT_TYPE[session._type]
   if (!type) return
   const note = session?.end_note || null

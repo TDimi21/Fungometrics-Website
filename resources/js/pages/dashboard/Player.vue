@@ -39,6 +39,7 @@ const createdSessions = ref([])
 const cageStatRows = ref([])
 const trainingSessions = ref([])
 const trainingStats = ref(null)
+const rapsodoReports = ref([])
 const playerFitnessLatest = ref(null)
 const playerFitnessRows = ref([])   // all fitness rows (newest-first) so lift/speed maxes coalesce across days
 const benchmarkTasks = ref([])
@@ -839,6 +840,10 @@ const speedLine = computed(() => {
 
 const openSessionReports = () => {
   router.push({ name: 'sessions.all', query: { scope: 'player' } })
+}
+
+const openRapsodoReport = report => {
+  router.push(report.report_path || { name: 'player.rapsodo-report', params: { batch: report.id } })
 }
 
 const openAssessmentReports = () => {
@@ -1978,7 +1983,7 @@ const loadData = async () => {
       EV: [35, 36, 37, 38],
       LT: [39, 40, 41, 42, 43, 44],
     }
-    const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, fitnessRes, trainingStatsRes, benchmarkTasksRes] = await Promise.all([
+    const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, fitnessRes, trainingStatsRes, benchmarkTasksRes, rapsodoRes] = await Promise.all([
       safeGet('player/sessions/batting'),
       safeGet('player/sessions/bullpen'),
       safeGet('player/sessions/cage'),
@@ -1991,6 +1996,7 @@ const loadData = async () => {
         options: allTrainingOptions,
       }) : Promise.resolve(null),
       safeGet('player/benchmark-tasks'),
+      safeGet('data-hub/rapsodo-reports'),
     ])
 
     battingSessions.value = rowsFromApi(battingRes)
@@ -2000,6 +2006,7 @@ const loadData = async () => {
     createdSessions.value = rowsFromApi(createdRes)
     trainingStats.value = trainingStatsRes?.data?.data || null
     benchmarkTasks.value = Array.isArray(apiPayload(benchmarkTasksRes).tasks) ? apiPayload(benchmarkTasksRes).tasks : []
+    rapsodoReports.value = Array.isArray(rapsodoRes?.data?.data) ? rapsodoRes.data.data : []
 
     const cageStatResults = await Promise.all(
       cageSessions.value
@@ -2162,6 +2169,16 @@ onMounted(loadData)
                   class="flex w-full items-center justify-center rounded-xl border border-[#8C234A]/80 bg-[#8C234A] px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
                 >
                   Session Reports ›
+                </button>
+
+                <button
+                  v-for="report in rapsodoReports.slice(0,2)"
+                  :key="`rapsodo-${report.id}`"
+                  type="button"
+                  @click="openRapsodoReport(report)"
+                  class="flex w-full items-center justify-between rounded-xl border border-teal-400/60 bg-teal-500/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
+                >
+                  <span>View Rapsodo Report</span><small class="text-teal-100/70">{{ report.pitch_count }} pitches ›</small>
                 </button>
 
                 <button

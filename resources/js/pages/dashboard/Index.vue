@@ -158,6 +158,7 @@ const sessionTypeColor = {
   weight_ball:  { bg: 'bg-yellow-500/20',  border: 'border-yellow-500/50',  text: 'text-yellow-300',  label: 'WEIGHT BALL' },
   exit_velocity:{ bg: 'bg-red-500/20',     border: 'border-red-500/50',     text: 'text-red-300',     label: 'EXIT VEL' },
   blast:        { bg: 'bg-cyan-500/20',    border: 'border-cyan-400/50',    text: 'text-cyan-300',    label: 'BLAST REPORT' },
+  rapsodo:      { bg: 'bg-teal-500/20',    border: 'border-teal-400/50',    text: 'text-teal-300',    label: 'RAPSODO REPORT' },
 }
 const sessionReportTypeMap = {
   batting:       'batting',
@@ -170,6 +171,10 @@ const sessionReportTypeMap = {
 const openSessionReport = (session) => {
   if (session._type === 'blast') {
     router.push({ name: 'data-hub.blast-report', params: { batch: session.id } })
+    return
+  }
+  if (session._type === 'rapsodo') {
+    router.push({ name: 'data-hub.rapsodo-report', params: { batch: session.id }, query: { player_id: session.player_id } })
     return
   }
   const type = sessionReportTypeMap[session._type]
@@ -197,9 +202,12 @@ const getRecentSessions = async (force = false) => {
     try {
       const { data: importsResponse } = await withTeamIdFallbackGet((id) => `data-hub/imports?team_id=${id}`)
       const imports = Array.isArray(importsResponse?.data) ? importsResponse.data : []
-      imports.filter(item => item.platform === 'Blast Motion' && item.status === 'completed').forEach(item => all.push({
+      imports.filter(item => (
+        (item.platform === 'Blast Motion' && item.status === 'completed')
+        || (item.platform === 'Rapsodo' && item.status === 'completed')
+      )).forEach(item => all.push({
         ...item,
-        _type: 'blast',
+        _type: item.platform === 'Rapsodo' ? 'rapsodo' : 'blast',
         created_at: item.completed_at,
         updated_at: item.completed_at,
         is_completed: true,
@@ -207,7 +215,7 @@ const getRecentSessions = async (force = false) => {
       }))
     } catch (e) {
       // The dashboard remains usable when this account cannot access Data Hub reports.
-      if (![401, 403, 404].includes(e?.response?.status)) console.warn('getRecentBlastReports', e)
+      if (![401, 403, 404].includes(e?.response?.status)) console.warn('getRecentDataHubReports', e)
     }
     all.sort((a, b) => new Date(b.updated_at ?? b.created_at) - new Date(a.updated_at ?? a.created_at))
     recentSessions.value = all.slice(0, 8)

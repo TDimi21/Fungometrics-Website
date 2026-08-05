@@ -40,6 +40,7 @@ const ImportData = () => import("@/pages/data-hub/ImportData.vue");
 const UnknownColumns = () => import("@/pages/data-hub/UnknownColumns.vue");
 const PlayerImportedMetrics = () => import("@/pages/data-hub/PlayerImportedMetrics.vue");
 const BlastSessionDevelopmentReportPage = () => import("@/pages/data-hub/BlastSessionDevelopmentReportPage.vue");
+const RapsodoPitchingSessionReportPage = () => import("@/pages/data-hub/RapsodoPitchingSessionReportPage.vue");
 const ChangePassword = () => import("@/pages/profile/ChangePassword.vue");
 const EditPlayer = () => import("@/pages/roster/EditPlayer.vue");
 const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
@@ -369,6 +370,18 @@ const routes = [
 		path: "/data-hub/imports/:batch/blast-report",
 		component: BlastSessionDevelopmentReportPage,
 		meta: { requiresAuth: true, coachOnly: true, allowAdmin: true, entitlement: 'data_hub_import' },
+	},
+	{
+		name: "data-hub.rapsodo-report",
+		path: "/data-hub/imports/:batch/rapsodo-report",
+		component: RapsodoPitchingSessionReportPage,
+		meta: { requiresAuth: true, coachOnly: true, allowAdmin: true, entitlement: 'data_hub_import' },
+	},
+	{
+		name: "player.rapsodo-report",
+		path: "/player/reports/rapsodo/:batch",
+		component: RapsodoPitchingSessionReportPage,
+		meta: { requiresAuth: true },
 	},
 	{
 		name: "settings",

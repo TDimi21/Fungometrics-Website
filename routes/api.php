@@ -207,6 +207,8 @@ Route::post('/complete/{claim}/player', CompletePlayerController::class)
 Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
     Route::post('data-hub/inspect', InspectTrackManFile::class)
         ->middleware(['plan:data_hub_import', 'throttle:10,1']);
+    Route::get('data-hub/imports/{batch}/rapsodo-report', \App\Http\Controllers\Api\DataHub\RapsodoPitchingSessionReportController::class);
+    Route::get('data-hub/rapsodo-reports', \App\Http\Controllers\Api\DataHub\RapsodoReportIndexController::class);
     Route::middleware('plan:data_hub_import')->prefix('data-hub')->group(function (): void {
         Route::get('dictionary', [DictionaryController::class, 'index']);
         Route::post('mappings/resolve', [DictionaryController::class, 'resolve'])->middleware('throttle:30,1');
