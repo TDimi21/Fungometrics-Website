@@ -11,6 +11,15 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // ── Shared FMTRX dashboard palette (design tokens) ────────────
+        // Values come from the development dashboard's FMTRX look, the
+        // newer brand. Use these instead of raw hex in dashboard templates.
+        "surface":        "#031321", // page / deep section background
+        "surface-raised": "#071725", // cards and raised panels
+        "accent":         "#1ac2c0", // FMTRX teal
+        "accent-2":       "#ef3340", // FMTRX red
+        "text-muted":     "#91a5b3", // secondary text
+
         "fungo-darkblue-player": "#001845",
         "fungo-darkblue": "#001440",
         "fungo-darkblue-hover" : "#002060",
