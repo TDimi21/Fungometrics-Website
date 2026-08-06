@@ -76,6 +76,35 @@ describe('Player Development Dashboard redesign', () => {
     expect(row.display_value).toBe('62 lb')
   })
 
+  it('uses the latest Blast Hub bat-speed range position in Percentile Rankings', () => {
+    const blastLive = {
+      ...live,
+      current: {
+        ...live.current,
+        bat_speed: 65,
+        bat_speed_best: 70,
+        bat_speed_source: 'blast_hub_latest_completed_session',
+        bat_speed_benchmark: {
+          percentile: 50,
+          label: 'In Suggested Range',
+          source: 'Blast Motion Suggested Ranges supplied 2026-08-06',
+          confidence: 'range-derived',
+          range_min: 60,
+          range_max: 70,
+          evidence: { population_percentile: false },
+        },
+      },
+    }
+    const row = buildPlayerDevelopmentDashboard(blastLive, intelligence).percentileGroups
+      .flatMap((group) => group.metrics)
+      .find((metric) => metric.key === 'bat_speed')
+    expect(row.value).toBe(65)
+    expect(row.percentile).toBe(50)
+    expect(row.status_label).toBe('In Suggested Range')
+    expect(row.source).toContain('Blast Motion Suggested Ranges')
+    expect(row.evidence.population_percentile).toBe(false)
+  })
+
   it('clamps percentile marker positions and provides dashed accessible missing states', () => {
     expect(clamp(-12)).toBe(0)
     expect(clamp(114)).toBe(100)

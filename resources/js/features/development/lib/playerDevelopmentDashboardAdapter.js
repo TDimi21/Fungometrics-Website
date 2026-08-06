@@ -152,7 +152,10 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
     ? intelligence.benchmark_profile.metrics
     : []
   const currentRaw = currentValue(current, key)
-  let benchmark = findBenchmark(metrics, key)
+  const currentBenchmark = current?.[`${key}_benchmark`]
+  let benchmark = currentBenchmark && numberOrNull(currentBenchmark?.percentile) !== null
+    ? { metric_key: key, raw_value: currentRaw, ...currentBenchmark }
+    : findBenchmark(metrics, key)
   if (
     benchmark?.metric_key === 'squat'
     && currentRaw !== null

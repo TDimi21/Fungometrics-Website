@@ -18,6 +18,8 @@ use App\Models\User;
 use App\Services\Statistics\BattingStatisticsService;
 use App\Services\Statistics\BullpenStatisticsService;
 use App\Services\Statistics\CageStatisticsService;
+use App\Services\Blast\BlastBatSpeedRankingService;
+use App\Services\Blast\BlastPlayerMetricService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +30,12 @@ use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
 class GetPlayerDevelopmentDashboard extends Controller
 {
+    public function __construct(
+        private readonly BlastPlayerMetricService $blastPlayerMetrics,
+        private readonly BlastBatSpeedRankingService $blastBatSpeedRankings,
+    ) {
+    }
+
     public function __invoke(GetPlayerDevelopmentDashboardRequest $request): JsonResponse
     {
         try {
@@ -327,9 +335,17 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $exitVelo = (null !== $fitnessLatest?->exit_velo && (float) $fitnessLatest->exit_velo > 0)
                     ? (float) $fitnessLatest->exit_velo
                     : $this->latestPositiveFitnessMetric($playerId, 'exit_velo');
-                $batSpeed = (null !== $fitnessLatest?->bat_speed && (float) $fitnessLatest->bat_speed > 0)
+                $blastBatSpeed = $this->blastPlayerMetrics->latestBatSpeedSession($playerId, $teamScopeId);
+                $batSpeed = $blastBatSpeed['average'] ?? ((null !== $fitnessLatest?->bat_speed && (float) $fitnessLatest->bat_speed > 0)
                     ? (float) $fitnessLatest->bat_speed
-                    : $this->latestPositiveFitnessMetric($playerId, 'bat_speed');
+                    : $this->latestPositiveFitnessMetric($playerId, 'bat_speed'));
+                $batSpeedBenchmark = $blastBatSpeed
+                    ? $this->blastBatSpeedRankings->rank(
+                        (float) $blastBatSpeed['average'],
+                        $player->profile?->level,
+                        $this->resolveAge($player->player?->born_date),
+                    )
+                    : null;
 
                 $developmentIndex = $this->computeDevelopmentIndex(
                     $performanceScore,
@@ -409,6 +425,9 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'med_ball_rotational_throw' => $medBallRotThrow,
                         'exit_velo' => $exitVelo,
                         'bat_speed' => $batSpeed,
+                        'bat_speed_best' => $blastBatSpeed['best'] ?? null,
+                        'bat_speed_source' => $blastBatSpeed['source'] ?? (null !== $batSpeed ? 'athletic_testing' : null),
+                        'bat_speed_benchmark' => $batSpeedBenchmark,
                         'throwing_velo' => $fitnessLatest?->throwing_velo,
                         'pitch_velo' => $fitnessLatest?->pitch_velo,
 

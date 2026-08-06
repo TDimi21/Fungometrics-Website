@@ -12,6 +12,7 @@ use App\Services\DataHub\Dictionary\TemplateFingerprintService;
 use App\Services\DataHub\DTOs\ImportFileMetadata;
 use App\Services\DataHub\Platforms\BlastMotion\BlastMotionParser;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -61,7 +62,7 @@ final class BlastImportService
         Storage::disk('local')->put($storageKey, file_get_contents($file->getRealPath()));
 
         try {
-            return DB::transaction(function () use ($user, $teamId, $playerId, $destination, $file, $platform, $checksum, $snapshotId, $storageKey, $version, $entries, $rows, $report): array {
+            $result = DB::transaction(function () use ($user, $teamId, $playerId, $destination, $file, $platform, $checksum, $snapshotId, $storageKey, $version, $entries, $rows, $report): array {
                 $now = now();
                 DB::table('translation_snapshots')->insert([
                     'id' => $snapshotId, 'team_id' => $teamId, 'platform_definition_id' => $platform->id,
@@ -127,6 +128,10 @@ final class BlastImportService
 
                 return ['batch_id' => $batchId, 'snapshot_id' => $snapshotId, 'sessions' => 1, 'events' => count($rows), 'metrics' => $metricCount, 'status' => 'completed'];
             });
+
+            $this->forgetDevelopmentDashboardCaches($teamId, $playerId);
+
+            return $result;
         } catch (Throwable $exception) {
             Storage::disk('local')->delete($storageKey);
             throw $exception;
@@ -142,5 +147,12 @@ final class BlastImportService
     {
         $timestamp = strtotime((string) $value);
         return false === $timestamp ? null : date('Y-m-d H:i:s', $timestamp);
+    }
+
+    private function forgetDevelopmentDashboardCaches(string $teamId, string $playerId): void
+    {
+        foreach ([30, 60, 90, 120, 365, 'all'] as $days) {
+            Cache::forget("dev_dashboard_v3_{$teamId}_{$playerId}_{$days}");
+        }
     }
 }

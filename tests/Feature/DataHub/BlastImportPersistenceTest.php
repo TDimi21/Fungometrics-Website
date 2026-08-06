@@ -31,7 +31,7 @@ final class BlastImportPersistenceTest extends TestCase
         $team = Team::factory()->create();
         $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
         $player = User::factory()->create(['type' => 'player']);
-        Profile::factory()->create(['user_id' => $player->id, 'first_name' => 'Blast', 'last_name' => 'Player']);
+        Profile::factory()->create(['user_id' => $player->id, 'first_name' => 'Blast', 'last_name' => 'Player', 'level' => 'HIGH']);
         CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id]);
         PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
         Sanctum::actingAs($coach, ['coach']);
@@ -51,6 +51,10 @@ final class BlastImportPersistenceTest extends TestCase
             'required_type' => null, 'action' => $entry['concept_id'] ? 'map' : 'ignore', 'metadata' => null,
         ], $resolved);
         app(MappingApprovalService::class)->approve($coach, $team->id, $platform->id, $fingerprint, $headers, $entries, true);
+
+        $this->getJson("/api/coach/development/teams/{$team->id}/players/{$player->id}?days=365")
+            ->assertOk()
+            ->assertJsonPath('data.current.bat_speed', null);
 
         $payload = fn (): array => [
             'platform' => 'blast-motion', 'team_id' => $team->id, 'player_id' => $player->id,
@@ -86,6 +90,17 @@ final class BlastImportPersistenceTest extends TestCase
         }
         $this->assertSame($beforeReport, [DB::table('translation_snapshots')->count(), DB::table('canonical_events')->count(), DB::table('canonical_metrics')->count()]);
         $this->getJson("/api/data-hub/imports/{$batchId}/blast-report?benchmark_level=made_up")->assertUnprocessable();
+
+        $this->getJson("/api/coach/development/teams/{$team->id}/players/{$player->id}?days=365")
+            ->assertOk()
+            ->assertJsonPath('data.current.bat_speed', 78.1)
+            ->assertJsonPath('data.current.bat_speed_best', 78.1)
+            ->assertJsonPath('data.current.bat_speed_source', 'blast_hub_latest_completed_session')
+            ->assertJsonPath('data.current.bat_speed_benchmark.benchmark_level', 'high_school_varsity')
+            ->assertJsonPath('data.current.bat_speed_benchmark.range_min', 60)
+            ->assertJsonPath('data.current.bat_speed_benchmark.range_max', 70)
+            ->assertJsonPath('data.current.bat_speed_benchmark.percentile', 100)
+            ->assertJsonPath('data.current.bat_speed_benchmark.evidence.population_percentile', false);
 
         $outsider = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($outsider, ['coach']);

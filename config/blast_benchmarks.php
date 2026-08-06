@@ -13,6 +13,7 @@ $metrics = static fn (array $values): array => [
 
 return [
     'version' => '1.0.0',
+    'source' => 'Blast Motion Suggested Ranges supplied 2026-08-06',
     'levels' => [
         'pro' => ['label' => 'Pro', 'metrics' => $metrics([66.0, 78.0, 5.0, 15.0, 0.13, 0.17, 23.0, 29.0, 3.65, 5.65])],
         'milb' => ['label' => 'MiLB', 'metrics' => $metrics([63.0, 75.0, 3.0, 15.0, 0.13, 0.17, 22.0, 28.0, 3.20, 5.20])],
