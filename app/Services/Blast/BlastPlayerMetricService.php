@@ -30,7 +30,12 @@ final class BlastPlayerMetricService
             })
             ->orderByRaw('COALESCE(session.occurred_at, batch.completed_at, session.created_at) DESC')
             ->orderByDesc('session.created_at')
-            ->first(['session.id', 'session.occurred_at']);
+            ->first([
+                'session.id',
+                'session.occurred_at',
+                'session.created_at',
+                'batch.completed_at',
+            ]);
 
         if ( ! $session) {
             return null;
@@ -54,6 +59,8 @@ final class BlastPlayerMetricService
         return [
             'session_id' => (string) $session->id,
             'occurred_at' => $session->occurred_at,
+            'recorded_at' => $session->occurred_at ?? $session->completed_at ?? $session->created_at,
+            'imported_at' => $session->completed_at ?? $session->created_at,
             'average' => round((float) $values->avg(), 1),
             'best' => round((float) $values->max(), 1),
             'swing_count' => $values->count(),

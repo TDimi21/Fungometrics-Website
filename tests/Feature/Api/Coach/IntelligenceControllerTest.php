@@ -146,6 +146,82 @@ class IntelligenceControllerTest extends TestCase
             ->assertJsonPath('data.current.hand_strength', 62);
     }
 
+    public function test_percentile_rankings_resolve_each_metric_from_its_own_latest_input(): void
+    {
+        [$coach, $team, $player] = $this->createCoachTeamPlayer();
+
+        PlayerFitness::query()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-07-20',
+            'body_weight' => 180,
+            'hand_strength' => 58,
+            'grip_strength_left' => 55,
+            'grip_strength_right' => 61,
+        ]);
+        PlayerAssessment::query()->create([
+            'user_id' => $player->id,
+            'team_id' => $team->id,
+            'assessed_by' => $coach->id,
+            'assessment_date' => '2026-08-01',
+            'type' => 'strength',
+            'bench_lbs' => 230,
+            'bench_press_percentile' => 74,
+            'shoulder_mobility' => 4,
+        ]);
+        PlayerFitness::query()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-08-02',
+            'body_weight' => 195,
+        ]);
+        PlayerAssessment::query()->create([
+            'user_id' => $player->id,
+            'team_id' => $team->id,
+            'assessed_by' => $coach->id,
+            'assessment_date' => '2026-08-05',
+            'type' => 'mobility',
+            'ankle_mobility' => 3,
+            'rotational_mobility' => 5,
+            'mobility_overall_score' => 40,
+        ]);
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+
+        $endpoint = "api/coach/development/teams/{$team->id}/players/{$player->id}?days=365";
+        $this->getJson($endpoint)
+            ->assertOk()
+            ->assertJsonPath('data.current.body_weight', 195)
+            ->assertJsonPath('data.current.bench_press', 230)
+            ->assertJsonPath('data.current.hand_strength', 58)
+            ->assertJsonPath('data.current.grip_strength_left', 55)
+            ->assertJsonPath('data.current.grip_strength_right', 61)
+            ->assertJsonPath('data.current.mobility_score', 40)
+            ->assertJsonPath('data.current.metric_freshness.body_weight.source', 'player_fitness')
+            ->assertJsonPath('data.current.metric_freshness.bench_press.source', 'player_assessment')
+            ->assertJsonPath('data.current.metric_freshness.mobility_score.source', 'player_assessment');
+
+        $this->getJson("api/coach/teams/{$team->id}/players/{$player->id}/intelligence?days=365")
+            ->assertOk()
+            ->assertJsonPath('summary.physical.body_weight', 195)
+            ->assertJsonPath('summary.physical.bench_press', 230)
+            ->assertJsonPath('summary.physical.hand_strength', 58)
+            ->assertJsonPath('summary.physical.mobility_score', 40)
+            ->assertJsonPath('summary.assessment.shoulder_mobility_score', 4)
+            ->assertJsonPath('summary.assessment.ankle_mobility_score', 3)
+            ->assertJsonPath('summary.assessment.metric_percentiles.bench_press', 74);
+
+        // The first request is cached. Saving a new single-field app update must
+        // invalidate it without disturbing the other current metric values.
+        PlayerFitness::query()->create([
+            'user_id' => $player->id,
+            'body_weight' => 205,
+        ]);
+
+        $this->getJson($endpoint)
+            ->assertOk()
+            ->assertJsonPath('data.current.body_weight', 205)
+            ->assertJsonPath('data.current.bench_press', 230)
+            ->assertJsonPath('data.current.mobility_score', 40);
+    }
+
     public function test_coach_cannot_get_intelligence_for_team_they_do_not_coach(): void
     {
         [$coach, $team] = $this->createCoachTeamPlayer();

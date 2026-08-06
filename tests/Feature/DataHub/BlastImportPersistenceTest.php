@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\DataHub;
 
 use App\Models\CoachTeam;
+use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
 use App\Models\Profile;
 use App\Models\Team;
@@ -16,6 +17,7 @@ use Database\Seeders\BaseballDictionarySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -67,6 +69,7 @@ final class BlastImportPersistenceTest extends TestCase
         $this->assertDatabaseCount('translation_snapshots', 1);
         $this->assertDatabaseCount('import_batches', 1);
         $this->assertDatabaseCount('external_sessions', 1);
+        $this->assertDatabaseHas('external_sessions', ['occurred_at' => '2026-07-01 10:00:00']);
         $this->assertDatabaseCount('canonical_events', 1);
         $this->assertGreaterThan(10, DB::table('canonical_metrics')->count());
         $this->assertDatabaseHas('canonical_metrics', ['original_header' => 'Bat Speed (mph)', 'numeric_value' => 78.1]);
@@ -101,6 +104,20 @@ final class BlastImportPersistenceTest extends TestCase
             ->assertJsonPath('data.current.bat_speed_benchmark.range_max', 70)
             ->assertJsonPath('data.current.bat_speed_benchmark.percentile', 100)
             ->assertJsonPath('data.current.bat_speed_benchmark.evidence.population_percentile', false);
+
+        PlayerFitness::query()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-07-02',
+            'bat_speed' => 65,
+        ]);
+        $this->assertFalse(Cache::has("dev_dashboard_v3_{$team->id}_{$player->id}_365"));
+        $this->getJson("/api/coach/development/teams/{$team->id}/players/{$player->id}?days=365")
+            ->assertOk()
+            ->assertJsonPath('data.current.metric_freshness.bat_speed.recorded_at', '2026-07-02')
+            ->assertJsonPath('data.current.bat_speed', 65)
+            ->assertJsonPath('data.current.bat_speed_best', null)
+            ->assertJsonPath('data.current.bat_speed_source', 'player_fitness')
+            ->assertJsonPath('data.current.bat_speed_benchmark.percentile', 50);
 
         $outsider = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
         Sanctum::actingAs($outsider, ['coach']);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\HasUuid;
+use App\Services\Development\PlayerDevelopmentDashboardCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -88,6 +89,16 @@ class PlayerAssessment extends Model
         'team_percentiles' => 'array',
         'age_group_percentiles' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        $forget = fn (self $assessment) => app(PlayerDevelopmentDashboardCache::class)
+            ->forgetPlayer((string) $assessment->user_id);
+
+        static::saved($forget);
+        static::deleted($forget);
+        static::restored($forget);
+    }
 
     /**
      * Accept throwing_workload_data as either an array (new app) or a JSON string

@@ -21,6 +21,7 @@ use App\Models\PracticeLineUp;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\WeightBallPractice;
+use App\Services\Development\PlayerMetricFreshnessService;
 use App\Services\Statistics\BattingStatisticsService;
 use App\Services\Statistics\BullpenStatisticsService;
 use App\Services\Statistics\CageStatisticsService;
@@ -37,6 +38,7 @@ class IntelligenceDataAssembler
         private readonly BullpenStatisticsService $bullpenStatistics,
         private readonly CageStatisticsService $cageStatistics,
         private readonly ExitVelocityStatisticsService $exitVelocityStatistics,
+        private readonly PlayerMetricFreshnessService $metricFreshness,
     ) {
     }
 
@@ -76,11 +78,8 @@ class IntelligenceDataAssembler
             $gaps[] = $this->gap('player', 'throw_side', 'Throwing profile and pitcher context may be less accurate.', 'Add throwing hand to the player profile.');
         }
 
-        $fitnessLatest = PlayerFitness::query()
-            ->where('user_id', $playerId)
-            ->orderByDesc('fitness_date')
-            ->orderByDesc('created_at')
-            ->first();
+        $freshSnapshot = $this->metricFreshness->snapshot($playerId, $teamId);
+        $fitnessLatest = $freshSnapshot['fitness'];
 
         $fitnessPrevious = PlayerFitness::query()
             ->where('user_id', $playerId)
@@ -89,14 +88,7 @@ class IntelligenceDataAssembler
             ->orderByDesc('created_at')
             ->first();
 
-        $assessmentLatest = PlayerAssessment::query()
-            ->where('user_id', $playerId)
-            ->where(function ($query) use ($teamId): void {
-                $query->where('team_id', $teamId)->orWhereNull('team_id');
-            })
-            ->orderByDesc('assessment_date')
-            ->orderByDesc('created_at')
-            ->first();
+        $assessmentLatest = $freshSnapshot['assessment'];
 
         $athleticLatest = AthleticPerformanceScore::query()
             ->where('player_id', $playerId)

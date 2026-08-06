@@ -145,7 +145,11 @@ final class BlastImportService
 
     private function date(mixed $value): ?string
     {
-        $timestamp = strtotime((string) $value);
+        // Blast formats timestamps as "July 1, 2026 / 10:00:00 AM". The
+        // separator is display punctuation, not a date token understood by PHP.
+        $normalized = preg_replace('/\s+\/\s+/', ' ', trim((string) $value));
+        $timestamp = strtotime((string) $normalized);
+
         return false === $timestamp ? null : date('Y-m-d H:i:s', $timestamp);
     }
 

@@ -20,6 +20,7 @@ use App\Services\Statistics\BullpenStatisticsService;
 use App\Services\Statistics\CageStatisticsService;
 use App\Services\Blast\BlastBatSpeedRankingService;
 use App\Services\Blast\BlastPlayerMetricService;
+use App\Services\Development\PlayerMetricFreshnessService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +34,7 @@ class GetPlayerDevelopmentDashboard extends Controller
     public function __construct(
         private readonly BlastPlayerMetricService $blastPlayerMetrics,
         private readonly BlastBatSpeedRankingService $blastBatSpeedRankings,
+        private readonly PlayerMetricFreshnessService $metricFreshness,
     ) {
     }
 
@@ -167,10 +169,9 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $cageCurrentWindow = $cageCurrent->where('created_at', '>=', $last30);
                 $cageCurrentWindow = $cageCurrentWindow->isNotEmpty() ? $cageCurrentWindow : $cageCurrent;
 
-                $fitnessLatest = PlayerFitness::where('user_id', $playerId)
-                    ->orderByDesc('fitness_date')
-                    ->orderByDesc('created_at')
-                    ->first();
+                $freshSnapshot = $this->metricFreshness->snapshot($playerId, $teamScopeId);
+                $fitnessLatest = $freshSnapshot['fitness'];
+                $metricFreshness = $freshSnapshot['metrics'];
 
                 $fitnessInitial = PlayerFitness::where('user_id', $playerId)
                     ->orderBy('fitness_date')
@@ -191,10 +192,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                     });
                 }
 
-                $assessmentLatest = (clone $assessmentBaseQuery)
-                    ->orderByDesc('assessment_date')
-                    ->orderByDesc('created_at')
-                    ->first();
+                $assessmentLatest = $freshSnapshot['assessment'];
 
                 $assessmentInitial = (clone $assessmentBaseQuery)
                     ->orderBy('assessment_date')
@@ -255,9 +253,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $mobilityScore = $this->mobilityScore($fitnessLatest, $assessmentLatest);
                 $mobilityPrev = $this->mobilityScore($fitnessPrev, $assessmentPrev);
                 $mobilityInitial = $this->mobilityScore($fitnessInitial, $assessmentInitial);
-                $mobilitySource = null !== $fitnessLatest?->mobility_score
-                    ? 'fitness'
-                    : (null !== $mobilityScore ? 'assessment' : null);
+                $mobilitySource = $metricFreshness['mobility_score']['source'] ?? null;
 
                 $performanceScore = $this->averageAvailable([
                     $bpScore,
@@ -336,12 +332,29 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ? (float) $fitnessLatest->exit_velo
                     : $this->latestPositiveFitnessMetric($playerId, 'exit_velo');
                 $blastBatSpeed = $this->blastPlayerMetrics->latestBatSpeedSession($playerId, $teamScopeId);
-                $batSpeed = $blastBatSpeed['average'] ?? ((null !== $fitnessLatest?->bat_speed && (float) $fitnessLatest->bat_speed > 0)
+                $fitnessBatSpeed = (null !== $fitnessLatest?->bat_speed && (float) $fitnessLatest->bat_speed > 0)
                     ? (float) $fitnessLatest->bat_speed
-                    : $this->latestPositiveFitnessMetric($playerId, 'bat_speed'));
-                $batSpeedBenchmark = $blastBatSpeed
+                    : null;
+                $useBlastBatSpeed = $blastBatSpeed && $this->blastBatSpeedIsCurrent(
+                    $blastBatSpeed,
+                    $metricFreshness['bat_speed'] ?? null,
+                );
+                $batSpeed = $useBlastBatSpeed ? (float) $blastBatSpeed['average'] : $fitnessBatSpeed;
+                $batSpeedSource = $useBlastBatSpeed
+                    ? $blastBatSpeed['source']
+                    : ($metricFreshness['bat_speed']['source'] ?? null);
+                if ($useBlastBatSpeed) {
+                    $metricFreshness['bat_speed'] = [
+                        'value' => $batSpeed,
+                        'source' => $blastBatSpeed['source'],
+                        'record_id' => $blastBatSpeed['session_id'],
+                        'recorded_at' => $blastBatSpeed['recorded_at'],
+                        'updated_at' => $blastBatSpeed['imported_at'],
+                    ];
+                }
+                $batSpeedBenchmark = null !== $batSpeed
                     ? $this->blastBatSpeedRankings->rank(
-                        (float) $blastBatSpeed['average'],
+                        $batSpeed,
                         $player->profile?->level,
                         $this->resolveAge($player->player?->born_date),
                     )
@@ -370,7 +383,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'throws' => $player->player?->throw_side,
                         'bats' => $player->player?->hit_side,
                         'height' => $this->resolveHeight($player->player?->height_in_ft, $player->player?->height_in_inch),
-                        'weight' => $fitnessLatest?->body_weight,
+                        'weight' => $bodyWeight,
                         'level' => $player->profile?->level ?? 'travel',
                         'role' => $role,
                     ],
@@ -425,9 +438,10 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'med_ball_rotational_throw' => $medBallRotThrow,
                         'exit_velo' => $exitVelo,
                         'bat_speed' => $batSpeed,
-                        'bat_speed_best' => $blastBatSpeed['best'] ?? null,
-                        'bat_speed_source' => $blastBatSpeed['source'] ?? (null !== $batSpeed ? 'athletic_testing' : null),
+                        'bat_speed_best' => $useBlastBatSpeed ? $blastBatSpeed['best'] : null,
+                        'bat_speed_source' => $batSpeedSource,
                         'bat_speed_benchmark' => $batSpeedBenchmark,
+                        'metric_freshness' => $metricFreshness,
                         'throwing_velo' => $fitnessLatest?->throwing_velo,
                         'pitch_velo' => $fitnessLatest?->pitch_velo,
 
@@ -1037,6 +1051,36 @@ class GetPlayerDevelopmentDashboard extends Controller
             ->value($metric);
 
         return null !== $value ? (float) $value : null;
+    }
+
+    /**
+     * A Blast session wins only when its measurement date is newer than the
+     * latest manually recorded bat-speed input. On the same date, use the input
+     * that was saved/imported last.
+     *
+     * @param array<string, mixed> $blast
+     * @param array<string, mixed>|null $manual
+     */
+    private function blastBatSpeedIsCurrent(array $blast, ?array $manual): bool
+    {
+        if (null === $manual) {
+            return true;
+        }
+
+        $blastDate = strtotime((string) ($blast['recorded_at'] ?? ''));
+        $manualDate = strtotime((string) ($manual['recorded_at'] ?? ''));
+        if (false !== $blastDate && false !== $manualDate) {
+            $blastDay = date('Y-m-d', $blastDate);
+            $manualDay = date('Y-m-d', $manualDate);
+            if ($blastDay !== $manualDay) {
+                return $blastDay > $manualDay;
+            }
+        }
+
+        $blastUpdated = strtotime((string) ($blast['imported_at'] ?? $blast['recorded_at'] ?? ''));
+        $manualUpdated = strtotime((string) ($manual['updated_at'] ?? $manual['recorded_at'] ?? ''));
+
+        return false !== $blastUpdated && (false === $manualUpdated || $blastUpdated >= $manualUpdated);
     }
 
     private function resolveTrendLabel($current, $previous): string

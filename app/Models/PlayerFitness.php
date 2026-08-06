@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\HasUuid;
+use App\Services\Development\PlayerDevelopmentDashboardCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -88,6 +89,16 @@ class PlayerFitness extends Model
         'plank_hold' => 'float',
         'strength_test_metadata' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        $forget = fn (self $fitness) => app(PlayerDevelopmentDashboardCache::class)
+            ->forgetPlayer((string) $fitness->user_id);
+
+        static::saved($forget);
+        static::deleted($forget);
+        static::restored($forget);
+    }
 
     public function user(): BelongsTo
     {
