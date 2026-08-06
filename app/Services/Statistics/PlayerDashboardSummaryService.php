@@ -176,14 +176,14 @@ final class PlayerDashboardSummaryService
             if (null !== $velocity && ($velocity < 10 || $velocity > 125)) {
                 $velocity = null;
             }
-            $quality = strtoupper(trim((string) ($row->quality_of_contact ?? '')));
-            $typeOfHit = strtoupper(trim((string) ($row->type_of_hit ?? '')));
+            $quality = mb_strtoupper(trim((string) ($row->quality_of_contact ?? '')));
+            $typeOfHit = mb_strtoupper(trim((string) ($row->type_of_hit ?? '')));
 
             return [
                 'ev' => $velocity,
                 'qoc' => $quality,
                 'toh' => $typeOfHit,
-                'dir' => strtoupper(trim((string) ($row->field_direction ?? ''))),
+                'dir' => mb_strtoupper(trim((string) ($row->field_direction ?? ''))),
                 'pitchMark' => (int) ($row->pitch_mark ?? 0),
                 'isMiss' => in_array($quality, ['MF', 'F'], true) || 'SM' === $typeOfHit,
             ];
@@ -301,7 +301,7 @@ final class PlayerDashboardSummaryService
         $pitches = $rows->map(function ($row): array {
             $locationMark = (int) ($row->pitch_mark ?? 0);
             $strike = (bool) $row->is_strike;
-            if (! $strike && $locationMark > 0) {
+            if ( ! $strike && $locationMark > 0) {
                 $strike = $this->isStrikeZoneMark($locationMark);
             }
 
@@ -321,7 +321,7 @@ final class PlayerDashboardSummaryService
         $pitchTypeStats = collect([1 => 'FB', 2 => 'CH', 3 => 'SL', 4 => 'CV', 5 => 'OTHER'])
             ->map(function (string $label, int $typeId) use ($pitches): array {
                 $items = $pitches->filter(
-                    fn ($pitch) => 5 === $typeId ? (! $pitch['typeId'] || 5 === $pitch['typeId']) : $pitch['typeId'] === $typeId
+                    fn ($pitch) => 5 === $typeId ? ( ! $pitch['typeId'] || 5 === $pitch['typeId']) : $pitch['typeId'] === $typeId
                 )->values();
                 $velocities = $items->pluck('mph')->filter(fn ($value) => null !== $value)->all();
 
@@ -619,7 +619,7 @@ final class PlayerDashboardSummaryService
 
     private function pitchTypeId(string $typeThrow): int
     {
-        return match (strtoupper(trim($typeThrow))) {
+        return match (mb_strtoupper(trim($typeThrow))) {
             'FB' => 1,
             'CH' => 2,
             'SL' => 3,
@@ -630,7 +630,7 @@ final class PlayerDashboardSummaryService
 
     private function normalizeTrajectory(string $trajectory): ?string
     {
-        return match (strtoupper(trim($trajectory))) {
+        return match (mb_strtoupper(trim($trajectory))) {
             'GB' => 'GB',
             'LD' => 'LD',
             'FB', 'PF', 'PU' => 'FB',
@@ -640,7 +640,7 @@ final class PlayerDashboardSummaryService
 
     private function positiveNumber(mixed $raw): ?float
     {
-        if (! is_numeric($raw)) {
+        if ( ! is_numeric($raw)) {
             return null;
         }
         $value = (float) $raw;

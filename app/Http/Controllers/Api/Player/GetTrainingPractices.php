@@ -12,10 +12,14 @@ use App\Models\Practice;
 use App\Models\PracticeLineUp;
 use App\Models\WeightBallPractice;
 use Exception;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class GetTrainingPractices extends Controller
 {
@@ -67,15 +71,17 @@ class GetTrainingPractices extends Controller
                 'data' => $data,
             ];
             return response()->json($response, HttpCodes::HTTP_OK);
+        } catch (AuthenticationException|AuthorizationException|ValidationException|HttpException $exception) {
+            // Auth/validation failures belong to the framework's exception handler.
+            throw $exception;
         } catch (Exception $exception) {
-            $response = [
+            Log::error('Failed to load training practice sessions', ['exception' => $exception]);
+            return response()->json([
                 'code' => '058-E',
-                'message' => ' ',
+                'message' => 'Unable to load sessions',
                 'status' => 'error',
                 'data' => [],
-            ];
-            Log::error($exception->getMessage());
-            return response()->json($response, HttpCodes::HTTP_NOT_FOUND);
+            ], HttpCodes::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

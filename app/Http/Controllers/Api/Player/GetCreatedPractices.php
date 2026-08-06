@@ -8,10 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Practice;
 use App\Models\PracticeLineUp;
 use Exception;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class GetCreatedPractices extends Controller
 {
@@ -46,15 +50,18 @@ class GetCreatedPractices extends Controller
                 'status' => 'success',
                 'data' => $data,
             ], HttpCodes::HTTP_OK);
+        } catch (AuthenticationException|AuthorizationException|ValidationException|HttpException $exception) {
+            // Auth/validation failures belong to the framework's exception handler.
+            throw $exception;
         } catch (Exception $exception) {
-            Log::error($exception->getMessage());
+            Log::error('Failed to load created practice sessions', ['exception' => $exception]);
 
             return response()->json([
                 'code' => '059-E',
-                'message' => ' ',
+                'message' => 'Unable to load sessions',
                 'status' => 'error',
                 'data' => [],
-            ], HttpCodes::HTTP_NOT_FOUND);
+            ], HttpCodes::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }
