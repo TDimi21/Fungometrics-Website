@@ -7,6 +7,7 @@ import { useUserStore } from "@/store/user"
 import {toast} from "@/utils/AlertPlugin"
 import { SelectTeams, DropDownMultiple } from '@/components/shared'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
+import { TRAINING_OPTION_IDS } from '@/features/player-home/lib/constants.js'
 import { InputBase, LabelField, SelectField, BigButtonField } from '@/components/form'
 import {
   BattingTotals, BattingPercentage, AverageAndMaxVelocity, BattingLeftTOH_QOS,
@@ -59,9 +60,9 @@ const buildOptionsFromSessions = (sessions) => {
   if (selected.includes('B')) options.B = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   if (selected.includes('P')) options.P = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
   if (selected.includes('C')) options.C = [29, 30, 31, 32, 33, 34]
-  if (selected.includes('EV')) options.EV = [35, 36, 37, 38]
-  if (selected.includes('LT')) options.LT = [39, 40, 41, 42, 43, 44]
-  if (selected.includes('WB')) options.WB = [45, 46, 47]
+  if (selected.includes('EV')) options.EV = TRAINING_OPTION_IDS.EV
+  if (selected.includes('LT')) options.LT = TRAINING_OPTION_IDS.LT
+  if (selected.includes('WB')) options.WB = TRAINING_OPTION_IDS.WB
   if (selected.includes('L')) options.L = [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58]
   return options
 }

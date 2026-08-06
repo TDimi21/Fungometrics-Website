@@ -8,6 +8,7 @@ import { useAccessStore } from '@/store/access.js'
 import { useTeamStore } from '@/store/team'
 import { useUserStore } from '@/store/user'
 import { canManageSubscriptions } from '@/utils/administration.js'
+import { resolvePlayerId, resolveTeamId } from '@/utils/identity.js'
 import { buildPlayerDevelopmentDashboard } from '../lib/playerDevelopmentDashboardAdapter.js'
 import PlayerIdentityCard from '../components/PlayerIdentityCard.vue'
 import PlayerCurrentBaselineCard from '../components/PlayerCurrentBaselineCard.vue'
@@ -40,8 +41,8 @@ const isPlayerUser = computed(() => String(userStore.userData?.type || '').toLow
 const canViewAdmin = computed(() => canManageSubscriptions(userStore.userData))
 const canAddToPlanner = computed(() => !isPlayerUser.value && access.canAccess('planner_create'))
 const routePlayerId = computed(() => route.params?.playerId || String(route.query?.playerId || '').trim() || null)
-const selfPlayerId = computed(() => userStore.userData?.id || userStore.userData?.user?.id || userStore.userData?.player?.id || null)
-const teamId = computed(() => team.value?.id || team.value?.id_team || userStore.userData?.team?.id || String(route.query?.teamId || '') || null)
+const selfPlayerId = computed(() => resolvePlayerId(userStore.userData))
+const teamId = computed(() => team.value?.id || team.value?.id_team || resolveTeamId(userStore.userData) || String(route.query?.teamId || '') || null)
 const playerId = computed(() => isPlayerUser.value ? (selfPlayerId.value || routePlayerId.value) : routePlayerId.value)
 const selectedPlayerName = computed(() => String(route.query?.playerName || route.query?.name || '').trim())
 const isEmptySelection = computed(() => !loading.value && !live.value && !playerId.value && !isPlayerUser.value)
@@ -215,8 +216,355 @@ watch(
 </template>
 
 <style scoped>
-.development-page{min-height:100vh;padding:12px;background:radial-gradient(circle at 88% 8%,#0c2a3b 0,transparent 25%),linear-gradient(145deg,#020a12,#031321 58%,#061b29);color:#edf5fa;font-family:Inter,system-ui,sans-serif;overflow-x:hidden}.report-toolbar{display:flex;align-items:center;gap:16px;max-width:1780px;margin:0 auto 12px;padding:8px 12px;border:1px solid #233f51;border-radius:9px;background:#06131f}.brand{display:flex;align-items:center;gap:12px}.brand b{font-size:17px;font-style:italic}.brand b span{color:#1ac2c0}.brand small{text-transform:uppercase;color:#91a5b3;font-size:9px;letter-spacing:.12em}.report-toolbar nav{display:flex;gap:5px}.report-toolbar nav a{padding:5px 10px;border:1px solid #2d4555;border-radius:4px;color:#b9c7cf;font-size:9px}.report-toolbar nav a.router-link-active{border-color:#ef3340;background:#661824;color:#fff}.tools{margin-left:auto;display:flex;align-items:center;gap:7px}.tools label{display:flex;align-items:center;gap:6px;color:#7790a0;font-size:8px;text-transform:uppercase}.tools select,.tools button{border:1px solid #2b485a;border-radius:5px;background:#091b29;padding:6px 8px;color:#d9e5ec;font-size:9px}.dashboard-grid{display:grid;grid-template-columns:minmax(250px,.9fr) minmax(320px,1.15fr) minmax(620px,2.2fr);gap:12px;max-width:1780px;margin:auto;align-items:start}.left-column,.center-column,.right-column{display:grid;gap:9px;min-width:0}.support-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.partial-notice{display:flex;gap:8px;max-width:1780px;margin:0 auto 9px;padding:8px 11px;border:1px solid #8e6d27;border-radius:7px;background:#5e471b55;color:#d9c38d;font-size:10px}.dashboard-skeleton{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:1500px;margin:auto}.skeleton-card{height:180px;border:1px solid #243d4e;border-radius:10px;padding:18px;background:#071725}.skeleton-card i{display:block;height:12px;margin-bottom:14px;border-radius:8px;background:linear-gradient(90deg,#172b3a,#294253,#172b3a);background-size:200%;animation:pulse 1.4s infinite}.skeleton-card i:nth-child(2){width:70%}.skeleton-card i:nth-child(3){width:45%}.state-card{max-width:760px;margin:50px auto;padding:30px;border:1px solid #29485b;border-radius:12px;background:#071725;text-align:center}.state-card h1{font-size:22px;font-weight:900;text-transform:uppercase}.state-card p{margin-top:6px;color:#91a6b5;font-size:12px}.state-card button{margin-top:14px;border:1px solid #ef3340;border-radius:5px;padding:7px 12px}.unauthorized{border-color:#7b3140}.error{border-color:#8d6727}.player-picker{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px;text-align:left}.player-picker a{padding:10px;border:1px solid #29495d;border-radius:7px}.player-picker span,.player-picker small{display:block}.player-picker small{color:#70889a;font-size:9px}.print-only{display:none}@keyframes pulse{to{background-position:-200%}}
-@media(max-width:1260px){.dashboard-grid{grid-template-columns:minmax(250px,.8fr) minmax(330px,1fr)}.left-column{grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr))}.left-column>*:first-child{grid-column:1/-1}.right-column{grid-column:1/-1}.support-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:820px){.report-toolbar{flex-wrap:wrap}.tools{width:100%;margin-left:0;justify-content:space-between}.dashboard-grid{grid-template-columns:1fr}.left-column,.center-column,.right-column{grid-column:1;grid-template-columns:1fr}.left-column>*:first-child{grid-column:1}.support-grid{grid-template-columns:1fr}.dashboard-skeleton{grid-template-columns:1fr}.player-picker{grid-template-columns:1fr}.brand small{display:none}}
-@media print{.development-page{background:#fff!important;color:#111;padding:0;overflow:visible}.no-print{display:none!important}.print-only{display:flex}.print-heading{justify-content:space-between;border-bottom:2px solid #222;padding:0 0 10px;margin-bottom:10px;color:#111}.dashboard-grid{grid-template-columns:28% 30% 42%;gap:6px;max-width:none}.dashboard-grid :deep(section),.dashboard-grid :deep(article),.dashboard-grid :deep(.pd-card),.dashboard-grid :deep(.score-card){break-inside:avoid;box-shadow:none;background:#fff!important;color:#111!important;border-color:#9aa4aa!important}.dashboard-grid :deep(*){text-shadow:none!important}.support-grid{grid-template-columns:1fr}.print-dashboard{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+.development-page {
+  min-height: 100vh;
+  padding: 12px;
+  background:
+    radial-gradient(circle at 88% 8%, #0c2a3b 0, transparent 25%),
+    linear-gradient(145deg, #020a12, #031321 58%, #061b29);
+  color: #edf5fa;
+  font-family: Inter, system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+.report-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 1780px;
+  margin: 0 auto 12px;
+  padding: 8px 12px;
+  border: 1px solid #233f51;
+  border-radius: 9px;
+  background: #06131f;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand b {
+  font-size: 17px;
+  font-style: italic;
+}
+
+.brand b span {
+  color: #1ac2c0;
+}
+
+.brand small {
+  text-transform: uppercase;
+  color: #91a5b3;
+  font-size: 9px;
+  letter-spacing: .12em;
+}
+
+.report-toolbar nav {
+  display: flex;
+  gap: 5px;
+}
+
+.report-toolbar nav a {
+  padding: 5px 10px;
+  border: 1px solid #2d4555;
+  border-radius: 4px;
+  color: #b9c7cf;
+  font-size: 9px;
+}
+
+.report-toolbar nav a.router-link-active {
+  border-color: #ef3340;
+  background: #661824;
+  color: #fff;
+}
+
+.tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tools label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #7790a0;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.tools select,
+.tools button {
+  border: 1px solid #2b485a;
+  border-radius: 5px;
+  background: #091b29;
+  padding: 6px 8px;
+  color: #d9e5ec;
+  font-size: 9px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, .9fr) minmax(320px, 1.15fr) minmax(620px, 2.2fr);
+  gap: 12px;
+  max-width: 1780px;
+  margin: auto;
+  align-items: start;
+}
+
+.left-column,
+.center-column,
+.right-column {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.partial-notice {
+  display: flex;
+  gap: 8px;
+  max-width: 1780px;
+  margin: 0 auto 9px;
+  padding: 8px 11px;
+  border: 1px solid #8e6d27;
+  border-radius: 7px;
+  background: #5e471b55;
+  color: #d9c38d;
+  font-size: 10px;
+}
+
+.dashboard-skeleton {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 1500px;
+  margin: auto;
+}
+
+.skeleton-card {
+  height: 180px;
+  border: 1px solid #243d4e;
+  border-radius: 10px;
+  padding: 18px;
+  background: #071725;
+}
+
+.skeleton-card i {
+  display: block;
+  height: 12px;
+  margin-bottom: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #172b3a, #294253, #172b3a);
+  background-size: 200%;
+  animation: pulse 1.4s infinite;
+}
+
+.skeleton-card i:nth-child(2) {
+  width: 70%;
+}
+
+.skeleton-card i:nth-child(3) {
+  width: 45%;
+}
+
+.state-card {
+  max-width: 760px;
+  margin: 50px auto;
+  padding: 30px;
+  border: 1px solid #29485b;
+  border-radius: 12px;
+  background: #071725;
+  text-align: center;
+}
+
+.state-card h1 {
+  font-size: 22px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.state-card p {
+  margin-top: 6px;
+  color: #91a6b5;
+  font-size: 12px;
+}
+
+.state-card button {
+  margin-top: 14px;
+  border: 1px solid #ef3340;
+  border-radius: 5px;
+  padding: 7px 12px;
+}
+
+.unauthorized {
+  border-color: #7b3140;
+}
+
+.error {
+  border-color: #8d6727;
+}
+
+.player-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.player-picker a {
+  padding: 10px;
+  border: 1px solid #29495d;
+  border-radius: 7px;
+}
+
+.player-picker span,
+.player-picker small {
+  display: block;
+}
+
+.player-picker small {
+  color: #70889a;
+  font-size: 9px;
+}
+
+.print-only {
+  display: none;
+}
+
+@keyframes pulse {
+  to {
+    background-position: -200%;
+  }
+}
+
+@media (max-width: 1260px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(250px, .8fr) minmax(330px, 1fr);
+  }
+
+  .left-column {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .left-column > *:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .right-column {
+    grid-column: 1 / -1;
+  }
+
+  .support-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .report-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .tools {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .left-column,
+  .center-column,
+  .right-column {
+    grid-column: 1;
+    grid-template-columns: 1fr;
+  }
+
+  .left-column > *:first-child {
+    grid-column: 1;
+  }
+
+  .support-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-skeleton {
+    grid-template-columns: 1fr;
+  }
+
+  .player-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .brand small {
+    display: none;
+  }
+}
+
+@media print {
+  .development-page {
+    background: #fff !important;
+    color: #111;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: flex;
+  }
+
+  .print-heading {
+    justify-content: space-between;
+    border-bottom: 2px solid #222;
+    padding: 0 0 10px;
+    margin-bottom: 10px;
+    color: #111;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 28% 30% 42%;
+    gap: 6px;
+    max-width: none;
+  }
+
+  .dashboard-grid :deep(section),
+  .dashboard-grid :deep(article),
+  .dashboard-grid :deep(.pd-card),
+  .dashboard-grid :deep(.score-card) {
+    break-inside: avoid;
+    box-shadow: none;
+    background: #fff !important;
+    color: #111 !important;
+    border-color: #9aa4aa !important;
+  }
+
+  .dashboard-grid :deep(*) {
+    text-shadow: none !important;
+  }
+
+  .support-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .print-dashboard {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
 </style>

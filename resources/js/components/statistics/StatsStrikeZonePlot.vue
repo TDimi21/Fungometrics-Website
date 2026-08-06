@@ -7,6 +7,7 @@
  * `pitch_mark` (60×60 grid). Dot color is caller-supplied via `colorOf`.
  */
 import { computed } from 'vue'
+import { markToColRow } from '@/features/player-home/lib/constants.js'
 
 const props = defineProps({
   balls: { type: Array, default: () => [] },
@@ -21,7 +22,7 @@ const MIN_ROW = 15, MAX_ROW = 45, MIN_COL = 16, MAX_COL = 45
 const decodeMark = (pm) => {
   const n = parseInt(pm, 10)
   if (!n || n < 1 || n > 3600) return null
-  return { row: ((n - 1) % 60) + 1, col: Math.ceil(n / 60) }
+  return markToColRow(n)
 }
 
 // Strike-zone box geometry in SVG units.

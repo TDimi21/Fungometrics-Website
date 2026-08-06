@@ -5,6 +5,7 @@ import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/vue'
 import Layout from '@/layout/Layout.vue'
 import { useUserStore } from '@/store/user'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
+import { TRAINING_OPTION_IDS } from '@/features/player-home/lib/constants.js'
 import { toast } from '@/utils/AlertPlugin'
 import SessionHeatmapPanel from '@/components/statistics/session/SessionHeatmapPanel.vue'
 import SessionVelocityGridPanel from '@/components/statistics/session/SessionVelocityGridPanel.vue'
@@ -1461,9 +1462,9 @@ const buildOptionsFromSession = () => {
   const key = selectedSession.value
   if (key === 'P') return { P: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28] }
   if (key === 'C') return { C: [29, 30, 31, 32, 33, 34] }
-  if (key === 'EV') return { EV: [35, 36, 37, 38] }
-  if (key === 'LT') return { LT: [39, 40, 41, 42, 43, 44] }
-  if (key === 'WB') return { WB: [45, 46, 47] }
+  if (key === 'EV') return { EV: TRAINING_OPTION_IDS.EV }
+  if (key === 'LT') return { LT: TRAINING_OPTION_IDS.LT }
+  if (key === 'WB') return { WB: TRAINING_OPTION_IDS.WB }
   if (key === 'L') return { L: [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58] }
   return { B: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] }
 }

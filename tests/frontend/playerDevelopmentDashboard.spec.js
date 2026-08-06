@@ -182,10 +182,10 @@ describe('Player Development Dashboard redesign', () => {
   })
 
   it('contains desktop, tablet, mobile, support-card, and print behavior', () => {
-    expect(page).toContain('minmax(250px,.9fr) minmax(320px,1.15fr) minmax(620px,2.2fr)')
-    expect(page).toContain('@media(max-width:1260px)')
-    expect(page).toContain('@media(max-width:820px)')
-    expect(page).toContain('overflow-x:hidden')
+    expect(page).toContain('minmax(250px, .9fr) minmax(320px, 1.15fr) minmax(620px, 2.2fr)')
+    expect(page).toContain('@media (max-width: 1260px)')
+    expect(page).toContain('@media (max-width: 820px)')
+    expect(page).toContain('overflow-x: hidden')
     for (const card of ['RecoverySleepCard', 'StrengthMetricsCard', 'MobilityAssessmentCard']) expect(page).toContain(card)
     expect(page).toContain('@media print')
     expect(page).toContain('print-dashboard')
