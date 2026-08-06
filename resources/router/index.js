@@ -133,7 +133,7 @@ const routes = [
 	{
 		name: "playerDashboard",
 		path: "/player-dashboard",
-		component: () => import("@/pages/dashboard/Player.vue"),
+		component: () => import("@/features/player-home/pages/PlayerHomeDashboard.vue"),
 		meta: { requiresAuth: true },
 	},
 	{

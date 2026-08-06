@@ -10,7 +10,8 @@ const summary = source('resources/js/components/rapsodo/RapsodoPitchTypeSummary.
 const page = source('resources/js/pages/data-hub/RapsodoPitchingSessionReportPage.vue')
 const router = source('resources/router/index.js')
 const dataHub = source('resources/js/pages/data-hub/DataHubDashboard.vue')
-const playerDashboard = source('resources/js/pages/dashboard/Player.vue')
+const playerDashboard = source('resources/js/features/player-home/pages/PlayerHomeDashboard.vue')
+const playerProfileCard = source('resources/js/features/player-home/components/ProfileCard.vue')
 const sessions = source('resources/js/pages/training/AllSessions.vue')
 
 describe('Rapsodo Pitching Session Report', () => {
@@ -81,8 +82,8 @@ describe('Rapsodo Pitching Session Report', () => {
   it('links only eligible completed Rapsodo imports from report locations', () => {
     expect(dataHub).toContain("item.platform === 'Rapsodo'")
     expect(dataHub).toContain('View Report')
-    expect(playerDashboard).toContain("safeGet('data-hub/rapsodo-reports')")
-    expect(playerDashboard).toContain('View Rapsodo Report')
+    expect(playerDashboard).toContain("axiosGet('data-hub/rapsodo-reports')")
+    expect(playerProfileCard).toContain('View Rapsodo Report')
     expect(sessions).toContain("axiosGet('data-hub/rapsodo-reports')")
     expect(sessions).toContain("_reportType: 'rapsodo'")
   })
