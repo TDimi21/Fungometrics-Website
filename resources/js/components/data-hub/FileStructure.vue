@@ -1,72 +1,101 @@
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
   inspection: { type: Object, required: true },
   applying: { type: Boolean, default: false },
 })
-const emit = defineEmits(['apply'])
+const emit = defineEmits(['preview', 'apply'])
 const model = props.inspection.normalized_inspection
-const form = reactive({
-  layout: model.detected_layout,
-  header_row: model.header_row,
-  first_data_row: model.first_data_row,
-  player_column: model.player_column || '',
-  metric_column: model.metric_column || '',
-  player_id_column: model.player_id_column || '',
-  date_column: model.date_column || '',
-  ignored_rows_text: (model.ignored_rows || []).join(', '),
-  worksheet_index: model.selected_worksheet_index || 0,
-  ignored_rows: [...(model.ignored_rows || [])],
-  ignored_columns: [...(model.ignored_columns || [])],
-})
-const layouts = [
-  ['players_in_rows', 'Players are listed in rows'],
-  ['players_in_columns', 'Players are listed across columns'],
-  ['events_in_rows', 'Each row is an event'],
-  ['worksheet_per_player', 'One worksheet per player'],
-  ['single_player_session', 'One player owns the entire file'],
-  ['unknown', 'Use FMTRX detected layout'],
-]
+const worksheetIndex = ref(model.selected_worksheet_index || 0)
+const orientation = ref(
+  ['players_in_rows', 'events_in_rows'].includes(model.detected_layout) ? 'column'
+    : model.detected_layout === 'players_in_columns' ? 'row'
+    : model.detected_layout === 'single_player_session' ? 'single' : ''
+)
+const playerColumn = ref(model.player_column || '')
+const metricColumn = ref(orientation.value === 'row' ? (model.metric_column || '') : '')
+const headerRow = ref(model.header_row)
+const firstDataRow = ref(model.first_data_row)
+const showAdvanced = ref(false)
+
 const headers = computed(() => model.metric_header_candidates || [])
-const letters = index => {
-  let value = index + 1
-  let label = ''
-  while (value) {
-    value--
-    label = String.fromCharCode(65 + value % 26) + label
-    value = Math.floor(value / 26)
-  }
-  return label
+const orientations = [
+  ['column', 'Player names run down a column', 'One row per event — every row lists which player it belongs to.'],
+  ['row', 'Each player has their own column', 'Player names are the column titles across the top; each column holds one player’s numbers.'],
+  ['single', 'This whole file is one player', 'No player column at all — every row belongs to a single roster player you’ll pick next.'],
+]
+const chooseOrientation = key => {
+  orientation.value = key
+  playerColumn.value = ''
+  metricColumn.value = ''
 }
-const apply = () => emit('apply', {
-  ...form,
-  ignored_rows: form.ignored_rows_text.split(',').map(value => Number(value.trim())).filter(Number.isInteger),
+const structure = () => ({
+  worksheet_index: worksheetIndex.value,
+  header_row: headerRow.value,
+  first_data_row: firstDataRow.value,
+  layout: orientation.value === 'column' ? 'players_in_rows' : orientation.value === 'row' ? 'players_in_columns' : 'single_player_session',
+  ...(orientation.value === 'column' ? { player_column: playerColumn.value } : {}),
+  ...(orientation.value === 'row' ? { metric_column: metricColumn.value } : {}),
 })
+const ready = computed(() => {
+  if (orientation.value === 'column') return Boolean(playerColumn.value)
+  if (orientation.value === 'row') return Boolean(metricColumn.value)
+  return orientation.value === 'single'
+})
+const visibleWarnings = computed(() => (props.inspection.warnings || []).filter(warning => !warning.includes('Confirm the file structure')))
+watch([orientation, playerColumn, metricColumn, headerRow, firstDataRow, worksheetIndex], () => {
+  if (ready.value) emit('preview', structure())
+}, { immediate: true })
+const confirm = () => emit('apply', structure())
 </script>
 
 <template>
   <section class="structure">
-    <header><span>File structure confirmation</span><h3>How is this spreadsheet organized?</h3><p>FMTRX detected <strong>{{ model.detected_layout.replaceAll('_',' ') }}</strong> at {{ Math.round(model.layout_confidence * 100) }}% confidence. Confirm or correct it before Player Mapping.</p></header>
-    <div class="layout-options"><label v-for="[key,label] in layouts" :key="key"><input v-model="form.layout" type="radio" :value="key"> {{ label }}</label></div>
-    <div class="controls">
-      <label v-if="model.worksheets.length > 1">Worksheet<select v-model.number="form.worksheet_index"><option v-for="(sheet,index) in model.worksheets" :key="sheet.name" :value="index">{{ sheet.name }} · {{ sheet.row_count }} rows</option></select></label>
-      <label>Header row<input v-model.number="form.header_row" type="number" min="1" :max="model.worksheets[form.worksheet_index]?.row_count || 1"></label>
-      <label>First data row<input v-model.number="form.first_data_row" type="number" :min="form.header_row + 1" :max="(model.worksheets[form.worksheet_index]?.row_count || 1) + 1"></label>
-      <label>Player-name column<select v-model="form.player_column"><option value="">No player column</option><option v-for="header in headers" :key="header">{{ header }}</option></select></label>
-      <label>Metric-name column<select v-model="form.metric_column"><option value="">Not selected</option><option v-for="header in headers" :key="header">{{ header }}</option></select></label>
-      <label>Player-ID column<select v-model="form.player_id_column"><option value="">Not selected</option><option v-for="header in headers" :key="header">{{ header }}</option></select></label>
-      <label>Date column<select v-model="form.date_column"><option value="">Not selected</option><option v-for="header in headers" :key="header">{{ header }}</option></select></label>
-      <label>Rows to ignore<input v-model="form.ignored_rows_text" type="text" placeholder="Example: 1, 2, 9"></label>
+    <header><span>Player identification</span><h3>Where are the player names in this file?</h3><p>FMTRX read the header row below. Pick how this spreadsheet is organized, then click the column that holds player names.</p></header>
+
+    <label v-if="model.worksheets.length > 1" class="worksheet-picker">Worksheet<select v-model.number="worksheetIndex"><option v-for="(sheet,index) in model.worksheets" :key="sheet.name" :value="index">{{ sheet.name }} · {{ sheet.row_count }} rows</option></select></label>
+
+    <div class="orientation-options">
+      <button v-for="[key,label,help] in orientations" :key="key" type="button" :class="{active: orientation===key}" @click="chooseOrientation(key)">
+        <strong>{{ label }}</strong><span>{{ help }}</span>
+      </button>
     </div>
-    <fieldset><legend>Columns to ignore</legend><label v-for="header in headers" :key="header"><input v-model="form.ignored_columns" type="checkbox" :value="header"> {{ header }}</label></fieldset>
-    <div class="preview"><table><thead><tr><th>#</th><th v-for="(header,index) in headers" :key="header">{{ letters(index) }} · {{ header }}</th></tr></thead><tbody><tr v-for="row in model.preview_rows" :key="row.row_number"><th>{{ row.row_number }}</th><td v-for="header in headers" :key="header" :class="{player:header===form.player_column}">{{ row.values[header] }}</td></tr></tbody></table></div>
-    <p v-if="inspection.warnings.length" class="warning">{{ inspection.warnings.join(' ') }}</p>
-    <button type="button" :disabled="applying" @click="apply">{{ applying ? 'Refreshing preview…' : 'Confirm Structure & Refresh Preview' }}</button>
+
+    <div v-if="orientation==='column' || orientation==='row'" class="header-picker">
+      <p>{{ orientation === 'column' ? 'Click the column that lists player names:' : 'Click the column that lists the measurement names (every other column will be treated as a player):' }}</p>
+      <div class="header-chips">
+        <button v-for="header in headers" :key="header" type="button" :class="{active: (orientation==='column'?playerColumn:metricColumn)===header}" @click="orientation==='column' ? playerColumn=header : metricColumn=header">{{ header }}</button>
+      </div>
+    </div>
+
+    <div v-if="applying" class="scanning">Scanning for players…</div>
+    <div v-else-if="ready" class="players-found">
+      <strong>{{ inspection.counts.players_found }} player{{ inspection.counts.players_found === 1 ? '' : 's' }} found</strong>
+      <ul v-if="inspection.players.length"><li v-for="player in inspection.players" :key="player.source_key">{{ player.source_name }}<span>{{ player.row_count }} rows</span></li></ul>
+      <p v-else class="empty">No player names were found there. Try a different column or orientation.</p>
+    </div>
+
+    <button type="button" class="advanced-toggle" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? 'Hide advanced options' : 'This doesn’t look right — adjust header row' }}</button>
+    <div v-if="showAdvanced" class="advanced">
+      <label>Header row<input v-model.number="headerRow" type="number" min="1"></label>
+      <label>First data row<input v-model.number="firstDataRow" type="number" :min="headerRow+1"></label>
+    </div>
+
+    <p v-if="visibleWarnings.length" class="warning">{{ visibleWarnings.join(' ') }}</p>
+    <button type="button" class="confirm-button" :disabled="!ready || applying" @click="confirm">{{ applying ? 'Scanning…' : 'Looks good — Continue to Player Mapping' }}</button>
   </section>
 </template>
 
 <style scoped>
-.structure{display:grid;gap:16px}.structure header{padding:18px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(5,12,29,.55)}span{color:#ff4964;font-size:9px;font-weight:900;text-transform:uppercase}.structure h3{margin:5px 0;color:#fff}.structure p{color:#94a3b8}.layout-options{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.layout-options label,.controls label{padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#d8e1ef}.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.controls label{display:grid;gap:7px;font-size:10px;text-transform:uppercase}.controls select,.controls input{min-height:40px;padding:0 9px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:#0b142c;color:#fff}.preview{max-height:360px;overflow:auto;border:1px solid rgba(255,255,255,.1);border-radius:11px}table{min-width:100%;border-collapse:collapse;color:#d8e1ef;font-size:10px}th,td{padding:9px;border:1px solid rgba(255,255,255,.07);white-space:nowrap}thead{position:sticky;top:0;background:#101a35}.player{background:rgba(59,211,154,.12)}button{justify-self:start;padding:12px 16px;border:0;border-radius:9px;background:#ff2b4a;color:#fff;font-weight:900}.warning{color:#ffd38a}@media(max-width:700px){.layout-options,.controls{grid-template-columns:1fr}}
-fieldset{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#d8e1ef}fieldset label{font-size:10px}
+.structure{display:grid;gap:16px}.structure header{padding:18px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(5,12,29,.55)}.structure header span{color:#ff4964;font-size:9px;font-weight:900;text-transform:uppercase}.structure h3{margin:5px 0;color:#fff}.structure p{color:#94a3b8}
+.worksheet-picker{display:grid;gap:7px;max-width:280px;font-size:10px;color:#94a3b8;text-transform:uppercase}.worksheet-picker select{min-height:40px;padding:0 9px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:#0b142c;color:#fff}
+.orientation-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.orientation-options button{display:flex;flex-direction:column;gap:6px;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.03);color:#d8e1ef;text-align:left}.orientation-options button strong{color:#fff;font-size:13px}.orientation-options button span{color:#94a3b8;font-size:11px}.orientation-options button.active{border-color:#ff2b4a;background:rgba(255,43,74,.1)}
+.header-picker p{margin-bottom:8px;color:#d8e1ef;font-size:12px}.header-chips{display:flex;flex-wrap:wrap;gap:7px}.header-chips button{padding:9px 13px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:rgba(255,255,255,.04);color:#cbd5e1;font-size:11px;font-weight:700}.header-chips button.active{border-color:#3bd39a;background:rgba(59,211,154,.14);color:#7cf0c4}
+.scanning{padding:13px;border:1px solid rgba(255,255,255,.1);border-radius:11px;color:#94a3b8;font-size:12px}
+.players-found{padding:14px;border:1px solid rgba(59,211,154,.25);border-radius:12px;background:rgba(59,211,154,.06)}.players-found strong{color:#7cf0c4;font-size:14px}.players-found ul{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin-top:10px;max-height:220px;overflow-y:auto}.players-found li{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:rgba(5,12,29,.5);color:#d8e1ef;font-size:11px}.players-found li span{color:#94a3b8}.players-found .empty{margin-top:8px;color:#ffb43b;font-size:12px}
+.advanced-toggle{justify-self:start;border:0;background:transparent;color:#8f9bb8;font-size:10px;text-decoration:underline;text-transform:uppercase}.advanced{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:10px}.advanced label{display:grid;gap:7px;color:#94a3b8;font-size:10px;text-transform:uppercase}.advanced input{min-height:40px;padding:0 9px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:#0b142c;color:#fff}
+.warning{color:#ffd38a;font-size:12px}
+.confirm-button{justify-self:start;padding:13px 18px;border:0;border-radius:9px;background:#ff2b4a;color:#fff;font-weight:900;text-transform:uppercase;font-size:11px}.confirm-button:disabled{opacity:.4}
+@media(max-width:700px){.orientation-options{grid-template-columns:1fr}.advanced{grid-template-columns:1fr}}
 </style>

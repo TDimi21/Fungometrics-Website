@@ -27,13 +27,13 @@ final class PlayerMappingController extends Controller
     {
         $data = $request->validate([
             'team_id' => ['required', 'uuid', 'exists:teams,id'],
-            'platform' => ['required', 'in:trackman,hittrax,rapsodo,blast-motion'],
+            'platform' => ['required', 'in:trackman,hittrax,rapsodo,blast-motion,generic-csv'],
             'mappings' => ['required', 'array', 'min:1'],
             'mappings.*.source_key' => ['required', 'string', 'max:255'],
             'mappings.*.source_name' => ['required', 'string', 'max:255'],
             'mappings.*.external_player_id' => ['nullable', 'string', 'max:96'],
             'mappings.*.roles' => ['required', 'array'],
-            'mappings.*.roles.*' => ['in:batter,pitcher'],
+            'mappings.*.roles.*' => ['in:batter,pitcher,player'],
             'mappings.*.fmtrx_player_id' => ['nullable', 'uuid'],
             'mappings.*.not_importing' => ['required', 'boolean'],
             'mappings.*.remember_mapping' => ['boolean'],

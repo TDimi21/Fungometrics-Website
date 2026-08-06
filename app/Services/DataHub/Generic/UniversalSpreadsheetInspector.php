@@ -26,54 +26,14 @@ final class UniversalSpreadsheetInspector
     /** @param array<string, mixed> $override */
     public function inspect(ImportFileMetadata $file, array $override = []): array
     {
-        $tables = match (mb_strtolower($file->extension)) {
-            'csv' => [$this->delimited($file, ',')],
-            'tsv' => [$this->delimited($file, "\t")],
-            'xlsx' => $this->workbook($file),
-            default => throw new TranslationFailureException($this->failures->warning(
-                'unsupported_file_type',
-                ['extension' => mb_strtolower($file->extension)],
-            )),
-        };
-        if ([] === $tables) {
-            throw new TranslationFailureException($this->failures->warning(
-                'missing_header',
-                ['file_type' => mb_strtolower($file->extension)],
-            ));
-        }
-
-        $selectedIndex = min(max((int) ($override['worksheet_index'] ?? 0), 0), count($tables) - 1);
-        $table = $tables[$selectedIndex];
-        $headerRow = (int) ($override['header_row'] ?? $this->detectHeaderRow($table['rows']));
-        if ($headerRow < 1 || $headerRow > count($table['rows'])) {
-            throw new TranslationFailureException($this->failures->warning(
-                'missing_header',
-                ['worksheet' => $table['name']],
-            ));
-        }
-        $firstDataRow = (int) ($override['first_data_row'] ?? ($headerRow + 1));
-        if ($firstDataRow <= $headerRow || $firstDataRow > count($table['rows']) + 1) {
-            throw new RuntimeException('The first data row must follow the header and stay inside the detected table.');
-        }
-
-        $headers = $this->headers($table['rows'][$headerRow - 1] ?? []);
-        $ignoredRows = array_map('intval', (array) ($override['ignored_rows'] ?? []));
-        if ([] !== array_filter($ignoredRows, fn (int $row): bool => $row < 1 || $row > count($table['rows']))) {
-            throw new RuntimeException('An ignored row is outside the detected table bounds.');
-        }
-        $records = $this->records($table['rows'], $headers, $firstDataRow, $ignoredRows);
-        $layout = (string) ($override['layout'] ?? $this->detectLayout($headers, $records, $tables));
-        $playerColumn = (string) ($override['player_column'] ?? $this->detectPlayerColumn($headers));
-        $metricColumn = (string) ($override['metric_column'] ?? ($headers[0] ?? ''));
-        foreach (['player_column' => $playerColumn, 'metric_column' => $metricColumn, 'player_id_column' => (string) ($override['player_id_column'] ?? ''), 'date_column' => (string) ($override['date_column'] ?? '')] as $label => $column) {
-            if ('' !== $column && ! in_array($column, $headers, true)) {
-                throw new RuntimeException(str_replace('_', ' ', ucfirst($label)).' is outside the detected table bounds.');
-            }
-        }
-        $ignoredColumns = array_values(array_intersect($headers, (array) ($override['ignored_columns'] ?? [])));
-        $activeHeaders = array_values(array_diff($headers, $ignoredColumns));
-        $players = $this->players($layout, $playerColumn, $metricColumn, $activeHeaders, $records, $tables);
-        $sourceColumns = $this->sourceColumns($layout, $playerColumn, $metricColumn, $activeHeaders, $records);
+        [
+            'table' => $table, 'tables' => $tables, 'selectedIndex' => $selectedIndex,
+            'headerRow' => $headerRow, 'firstDataRow' => $firstDataRow, 'headers' => $headers,
+            'ignoredRows' => $ignoredRows, 'records' => $records, 'layout' => $layout,
+            'playerColumn' => $playerColumn, 'metricColumn' => $metricColumn,
+            'ignoredColumns' => $ignoredColumns, 'activeHeaders' => $activeHeaders,
+            'players' => $players, 'sourceColumns' => $sourceColumns,
+        ] = $this->resolve($file, $override);
         $confidence = $this->layoutConfidence($layout, $playerColumn, $tables);
         $needsConfirmation = 'unknown' === $layout || $confidence < 0.85 || 'generic-csv' === ($override['platform'] ?? 'generic-csv');
         $warnings = $table['warnings'];
@@ -85,9 +45,8 @@ final class UniversalSpreadsheetInspector
         }
 
         $preview = array_slice(array_map(
-            fn (array $row, int $index): array => ['row_number' => $firstDataRow + $index, 'values' => $this->sanitizeRow($row, $activeHeaders)],
-            $records,
-            array_keys($records)
+            fn (array $row): array => ['row_number' => $row['_row_number'], 'values' => $this->sanitizeRow($row, $activeHeaders)],
+            $records
         ), 0, 15);
 
         return [
@@ -138,6 +97,104 @@ final class UniversalSpreadsheetInspector
             'template_fingerprint' => $this->fingerprints->fingerprint(array_column($sourceColumns, 'source_column_name')),
             'destination_recommendation' => ['detected_data_type' => 'generic', 'recommended' => [], 'selected' => null, 'advisory_only' => true],
         ];
+    }
+
+    /**
+     * Full-fidelity extraction used at import time: every record (not the 15-row
+     * inspection preview), grouped by the approved structure so the persistence
+     * layer can write one session per identified player.
+     *
+     * @param array<string, mixed> $structure
+     */
+    public function extract(ImportFileMetadata $file, array $structure): array
+    {
+        [
+            'layout' => $layout, 'playerColumn' => $playerColumn, 'metricColumn' => $metricColumn,
+            'activeHeaders' => $activeHeaders, 'records' => $records, 'players' => $players,
+            'sourceColumns' => $sourceColumns,
+        ] = $this->resolve($file, $structure);
+
+        return [
+            'layout' => $layout,
+            'player_column' => $playerColumn ?: null,
+            'metric_column' => $metricColumn ?: null,
+            'headers' => $activeHeaders,
+            'records' => $records,
+            'players' => $players,
+            'source_columns' => array_column($sourceColumns, 'source_column_name'),
+            'template_fingerprint' => $this->fingerprints->fingerprint(array_column($sourceColumns, 'source_column_name')),
+        ];
+    }
+
+    /** @param array<string, mixed> $override */
+    private function resolve(ImportFileMetadata $file, array $override): array
+    {
+        $tables = match (mb_strtolower($file->extension)) {
+            'csv' => [$this->delimited($file, ',')],
+            'tsv' => [$this->delimited($file, "\t")],
+            'xlsx' => $this->workbook($file),
+            default => throw new TranslationFailureException($this->failures->warning(
+                'unsupported_file_type',
+                ['extension' => mb_strtolower($file->extension)],
+            )),
+        };
+        if ([] === $tables) {
+            throw new TranslationFailureException($this->failures->warning(
+                'missing_header',
+                ['file_type' => mb_strtolower($file->extension)],
+            ));
+        }
+
+        $selectedIndex = min(max((int) ($override['worksheet_index'] ?? 0), 0), count($tables) - 1);
+        $table = $tables[$selectedIndex];
+        $headerRow = (int) ($override['header_row'] ?? $this->detectHeaderRow($table['rows']));
+        if ($headerRow < 1 || $headerRow > count($table['rows'])) {
+            throw new TranslationFailureException($this->failures->warning(
+                'missing_header',
+                ['worksheet' => $table['name']],
+            ));
+        }
+        $firstDataRow = (int) ($override['first_data_row'] ?? ($headerRow + 1));
+        if ($firstDataRow <= $headerRow || $firstDataRow > count($table['rows']) + 1) {
+            throw new RuntimeException('The first data row must follow the header and stay inside the detected table.');
+        }
+
+        $headers = $this->headers($table['rows'][$headerRow - 1] ?? []);
+        $ignoredRows = array_map('intval', (array) ($override['ignored_rows'] ?? []));
+        if ([] !== array_filter($ignoredRows, fn (int $row): bool => $row < 1 || $row > count($table['rows']))) {
+            throw new RuntimeException('An ignored row is outside the detected table bounds.');
+        }
+        $records = $this->records($table['rows'], $headers, $firstDataRow, $ignoredRows);
+        $layout = (string) ($override['layout'] ?? $this->detectLayout($headers, $records, $tables));
+        $playerColumn = (string) ($override['player_column'] ?? $this->detectPlayerColumn($headers));
+        $metricColumn = (string) ($override['metric_column'] ?? ($headers[0] ?? ''));
+        foreach (['player_column' => $playerColumn, 'metric_column' => $metricColumn, 'player_id_column' => (string) ($override['player_id_column'] ?? ''), 'date_column' => (string) ($override['date_column'] ?? '')] as $label => $column) {
+            if ('' !== $column && ! in_array($column, $headers, true)) {
+                throw new RuntimeException(str_replace('_', ' ', ucfirst($label)).' is outside the detected table bounds.');
+            }
+        }
+        $ignoredColumns = array_values(array_intersect($headers, (array) ($override['ignored_columns'] ?? [])));
+        $activeHeaders = array_values(array_diff($headers, $ignoredColumns));
+        $players = $this->players($layout, $playerColumn, $metricColumn, $activeHeaders, $records, $tables);
+        $sourceColumns = $this->sourceColumns($layout, $playerColumn, $metricColumn, $activeHeaders, $records);
+
+        return compact(
+            'table',
+            'tables',
+            'selectedIndex',
+            'headerRow',
+            'firstDataRow',
+            'headers',
+            'ignoredRows',
+            'records',
+            'layout',
+            'playerColumn',
+            'metricColumn',
+            'ignoredColumns',
+            'activeHeaders',
+            'players',
+            'sourceColumns'
+        );
     }
 
     /** @return array{name: string, rows: array<int, array<int, string>>, blank_rows: int, warnings: array<int, string>} */
@@ -259,7 +316,9 @@ final class UniversalSpreadsheetInspector
             if (in_array($rowNumber, $ignoredRows, true) || [] === array_filter($values, fn ($value): bool => '' !== trim((string) $value))) {
                 continue;
             }
-            $records[] = array_combine($headers, array_pad(array_slice($values, 0, count($headers)), count($headers), ''));
+            $record = array_combine($headers, array_pad(array_slice($values, 0, count($headers)), count($headers), ''));
+            $record['_row_number'] = $rowNumber;
+            $records[] = $record;
         }
 
         return $records;

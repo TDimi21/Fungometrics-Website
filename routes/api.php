@@ -221,6 +221,7 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
         Route::post('player-mappings/approve', [PlayerMappingController::class, 'approve'])->middleware('throttle:20,1');
         Route::post('imports/blast', [\App\Http\Controllers\Api\DataHub\BlastImportController::class, 'store'])->middleware('throttle:10,1');
         Route::post('imports/rapsodo', [\App\Http\Controllers\Api\DataHub\RapsodoImportController::class, 'store'])->middleware('throttle:10,1');
+        Route::post('imports/generic', [\App\Http\Controllers\Api\DataHub\GenericImportController::class, 'store'])->middleware('throttle:10,1');
         Route::get('imports', [\App\Http\Controllers\Api\DataHub\BlastImportController::class, 'history']);
         Route::get('imports/{batch}/blast-report', \App\Http\Controllers\Api\DataHub\BlastSessionDevelopmentReportController::class);
         Route::get('players/{player}/metrics', [\App\Http\Controllers\Api\DataHub\BlastImportController::class, 'playerMetrics']);

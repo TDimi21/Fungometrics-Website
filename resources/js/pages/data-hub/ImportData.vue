@@ -50,6 +50,7 @@ const importing = ref(false)
 const importResult = ref(null)
 const importError = ref('')
 const structurePending = ref(false)
+const confirmedStructure = ref(null)
 const sessionValues = {
   Cage: 'cage', 'Live AB': 'live_ab', Bullpen: 'bullpen', Strength: 'strength',
   Mobility: 'mobility', Assessment: 'assessment', 'Batting Practice': 'batting_practice',
@@ -57,8 +58,8 @@ const sessionValues = {
   'Exit Velocity': 'exit_velocity', 'Speed & Agility': 'speed_agility', Recovery: 'recovery',
 }
 const selectedPlatform = computed(() => DATA_HUB_PLATFORMS.find(item => item.key === platformKey.value) || null)
-const isLiveImport = computed(() => ['blast-motion', 'rapsodo'].includes(platformKey.value))
-const importedEventLabel = computed(() => platformKey.value === 'rapsodo' ? 'pitches' : 'swings')
+const isLiveImport = computed(() => ['blast-motion', 'rapsodo', 'generic-csv'].includes(platformKey.value))
+const importedEventLabel = computed(() => platformKey.value === 'rapsodo' ? 'pitches' : platformKey.value === 'generic-csv' ? 'rows' : 'swings')
 const selectedTeam = computed(() => teams.value.find(item => String(item?.id_team ?? item?.id ?? '') === teamId.value) || null)
 const allowedSessionTypes = computed(() => DATA_HUB_SESSION_TYPES)
 const mappingValues = computed(() => Object.values(mappings).filter(Boolean))
@@ -127,6 +128,7 @@ const setPlatform = nextKey => {
     Object.keys(mappings).forEach(key => delete mappings[key])
     Object.keys(columnEntries).forEach(key => delete columnEntries[key])
   }
+  confirmedStructure.value = null
   sessionType.value = nextKey === 'rapsodo' ? 'Bullpen' : (nextKey === 'blast-motion' ? 'Batting Practice' : '')
   inspectionError.value = ['trackman', 'hittrax', 'rapsodo', 'blast-motion', 'generic-csv'].includes(nextKey) ? '' : 'This platform is not available for inspection yet.'
 }
@@ -139,6 +141,7 @@ const setFile = file => {
   Object.keys(columnEntries).forEach(key => delete columnEntries[key])
   playerMappingApproved.value = false
   mappingApproved.value = false
+  confirmedStructure.value = null
 }
 const setTeam = async value => {
   if (teamId.value !== value && inspection.value) {
@@ -182,7 +185,7 @@ const loadTeamPlayers = async () => {
   const response = await axiosGet('data-hub/player-mappings/roster', { team_id: teamId.value })
   teamPlayers.value = response.data.data
 }
-const inspectFile = async (structure = null) => {
+const inspectFile = async (structure = null, { finalize = false } = {}) => {
   inspectionError.value = ''
   inspecting.value = true
   const form = new FormData()
@@ -196,7 +199,7 @@ const inspectFile = async (structure = null) => {
     inspection.value = response.data.data
     structurePending.value = Boolean(
       inspection.value.normalized_inspection?.requires_structure_confirmation
-    ) && !structure
+    ) && !(structure && finalize)
     Object.keys(mappings).forEach(key => delete mappings[key])
     inspection.value.players.forEach(player => {
       const automatic = player.suggested_matches?.find(match => match.auto_select)
@@ -248,9 +251,12 @@ const inspectFile = async (structure = null) => {
     inspecting.value = false
   }
 }
-const applyStructure = async structure => {
+const previewStructure = async structure => {
   await inspectFile(structure)
-  structurePending.value = false
+}
+const applyStructure = async structure => {
+  confirmedStructure.value = structure
+  await inspectFile(structure, { finalize: true })
 }
 const next = async () => {
   if (!canContinue.value) return
@@ -277,11 +283,6 @@ const approvePlayerMapping = async () => {
   mappingError.value = ''
   approvingPlayers.value = true
   try {
-    if (platformKey.value === 'generic-csv') {
-      playerMappingApproved.value = true
-      step.value = 5
-      return
-    }
     await axiosPost('data-hub/player-mappings/approve', {
       team_id: teamId.value,
       platform: platformKey.value,
@@ -333,11 +334,6 @@ const approveColumnMapping = async () => {
     metadata: entry.metadata || null,
   }))
   try {
-    if (platformKey.value === 'generic-csv') {
-      mappingApproved.value = true
-      step.value = 6
-      return
-    }
     await axiosPost('data-hub/mappings/approve', {
       team_id: teamId.value,
       platform: platformKey.value,
@@ -393,6 +389,7 @@ const clearWorkflow = () => {
   importResult.value = null
   importError.value = ''
   structurePending.value = false
+  confirmedStructure.value = null
 }
 const cancel = () => {
   clearWorkflow()
@@ -406,16 +403,23 @@ const finishInspection = async () => {
   importing.value = true
   importError.value = ''
   const form = new FormData()
-  form.append('platform', platformKey.value)
   form.append('team_id', teamId.value)
-  form.append('player_id', mappings[inspection.value.players[0].source_key])
   form.append('destination', sessionValues[sessionType.value])
   form.append('template_fingerprint', inspection.value.template_fingerprint)
   form.append('file', selectedFile.value)
   try {
-    const response = platformKey.value === 'rapsodo'
-      ? await axiosPost('data-hub/imports/rapsodo', form)
-      : await axiosPost('data-hub/imports/blast', form)
+    let response
+    if ('generic-csv' === platformKey.value) {
+      form.append('structure', JSON.stringify(confirmedStructure.value))
+      form.append('player_mappings', JSON.stringify(mappings))
+      response = await axiosPost('data-hub/imports/generic', form)
+    } else {
+      form.append('platform', platformKey.value)
+      form.append('player_id', mappings[inspection.value.players[0].source_key])
+      response = platformKey.value === 'rapsodo'
+        ? await axiosPost('data-hub/imports/rapsodo', form)
+        : await axiosPost('data-hub/imports/blast', form)
+    }
     importResult.value = response.data.data
     inspectionComplete.value = true
   } catch (error) {
@@ -447,19 +451,19 @@ onBeforeRouteLeave(clearWorkflow)
   <Layout>
     <section class="data-hub-shell">
       <header class="data-hub-hero">
-        <div><span class="eyebrow">FMTRX Data Hub</span><h1>Import Data</h1><p>Inspect and map source data, then save approved Blast and Rapsodo sessions to FMTRX.</p></div>
-        <div class="phase-badge"><strong>Live Import</strong><span>Blast + Rapsodo</span></div>
+        <div><span class="eyebrow">FMTRX Data Hub</span><h1>Import Data</h1><p>Inspect and map source data, then save approved sessions to FMTRX.</p></div>
+        <div class="phase-badge"><strong>Live Import</strong><span>Blast + Rapsodo + Generic</span></div>
       </header>
       <ImportStepper :current-step="step" />
       <div class="wizard-card">
         <div class="wizard-heading">
-        <div><span>Step {{ step }} of 6</span><h2>{{ ['Choose a data platform','Select a data file','Choose the destination','Map imported players','Map source columns','Review normalized data'][step - 1] }}</h2></div>
+        <div><span>Step {{ step }} of 6</span><h2>{{ step === 4 && structurePending ? 'Identify players' : ['Choose a data platform','Select a data file','Choose the destination','Map imported players','Map source columns','Review normalized data'][step - 1] }}</h2></div>
           <p>{{ step === 3 ? 'Continue uploads the file privately for inspection.' : isLiveImport ? 'FMTRX records are created only after final import approval.' : 'This platform remains inspection-only.' }}</p>
         </div>
         <PlatformSelector v-if="step === 1" :platforms="DATA_HUB_PLATFORMS" :model-value="platformKey" @update:model-value="setPlatform" />
         <FileDropzone v-else-if="step === 2" :model-value="selectedFile" :error="fileError" :warning="fileWarning" :max-size-bytes="DATA_HUB_MAX_FILE_SIZE_BYTES" @update:model-value="setFile" />
         <DestinationSelector v-else-if="step === 3" :teams="teams" :session-types="allowedSessionTypes" :destination-groups="DATA_HUB_DESTINATION_GROUPS" :team-id="teamId" :session-type="sessionType" :loading="loadingTeams" @update:team-id="setTeam" @update:session-type="setSessionType" />
-        <FileStructure v-else-if="step === 4 && structurePending" :inspection="inspection" :applying="inspecting" @apply="applyStructure" />
+        <FileStructure v-else-if="step === 4 && structurePending" :inspection="inspection" :applying="inspecting" @preview="previewStructure" @apply="applyStructure" />
         <PlayerMapping v-else-if="step === 4" :players="inspection.players" :mappings="mappings" :team-players="teamPlayers" :platform-name="inspection.detected_format?.provider || selectedPlatform?.name" :confirmed-duplicates="confirmedDuplicateTargets" @update:mapping="updateMapping" @confirm:duplicate="confirmDuplicate" @refresh-roster="loadTeamPlayers" />
         <ColumnMapping v-else-if="step === 5" :columns="inspection.source_columns" :concepts="dictionary.concepts" :domains="dictionary.domains" :entries="columnEntries" :destination="sessionType" :confirmed-warnings="confirmedWarningColumns" :confirmed-duplicates="confirmedDuplicateConcepts" @update:entry="updateColumnEntry" @submit-concept="submitConcept" @confirm:warning="confirmWarning" @confirm:duplicate="confirmDuplicateConcept" />
         <InspectionReview v-else :inspection="reviewInspection" :team-name="selectedTeam.name" :destination="sessionType" :mappings="mappings" :column-entries="columnEntries" :team-players="teamPlayers" :concepts="dictionary.concepts" :domains="dictionary.domains" :confirmed-warning-columns="confirmedWarningColumns" :confirmed-duplicate-targets="confirmedDuplicateTargets" :confirmed-duplicate-concepts="confirmedDuplicateConcepts" />
@@ -470,7 +474,7 @@ onBeforeRouteLeave(clearWorkflow)
         <div v-else-if="inspectionComplete" class="complete-message"><strong>Inspection complete.</strong><span>No FMTRX records were changed for this platform.</span></div>
         <footer class="wizard-actions">
           <button type="button" class="cancel-button" @click="cancel">Cancel</button>
-          <div><button v-if="step > 1 && !inspectionComplete" type="button" class="back-button" @click="back">Back</button><button v-if="!structurePending && !inspectionComplete" type="button" class="continue-button" :disabled="!canContinue || importing" @click="next">{{ inspecting ? 'Inspecting…' : approvingPlayers ? 'Approving players…' : approvingMapping ? 'Approving…' : importing ? 'Importing…' : step === 3 ? 'Approve & Inspect' : step === 4 ? 'Approve Player Mapping' : step === 5 ? 'Approve Mapping' : step === 6 && platformKey === 'blast-motion' ? 'Import Blast Data' : step === 6 && platformKey === 'rapsodo' ? 'Import Rapsodo Data' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
+          <div><button v-if="step > 1 && !inspectionComplete" type="button" class="back-button" @click="back">Back</button><button v-if="!structurePending && !inspectionComplete" type="button" class="continue-button" :disabled="!canContinue || importing" @click="next">{{ inspecting ? 'Inspecting…' : approvingPlayers ? 'Approving players…' : approvingMapping ? 'Approving…' : importing ? 'Importing…' : step === 3 ? 'Approve & Inspect' : step === 4 ? 'Approve Player Mapping' : step === 5 ? 'Approve Mapping' : step === 6 && platformKey === 'blast-motion' ? 'Import Blast Data' : step === 6 && platformKey === 'rapsodo' ? 'Import Rapsodo Data' : step === 6 && platformKey === 'generic-csv' ? 'Import Spreadsheet Data' : step === 6 ? 'Finish Inspection' : 'Continue' }} <span>→</span></button></div>
         </footer>
       </div>
     </section>

@@ -301,6 +301,7 @@ final class BaseballDictionarySeeder extends Seeder
                 ['id' => $this->existingId('baseball_concept_aliases', 'normalized_alias', $normalized, 'platform_definition_id', $blastPlatformId),'baseball_concept_id' => $conceptId,'alias' => $alias,'relationship_type' => 'exact_equivalent','source_unit_key' => $unit,'confidence' => 100,'is_official' => true,'status' => 'active','metadata' => json_encode(['source_platform' => 'blast-motion']),'created_at' => $now,'updated_at' => $now]
             );
         }
+        DB::table('platform_definitions')->updateOrInsert(['key' => 'generic-csv'], ['id' => $this->existingId('platform_definitions', 'key', 'generic-csv'),'name' => 'Generic Spreadsheet','description' => 'Coach-provided CSV, TSV, and XLSX spreadsheets.','is_active' => true,'created_at' => $now,'updated_at' => $now]);
     }
 
     private function existingId(string $table, string $column, string $value, ?string $scopeColumn = null, mixed $scopeValue = null): string
