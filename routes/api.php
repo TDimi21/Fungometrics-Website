@@ -113,6 +113,7 @@ use App\Http\Controllers\Api\Player\GetBattingPractices;
 use App\Http\Controllers\Api\Player\GetBullpenPractices;
 use App\Http\Controllers\Api\Player\GetCagePractices;
 use App\Http\Controllers\Api\Player\GetCreatedPractices;
+use App\Http\Controllers\Api\Player\GetDashboardSummary;
 use App\Http\Controllers\Api\Player\GetFitness;
 use App\Http\Controllers\Api\Player\GetLiveABPractices;
 use App\Http\Controllers\Api\Player\GetTrainingPractices;
@@ -272,6 +273,7 @@ Route::prefix('player')->group(function (): void {
         Route::get('sessions/training', GetTrainingPractices::class);
         Route::get('sessions/liveab', GetLiveABPractices::class);
         Route::get('sessions/created', GetCreatedPractices::class);
+        Route::get('dashboard-summary', GetDashboardSummary::class);
         Route::get('statistics/{player}', ScoresStatisticPlayers::class);
         Route::get('benchmark-tasks', [IntelligenceController::class, 'listPlayerBenchmarkTasks']);
         Route::get('benchmark-tasks/{taskId}', [IntelligenceController::class, 'showPlayerBenchmarkTask']);
