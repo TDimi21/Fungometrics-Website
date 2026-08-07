@@ -9,13 +9,14 @@ const root = path.resolve(__dirname, '../..')
 const source = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
 describe('Data Hub Phase 1', () => {
-  it('provides a coach-only import entry point beside the account actions', () => {
-    const layout = source('resources/js/layout/Layout.vue')
+  it('provides an entitled coach-only Data Hub entry point in the dashboard tabs', () => {
+    const dashboard = source('resources/js/pages/dashboard/Index.vue')
     const router = source('resources/router/index.js')
 
-    expect(layout).toContain('to="/data-hub"')
-    expect(layout).toContain('v-if="canImportData"')
-    expect(layout).toContain("accessStore.canAccess('data_hub_import')")
+    expect(dashboard).toContain("router.push('/data-hub')")
+    expect(dashboard).toContain('v-if="canAccessDataHub"')
+    expect(dashboard).toContain("access.canAccess('data_hub_import')")
+    expect(dashboard).toContain('>Data Hub</button>')
     expect(router).toContain('path: "/data-hub"')
     expect(router).toContain('path: "/data-hub/import"')
     expect(router).toContain('coachOnly: true')

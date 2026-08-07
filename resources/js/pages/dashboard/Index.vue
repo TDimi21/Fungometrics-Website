@@ -40,6 +40,10 @@ const dashTab = ref('overview')
 const teamStore = useTeamStore()
 const access = useAccessStore()
 const { team } = storeToRefs(teamStore)
+const canAccessDataHub = computed(() =>
+  access.canAccess('data_hub_import')
+  || Boolean(access.summary?.capabilities?.subscription_admin)
+)
 const resolveTeamId = (teamLike) => teamLike?.id_team ?? teamLike?.id ?? null
 const activeTeamId = computed(() => resolveTeamId(team.value))
 const getTeamIdCandidates = (teamLike) => {
@@ -2455,6 +2459,11 @@ watch(
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
             :class="dashTab === 'strength' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
           >Assessment</button>
+          <button
+            v-if="canAccessDataHub"
+            @click="router.push('/data-hub')"
+            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all text-white/40 hover:text-white"
+          >Data Hub</button>
         </div>
 
         <!-- OVERVIEW TAB -->

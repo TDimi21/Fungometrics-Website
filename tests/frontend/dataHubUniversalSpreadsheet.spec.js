@@ -24,21 +24,22 @@ describe('Data Hub universal spreadsheet inspection', () => {
     expect(page).toContain('applyStructure')
   })
 
-  it('supports all six layouts and bounded structure controls', () => {
-    for (const layout of ['players_in_rows', 'players_in_columns', 'events_in_rows', 'worksheet_per_player', 'single_player_session', 'unknown']) {
+  it('supports the three player-identification layouts and bounded structure controls', () => {
+    for (const layout of ['players_in_rows', 'players_in_columns', 'single_player_session']) {
       expect(structure).toContain(layout)
     }
     expect(structure).toContain('Header row')
     expect(structure).toContain('First data row')
-    expect(structure).toContain('Player-name column')
-    expect(structure).toContain('Metric-name column')
-    expect(structure).toContain(':max=')
+    expect(structure).toContain('playerColumn')
+    expect(structure).toContain('metricColumn')
+    expect(structure).toContain(':min=')
   })
 
-  it('shows a sanitized bounded preview and refreshes after confirmation', () => {
-    expect(structure).toContain('preview_rows')
-    expect(structure).toContain('row.row_number')
-    expect(structure).toContain('Confirm Structure & Refresh Preview')
+  it('refreshes the player scan when structure choices change and finalizes on confirmation', () => {
+    expect(structure).toContain("defineEmits(['preview', 'apply'])")
+    expect(structure).toContain("emit('preview', structure())")
+    expect(structure).toContain("emit('apply', structure())")
+    expect(structure).toContain('Looks good — Continue to Player Mapping')
     expect(page).toContain("form.append('structure'")
   })
 

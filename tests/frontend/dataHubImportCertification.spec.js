@@ -53,8 +53,8 @@ describe('Data Hub import certification UI contracts', () => {
   it('shows File Structure only when inspection requires confirmation', () => {
     expect(page).toContain('inspection.value.normalized_inspection?.requires_structure_confirmation')
     expect(page).toContain('<FileStructure')
-    expect(structure).toContain('File structure confirmation')
-    expect(structure).toContain('Confirm Structure & Refresh Preview')
+    expect(structure).toContain('Player identification')
+    expect(structure).toContain('Looks good — Continue to Player Mapping')
   })
 
   it('supports connected and Not Importing player totals for mixed roster data', () => {
