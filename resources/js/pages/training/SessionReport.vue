@@ -69,6 +69,13 @@ function gradeColor(score) {
 
 function gradeLabel(score) {
   if (score == null) return ''
+  if (sessionType === 'bullpen') {
+    if (score >= 90) return '🔥 Game-Ready Command'
+    if (score >= 80) return 'Strong Session'
+    if (score >= 70) return 'Productive but Inconsistent'
+    if (score >= 60) return 'Too Many Misses / Damage'
+    return 'Reset / Mechanical Day'
+  }
   if (score >= 90) return '🔥 Elite'
   if (score >= 80) return 'Strong'
   if (score >= 70) return 'Productive'
@@ -537,16 +544,35 @@ function computeFPS(balls) {
 // ─── BULLPEN: BPS computation ─────────────────────────────────────────────────
 const ORDERED_TYPES = ['FB', 'CH', 'SL', 'CV', 'Other']
 function normPitchType(p) {
-  const t = String(p.pitch_type || p.type_of_pitch || p.pitch || '').toUpperCase().trim()
-  if (t === 'FB' || t === 'FASTBALL' || t === '4S' || t === '2S') return 'FB'
-  if (t === 'CH' || t === 'CHANGEUP' || t === 'CHANGE') return 'CH'
+  const typeId = Number(p.type_of_throw_id)
+  if (typeId === 1) return 'FB'
+  if (typeId === 2) return 'CH'
+  if (typeId === 3) return 'SL'
+  if (typeId === 4) return 'CV'
+  if (typeId === 5) return 'Other'
+
+  const t = String(p.type_of_throw_msg || p.type_throw || p.type_of_throw || p.pitch_type || p.type_of_pitch || p.pitch || '').toUpperCase().trim()
+  if (['FB', 'FASTBALL', 'FF', 'FT', 'SI', '4S', '2S'].includes(t)) return 'FB'
+  if (['CH', 'CHANGEUP', 'CHANGE-UP', 'CHANGE'].includes(t)) return 'CH'
   if (t === 'SL' || t === 'SLIDER') return 'SL'
-  if (t === 'CV' || t === 'CURVE' || t === 'CURVEBALL' || t === 'CB') return 'CV'
+  if (['CV', 'CU', 'CURVE', 'CURVEBALL', 'CB'].includes(t)) return 'CV'
   return 'Other'
 }
 function isStrikePitch(p) {
   const bs = String(p.ball_strike || p.pitch_result || p.result || '').toUpperCase()
-  return bs.includes('STRIKE') || bs === 'S' || p.is_strike === true || p.is_strike === 1
+  return bs === 'STRIKE' || bs === 'S' || p.is_strike === true || p.is_strike === 1
+}
+function isFoulPitch(p) {
+  const bs = String(p.ball_strike || p.pitch_result || p.result || '').toUpperCase()
+  const tr = String(p.trajectory || p.contact_trajectory || p.type_of_hit || '').toUpperCase()
+  return bs.includes('FOUL') || tr === 'FOUL' || tr === 'PF'
+}
+function isSwingMissPitch(p) {
+  if (!isStrikePitch(p) || isFoulPitch(p)) return false
+  const tr = String(p.trajectory || p.contact_trajectory || p.type_of_hit || '').toUpperCase()
+  if (tr) return false
+  const bs = String(p.ball_strike || p.pitch_result || p.result || '').toUpperCase()
+  return bs.includes('SWING') || bs.includes('MISS') || p.swing_miss === true || p.swing_miss === 1 || p.is_swing_miss === true || p.is_swing_miss === 1
 }
 function pitchVelo(p) { return parseFloat(p.miles_per_hour || p.pitch_velocity || p.velocity || 0) || 0 }
 
@@ -581,14 +607,14 @@ function computeBPS(pitches) {
   const CONTACT_SCORES = { GB: 100, FOUL: 85, PF: 85, FB: 70, LD: 50 }
   let csSum = 0, csCount = 0
   pitches.forEach(p => {
-    const tr = String(p.trajectory || p.type_of_hit || '').toUpperCase()
+    const tr = String(p.trajectory || p.contact_trajectory || p.type_of_hit || '').toUpperCase()
     if (tr && CONTACT_SCORES[tr] != null) { csSum += CONTACT_SCORES[tr]; csCount++ }
   })
   const contactSuppressionScore = csCount > 0 ? csSum / csCount : 70
   let compCount = 0
   pitches.forEach(p => {
-    const tr = String(p.trajectory || p.type_of_hit || '').toUpperCase()
-    if (isStrikePitch(p) || tr === 'GB') compCount++
+    const tr = String(p.trajectory || p.contact_trajectory || p.type_of_hit || '').toUpperCase()
+    if (isStrikePitch(p) || isSwingMissPitch(p) || isFoulPitch(p) || tr === 'GB') compCount++
   })
   const competitiveScore = (compCount / total) * 100
   const bps = Math.round(strikeRateScore * 0.30 + pitchTypeScore * 0.20 + veloStabilityScore * 0.15 + contactSuppressionScore * 0.20 + competitiveScore * 0.15)
@@ -745,6 +771,9 @@ const tips = computed(() => {
     else t.push({ icon: '⚠️', text: 'Strike rate needs work. Focus on first-pitch strikes and staying in the zone.' })
     if (bd.veloDrop <= 1) t.push({ icon: '💪', text: 'Velocity was rock-solid from start to finish. Great arm endurance.' })
     else if (bd.veloDrop > 3) t.push({ icon: '🔋', text: `Velo dropped ${bd.veloDrop} mph by the end. Focus on arm conditioning and recovery.` })
+    if (bd.compPct >= 75) t.push({ icon: '🔄', text: 'Excellent competitive pitch rate. Keep expanding the zone with two strikes.' })
+    else if (bd.compPct >= 55) t.push({ icon: '🔄', text: 'Decent competitive pitch rate. Work on adding late movement to get more weak contact.' })
+    else t.push({ icon: '🔄', text: 'Competitive pitch rate needs work. Focus on quality misses and finishing pitches.' })
   }
 
   if (sessionType === 'cage') {
@@ -1197,6 +1226,14 @@ const displayDate = computed(() => {
           </section>
 
           <!-- Pitch type cards -->
+          <section v-if="breakdown.typeGroups?.some(g => g.avgMph > 0)" class="mx-4 mb-5">
+            <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">⚡ Avg Velo by Pitch Type</h3>
+            <div class="rounded-xl bg-white/5 border border-white/8 p-4 space-y-3">
+              <StatRow v-for="g in breakdown.typeGroups.filter(group => group.avgMph > 0)" :key="`velo-${g.label}`" :label="g.label" :value="g.avgMph" unit="mph" :min="50" :max="105" :thresholds="[72, 85]"/>
+            </div>
+          </section>
+
+          <!-- Pitch type cards -->
           <section v-if="breakdown.typeGroups?.length" class="mx-4 mb-5">
             <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">⚾ Pitch Type Breakdown</h3>
             <div class="rounded-xl bg-white/5 border border-white/8 divide-y divide-white/5 overflow-hidden">
@@ -1231,16 +1268,14 @@ const displayDate = computed(() => {
             </div>
           </section>
 
-          <!-- BPS Components -->
+          <!-- BPS Components (matches the app report) -->
           <section class="mx-4 mb-5">
-            <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">📊 Score Breakdown</h3>
+            <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">📊 BPS Components</h3>
             <div class="rounded-xl bg-white/5 border border-white/8 p-4 space-y-3">
               <StatRow v-for="c in [
-                { key: 'strikeRateScore',          label: 'Strike Rate (30%)'          },
-                { key: 'pitchTypeScore',            label: 'Pitch Type Strikes (20%)'   },
-                { key: 'contactSuppressionScore',   label: 'Contact Suppression (20%)'  },
-                { key: 'competitiveScore',          label: 'Competitive Pitch % (15%)'  },
-                { key: 'veloStabilityScore',        label: 'Velo Stability (15%)'       },
+                { key: 'veloStabilityScore', label: 'Velo Stability' },
+                { key: 'contactSuppressionScore', label: 'Contact Suppression' },
+                { key: 'bps', label: 'Bullpen Performance Score' },
               ]" :key="c.key" :label="c.label" :value="breakdown[c.key]" unit="" :min="0" :max="100" :thresholds="[60, 80]"/>
             </div>
           </section>
