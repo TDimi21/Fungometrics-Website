@@ -335,6 +335,12 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $handStrength = (null !== $fitnessLatest?->hand_strength && (float) $fitnessLatest->hand_strength > 0)
                     ? (float) $fitnessLatest->hand_strength
                     : $this->latestPositiveFitnessMetric($playerId, 'hand_strength');
+                $fortyYardDash = (null !== $fitnessLatest?->yd_40_dash && (float) $fitnessLatest->yd_40_dash > 0)
+                    ? (float) $fitnessLatest->yd_40_dash
+                    : $this->latestPositiveFitnessMetric($playerId, 'yd_40_dash');
+                $sixtyYardDash = (null !== $fitnessLatest?->yd_60_dash && (float) $fitnessLatest->yd_60_dash > 0)
+                    ? (float) $fitnessLatest->yd_60_dash
+                    : $this->latestPositiveFitnessMetric($playerId, 'yd_60_dash');
                 $medBallRotThrow = (null !== $fitnessLatest?->med_ball_rotational_throw && (float) $fitnessLatest->med_ball_rotational_throw > 0)
                     ? (float) $fitnessLatest->med_ball_rotational_throw
                     : $this->latestPositiveFitnessMetric($playerId, 'med_ball_rotational_throw');
@@ -439,8 +445,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'grip_strength_right' => $fitnessLatest?->grip_strength_right,
                         'plank_hold' => $fitnessLatest?->plank_hold,
                         'sprint_10yd' => $fitnessLatest?->sprint_10yd,
-                        'yd_40_dash' => $fitnessLatest?->yd_40_dash,
-                        'yd_60_dash' => $fitnessLatest?->yd_60_dash,
+                        'yd_40_dash' => $fortyYardDash,
+                        'yd_60_dash' => $sixtyYardDash,
                         'pull_ups' => $fitnessLatest?->pull_ups,
                         'push_ups' => $fitnessLatest?->push_ups,
                         'vertical_jump' => $verticalJump,

@@ -40,6 +40,16 @@ const intelligence = {
 }
 
 describe('Player Development Dashboard redesign', () => {
+  it('uses intelligence physical fallbacks for dash and hand-strength values', () => {
+    const model = buildPlayerDevelopmentDashboard({ current: {} }, {
+      summary: { physical: { '40_yard_dash': 4.8, '60_yard_dash': 7.1, hand_strength: 62 } },
+    })
+    const metrics = model.percentileGroups.flatMap((group) => group.metrics)
+    expect(metrics.find((metric) => metric.key === 'forty_yard_dash').value).toBe(4.8)
+    expect(metrics.find((metric) => metric.key === 'sixty_yard_dash').value).toBe(7.1)
+    expect(metrics.find((metric) => metric.key === 'hand_strength').value).toBe(62)
+  })
+
   it('adapts live identity, quick metrics, baseline, scores, percentiles, and governed priorities', () => {
     const model = buildPlayerDevelopmentDashboard(live, intelligence, { canAddToPlanner: true })
     expect(model.player.name).toBe('Test Player')

@@ -43,7 +43,7 @@ const metricAliases = {
   hand_strength: ['grip_strength_average', 'hand_strength', 'grip_strength'],
   grip_strength_left: ['grip_strength_left'], grip_strength_right: ['grip_strength_right'],
   pull_ups: ['pull_ups'], pushups: ['pushups', 'push_ups'], plank_hold: ['plank_hold'],
-  sprint_10yd: ['sprint_10yd'], forty_yard_dash: ['forty_yard_dash', 'yd_40_dash'], sixty_yard_dash: ['sixty_yard_dash', 'yd_60_dash'],
+  sprint_10yd: ['sprint_10yd'], forty_yard_dash: ['forty_yard_dash', '40_yard_dash', 'yd_40_dash'], sixty_yard_dash: ['sixty_yard_dash', '60_yard_dash', 'yd_60_dash'],
   vertical_jump: ['vertical_jump', 'vertical_jump_inches'],
   broad_jump: ['broad_jump', 'broad_jump_inches'],
   med_ball_rotational_throw: ['med_ball_rotational_throw', 'rotational_med_ball_throw'],
@@ -151,7 +151,9 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
   const metrics = Array.isArray(intelligence?.benchmark_profile?.metrics)
     ? intelligence.benchmark_profile.metrics
     : []
+  const physicalFallbackKeys = ['hand_strength', 'forty_yard_dash', 'sixty_yard_dash']
   const currentRaw = currentValue(current, key)
+    ?? (physicalFallbackKeys.includes(key) ? currentValue(intelligence?.summary?.physical || {}, key) : null)
   const currentBenchmark = current?.[`${key}_benchmark`]
   let benchmark = currentBenchmark && numberOrNull(currentBenchmark?.percentile) !== null
     ? { metric_key: key, raw_value: currentRaw, ...currentBenchmark }

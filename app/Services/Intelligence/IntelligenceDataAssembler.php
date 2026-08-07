@@ -398,6 +398,9 @@ class IntelligenceDataAssembler
         $sixtyYardDash = $playerId
             ? $this->latestRecordedFitnessMetric((string) $playerId, 'yd_60_dash')
             : null;
+        $handStrength = $playerId
+            ? $this->latestRecordedFitnessMetric((string) $playerId, 'hand_strength')
+            : null;
 
         return [
             'latest_fitness_date' => $latest?->fitness_date?->toDateString(),
@@ -406,7 +409,7 @@ class IntelligenceDataAssembler
             'front_squat' => $this->numberOrNull($latest?->front_squat),
             'back_squat' => $this->numberOrNull($latest?->back_squat),
             'power_clean' => $this->numberOrNull($latest?->power_clean),
-            'hand_strength' => $this->numberOrNull($latest?->hand_strength),
+            'hand_strength' => $handStrength,
             'grip_strength_left' => $this->numberOrNull($latest?->grip_strength_left),
             'grip_strength_right' => $this->numberOrNull($latest?->grip_strength_right),
             'squat' => max(array_filter([

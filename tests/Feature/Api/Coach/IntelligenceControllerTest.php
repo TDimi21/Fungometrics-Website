@@ -235,6 +235,8 @@ class IntelligenceControllerTest extends TestCase
             'hand_strength' => 58,
             'grip_strength_left' => 55,
             'grip_strength_right' => 61,
+            'yd_40_dash' => 4.8,
+            'yd_60_dash' => 7.1,
         ]);
         PlayerAssessment::query()->create([
             'user_id' => $player->id,
@@ -268,6 +270,9 @@ class IntelligenceControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.current.body_weight', 195)
             ->assertJsonPath('data.current.bench_press', 230)
+            ->assertJsonPath('data.current.hand_strength', 58)
+            ->assertJsonPath('data.current.yd_40_dash', 4.8)
+            ->assertJsonPath('data.current.yd_60_dash', 7.1)
             ->assertJsonPath('data.current.hand_strength', 58)
             ->assertJsonPath('data.current.grip_strength_left', 55)
             ->assertJsonPath('data.current.grip_strength_right', 61)
