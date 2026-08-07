@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import Layout from "../../layout/Layout.vue"
 import { useUserStore } from "../../store/user";
@@ -241,45 +241,6 @@ const top10FallbackAvatar = updatedLogo
 // ── Player Development Board ──────────────────────────────────────────────────
 const devBoard = ref([])
 const devBoardLoading = ref(false)
-
-// ── Development Card carousel (scroll through players one card at a time) ──────
-const devCarousel = ref(null)
-const devCardIndex = ref(0)
-const devScrollToIndex = (i) => {
-  const el = devCarousel.value
-  if (!el) return
-  const clamped = Math.max(0, Math.min(i, devBoard.value.length - 1))
-  const card = el.children?.[clamped]
-  if (card) el.scrollTo({ left: card.offsetLeft - el.offsetLeft, behavior: 'smooth' })
-}
-const onDevScroll = () => {
-  const el = devCarousel.value
-  if (!el || !el.children.length) return
-  // The card whose left edge is closest to the container's left is the active one.
-  const cardW = el.children[0].getBoundingClientRect().width + 12 // width + gap
-  devCardIndex.value = Math.round(el.scrollLeft / cardW)
-}
-
-// Auto-advance one card every 3s; pause on hover and after any manual navigation.
-let devAutoTimer = null
-const stopDevAutoplay = () => { if (devAutoTimer) { clearInterval(devAutoTimer); devAutoTimer = null } }
-const startDevAutoplay = () => {
-  stopDevAutoplay()
-  if (devBoard.value.length <= 1) return
-  devAutoTimer = setInterval(() => {
-    const next = devCardIndex.value + 1
-    devScrollToIndex(next >= devBoard.value.length ? 0 : next) // loop back to the first
-  }, 3000)
-}
-// Manual controls reposition and reset the timer so it doesn't jump right after a tap.
-const devPrev = () => { devScrollToIndex(devCardIndex.value - 1); startDevAutoplay() }
-const devNext = () => { devScrollToIndex(devCardIndex.value + 1); startDevAutoplay() }
-const devGoTo = (i) => { devScrollToIndex(i); startDevAutoplay() }
-
-watch(() => devBoard.value.length, (n) => {
-  if (n > 1) nextTick(() => startDevAutoplay()); else stopDevAutoplay()
-}, { immediate: true })
-onBeforeUnmount(stopDevAutoplay)
 
 const statusConfig = {
   hot:        { label: '🔥 Hot',         color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/30' },
@@ -2453,10 +2414,10 @@ watch(
         <!-- OVERVIEW TAB -->
         <div v-if="dashTab === 'overview'">
 
-          <div class="grid grid-cols-1 xl:grid-cols-[1fr_1fr_260px] gap-5 mb-5">
+          <div class="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-5 mb-5 items-start">
 
           <!-- Performance Review — scored disciplines (left) + stat detail (right) -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl xl:col-span-3">
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl xl:col-start-2 xl:row-start-1">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-base font-black uppercase tracking-widest text-white">Performance Review</h2>
               <span class="text-white/30 text-xs">Last 10 sessions · FMTRX score</span>
@@ -2572,7 +2533,7 @@ watch(
           </div>
 
           <!-- ── Player Cards ── -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-4 shadow-xl flex flex-col min-h-0 xl:col-span-3">
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-4 shadow-xl flex flex-col min-h-0 xl:col-start-1 xl:row-start-1">
             <div class="flex items-center justify-between mb-3 shrink-0">
               <h2 class="text-sm font-black uppercase tracking-widest text-white">Roster</h2>
               <button
@@ -2591,8 +2552,8 @@ watch(
               No players yet
             </div>
 
-            <!-- Card grid — tiles across the full-width row so cards keep their proportions. -->
-            <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            <!-- Roster cards stack vertically in the left column. -->
+            <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3 xl:max-h-[760px] xl:overflow-y-auto xl:pr-1">
               <div
                 v-for="p in devBoard" :key="p.id"
                 class="relative rounded-2xl overflow-hidden cursor-pointer group"
@@ -2882,39 +2843,14 @@ watch(
                 </div>
               </div>
 
-              <div class="relative" @mouseenter="stopDevAutoplay" @mouseleave="startDevAutoplay">
+              <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
                 <div
-                  ref="devCarousel"
-                  class="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 w-full max-w-[420px] mx-auto dc-scroll"
-                  @scroll.passive="onDevScroll"
+                  v-for="player in devBoard"
+                  :key="player.id"
+                  class="min-w-0 cursor-pointer"
+                  @click="openSharedPlayerDevelopmentProfile(player)"
                 >
-                  <div
-                    v-for="player in devBoard" :key="player.id"
-                    class="snap-start shrink-0 w-full cursor-pointer"
-                    @click="openSharedPlayerDevelopmentProfile(player)"
-                  >
-                    <DevelopmentCard :player="player" :team="team" />
-                  </div>
-                </div>
-
-                <div v-if="devBoard.length > 1" class="flex items-center justify-center gap-3 mt-3">
-                  <button
-                    class="w-7 h-7 rounded-full border border-white/15 text-white/60 hover:text-white hover:border-white/40 text-lg font-black leading-none disabled:opacity-25 disabled:cursor-default transition"
-                    :disabled="devCardIndex <= 0" aria-label="Previous player" @click="devPrev"
-                  >‹</button>
-                  <div class="flex items-center gap-1.5">
-                    <button
-                      v-for="(p, i) in devBoard" :key="p.id"
-                      class="h-1.5 rounded-full transition-all"
-                      :class="i === devCardIndex ? 'w-5 bg-white/85' : 'w-1.5 bg-white/25 hover:bg-white/45'"
-                      :aria-label="`Go to player ${i + 1}`" @click="devGoTo(i)"
-                    ></button>
-                  </div>
-                  <button
-                    class="w-7 h-7 rounded-full border border-white/15 text-white/60 hover:text-white hover:border-white/40 text-lg font-black leading-none disabled:opacity-25 disabled:cursor-default transition"
-                    :disabled="devCardIndex >= devBoard.length - 1" aria-label="Next player" @click="devNext"
-                  >›</button>
-                  <span class="text-white/40 text-xs font-bold tabular-nums ml-1">{{ devCardIndex + 1 }} / {{ devBoard.length }}</span>
+                  <DevelopmentCard :player="player" :team="team" />
                 </div>
               </div>
             </div>
@@ -3445,9 +3381,6 @@ watch(
 </template>
 
 <style scoped>
-/* Development Card carousel — clean scroll-snap, hidden scrollbar */
-.dc-scroll { scrollbar-width: none; -ms-overflow-style: none; scroll-padding: 0 4px; }
-.dc-scroll::-webkit-scrollbar { display: none; }
 .sheet-enter-active, .sheet-leave-active { transition: opacity 0.25s ease; }
 .sheet-enter-active > div, .sheet-leave-active > div { transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
 .sheet-enter-from { opacity: 0; }
