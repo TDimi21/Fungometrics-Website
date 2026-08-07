@@ -16,6 +16,8 @@ const shim = source('resources/js/pages/dashboard/Player.vue')
 const router = source('resources/router/index.js')
 const statePanel = source('resources/js/features/shared/components/StatePanel.vue')
 const benchmarkPanel = source(`${featureDir}/components/BenchmarkTasksPanel.vue`)
+const percentilesPanel = source(`${featureDir}/components/PlayerPercentilesPanel.vue`)
+const constants = source(`${featureDir}/lib/constants.js`)
 
 const listFeatureFiles = (dir) => {
   const absolute = path.join(root, dir)
@@ -36,6 +38,16 @@ describe('player home dashboard page', () => {
     expect(page).not.toContain('result/statistics/player')
     // The per-session stats fan-out (statistics/{id}/cage etc.) is gone.
     expect(page).not.toMatch(/statistics\/\$\{[^}]+\}\/(cage|weightball|exitvelocity|longtoss)/)
+  })
+
+  it('opens with a Percentiles tab backed by the governed development model', () => {
+    expect(constants).toMatch(/STAT_TABS\s*=\s*\[\s*\{ key: 'percentiles', label: 'Percentiles' \}/)
+    expect(page).toContain("const activeStatTab = ref('percentiles')")
+    expect(page).toContain('PlayerPercentilesPanel')
+    expect(percentilesPanel).toContain('buildPlayerDevelopmentDashboard')
+    expect(percentilesPanel).toContain('player/development/players/${props.playerId}')
+    expect(percentilesPanel).toContain("axiosGet('player/intelligence'")
+    expect(percentilesPanel).toContain(':groups="dashboard.percentileGroups"')
   })
 
   it('keeps the route name and leaves a working shim at the old path', () => {

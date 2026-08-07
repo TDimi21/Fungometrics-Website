@@ -22,6 +22,7 @@ import CageStats from '../components/CageStats.vue'
 import WeightedStats from '../components/WeightedStats.vue'
 import ExitVelStats from '../components/ExitVelStats.vue'
 import LongTossStats from '../components/LongTossStats.vue'
+import PlayerPercentilesPanel from '../components/PlayerPercentilesPanel.vue'
 import {
   buildCoachProfile,
   buildModalPlayerItem,
@@ -55,8 +56,8 @@ const rapsodoReports = ref([])
 const playerFitnessLatest = ref(null)
 const playerFitnessRows = ref([])
 
-const activeStatTab = ref('bp')
-const lastStatTab = ref('bp')
+const activeStatTab = ref('percentiles')
+const lastStatTab = ref('percentiles')
 
 const toggleWorkout = () => {
   if (activeStatTab.value === 'workout') {
@@ -244,11 +245,16 @@ const openRecapReport = (session) => {
           <div class="rounded-2xl border border-white/10 bg-surface-raised/75 p-4">
             <StatTabs v-model="activeStatTab" :tabs="STAT_TABS" @toggle-workout="toggleWorkout" />
 
-            <StatePanel v-if="statsState.loading" state="loading" message="Loading player stats…" />
-            <StatePanel v-else-if="statsState.error && activeStatTab !== 'workout'" state="error" :message="statsState.error" @retry="loadStats" />
+            <StatePanel v-if="statsState.loading && !['percentiles', 'workout'].includes(activeStatTab)" state="loading" message="Loading player stats…" />
+            <StatePanel v-else-if="statsState.error && !['percentiles', 'workout'].includes(activeStatTab)" state="error" :message="statsState.error" @retry="loadStats" />
 
             <div v-else class="space-y-3">
               <PlayerWorkoutsPanel v-if="activeStatTab === 'workout'" />
+
+              <PlayerPercentilesPanel
+                v-else-if="activeStatTab === 'percentiles'"
+                :player-id="playerId || userData?.id"
+              />
 
               <template v-else>
                 <BpStats v-if="activeStatTab === 'bp'" :breakdown="breakdowns.batting" />

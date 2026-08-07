@@ -43,6 +43,7 @@ export const isStrikeZoneMark = (mark) => {
 }
 
 export const STAT_TABS = [
+  { key: 'percentiles', label: 'Percentiles' },
   { key: 'bp', label: 'BP Stats' },
   { key: 'bullpen', label: 'Bullpen' },
   { key: 'cage', label: 'Cage' },
