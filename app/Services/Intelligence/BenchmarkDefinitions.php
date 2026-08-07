@@ -34,6 +34,25 @@ class BenchmarkDefinitions
         };
     }
 
+    /**
+     * Resolve an age benchmark group from levels that identify a specific
+     * competition stage. Ambiguous levels (for example travel or club) must
+     * not be assigned an age group because those teams span multiple bands.
+     */
+    public static function ageGroupFromLevel(mixed $level): string
+    {
+        $level = mb_strtolower(trim((string) $level));
+        $level = str_replace(['-', ' '], '_', $level);
+
+        return match ($level) {
+            'mid', 'ms', 'middle', 'middle_school', 'junior_high', 'jr_high' => self::AGE_13U_14U,
+            'high', 'hs', 'highschool', 'high_school', 'varsity' => self::AGE_17U_18U,
+            'juco', 'd1', 'd2', 'd3', 'ncaa', 'naia', 'college',
+            'pro', 'professional', 'milb' => self::AGE_COLLEGE_19_PLUS,
+            default => self::AGE_UNKNOWN,
+        };
+    }
+
     public static function metricDefinition(string $metricKey): ?array
     {
         $metricKey = self::normalizeMetricKey($metricKey);

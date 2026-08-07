@@ -50,4 +50,21 @@ class TeamBenchmarkOverrideControllerTest extends TestCase
 
         $this->getJson("api/coach/teams/{$team->id}/benchmark-overrides")->assertNotFound();
     }
+
+    public function test_dash_percentiles_use_an_unambiguous_player_level_when_age_is_missing(): void
+    {
+        $engine = app(ResearchPercentileEngine::class);
+
+        $forty = $engine->percentileForMetric(
+            'forty_yard_dash', 4.5, null, ['age_group' => 'UNKNOWN', 'level' => 'D1']
+        );
+        $sixty = $engine->percentileForMetric(
+            'sixty_yard_dash', 7.2, null, ['age_group' => 'UNKNOWN', 'level' => 'D1']
+        );
+
+        $this->assertSame('COLLEGE_19_PLUS', $forty['age_group']);
+        $this->assertSame(90, $forty['percentile_estimate']);
+        $this->assertSame('COLLEGE_19_PLUS', $sixty['age_group']);
+        $this->assertSame(43, $sixty['percentile_estimate']);
+    }
 }

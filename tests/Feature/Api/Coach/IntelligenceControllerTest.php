@@ -24,7 +24,7 @@ class IntelligenceControllerTest extends TestCase
     {
         [$coach, $team, $player] = $this->createCoachTeamPlayer();
         Sanctum::actingAs($coach, [UserTypes::COACH->value]);
-        $cacheKey = "player_intelligence_v1_{$team->id}_{$player->id}_60";
+        $cacheKey = "player_intelligence_v2_{$team->id}_{$player->id}_60";
 
         $this->getJson("api/coach/teams/{$team->id}/players/{$player->id}/intelligence?days=60")
             ->assertOk();

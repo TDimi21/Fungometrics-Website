@@ -280,7 +280,7 @@ class BenchmarkRefreshService
             Cache::forget("dev_dashboard_v2_{$teamId}_{$playerId}_{$window}");
             Cache::forget("dev_dashboard_v3_{$teamId}_{$playerId}_{$window}");
             Cache::forget("dev_dashboard_v3_all_{$playerId}_{$window}");
-            Cache::forget("player_intelligence_v1_{$teamId}_{$playerId}_{$window}");
+            Cache::forget("player_intelligence_v2_{$teamId}_{$playerId}_{$window}");
         }
     }
 

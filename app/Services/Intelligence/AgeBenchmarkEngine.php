@@ -213,8 +213,12 @@ class AgeBenchmarkEngine
         }
 
         $age = $this->numberOrNull($context['age'] ?? null);
+        $ageGroup = BenchmarkDefinitions::ageGroup(null !== $age ? (int) $age : null);
+        if (BenchmarkDefinitions::AGE_UNKNOWN !== $ageGroup) {
+            return $ageGroup;
+        }
 
-        return BenchmarkDefinitions::ageGroup(null !== $age ? (int) $age : null);
+        return BenchmarkDefinitions::ageGroupFromLevel($context['level'] ?? null);
     }
 
     private function dataGaps(string $ageGroup, array $metrics): array

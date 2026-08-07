@@ -177,6 +177,10 @@ class BenchmarkLibrary
             $ageGroup = BenchmarkDefinitions::ageGroup((int) $context['age']);
         }
 
+        if ( ! $ageGroup || BenchmarkDefinitions::AGE_UNKNOWN === mb_strtoupper((string) $ageGroup)) {
+            $ageGroup = BenchmarkDefinitions::ageGroupFromLevel($context['level'] ?? null);
+        }
+
         return [
             'age_group' => $this->normalizeAgeGroup($ageGroup),
             'level' => $this->normalizeLevel($context['level'] ?? null),

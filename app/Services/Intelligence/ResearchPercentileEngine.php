@@ -115,7 +115,11 @@ class ResearchPercentileEngine
             }
         }
 
-        if (isset($context['age_group']) && in_array($context['age_group'], BenchmarkDefinitions::AGE_GROUPS, true)) {
+        if (
+            isset($context['age_group'])
+            && BenchmarkDefinitions::AGE_UNKNOWN !== $context['age_group']
+            && in_array($context['age_group'], BenchmarkDefinitions::AGE_GROUPS, true)
+        ) {
             return (string) $context['age_group'];
         }
 
@@ -123,7 +127,7 @@ class ResearchPercentileEngine
             return BenchmarkDefinitions::ageGroup((int) $context['age']);
         }
 
-        return BenchmarkDefinitions::AGE_UNKNOWN;
+        return BenchmarkDefinitions::ageGroupFromLevel($context['level'] ?? null);
     }
 
     private function estimatePercentile(float $value, array $anchors, bool $higherIsBetter): int
