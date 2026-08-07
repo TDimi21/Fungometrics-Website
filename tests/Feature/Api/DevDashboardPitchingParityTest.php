@@ -10,6 +10,7 @@ use App\Models\Concerns\PracticeModes;
 use App\Models\Concerns\PracticeTypes;
 use App\Models\Concerns\UserTypes;
 use App\Models\Player;
+use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
 use App\Models\Practice;
 use App\Models\Profile;
@@ -70,5 +71,46 @@ class DevDashboardPitchingParityTest extends TestCase
         $this->assertSame($coachAvg, $playerAvg, 'avg_fb_velocity differs between coach and player-self views.');
         $this->assertSame($coachMax, $playerMax, 'max_fb_velocity differs between coach and player-self views.');
         $this->assertSame($coachBullpenScore, $playerBullpenScore, 'bullpen_score differs between coach and player-self views.');
+    }
+
+    public function test_player_self_view_returns_the_same_sprint_and_hand_strength_numbers_as_the_coach_view(): void
+    {
+        $coach = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
+        $team = Team::factory()->create();
+        $player = User::factory()->create(['type' => UserTypes::PLAYER->value, 'subscription_plan' => 'player_pro']);
+        Profile::factory()->create(['user_id' => $player->id]);
+        Player::factory()->create(['user_id' => $player->id]);
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id]);
+        PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
+
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id,
+            'fitness_date' => now()->toDateString(),
+            'yd_40_dash' => 6.8,
+            'yd_60_dash' => 7.9,
+            'hand_strength' => 55,
+        ]);
+
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+        $coachView = $this->getJson("api/coach/development/teams/{$team->id}/players/{$player->id}?days=365")
+            ->assertOk();
+        $coachIntelligence = $this->getJson("api/coach/teams/{$team->id}/players/{$player->id}/intelligence?days=365")
+            ->assertOk();
+
+        Sanctum::actingAs($player, [UserTypes::PLAYER->value]);
+        $playerView = $this->getJson("api/player/development/players/{$player->id}?days=365")
+            ->assertOk();
+        $playerIntelligence = $this->getJson('api/player/intelligence?days=365')
+            ->assertOk();
+
+        $this->assertSame($coachView->json('data.current.hand_strength'), $playerView->json('data.current.hand_strength'), 'hand_strength differs between coach and player-self live views.');
+        $this->assertEquals(55, $playerView->json('data.current.hand_strength'));
+
+        $coachMetrics = collect($coachIntelligence->json('benchmark_profile.metrics'))->keyBy('metric_key');
+        $playerMetrics = collect($playerIntelligence->json('benchmark_profile.metrics'))->keyBy('metric_key');
+        foreach (['forty_yard_dash', 'sixty_yard_dash'] as $key) {
+            $this->assertSame($coachMetrics->get($key)['raw_value'] ?? null, $playerMetrics->get($key)['raw_value'] ?? null, "{$key} raw_value differs between coach and player-self intelligence.");
+            $this->assertSame($coachMetrics->get($key)['percentile'] ?? null, $playerMetrics->get($key)['percentile'] ?? null, "{$key} percentile differs between coach and player-self intelligence.");
+        }
     }
 }

@@ -88,7 +88,17 @@ const loadPlayers = async () => {
 
 const loadIntelligence = async () => {
   intelligence.value = null
-  if (!teamId.value || !playerId.value || isPlayerUser.value) return
+  if (isPlayerUser.value) {
+    try {
+      const { data } = await axiosGet('player/intelligence', { days: dataWindow.value })
+      intelligence.value = data?.data || data || null
+    } catch {
+      // The live dashboard remains useful when the optional intelligence layer is partial or unavailable.
+      intelligence.value = null
+    }
+    return
+  }
+  if (!teamId.value || !playerId.value) return
   try {
     const { data } = await axiosGet(`coach/teams/${teamId.value}/players/${playerId.value}/intelligence`, { days: dataWindow.value })
     intelligence.value = data?.data || data || null
