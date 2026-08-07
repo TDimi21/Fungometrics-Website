@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
-use Throwable;
-
 class BenchmarkLibrary
 {
     public const BUCKET_EXACT_PEER = 'exact_peer';
@@ -169,8 +167,11 @@ class BenchmarkLibrary
         $bodyWeight = $context['body_weight'] ?? $context['bodyweight'] ?? null;
         $ageGroup = $context['age_group'] ?? null;
 
-        if (( ! $ageGroup || BenchmarkDefinitions::AGE_UNKNOWN === mb_strtoupper((string) $ageGroup)) && ! empty($context['dob'])) {
-            $ageGroup = $this->ageGroupFromDate($context['dob']);
+        if ( ! empty($context['dob'])) {
+            $dobAgeGroup = $this->ageGroupFromDate($context['dob']);
+            if (BenchmarkDefinitions::AGE_UNKNOWN !== $dobAgeGroup) {
+                $ageGroup = $dobAgeGroup;
+            }
         }
 
         if (( ! $ageGroup || BenchmarkDefinitions::AGE_UNKNOWN === mb_strtoupper((string) $ageGroup)) && is_numeric($context['age'] ?? null)) {
@@ -294,15 +295,7 @@ class BenchmarkLibrary
 
     private function ageGroupFromDate(mixed $date): string
     {
-        if ( ! $date) {
-            return BenchmarkDefinitions::AGE_UNKNOWN;
-        }
-
-        try {
-            return BenchmarkDefinitions::ageGroup(\Carbon\Carbon::parse((string) $date)->age);
-        } catch (Throwable) {
-            return BenchmarkDefinitions::AGE_UNKNOWN;
-        }
+        return BenchmarkDefinitions::ageGroupFromDate($date);
     }
 
     private function normalizeOnePosition(mixed $value): string

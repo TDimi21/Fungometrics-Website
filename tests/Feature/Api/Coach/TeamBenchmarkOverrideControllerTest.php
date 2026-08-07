@@ -9,6 +9,7 @@ use App\Models\Concerns\UserTypes;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Intelligence\ResearchPercentileEngine;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -66,5 +67,26 @@ class TeamBenchmarkOverrideControllerTest extends TestCase
         $this->assertSame(90, $forty['percentile_estimate']);
         $this->assertSame('COLLEGE_19_PLUS', $sixty['age_group']);
         $this->assertSame(43, $sixty['percentile_estimate']);
+    }
+
+    public function test_percentile_engine_changes_benchmark_rows_on_day_356(): void
+    {
+        $born = CarbonImmutable::parse('2000-02-29');
+        $boundary = $born->addYearsNoOverflow(12)->addDays(356);
+        $engine = app(ResearchPercentileEngine::class);
+
+        try {
+            CarbonImmutable::setTestNow($boundary->subDay());
+            $before = $engine->percentileForMetric('forty_yard_dash', 5.5, $born->toDateString());
+
+            CarbonImmutable::setTestNow($boundary);
+            $after = $engine->percentileForMetric('forty_yard_dash', 5.5, $born->toDateString());
+        } finally {
+            CarbonImmutable::setTestNow();
+        }
+
+        $this->assertSame('10U_12U', $before['age_group']);
+        $this->assertSame('13U_14U', $after['age_group']);
+        $this->assertNotSame($before['percentile_estimate'], $after['percentile_estimate']);
     }
 }

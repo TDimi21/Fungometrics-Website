@@ -151,10 +151,14 @@ class AthleticPerformanceIndexService
             ['value' => $relativeStrength, 'weight' => 0.20],
         ]);
 
+        $dob = $this->resolveDob((string) $assessment->user_id);
+        $dobAgeGroup = BenchmarkDefinitions::ageGroupFromDate($dob);
         $strengthBenchmark = app(StrengthBenchmarkService::class)->benchmark($strengthAssessment, null, [
             'age' => $ageYears,
-            'age_group' => BenchmarkDefinitions::ageGroup($ageYears),
-            'dob' => $this->resolveDob((string) $assessment->user_id),
+            'age_group' => BenchmarkDefinitions::AGE_UNKNOWN !== $dobAgeGroup
+                ? $dobAgeGroup
+                : BenchmarkDefinitions::ageGroup($ageYears),
+            'dob' => $dob,
             'role' => $role,
             'position' => $role,
             'level' => null !== $ageYears && $ageYears <= 18 ? 'high_school' : 'college',

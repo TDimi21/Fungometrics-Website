@@ -6,7 +6,6 @@ namespace App\Services\Intelligence;
 
 use App\Models\BenchmarkCollectionTask;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
@@ -1285,15 +1284,7 @@ class PopulationMetricRepository
 
     private function ageGroupFromDate(mixed $date): string
     {
-        if ( ! $date) {
-            return BenchmarkDefinitions::AGE_UNKNOWN;
-        }
-
-        try {
-            return BenchmarkDefinitions::ageGroup(Carbon::parse((string) $date)->age);
-        } catch (Throwable) {
-            return BenchmarkDefinitions::AGE_UNKNOWN;
-        }
+        return BenchmarkDefinitions::ageGroupFromDate($date);
     }
 
     private function positionMatches(mixed $requested, array $actual): bool

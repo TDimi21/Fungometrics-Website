@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
-use Carbon\Carbon;
-use Throwable;
-
 class AgeBenchmarkEngine
 {
     public function __construct(
@@ -17,15 +14,7 @@ class AgeBenchmarkEngine
 
     public function ageGroupFromDate(?string $dob): string
     {
-        if ( ! $dob) {
-            return BenchmarkDefinitions::AGE_UNKNOWN;
-        }
-
-        try {
-            return BenchmarkDefinitions::ageGroup(Carbon::parse($dob)->age);
-        } catch (Throwable) {
-            return BenchmarkDefinitions::AGE_UNKNOWN;
-        }
+        return BenchmarkDefinitions::ageGroupFromDate($dob);
     }
 
     public function benchmarkMetric(string $metricKey, mixed $value, ?string $dob, array $context = []): array

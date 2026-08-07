@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
+use Carbon\CarbonImmutable;
+use Throwable;
+
 class BenchmarkDefinitions
 {
     public const AGE_10U_12U = '10U_12U';
@@ -32,6 +35,38 @@ class BenchmarkDefinitions
             $age <= 18 => self::AGE_17U_18U,
             default => self::AGE_COLLEGE_19_PLUS,
         };
+    }
+
+    /**
+     * Select the governed percentile band from an exact date of birth.
+     * Each cutoff is inclusive through day 355 and changes on day 356.
+     */
+    public static function ageGroupFromDate(mixed $dateOfBirth, mixed $asOf = null): string
+    {
+        if ( ! $dateOfBirth) {
+            return self::AGE_UNKNOWN;
+        }
+
+        try {
+            $born = CarbonImmutable::parse((string) $dateOfBirth)->startOfDay();
+            $reference = $asOf
+                ? CarbonImmutable::parse((string) $asOf)->startOfDay()
+                : CarbonImmutable::now($born->timezone)->startOfDay();
+
+            if ($born->isAfter($reference)) {
+                return self::AGE_UNKNOWN;
+            }
+
+            return match (true) {
+                $reference->isBefore($born->addYearsNoOverflow(12)->addDays(356)) => self::AGE_10U_12U,
+                $reference->isBefore($born->addYearsNoOverflow(14)->addDays(356)) => self::AGE_13U_14U,
+                $reference->isBefore($born->addYearsNoOverflow(16)->addDays(356)) => self::AGE_15U_16U,
+                $reference->isBefore($born->addYearsNoOverflow(18)->addDays(356)) => self::AGE_17U_18U,
+                default => self::AGE_COLLEGE_19_PLUS,
+            };
+        } catch (Throwable) {
+            return self::AGE_UNKNOWN;
+        }
     }
 
     /**

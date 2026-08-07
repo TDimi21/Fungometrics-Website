@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
-use Carbon\Carbon;
-
 class ResearchPercentileEngine
 {
     public function __construct(
@@ -108,10 +106,9 @@ class ResearchPercentileEngine
     private function ageGroup(?string $dob, array $context): string
     {
         if ($dob) {
-            try {
-                return BenchmarkDefinitions::ageGroup(Carbon::parse($dob)->age);
-            } catch (\Throwable) {
-                // Fall back to explicit context below.
+            $ageGroup = BenchmarkDefinitions::ageGroupFromDate($dob);
+            if (BenchmarkDefinitions::AGE_UNKNOWN !== $ageGroup) {
+                return $ageGroup;
             }
         }
 

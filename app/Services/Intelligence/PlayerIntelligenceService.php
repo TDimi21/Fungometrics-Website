@@ -29,7 +29,7 @@ class PlayerIntelligenceService
         $days = max(1, min(365, $days));
 
         return Cache::remember(
-            "player_intelligence_v2_{$teamId}_{$playerId}_{$days}",
+            "player_intelligence_v3_{$teamId}_{$playerId}_{$days}",
             now()->addMinutes(5),
             fn (): array => $this->buildFresh($teamId, $playerId, $days),
         );

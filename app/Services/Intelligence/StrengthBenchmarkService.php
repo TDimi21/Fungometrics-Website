@@ -40,10 +40,13 @@ final class StrengthBenchmarkService
         $metadata = is_array($facts['strength_test_metadata'] ?? null) ? $facts['strength_test_metadata'] : [];
         $bodyWeight = $this->positive($facts['body_weight'] ?? $facts['body_weight_lbs'] ?? null);
         $age = is_numeric($context['age'] ?? null) ? (int) $context['age'] : null;
-        $ageGroup = isset($context['age_group'])
-            ? (string) $context['age_group']
-            : BenchmarkDefinitions::ageGroup($age);
         $dob = isset($context['dob']) && $context['dob'] ? (string) $context['dob'] : null;
+        $ageGroupFromDob = BenchmarkDefinitions::ageGroupFromDate($dob);
+        $ageGroup = BenchmarkDefinitions::AGE_UNKNOWN !== $ageGroupFromDob
+            ? $ageGroupFromDob
+            : (isset($context['age_group'])
+                ? (string) $context['age_group']
+                : BenchmarkDefinitions::ageGroup($age));
         $strengthBand = $this->registry->strengthBodyweightBand($bodyWeight, $age);
         $benchmarkContext = $context + [
             'age' => $age,
