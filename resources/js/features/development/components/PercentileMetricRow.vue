@@ -2,6 +2,14 @@
 import { computed } from 'vue'
 const props = defineProps({ metric: { type: Object, required: true } })
 const position = computed(() => props.metric.percentile === null || props.metric.percentile === undefined ? 50 : Math.max(0, Math.min(100, Number(props.metric.percentile))))
+const percentileTone = computed(() => {
+  if (!props.metric.available) return 'neutral'
+  if (position.value >= 90) return 'elite'
+  if (position.value >= 75) return 'above-average'
+  if (position.value >= 50) return 'average'
+  if (position.value >= 25) return 'below-average'
+  return 'critical'
+})
 const ordinal = (value) => {
   const number = Math.round(Number(value)); const mod100 = number % 100
   if (mod100 >= 11 && mod100 <= 13) return `${number}th`
@@ -29,7 +37,7 @@ const trend = computed(() => ['up','improving'].includes(props.metric.trend) ? '
     <div class="percentile-cell">
       <div class="track" :class="{ dashed: !metric.available }">
         <span v-if="metric.available" class="fill" :style="{ width: `${position}%` }" />
-        <b class="marker" :class="{ neutral: !metric.available }" :style="{ left: `${position}%` }">{{ metric.available ? Math.round(metric.percentile) : '—' }}</b>
+        <b class="marker" :class="percentileTone" :style="{ left: `${position}%` }">{{ metric.available ? Math.round(metric.percentile) : '—' }}</b>
       </div>
     </div>
     <span class="value"><span>{{ metric.display_value || '—' }}</span><small v-if="metric.relative_display">{{ metric.relative_display }}</small></span>
@@ -40,6 +48,6 @@ const trend = computed(() => ['up','improving'].includes(props.metric.trend) ? '
   </div>
 </template>
 <style scoped>
-.metric-row{display:grid;grid-template-columns:132px minmax(190px,1fr) 76px 110px 94px 62px 34px;align-items:center;gap:9px;min-height:43px;padding:7px 10px;border-top:1px solid #183344;color:#dce8ef;font-size:11px}.metric-name{font-size:12px;line-height:1.25}.percentile-cell{padding:0 10px}.track{position:relative;height:8px;border-radius:8px;background:linear-gradient(90deg,#164965 0 24%,#385363 24% 49%,#6b6251 49% 74%,#a34d32 74% 89%,#bd1f2d 89%);box-shadow:inset 0 0 0 1px #ffffff18}.track.dashed{background:repeating-linear-gradient(90deg,#425766 0 8px,transparent 8px 13px)}.fill{display:block;height:100%;border-radius:8px;background:#ef334088}.marker{position:absolute;top:50%;transform:translate(-50%,-50%);width:27px;height:27px;border:2px solid #f24a55;border-radius:50%;display:grid;place-items:center;background:#b71927;color:#fff;font-size:10px;font-weight:900}.marker.neutral{border-color:#637987;background:#253946}.status{font-size:10px;font-weight:800;line-height:1.25;text-transform:uppercase;color:#f26a38}.status.needs_data,.status.benchmark_unavailable{color:#9aadb9}.goal,.gap,.value{font-size:10px;color:#c4d0d7}.value{display:flex;flex-direction:column}.value small{font-size:8px;color:#6fd4d0}.trend{font-size:16px;color:#5ed3a2;text-align:center}
+.metric-row{display:grid;grid-template-columns:132px minmax(190px,1fr) 76px 110px 94px 62px 34px;align-items:center;gap:9px;min-height:43px;padding:7px 10px;border-top:1px solid #183344;color:#dce8ef;font-size:11px}.metric-name{font-size:12px;line-height:1.25}.percentile-cell{padding:0 10px}.track{position:relative;height:8px;border-radius:8px;background:linear-gradient(90deg,#164965 0 24%,#385363 24% 49%,#6b6251 49% 74%,#a34d32 74% 89%,#bd1f2d 89%);box-shadow:inset 0 0 0 1px #ffffff18}.track.dashed{background:repeating-linear-gradient(90deg,#425766 0 8px,transparent 8px 13px)}.fill{display:block;height:100%;border-radius:8px;background:#ef334088}.marker{position:absolute;top:50%;transform:translate(-50%,-50%);width:27px;height:27px;border:2px solid var(--percentile-tone);border-radius:50%;display:grid;place-items:center;background:#071725;color:var(--percentile-tone);box-shadow:0 0 0 2px #071725;font-size:10px;font-weight:900}.marker.critical{--percentile-tone:#47a5da}.marker.below-average{--percentile-tone:#8fa5b2}.marker.average{--percentile-tone:#d7b269}.marker.above-average{--percentile-tone:#e66a2f}.marker.elite{--percentile-tone:#ef3340}.marker.neutral{--percentile-tone:#637987;background:#253946;color:#d7e1e7}.status{font-size:10px;font-weight:800;line-height:1.25;text-transform:uppercase;color:#f26a38}.status.needs_data,.status.benchmark_unavailable{color:#9aadb9}.goal,.gap,.value{font-size:10px;color:#c4d0d7}.value{display:flex;flex-direction:column}.value small{font-size:8px;color:#6fd4d0}.trend{font-size:16px;color:#5ed3a2;text-align:center}
 @media(max-width:760px){.metric-row{grid-template-columns:108px minmax(120px,1fr) 64px 92px;gap:7px;min-height:46px}.goal,.gap,.trend{display:none}.metric-name{font-size:11px}.status{font-size:9px}.value{font-size:10px}}
 </style>

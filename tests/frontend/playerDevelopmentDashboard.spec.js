@@ -135,6 +135,8 @@ describe('Player Development Dashboard redesign', () => {
     expect(percentile).toContain('Math.max(0, Math.min(100')
     expect(percentile).toContain("{ dashed: !metric.available }")
     expect(percentile).toContain(':aria-label="aria"')
+    expect(percentile).toContain(':class="percentileTone"')
+    expect(percentile).toContain('.marker.elite{--percentile-tone:#ef3340}')
   })
 
   it('restores saved assessment percentiles without applying a shared benchmark to the wrong raw value', () => {
