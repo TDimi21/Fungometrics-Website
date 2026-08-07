@@ -14,11 +14,31 @@ use App\Models\Profile;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Intelligence\BenchmarkLibrary;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class IntelligenceControllerTest extends TestCase
 {
+    public function test_player_intelligence_is_cached_and_fitness_changes_invalidate_it(): void
+    {
+        [$coach, $team, $player] = $this->createCoachTeamPlayer();
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+        $cacheKey = "player_intelligence_v1_{$team->id}_{$player->id}_60";
+
+        $this->getJson("api/coach/teams/{$team->id}/players/{$player->id}/intelligence?days=60")
+            ->assertOk();
+        $this->assertTrue(Cache::has($cacheKey));
+
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id,
+            'fitness_date' => now()->toDateString(),
+            'recovery_score' => 88,
+        ]);
+
+        $this->assertFalse(Cache::has($cacheKey));
+    }
+
     public function test_coach_can_get_team_intelligence(): void
     {
         [$coach, $team, $player] = $this->createCoachTeamPlayer();

@@ -9,6 +9,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -60,9 +61,25 @@ class PopulationMetricRepository
 
     public function auditForMetric(string $metricKey, array $context = [], int $days = 365): array
     {
+        $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
+        $days = max(1, $days);
+        $cacheContext = $this->cacheContext($context);
+        $cacheKey = 'population_metric_audit_v1_'.sha1(json_encode([
+            $metricKey,
+            $cacheContext,
+            $days,
+        ], JSON_THROW_ON_ERROR));
+
+        return Cache::remember(
+            $cacheKey,
+            now()->addMinutes(10),
+            fn (): array => $this->buildAuditForMetric($metricKey, $context, $days),
+        );
+    }
+
+    private function buildAuditForMetric(string $metricKey, array $context, int $days): array
+    {
         try {
-            $metricKey = BenchmarkDefinitions::normalizeMetricKey($metricKey);
-            $days = max(1, $days);
             $stats = $this->emptyAuditStats();
             $includeTrustedTasks = $this->includeTrustedTasks($context);
             $tableRows = $this->populationRowsForMetric($metricKey, $context, $days, $stats);
@@ -193,6 +210,21 @@ class PopulationMetricRepository
                 'final_population_values_count' => 0,
             ];
         }
+    }
+
+    private function cacheContext(array $context): array
+    {
+        $keys = [
+            '_bucket_level', 'age_group', 'position', 'role', 'level',
+            'throws', 'bats', 'throw_side', 'hit_side', 'body_weight',
+            'bodyweight', 'bodyweight_band', 'height', 'height_inches',
+            'height_band', 'team_id', 'teamId', 'player_id', 'playerId',
+            'include_trusted_tasks',
+        ];
+        $normalized = array_intersect_key($context, array_flip($keys));
+        ksort($normalized);
+
+        return $normalized;
     }
 
     public function countForMetric(string $metricKey, array $context = [], int $days = 365): int

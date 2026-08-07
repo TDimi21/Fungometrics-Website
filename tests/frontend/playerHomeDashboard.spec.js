@@ -47,6 +47,7 @@ describe('player home dashboard page', () => {
     expect(percentilesPanel).toContain('buildPlayerDevelopmentDashboard')
     expect(percentilesPanel).toContain('player/development/players/${props.playerId}')
     expect(percentilesPanel).toContain("axiosGet('player/intelligence'")
+    expect(percentilesPanel).toContain('Promise.all([')
     expect(percentilesPanel).toContain(':groups="dashboard.percentileGroups"')
   })
 

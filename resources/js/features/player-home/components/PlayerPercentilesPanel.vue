@@ -20,14 +20,12 @@ const dashboard = computed(() => buildPlayerDevelopmentDashboard(
 
 const loadPercentiles = () => runSection(state, async () => {
   if (!props.playerId) return
-  const { data } = await axiosGet(`player/development/players/${props.playerId}`, { days: 365 })
-  live.value = data?.data || null
-  try {
-    const response = await axiosGet('player/intelligence', { days: 365 })
-    intelligence.value = response?.data?.data || response?.data || null
-  } catch {
-    intelligence.value = null
-  }
+  const [liveResponse, intelligenceResponse] = await Promise.all([
+    axiosGet(`player/development/players/${props.playerId}`, { days: 365 }),
+    axiosGet('player/intelligence', { days: 365 }).catch(() => null),
+  ])
+  live.value = liveResponse?.data?.data || null
+  intelligence.value = intelligenceResponse?.data?.data || intelligenceResponse?.data || null
 }, 'Couldn\'t load percentile rankings.')
 
 watch(() => props.playerId, (id) => {

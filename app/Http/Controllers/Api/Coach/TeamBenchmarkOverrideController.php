@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Coach;
 
 use App\Http\Controllers\Controller;
 use App\Models\CoachTeam;
+use App\Services\Development\PlayerDevelopmentDashboardCache;
 use App\Services\Intelligence\BenchmarkDefinitions;
 use App\Services\Intelligence\BenchmarkLibrary;
 use App\Services\Intelligence\TeamBenchmarkOverrideService;
@@ -40,7 +41,7 @@ class TeamBenchmarkOverrideController extends Controller
         return response()->json(['status' => 'success', 'data' => ['metrics' => $metrics]]);
     }
 
-    public function update(Request $request, string $teamId, BenchmarkLibrary $library): JsonResponse
+    public function update(Request $request, string $teamId, BenchmarkLibrary $library, PlayerDevelopmentDashboardCache $cache): JsonResponse
     {
         $this->authorizeTeam($teamId);
         $data = $request->validate([
@@ -64,16 +65,18 @@ class TeamBenchmarkOverrideController extends Controller
             ['team_id' => $teamId, 'metric_key' => $key, 'age_group' => $data['age_group']],
             $values + ['updated_by' => Auth::id(), 'updated_at' => now(), 'created_at' => now()]
         );
+        $cache->forgetTeam($teamId);
         return response()->json(['status' => 'success', 'data' => ['saved' => true]]);
     }
 
-    public function destroy(Request $request, string $teamId): JsonResponse
+    public function destroy(Request $request, string $teamId, PlayerDevelopmentDashboardCache $cache): JsonResponse
     {
         $this->authorizeTeam($teamId);
         $data = $request->validate(['metric_key' => ['required', 'string'], 'age_group' => ['required', 'string']]);
         DB::table('team_benchmark_overrides')->where('team_id', $teamId)
             ->where('metric_key', BenchmarkDefinitions::normalizeMetricKey($data['metric_key']))
             ->where('age_group', $data['age_group'])->delete();
+        $cache->forgetTeam($teamId);
         return response()->json(['status' => 'success', 'data' => ['reset' => true]]);
     }
 }

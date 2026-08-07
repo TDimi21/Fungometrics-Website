@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Cache;
 
 final class PlayerDevelopmentDashboardCache
 {
+    private const WINDOWS = [7, 30, 60, 90, 120, 180, 365, 'all'];
+
     public function forgetPlayer(string $playerId): void
     {
         $teamIds = PlayerTeam::query()
@@ -20,9 +22,19 @@ final class PlayerDevelopmentDashboardCache
             ->unique();
 
         foreach ($teamIds as $teamId) {
-            foreach ([30, 60, 90, 120, 365, 'all'] as $days) {
+            foreach (self::WINDOWS as $days) {
                 Cache::forget("dev_dashboard_v3_{$teamId}_{$playerId}_{$days}");
+                Cache::forget("player_intelligence_v1_{$teamId}_{$playerId}_{$days}");
             }
         }
+    }
+
+    public function forgetTeam(string $teamId): void
+    {
+        PlayerTeam::query()
+            ->where('team_id', $teamId)
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->each(fn ($playerId) => $this->forgetPlayer((string) $playerId));
     }
 }

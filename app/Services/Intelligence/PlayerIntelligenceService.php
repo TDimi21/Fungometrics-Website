@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Intelligence;
 
+use Illuminate\Support\Facades\Cache;
+
 class PlayerIntelligenceService
 {
     public function __construct(
@@ -23,6 +25,17 @@ class PlayerIntelligenceService
     }
 
     public function build(string $teamId, string $playerId, int $days = 60): array
+    {
+        $days = max(1, min(365, $days));
+
+        return Cache::remember(
+            "player_intelligence_v1_{$teamId}_{$playerId}_{$days}",
+            now()->addMinutes(5),
+            fn (): array => $this->buildFresh($teamId, $playerId, $days),
+        );
+    }
+
+    public function buildFresh(string $teamId, string $playerId, int $days = 60): array
     {
         $assembled = $this->assembler->assembleForPlayer($teamId, $playerId, $days);
         $trendBlocks = $this->trendEngine->analyze($assembled['trend_blocks'] ?? [], $assembled);
