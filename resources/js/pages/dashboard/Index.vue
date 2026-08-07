@@ -30,6 +30,7 @@ import PlayerAssessmentReport from '@/features/development/components/PlayerAsse
 import { resolveBornValue, toISODOB, formatDOB } from '@/utils/dob.js'
 import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
 import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
+import DataHubDashboard from '@/pages/data-hub/DataHubDashboard.vue'
 import { sessionUserId } from '@/utils/sessionCache.js'
 
 const router = useRouter()
@@ -2296,7 +2297,7 @@ const ensureQuickStatsLoaded = async () => {
   quickStatsLoaded.value = true
 }
 
-const allowedDashboardTabs = ['overview', 'development', 'strength']
+const allowedDashboardTabs = ['overview', 'development', 'strength', 'datahub']
 
 const setDashTab = (tab) => {
   const nextTab = allowedDashboardTabs.includes(tab) ? tab : 'overview'
@@ -2442,7 +2443,7 @@ watch(
           <span class="text-white/30 text-sm ml-auto hidden md:block">{{ team?.name }}</span>
         </div>
 
-        <!-- Tab switcher -->
+        <!-- Dashboard tabs live above the shared content container. -->
         <div class="flex gap-1 mb-6 bg-[#0a1020]/60 border border-white/10 rounded-xl p-1 w-fit">
           <button
             @click="setDashTab('overview')"
@@ -2461,11 +2462,13 @@ watch(
           >Assessment</button>
           <button
             v-if="canAccessDataHub"
-            @click="router.push('/data-hub')"
-            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all text-white/40 hover:text-white"
+            @click="setDashTab('datahub')"
+            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
+            :class="dashTab === 'datahub' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
           >Data Hub</button>
         </div>
 
+        <div class="rounded-2xl border border-white/10 bg-[#080f1d]/55 p-3 md:p-5 shadow-2xl">
         <!-- OVERVIEW TAB -->
         <div v-if="dashTab === 'overview'">
 
@@ -3019,6 +3022,10 @@ watch(
           />
         </div><!-- end strength tab -->
 
+        <!-- DATA HUB TAB -->
+        <DataHubDashboard v-if="dashTab === 'datahub' && canAccessDataHub" embedded />
+
+        </div><!-- end shared dashboard content container -->
       </div>
     </div>
     <!-- Player Development Detail Modal -->

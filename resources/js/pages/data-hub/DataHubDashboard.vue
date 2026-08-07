@@ -7,6 +7,10 @@ import TemplateDownloads from '@/components/data-hub/TemplateDownloads.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team.js'
 
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 const imports = ref([])
 const teamStore = useTeamStore()
 const { team } = storeToRefs(teamStore)
@@ -28,8 +32,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <Layout>
-    <section class="hub-dashboard">
+  <component :is="embedded ? 'div' : Layout">
+    <section class="hub-dashboard" :class="{ embedded }">
       <header>
         <div>
           <span>FMTRX Data Hub</span>
@@ -67,11 +71,12 @@ onMounted(async () => {
         </div>
       </div>
     </section>
-  </Layout>
+  </component>
 </template>
 
 <style scoped>
 .hub-dashboard { width:min(1180px,calc(100% - 36px)); margin:0 auto; padding:18px 0 50px; color:#fff; }
+.hub-dashboard.embedded { width:100%; padding:0; }
 .hub-dashboard > header { display:flex; align-items:flex-end; justify-content:space-between; gap:28px; padding:34px; border:1px solid rgba(255,255,255,.12); border-radius:22px; background:radial-gradient(circle at 90% 0,rgba(255,43,74,.16),transparent 34%),linear-gradient(135deg,rgba(27,37,72,.94),rgba(6,12,29,.96)); box-shadow:0 24px 65px rgba(0,0,0,.34); }
 header span,.section-heading span,.phase-card span { color:#ff4964; font-size:10px; font-weight:900; letter-spacing:.16em; text-transform:uppercase; }
 header h1 { max-width:720px; margin-top:8px; font-size:clamp(32px,4.8vw,56px); font-weight:900; letter-spacing:-.04em; line-height:1.02; }

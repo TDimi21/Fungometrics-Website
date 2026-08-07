@@ -13,10 +13,11 @@ describe('Data Hub Phase 1', () => {
     const dashboard = source('resources/js/pages/dashboard/Index.vue')
     const router = source('resources/router/index.js')
 
-    expect(dashboard).toContain("router.push('/data-hub')")
+    expect(dashboard).toContain("setDashTab('datahub')")
     expect(dashboard).toContain('v-if="canAccessDataHub"')
     expect(dashboard).toContain("access.canAccess('data_hub_import')")
     expect(dashboard).toContain('>Data Hub</button>')
+    expect(dashboard).toContain('<DataHubDashboard')
     expect(router).toContain('path: "/data-hub"')
     expect(router).toContain('path: "/data-hub/import"')
     expect(router).toContain('coachOnly: true')
