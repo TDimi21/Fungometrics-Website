@@ -9,6 +9,7 @@ const page = source('resources/js/features/development/pages/PlayerDevelopmentDa
 const identity = source('resources/js/features/development/components/PlayerIdentityCard.vue')
 const percentile = source('resources/js/features/development/components/PercentileMetricRow.vue')
 const percentilePanel = source('resources/js/features/development/components/PercentileRankingsPanel.vue')
+const benchmarkEditor = source('resources/js/features/development/pages/AdminBenchmarksDashboard.vue')
 const actions = source('resources/js/features/development/components/CoachActionPlanCard.vue')
 const correlation = source('resources/js/features/development/components/CorrelationInsightsCard.vue')
 
@@ -146,7 +147,17 @@ describe('Player Development Dashboard redesign', () => {
     expect(percentile).toContain("{ dashed: !metric.available }")
     expect(percentile).toContain(':aria-label="aria"')
     expect(percentile).toContain(':class="percentileTone"')
-    expect(percentile).toContain('.marker.elite{--percentile-tone:#ef3340}')
+    expect(percentile).toContain('.track.critical,.track.below-average,.marker.critical,.marker.below-average{--percentile-tone:#ff2d4f}')
+    expect(percentile).toContain('.track.average,.marker.average{--percentile-tone:#efa92f}')
+    expect(percentile).toContain('.track.above-average,.track.elite,.marker.above-average,.marker.elite{--percentile-tone:#2ecc71}')
+  })
+
+  it('lays out benchmark metrics as rows beneath switchable age-range tabs', () => {
+    expect(benchmarkEditor).toContain("const activeAge = ref(AGE_GROUPS[0].key)")
+    expect(benchmarkEditor).toContain('v-for="age in availableAgeGroups"')
+    expect(benchmarkEditor).toContain('v-for="group in groupedMetrics"')
+    expect(benchmarkEditor).toContain('v-for="metric in group.rows"')
+    for (const tier of ['p5', 'p25', 'p50', 'p75', 'p95']) expect(benchmarkEditor).toContain(`'${tier}'`)
   })
 
   it('restores saved assessment percentiles without applying a shared benchmark to the wrong raw value', () => {
