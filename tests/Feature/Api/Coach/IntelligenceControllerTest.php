@@ -247,6 +247,42 @@ class IntelligenceControllerTest extends TestCase
         $response->assertNotFound();
     }
 
+    public function test_player_can_get_their_own_intelligence_snapshot_via_the_self_scoped_route(): void
+    {
+        [, $team, $player] = $this->createCoachTeamPlayer();
+        $player->update(['subscription_plan' => 'player_pro']);
+        Sanctum::actingAs($player, [UserTypes::PLAYER->value]);
+
+        $response = $this->json('GET', 'api/player/intelligence?days=60');
+
+        $response->assertOk()->assertJsonStructure([
+            'generated_at', 'team_id', 'player_id', 'data_sources_used', 'data_gaps',
+            'summary', 'scores', 'signals', 'recommendations', 'trend_blocks', 'profile_labels',
+        ]);
+        $response->assertJsonPath('team_id', (string) $team->id);
+        $response->assertJsonPath('player_id', (string) $player->id);
+    }
+
+    public function test_player_without_a_team_gets_a_graceful_empty_response(): void
+    {
+        $player = $this->createPlayerUser();
+        $player->update(['subscription_plan' => 'player_pro']);
+        Sanctum::actingAs($player, [UserTypes::PLAYER->value]);
+
+        $response = $this->json('GET', 'api/player/intelligence');
+
+        $response->assertOk()->assertJsonPath('data', null);
+    }
+
+    public function test_free_plan_player_is_forbidden_from_self_scoped_intelligence(): void
+    {
+        $player = $this->createPlayerUser();
+        $player->update(['subscription_plan' => 'free']);
+        Sanctum::actingAs($player, [UserTypes::PLAYER->value]);
+
+        $this->json('GET', 'api/player/intelligence')->assertForbidden();
+    }
+
     private function createCoachTeamPlayer(): array
     {
         $coach = User::factory()->create([

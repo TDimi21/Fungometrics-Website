@@ -57,6 +57,7 @@ class AgeBenchmarkEngine
         $context = [
             'age' => $age,
             'player_id' => $player['id'] ?? null,
+            'team_id' => $player['team_id'] ?? $assembled['team_context']['id'] ?? null,
             'body_weight' => $assembled['physical_development']['body_weight'] ?? $assembled['assessment_summary']['body_weight'] ?? null,
             'height_inches' => $this->heightInches($player['height_ft'] ?? null, $player['height_in'] ?? null),
             'position' => $player['positions'] ?? [],

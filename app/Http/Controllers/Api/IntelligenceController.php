@@ -32,6 +32,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
+use Throwable;
 
 class IntelligenceController extends Controller
 {
@@ -58,11 +59,11 @@ class IntelligenceController extends Controller
 
     public function team(Request $request, string $teamId): JsonResponse
     {
-        if (! Team::query()->whereKey($teamId)->exists()) {
+        if ( ! Team::query()->whereKey($teamId)->exists()) {
             return $this->notFound('Team not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, $teamId)) {
+        if ( ! $this->coachCanAccessTeam($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -70,7 +71,7 @@ class IntelligenceController extends Controller
         $snapshot = $this->teamIntelligence->build($teamId, $days);
         try {
             $snapshot['decision_brief'] = $this->decisionEngine->buildTeamDecisionBrief($teamId, $days);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             Log::warning('IntelligenceController decision brief unavailable: '.$exception->getMessage(), [
                 'team_id' => $teamId,
                 'days' => $days,
@@ -81,7 +82,7 @@ class IntelligenceController extends Controller
 
         try {
             $snapshot['benchmark_collection_plan'] = $this->benchmarkCollectionPlanner->buildTeamCollectionPlan($teamId, $days);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             Log::warning('IntelligenceController benchmark collection plan unavailable: '.$exception->getMessage(), [
                 'team_id' => $teamId,
                 'days' => $days,
@@ -92,7 +93,7 @@ class IntelligenceController extends Controller
 
         try {
             $snapshot['benchmark_task_assignments'] = $this->benchmarkTaskAssignmentService->buildAssignableTasks($teamId, $days);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             Log::warning('IntelligenceController benchmark task assignments unavailable: '.$exception->getMessage(), [
                 'team_id' => $teamId,
                 'days' => $days,
@@ -103,7 +104,7 @@ class IntelligenceController extends Controller
 
         try {
             $snapshot['coach_action_practice_plan'] = $this->coachActionPracticePlanner->buildPracticePlanFromCoachActions($teamId, $days);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             Log::warning('IntelligenceController coach action practice plan unavailable: '.$exception->getMessage(), [
                 'team_id' => $teamId,
                 'days' => $days,
@@ -116,7 +117,7 @@ class IntelligenceController extends Controller
             $snapshot['practice_plan_update_suggestions'] = $this->practicePlanUpdateSuggestionService->suggestUpdatesForTeam($teamId, $days, [
                 'latest_suggested_plan' => is_array($snapshot['coach_action_practice_plan'] ?? null) ? $snapshot['coach_action_practice_plan'] : [],
             ]);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             Log::warning('IntelligenceController practice plan update suggestions unavailable: '.$exception->getMessage(), [
                 'team_id' => $teamId,
                 'days' => $days,
@@ -134,19 +135,19 @@ class IntelligenceController extends Controller
 
     public function player(Request $request, string $teamId, string $playerId): JsonResponse
     {
-        if (! Team::query()->whereKey($teamId)->exists()) {
+        if ( ! Team::query()->whereKey($teamId)->exists()) {
             return $this->notFound('Team not found');
         }
 
-        if (! User::query()->whereKey($playerId)->exists()) {
+        if ( ! User::query()->whereKey($playerId)->exists()) {
             return $this->notFound('Player not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, $teamId)) {
+        if ( ! $this->coachCanAccessTeam($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
-        if (! PlayerTeam::query()->where('team_id', $teamId)->where('user_id', $playerId)->exists()) {
+        if ( ! PlayerTeam::query()->where('team_id', $teamId)->where('user_id', $playerId)->exists()) {
             return $this->forbidden('Player is not linked to this team');
         }
 
@@ -155,9 +156,41 @@ class IntelligenceController extends Controller
         );
     }
 
+    /**
+     * Self-service mirror of player(): a player reading their own intelligence
+     * snapshot never supplies team/player identifiers — both are resolved from
+     * the authenticated token so one player can never read another's data.
+     */
+    public function selfPlayer(Request $request): JsonResponse
+    {
+        $playerId = $this->authenticatedPlayerId($request);
+        if ( ! $playerId) {
+            return $this->forbidden('You do not have access to this resource');
+        }
+
+        $teamId = PlayerTeam::query()
+            ->where('user_id', $playerId)
+            ->where('actual', true)
+            ->whereNull('deleted_at')
+            ->value('team_id');
+
+        if ( ! $teamId) {
+            return response()->json([
+                'code' => 'INTEL-NO-TEAM',
+                'message' => 'Join a team to see your development intelligence',
+                'status' => 'success',
+                'data' => null,
+            ]);
+        }
+
+        return response()->json(
+            $this->playerIntelligence->build((string) $teamId, $playerId, $this->days($request))
+        );
+    }
+
     public function launchReadiness(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -183,7 +216,7 @@ class IntelligenceController extends Controller
 
     public function listBenchmarkTasks(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -196,7 +229,7 @@ class IntelligenceController extends Controller
 
     public function generateBenchmarkTasks(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -205,7 +238,7 @@ class IntelligenceController extends Controller
 
     public function saveCoachActionPracticePlanToDailyPlanner(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -225,7 +258,7 @@ class IntelligenceController extends Controller
         $status = ($validated['publish'] ?? false) === true
             ? 'published'
             : (string) ($validated['status'] ?? 'draft');
-        $assignAll = (bool) ($validated['assign_all'] ?? ($status === 'published'));
+        $assignAll = (bool) ($validated['assign_all'] ?? ('published' === $status));
 
         try {
             return response()->json($this->coachActionDailyPlannerAdapter->saveToExistingDailyPlanner($teamId, null, [
@@ -239,7 +272,7 @@ class IntelligenceController extends Controller
                 'primary_goal' => $validated['primary_goal'] ?? null,
                 'created_by' => (string) $request->user()?->id,
             ]));
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             Log::warning('IntelligenceController coach action practice plan daily planner save failed: '.$exception->getMessage(), [
                 'team_id' => $teamId,
                 'status' => $status,
@@ -257,11 +290,11 @@ class IntelligenceController extends Controller
     public function dailyPlanUpdateSuggestions(Request $request, string $dailyPlanId): JsonResponse
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
-        if (! $plan) {
+        if ( ! $plan) {
             return $this->notFound('Daily plan not found');
         }
 
-        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+        if ( ! $this->teamIsAccessible($request, (string) $plan->team_id)) {
             return $this->forbidden('You do not have access to this daily plan');
         }
 
@@ -272,7 +305,7 @@ class IntelligenceController extends Controller
 
     public function teamDailyPlanUpdateSuggestions(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -282,11 +315,11 @@ class IntelligenceController extends Controller
     public function applyDailyPlanUpdateSuggestions(Request $request, string $dailyPlanId): JsonResponse
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
-        if (! $plan) {
+        if ( ! $plan) {
             return $this->notFound('Daily plan not found');
         }
 
-        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+        if ( ! $this->teamIsAccessible($request, (string) $plan->team_id)) {
             return $this->forbidden('You do not have access to this daily plan');
         }
 
@@ -313,11 +346,11 @@ class IntelligenceController extends Controller
     public function dailyPlanRepublishReview(Request $request, string $dailyPlanId): JsonResponse
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
-        if (! $plan) {
+        if ( ! $plan) {
             return $this->notFound('Daily plan not found');
         }
 
-        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+        if ( ! $this->teamIsAccessible($request, (string) $plan->team_id)) {
             return $this->forbidden('You do not have access to this daily plan');
         }
 
@@ -331,11 +364,11 @@ class IntelligenceController extends Controller
     public function previewDailyPlanRepublishReview(Request $request, string $dailyPlanId): JsonResponse
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
-        if (! $plan) {
+        if ( ! $plan) {
             return $this->notFound('Daily plan not found');
         }
 
-        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+        if ( ! $this->teamIsAccessible($request, (string) $plan->team_id)) {
             return $this->forbidden('You do not have access to this daily plan');
         }
 
@@ -359,11 +392,11 @@ class IntelligenceController extends Controller
     public function applyDailyPlanRepublishReview(Request $request, string $dailyPlanId): JsonResponse
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
-        if (! $plan) {
+        if ( ! $plan) {
             return $this->notFound('Daily plan not found');
         }
 
-        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+        if ( ! $this->teamIsAccessible($request, (string) $plan->team_id)) {
             return $this->forbidden('You do not have access to this daily plan');
         }
 
@@ -391,11 +424,11 @@ class IntelligenceController extends Controller
     public function republishDailyPlan(Request $request, string $dailyPlanId): JsonResponse
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
-        if (! $plan) {
+        if ( ! $plan) {
             return $this->notFound('Daily plan not found');
         }
 
-        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+        if ( ! $this->teamIsAccessible($request, (string) $plan->team_id)) {
             return $this->forbidden('You do not have access to this daily plan');
         }
 
@@ -423,11 +456,11 @@ class IntelligenceController extends Controller
     public function listDailyPlanRevisions(Request $request, string $dailyPlanId): JsonResponse
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
-        if (! $plan) {
+        if ( ! $plan) {
             return $this->notFound('Daily plan not found');
         }
 
-        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+        if ( ! $this->teamIsAccessible($request, (string) $plan->team_id)) {
             return $this->forbidden('You do not have access to this daily plan');
         }
 
@@ -437,16 +470,16 @@ class IntelligenceController extends Controller
     public function showDailyPlanRevision(Request $request, string $dailyPlanId, string $revisionId): JsonResponse
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
-        if (! $plan) {
+        if ( ! $plan) {
             return $this->notFound('Daily plan not found');
         }
 
-        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+        if ( ! $this->teamIsAccessible($request, (string) $plan->team_id)) {
             return $this->forbidden('You do not have access to this daily plan');
         }
 
         $revision = $this->dailyPlanRevisionService->revisionById($dailyPlanId, $revisionId);
-        if (! $revision) {
+        if ( ! $revision) {
             return $this->notFound('Revision not found');
         }
 
@@ -456,11 +489,11 @@ class IntelligenceController extends Controller
     public function compareDailyPlanRevisions(Request $request, string $dailyPlanId): JsonResponse
     {
         $plan = DailyPlan::query()->find($dailyPlanId);
-        if (! $plan) {
+        if ( ! $plan) {
             return $this->notFound('Daily plan not found');
         }
 
-        if (! $this->teamIsAccessible($request, (string) $plan->team_id)) {
+        if ( ! $this->teamIsAccessible($request, (string) $plan->team_id)) {
             return $this->forbidden('You do not have access to this daily plan');
         }
 
@@ -478,7 +511,7 @@ class IntelligenceController extends Controller
 
     public function saveBenchmarkDrafts(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -488,7 +521,7 @@ class IntelligenceController extends Controller
         ]);
 
         $tasks = $validated['tasks'] ?? null;
-        if ($tasks === null) {
+        if (null === $tasks) {
             $generated = $this->benchmarkTaskAssignmentService->buildAssignableTasks($teamId, $this->days($request));
             $tasks = [
                 ...($generated['team_tasks'] ?? []),
@@ -504,7 +537,7 @@ class IntelligenceController extends Controller
 
     public function assignBenchmarkTasks(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -525,7 +558,7 @@ class IntelligenceController extends Controller
 
     public function listBenchmarkTaskReviews(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -546,11 +579,11 @@ class IntelligenceController extends Controller
     public function completeBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+        if ( ! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
             return $this->forbidden('You do not have access to this task');
         }
 
@@ -576,11 +609,11 @@ class IntelligenceController extends Controller
     public function approveBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+        if ( ! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
             return $this->forbidden('You do not have access to this task');
         }
 
@@ -605,11 +638,11 @@ class IntelligenceController extends Controller
     public function rejectBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+        if ( ! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
             return $this->forbidden('You do not have access to this task');
         }
 
@@ -629,11 +662,11 @@ class IntelligenceController extends Controller
     public function requestBenchmarkTaskCorrection(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+        if ( ! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
             return $this->forbidden('You do not have access to this task');
         }
 
@@ -652,7 +685,7 @@ class IntelligenceController extends Controller
 
     public function listBenchmarkTaskPromotions(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -662,11 +695,11 @@ class IntelligenceController extends Controller
     public function previewBenchmarkTaskPromotion(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+        if ( ! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
             return $this->forbidden('You do not have access to this task');
         }
 
@@ -676,11 +709,11 @@ class IntelligenceController extends Controller
     public function promoteBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+        if ( ! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
             return $this->forbidden('You do not have access to this task');
         }
 
@@ -705,7 +738,7 @@ class IntelligenceController extends Controller
 
     public function promoteApprovedBenchmarkTasks(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -724,11 +757,11 @@ class IntelligenceController extends Controller
     public function dismissBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+        if ( ! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
             return $this->forbidden('You do not have access to this task');
         }
 
@@ -742,11 +775,11 @@ class IntelligenceController extends Controller
     public function benchmarkTaskCompletionWorkflow(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+        if ( ! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
             return $this->forbidden('You do not have access to this task');
         }
 
@@ -756,11 +789,11 @@ class IntelligenceController extends Controller
     public function completeBenchmarkTaskWithPayload(Request $request, string $taskId): JsonResponse
     {
         $task = BenchmarkCollectionTask::query()->find($taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
-        if (! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
+        if ( ! $this->coachCanAccessTeam($request, (string) $task->team_id)) {
             return $this->forbidden('You do not have access to this task');
         }
 
@@ -776,7 +809,7 @@ class IntelligenceController extends Controller
     public function listPlayerBenchmarkTasks(Request $request): JsonResponse
     {
         $playerId = $this->authenticatedPlayerId($request);
-        if (! $playerId) {
+        if ( ! $playerId) {
             return $this->forbidden('Player account could not be resolved');
         }
 
@@ -791,12 +824,12 @@ class IntelligenceController extends Controller
     public function showPlayerBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $playerId = $this->authenticatedPlayerId($request);
-        if (! $playerId) {
+        if ( ! $playerId) {
             return $this->forbidden('Player account could not be resolved');
         }
 
         $result = $this->benchmarkTaskPersistenceService->getPlayerTask($taskId, $playerId);
-        if (! ($result['ok'] ?? false)) {
+        if ( ! ($result['ok'] ?? false)) {
             return $this->notFound('Benchmark task not found');
         }
 
@@ -806,7 +839,7 @@ class IntelligenceController extends Controller
     public function startPlayerBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $task = $this->playerVisibleTaskForRequest($request, $taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
@@ -819,7 +852,7 @@ class IntelligenceController extends Controller
     public function completePlayerBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $task = $this->playerVisibleTaskForRequest($request, $taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
@@ -845,7 +878,7 @@ class IntelligenceController extends Controller
     public function dismissPlayerBenchmarkTask(Request $request, string $taskId): JsonResponse
     {
         $task = $this->playerVisibleTaskForRequest($request, $taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
@@ -859,7 +892,7 @@ class IntelligenceController extends Controller
     public function playerBenchmarkTaskCompletionWorkflow(Request $request, string $taskId): JsonResponse
     {
         $task = $this->playerVisibleTaskForRequest($request, $taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
@@ -871,7 +904,7 @@ class IntelligenceController extends Controller
     public function playerBenchmarkTaskReviewStatus(Request $request, string $taskId): JsonResponse
     {
         $task = $this->playerVisibleTaskForRequest($request, $taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
@@ -883,7 +916,7 @@ class IntelligenceController extends Controller
     public function completePlayerBenchmarkTaskWithPayload(Request $request, string $taskId): JsonResponse
     {
         $task = $this->playerVisibleTaskForRequest($request, $taskId);
-        if (! $task) {
+        if ( ! $task) {
             return $this->notFound('Benchmark task not found');
         }
 
@@ -898,7 +931,7 @@ class IntelligenceController extends Controller
 
     public function refreshTeamBenchmarks(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -907,7 +940,7 @@ class IntelligenceController extends Controller
 
     public function rescoreBenchmarkDataQuality(Request $request, string $teamId): JsonResponse
     {
-        if (! $this->teamIsAccessible($request, $teamId)) {
+        if ( ! $this->teamIsAccessible($request, $teamId)) {
             return $this->forbidden('You do not have access to this team');
         }
 
@@ -949,7 +982,7 @@ class IntelligenceController extends Controller
     private function authenticatedPlayerId(Request $request): ?string
     {
         $user = $request->user();
-        if (! $user || (string) $user->type !== 'player') {
+        if ( ! $user || 'player' !== (string) $user->type) {
             return null;
         }
 
@@ -959,7 +992,7 @@ class IntelligenceController extends Controller
     private function playerVisibleTaskForRequest(Request $request, string $taskId): ?BenchmarkCollectionTask
     {
         $playerId = $this->authenticatedPlayerId($request);
-        if (! $playerId) {
+        if ( ! $playerId) {
             return null;
         }
 
@@ -972,7 +1005,7 @@ class IntelligenceController extends Controller
 
     private function withCompletionRefresh(array $result, string $taskId, int $days): array
     {
-        if (! ($result['ok'] ?? false)) {
+        if ( ! ($result['ok'] ?? false)) {
             return $result;
         }
 
@@ -980,7 +1013,7 @@ class IntelligenceController extends Controller
             $result['refresh'] = $this->benchmarkRefreshService->refreshAfterTaskCompletion($taskId, [
                 'days' => $days,
             ]);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $result['refresh'] = [
                 'task_id' => $taskId,
                 'refreshed_at' => now()->toIso8601String(),
@@ -996,7 +1029,7 @@ class IntelligenceController extends Controller
     private function coachCanAccessTeam(Request $request, string $teamId): bool
     {
         $user = $request->user();
-        if (! $user) {
+        if ( ! $user) {
             return false;
         }
 

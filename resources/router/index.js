@@ -177,7 +177,7 @@ const routes = [
 		name: 'development.admin.benchmarks',
 		path: '/development/admin/benchmarks',
 		component: AdminBenchmarksDashboard,
-		meta: { requiresAuth: true },
+		meta: { requiresAuth: true, coachOnly: true, entitlement: 'view_advanced_stats' },
 	},
 	{
 		name: "create.training",

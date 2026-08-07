@@ -51,6 +51,19 @@ class CompositeBenchmarkEngine
             return $this->disabledResult($metricKey, $value, $research, $population, $policy);
         }
 
+        // A coach's explicit team benchmark is authoritative for that team. Keep
+        // population evidence visible, but do not blend it back over the override.
+        if (($research['evidence']['team_benchmark_override'] ?? false) === true) {
+            return array_merge($research, [
+                'source' => 'team_benchmark_override',
+                'composite_percentile' => $researchPercentile,
+                'research_percentile' => $research,
+                'population_percentile' => $population,
+                'source_mix' => $this->sourceMix(1.0, 0.0, $population),
+                'population_policy' => $policy,
+            ]);
+        }
+
         if ($populationPercentile !== null && $this->isPopulationOnlyPolicy($policy)) {
             $score = (int) round(max(0, min(100, $populationPercentile)));
             $label = $this->labelFromPercentile($score);

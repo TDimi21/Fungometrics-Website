@@ -10,6 +10,7 @@ class ResearchPercentileEngine
 {
     public function __construct(
         private readonly BenchmarkLibrary $benchmarkLibrary,
+        private readonly TeamBenchmarkOverrideService $teamBenchmarkOverrides,
     ) {}
 
     public function percentileForMetric(string $metricKey, mixed $value, ?string $dob, array $context = []): array
@@ -73,7 +74,11 @@ class ResearchPercentileEngine
             return $base;
         }
 
-        $anchors = $this->benchmarkLibrary->percentileAnchors($metricKey, $ageGroup);
+        $anchors = $this->teamBenchmarkOverrides->effectiveAnchors(
+            $metricKey,
+            $ageGroup,
+            $context['team_id'] ?? $context['teamId'] ?? null,
+        );
         if (! $anchors) {
             $base['label'] = 'Needs Benchmark';
             $base['benchmark_label'] = 'Needs Benchmark';
@@ -93,6 +98,8 @@ class ResearchPercentileEngine
         $base['gap_to_good'] = $this->gap($raw, (float) $anchors['p75'], $higherIsBetter);
         $base['gap_to_elite'] = $this->gap($raw, (float) $anchors['p95'], $higherIsBetter);
         $base['evidence']['age_percentile_anchors'] = $anchors;
+        $base['evidence']['team_benchmark_override'] = ! empty($context['team_id'] ?? $context['teamId'] ?? null)
+            && $anchors !== $this->benchmarkLibrary->percentileAnchors($metricKey, $ageGroup);
         $base['evidence']['higher_is_better'] = $higherIsBetter;
 
         return $base;

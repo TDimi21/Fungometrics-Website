@@ -92,6 +92,7 @@ use App\Http\Controllers\Api\Coach\DeleteFieldPreset;
 use App\Http\Controllers\Api\Coach\AssessmentDraftController;
 use App\Http\Controllers\Api\Coach\AssessmentInsightController;
 use App\Http\Controllers\Api\Coach\TeamInsightController;
+use App\Http\Controllers\Api\Coach\TeamBenchmarkOverrideController;
 use App\Http\Controllers\Api\Coach\GetTeamById;
 use App\Http\Controllers\Api\Coach\GetTeamCode;
 use App\Http\Controllers\Api\Coach\GetPlayerDevelopmentBoard;
@@ -286,6 +287,7 @@ Route::prefix('player')->group(function (): void {
         Route::post('benchmark-tasks/{taskId}/dismiss', [IntelligenceController::class, 'dismissPlayerBenchmarkTask']);
         Route::middleware('plan:development_graphs')->get('development/players/{player}', GetPlayerDevelopmentDashboard::class);
         Route::middleware('plan:development_graphs')->get('development/teams/{team}/players/{player}', GetPlayerDevelopmentDashboard::class);
+        Route::middleware('plan:development_graphs')->get('intelligence', [IntelligenceController::class, 'selfPlayer']);
 
         // Daily Planner (player side) — "My Workouts" + progress
         Route::get('weekly-plans', GetPlayerWeeklyPlans::class);
@@ -445,6 +447,9 @@ Route::prefix('coach')->group(function (): void {
         Route::delete('/assessment-drafts/{player}', [AssessmentDraftController::class, 'destroy']);
         Route::get('/teams/{id}/practice-insight', [TeamInsightController::class, 'show']);
         Route::post('/teams/{id}/practice-insight', [TeamInsightController::class, 'update']);
+        Route::get('/teams/{teamId}/benchmark-overrides', [TeamBenchmarkOverrideController::class, 'index']);
+        Route::put('/teams/{teamId}/benchmark-overrides', [TeamBenchmarkOverrideController::class, 'update']);
+        Route::delete('/teams/{teamId}/benchmark-overrides', [TeamBenchmarkOverrideController::class, 'destroy']);
     });
 });
 
