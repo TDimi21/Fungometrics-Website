@@ -241,16 +241,6 @@ const top10FallbackAvatar = updatedLogo
 // ── Player Development Board ──────────────────────────────────────────────────
 const devBoard = ref([])
 const devBoardLoading = ref(false)
-const devBoardExpanded = ref(null) // player id expanded
-const devBoardShowAll = ref(false)
-const devBoardDisplayLimit = 5
-
-const visibleDevBoard = computed(() => {
-  if (devBoardShowAll.value) return devBoard.value
-  return devBoard.value.slice(0, devBoardDisplayLimit)
-})
-
-const devBoardHasMore = computed(() => devBoard.value.length > devBoardDisplayLimit)
 
 // ── Development Card carousel (scroll through players one card at a time) ──────
 const devCarousel = ref(null)
@@ -328,8 +318,6 @@ const fetchDevBoard = async (force = false) => {
   try {
     const { data } = await withTeamIdFallbackGet((id) => 'coach/teams/' + id + '/player-development-board')
     devBoard.value = data?.data ?? []
-    devBoardExpanded.value = null
-    devBoardShowAll.value = false
     writeDashboardCache({ devBoard: devBoard.value })
   } catch (e) { console.warn('fetchDevBoard', e) }
   finally { devBoardLoading.value = false }
@@ -2467,87 +2455,8 @@ watch(
 
           <div class="grid grid-cols-1 xl:grid-cols-[1fr_1fr_260px] gap-5 mb-5">
 
-          <!-- ── Player Development Board ── -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-base font-black uppercase tracking-widest text-white">Player Development Board</h2>
-              <span class="text-white/30 text-[11px] uppercase tracking-widest">Last 5 sessions · FMTRX score</span>
-            </div>
-
-            <!-- Loading skeleton -->
-            <div v-if="devBoardLoading" class="flex flex-col gap-2">
-              <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-3 py-3 animate-pulse rounded-xl bg-white/5">
-                <div class="w-24 h-3 bg-white/10 rounded-full"></div>
-                <div class="flex-1 h-2 bg-white/10 rounded-full"></div>
-                <div class="w-16 h-3 bg-white/10 rounded-full"></div>
-              </div>
-            </div>
-
-            <!-- Empty state -->
-            <div v-else-if="!devBoard.length" class="text-white/25 text-sm text-center py-6">
-              No player data available
-            </div>
-
-            <!-- Board rows -->
-            <div v-else>
-              <!-- Summary strip -->
-              <div class="flex gap-3 mb-4 flex-wrap">
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                  <span class="text-orange-400 text-xs font-black">🔥 Hot</span>
-                  <span class="text-orange-300 text-xs font-bold ml-1">{{ devBoard.filter(p => p.status === 'hot').length }}</span>
-                </div>
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
-                  <span class="text-green-400 text-xs font-black">🟢 Improving</span>
-                  <span class="text-green-300 text-xs font-bold ml-1">{{ devBoard.filter(p => p.status === 'improving').length }}</span>
-                </div>
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20">
-                  <span class="text-red-400 text-xs font-black">🔴 Needs Work</span>
-                  <span class="text-red-300 text-xs font-bold ml-1">{{ devBoard.filter(p => p.status === 'needs_work').length }}</span>
-                </div>
-              </div>
-
-              <!-- Development Card carousel — one card wide, auto-advances every 3s (pauses on hover) -->
-              <div class="relative" @mouseenter="stopDevAutoplay" @mouseleave="startDevAutoplay">
-                <div
-                  ref="devCarousel"
-                  class="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 w-full max-w-[420px] mx-auto dc-scroll"
-                  @scroll.passive="onDevScroll"
-                >
-                  <div
-                    v-for="player in devBoard" :key="player.id"
-                    class="snap-start shrink-0 w-full cursor-pointer"
-                    @click="openSharedPlayerDevelopmentProfile(player)"
-                  >
-                    <DevelopmentCard :player="player" :team="team" />
-                  </div>
-                </div>
-
-                <!-- pager: prev · dots · next · counter -->
-                <div v-if="devBoard.length > 1" class="flex items-center justify-center gap-3 mt-3">
-                  <button
-                    class="w-7 h-7 rounded-full border border-white/15 text-white/60 hover:text-white hover:border-white/40 text-lg font-black leading-none disabled:opacity-25 disabled:cursor-default transition"
-                    :disabled="devCardIndex <= 0" aria-label="Previous player" @click="devPrev"
-                  >‹</button>
-                  <div class="flex items-center gap-1.5">
-                    <button
-                      v-for="(p, i) in devBoard" :key="p.id"
-                      class="h-1.5 rounded-full transition-all"
-                      :class="i === devCardIndex ? 'w-5 bg-white/85' : 'w-1.5 bg-white/25 hover:bg-white/45'"
-                      :aria-label="`Go to player ${i + 1}`" @click="devGoTo(i)"
-                    ></button>
-                  </div>
-                  <button
-                    class="w-7 h-7 rounded-full border border-white/15 text-white/60 hover:text-white hover:border-white/40 text-lg font-black leading-none disabled:opacity-25 disabled:cursor-default transition"
-                    :disabled="devCardIndex >= devBoard.length - 1" aria-label="Next player" @click="devNext"
-                  >›</button>
-                  <span class="text-white/40 text-xs font-bold tabular-nums ml-1">{{ devCardIndex + 1 }} / {{ devBoard.length }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Performance Review — scored disciplines (left) + stat detail (right) -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl xl:col-span-2">
+          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl xl:col-span-3">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-base font-black uppercase tracking-widest text-white">Performance Review</h2>
               <span class="text-white/30 text-xs">Last 10 sessions · FMTRX score</span>
@@ -2938,33 +2847,75 @@ watch(
             </div>
           </div>
 
+          <!-- ── Player Development Board ── -->
           <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
             <div class="flex items-center justify-between mb-4">
-              <h2 class="text-base font-black uppercase tracking-widest text-white">Team Development Snapshot</h2>
-              <button
-                class="text-[#C00000] text-xs font-black hover:text-red-400 transition"
-                @click="router.push('/development/team')"
-              >Open Full Team Dashboard</button>
+              <h2 class="text-base font-black uppercase tracking-widest text-white">Player Development Board</h2>
+              <span class="text-white/30 text-[11px] uppercase tracking-widest">Last 5 sessions · FMTRX score</span>
             </div>
 
-            <div v-if="devBoardLoading" class="text-white/40 text-sm">Loading development board...</div>
-            <div v-else-if="!devBoard.length" class="text-white/25 text-sm">No player development data available</div>
-            <div v-else class="flex flex-col gap-2">
-              <div
-                v-for="player in visibleDevBoard"
-                :key="player.id"
-                class="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 flex items-center gap-2"
-              >
-                <button class="text-sm font-black text-sky-300 hover:text-sky-200 truncate" @click="openSharedPlayerDevelopmentProfile(player)">
-                  {{ player.name }}
-                </button>
-                <span class="text-[11px] font-black px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">
-                  MOB {{ player.fitness?.mobility_score ?? '—' }}
-                </span>
-                <span class="ml-auto text-xs font-black px-2 py-0.5 rounded-full"
-                  :style="player.scores?.overall != null ? { backgroundColor: scoreColor(player.scores.overall) + '22', color: scoreColor(player.scores.overall) } : {}">
-                  {{ player.scores?.overall != null ? Math.round(player.scores.overall) : '—' }}
-                </span>
+            <div v-if="devBoardLoading" class="flex flex-col gap-2">
+              <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-3 py-3 animate-pulse rounded-xl bg-white/5">
+                <div class="w-24 h-3 bg-white/10 rounded-full"></div>
+                <div class="flex-1 h-2 bg-white/10 rounded-full"></div>
+                <div class="w-16 h-3 bg-white/10 rounded-full"></div>
+              </div>
+            </div>
+
+            <div v-else-if="!devBoard.length" class="text-white/25 text-sm text-center py-6">
+              No player data available
+            </div>
+
+            <div v-else>
+              <div class="flex gap-3 mb-4 flex-wrap">
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                  <span class="text-orange-400 text-xs font-black">🔥 Hot</span>
+                  <span class="text-orange-300 text-xs font-bold ml-1">{{ devBoard.filter(p => p.status === 'hot').length }}</span>
+                </div>
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <span class="text-green-400 text-xs font-black">🟢 Improving</span>
+                  <span class="text-green-300 text-xs font-bold ml-1">{{ devBoard.filter(p => p.status === 'improving').length }}</span>
+                </div>
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <span class="text-red-400 text-xs font-black">🔴 Needs Work</span>
+                  <span class="text-red-300 text-xs font-bold ml-1">{{ devBoard.filter(p => p.status === 'needs_work').length }}</span>
+                </div>
+              </div>
+
+              <div class="relative" @mouseenter="stopDevAutoplay" @mouseleave="startDevAutoplay">
+                <div
+                  ref="devCarousel"
+                  class="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 w-full max-w-[420px] mx-auto dc-scroll"
+                  @scroll.passive="onDevScroll"
+                >
+                  <div
+                    v-for="player in devBoard" :key="player.id"
+                    class="snap-start shrink-0 w-full cursor-pointer"
+                    @click="openSharedPlayerDevelopmentProfile(player)"
+                  >
+                    <DevelopmentCard :player="player" :team="team" />
+                  </div>
+                </div>
+
+                <div v-if="devBoard.length > 1" class="flex items-center justify-center gap-3 mt-3">
+                  <button
+                    class="w-7 h-7 rounded-full border border-white/15 text-white/60 hover:text-white hover:border-white/40 text-lg font-black leading-none disabled:opacity-25 disabled:cursor-default transition"
+                    :disabled="devCardIndex <= 0" aria-label="Previous player" @click="devPrev"
+                  >‹</button>
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      v-for="(p, i) in devBoard" :key="p.id"
+                      class="h-1.5 rounded-full transition-all"
+                      :class="i === devCardIndex ? 'w-5 bg-white/85' : 'w-1.5 bg-white/25 hover:bg-white/45'"
+                      :aria-label="`Go to player ${i + 1}`" @click="devGoTo(i)"
+                    ></button>
+                  </div>
+                  <button
+                    class="w-7 h-7 rounded-full border border-white/15 text-white/60 hover:text-white hover:border-white/40 text-lg font-black leading-none disabled:opacity-25 disabled:cursor-default transition"
+                    :disabled="devCardIndex >= devBoard.length - 1" aria-label="Next player" @click="devNext"
+                  >›</button>
+                  <span class="text-white/40 text-xs font-bold tabular-nums ml-1">{{ devCardIndex + 1 }} / {{ devBoard.length }}</span>
+                </div>
               </div>
             </div>
           </div>
