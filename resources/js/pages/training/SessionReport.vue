@@ -19,6 +19,8 @@ import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { ageFromDOB, resolveBornValue } from '@/utils/dob.js'
 import { useAccessStore } from '@/store/access.js'
+import StatRow from '@/components/session-report/SessionReportStatRow.vue'
+import SegBar from '@/components/session-report/SessionReportSegmentBar.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -1537,50 +1539,6 @@ const displayDate = computed(() => {
     </div>
   </Layout>
 </template>
-
-<!-- ── Inline sub-components ─────────────────────────────────────────────────── -->
-<script>
-// StatRow — a labelled horizontal stat bar
-const StatRow = {
-  props: { label: String, value: [Number, String], unit: { type: String, default: '' }, min: { type: Number, default: 0 }, max: { type: Number, default: 100 }, thresholds: { type: Array, default: () => [40, 70] }, reverse: { type: Boolean, default: false } },
-  computed: {
-    num() { return parseFloat(this.value) },
-    pct() { return Math.min(100, Math.max(0, ((this.num - this.min) / (this.max - this.min)) * 100)) },
-    color() {
-      const n = this.num
-      const [lo, hi] = this.thresholds
-      if (!this.reverse) { return n >= hi ? '#2ECC71' : n >= lo ? '#F39C12' : '#E74C3C' }
-      return n <= lo ? '#2ECC71' : n <= hi ? '#F39C12' : '#E74C3C'
-    },
-  },
-  template: `
-    <div class="flex items-center gap-3">
-      <span class="text-sm font-bold text-white/85 w-48 shrink-0 truncate">{{ label }}</span>
-      <div class="flex-1 h-2.5 bg-white/15 rounded-full overflow-hidden">
-        <div class="h-full rounded-full transition-all duration-500" :style="{ width: pct + '%', backgroundColor: color }"/>
-      </div>
-      <span class="text-base font-black w-20 text-right shrink-0" :style="{ color }">{{ num }}{{ unit }}</span>
-    </div>`,
-}
-
-// SegBar — segmented colour bar
-const SegBar = {
-  props: { segments: Array },
-  template: `
-    <div>
-      <div class="flex h-6 rounded overflow-hidden border border-white/20">
-        <div v-for="s in segments.filter(x => x.pct > 0)" :key="s.label"
-             :style="{ flex: s.pct, backgroundColor: s.color }"/>
-      </div>
-      <div class="flex justify-between mt-1">
-        <span v-for="s in segments.filter(x => x.pct > 0)" :key="s.label"
-              class="text-[11px] font-black" :style="{ color: s.color }">{{ s.label }}</span>
-      </div>
-    </div>`,
-}
-
-export default { components: { StatRow, SegBar } }
-</script>
 
 <style scoped>
 .session-report .rounded-xl.bg-white\/5,

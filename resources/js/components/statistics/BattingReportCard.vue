@@ -13,6 +13,8 @@
  * Performance Score breakdown, and auto-feedback tips.
  */
 import { computed } from 'vue'
+import StatRow from '@/components/session-report/SessionReportStatRow.vue'
+import SegBar from '@/components/session-report/SessionReportSegmentBar.vue'
 
 const props = defineProps({
   balls: { type: Array, default: () => [] },
@@ -285,54 +287,6 @@ const tips = computed(() => {
     No swing data with contact quality, launch, or exit velocity yet.
   </div>
 </template>
-
-<!-- ── Inline sub-components (shared visual language with SessionReport) ─────── -->
-<script>
-const StatRow = {
-  props: {
-    label: String,
-    value: [Number, String],
-    unit: { type: String, default: '' },
-    min: { type: Number, default: 0 },
-    max: { type: Number, default: 100 },
-    thresholds: { type: Array, default: () => [40, 70] },
-    reverse: { type: Boolean, default: false },
-  },
-  computed: {
-    num() { return parseFloat(this.value) || 0 },
-    pct() { return Math.min(100, Math.max(0, ((this.num - this.min) / (this.max - this.min)) * 100)) },
-    color() {
-      const n = this.num
-      const [lo, hi] = this.thresholds
-      if (!this.reverse) return n >= hi ? '#2ECC71' : n >= lo ? '#F39C12' : '#E74C3C'
-      return n <= lo ? '#2ECC71' : n <= hi ? '#F39C12' : '#E74C3C'
-    },
-  },
-  template: `
-    <div class="flex items-center gap-3">
-      <span class="w-40 shrink-0 truncate text-sm font-bold text-white/85 md:w-48">{{ label }}</span>
-      <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-white/15">
-        <div class="h-full rounded-full transition-all duration-500" :style="{ width: pct + '%', backgroundColor: color }"/>
-      </div>
-      <span class="w-20 shrink-0 text-right text-base font-black" :style="{ color }">{{ num }}{{ unit }}</span>
-    </div>`,
-}
-
-const SegBar = {
-  props: { segments: Array },
-  template: `
-    <div>
-      <div class="flex h-6 overflow-hidden rounded border border-white/20">
-        <div v-for="s in segments.filter(x => x.pct > 0)" :key="s.label" :style="{ flex: s.pct, backgroundColor: s.color }"/>
-      </div>
-      <div class="mt-1 flex justify-between">
-        <span v-for="s in segments.filter(x => x.pct > 0)" :key="s.label" class="text-[11px] font-black" :style="{ color: s.color }">{{ s.label }}</span>
-      </div>
-    </div>`,
-}
-
-export default { components: { StatRow, SegBar } }
-</script>
 
 <style scoped>
 .brc-card {
