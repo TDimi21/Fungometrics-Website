@@ -29,8 +29,8 @@ const statusForScore = (score, backendLabel = null) => {
 const metricAliases = {
   max_exit_velocity: ['max_exit_velocity', 'max_ev', 'exit_velocity_max'],
   avg_exit_velocity: ['avg_exit_velocity', 'average_exit_velocity', 'exit_velocity_avg'],
-  max_fb_velocity: ['max_fb_velocity', 'max_pitch_velocity', 'bullpen_max_velocity'],
-  avg_fb_velocity: ['avg_fb_velocity', 'avg_pitch_velocity', 'bullpen_avg_velocity'],
+  max_fb_velocity: ['max_fb_velocity', 'max_fastball_velocity', 'max_pitch_velocity', 'bullpen_max_velocity'],
+  avg_fb_velocity: ['avg_fb_velocity', 'average_fastball_velocity', 'avg_pitch_velocity', 'bullpen_avg_velocity'],
   bullpen_score: ['bullpen_score'],
   bp_score: ['bp_score', 'batting_practice_score'],
   body_weight: ['body_weight', 'bodyweight'],

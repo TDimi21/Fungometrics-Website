@@ -5,23 +5,25 @@ declare(strict_types=1);
 namespace App\Services\Intelligence;
 
 use Carbon\Carbon;
+use Throwable;
 
 class AgeBenchmarkEngine
 {
     public function __construct(
         private readonly ResearchPercentileEngine $researchPercentileEngine,
         private readonly BenchmarkLibrary $benchmarkLibrary,
-    ) {}
+    ) {
+    }
 
     public function ageGroupFromDate(?string $dob): string
     {
-        if (! $dob) {
+        if ( ! $dob) {
             return BenchmarkDefinitions::AGE_UNKNOWN;
         }
 
         try {
             return BenchmarkDefinitions::ageGroup(Carbon::parse($dob)->age);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return BenchmarkDefinitions::AGE_UNKNOWN;
         }
     }
@@ -81,7 +83,7 @@ class AgeBenchmarkEngine
         return [
             'age_group' => $ageGroup,
             'age' => $age,
-            'confidence' => $ageGroup === BenchmarkDefinitions::AGE_UNKNOWN ? 'low' : 'medium',
+            'confidence' => BenchmarkDefinitions::AGE_UNKNOWN === $ageGroup ? 'low' : 'medium',
             'source' => 'benchmark_library',
             'bucket_key' => $this->benchmarkLibrary->bucketKey($context + ['age_group' => $ageGroup]),
             'metrics' => $grouped,
@@ -105,7 +107,7 @@ class AgeBenchmarkEngine
             'percentile_estimate' => null,
             'gap_to_good' => null,
             'gap_to_elite' => null,
-            'confidence' => $ageGroup === BenchmarkDefinitions::AGE_UNKNOWN ? 'low' : 'medium',
+            'confidence' => BenchmarkDefinitions::AGE_UNKNOWN === $ageGroup ? 'low' : 'medium',
             'source' => 'manual_age_benchmark',
             'evidence' => [
                 'metric_key' => $metricKey,
@@ -114,20 +116,20 @@ class AgeBenchmarkEngine
             ],
         ];
 
-        if ($raw === null || ($raw <= 0 && ! $this->allowsZero($metricKey))) {
+        if (null === $raw || ($raw <= 0 && ! $this->allowsZero($metricKey))) {
             $base['evidence']['reason'] = 'Metric value is missing.';
 
             return $base;
         }
 
-        if (! $definition) {
+        if ( ! $definition) {
             $base['evidence']['reason'] = 'No benchmark definition exists for this metric.';
 
             return $base;
         }
 
         $thresholds = $definition['benchmarks'][$ageGroup] ?? null;
-        if (! $thresholds || $ageGroup === BenchmarkDefinitions::AGE_UNKNOWN) {
+        if ( ! $thresholds || BenchmarkDefinitions::AGE_UNKNOWN === $ageGroup) {
             $base['evidence']['reason'] = 'Date of birth is missing, so an age-appropriate benchmark cannot be selected.';
             $base['evidence']['higher_is_better'] = $definition['higher_is_better'] ?? null;
 
@@ -182,6 +184,9 @@ class AgeBenchmarkEngine
             'hard_hit_percentage' => $this->firstNestedNumber($batting['score_breakdown'] ?? [], ['hardHitPercentage', 'hard_hit_percentage', 'hardContactRate', 'hard_contact_rate']),
             'line_drive_percentage' => $this->firstNestedNumber($batting['score_breakdown'] ?? [], ['lineDrivePercentage', 'line_drive_percentage', 'ldPercentage', 'ld_percentage']),
             'hitter_swing_miss_percentage' => $this->firstNestedNumber($batting['score_breakdown'] ?? [], ['swingMissPercentage', 'swing_miss_percentage', 'missRate', 'miss_rate']),
+            'bp_score' => $batting['score'] ?? null,
+            'bullpen_score' => $bullpen['score'] ?? null,
+            'body_weight' => $physical['body_weight'] ?? $assessment['body_weight'] ?? null,
             'bench_press' => $this->firstNumber([$physical['bench_press'] ?? null, $assessment['bench_press'] ?? null]),
             'squat' => $this->firstNumber([$physical['squat'] ?? null, $assessment['squat'] ?? null]),
             'deadlift' => $this->firstNumber([$physical['deadlift'] ?? null, $assessment['deadlift'] ?? null]),
@@ -189,6 +194,8 @@ class AgeBenchmarkEngine
             'pushups' => $physical['pushups'] ?? null,
             'forty_yard_dash' => $physical['40_yard_dash'] ?? null,
             'sixty_yard_dash' => $physical['60_yard_dash'] ?? null,
+            'sleep_hours' => $physical['sleep_hours'] ?? null,
+            'recovery_score' => $physical['recovery_score'] ?? null,
             'broad_jump' => $this->firstNumber([$physical['broad_jump'] ?? null, $assessment['broad_jump'] ?? null]),
             'vertical_jump' => $this->firstNumber([$physical['vertical_jump'] ?? null, $assessment['vertical_jump'] ?? null]),
             'mobility_score' => $this->firstNumber([$physical['mobility_score'] ?? null, $assessment['mobility_overall_score'] ?? null]),
@@ -201,20 +208,20 @@ class AgeBenchmarkEngine
     private function ageGroupFromContext(?string $dob, array $context): string
     {
         $ageGroup = $this->ageGroupFromDate($dob);
-        if ($ageGroup !== BenchmarkDefinitions::AGE_UNKNOWN) {
+        if (BenchmarkDefinitions::AGE_UNKNOWN !== $ageGroup) {
             return $ageGroup;
         }
 
         $age = $this->numberOrNull($context['age'] ?? null);
 
-        return BenchmarkDefinitions::ageGroup($age !== null ? (int) $age : null);
+        return BenchmarkDefinitions::ageGroup(null !== $age ? (int) $age : null);
     }
 
     private function dataGaps(string $ageGroup, array $metrics): array
     {
         $gaps = [];
 
-        if ($ageGroup === BenchmarkDefinitions::AGE_UNKNOWN) {
+        if (BenchmarkDefinitions::AGE_UNKNOWN === $ageGroup) {
             $gaps[] = [
                 'source' => 'player',
                 'missing_field' => 'born_date',
@@ -224,7 +231,7 @@ class AgeBenchmarkEngine
         }
 
         foreach ($metrics as $metricKey => $value) {
-            if ($this->numberOrNull($value) === null) {
+            if (null === $this->numberOrNull($value)) {
                 $gaps[] = [
                     'source' => BenchmarkDefinitions::categoryForMetric((string) $metricKey) ?? 'benchmark',
                     'missing_field' => BenchmarkDefinitions::normalizeMetricKey((string) $metricKey),
@@ -239,7 +246,7 @@ class AgeBenchmarkEngine
 
     private function label(float $value, array $thresholds, bool $higherIsBetter): string
     {
-        if (! $higherIsBetter) {
+        if ( ! $higherIsBetter) {
             return match (true) {
                 $value <= (float) $thresholds['elite'] => 'elite',
                 $value <= (float) $thresholds['good'] => 'good',
@@ -268,7 +275,7 @@ class AgeBenchmarkEngine
             ['value' => (float) $thresholds['elite'], 'percentile' => 95],
         ];
 
-        if (! $higherIsBetter) {
+        if ( ! $higherIsBetter) {
             foreach ($anchors as &$anchor) {
                 $anchor['value'] *= -1;
             }
@@ -324,7 +331,7 @@ class AgeBenchmarkEngine
     {
         foreach ($values as $value) {
             $number = $this->numberOrNull($value);
-            if ($number !== null && ($number > 0 || $number === 0.0)) {
+            if (null !== $number && ($number > 0 || 0.0 === $number)) {
                 return $number;
             }
         }
@@ -334,7 +341,7 @@ class AgeBenchmarkEngine
 
     private function maxNumber(array $values): ?float
     {
-        $numbers = array_values(array_filter(array_map(fn ($value) => $this->numberOrNull($value), $values), fn ($value) => $value !== null));
+        $numbers = array_values(array_filter(array_map(fn ($value) => $this->numberOrNull($value), $values), fn ($value) => null !== $value));
 
         return count($numbers) ? max($numbers) : null;
     }
@@ -344,7 +351,7 @@ class AgeBenchmarkEngine
         foreach ($keys as $key) {
             if (array_key_exists($key, $data)) {
                 $number = $this->numberOrNull($data[$key]);
-                if ($number !== null) {
+                if (null !== $number) {
                     return $number;
                 }
             }
@@ -353,7 +360,7 @@ class AgeBenchmarkEngine
         foreach ($data as $value) {
             if (is_array($value)) {
                 $number = $this->firstNestedNumber($value, $keys);
-                if ($number !== null) {
+                if (null !== $number) {
                     return $number;
                 }
             }
@@ -372,7 +379,7 @@ class AgeBenchmarkEngine
         $feet = $this->numberOrNull($feet);
         $inches = $this->numberOrNull($inches);
 
-        if ($feet === null && $inches === null) {
+        if (null === $feet && null === $inches) {
             return null;
         }
 

@@ -76,6 +76,25 @@ describe('Player Development Dashboard redesign', () => {
     expect(row.display_value).toBe('62 lb')
   })
 
+  it('matches canonical backend fastball benchmark keys to the displayed rows', () => {
+    const pitchingIntelligence = {
+      ...intelligence,
+      benchmark_profile: {
+        ...intelligence.benchmark_profile,
+        metrics: [
+          { metric_key: 'max_fastball_velocity', raw_value: 101, percentile: 96, label: 'elite', unit: 'mph' },
+          { metric_key: 'average_fastball_velocity', raw_value: 99.3, percentile: 94, label: 'good', unit: 'mph' },
+        ],
+      },
+    }
+    const pitchingLive = { ...live, current: { ...live.current, max_fb_velocity: 101, avg_fb_velocity: 99.3 } }
+    const rows = buildPlayerDevelopmentDashboard(pitchingLive, pitchingIntelligence).percentileGroups
+      .flatMap((group) => group.metrics)
+
+    expect(rows.find((metric) => metric.key === 'max_fb_velocity').percentile).toBe(96)
+    expect(rows.find((metric) => metric.key === 'avg_fb_velocity').percentile).toBe(94)
+  })
+
   it('uses the latest Blast Hub bat-speed range position in Percentile Rankings', () => {
     const blastLive = {
       ...live,

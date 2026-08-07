@@ -13,6 +13,7 @@ use App\Models\PlayerTeam;
 use App\Models\Profile;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Intelligence\BenchmarkLibrary;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -144,6 +145,63 @@ class IntelligenceControllerTest extends TestCase
         $this->getJson("api/coach/development/teams/{$team->id}/players/{$player->id}?days=365")
             ->assertOk()
             ->assertJsonPath('data.current.hand_strength', 62);
+    }
+
+    public function test_recovery_uses_all_player_and_coach_fitness_entries_as_averages(): void
+    {
+        [$coach, $team, $player] = $this->createCoachTeamPlayer();
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-08-01',
+            'sleep_hours' => 8,
+            'sleep_quality_1_to_5' => 5,
+            'recovery_score' => 60,
+        ]);
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-08-02',
+            'sleep_hours' => 6,
+            'sleep_quality_1_to_5' => 3,
+            'recovery_score' => 80,
+        ]);
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id,
+            'fitness_date' => '2026-08-03',
+            'sleep_hours' => null,
+            'sleep_quality_1_to_5' => null,
+            'recovery_score' => null,
+            'body_weight' => 180,
+            'yd_40_dash' => 4.8,
+            'yd_60_dash' => 7.1,
+        ]);
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+
+        $this->getJson("api/coach/development/teams/{$team->id}/players/{$player->id}?days=365")
+            ->assertOk()
+            ->assertJsonPath('data.current.sleep_hours', 7)
+            ->assertJsonPath('data.current.sleep_quality_1_to_5', 4)
+            ->assertJsonPath('data.current.recovery_score', 70)
+            ->assertJsonPath('data.scores.recovery_score', 70);
+
+        $intelligenceResponse = $this->getJson("api/coach/teams/{$team->id}/players/{$player->id}/intelligence?days=365")
+            ->assertOk()
+            ->assertJsonPath('summary.physical.sleep_hours', 7)
+            ->assertJsonPath('summary.physical.sleep_quality_1_to_5', 4)
+            ->assertJsonPath('summary.physical.recovery_score', 70)
+            ->assertJsonPath('summary.physical.40_yard_dash', 4.8)
+            ->assertJsonPath('summary.physical.60_yard_dash', 7.1);
+
+        $benchmarkKeys = collect($intelligenceResponse->json('benchmark_profile.metrics'))
+            ->pluck('metric_key');
+        $this->assertTrue($benchmarkKeys->contains('body_weight'));
+        $this->assertTrue($benchmarkKeys->contains('sleep_hours'));
+        $this->assertTrue($benchmarkKeys->contains('recovery_score'));
+
+        $this->assertNotNull(app(BenchmarkLibrary::class)->metric('sleep_hours'));
+        $this->assertNotNull(app(BenchmarkLibrary::class)->metric('recovery_score'));
+        $this->assertNotNull(app(BenchmarkLibrary::class)->metric('bp_score'));
+        $this->assertNotNull(app(BenchmarkLibrary::class)->metric('bullpen_score'));
+        $this->assertNotNull(app(BenchmarkLibrary::class)->metric('body_weight'));
     }
 
     public function test_percentile_rankings_resolve_each_metric_from_its_own_latest_input(): void

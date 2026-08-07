@@ -173,6 +173,16 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $fitnessLatest = $freshSnapshot['fitness'];
                 $metricFreshness = $freshSnapshot['metrics'];
 
+                // Player check-ins and coach-entered assessments both write to
+                // player_fitnesses. Average every valid recovery entry so both
+                // input paths contribute to the displayed scores.
+                $recoveryRows = PlayerFitness::query()
+                    ->where('user_id', $playerId)
+                    ->get(['sleep_hours', 'sleep_quality_1_to_5', 'recovery_score']);
+                $sleepHoursAverage = $this->averageFitnessMetric($recoveryRows, 'sleep_hours', 0, 24);
+                $sleepQualityAverage = $this->averageFitnessMetric($recoveryRows, 'sleep_quality_1_to_5', 0, 5);
+                $recoveryScoreAverage = $this->averageFitnessMetric($recoveryRows, 'recovery_score', 0, 100, true);
+
                 $fitnessInitial = PlayerFitness::where('user_id', $playerId)
                     ->orderBy('fitness_date')
                     ->orderBy('created_at')
@@ -282,17 +292,17 @@ class GetPlayerDevelopmentDashboard extends Controller
                         $mobilityPrev
                     ),
                     'recovery_score' => $this->deltaBlock(
-                        null !== $fitnessLatest?->recovery_score ? (float) $fitnessLatest->recovery_score : null,
+                        $recoveryScoreAverage,
                         null !== $fitnessPrev?->recovery_score ? (float) $fitnessPrev->recovery_score : null
                     ),
                     'sleep_hours' => $this->deltaBlock(
-                        null !== $fitnessLatest?->sleep_hours ? (float) $fitnessLatest->sleep_hours : null,
+                        $sleepHoursAverage,
                         null !== $fitnessPrev?->sleep_hours ? (float) $fitnessPrev->sleep_hours : null
                     ),
                 ];
 
                 $trendScore = $this->computeTrendScore($trend);
-                $recoveryScore = null !== $fitnessLatest?->recovery_score ? (float) $fitnessLatest->recovery_score : null;
+                $recoveryScore = $recoveryScoreAverage;
                 $verticalJump = (null !== $fitnessLatest?->vertical_jump && (float) $fitnessLatest->vertical_jump > 0)
                     ? (float) $fitnessLatest->vertical_jump
                     : ($this->latestPositiveFitnessMetric($playerId, 'vertical_jump')
@@ -417,7 +427,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'athletic_team_count' => $athleticLatest?->team_count,
                         'mobility_score' => $mobilityScore,
                         'mobility_score_source' => $mobilitySource,
-                        'recovery_score' => $fitnessLatest?->recovery_score,
+                        'recovery_score' => $recoveryScoreAverage,
                         'bench_press' => $benchPress,
                         'back_squat' => $backSquat,
                         'front_squat' => $frontSquat,
@@ -445,8 +455,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'throwing_velo' => $fitnessLatest?->throwing_velo,
                         'pitch_velo' => $fitnessLatest?->pitch_velo,
 
-                        'sleep_hours' => $fitnessLatest?->sleep_hours,
-                        'sleep_quality_1_to_5' => $fitnessLatest?->sleep_quality_1_to_5,
+                        'sleep_hours' => $sleepHoursAverage,
+                        'sleep_quality_1_to_5' => $sleepQualityAverage,
                         'energy_1_to_5' => null,
                         'soreness_1_to_5' => null,
                         'stress_1_to_5' => null,
@@ -600,8 +610,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ],
                     'data_gaps' => [
                         'mobility' => null === $mobilityScore,
-                        'recovery' => null === $fitnessLatest?->recovery_score,
-                        'sleep' => null === $fitnessLatest?->sleep_hours,
+                        'recovery' => null === $recoveryScoreAverage,
+                        'sleep' => null === $sleepHoursAverage,
                     ],
                     'source' => [
                         'mode' => 'live_sessions',
@@ -1034,6 +1044,32 @@ class GetPlayerDevelopmentDashboard extends Controller
             ->value($metric);
 
         return null !== $value ? (float) $value : null;
+    }
+
+    /**
+     * @param Collection<int, PlayerFitness> $rows
+     */
+    private function averageFitnessMetric(
+        Collection $rows,
+        string $column,
+        float $minimumExclusive,
+        float $maximumInclusive,
+        bool $includeMinimum = false,
+    ): ?float {
+        $values = $rows
+            ->pluck($column)
+            ->filter(function ($value) use ($minimumExclusive, $maximumInclusive, $includeMinimum): bool {
+                if (null === $value || ! is_numeric($value)) {
+                    return false;
+                }
+
+                $number = (float) $value;
+
+                return ($includeMinimum ? $number >= $minimumExclusive : $number > $minimumExclusive)
+                    && $number <= $maximumInclusive;
+            });
+
+        return $values->isEmpty() ? null : round((float) $values->average(), 1);
     }
 
     private function latestPositiveAssessmentMetric(string $playerId, string $metric): ?float

@@ -382,6 +382,23 @@ class IntelligenceDataAssembler
 
     private function physicalSummary(?PlayerFitness $latest, ?PlayerFitness $previous, ?AthleticPerformanceScore $athleticLatest, ?AthleticPerformanceScore $athleticPrevious): array
     {
+        $playerId = $latest?->user_id;
+        $sleepHoursAverage = $playerId
+            ? $this->averageRecordedFitnessMetric((string) $playerId, 'sleep_hours', 0, 24)
+            : null;
+        $sleepQualityAverage = $playerId
+            ? $this->averageRecordedFitnessMetric((string) $playerId, 'sleep_quality_1_to_5', 0, 5)
+            : null;
+        $recoveryScoreAverage = $playerId
+            ? $this->averageRecordedFitnessMetric((string) $playerId, 'recovery_score', 0, 100, true)
+            : null;
+        $fortyYardDash = $playerId
+            ? $this->latestRecordedFitnessMetric((string) $playerId, 'yd_40_dash')
+            : null;
+        $sixtyYardDash = $playerId
+            ? $this->latestRecordedFitnessMetric((string) $playerId, 'yd_60_dash')
+            : null;
+
         return [
             'latest_fitness_date' => $latest?->fitness_date?->toDateString(),
             'body_weight' => $this->numberOrNull($latest?->body_weight),
@@ -407,12 +424,12 @@ class IntelligenceDataAssembler
             'med_ball_rotational_throw' => $this->numberOrNull($latest?->med_ball_rotational_throw),
             'bat_speed' => $this->numberOrNull($latest?->bat_speed),
             'sprint_10yd' => $this->numberOrNull($latest?->sprint_10yd),
-            '40_yard_dash' => $this->numberOrNull($latest?->yd_40_dash),
-            '60_yard_dash' => $this->numberOrNull($latest?->yd_60_dash),
+            '40_yard_dash' => $fortyYardDash,
+            '60_yard_dash' => $sixtyYardDash,
             'exit_velocity' => $this->numberOrNull($latest?->exit_velo),
-            'sleep_hours' => $this->numberOrNull($latest?->sleep_hours),
-            'sleep_quality_1_to_5' => $this->numberOrNull($latest?->sleep_quality_1_to_5),
-            'recovery_score' => $this->numberOrNull($latest?->recovery_score),
+            'sleep_hours' => $sleepHoursAverage,
+            'sleep_quality_1_to_5' => $sleepQualityAverage,
+            'recovery_score' => $recoveryScoreAverage,
             'mobility_score' => $this->numberOrNull($latest?->mobility_score),
             'strength_score' => $this->numberOrNull($athleticLatest?->strength_score ?? $latest?->strength_score),
             'overall_api_score' => $this->numberOrNull($athleticLatest?->overall_api_score ?? $latest?->overall_api_score),
@@ -432,6 +449,37 @@ class IntelligenceDataAssembler
                 'mobility_score' => $this->delta($this->numberOrNull($latest?->mobility_score), $this->numberOrNull($previous?->mobility_score)),
             ],
         ];
+    }
+
+    private function averageRecordedFitnessMetric(
+        string $playerId,
+        string $column,
+        float $minimumExclusive,
+        float $maximumInclusive,
+        bool $includeMinimum = false,
+    ): ?float {
+        $query = PlayerFitness::query()
+            ->where('user_id', $playerId)
+            ->whereNotNull($column)
+            ->where($column, '<=', $maximumInclusive);
+
+        $query->where($column, $includeMinimum ? '>=' : '>', $minimumExclusive);
+        $average = $query->avg($column);
+
+        return null === $average ? null : round((float) $average, 1);
+    }
+
+    private function latestRecordedFitnessMetric(string $playerId, string $column): ?float
+    {
+        $value = PlayerFitness::query()
+            ->where('user_id', $playerId)
+            ->whereNotNull($column)
+            ->where($column, '>', 0)
+            ->orderByDesc('fitness_date')
+            ->orderByDesc('created_at')
+            ->value($column);
+
+        return null === $value ? null : (float) $value;
     }
 
     private function battingSummary(Collection $rows): array

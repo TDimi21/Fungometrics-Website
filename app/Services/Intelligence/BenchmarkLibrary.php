@@ -399,6 +399,15 @@ class BenchmarkLibrary
                 [22, 17, 12, 8, 5],
                 [20, 15, 10, 7, 4],
             ]),
+            'bp_score' => $this->scoreDefinition('bp_score', 'Batting Practice Score', 'hitting'),
+            'bullpen_score' => $this->scoreDefinition('bullpen_score', 'Bullpen Score', 'pitching'),
+            'body_weight' => $this->metricDefinition('body_weight', 'Body Weight', 'strength', 'lbs', true, 0.45, 'low', [
+                [55, 80, 105, 130, 160],
+                [75, 100, 130, 160, 190],
+                [95, 125, 160, 190, 220],
+                [110, 145, 180, 210, 240],
+                [125, 160, 190, 220, 250],
+            ]),
             'bench_press' => $this->metricDefinition('bench_press', 'Bench Press', 'strength', 'lbs', true, 0.75, 'low', [
                 [45, 65, 85, 105, 130],
                 [75, 95, 115, 135, 165],
@@ -476,6 +485,20 @@ class BenchmarkLibrary
                 [18, 22, 26, 30, 35],
                 [19, 23, 27, 32, 38],
             ]),
+            'sleep_hours' => $this->metricDefinition('sleep_hours', 'Sleep Average', 'recovery', 'hrs', true, 0.7, 'low', [
+                [6.5, 7.5, 8.2, 9.0, 10.1],
+                [6.0, 6.8, 7.6, 8.4, 9.5],
+                [5.2, 6.0, 7.0, 7.8, 8.9],
+                [5.0, 5.8, 6.8, 7.6, 8.7],
+                [5.0, 5.8, 6.8, 7.6, 8.7],
+            ]),
+            'recovery_score' => $this->metricDefinition('recovery_score', 'Recovery Score', 'recovery', 'score', true, 0.8, 'low', [
+                [40, 55, 67, 78, 92],
+                [38, 50, 62, 73, 90],
+                [36, 46, 58, 70, 87],
+                [34, 44, 56, 68, 85],
+                [34, 44, 56, 68, 85],
+            ]),
             'mobility_score' => $this->mobilityDefinition('mobility_score', 'Mobility Score'),
             'shoulder_mobility_score' => $this->mobilityDefinition('shoulder_mobility_score', 'Shoulder Mobility Score'),
             'hip_mobility_score' => $this->mobilityDefinition('hip_mobility_score', 'Hip Mobility Score'),
@@ -526,6 +549,17 @@ class BenchmarkLibrary
             [45, 55, 65, 78, 90],
             [45, 55, 65, 78, 90],
             [45, 55, 65, 78, 90],
+        ]);
+    }
+
+    private function scoreDefinition(string $metricKey, string $displayName, string $category): BenchmarkMetricDefinition
+    {
+        return $this->metricDefinition($metricKey, $displayName, $category, 'score', true, 0.75, 'low', [
+            [35, 50, 65, 78, 90],
+            [35, 50, 65, 78, 90],
+            [35, 50, 65, 78, 90],
+            [35, 50, 65, 78, 90],
+            [35, 50, 65, 78, 90],
         ]);
     }
 
