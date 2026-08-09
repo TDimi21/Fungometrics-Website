@@ -78,16 +78,16 @@ class DevDashboardPitchingParityTest extends TestCase
         $coach = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
         $team = Team::factory()->create();
         $player = User::factory()->create(['type' => UserTypes::PLAYER->value, 'subscription_plan' => 'player_pro']);
-        Profile::factory()->create(['user_id' => $player->id]);
-        Player::factory()->create(['user_id' => $player->id]);
+        Profile::factory()->create(['user_id' => $player->id, 'level' => 'D1']);
+        Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id]);
         PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
 
         PlayerFitness::factory()->create([
             'user_id' => $player->id,
             'fitness_date' => now()->toDateString(),
-            'yd_40_dash' => 6.8,
-            'yd_60_dash' => 7.9,
+            'yd_40_dash' => 4.5,
+            'yd_60_dash' => 7.2,
             'hand_strength' => 55,
         ]);
 
@@ -105,6 +105,18 @@ class DevDashboardPitchingParityTest extends TestCase
 
         $this->assertSame($coachView->json('data.current.hand_strength'), $playerView->json('data.current.hand_strength'), 'hand_strength differs between coach and player-self live views.');
         $this->assertEquals(55, $playerView->json('data.current.hand_strength'));
+        $coachView->assertJsonPath('data.current.forty_yard_dash_benchmark.percentile', 90)
+            ->assertJsonPath('data.current.forty_yard_dash_benchmark.age_group', 'COLLEGE_19_PLUS')
+            ->assertJsonPath('data.current.sixty_yard_dash_benchmark.percentile', 43)
+            ->assertJsonPath('data.current.sixty_yard_dash_benchmark.age_group', 'COLLEGE_19_PLUS');
+        $this->assertSame(
+            $coachView->json('data.current.forty_yard_dash_benchmark.percentile'),
+            $playerView->json('data.current.forty_yard_dash_benchmark.percentile'),
+        );
+        $this->assertSame(
+            $coachView->json('data.current.sixty_yard_dash_benchmark.percentile'),
+            $playerView->json('data.current.sixty_yard_dash_benchmark.percentile'),
+        );
 
         $coachMetrics = collect($coachIntelligence->json('benchmark_profile.metrics'))->keyBy('metric_key');
         $playerMetrics = collect($playerIntelligence->json('benchmark_profile.metrics'))->keyBy('metric_key');

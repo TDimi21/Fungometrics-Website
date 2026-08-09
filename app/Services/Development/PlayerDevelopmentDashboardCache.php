@@ -23,7 +23,7 @@ final class PlayerDevelopmentDashboardCache
 
         foreach ($teamIds as $teamId) {
             foreach (self::WINDOWS as $days) {
-                Cache::forget("dev_dashboard_v3_{$teamId}_{$playerId}_{$days}");
+                Cache::forget("dev_dashboard_v4_{$teamId}_{$playerId}_{$days}");
                 Cache::forget("player_intelligence_v3_{$teamId}_{$playerId}_{$days}");
             }
         }

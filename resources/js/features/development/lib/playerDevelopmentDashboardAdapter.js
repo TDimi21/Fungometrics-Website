@@ -155,9 +155,12 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
   const currentRaw = currentValue(current, key)
     ?? (physicalFallbackKeys.includes(key) ? currentValue(intelligence?.summary?.physical || {}, key) : null)
   const currentBenchmark = current?.[`${key}_benchmark`]
+  const intelligenceBenchmark = findBenchmark(metrics, key)
   let benchmark = currentBenchmark && numberOrNull(currentBenchmark?.percentile) !== null
     ? { metric_key: key, raw_value: currentRaw, ...currentBenchmark }
-    : findBenchmark(metrics, key)
+    : (intelligenceBenchmark || (currentBenchmark
+        ? { metric_key: key, raw_value: currentRaw, ...currentBenchmark }
+        : null))
   if (
     benchmark?.metric_key === 'squat'
     && currentRaw !== null

@@ -21,6 +21,7 @@ use App\Services\Statistics\CageStatisticsService;
 use App\Services\Blast\BlastBatSpeedRankingService;
 use App\Services\Blast\BlastPlayerMetricService;
 use App\Services\Development\PlayerMetricFreshnessService;
+use App\Services\Intelligence\ResearchPercentileEngine;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -35,6 +36,7 @@ class GetPlayerDevelopmentDashboard extends Controller
         private readonly BlastPlayerMetricService $blastPlayerMetrics,
         private readonly BlastBatSpeedRankingService $blastBatSpeedRankings,
         private readonly PlayerMetricFreshnessService $metricFreshness,
+        private readonly ResearchPercentileEngine $researchPercentiles,
     ) {
     }
 
@@ -87,7 +89,7 @@ class GetPlayerDevelopmentDashboard extends Controller
             }
 
             $cacheTeamKey = $teamScopeId ?: 'all';
-            $cacheKey = "dev_dashboard_v3_{$cacheTeamKey}_{$playerId}_{$days}";
+            $cacheKey = "dev_dashboard_v4_{$cacheTeamKey}_{$playerId}_{$days}";
 
             // Check player exists before entering the cache closure so a missing
             // player never gets cached as an empty array.
@@ -341,6 +343,28 @@ class GetPlayerDevelopmentDashboard extends Controller
                 $sixtyYardDash = (null !== $fitnessLatest?->yd_60_dash && (float) $fitnessLatest->yd_60_dash > 0)
                     ? (float) $fitnessLatest->yd_60_dash
                     : $this->latestPositiveFitnessMetric($playerId, 'yd_60_dash');
+                $benchmarkTeamId = $teamScopeId ?: PlayerTeam::query()
+                    ->where('user_id', $playerId)
+                    ->where('actual', true)
+                    ->whereNull('deleted_at')
+                    ->value('team_id');
+                $benchmarkContext = [
+                    'team_id' => $benchmarkTeamId,
+                    'age' => $this->resolveAge($player->player?->born_date),
+                    'level' => $player->profile?->level,
+                ];
+                $fortyYardBenchmark = $this->dashboardBenchmark(
+                    'forty_yard_dash',
+                    $fortyYardDash,
+                    $player->player?->born_date,
+                    $benchmarkContext,
+                );
+                $sixtyYardBenchmark = $this->dashboardBenchmark(
+                    'sixty_yard_dash',
+                    $sixtyYardDash,
+                    $player->player?->born_date,
+                    $benchmarkContext,
+                );
                 $medBallRotThrow = (null !== $fitnessLatest?->med_ball_rotational_throw && (float) $fitnessLatest->med_ball_rotational_throw > 0)
                     ? (float) $fitnessLatest->med_ball_rotational_throw
                     : $this->latestPositiveFitnessMetric($playerId, 'med_ball_rotational_throw');
@@ -447,6 +471,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'sprint_10yd' => $fitnessLatest?->sprint_10yd,
                         'yd_40_dash' => $fortyYardDash,
                         'yd_60_dash' => $sixtyYardDash,
+                        'forty_yard_dash_benchmark' => $fortyYardBenchmark,
+                        'sixty_yard_dash_benchmark' => $sixtyYardBenchmark,
                         'pull_ups' => $fitnessLatest?->pull_ups,
                         'push_ups' => $fitnessLatest?->push_ups,
                         'vertical_jump' => $verticalJump,
@@ -971,6 +997,29 @@ class GetPlayerDevelopmentDashboard extends Controller
         } catch (Exception) {
             return null;
         }
+    }
+
+    private function dashboardBenchmark(string $metricKey, ?float $value, ?string $bornDate, array $context): ?array
+    {
+        if (null === $value || $value <= 0) {
+            return null;
+        }
+
+        $result = $this->researchPercentiles->percentileForMetric($metricKey, $value, $bornDate, $context);
+
+        return [
+            'metric_key' => $metricKey,
+            'raw_value' => $result['raw_value'] ?? $value,
+            'percentile' => $result['percentile_estimate'] ?? null,
+            'score_0_100' => $result['score_0_100'] ?? null,
+            'label' => $result['label'] ?? $result['benchmark_label'] ?? 'unknown',
+            'unit' => $result['unit'] ?? 'sec',
+            'confidence' => $result['confidence'] ?? 'low',
+            'source' => $result['source'] ?? 'research_benchmark',
+            'age_group' => $result['age_group'] ?? null,
+            'gap' => $result['gap_to_good'] ?? null,
+            'evidence' => $result['evidence'] ?? [],
+        ];
     }
 
     private function resolveHeight($ft, $in): ?string

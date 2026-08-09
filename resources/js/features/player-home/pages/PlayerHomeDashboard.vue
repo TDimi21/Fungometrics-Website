@@ -185,7 +185,7 @@ const openRecapReport = (session) => {
   router.push({
     name: 'session.report',
     params: { id: session.id, type: session._reportType },
-    query: { date: session._date || null, note: session.end_note || null },
+    query: { date: session._date || null, note: session.end_note || null, scope: 'player' },
   })
 }
 </script>

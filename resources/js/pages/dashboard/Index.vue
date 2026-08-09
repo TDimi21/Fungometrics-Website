@@ -168,6 +168,7 @@ const sessionReportTypeMap = {
   batting:       'batting',
   bullpen:       'bullpen',
   cage:          'cage',
+  live:          'live_ab',
   long_toss:     'long_toss',
   weight_ball:   'weight_ball',
   exit_velocity: 'exit_velocity',

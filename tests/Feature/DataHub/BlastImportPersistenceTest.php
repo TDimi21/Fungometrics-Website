@@ -110,7 +110,7 @@ final class BlastImportPersistenceTest extends TestCase
             'fitness_date' => '2026-07-02',
             'bat_speed' => 65,
         ]);
-        $this->assertFalse(Cache::has("dev_dashboard_v3_{$team->id}_{$player->id}_365"));
+        $this->assertFalse(Cache::has("dev_dashboard_v4_{$team->id}_{$player->id}_365"));
         $this->getJson("/api/coach/development/teams/{$team->id}/players/{$player->id}?days=365")
             ->assertOk()
             ->assertJsonPath('data.current.metric_freshness.bat_speed.recorded_at', '2026-07-02')

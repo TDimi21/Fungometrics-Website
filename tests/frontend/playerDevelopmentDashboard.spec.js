@@ -41,6 +41,21 @@ const intelligence = {
 }
 
 describe('Player Development Dashboard redesign', () => {
+  it('uses embedded 40- and 60-yard benchmark objects to color the percentile rows', () => {
+    const model = buildPlayerDevelopmentDashboard({
+      current: {
+        yd_40_dash: 4.5,
+        yd_60_dash: 7.2,
+        forty_yard_dash_benchmark: { percentile: 90, label: 'elite', unit: 'sec' },
+        sixty_yard_dash_benchmark: { percentile: 43, label: 'below_average', unit: 'sec' },
+      },
+    }, {})
+    const metrics = model.percentileGroups.flatMap((group) => group.metrics)
+
+    expect(metrics.find((metric) => metric.key === 'forty_yard_dash')).toMatchObject({ percentile: 90, available: true })
+    expect(metrics.find((metric) => metric.key === 'sixty_yard_dash')).toMatchObject({ percentile: 43, available: true })
+  })
+
   it('uses intelligence physical fallbacks for dash and hand-strength values', () => {
     const model = buildPlayerDevelopmentDashboard({ current: {} }, {
       summary: { physical: { '40_yard_dash': 4.8, '60_yard_dash': 7.1, hand_strength: 62 } },

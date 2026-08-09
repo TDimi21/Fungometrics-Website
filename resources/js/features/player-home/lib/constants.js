@@ -72,6 +72,7 @@ export const SESSION_REPORT_TYPE = {
   B: 'batting',
   P: 'bullpen',
   C: 'cage',
+  L: 'live_ab',
   EV: 'exit_velocity',
   LT: 'long_toss',
   WB: 'weight_ball',

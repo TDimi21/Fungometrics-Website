@@ -2,22 +2,24 @@
 /**
  * SessionReport.vue
  *
- * Unified session report page for all 6 training types:
+ * Unified session report page for all 7 training types:
  *   batting (B)  → GET /statistics/{id}/batting
  *   bullpen (P)  → GET /statistics/{id}/bullpen
  *   cage (C)     → GET /statistics/{id}/cage
  *   exit_vel (T/EV) → GET /statistics/{id}/exitvelocity
  *   long_toss (T/LT) → GET /statistics/{id}/longtoss
  *   weight_ball (T/WB) → GET /statistics/{id}/weightball
+ *   live_ab (L) → GET /statistics/{id}/liveab
  *
  * Route: /session/report/:id/:type
- *   :type = batting | bullpen | cage | exit_velocity | long_toss | weight_ball
+ *   :type = batting | bullpen | cage | exit_velocity | long_toss | weight_ball | live_ab
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { ageFromDOB, resolveBornValue } from '@/utils/dob.js'
+import { extractSessionRows } from '@/utils/sessionReportRows.js'
 import { useAccessStore } from '@/store/access.js'
 import StatRow from '@/components/session-report/SessionReportStatRow.vue'
 import SegBar from '@/components/session-report/SessionReportSegmentBar.vue'
@@ -27,12 +29,13 @@ const router = useRouter()
 const { axiosGet } = useAxiosAuth()
 
 const sessionId   = route.params.id
-const sessionType = route.params.type   // batting|bullpen|cage|exit_velocity|long_toss|weight_ball
+const sessionType = route.params.type   // batting|bullpen|cage|exit_velocity|long_toss|weight_ball|live_ab
 const access = useAccessStore()
 const canScriptedBp = computed(() => access.canAccess('scripted_bp'))
 const canScriptedBullpen = computed(() => access.canAccess('scripted_bullpen'))
 const sessionDate = route.query.date ?? null
 const sessionNote = route.query.note ?? null
+const playerOnly = route.query.scope === 'player'
 
 const loading   = ref(true)
 const error     = ref(null)
@@ -50,6 +53,7 @@ const TYPE_CONFIG = {
   exit_velocity:{ label: 'EXIT VELOCITY REPORT',   abbr: 'EVS', color: '#E74C3C', endpoint: 'exitvelocity' },
   long_toss:    { label: 'LONG TOSS REPORT',        abbr: 'LTS', color: '#EC407A', endpoint: 'longtoss' },
   weight_ball:  { label: 'WEIGHTED BALL REPORT',    abbr: 'WBS', color: '#F1C40F', endpoint: 'weightball' },
+  live_ab:      { label: 'LIVE AB SESSION REPORT',  abbr: 'LAS', color: '#E84393', endpoint: 'liveab' },
 }
 
 const cfg = computed(() => TYPE_CONFIG[sessionType] ?? TYPE_CONFIG.batting)
@@ -71,6 +75,13 @@ function gradeColor(score) {
 
 function gradeLabel(score) {
   if (score == null) return ''
+  if (sessionType === 'live_ab') {
+    if (score >= 90) return 'Elite Live AB'
+    if (score >= 80) return 'Winning Rep'
+    if (score >= 70) return 'Competitive Rep'
+    if (score >= 60) return 'Development Rep'
+    return 'Poor Rep'
+  }
   if (sessionType === 'bullpen') {
     if (score >= 90) return '🔥 Game-Ready Command'
     if (score >= 80) return 'Strong Session'
@@ -750,6 +761,118 @@ function computeWBBreakdown(rows) {
   return { total: throws.length, avgVelo, topVelo, weights, weightBreakdown }
 }
 
+// ─── LIVE AB: match the app's hitter/pitcher/competition report ─────────────
+const LIVE_HITTER_RESULT = { HR: 35, '3B': 32, '2B': 28, '1B': 24, BB: 22, HBP: 18, Out: 10, Error: 10, K: 0 }
+const LIVE_PITCHER_RESULT = { K: 35, Out: 28, Error: 28, BB: 5, HBP: 0, '1B': 14, '2B': 8, '3B': 4, HR: 0 }
+const LIVE_COMPETITION = { 1: 1, 2: 2, 3: 4, 4: 6, 5: 8 }
+
+function liveResult(row) {
+  const play = String(row?.play_result || '').trim().toUpperCase().replace(/\s+/g, '_')
+  if (['ERROR', 'ROE'].includes(play)) return 'Error'
+  if (play.includes('STRIKEOUT')) return 'K'
+  if (['OUT', 'GROUND_OUT', 'FLY_OUT', 'LINE_OUT', 'POP_OUT', 'FOUL_OUT', 'FORCE_OUT', 'TAG_OUT', 'DOUBLE_PLAY', 'TRIPLE_PLAY', 'SAC_BUNT', 'SAC_FLY', 'INFIELD_FLY'].includes(play)) return 'Out'
+  const raw = row?.total_bases ?? row?.bases
+  const values = { 1: '1B', 2: '2B', 3: '3B', 4: 'BB', 5: 'HR', 6: 'HBP', 7: 'K', 8: 'Out' }
+  const text = String(raw ?? '').trim().toUpperCase()
+  return values[text] || ({ '1B': '1B', '2B': '2B', '3B': '3B', HR: 'HR', BB: 'BB', HBP: 'HBP', K: 'K', OUT: 'Out', ERROR: 'Error' }[text] ?? null)
+}
+
+function liveBallStrike(row) {
+  const trajectory = String(row?.contact_trajectory ?? row?.batting?.type_of_hit ?? row?.pitching?.trajectory ?? '').toUpperCase()
+  if (trajectory === 'HBP' || trajectory === 'HIT BY PITCH') return 'HBP'
+  if (trajectory && !['TAKE', 'TK', '-'].includes(trajectory)) return 'S'
+  const zone = row?.zone ?? row?.batting?.zone ?? row?.pitching?.zone ?? row?.pitch_location
+  return String(zone || '').toUpperCase() === 'S' ? 'S' : 'B'
+}
+
+function liveName(row, side) {
+  const nested = row?.[side]
+  const direct = side === 'batting' ? row?.batter_name : row?.pitcher_name
+  if (direct) return direct
+  const profile = nested?.profile
+  return profile?.full_name || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || null
+}
+
+function computeLiveABBreakdown(rows) {
+  if (!rows?.length) return null
+  const sorted = [...rows].sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0))
+  const plateAppearances = []
+  let current = []
+  let balls = 0
+  let strikes = 0
+
+  sorted.forEach(row => {
+    const pitch = { ...row, _countBefore: `${balls}-${strikes}` }
+    current.push(pitch)
+    const result = liveResult(pitch)
+    const ended = Boolean(result) || pitch.turn_is_over === true || Number(pitch.turn_is_over) === 1
+    if (ended) {
+      plateAppearances.push({ pitches: current, terminal: pitch })
+      current = []; balls = 0; strikes = 0
+      return
+    }
+    const call = liveBallStrike(pitch)
+    if (call === 'B') balls++
+    if (call === 'S') {
+      const trajectory = String(pitch.contact_trajectory || '').toUpperCase()
+      if (trajectory !== 'FOUL' || strikes < 2) strikes++
+    }
+  })
+  if (current.length) plateAppearances.push({ pitches: current, terminal: current[current.length - 1] })
+  if (!plateAppearances.length) return null
+
+  const velocities = sorted.map(row => Number(row.pitch_velocity ?? row.pitching?.miles_per_hour ?? 0)).filter(v => v > 0)
+  const averageVelocity = velocities.length ? velocities.reduce((sum, v) => sum + v, 0) / velocities.length : 0
+  const sortedVelocities = [...velocities].sort((a, b) => a - b)
+  const topVelocityThreshold = sortedVelocities[Math.floor(sortedVelocities.length * 0.9)] || averageVelocity
+  const hitterMap = {}
+  const pitcherMap = {}
+
+  const paScores = plateAppearances.map(pa => {
+    const terminal = pa.terminal
+    const result = liveResult(terminal)
+    const contact = String(terminal.contact_quality ?? terminal.batting?.quality_of_contact ?? '').toLowerCase()
+    const trajectory = String(terminal.contact_trajectory ?? terminal.batting?.type_of_hit ?? '').toLowerCase()
+    const hitterContact = ['hard', 'h'].includes(contact) ? 25 : ['solid', 'average', 'avg', 'medium', 'a'].includes(contact) ? 15 : ['weak', 'w'].includes(contact) ? 6 : 0
+    const hitterTrajectory = ['ld', 'line drive'].includes(trajectory) ? 20 : ['fly', 'fb', 'fly ball'].includes(trajectory) ? 14 : ['gb', 'ground ball'].includes(trajectory) ? 10 : trajectory === 'foul' ? 6 : ['take', 'tk'].includes(trajectory) ? 5 : 0
+    const hitterCount = ({ '0-0': 5, '1-0': 6, '2-0': 7, '3-0': 6, '3-1': 8, '2-1': 7, '1-1': 5, '0-1': 4, '0-2': 10, '1-2': 9, '2-2': 8, '3-2': 10 })[terminal._countBefore] ?? 5
+    const exitVelo = Number(terminal.exit_velocity ?? terminal.batting?.velocity ?? 0)
+    const exitBonus = exitVelo >= 95 ? 10 : exitVelo >= 90 ? 8 : exitVelo >= 85 ? 6 : exitVelo >= 80 ? 4 : exitVelo >= 75 ? 2 : 0
+    const hitterScore = Math.min(100, (LIVE_HITTER_RESULT[result] ?? 5) + hitterContact + hitterTrajectory + hitterCount + exitBonus)
+
+    const call = liveBallStrike(terminal)
+    const zoneScore = call === 'S' ? (['sw/miss', 'miss'].includes(trajectory) ? 20 : trajectory === 'foul' ? 12 : 16) : call === 'HBP' ? -5 : 0
+    const contactScore = ['hard', 'h'].includes(contact) ? 0 : ['solid', 'average', 'avg', 'medium', 'a'].includes(contact) ? 12 : ['weak', 'w'].includes(contact) ? 22 : ['sw/miss', 'miss'].includes(trajectory) ? 25 : 12
+    const countScore = ({ '0-0': 5, '0-1': 7, '0-2': 10, '1-2': 9, '2-2': 7, '3-2': 6, '1-0': 3, '2-0': 1, '3-0': 0, '3-1': 1 })[terminal._countBefore] ?? 5
+    const pitchVelo = Number(terminal.pitch_velocity ?? terminal.pitching?.miles_per_hour ?? 0)
+    const veloScore = !pitchVelo || !velocities.length ? 5 : pitchVelo >= topVelocityThreshold ? 10 : pitchVelo >= averageVelocity ? 8 : pitchVelo >= averageVelocity * 0.95 ? 5 : 2
+    const pitcherScore = Math.min(100, Math.max(0, (LIVE_PITCHER_RESULT[result] ?? 14) + zoneScore + contactScore + countScore + veloScore))
+    const competitionScore = pa.pitches.length >= 6 ? 10 : LIVE_COMPETITION[pa.pitches.length] ?? 1
+
+    const hitter = liveName(terminal, 'batting')
+    const pitcher = liveName(terminal, 'pitching')
+    if (hitter) hitterMap[hitter] = { total: (hitterMap[hitter]?.total || 0) + hitterScore, count: (hitterMap[hitter]?.count || 0) + 1 }
+    if (pitcher) pitcherMap[pitcher] = { total: (pitcherMap[pitcher]?.total || 0) + pitcherScore, count: (pitcherMap[pitcher]?.count || 0) + 1 }
+    return { hitterScore, pitcherScore, competitionScore, result: result || 'Other', pitchCount: pa.pitches.length }
+  })
+
+  const avg = key => paScores.reduce((sum, score) => sum + score[key], 0) / paScores.length
+  const hitterAvg = Math.round(avg('hitterScore'))
+  const pitcherAvg = Math.round(avg('pitcherScore'))
+  const competitionAvg = Math.round((avg('competitionScore') / 10) * 100)
+  const sessionScore = Math.round(hitterAvg * 0.45 + pitcherAvg * 0.45 + competitionAvg * 0.10)
+  const resultDist = {}
+  const pitchDistBuckets = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, '6+': 0 }
+  paScores.forEach(score => {
+    resultDist[score.result] = (resultDist[score.result] || 0) + 1
+    const bucket = score.pitchCount >= 6 ? '6+' : score.pitchCount
+    pitchDistBuckets[bucket] = (pitchDistBuckets[bucket] || 0) + 1
+  })
+  const leaders = map => Object.entries(map).map(([name, value]) => ({ name, avg: Math.round(value.total / value.count), abs: value.count })).sort((a, b) => b.avg - a.avg).slice(0, 3)
+
+  return { totalPitches: rows.length, totalPAs: plateAppearances.length, sessionScore, hitterAvg, pitcherAvg, competitionAvg, resultDist, pitchDistBuckets, topHitters: leaders(hitterMap), topPitchers: leaders(pitcherMap) }
+}
+
 // ─── Tips ─────────────────────────────────────────────────────────────────────
 const tips = computed(() => {
   const bd = breakdown.value
@@ -811,6 +934,16 @@ const tips = computed(() => {
     if (bd.avgVelo >= 85) t.push({ icon: '📈', text: `Avg velocity of ${bd.avgVelo} mph — consistent arm output across the session.` })
   }
 
+  if (sessionType === 'live_ab') {
+    t.push({ icon: '📊', text: `This session scored ${bd.sessionScore}/100 across ${bd.totalPAs} plate appearances and ${bd.totalPitches} pitches.` })
+    t.push(bd.hitterAvg >= 70
+      ? { icon: '⚾', text: `Hitters averaged ${bd.hitterAvg}/100 with productive at-bats and quality contact.` }
+      : { icon: '⚾', text: `Hitters averaged ${bd.hitterAvg}/100. Focus on count awareness and contact quality.` })
+    t.push(bd.pitcherAvg >= 70
+      ? { icon: '🔥', text: `Pitchers averaged ${bd.pitcherAvg}/100 with strong zone command and contact management.` }
+      : { icon: '🎯', text: `Pitchers averaged ${bd.pitcherAvg}/100. Focus on getting ahead and finishing advantage counts.` })
+  }
+
   return t
 })
 
@@ -822,6 +955,7 @@ const mainScore = computed(() => {
   if (sessionType === 'bullpen')       return bd.bps
   if (sessionType === 'cage')          return bd.damageScore
   if (sessionType === 'exit_velocity') return bd.evs
+  if (sessionType === 'live_ab')       return bd.sessionScore
   return null
 })
 
@@ -829,7 +963,7 @@ const mainScore = computed(() => {
 onMounted(async () => {
   if (!sessionId) { error.value = 'No session ID.'; loading.value = false; return }
   try {
-    const res = await axiosGet(`statistics/${sessionId}/${cfg.value.endpoint}`)
+    const res = await axiosGet(`statistics/${sessionId}/${cfg.value.endpoint}`, playerOnly ? { player: 1 } : undefined)
     rawData.value = res?.data?.data ?? res?.data ?? null
   } catch (e) {
     error.value = 'Failed to load session data.'
@@ -841,7 +975,7 @@ onMounted(async () => {
   if (!rd) { error.value = 'No data returned.'; loading.value = false; return }
 
   const loadScriptedBp = async () => {
-    const balls = rd.ball_by_ball_results || rd.ball_x_ball || rd.ball_by_ball || rd.pitches || rd.results || (Array.isArray(rd) ? rd : [])
+    const balls = extractSessionRows(rd, 'batting')
     let scriptedRes = null
     try {
       const r = await axiosGet(`result/scripted-bp/${sessionId}`)
@@ -884,13 +1018,7 @@ onMounted(async () => {
   }
 
   const loadScriptedBullpen = () => {
-    const nested = rd.bullpen || rd.P || rd.pitching || null
-    const nestedArr = Array.isArray(nested)
-      ? nested
-      : nested
-        ? (nested.ball_by_ball_results || nested.ball_by_ball || nested.ball_x_ball || nested.pitches || nested.results || null)
-        : null
-    const rows = rd.ball_by_ball_results || rd.ball_by_ball || rd.ball_x_ball || rd.pitches || rd.results || nestedArr || (Array.isArray(rd) ? rd : [])
+    const rows = extractSessionRows(rd, 'bullpen')
 
     const normalized = (rows || []).map((ball) => {
       const intendedCoord = ball.intended_location || ball.intended_coordinate || ball.script_location || ball.target_location || null
@@ -968,38 +1096,41 @@ onMounted(async () => {
   }
 
   if (sessionType === 'batting') {
-    const balls = rd.ball_by_ball_results || rd.ball_x_ball || rd.ball_by_ball || rd.pitches || rd.results || (Array.isArray(rd) ? rd : [])
+    const balls = extractSessionRows(rd, 'batting')
     breakdown.value = computeFPS(balls)
     if (!breakdown.value) error.value = 'No swing data found for this session.'
     await loadScriptedBp()
   }
   else if (sessionType === 'bullpen') {
-    const nested = rd.bullpen || rd.P || rd.pitching || null
-    const nestedArr = Array.isArray(nested) ? nested : nested ? (nested.ball_by_ball_results || nested.ball_x_ball || nested.pitches || null) : null
-    const pitches = rd.ball_by_ball_results || rd.ball_by_ball || rd.ball_x_ball || rd.pitches || rd.results || nestedArr || (Array.isArray(rd) ? rd : [])
+    const pitches = extractSessionRows(rd, 'bullpen')
     breakdown.value = computeBPS(pitches)
     if (!breakdown.value) error.value = 'No pitch data found for this session.'
     loadScriptedBullpen()
   }
   else if (sessionType === 'cage') {
-    const rows = rd.cage_results || rd.results || rd.cage || (Array.isArray(rd) ? rd : [])
+    const rows = extractSessionRows(rd, 'cage')
     breakdown.value = computeCageBreakdown(rows)
     if (!breakdown.value) error.value = 'No swing data found for this session.'
   }
   else if (sessionType === 'exit_velocity') {
-    const rows = rd.results || rd.exit_velocity || (Array.isArray(rd) ? rd : [])
+    const rows = extractSessionRows(rd, 'exit_velocity')
     breakdown.value = computeEVBreakdown(rows)
     if (!breakdown.value) error.value = 'No exit velocity data found for this session.'
   }
   else if (sessionType === 'long_toss') {
-    const rows = rd.results || rd.long_toss || rd.longtoss || (Array.isArray(rd) ? rd : [])
+    const rows = extractSessionRows(rd, 'long_toss')
     breakdown.value = computeLTBreakdown(rows)
     if (!breakdown.value) error.value = 'No long toss data found for this session.'
   }
   else if (sessionType === 'weight_ball') {
-    const rows = rd.results || rd.weight_ball || rd.weightball || (Array.isArray(rd) ? rd : [])
+    const rows = extractSessionRows(rd, 'weight_ball')
     breakdown.value = computeWBBreakdown(rows)
     if (!breakdown.value) error.value = 'No weighted ball data found for this session.'
+  }
+  else if (sessionType === 'live_ab') {
+    const rows = extractSessionRows(rd, 'live_ab')
+    breakdown.value = computeLiveABBreakdown(rows)
+    if (!breakdown.value) error.value = 'No Live AB pitch data found for this session.'
   }
 
   loading.value = false
@@ -1073,6 +1204,7 @@ const displayDate = computed(() => {
               <template v-else-if="sessionType === 'exit_velocity' && breakdown">{{ breakdown.total }} swings · Avg {{ breakdown.avgEV }} mph</template>
               <template v-else-if="sessionType === 'long_toss' && breakdown">{{ breakdown.total }} throws · Max {{ breakdown.maxDist }} ft</template>
               <template v-else-if="sessionType === 'weight_ball' && breakdown">{{ breakdown.total }} throws · Top {{ breakdown.topVelo }} mph</template>
+              <template v-else-if="sessionType === 'live_ab' && breakdown">{{ breakdown.totalPAs }} plate appearances · {{ breakdown.totalPitches }} pitches</template>
             </p>
           </div>
         </div>
@@ -1485,6 +1617,64 @@ const displayDate = computed(() => {
                 <span class="text-white/70 text-sm">{{ w.count }} throws</span>
                 <span class="text-white/50 text-sm">avg {{ w.avgVelo }} mph</span>
                 <span class="text-white/40 text-sm ml-auto">top {{ w.maxVelo }} mph</span>
+              </div>
+            </div>
+          </section>
+        </template>
+
+        <!-- ══════════ LIVE AB sections ══════════ -->
+        <template v-if="sessionType === 'live_ab' && breakdown">
+          <section class="mx-4 mb-5">
+            <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">📊 Score Breakdown</h3>
+            <div class="rounded-xl bg-white/5 border border-white/8 p-4 space-y-3">
+              <StatRow label="Hitter Score" :value="breakdown.hitterAvg" unit="" :min="0" :max="100" :thresholds="[55, 70]"/>
+              <StatRow label="Pitcher Score" :value="breakdown.pitcherAvg" unit="" :min="0" :max="100" :thresholds="[55, 70]"/>
+              <StatRow label="Competition" :value="breakdown.competitionAvg" unit="" :min="0" :max="100" :thresholds="[55, 70]"/>
+            </div>
+          </section>
+
+          <section v-if="breakdown.topHitters.length || breakdown.topPitchers.length" class="mx-4 mb-5">
+            <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">🏆 Top Performers</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div v-if="breakdown.topHitters.length" class="rounded-xl bg-white/5 border border-white/8 p-4">
+                <p class="text-[10px] font-black uppercase tracking-widest text-white/45 mb-2">⚾ Hitters</p>
+                <div v-for="player in breakdown.topHitters" :key="`h-${player.name}`" class="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+                  <span class="min-w-0 flex-1 truncate text-sm font-bold text-white">{{ player.name }}</span>
+                  <span class="text-xs text-white/45">{{ player.abs }} AB</span>
+                  <span class="rounded-full px-2.5 py-1 text-xs font-black" :style="{ color: gradeColor(player.avg), backgroundColor: gradeColor(player.avg) + '22' }">{{ player.avg }}</span>
+                </div>
+              </div>
+              <div v-if="breakdown.topPitchers.length" class="rounded-xl bg-white/5 border border-white/8 p-4">
+                <p class="text-[10px] font-black uppercase tracking-widest text-white/45 mb-2">🔥 Pitchers</p>
+                <div v-for="player in breakdown.topPitchers" :key="`p-${player.name}`" class="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+                  <span class="min-w-0 flex-1 truncate text-sm font-bold text-white">{{ player.name }}</span>
+                  <span class="text-xs text-white/45">{{ player.abs }} AB</span>
+                  <span class="rounded-full px-2.5 py-1 text-xs font-black" :style="{ color: gradeColor(player.avg), backgroundColor: gradeColor(player.avg) + '22' }">{{ player.avg }}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="mx-4 mb-5">
+            <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">⚾ Result Distribution</h3>
+            <div class="rounded-xl bg-white/5 border border-white/8 p-4 flex flex-wrap gap-2">
+              <div v-for="(count, result) in breakdown.resultDist" :key="result" class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center min-w-[82px]">
+                <p class="text-sm font-black" :style="{ color: cfg.color }">{{ result }}</p>
+                <p class="text-xl font-black text-white">{{ count }}</p>
+                <p class="text-[10px] text-white/40">{{ Math.round(count / breakdown.totalPAs * 100) }}%</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="mx-4 mb-5">
+            <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">🎯 Pitches Per At-Bat</h3>
+            <div class="rounded-xl bg-white/5 border border-white/8 p-4 space-y-2">
+              <div v-for="(count, bucket) in breakdown.pitchDistBuckets" :key="bucket" v-show="count > 0" class="flex items-center gap-3">
+                <span class="w-20 shrink-0 text-xs font-bold text-white/55">{{ bucket }} pitch{{ String(bucket) === '1' ? '' : 'es' }}</span>
+                <div class="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
+                  <div class="h-full rounded-full" :style="{ width: (count / breakdown.totalPAs * 100) + '%', backgroundColor: cfg.color }"/>
+                </div>
+                <span class="w-10 text-right text-xs font-black text-white/60">{{ count }} AB</span>
               </div>
             </div>
           </section>

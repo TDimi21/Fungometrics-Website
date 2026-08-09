@@ -28,6 +28,7 @@ const TYPE_COLOR = {
 
 const SESSION_REPORT_TYPE = {
   batting: 'batting', bullpen: 'bullpen', cage: 'cage',
+  live: 'live_ab',
   long_toss: 'long_toss', weight_ball: 'weight_ball', exit_velocity: 'exit_velocity',
 }
 
@@ -252,7 +253,11 @@ const openReport = (session) => {
   if (!type) return
   const note = session?.end_note || null
   const date = session?._date ?? session?.updated_at ?? session?.created_at ?? null
-  router.push({ name: 'session.report', params: { id: session.id, type }, query: { date, note } })
+  router.push({
+    name: 'session.report',
+    params: { id: session.id, type },
+    query: { date, note, scope: route.query?.scope === 'player' ? 'player' : undefined },
+  })
 }
 </script>
 
