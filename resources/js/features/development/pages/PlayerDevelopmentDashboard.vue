@@ -242,7 +242,7 @@ watch(
           </section>
         </div>
 
-        <PlayerMetricHistoryChart v-else :history="fitnessHistory" :percentile-groups="dashboard.percentileGroups" />
+        <PlayerMetricHistoryChart v-else :history="fitnessHistory" :intelligence="intelligence || {}" />
       </template>
     </main>
   </Layout>

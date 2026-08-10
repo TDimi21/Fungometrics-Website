@@ -1,25 +1,43 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { estimatePercentileFromAnchors } from '../lib/percentileInterpolation.js'
 
 const props = defineProps({
   history: { type: Array, default: () => [] },
-  percentileGroups: { type: Array, default: () => [] },
+  intelligence: { type: Object, default: () => ({}) },
 })
 
-// ── Interactive metric chart — same visual language as the roster Charts tab ──
+// ── Metric catalog — mirrors StrengthBenchmarkRegistry's real category
+// taxonomy (app/Services/Intelligence/StrengthBenchmarkRegistry.php) so the
+// sidebar groups match what the governed benchmark engine actually computes.
+// percentileKey is the normalized metric_key BenchmarkDefinitions uses.
 const METRICS = [
-  { key: 'body_weight',     label: 'Weight',      unit: 'lb',   lowerBetter: true,  color: '#C00000', percentileKey: 'body_weight' },
-  { key: 'bench_press',    label: 'Bench Press', unit: 'lb',   lowerBetter: false, color: '#3b82f6', percentileKey: 'bench_press' },
-  { key: 'dead_lift',      label: 'Deadlift',    unit: 'lb',   lowerBetter: false, color: '#a855f7', percentileKey: 'dead_lift' },
-  { key: 'front_squat',    label: 'Front Squat', unit: 'lb',   lowerBetter: false, color: '#f59e0b', percentileKey: 'front_squat' },
-  { key: 'back_squat',     label: 'Back Squat',  unit: 'lb',   lowerBetter: false, color: '#10b981', percentileKey: 'back_squat' },
-  { key: 'power_clean',    label: 'Power Clean', unit: 'lb',   lowerBetter: false, color: '#06b6d4', percentileKey: 'power_clean' },
-  { key: 'yd_40_dash',     label: '40 Time',     unit: 's',    lowerBetter: true,  color: '#f97316', percentileKey: 'forty_yard_dash' },
-  { key: 'yd_60_dash',     label: '60 Time',     unit: 's',    lowerBetter: true,  color: '#ec4899', percentileKey: 'sixty_yard_dash' },
-  { key: 'sleep_hours',    label: 'Sleep Hrs',   unit: 'hrs',  lowerBetter: false, color: '#8b5cf6', percentileKey: 'sleep_hours' },
-  { key: 'recovery_score', label: 'Recovery',    unit: '/100', lowerBetter: false, color: '#22d3ee', percentileKey: 'recovery_score' },
-  { key: 'mobility_score', label: 'Mobility',    unit: '/100', lowerBetter: false, color: '#4ade80', percentileKey: 'mobility_score' },
+  { key: 'body_weight', label: 'Weight', unit: 'lb', lowerBetter: false, color: '#C00000', percentileKey: 'body_weight', category: 'Body' },
+  { key: 'bench_press', label: 'Bench Press', unit: 'lb', lowerBetter: false, color: '#3b82f6', percentileKey: 'bench_press', category: 'Maximum Strength' },
+  { key: 'front_squat', label: 'Front Squat', unit: 'lb', lowerBetter: false, color: '#f59e0b', percentileKey: 'front_squat', category: 'Maximum Strength' },
+  { key: 'back_squat', label: 'Back Squat', unit: 'lb', lowerBetter: false, color: '#10b981', percentileKey: 'back_squat', category: 'Maximum Strength' },
+  { key: 'dead_lift', label: 'Deadlift', unit: 'lb', lowerBetter: false, color: '#a855f7', percentileKey: 'deadlift', category: 'Maximum Strength' },
+  { key: 'trap_bar_deadlift', label: 'Trap Bar Deadlift', unit: 'lb', lowerBetter: false, color: '#eab308', percentileKey: 'trap_bar_deadlift', category: 'Maximum Strength' },
+  { key: 'power_clean', label: 'Power Clean', unit: 'lb', lowerBetter: false, color: '#06b6d4', percentileKey: 'power_clean', category: 'Explosive Strength' },
+  { key: 'vertical_jump', label: 'Vertical Jump', unit: 'in', lowerBetter: false, color: '#84cc16', percentileKey: 'vertical_jump', category: 'Explosive Strength' },
+  { key: 'broad_jump', label: 'Broad Jump', unit: 'in', lowerBetter: false, color: '#22c55e', percentileKey: 'broad_jump', category: 'Explosive Strength' },
+  { key: 'med_ball_rotational_throw', label: 'Med Ball Rot Throw', unit: 'ft', lowerBetter: false, color: '#14b8a6', percentileKey: 'med_ball_rotational_throw', category: 'Explosive Strength' },
+  { key: 'pull_ups', label: 'Pull Ups', unit: 'reps', lowerBetter: false, color: '#f97316', percentileKey: 'pull_ups', category: 'Strength Endurance' },
+  { key: 'push_ups', label: 'Push Ups', unit: 'reps', lowerBetter: false, color: '#fb923c', percentileKey: 'pushups', category: 'Strength Endurance' },
+  { key: 'plank_hold', label: 'Plank Hold', unit: 'sec', lowerBetter: false, color: '#fbbf24', percentileKey: 'plank_hold', category: 'Strength Endurance' },
+  { key: 'grip_strength_left', label: 'Left Grip', unit: 'lb', lowerBetter: false, color: '#ec4899', percentileKey: 'grip_strength_left', category: 'Grip' },
+  { key: 'grip_strength_right', label: 'Right Grip', unit: 'lb', lowerBetter: false, color: '#f472b6', percentileKey: 'grip_strength_right', category: 'Grip' },
+  { key: 'sprint_10yd', label: '10 Yard Sprint', unit: 's', lowerBetter: true, color: '#8b5cf6', percentileKey: 'sprint_10yd', category: 'Speed' },
+  { key: 'yd_40_dash', label: '40 Yard Dash', unit: 's', lowerBetter: true, color: '#a78bfa', percentileKey: 'forty_yard_dash', category: 'Speed' },
+  { key: 'yd_60_dash', label: '60 Yard Dash', unit: 's', lowerBetter: true, color: '#c084fc', percentileKey: 'sixty_yard_dash', category: 'Speed' },
+  { key: 'sleep_hours', label: 'Sleep Hours', unit: 'hrs', lowerBetter: false, color: '#22d3ee', percentileKey: 'sleep_hours', category: 'Recovery' },
+  { key: 'recovery_score', label: 'Recovery Score', unit: '/100', lowerBetter: false, color: '#38bdf8', percentileKey: 'recovery_score', category: 'Recovery' },
+  { key: 'mobility_score', label: 'Mobility Score', unit: '/100', lowerBetter: false, color: '#4ade80', percentileKey: 'mobility_score', category: 'Recovery' },
 ]
+const CATEGORY_ORDER = ['Body', 'Maximum Strength', 'Explosive Strength', 'Strength Endurance', 'Grip', 'Speed', 'Recovery']
+const categorizedMetrics = computed(() => CATEGORY_ORDER
+  .map((label) => ({ label, metrics: METRICS.filter((m) => m.category === label) }))
+  .filter((group) => group.metrics.length))
 
 const DATE_RANGES = [
   { label: 'All Time', months: 0 },
@@ -31,6 +49,7 @@ const DATE_RANGES = [
 
 const activeMetricKeys = ref(new Set(['body_weight']))
 const activeDateRange = ref(0)
+const viewMode = ref('absolute') // absolute | relative | percentile
 
 const toggleMetric = (key) => {
   const next = new Set(activeMetricKeys.value)
@@ -40,9 +59,11 @@ const toggleMetric = (key) => {
     next.add(key)
   }
   activeMetricKeys.value = next
+  if (next.size > 1) viewMode.value = 'absolute'
 }
 
 const activeMetrics = computed(() => METRICS.filter((m) => activeMetricKeys.value.has(m.key)))
+const singleMetric = computed(() => activeMetrics.value.length === 1 ? activeMetrics.value[0] : null)
 
 const cutoffDate = computed(() => {
   if (activeDateRange.value === 0) return null
@@ -60,7 +81,38 @@ const allRecordsInRange = computed(() => {
   return records
 })
 
-const chartSeries = computed(() =>
+// ── Governed benchmark lookup — reads the same benchmark_profile.metrics
+// array the Percentile Rankings panel uses, so anchors/goal/gap/peer_group
+// are the exact numbers the backend already computed (nothing fabricated).
+const benchmarkFor = (metric) => {
+  const flat = props.intelligence?.benchmark_profile?.metrics
+  if (!Array.isArray(flat) || !metric) return null
+  return flat.find((m) => m.metric_key === metric.percentileKey) || null
+}
+const activeBenchmark = computed(() => singleMetric.value ? benchmarkFor(singleMetric.value) : null)
+const anchors = computed(() => activeBenchmark.value?.evidence?.age_percentile_anchors || null)
+const higherIsBetter = computed(() => activeBenchmark.value?.evidence?.higher_is_better ?? !(singleMetric.value?.lowerBetter))
+
+const canShowRelative = computed(() => activeBenchmark.value?.relative_value != null)
+const canShowPercentile = computed(() => !!anchors.value)
+
+// ── Series builders per view mode (single-metric only; compare mode below always uses absolute) ──
+const singleSeriesPoints = computed(() => {
+  if (!singleMetric.value) return []
+  const rows = allRecordsInRange.value.filter((r) => r[singleMetric.value.key] != null && parseFloat(r[singleMetric.value.key]) > 0)
+  if (viewMode.value === 'relative') {
+    return rows
+      .filter((r) => r.body_weight != null && parseFloat(r.body_weight) > 0)
+      .map((r) => ({ x: new Date(r.fitness_date).getTime(), y: +(parseFloat(r[singleMetric.value.key]) / parseFloat(r.body_weight)).toFixed(3), raw: parseFloat(r[singleMetric.value.key]) }))
+  }
+  if (viewMode.value === 'percentile') {
+    return rows.map((r) => ({ x: new Date(r.fitness_date).getTime(), y: estimatePercentileFromAnchors(parseFloat(r[singleMetric.value.key]), anchors.value, higherIsBetter.value), raw: parseFloat(r[singleMetric.value.key]) }))
+  }
+  return rows.map((r) => ({ x: new Date(r.fitness_date).getTime(), y: parseFloat(r[singleMetric.value.key]), raw: parseFloat(r[singleMetric.value.key]) }))
+})
+
+// ── Compare mode (2+ metrics) — unchanged simple multi-line absolute view ──
+const compareSeries = computed(() =>
   activeMetrics.value.map((m) => ({
     name: `${m.label} (${m.unit})`,
     data: allRecordsInRange.value
@@ -68,12 +120,9 @@ const chartSeries = computed(() =>
       .map((r) => ({ x: new Date(r.fitness_date).getTime(), y: parseFloat(r[m.key]) })),
   })),
 )
-
-const metricStats = computed(() =>
+const compareStats = computed(() =>
   activeMetrics.value.map((m) => {
-    const vals = allRecordsInRange.value
-      .filter((r) => r[m.key] != null && parseFloat(r[m.key]) > 0)
-      .map((r) => parseFloat(r[m.key]))
+    const vals = allRecordsInRange.value.filter((r) => r[m.key] != null && parseFloat(r[m.key]) > 0).map((r) => parseFloat(r[m.key]))
     if (!vals.length) return { ...m, current: null, change: null, low: null, high: null }
     const current = vals[vals.length - 1]
     const change = vals.length > 1 ? +(current - vals[0]).toFixed(2) : null
@@ -82,142 +131,315 @@ const metricStats = computed(() =>
   }),
 )
 
-const hasAnyData = computed(() => chartSeries.value.some((s) => s.data.length > 0))
-
-// Governed benchmark context for the single selected metric — pulled from the
-// same Percentile Rankings data already computed for this player, so switching
-// to a one-metric view surfaces where that number sits without a second fetch.
-const benchmarkContext = computed(() => {
-  if (activeMetrics.value.length !== 1) return null
-  const target = activeMetrics.value[0]
-  const flat = props.percentileGroups.flatMap((group) => group.metrics)
-  const metric = flat.find((row) => row.key === target.percentileKey)
-  if (!metric || !metric.available) return null
-  return metric
-})
-
 const hexToRgba = (hex, alpha) => {
   const h = hex.replace('#', '')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  return `rgba(${r},${g},${b},${alpha})`
+  return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${alpha})`
 }
 
-const chartColors = computed(() => activeMetrics.value.map((m) => hexToRgba(m.color, 0.3)))
-const markerColors = computed(() => activeMetrics.value.map((m) => m.color))
+// ── Single-metric stat row: everything here is either a raw history
+// computation or a field the backend already returned — nothing invented ──
+const singleStats = computed(() => {
+  if (!singleMetric.value) return null
+  const m = singleMetric.value
+  const rows = allRecordsInRange.value.filter((r) => r[m.key] != null && parseFloat(r[m.key]) > 0)
+  if (!rows.length) return null
+  const values = rows.map((r) => parseFloat(r[m.key]))
+  const current = values[values.length - 1]
+  const change = values.length > 1 ? +(current - values[0]).toFixed(2) : null
+  const changePct = values.length > 1 && values[0] !== 0 ? +((change / values[0]) * 100).toFixed(1) : null
+  const good = change === null ? null : (m.lowerBetter ? change <= 0 : change >= 0)
 
-const chartOptions = computed(() => ({
-  chart: {
-    type: 'area',
-    height: 280,
-    background: 'transparent',
-    toolbar: { show: false },
-    zoom: { enabled: false },
-    animations: { enabled: true, speed: 350 },
-  },
-  stroke: { curve: 'smooth', width: 2 },
-  colors: chartColors.value,
-  fill: { type: 'solid', opacity: 0 },
-  markers: {
-    size: 5,
-    fillColors: markerColors.value,
-    strokeColors: '#0b1120',
-    strokeWidth: 2,
-    hover: { size: 7 },
-  },
-  dataLabels: { enabled: false },
-  legend: {
-    show: activeMetrics.value.length > 1,
-    labels: { colors: 'rgba(255,255,255,0.65)' },
-    markers: { width: 10, height: 10, radius: 9999 },
-  },
-  grid: {
-    borderColor: 'rgba(255,255,255,0.07)',
-    row: { colors: ['transparent'], opacity: 1 },
-  },
-  xaxis: {
-    type: 'datetime',
-    labels: {
-      style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
-      rotate: -35,
-      datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'MMM dd' },
+  // Trend: consecutive-test direction streak, computed from real deltas only.
+  let streak = 0
+  let streakDir = null
+  for (let i = values.length - 1; i > 0; i--) {
+    const delta = values[i] - values[i - 1]
+    const dir = delta === 0 ? 'flat' : ((m.lowerBetter ? delta < 0 : delta > 0) ? 'up' : 'down')
+    if (streakDir === null) { streakDir = dir; streak = 1 } else if (dir === streakDir) { streak += 1 } else break
+  }
+
+  const b = activeBenchmark.value
+  return {
+    current, change, changePct, good,
+    currentDisplay: `${current}${m.unit.startsWith('/') ? '' : ' '}${m.unit}`.trim(),
+    changeDisplay: change === null ? null : `${change > 0 ? '+' : ''}${change} ${m.unit}`.trim(),
+    relative: b?.relative_value ?? null,
+    percentile: b?.percentile ?? null,
+    label: b?.label ?? null,
+    goal: b?.goal ?? null,
+    gap: b?.gap ?? null,
+    confidence: b?.confidence ?? null,
+    peerGroup: b?.peer_group ?? [],
+    pointCount: values.length,
+    streak, streakDir,
+  }
+})
+
+// ── Chart options ──
+const chartOptions = computed(() => {
+  if (singleMetric.value) {
+    const m = singleMetric.value
+    const unitSuffix = viewMode.value === 'percentile' ? '' : (viewMode.value === 'relative' ? '× BW' : ` ${m.unit}`)
+    const yaxisAnnotations = []
+    if (viewMode.value === 'absolute' && anchors.value) {
+      const bands = [
+        { tier: 'p90', text: 'ELITE (90-100%)', color: '#4ade80' },
+        { tier: 'p75', text: 'ABOVE AVG (75-89%)', color: '#fb923c' },
+        { tier: 'p50', text: 'AVERAGE (50-74%)', color: 'rgba(255,255,255,0.35)' },
+        { tier: 'p25', text: 'BELOW AVG (25-49%)', color: '#60a5fa' },
+      ]
+      bands.forEach((band) => {
+        if (anchors.value[band.tier] != null) {
+          yaxisAnnotations.push({
+            y: anchors.value[band.tier],
+            borderColor: band.color,
+            strokeDashArray: 4,
+            label: { text: band.text, style: { color: band.color, background: 'transparent', fontSize: '9px', fontWeight: 800 }, position: 'right', offsetX: -4 },
+          })
+        }
+      })
+      if (singleStats.value?.goal != null) {
+        yaxisAnnotations.push({
+          y: singleStats.value.goal,
+          borderColor: '#34d399',
+          strokeDashArray: 2,
+          label: { text: `GOAL`, style: { color: '#34d399', background: 'transparent', fontSize: '9px', fontWeight: 800 }, position: 'left' },
+        })
+      }
+    }
+    if (viewMode.value === 'percentile') {
+      [25, 50, 75, 90].forEach((p) => yaxisAnnotations.push({
+        y: p, borderColor: 'rgba(255,255,255,0.2)', strokeDashArray: 4,
+        label: { text: `P${p}`, style: { color: 'rgba(255,255,255,0.5)', background: 'transparent', fontSize: '9px' }, position: 'left' },
+      }))
+    }
+    return {
+      chart: { type: 'line', height: 300, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 350 } },
+      stroke: { curve: 'smooth', width: 2.5 },
+      colors: [m.color],
+      markers: { size: 5, fillColors: [m.color], strokeColors: '#0b1120', strokeWidth: 2, hover: { size: 7 } },
+      dataLabels: { enabled: false },
+      legend: { show: false },
+      grid: { borderColor: 'rgba(255,255,255,0.07)' },
+      annotations: { yaxis: yaxisAnnotations },
+      xaxis: {
+        type: 'datetime',
+        labels: { style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 }, rotate: -35, datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'MMM dd' } },
+        axisBorder: { color: 'rgba(255,255,255,0.08)' },
+        axisTicks: { color: 'rgba(255,255,255,0.08)' },
+      },
+      yaxis: {
+        min: viewMode.value === 'percentile' ? 0 : undefined,
+        max: viewMode.value === 'percentile' ? 100 : undefined,
+        labels: { style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 }, formatter: (v) => v != null ? `${parseFloat(v).toFixed(viewMode.value === 'relative' ? 2 : 1)}${unitSuffix}` : '' },
+      },
+      tooltip: { theme: 'dark' },
+      theme: { mode: 'dark' },
+    }
+  }
+  return {
+    chart: { type: 'area', height: 280, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 350 } },
+    stroke: { curve: 'smooth', width: 2 },
+    colors: activeMetrics.value.map((m) => hexToRgba(m.color, 0.3)),
+    fill: { type: 'solid', opacity: 0 },
+    markers: { size: 5, fillColors: activeMetrics.value.map((m) => m.color), strokeColors: '#0b1120', strokeWidth: 2, hover: { size: 7 } },
+    dataLabels: { enabled: false },
+    legend: { show: true, labels: { colors: 'rgba(255,255,255,0.65)' }, markers: { width: 10, height: 10, radius: 9999 } },
+    grid: { borderColor: 'rgba(255,255,255,0.07)', row: { colors: ['transparent'], opacity: 1 } },
+    xaxis: {
+      type: 'datetime',
+      labels: { style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 }, rotate: -35, datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'MMM dd' } },
+      axisBorder: { color: 'rgba(255,255,255,0.08)' },
+      axisTicks: { color: 'rgba(255,255,255,0.08)' },
     },
-    axisBorder: { color: 'rgba(255,255,255,0.08)' },
-    axisTicks: { color: 'rgba(255,255,255,0.08)' },
-  },
-  yaxis: activeMetrics.value.length === 1 ? {
-    min: (min) => Math.max(0, parseFloat((min * 0.94).toFixed(1))),
-    labels: {
-      style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
-      formatter: (v) => v != null ? `${parseFloat(v).toFixed(1)} ${activeMetrics.value[0].unit}` : '',
-    },
-  } : {
-    labels: {
-      style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 },
-      formatter: (v) => v != null ? parseFloat(v).toFixed(1) : '',
-    },
-  },
-  tooltip: { theme: 'dark', shared: true, intersect: false },
-  theme: { mode: 'dark' },
-}))
+    yaxis: { labels: { style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 }, formatter: (v) => v != null ? parseFloat(v).toFixed(1) : '' } },
+    tooltip: { theme: 'dark', shared: true, intersect: false },
+    theme: { mode: 'dark' },
+  }
+})
+const chartSeries = computed(() => singleMetric.value
+  ? [{ name: singleMetric.value.label, data: singleSeriesPoints.value }]
+  : compareSeries.value)
+const hasAnyData = computed(() => chartSeries.value.some((s) => s.data.length > 0))
+
+// ── Peer comparison table — real absolute-unit thresholds from the same
+// governed anchors used for the chart bands ──
+const peerTiers = computed(() => {
+  if (!anchors.value) return []
+  const tiers = [
+    { key: 'p95', label: '90th Percentile (Elite)' },
+    { key: 'p75', label: '75th Percentile (Above Average)' },
+    { key: 'p50', label: '50th Percentile (Average)' },
+    { key: 'p25', label: '25th Percentile (Below Average)' },
+    { key: 'p10', label: '10th Percentile (Needs Development)' },
+  ]
+  return tiers.filter((t) => anchors.value[t.key] != null).map((t) => ({ ...t, value: anchors.value[t.key] }))
+})
+
+// ── Test history — actual logged rows only (this system stores one current
+// value per test date, not rep-based sets, so no Est. 1RM/Notes column) ──
+const testHistoryRows = computed(() => {
+  if (!singleMetric.value) return []
+  return allRecordsInRange.value
+    .filter((r) => r[singleMetric.value.key] != null && parseFloat(r[singleMetric.value.key]) > 0)
+    .slice()
+    .reverse()
+    .slice(0, 8)
+    .map((r) => {
+      const value = parseFloat(r[singleMetric.value.key])
+      const bw = r.body_weight != null && parseFloat(r.body_weight) > 0 ? parseFloat(r.body_weight) : null
+      return {
+        date: r.fitness_date,
+        value,
+        bodyWeight: bw,
+        relative: bw ? +(value / bw).toFixed(2) : null,
+      }
+    })
+})
+
+// ── Trend insights — real linear fit on the visible history, not a fabricated projection model ──
+const trendInsights = computed(() => {
+  if (!singleMetric.value) return null
+  const rows = allRecordsInRange.value.filter((r) => r[singleMetric.value.key] != null && parseFloat(r[singleMetric.value.key]) > 0)
+  if (rows.length < 2) return null
+  const points = rows.map((r) => [new Date(r.fitness_date).getTime(), parseFloat(r[singleMetric.value.key])])
+  const n = points.length
+  const meanX = points.reduce((s, p) => s + p[0], 0) / n
+  const meanY = points.reduce((s, p) => s + p[1], 0) / n
+  const num = points.reduce((s, p) => s + (p[0] - meanX) * (p[1] - meanY), 0)
+  const den = points.reduce((s, p) => s + (p[0] - meanX) ** 2, 0)
+  const slope = den === 0 ? 0 : num / den // units per millisecond
+  const intercept = meanY - slope * meanX
+  const threeMonthsMs = 90 * 24 * 60 * 60 * 1000
+  const projected = +(intercept + slope * (points[n - 1][0] + threeMonthsMs)).toFixed(1)
+
+  const first = points[0][1]
+  const last = points[n - 1][1]
+  const trendPct = first !== 0 ? +(((last - first) / first) * 100).toFixed(1) : null
+
+  let improvingSteps = 0
+  for (let i = 1; i < n; i++) {
+    const delta = points[i][1] - points[i - 1][1]
+    if (singleMetric.value.lowerBetter ? delta <= 0 : delta >= 0) improvingSteps += 1
+  }
+  const consistency = n > 1 ? Math.round((improvingSteps / (n - 1)) * 100) : null
+
+  return {
+    trendPct,
+    consistency,
+    projected,
+    pointCount: n,
+    dataQuality: n >= 8 ? 'Strong' : n >= 4 ? 'Moderate' : 'Limited',
+  }
+})
 </script>
 
 <template>
-  <div class="charts-wrap">
-    <div class="metric-chart-card">
-      <div class="three-col">
-        <div class="col-metrics">
-          <div class="col-label">Metrics</div>
-          <div class="selector-group">
-            <button
-              v-for="m in METRICS" :key="m.key" class="selector-btn"
-              :class="{ active: activeMetricKeys.has(m.key) }"
-              :style="activeMetricKeys.has(m.key) ? { background: m.color, borderColor: m.color } : {}"
-              @click="toggleMetric(m.key)"
-            >{{ m.label }}</button>
+  <div class="metrics-shell">
+    <aside class="metric-sidebar">
+      <div class="sidebar-title">Metric Categories</div>
+      <div v-for="group in categorizedMetrics" :key="group.label" class="sidebar-group">
+        <div class="sidebar-group-label">{{ group.label }}</div>
+        <button
+          v-for="m in group.metrics" :key="m.key" class="sidebar-metric-btn"
+          :class="{ active: activeMetricKeys.has(m.key) }"
+          :style="activeMetricKeys.has(m.key) ? { borderColor: m.color, color: m.color } : {}"
+          @click="toggleMetric(m.key)"
+        >{{ m.label }}</button>
+      </div>
+    </aside>
+
+    <div class="metric-main">
+      <div class="metric-header">
+        <div class="metric-heading">
+          <h2>{{ singleMetric ? singleMetric.label : `${activeMetrics.length} Metrics` }}</h2>
+          <span>{{ singleMetric ? singleMetric.category : 'Comparison' }}</span>
+        </div>
+        <div v-if="singleMetric" class="mode-toggle">
+          <button type="button" :class="{ active: viewMode === 'absolute' }" @click="viewMode = 'absolute'">Absolute</button>
+          <button type="button" :class="{ active: viewMode === 'relative' }" :disabled="!canShowRelative" @click="viewMode = 'relative'">Relative</button>
+          <button type="button" :class="{ active: viewMode === 'percentile' }" :disabled="!canShowPercentile" @click="viewMode = 'percentile'">Percentile</button>
+        </div>
+        <label class="date-range-select">Range
+          <select v-model.number="activeDateRange">
+            <option v-for="r in DATE_RANGES" :key="r.months" :value="r.months">{{ r.label }}</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- Single-metric governed stat row -->
+      <div v-if="singleStats" class="stat-grid">
+        <div class="stat-box"><span>Current</span><b>{{ singleStats.currentDisplay }}</b></div>
+        <div v-if="singleStats.relative != null" class="stat-box"><span>Relative Strength</span><b>{{ singleStats.relative.toFixed(2) }}×</b><small>Body Weight</small></div>
+        <div v-if="singleStats.percentile != null" class="stat-box"><span>Peer Percentile</span><b>{{ singleStats.percentile }}<sup>{{ singleStats.percentile === 1 ? 'st' : singleStats.percentile === 2 ? 'nd' : singleStats.percentile === 3 ? 'rd' : 'th' }}</sup></b><small>{{ singleStats.label }}</small></div>
+        <div v-if="singleStats.changeDisplay" class="stat-box" :class="singleStats.good ? 'good' : 'bad'"><span>Change</span><b>{{ singleStats.changeDisplay }}</b><small v-if="singleStats.changePct != null">{{ singleStats.changePct > 0 ? '+' : '' }}{{ singleStats.changePct }}%</small></div>
+        <div v-if="singleStats.goal != null" class="stat-box"><span>Goal</span><b>{{ singleStats.goal }} {{ singleMetric.unit }}</b></div>
+        <div v-if="singleStats.gap != null" class="stat-box"><span>Gap</span><b>{{ singleStats.gap }} {{ singleMetric.unit }}</b></div>
+        <div v-if="singleStats.streak > 1" class="stat-box"><span>Trend</span><b :class="singleStats.streakDir === 'up' ? 'text-good' : singleStats.streakDir === 'down' ? 'text-bad' : ''">{{ singleStats.streakDir === 'up' ? 'Improving' : singleStats.streakDir === 'down' ? 'Declining' : 'Steady' }}</b><small>{{ singleStats.streak }} consecutive tests</small></div>
+      </div>
+
+      <div class="chart-card">
+        <div v-if="hasAnyData" class="chart-area">
+          <apexchart
+            width="100%" :type="singleMetric ? 'line' : 'area'" :height="singleMetric ? 300 : 280"
+            :options="chartOptions" :series="chartSeries"
+            :key="[...activeMetricKeys].join('_') + '_' + activeDateRange + '_' + viewMode"
+          />
+        </div>
+        <div v-else class="chart-empty"><p>No data for this selection</p></div>
+      </div>
+
+      <!-- Compare-mode stat pills (2+ metrics) -->
+      <div v-if="!singleMetric && hasAnyData" class="stats-block">
+        <div v-for="s in compareStats" :key="s.key" class="stat-row">
+          <div class="stat-metric-label" :style="{ color: s.color }"><span class="stat-dot" :style="{ background: s.color }"></span>{{ s.label }}</div>
+          <div class="stat-pills">
+            <div v-if="s.current !== null" class="stat-pill"><span class="pill-val">{{ parseFloat(s.current).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span><span class="pill-lbl">Current</span></div>
+            <div v-if="s.change !== null" class="stat-pill" :class="s.good ? 'pill-good' : 'pill-bad'"><span class="pill-val">{{ s.change > 0 ? '+' : '' }}{{ parseFloat(s.change).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span><span class="pill-lbl">Change</span></div>
+            <div v-if="s.low !== null" class="stat-pill"><span class="pill-val">{{ parseFloat(s.low).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span><span class="pill-lbl">Low</span></div>
+            <div v-if="s.high !== null" class="stat-pill"><span class="pill-val">{{ parseFloat(s.high).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span><span class="pill-lbl">High</span></div>
+            <div v-if="s.count" class="stat-pill"><span class="pill-val">{{ s.count }}</span><span class="pill-lbl">Points</span></div>
           </div>
         </div>
+      </div>
 
-        <div class="col-dates">
-          <div class="col-label">Date Range</div>
-          <div class="range-group">
-            <button
-              v-for="r in DATE_RANGES" :key="r.months" class="range-btn"
-              :class="{ active: activeDateRange === r.months }" @click="activeDateRange = r.months"
-            >{{ r.label }}</button>
-          </div>
+      <!-- Single-metric lower panels -->
+      <div v-if="singleMetric" class="lower-grid">
+        <div class="panel">
+          <div class="panel-title">Test History</div>
+          <table v-if="testHistoryRows.length" class="history-table">
+            <thead><tr><th>Date</th><th>Value</th><th>Body Weight</th><th v-if="testHistoryRows.some(r=>r.relative)">Relative</th></tr></thead>
+            <tbody>
+              <tr v-for="row in testHistoryRows" :key="row.date">
+                <td>{{ row.date }}</td>
+                <td>{{ row.value }} {{ singleMetric.unit }}</td>
+                <td>{{ row.bodyWeight ? `${row.bodyWeight} lb` : '—' }}</td>
+                <td v-if="testHistoryRows.some(r=>r.relative)">{{ row.relative ? `${row.relative}×` : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-else class="panel-empty">No logged tests in this range.</p>
         </div>
 
-        <div class="col-chart">
-          <div v-if="benchmarkContext" class="benchmark-badge" :data-testid="'benchmark-badge'">
-            <b>{{ Math.round(benchmarkContext.percentile) }}th percentile</b>
-            <span>{{ benchmarkContext.status_label }}</span>
-            <em v-if="benchmarkContext.goal_display">Goal {{ benchmarkContext.goal_display }}</em>
+        <div class="panel">
+          <div class="panel-title">Peer Comparison</div>
+          <div v-if="peerTiers.length" class="peer-list">
+            <div v-for="tier in peerTiers" :key="tier.key" class="peer-row"><span>{{ tier.label }}</span><b>{{ tier.value }} {{ singleMetric.unit }}</b></div>
+            <div v-if="singleStats?.current != null" class="peer-row peer-current"><span>Your Current</span><b>{{ singleStats.percentile }}th Percentile ({{ singleStats.current }} {{ singleMetric.unit }})</b></div>
           </div>
+          <p v-else class="panel-empty">Governed benchmark not configured for this metric/age group yet.</p>
+          <p v-if="singleStats?.peerGroup?.length" class="peer-footer">Peer Group: {{ singleStats.peerGroup.join(' · ') }} <span v-if="singleStats.confidence">· Confidence: {{ singleStats.confidence }}</span></p>
+        </div>
 
-          <div v-if="hasAnyData" class="chart-area">
-            <apexchart
-              width="100%" type="line" height="260" :options="chartOptions" :series="chartSeries"
-              :key="[...activeMetricKeys].join('_') + '_' + activeDateRange"
-            />
+        <div class="panel">
+          <div class="panel-title">Trend Insights</div>
+          <div v-if="trendInsights" class="insight-grid">
+            <div class="insight-box"><span>Strength Trend</span><b :class="trendInsights.trendPct >= 0 ? 'text-good' : 'text-bad'">{{ trendInsights.trendPct > 0 ? '+' : '' }}{{ trendInsights.trendPct }}%</b></div>
+            <div v-if="trendInsights.consistency != null" class="insight-box"><span>Consistency</span><b>{{ trendInsights.consistency }}%</b></div>
+            <div class="insight-box"><span>Projected in 3 Mo.</span><b>{{ trendInsights.projected }} {{ singleMetric.unit }}</b><small>Linear trend estimate</small></div>
+            <div class="insight-box"><span>Data Quality</span><b>{{ trendInsights.dataQuality }}</b><small>{{ trendInsights.pointCount }} data points</small></div>
           </div>
-          <div v-else class="chart-empty">
-            <p class="empty-text">No data for this selection</p>
-          </div>
-
-          <div v-if="hasAnyData" class="stats-block">
-            <div v-for="s in metricStats" :key="s.key" class="stat-row">
-              <div class="stat-metric-label" :style="{ color: s.color }"><span class="stat-dot" :style="{ background: s.color }"></span>{{ s.label }}</div>
-              <div class="stat-pills">
-                <div v-if="s.current !== null" class="stat-pill"><span class="pill-val">{{ parseFloat(s.current).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span><span class="pill-lbl">Current</span></div>
-                <div v-if="s.change !== null" class="stat-pill" :class="s.good ? 'pill-good' : 'pill-bad'"><span class="pill-val">{{ s.change > 0 ? '+' : '' }}{{ parseFloat(s.change).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span><span class="pill-lbl">Change</span></div>
-                <div v-if="s.low !== null" class="stat-pill"><span class="pill-val">{{ parseFloat(s.low).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span><span class="pill-lbl">Low</span></div>
-                <div v-if="s.high !== null" class="stat-pill"><span class="pill-val">{{ parseFloat(s.high).toFixed(1) }}{{ s.unit.startsWith('/') ? '' : '&thinsp;' }}{{ s.unit }}</span><span class="pill-lbl">High</span></div>
-                <div v-if="s.count" class="stat-pill"><span class="pill-val">{{ s.count }}</span><span class="pill-lbl">Points</span></div>
-              </div>
-            </div>
-          </div>
+          <p v-else class="panel-empty">Log at least 2 tests to see trend insights.</p>
         </div>
       </div>
     </div>
@@ -225,23 +447,40 @@ const chartOptions = computed(() => ({
 </template>
 
 <style scoped>
-.charts-wrap { background: #060b14; min-height: 100%; padding: 16px; color: white; border-radius: 14px; }
-.metric-chart-card { background: linear-gradient(160deg, #0f1a2e 0%, #0b1120 100%); border: 1px solid rgba(192,0,0,0.18); border-radius: 14px; padding: 16px; }
-.three-col { display: grid; grid-template-columns: 140px 100px 1fr; gap: 14px; align-items: start; }
-.col-label { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 8px; }
-.col-metrics, .col-dates { display: flex; flex-direction: column; }
-.col-chart { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.selector-group, .range-group { display: flex; flex-direction: column; gap: 5px; }
-.selector-btn { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 5px 11px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.55); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-.selector-btn:hover { border-color: rgba(192,0,0,0.45); color: rgba(255,255,255,0.9); background: rgba(192,0,0,0.08); }
-.selector-btn.active { background: #C00000; border-color: #C00000; color: #ffffff; box-shadow: 0 0 0 2px rgba(192,0,0,0.25); }
-.range-btn { font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.45); cursor: pointer; transition: all 0.15s; }
-.range-btn:hover { border-color: rgba(192,0,0,0.4); color: rgba(255,255,255,0.8); }
-.range-btn.active { background: rgba(192,0,0,0.15); border-color: rgba(192,0,0,0.55); color: #ff6666; }
-.benchmark-badge { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 9px 13px; border: 1px solid rgba(255,43,74,0.3); border-radius: 10px; background: rgba(255,43,74,0.08); }
-.benchmark-badge b { color: #ff8798; font-size: 13px; }
-.benchmark-badge span { color: rgba(255,255,255,0.75); font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.benchmark-badge em { margin-left: auto; color: rgba(255,255,255,0.5); font-size: 11px; font-style: normal; }
+.metrics-shell { display: grid; grid-template-columns: 220px 1fr; gap: 16px; background: #060b14; border-radius: 14px; padding: 16px; color: white; }
+.metric-sidebar { border-right: 1px solid rgba(255,255,255,0.08); padding-right: 14px; }
+.sidebar-title { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 10px; }
+.sidebar-group { margin-bottom: 14px; }
+.sidebar-group-label { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #C00000; margin-bottom: 6px; }
+.sidebar-metric-btn { display: block; width: 100%; text-align: left; font-size: 12px; font-weight: 600; padding: 6px 10px; margin-bottom: 3px; border-radius: 7px; border: 1px solid transparent; background: transparent; color: rgba(255,255,255,0.6); cursor: pointer; transition: all 0.15s; }
+.sidebar-metric-btn:hover { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.9); }
+.sidebar-metric-btn.active { background: rgba(192,0,0,0.12); border-color: currentColor; font-weight: 800; }
+
+.metric-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.metric-header { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 14px; justify-content: space-between; }
+.metric-heading h2 { font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.03em; }
+.metric-heading span { font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.06em; }
+.mode-toggle { display: flex; gap: 6px; }
+.mode-toggle button { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 7px 14px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.55); cursor: pointer; }
+.mode-toggle button.active { border-color: #C00000; color: #ff6666; background: rgba(192,0,0,0.1); }
+.mode-toggle button:disabled { opacity: 0.3; cursor: not-allowed; }
+.date-range-select { font-size: 9px; font-weight: 800; text-transform: uppercase; color: rgba(255,255,255,0.4); display: flex; align-items: center; gap: 6px; }
+.date-range-select select { background: #0b1120; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; color: white; font-size: 11px; padding: 6px 8px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.stat-box { padding: 10px 12px; border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; background: rgba(255,255,255,0.03); }
+.stat-box span { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+.stat-box b { font-size: 17px; font-weight: 900; color: white; }
+.stat-box small { display: block; margin-top: 2px; font-size: 9px; color: rgba(255,255,255,0.4); }
+.stat-box.good b { color: #4ade80; }
+.stat-box.bad b { color: #f87171; }
+.text-good { color: #4ade80; }
+.text-bad { color: #f87171; }
+
+.chart-card { background: linear-gradient(160deg, #0f1a2e 0%, #0b1120 100%); border: 1px solid rgba(192,0,0,0.18); border-radius: 14px; padding: 14px; }
+.chart-empty { display: flex; align-items: center; justify-content: center; padding: 40px 16px; }
+.chart-empty p { color: rgba(255,255,255,0.35); font-size: 13px; font-weight: 600; }
+
 .stats-block { display: flex; flex-direction: column; gap: 8px; }
 .stat-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .stat-metric-label { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; min-width: 88px; flex-shrink: 0; }
@@ -252,8 +491,28 @@ const chartOptions = computed(() => ({
 .stat-pill.pill-bad { border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.07); }
 .pill-val { font-size: 13px; font-weight: 800; color: #ffffff; line-height: 1; }
 .pill-lbl { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 2px; }
-.chart-area { margin: 0 -4px; }
-.chart-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.08); border-radius: 10px; }
-.empty-text { color: rgba(255,255,255,0.35); font-size: 13px; font-weight: 600; }
-@media (max-width: 760px) { .three-col { grid-template-columns: 1fr; } }
+
+.lower-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.panel { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; }
+.panel-title { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 10px; }
+.panel-empty { color: rgba(255,255,255,0.35); font-size: 12px; }
+.history-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.history-table th { text-align: left; color: rgba(255,255,255,0.35); font-size: 9px; text-transform: uppercase; padding-bottom: 6px; }
+.history-table td { padding: 5px 0; border-top: 1px solid rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); }
+.peer-list { display: flex; flex-direction: column; gap: 6px; }
+.peer-row { display: flex; justify-content: space-between; font-size: 11px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); }
+.peer-row b { color: white; font-weight: 800; }
+.peer-row.peer-current { color: #ff8798; font-weight: 800; }
+.peer-row.peer-current b { color: #ff8798; }
+.peer-footer { margin-top: 10px; font-size: 10px; color: rgba(255,255,255,0.35); }
+.insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.insight-box span { display: block; font-size: 9px; font-weight: 800; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 3px; }
+.insight-box b { font-size: 15px; font-weight: 900; }
+.insight-box small { display: block; margin-top: 2px; font-size: 9px; color: rgba(255,255,255,0.35); }
+
+@media (max-width: 900px) {
+  .metrics-shell { grid-template-columns: 1fr; }
+  .metric-sidebar { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-right: 0; padding-bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .sidebar-group { display: contents; }
+}
 </style>
