@@ -9,9 +9,7 @@ const route = useRoute()
 const router = useRouter()
 const { axiosGet } = useAxiosAuth()
 
-const PLAYER_COLORS = ['#ff2b4a', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899', '#84cc16']
-// "All" is capped at 365d — PlayerIntelligenceService and GetFitness both hard-limit
-// how far back the backend will look/return, so there's no true unlimited window.
+const PLAYER_COLORS = ['#ff2b4a', '#3b82f6', '#20c878', '#a855f7', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16']
 const QUICK_RANGES = [
   { label: '1W', days: 7 },
   { label: '1M', days: 30 },
@@ -20,21 +18,24 @@ const QUICK_RANGES = [
   { label: 'All', days: 365 },
 ]
 const TABLE_METRIC_KEYS = ['body_weight', 'bench_press', 'front_squat', 'dead_lift', 'power_clean']
+const STRENGTH_METRIC_KEYS = ['bench_press', 'front_squat', 'back_squat', 'dead_lift', 'power_clean']
+const INTERVALS = ['daily', 'weekly', 'monthly']
 
 const teamId = computed(() => String(route.query?.teamId || '').trim())
+const teamName = computed(() => String(route.query?.teamName || 'Current Team'))
 const playerIds = computed(() => String(route.query?.playerIds || '').split(',').map((id) => id.trim()).filter(Boolean))
 const playerNames = computed(() => String(route.query?.names || '').split('|'))
 
 const loading = ref(false)
 const errorMessage = ref('')
-const players = ref([]) // [{ id, name, color, intelligence, history, failed }]
-const activeMetricKey = ref('bench_press')
-const sortBy = ref('percentile') // percentile | value | relative | gap
+const players = ref([])
+const activeMetricKey = ref('body_weight')
+const sortBy = ref('percentile')
 const highlightedPlayerId = ref('')
-
-// ── Date range: quick chips matching the command-center mockup, plus an
-// optional custom from/to pair. ──
-const activeQuickIndex = ref(1) // '1M' default
+const chartInterval = ref('daily')
+const ageGroupFilter = ref('all')
+const weightClassFilter = ref('all')
+const activeQuickIndex = ref(1)
 const useCustomRange = ref(false)
 const customFrom = ref('')
 const customTo = ref('')
@@ -48,38 +49,44 @@ const dataWindowDays = computed(() => {
   if (useCustomRange.value && customFrom.value) {
     const from = new Date(customFrom.value)
     const to = customTo.value ? new Date(customTo.value) : new Date()
-    const diffDays = Math.round((to - from) / 86400000)
-    return Math.min(365, Math.max(7, diffDays || 30))
+    return Math.min(365, Math.max(7, Math.round((to - from) / 86400000) || 30))
   }
   return QUICK_RANGES[activeQuickIndex.value]?.days || 30
 })
 
 const rangeCutoff = computed(() => {
   if (useCustomRange.value && customFrom.value) return new Date(customFrom.value)
-  const d = new Date()
-  d.setDate(d.getDate() - dataWindowDays.value)
-  return d
+  const date = new Date()
+  date.setDate(date.getDate() - dataWindowDays.value)
+  return date
 })
-const rangeEnd = computed(() => (useCustomRange.value && customTo.value) ? new Date(customTo.value) : null)
-const withinRange = (dateStr) => {
-  const d = new Date(dateStr)
-  if (rangeCutoff.value && d < rangeCutoff.value) return false
-  if (rangeEnd.value && d > rangeEnd.value) return false
-  return true
+const rangeEnd = computed(() => useCustomRange.value && customTo.value ? new Date(customTo.value) : null)
+const withinRange = (dateString) => {
+  const date = new Date(dateString)
+  return !(rangeCutoff.value && date < rangeCutoff.value) && !(rangeEnd.value && date > rangeEnd.value)
 }
-
 const rangeLabel = computed(() => {
   if (useCustomRange.value && customFrom.value) {
-    const fmt = (s) => new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-    return `${fmt(customFrom.value)} – ${customTo.value ? fmt(customTo.value) : 'Today'}`
+    const format = (date) => new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    return `${format(customFrom.value)} – ${customTo.value ? format(customTo.value) : 'Today'}`
   }
-  const r = QUICK_RANGES[activeQuickIndex.value]
-  return r?.label === 'All' ? 'All Time (last 365 days)' : `Last ${r?.label}`
+  const range = QUICK_RANGES[activeQuickIndex.value]
+  return range?.label === 'All' ? 'Last 365 days' : `Last ${range?.label}`
 })
 
 const categorizedMetrics = computed(() => categorizeMetrics())
-const activeMetric = computed(() => METRICS.find((m) => m.key === activeMetricKey.value) || null)
-const tableMetrics = computed(() => TABLE_METRIC_KEYS.map((key) => METRICS.find((m) => m.key === key)).filter(Boolean))
+const activeMetric = computed(() => METRICS.find((metric) => metric.key === activeMetricKey.value) || null)
+const tableMetrics = computed(() => TABLE_METRIC_KEYS.map((key) => METRICS.find((metric) => metric.key === key)).filter(Boolean))
+const strengthMetrics = computed(() => STRENGTH_METRIC_KEYS.map((key) => METRICS.find((metric) => metric.key === key)).filter(Boolean))
+const comparisonContext = (player) => player?.intelligence?.benchmark_profile?.comparison_context || {}
+const formatFilterLabel = (value) => String(value || '').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+const ageGroupOptions = computed(() => [...new Set(players.value.map((player) => comparisonContext(player).age_group).filter(Boolean))])
+const weightClassOptions = computed(() => [...new Set(players.value.map((player) => comparisonContext(player).bodyweight_band).filter(Boolean))])
+const comparedPlayers = computed(() => players.value.filter((player) => {
+  const context = comparisonContext(player)
+  return (ageGroupFilter.value === 'all' || context.age_group === ageGroupFilter.value)
+    && (weightClassFilter.value === 'all' || context.bodyweight_band === weightClassFilter.value)
+}))
 
 const loadComparison = async () => {
   errorMessage.value = ''
@@ -91,36 +98,36 @@ const loadComparison = async () => {
   loading.value = true
   try {
     const results = await Promise.all(playerIds.value.map(async (id, index) => {
-      const name = playerNames.value[index] || 'Player'
-      const color = PLAYER_COLORS[index % PLAYER_COLORS.length]
-      const [intelligenceRes, historyRes] = await Promise.all([
+      const [intelligenceResponse, historyResponse] = await Promise.all([
         axiosGet(`coach/teams/${teamId.value}/players/${id}/intelligence`, { days: dataWindowDays.value }).catch(() => null),
         axiosGet(`player/fitness/${id}`).catch(() => null),
       ])
       return {
-        id, name, color,
-        intelligence: intelligenceRes?.data?.data || intelligenceRes?.data || null,
-        history: Array.isArray(historyRes?.data?.data) ? historyRes.data.data : [],
-        failed: !intelligenceRes && !historyRes,
+        id,
+        name: playerNames.value[index] || `Player ${index + 1}`,
+        color: PLAYER_COLORS[index % PLAYER_COLORS.length],
+        intelligence: intelligenceResponse?.data?.data || intelligenceResponse?.data || null,
+        history: Array.isArray(historyResponse?.data?.data) ? historyResponse.data.data : [],
+        failed: !intelligenceResponse && !historyResponse,
       }
     }))
     players.value = results
-    if (!highlightedPlayerId.value || !results.some((p) => p.id === highlightedPlayerId.value)) {
-      highlightedPlayerId.value = results[0]?.id || ''
-    }
+    if (!results.some((player) => player.id === highlightedPlayerId.value)) highlightedPlayerId.value = results[0]?.id || ''
+  } catch {
+    errorMessage.value = 'The comparison data could not be loaded. Please refresh and try again.'
   } finally {
     loading.value = false
   }
 }
 
 watch([teamId, playerIds, dataWindowDays], loadComparison, { immediate: true })
+watch(comparedPlayers, (rows) => {
+  if (!rows.some((player) => player.id === highlightedPlayerId.value)) highlightedPlayerId.value = rows[0]?.id || ''
+})
 
-// ── Inline roster picker — lets a coach add/remove players to compare
-// directly on this page instead of going back to a separate team screen. ──
 const rosterOptions = ref([])
 const rosterLoaded = ref(false)
 const showAddPlayer = ref(false)
-
 const loadRoster = async () => {
   if (rosterLoaded.value || !teamId.value) return
   try {
@@ -130,8 +137,7 @@ const loadRoster = async () => {
       const id = String(row?.id ?? row?.user_id ?? row?.player_id ?? row?.user?.id ?? '')
       if (!id) return null
       const profile = row?.profile || row?.user?.profile || {}
-      const name = row?.name || row?.full_name || profile?.full_name
-        || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || `Player #${id}`
+      const name = row?.name || row?.full_name || profile?.full_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || `Player #${id}`
       return { id, name }
     }).filter(Boolean)
     rosterLoaded.value = true
@@ -139,140 +145,139 @@ const loadRoster = async () => {
     rosterOptions.value = []
   }
 }
-
-const availableToAdd = computed(() => rosterOptions.value.filter((o) => !playerIds.value.includes(o.id)))
-
+const availableToAdd = computed(() => rosterOptions.value.filter((option) => !playerIds.value.includes(option.id)))
 const toggleAddPlayer = () => {
   showAddPlayer.value = !showAddPlayer.value
   if (showAddPlayer.value) loadRoster()
 }
-
 const addPlayer = (option) => {
-  const newIds = [...playerIds.value, option.id]
-  const newNames = [...playerNames.value.slice(0, playerIds.value.length), option.name]
+  const ids = [...playerIds.value, option.id]
+  const names = [...playerNames.value.slice(0, playerIds.value.length), option.name]
   showAddPlayer.value = false
-  router.replace({ query: { ...route.query, playerIds: newIds.join(','), names: newNames.join('|') } })
+  router.replace({ query: { ...route.query, playerIds: ids.join(','), names: names.join('|') } })
 }
-
 const removePlayer = (id) => {
   const index = playerIds.value.indexOf(id)
   if (index === -1 || playerIds.value.length <= 1) return
-  const newIds = playerIds.value.filter((pid) => pid !== id)
-  const newNames = playerNames.value.filter((_, i) => i !== index)
-  router.replace({ query: { ...route.query, playerIds: newIds.join(','), names: newNames.join('|') } })
+  router.replace({
+    query: {
+      ...route.query,
+      playerIds: playerIds.value.filter((playerId) => playerId !== id).join(','),
+      names: playerNames.value.filter((_, playerIndex) => playerIndex !== index).join('|'),
+    },
+  })
 }
 
-// ── Per-player current value / change for the active metric — drives both
-// the chart legend and the "highlighted player" stat boxes. ──
-const metricRowsFor = (player, limitToRange) => {
-  if (!activeMetric.value) return []
-  const key = activeMetric.value.key
-  return (player.history || [])
-    .filter((r) => r.fitness_date && r[key] != null && parseFloat(r[key]) > 0)
-    .filter((r) => !limitToRange || withinRange(r.fitness_date))
+const metricBenchmark = (player, metric) => benchmarkFor(player?.intelligence?.benchmark_profile?.metrics, metric)
+const metricRowsFor = (player, limitToRange = true) => {
+  const key = activeMetric.value?.key
+  if (!key) return []
+  return (player?.history || [])
+    .filter((row) => row.fitness_date && row[key] != null && Number.isFinite(Number(row[key])))
+    .filter((row) => !limitToRange || withinRange(row.fitness_date))
     .slice()
     .sort((a, b) => new Date(a.fitness_date) - new Date(b.fitness_date))
 }
-const legendCurrent = (player) => {
-  const rows = metricRowsFor(player, false)
-  if (!rows.length) return 'No data'
-  return `${parseFloat(rows[rows.length - 1][activeMetric.value.key]).toFixed(1)} ${activeMetric.value.unit}`.trim()
+
+const periodStart = (value, interval) => {
+  const date = new Date(value)
+  date.setHours(0, 0, 0, 0)
+  if (interval === 'weekly') date.setDate(date.getDate() - ((date.getDay() + 6) % 7))
+  if (interval === 'monthly') date.setDate(1)
+  return date.getTime()
 }
+const aggregateRows = (rows) => {
+  const groups = new Map()
+  rows.forEach((row) => {
+    const bucket = periodStart(row.fitness_date, chartInterval.value)
+    const values = groups.get(bucket) || []
+    values.push(Number(row[activeMetric.value.key]))
+    groups.set(bucket, values)
+  })
+  return [...groups.entries()].map(([x, values]) => ({
+    x,
+    y: Number((values.reduce((total, value) => total + value, 0) / values.length).toFixed(2)),
+  }))
+}
+
+const legendCurrentValue = (player) => {
+  const benchmark = metricBenchmark(player, activeMetric.value)
+  if (benchmark?.raw_value != null) return Number(benchmark.raw_value)
+  const rows = metricRowsFor(player, false)
+  return rows.length ? Number(rows[rows.length - 1][activeMetric.value.key]) : null
+}
+const displayMetricValue = (value, metric = activeMetric.value, precision = 1) => value == null
+  ? '—'
+  : `${Number(value).toFixed(precision)} ${metric?.unit || ''}`.trim()
+const legendCurrent = (player) => displayMetricValue(legendCurrentValue(player))
 const legendChange = (player) => {
-  const rows = metricRowsFor(player, true)
+  const rows = metricRowsFor(player)
   if (rows.length < 2) return null
-  const first = parseFloat(rows[0][activeMetric.value.key])
-  const last = parseFloat(rows[rows.length - 1][activeMetric.value.key])
-  return last - first
+  return Number(rows[rows.length - 1][activeMetric.value.key]) - Number(rows[0][activeMetric.value.key])
 }
 const legendChangeLabel = (player) => {
-  const delta = legendChange(player)
-  if (delta == null) return '—'
-  return `${delta > 0 ? '+' : ''}${delta.toFixed(1)} ${activeMetric.value.unit}`.trim()
+  const change = legendChange(player)
+  return change == null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)} ${activeMetric.value?.unit || ''}`.trim()
 }
 const legendChangeTone = (player) => {
-  const delta = legendChange(player)
-  if (!player || delta == null || delta === 0) return ''
-  const better = activeMetric.value?.lowerBetter ? delta < 0 : delta > 0
-  return better ? 'good' : 'bad'
+  const change = legendChange(player)
+  if (change == null || change === 0) return ''
+  return (activeMetric.value?.lowerBetter ? change < 0 : change > 0) ? 'good' : 'bad'
 }
 
-// ── Multi-player line series, one line per player, filtered to range ──
-const lineSeries = computed(() => {
-  if (!activeMetric.value) return []
-  return players.value.map((player) => ({
-    name: player.name,
-    data: metricRowsFor(player, true).map((r) => ({ x: new Date(r.fitness_date).getTime(), y: parseFloat(r[activeMetric.value.key]) })),
-  }))
-})
-const hasLineData = computed(() => lineSeries.value.some((s) => s.data.length > 0))
-
-// Emphasize the highlighted player's line and mute the rest — with several
-// players plotted at once, same-weight lines read as noise, not a chart.
-const isHighlighted = (player) => players.value.length === 1 || player.id === highlightedPlayerId.value
+const lineSeries = computed(() => comparedPlayers.value.map((player) => ({
+  name: player.name,
+  data: aggregateRows(metricRowsFor(player)),
+})))
+const hasLineData = computed(() => lineSeries.value.some((series) => series.data.length))
+const isHighlighted = (player) => comparedPlayers.value.length === 1 || player.id === highlightedPlayerId.value
 const withAlpha = (hex, alpha) => {
   const clean = (hex || '#888888').replace('#', '')
-  const r = parseInt(clean.slice(0, 2), 16)
-  const g = parseInt(clean.slice(2, 4), 16)
-  const b = parseInt(clean.slice(4, 6), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  return `rgba(${parseInt(clean.slice(0, 2), 16)}, ${parseInt(clean.slice(2, 4), 16)}, ${parseInt(clean.slice(4, 6), 16)}, ${alpha})`
 }
-const lineColors = computed(() => players.value.map((p) => isHighlighted(p) ? p.color : withAlpha(p.color, 0.35)))
-const lineStrokeWidths = computed(() => players.value.map((p) => isHighlighted(p) ? 3.5 : 1.5))
-const lineMarkerSizes = computed(() => players.value.map((p) => isHighlighted(p) ? 5 : 2.5))
-
+const lineColors = computed(() => comparedPlayers.value.map((player) => isHighlighted(player) ? player.color : withAlpha(player.color, 0.32)))
 const lineChartOptions = computed(() => ({
-  chart: { type: 'line', height: 320, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 350 } },
-  stroke: { curve: 'straight', width: lineStrokeWidths.value },
+  chart: { type: 'line', height: 300, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 300 } },
+  stroke: { curve: 'straight', width: comparedPlayers.value.map((player) => isHighlighted(player) ? 3 : 1.5) },
   colors: lineColors.value,
-  markers: { size: lineMarkerSizes.value, strokeColors: '#0b1120', strokeWidth: 2, hover: { size: 7 } },
+  markers: { size: comparedPlayers.value.map((player) => isHighlighted(player) ? 4 : 2), strokeColors: '#07101f', strokeWidth: 2, hover: { size: 6 } },
   dataLabels: { enabled: false },
   legend: { show: false },
-  grid: { borderColor: 'rgba(255,255,255,0.07)' },
+  grid: { borderColor: 'rgba(148,163,184,.12)', strokeDashArray: 0, padding: { left: 4, right: 8 } },
   xaxis: {
     type: 'datetime',
-    labels: { style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 }, rotate: -35, datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'MMM dd' } },
-    axisBorder: { color: 'rgba(255,255,255,0.08)' },
-    axisTicks: { color: 'rgba(255,255,255,0.08)' },
+    labels: { style: { colors: '#718096', fontSize: '11px', fontWeight: 600 }, datetimeFormatter: { year: 'yyyy', month: 'MMM dd', day: 'MMM dd' } },
+    axisBorder: { color: 'rgba(148,163,184,.12)' },
+    axisTicks: { color: 'rgba(148,163,184,.12)' },
   },
-  yaxis: {
-    labels: { style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 }, formatter: (v) => v != null ? `${parseFloat(v).toFixed(1)} ${activeMetric.value?.unit || ''}`.trim() : '' },
-  },
-  tooltip: { theme: 'dark', shared: true, intersect: false },
+  yaxis: { labels: { style: { colors: '#718096', fontSize: '11px', fontWeight: 600 }, formatter: (value) => displayMetricValue(value) } },
+  tooltip: { theme: 'dark', shared: true, intersect: false, x: { format: 'MMM dd, yyyy' } },
   theme: { mode: 'dark' },
 }))
 
-// ── Comparison table — every column is either a raw benchmark value the
-// backend already computed or an explicit "—", nothing fabricated. ──
-const tableRows = computed(() => players.value.map((player) => {
-  const metrics = player.intelligence?.benchmark_profile?.metrics
-  const activeBenchmark = activeMetric.value ? benchmarkFor(metrics, activeMetric.value) : null
-  const cells = tableMetrics.value.map((metric) => ({ key: metric.key, value: benchmarkFor(metrics, metric)?.raw_value ?? null }))
+const tableRows = computed(() => comparedPlayers.value.map((player) => {
+  const activeBenchmark = metricBenchmark(player, activeMetric.value)
   return {
     id: player.id,
     name: player.name,
     color: player.color,
     failed: player.failed,
-    cells,
-    rawValue: activeBenchmark?.raw_value ?? null,
+    cells: tableMetrics.value.map((metric) => ({ key: metric.key, value: metricBenchmark(player, metric)?.raw_value ?? null })),
+    rawValue: activeBenchmark?.raw_value ?? legendCurrentValue(player),
     relative: activeBenchmark?.relative_value ?? null,
     percentile: activeBenchmark?.percentile ?? null,
     gap: activeBenchmark?.gap ?? null,
   }
 }))
-
 const sortedTableRows = computed(() => {
-  const rows = tableRows.value.slice()
   const key = { percentile: 'percentile', value: 'rawValue', relative: 'relative', gap: 'gap' }[sortBy.value]
-  const higherFirst = sortBy.value !== 'gap' // smaller gap-to-goal is "better" / more urgent to lead with
-  return rows.sort((a, b) => {
+  return tableRows.value.slice().sort((a, b) => {
     if (a[key] == null && b[key] == null) return 0
     if (a[key] == null) return 1
     if (b[key] == null) return -1
-    return higherFirst ? b[key] - a[key] : a[key] - b[key]
+    return sortBy.value === 'gap' ? a[key] - b[key] : b[key] - a[key]
   })
 })
-
 const statusFor = (percentile) => {
   if (percentile == null) return { label: 'No Data', tone: 'muted' }
   if (percentile >= 75) return { label: 'On Track', tone: 'good' }
@@ -280,239 +285,316 @@ const statusFor = (percentile) => {
   return { label: 'Needs Work', tone: 'bad' }
 }
 
-// ── Highlighted-player stat boxes ──
-const highlightedPlayer = computed(() => players.value.find((p) => p.id === highlightedPlayerId.value) || players.value[0] || null)
-const highlightedBenchmark = computed(() => {
-  if (!highlightedPlayer.value || !activeMetric.value) return null
-  return benchmarkFor(highlightedPlayer.value.intelligence?.benchmark_profile?.metrics, activeMetric.value)
-})
+const highlightedPlayer = computed(() => comparedPlayers.value.find((player) => player.id === highlightedPlayerId.value) || comparedPlayers.value[0] || null)
+const highlightedBenchmark = computed(() => metricBenchmark(highlightedPlayer.value, activeMetric.value))
 const benchmarkMedian = computed(() => highlightedBenchmark.value?.evidence?.age_percentile_anchors?.p50 ?? null)
 const activeTierLabel = computed(() => {
-  const pct = highlightedBenchmark.value?.percentile
-  if (pct == null) return null
-  if (pct >= 90) return 'Elite'
-  if (pct >= 75) return 'Above Average'
-  if (pct >= 25) return 'Average'
-  if (pct >= 10) return 'Needs Development'
+  const percentile = highlightedBenchmark.value?.percentile
+  if (percentile == null) return null
+  if (percentile >= 90) return 'Elite'
+  if (percentile >= 75) return 'Above Average'
+  if (percentile >= 25) return 'Average'
+  if (percentile >= 10) return 'Needs Development'
   return 'Needs Significant Development'
 })
-
 const groupStats = computed(() => {
-  const rowsWithValue = tableRows.value.filter((r) => r.rawValue != null)
-  if (!rowsWithValue.length) return { avg: null, best: null, bestName: null }
-  const avg = rowsWithValue.reduce((sum, r) => sum + r.rawValue, 0) / rowsWithValue.length
-  const bestRow = activeMetric.value?.lowerBetter
-    ? rowsWithValue.reduce((a, b) => (b.rawValue < a.rawValue ? b : a))
-    : rowsWithValue.reduce((a, b) => (b.rawValue > a.rawValue ? b : a))
-  return { avg, best: bestRow?.rawValue ?? null, bestName: bestRow?.name ?? null }
+  const rows = tableRows.value.filter((row) => row.rawValue != null)
+  if (!rows.length) return { avg: null, best: null, bestName: null }
+  const avg = rows.reduce((total, row) => total + Number(row.rawValue), 0) / rows.length
+  const best = rows.reduce((current, row) => {
+    if (!current) return row
+    return activeMetric.value?.lowerBetter
+      ? (Number(row.rawValue) < Number(current.rawValue) ? row : current)
+      : (Number(row.rawValue) > Number(current.rawValue) ? row : current)
+  }, null)
+  return { avg, best: best?.rawValue ?? null, bestName: best?.name ?? null }
+})
+const dataReadiness = computed(() => {
+  const metrics = highlightedPlayer.value?.intelligence?.benchmark_profile?.metrics || []
+  const populated = METRICS.filter((metric) => benchmarkFor(metrics, metric)?.raw_value != null).length
+  return Math.round((populated / METRICS.length) * 100)
 })
 
-// ── Benchmark bands — same anchor ladder as the single-player Chart tab,
-// scoped to the highlighted player + active metric. ──
 const benchmarkTiers = computed(() => {
   const anchors = highlightedBenchmark.value?.evidence?.age_percentile_anchors
   if (!anchors) return []
-  const unit = activeMetric.value?.unit || ''
-  const fmt = (v) => v != null ? `${parseFloat(v).toFixed(1)} ${unit}`.trim() : '—'
+  const format = (value) => displayMetricValue(value)
+  const p5 = anchors.p5 ?? anchors.p10
+  const p25 = anchors.p25
+  const p75 = anchors.p75
+  const p95 = anchors.p95 ?? anchors.p90
   const higherIsBetter = highlightedBenchmark.value?.evidence?.higher_is_better !== false
   return higherIsBetter ? [
-    { label: 'Elite', range: `≥ ${fmt(anchors.p90)}`, pct: '90th+' },
-    { label: 'Above Average', range: `${fmt(anchors.p75)} – ${fmt(anchors.p90)}`, pct: '75th–89th' },
-    { label: 'Average', range: `${fmt(anchors.p25)} – ${fmt(anchors.p75)}`, pct: '25th–74th' },
-    { label: 'Needs Development', range: `${fmt(anchors.p10)} – ${fmt(anchors.p25)}`, pct: '10th–24th' },
-    { label: 'Needs Significant Dev.', range: `< ${fmt(anchors.p10)}`, pct: '< 10th' },
+    { label: 'Elite', range: `≥ ${format(p95)}`, percentile: '90th+' },
+    { label: 'Above Average', range: `${format(p75)} – ${format(p95)}`, percentile: '75th–89th' },
+    { label: 'Average', range: `${format(p25)} – ${format(p75)}`, percentile: '25th–74th' },
+    { label: 'Needs Development', range: `${format(p5)} – ${format(p25)}`, percentile: '10th–24th' },
+    { label: 'Needs Significant Dev.', range: `< ${format(p5)}`, percentile: '< 10th' },
   ] : [
-    { label: 'Elite', range: `≤ ${fmt(anchors.p10)}`, pct: '90th+' },
-    { label: 'Above Average', range: `${fmt(anchors.p10)} – ${fmt(anchors.p25)}`, pct: '75th–89th' },
-    { label: 'Average', range: `${fmt(anchors.p25)} – ${fmt(anchors.p75)}`, pct: '25th–74th' },
-    { label: 'Needs Development', range: `${fmt(anchors.p75)} – ${fmt(anchors.p90)}`, pct: '10th–24th' },
-    { label: 'Needs Significant Dev.', range: `> ${fmt(anchors.p90)}`, pct: '< 10th' },
+    { label: 'Elite', range: `≤ ${format(p95)}`, percentile: '90th+' },
+    { label: 'Above Average', range: `${format(p95)} – ${format(p75)}`, percentile: '75th–89th' },
+    { label: 'Average', range: `${format(p75)} – ${format(p25)}`, percentile: '25th–74th' },
+    { label: 'Needs Development', range: `${format(p25)} – ${format(p5)}`, percentile: '10th–24th' },
+    { label: 'Needs Significant Dev.', range: `> ${format(p5)}`, percentile: '< 10th' },
   ]
 })
-const percentileBarPosition = computed(() => {
-  const pct = highlightedBenchmark.value?.percentile
-  return pct != null ? Math.min(100, Math.max(0, pct)) : null
+const percentileBarPosition = computed(() => highlightedBenchmark.value?.percentile == null ? null : Math.min(100, Math.max(0, Number(highlightedBenchmark.value.percentile))))
+
+const strengthBalanceRows = computed(() => strengthMetrics.value.map((metric) => {
+  const selected = metricBenchmark(highlightedPlayer.value, metric)?.percentile ?? null
+  const peerValues = comparedPlayers.value.map((player) => metricBenchmark(player, metric)?.percentile).filter((value) => value != null).map(Number)
+  const average = peerValues.length ? peerValues.reduce((total, value) => total + value, 0) / peerValues.length : null
+  return { metric, selected, average }
+}))
+const hasStrengthBalance = computed(() => strengthBalanceRows.value.some((row) => row.selected != null || row.average != null))
+const radarSeries = computed(() => [
+  { name: highlightedPlayer.value?.name || 'Selected Athlete', data: strengthBalanceRows.value.map((row) => row.selected ?? 0) },
+  { name: 'Selected Average', data: strengthBalanceRows.value.map((row) => row.average ?? 0) },
+])
+const radarOptions = computed(() => ({
+  chart: { type: 'radar', toolbar: { show: false }, background: 'transparent', animations: { enabled: true, speed: 300 } },
+  colors: ['#ff2b4a', '#94a3b8'],
+  stroke: { width: [2.5, 1.5], dashArray: [0, 5] },
+  fill: { opacity: [0.18, 0.04] },
+  markers: { size: [3, 0] },
+  xaxis: { categories: strengthBalanceRows.value.map((row) => row.metric.label), labels: { style: { colors: Array(5).fill('#9aa8ba'), fontSize: '10px', fontWeight: 700 } } },
+  yaxis: { min: 0, max: 100, tickAmount: 4, labels: { show: false } },
+  plotOptions: { radar: { polygons: { strokeColors: 'rgba(148,163,184,.16)', connectorColors: 'rgba(148,163,184,.16)', fill: { colors: ['rgba(15,23,42,.35)', 'rgba(2,8,20,.2)'] } } } },
+  legend: { show: true, position: 'bottom', labels: { colors: '#94a3b8' }, fontSize: '10px' },
+  tooltip: { theme: 'dark', y: { formatter: (value) => `${Math.round(value)}th percentile` } },
+}))
+
+const strengthRelationships = computed(() => strengthMetrics.value.map((metric) => {
+  const selected = metricBenchmark(highlightedPlayer.value, metric)?.relative_value ?? null
+  const peerValues = comparedPlayers.value.map((player) => metricBenchmark(player, metric)?.relative_value).filter((value) => value != null).map(Number)
+  const average = peerValues.length ? peerValues.reduce((total, value) => total + value, 0) / peerValues.length : null
+  const difference = selected != null && average ? ((Number(selected) - average) / average) * 100 : null
+  return { metric, selected: selected == null ? null : Number(selected), average, difference }
+}))
+
+const coachInsights = computed(() => {
+  if (!highlightedPlayer.value) return []
+  const insights = []
+  const change = legendChange(highlightedPlayer.value)
+  if (change != null) {
+    const improving = activeMetric.value?.lowerBetter ? change < 0 : change > 0
+    insights.push({ tone: improving ? 'good' : 'warn', icon: improving ? '↗' : '!', text: `${highlightedPlayer.value.name} is ${improving ? 'trending in the right direction' : 'moving away from the preferred direction'} in ${activeMetric.value.label} (${legendChangeLabel(highlightedPlayer.value)}).` })
+  }
+  const percentile = highlightedBenchmark.value?.percentile
+  if (percentile != null) insights.push({ tone: percentile >= 75 ? 'good' : percentile >= 40 ? 'warn' : 'bad', icon: percentile >= 75 ? '↑' : '•', text: `${activeMetric.value.label} ranks in the ${Math.round(percentile)}th percentile for the player’s governed age benchmark.` })
+  const weakest = strengthBalanceRows.value.filter((row) => row.selected != null).sort((a, b) => a.selected - b.selected)[0]
+  if (weakest) insights.push({ tone: weakest.selected < 40 ? 'bad' : 'warn', icon: '↗', text: `${weakest.metric.label} is the lowest strength percentile (${Math.round(weakest.selected)}th); prioritize it without losing progress in stronger lifts.` })
+  if (!insights.length) insights.push({ tone: 'muted', icon: 'i', text: 'Log at least two tests and complete benchmark metrics to unlock trend and comparison insights.' })
+  return insights.slice(0, 3)
+})
+const takeaway = computed(() => {
+  const percentiles = tableRows.value.map((row) => row.percentile).filter((value) => value != null)
+  const above = percentiles.filter((value) => value >= 75).length
+  const needsWork = percentiles.filter((value) => value < 40).length
+  return `${above} selected athlete${above === 1 ? '' : 's'} above average; ${needsWork} need${needsWork === 1 ? 's' : ''} focused development in ${activeMetric.value?.label || 'this metric'}.`
 })
 </script>
 
 <template>
   <Layout>
-    <main class="compare-page">
-      <header class="compare-toolbar">
-        <div class="brand"><b>FM<span>TRX</span></b><small>Strength &amp; Weight Command Center</small></div>
-        <button type="button" class="back-link" @click="router.push('/development')">← Back to Player Development</button>
+    <main class="command-center">
+      <header class="command-header">
+        <div>
+          <h1>Strength &amp; Weight Metrics Command Center</h1>
+          <p>Coach Comparison &amp; Benchmarking</p>
+        </div>
+        <div class="header-actions">
+          <span class="season-chip">{{ rangeLabel }}</span>
+          <button type="button" class="back-button" @click="router.push('/development')">← Player Development</button>
+        </div>
       </header>
 
-      <section v-if="errorMessage" class="state-card"><h1>Compare Players</h1><p>{{ errorMessage }}</p></section>
+      <section v-if="errorMessage" class="state-card">
+        <h2>Player comparison unavailable</h2>
+        <p>{{ errorMessage }}</p>
+        <button type="button" class="primary-button" @click="router.push('/development')">Choose Players</button>
+      </section>
 
-      <section v-else class="compare-shell">
-        <aside class="metric-sidebar">
-          <div class="sidebar-title">Date Range</div>
-          <div class="range-control">
-            <button
-              v-for="(r, i) in QUICK_RANGES" :key="r.label" type="button" class="range-chip"
-              :class="{ active: !useCustomRange && activeQuickIndex === i }"
-              @click="selectQuickRange(i)"
-            >{{ r.label }}</button>
-            <button type="button" class="range-chip" :class="{ active: useCustomRange }" @click="useCustomRange = true">Custom</button>
-          </div>
-          <div v-if="useCustomRange" class="custom-range-row">
-            <label>From<input type="date" v-model="customFrom" /></label>
-            <label>To<input type="date" v-model="customTo" /></label>
-          </div>
+      <section v-else class="dashboard-shell">
+        <aside class="filter-sidebar">
+          <div class="sidebar-heading"><span>Filters</span><span>≡</span></div>
 
-          <div class="sidebar-title" style="margin-top: 18px;">Compare On</div>
-          <div v-for="group in categorizedMetrics" :key="group.label" class="sidebar-group">
-            <div class="sidebar-group-label">{{ group.label }}</div>
-            <button
-              v-for="m in group.metrics" :key="m.key" class="sidebar-metric-btn"
-              :class="{ active: activeMetricKey === m.key }"
-              :style="activeMetricKey === m.key ? { borderColor: m.color, color: m.color } : {}"
-              @click="activeMetricKey = m.key"
-            >{{ m.label }}</button>
-          </div>
-        </aside>
+          <label class="filter-field">
+            <span>Team</span>
+            <select disabled><option>{{ teamName }}</option></select>
+          </label>
 
-        <div class="compare-main">
-          <div class="compare-header">
-            <div>
-              <h2>{{ activeMetric?.label }}</h2>
-              <span>{{ players.length }} Players · {{ activeMetric?.category }} · {{ rangeLabel }}</span>
+          <label class="filter-field">
+            <span>Age Group</span>
+            <select v-model="ageGroupFilter">
+              <option value="all">All Age Groups</option>
+              <option v-for="option in ageGroupOptions" :key="option" :value="option">{{ formatFilterLabel(option) }}</option>
+            </select>
+          </label>
+
+          <label class="filter-field">
+            <span>Weight Class</span>
+            <select v-model="weightClassFilter">
+              <option value="all">All Weight Classes</option>
+              <option v-for="option in weightClassOptions" :key="option" :value="option">{{ formatFilterLabel(option) }}</option>
+            </select>
+          </label>
+
+          <div class="filter-field">
+            <span>Athletes</span>
+            <button type="button" class="athlete-filter" @click="toggleAddPlayer">
+              <b>{{ players.length }}</b> selected <span>＋</span>
+            </button>
+            <div v-if="showAddPlayer" class="sidebar-player-list">
+              <button v-for="option in availableToAdd" :key="option.id" type="button" @click="addPlayer(option)">{{ option.name }}</button>
+              <p v-if="!availableToAdd.length">No additional players available.</p>
             </div>
           </div>
 
-          <p v-if="loading" class="loading-text">Loading player data…</p>
+          <div class="filter-field">
+            <span>Date Range</span>
+            <div class="range-display">{{ rangeLabel }} <span>▣</span></div>
+            <div class="range-control">
+              <button v-for="(range, index) in QUICK_RANGES" :key="range.label" type="button" :class="{ active: !useCustomRange && activeQuickIndex === index }" @click="selectQuickRange(index)">{{ range.label }}</button>
+              <button type="button" :class="{ active: useCustomRange }" @click="useCustomRange = true">Custom</button>
+            </div>
+            <div v-if="useCustomRange" class="custom-range">
+              <input v-model="customFrom" type="date" aria-label="Start date" />
+              <input v-model="customTo" type="date" aria-label="End date" />
+            </div>
+          </div>
+
+          <div class="sidebar-heading metric-heading"><span>Metric Category</span></div>
+          <div v-for="group in categorizedMetrics" :key="group.label" class="metric-group">
+            <span>{{ group.label }}</span>
+            <button v-for="metric in group.metrics" :key="metric.key" type="button" :class="{ active: activeMetricKey === metric.key }" @click="activeMetricKey = metric.key">
+              <i :style="{ color: metric.color }">◇</i>{{ metric.label }}<b v-if="activeMetricKey === metric.key">⌁</b>
+            </button>
+          </div>
+
+          <button type="button" class="manage-button" @click="router.push('/development')">▣ Manage Athletes</button>
+        </aside>
+
+        <div class="dashboard-content">
+          <p v-if="loading" class="loading-state">Loading comparison data…</p>
 
           <template v-else>
-            <div class="chart-card">
-              <div class="chart-card-title">{{ activeMetric?.label }} Over Time</div>
-              <div class="chart-body">
-                <div class="chart-area">
-                  <apexchart v-if="hasLineData" width="100%" type="line" height="320" :options="lineChartOptions" :series="lineSeries" :key="activeMetricKey + '_' + dataWindowDays + '_' + customFrom + '_' + customTo" />
-                  <p v-else class="loading-text">No logged tests for this metric in the selected range.</p>
+            <section class="panel trend-panel">
+              <div class="panel-header trend-header">
+                <div>
+                  <h2>{{ activeMetric?.label }} Over Time <small>ⓘ</small></h2>
+                  <p>{{ rangeLabel }}</p>
                 </div>
-                <aside class="chart-legend">
-                  <div class="legend-title">Compare Athletes ({{ players.length }})</div>
-                  <button
-                    v-for="p in players" :key="p.id" type="button" class="legend-row"
-                    :class="{ active: highlightedPlayerId === p.id }" @click="highlightedPlayerId = p.id"
-                  >
-                    <span class="legend-row-top">
-                      <span class="legend-swatch" :style="{ background: p.color }"></span>
-                      <b>{{ p.name }}</b>
-                      <span v-if="players.length > 1" class="legend-remove" title="Remove from comparison" @click.stop="removePlayer(p.id)">×</span>
-                    </span>
-                    <span class="legend-row-bottom">
-                      <small>{{ legendCurrent(p) }}</small>
-                      <span class="legend-change" :class="legendChangeTone(p)">{{ legendChangeLabel(p) }}</span>
-                    </span>
-                  </button>
+                <div class="trend-controls">
+                  <span>Compare Athletes ({{ comparedPlayers.length }})</span>
+                  <div class="segment-control">
+                    <button v-for="interval in INTERVALS" :key="interval" type="button" :class="{ active: chartInterval === interval }" @click="chartInterval = interval">{{ interval }}</button>
+                  </div>
+                </div>
+              </div>
 
-                  <div class="add-player-wrap">
-                    <button type="button" class="add-player-btn" @click="toggleAddPlayer">+ Add Athlete to Compare</button>
-                    <div v-if="showAddPlayer" class="add-player-list">
-                      <p v-if="!availableToAdd.length" class="loading-text small">No more players on this team.</p>
-                      <button v-for="o in availableToAdd" :key="o.id" type="button" class="add-player-option" @click="addPlayer(o)">{{ o.name }}</button>
+              <div class="trend-layout">
+                <div class="chart-area">
+                  <apexchart v-if="hasLineData" width="100%" type="line" height="300" :options="lineChartOptions" :series="lineSeries" :key="`${activeMetricKey}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
+                  <div v-else class="empty-chart">No logged tests for this metric in the selected range.</div>
+                </div>
+                <aside class="athlete-legend">
+                  <div class="legend-heading"><span>Legend</span><span>Current &nbsp; Chg.</span></div>
+                  <button v-for="player in comparedPlayers" :key="player.id" type="button" :class="{ active: highlightedPlayerId === player.id }" @click="highlightedPlayerId = player.id">
+                    <span class="legend-name"><i :style="{ background: player.color }"></i>{{ player.name }}</span>
+                    <b>{{ legendCurrent(player) }}</b>
+                    <em :class="legendChangeTone(player)">{{ legendChangeLabel(player) }}</em>
+                    <span v-if="players.length > 1" class="remove-player" title="Remove athlete" @click.stop="removePlayer(player.id)">×</span>
+                  </button>
+                  <div class="add-athlete-wrap">
+                    <button type="button" class="add-athlete-button" @click="toggleAddPlayer">＋ Add Athlete to Compare</button>
+                    <div v-if="showAddPlayer" class="add-athlete-menu">
+                      <button v-for="option in availableToAdd" :key="option.id" type="button" @click="addPlayer(option)">{{ option.name }}</button>
+                      <p v-if="!availableToAdd.length">No more athletes on this team.</p>
                     </div>
                   </div>
                 </aside>
               </div>
-            </div>
+            </section>
 
-            <div class="stat-box-row">
-              <div class="stat-box">
-                <span class="stat-label">Current</span>
-                <b class="stat-value">{{ highlightedBenchmark?.raw_value != null ? `${highlightedBenchmark.raw_value} ${activeMetric?.unit}`.trim() : '—' }}</b>
-                <span class="stat-sub">{{ highlightedPlayer?.name || '—' }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Change ({{ rangeLabel }})</span>
-                <b class="stat-value" :class="legendChangeTone(highlightedPlayer)">{{ highlightedPlayer ? legendChangeLabel(highlightedPlayer) : '—' }}</b>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Group Avg</span>
-                <b class="stat-value">{{ groupStats.avg != null ? `${groupStats.avg.toFixed(1)} ${activeMetric?.unit}`.trim() : '—' }}</b>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Best in Group</span>
-                <b class="stat-value">{{ groupStats.best != null ? `${groupStats.best} ${activeMetric?.unit}`.trim() : '—' }}</b>
-                <span class="stat-sub">{{ groupStats.bestName || '—' }}</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Benchmark (Median)</span>
-                <b class="stat-value">{{ benchmarkMedian != null ? `${benchmarkMedian} ${activeMetric?.unit}`.trim() : '—' }}</b>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Percentile</span>
-                <b class="stat-value accent">{{ highlightedBenchmark?.percentile != null ? `${highlightedBenchmark.percentile}th` : '—' }}</b>
-                <span class="stat-sub">{{ activeTierLabel || 'Needs Data' }}</span>
-              </div>
-            </div>
+            <section class="summary-grid">
+              <article class="summary-card current"><span>Current (Selected)</span><b>{{ displayMetricValue(highlightedBenchmark?.raw_value ?? legendCurrentValue(highlightedPlayer)) }}</b><small>{{ highlightedPlayer?.name || '—' }}</small></article>
+              <article class="summary-card"><span>Change ({{ rangeLabel }})</span><b :class="legendChangeTone(highlightedPlayer)">{{ highlightedPlayer ? legendChangeLabel(highlightedPlayer) : '—' }}</b><small>{{ chartInterval }} view</small></article>
+              <article class="summary-card"><span>Selected Avg</span><b>{{ displayMetricValue(groupStats.avg) }}</b><small>{{ comparedPlayers.length }} athletes</small></article>
+              <article class="summary-card"><span>Best Selected</span><b>{{ displayMetricValue(groupStats.best) }}</b><small>{{ groupStats.bestName || '—' }}</small></article>
+              <article class="summary-card"><span>Benchmark</span><b>{{ displayMetricValue(benchmarkMedian) }}</b><small>Age-group median</small></article>
+              <article class="summary-card"><span>Percentile</span><b class="accent">{{ highlightedBenchmark?.percentile != null ? `${Math.round(highlightedBenchmark.percentile)}th` : '—' }}</b><small>{{ activeTierLabel || 'Needs data' }}</small></article>
+              <article class="summary-card readiness"><span>Data Readiness</span><b>{{ dataReadiness }}%</b><div class="readiness-track"><i :style="{ width: `${dataReadiness}%` }"></i></div></article>
+            </section>
 
-            <div class="lower-grid">
-              <div class="table-card">
-                <div class="compare-header">
-                  <h3>Player Comparison</h3>
-                  <label class="sort-control">Sort by
-                    <select v-model="sortBy">
-                      <option value="percentile">Percentile</option>
-                      <option value="value">Raw Value</option>
-                      <option value="relative">Relative Strength</option>
-                      <option value="gap">Gap to Goal</option>
-                    </select>
-                  </label>
+            <section class="middle-grid">
+              <article class="panel comparison-panel">
+                <div class="panel-header">
+                  <h2>Player Comparison Table <small>ⓘ</small></h2>
+                  <label class="sort-control">Sort by <select v-model="sortBy"><option value="percentile">Percentile</option><option value="value">Raw Value</option><option value="relative">Relative Strength</option><option value="gap">Gap to Goal</option></select></label>
                 </div>
                 <div class="table-scroll">
-                  <table class="compare-table">
-                    <thead>
-                      <tr>
-                        <th>Player</th>
-                        <th v-for="m in tableMetrics" :key="m.key">{{ m.label }} ({{ m.unit }})</th>
-                        <th>Percentile</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
+                  <table class="comparison-table">
+                    <thead><tr><th>#</th><th>Player</th><th v-for="metric in tableMetrics" :key="metric.key">{{ metric.label }}<small>{{ metric.unit }}</small></th><th>Percentile</th><th>Trend</th><th>Status</th></tr></thead>
                     <tbody>
-                      <tr
-                        v-for="row in sortedTableRows" :key="row.id"
-                        :class="{ highlighted: row.id === highlightedPlayerId }" @click="highlightedPlayerId = row.id"
-                      >
-                        <td class="player-cell"><span class="table-swatch" :style="{ background: row.color }"></span>{{ row.name }}</td>
-                        <td v-for="c in row.cells" :key="c.key">{{ c.value != null ? c.value : '—' }}</td>
-                        <td>{{ row.percentile != null ? `${row.percentile}th` : '—' }}</td>
+                      <tr v-for="(row, index) in sortedTableRows" :key="row.id" :class="{ selected: row.id === highlightedPlayerId }" @click="highlightedPlayerId = row.id">
+                        <td>{{ index + 1 }}</td>
+                        <td class="player-cell"><i :style="{ background: row.color }"></i><b>{{ row.name }}</b></td>
+                        <td v-for="cell in row.cells" :key="cell.key">{{ cell.value != null ? cell.value : '—' }}</td>
+                        <td><b>{{ row.percentile != null ? `${Math.round(row.percentile)}th` : '—' }}</b></td>
+                        <td><span class="sparkline">⌁</span></td>
                         <td><span class="status-pill" :class="statusFor(row.percentile).tone">{{ statusFor(row.percentile).label }}</span></td>
                       </tr>
                     </tbody>
                   </table>
-                  <p v-if="!sortedTableRows.length" class="loading-text">No players to compare.</p>
                 </div>
-              </div>
+              </article>
 
-              <div class="bands-card">
-                <div class="chart-card-title">Benchmark Bands · {{ activeMetric?.label }}</div>
-                <p v-if="!benchmarkTiers.length" class="loading-text small">Not enough peer data yet for {{ highlightedPlayer?.name || 'this player' }}.</p>
+              <article class="panel benchmark-panel">
+                <div class="panel-header"><h2>Benchmark Bands — {{ activeMetric?.label }} <small>ⓘ</small></h2></div>
+                <p v-if="!benchmarkTiers.length" class="empty-copy">No governed benchmark is configured for this player and metric.</p>
                 <template v-else>
-                  <table class="bands-table">
-                    <thead><tr><th>Tier</th><th>Range</th><th>Pct.</th></tr></thead>
-                    <tbody>
-                      <tr v-for="t in benchmarkTiers" :key="t.label" :class="{ active: t.label === activeTierLabel }">
-                        <td>{{ t.label }}</td><td>{{ t.range }}</td><td>{{ t.pct }}</td>
-                      </tr>
-                    </tbody>
+                  <table class="benchmark-table">
+                    <thead><tr><th>Tier</th><th>{{ activeMetric?.label }}</th><th>Percentile</th></tr></thead>
+                    <tbody><tr v-for="tier in benchmarkTiers" :key="tier.label" :class="{ active: tier.label === activeTierLabel }"><td>{{ tier.label }}</td><td>{{ tier.range }}</td><td>{{ tier.percentile }}</td></tr></tbody>
                   </table>
-                  <div class="position-bar">
-                    <div class="position-track">
-                      <div class="position-fill" :style="{ width: `${percentileBarPosition}%` }"></div>
-                      <div v-if="percentileBarPosition != null" class="position-marker" :style="{ left: `${percentileBarPosition}%` }"></div>
-                    </div>
-                    <span class="position-caption">
-                      <template v-if="highlightedBenchmark?.percentile != null">{{ highlightedPlayer?.name }}: {{ highlightedBenchmark.raw_value }} {{ activeMetric?.unit }} · {{ highlightedBenchmark.percentile }}th Percentile</template>
-                      <template v-else>No percentile yet</template>
-                    </span>
+                  <div class="benchmark-position">
+                    <b>{{ highlightedPlayer?.name }}: {{ displayMetricValue(highlightedBenchmark?.raw_value) }}</b>
+                    <div class="percentile-track"><i v-if="percentileBarPosition != null" :style="{ left: `${percentileBarPosition}%` }"></i></div>
+                    <span>{{ highlightedBenchmark?.percentile != null ? `${Math.round(highlightedBenchmark.percentile)}th Percentile` : 'No percentile yet' }}</span>
                   </div>
                 </template>
-              </div>
-            </div>
+              </article>
+            </section>
+
+            <section class="bottom-grid">
+              <article class="panel balance-panel">
+                <div class="panel-header"><h2>Strength Balance <small>(Percentile Profile)</small> ⓘ</h2></div>
+                <apexchart v-if="hasStrengthBalance" width="100%" type="radar" height="280" :options="radarOptions" :series="radarSeries" :key="`radar_${highlightedPlayerId}_${comparedPlayers.length}`" />
+                <p v-else class="empty-copy">Strength benchmarks are needed to build the balance chart.</p>
+              </article>
+
+              <article class="panel relationship-panel">
+                <div class="panel-header"><h2>Metric Relationships <small>ⓘ</small></h2><span>Relative to Body Weight</span></div>
+                <div class="relationship-list">
+                  <div v-for="row in strengthRelationships" :key="row.metric.key" class="relationship-row">
+                    <span>{{ row.metric.label }}</span>
+                    <b>{{ row.selected != null ? `${row.selected.toFixed(2)}x` : '—' }}</b>
+                    <div><i :style="{ width: `${Math.min(100, Math.max(0, (row.selected || 0) / 3 * 100))}%` }"></i></div>
+                    <small>{{ row.average != null ? `${row.average.toFixed(2)}x avg` : 'No avg' }}</small>
+                    <em :class="row.difference != null && row.difference >= 0 ? 'good' : 'bad'">{{ row.difference != null ? `${row.difference >= 0 ? '+' : ''}${row.difference.toFixed(1)}%` : '—' }}</em>
+                  </div>
+                </div>
+              </article>
+
+              <article class="panel insights-panel">
+                <div class="panel-header"><h2>Coach Insights <small>ⓘ</small></h2></div>
+                <div class="insight-list">
+                  <div v-for="insight in coachInsights" :key="insight.text" :class="insight.tone"><i>{{ insight.icon }}</i><p>{{ insight.text }}</p></div>
+                </div>
+                <div class="takeaway"><span>Takeaway</span><p>{{ takeaway }}</p></div>
+              </article>
+            </section>
           </template>
         </div>
       </section>
@@ -521,179 +603,183 @@ const percentileBarPosition = computed(() => {
 </template>
 
 <style scoped>
-.compare-page {
-  min-height: 100vh;
-  width: 100%;
-  padding: 12px;
-  overflow-x: hidden;
-  background:
-    radial-gradient(circle at 88% 8%, #0c2a3b 0, transparent 25%),
-    linear-gradient(145deg, #020a12, #031321 58%, #061b29);
-  color: #edf5fa;
-  font-family: Inter, system-ui, sans-serif;
-  box-sizing: border-box;
+:global(body:has(.command-center) .screen-stage) { width: 100%; margin: 0; }
+:global(body:has(.command-center) .screen-stage > .command-center) { border: 0; border-radius: 0; background: #020817; box-shadow: none; }
+:global(body:has(.command-center) .app-main-shell) { background: #020817 !important; }
+
+.command-center { min-height: 100vh; width: 100%; padding: 24px clamp(16px, 2vw, 34px) 40px; overflow-x: hidden; color: #f7f9fc; background: radial-gradient(circle at 75% 0, rgba(25,45,85,.16), transparent 34%), #020817; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.command-center * { box-sizing: border-box; }
+button, select, input { font: inherit; }
+button { cursor: pointer; }
+
+.command-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; margin: 0 auto 22px; }
+.command-header h1 { margin: 0; font-size: clamp(22px, 1.65vw, 32px); line-height: 1.1; font-weight: 850; letter-spacing: -.025em; }
+.command-header p { margin: 5px 0 0; color: #9ba8ba; font-size: 15px; }
+.header-actions { display: flex; align-items: center; gap: 12px; }
+.season-chip, .back-button { border: 1px solid #26344a; border-radius: 9px; background: #091222; color: #c7d1df; padding: 10px 14px; font-size: 12px; font-weight: 750; }
+.back-button:hover { border-color: #ff2b4a; color: white; }
+
+.dashboard-shell { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 20px; width: 100%; margin: 0 auto; }
+.filter-sidebar { min-width: 0; padding: 2px 18px 0 0; border-right: 1px solid #1d2a3c; }
+.sidebar-heading { display: flex; align-items: center; justify-content: space-between; margin: 0 0 18px; color: #a9b5c5; font-size: 11px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+.metric-heading { margin-top: 22px; margin-bottom: 10px; }
+.filter-field { display: block; margin-bottom: 18px; }
+.filter-field > span { display: block; margin-bottom: 8px; color: #8e9aae; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.filter-field select, .range-display, .athlete-filter { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid #26344a; border-radius: 8px; background: #0a1424; color: #edf3fb; font-size: 12px; text-align: left; }
+.athlete-filter, .range-display { display: flex; align-items: center; justify-content: space-between; }
+.athlete-filter b { color: #ff2b4a; font-size: 16px; }
+.range-control { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+.range-control button { padding: 7px 2px; border: 1px solid #26344a; border-radius: 7px; background: #091222; color: #8f9bad; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.range-control button.active { border-color: #d91e38; background: #c81730; color: white; box-shadow: 0 0 18px rgba(255,43,74,.2); }
+.custom-range { display: grid; gap: 6px; margin-top: 8px; }
+.custom-range input { width: 100%; padding: 7px; border: 1px solid #26344a; border-radius: 7px; background: #091222; color: white; color-scheme: dark; font-size: 11px; }
+.sidebar-player-list, .add-athlete-menu { z-index: 10; margin-top: 6px; padding: 5px; max-height: 180px; overflow: auto; border: 1px solid #2a3b53; border-radius: 8px; background: #091323; box-shadow: 0 16px 40px rgba(0,0,0,.45); }
+.sidebar-player-list button, .add-athlete-menu button { width: 100%; padding: 8px 10px; border: 0; border-radius: 5px; background: transparent; color: #cbd5e1; font-size: 11px; text-align: left; }
+.sidebar-player-list button:hover, .add-athlete-menu button:hover { background: #152137; color: white; }
+.sidebar-player-list p, .add-athlete-menu p { margin: 5px; color: #728097; font-size: 10px; }
+.metric-group { margin: 0 0 10px; }
+.metric-group > span { display: block; margin: 10px 0 4px; color: #56647a; font-size: 8px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.metric-group button { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; width: 100%; margin: 3px 0; padding: 9px 10px; border: 1px solid #243249; border-radius: 7px; background: #091323; color: #a9b4c4; font-size: 11px; font-weight: 700; text-align: left; }
+.metric-group button:hover { border-color: #42516a; color: white; }
+.metric-group button.active { border-color: #d91e38; background: linear-gradient(90deg, #c6172f, #9c0d24); color: white; box-shadow: 0 8px 22px rgba(220,20,55,.18); }
+.metric-group button i { font-style: normal; }
+.manage-button { width: 100%; margin-top: 18px; padding: 11px; border: 1px solid #2b3a51; border-radius: 8px; background: #0b1525; color: #c8d2df; font-size: 11px; font-weight: 800; }
+
+.dashboard-content { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel { min-width: 0; border: 1px solid #1d2b41; border-radius: 11px; background: linear-gradient(150deg, rgba(10,20,37,.98), rgba(5,13,27,.98)); box-shadow: inset 0 1px 0 rgba(255,255,255,.015), 0 12px 30px rgba(0,0,0,.12); }
+.panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid rgba(148,163,184,.11); }
+.panel-header h2 { margin: 0; color: #dce4ee; font-size: 12px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+.panel-header h2 small { color: #78869a; font-size: 9px; font-weight: 700; }
+.panel-header > span { color: #77859a; font-size: 9px; }
+.trend-header p { margin: 4px 0 0; color: #8491a4; font-size: 10px; }
+.trend-controls { display: flex; align-items: center; gap: 20px; }
+.trend-controls > span { min-width: 170px; padding: 9px 12px; border: 1px solid #2b3a51; border-radius: 8px; color: #c8d1de; font-size: 11px; }
+.segment-control { display: flex; border: 1px solid #2b3a51; border-radius: 999px; overflow: hidden; }
+.segment-control button { min-width: 78px; padding: 8px 13px; border: 0; background: transparent; color: #99a5b5; font-size: 10px; font-weight: 750; text-transform: capitalize; }
+.segment-control button.active { background: linear-gradient(180deg, #8f1123, #5f0b19); color: white; box-shadow: 0 0 18px rgba(255,43,74,.2); }
+.trend-layout { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 0; padding: 0 10px 10px; }
+.chart-area { min-width: 0; padding-right: 14px; }
+.empty-chart { display: grid; place-items: center; height: 300px; color: #67758a; font-size: 12px; }
+.athlete-legend { padding: 15px 0 0 18px; border-left: 1px solid rgba(148,163,184,.12); }
+.legend-heading { display: flex; justify-content: space-between; margin-bottom: 8px; color: #68778c; font-size: 9px; font-weight: 850; text-transform: uppercase; }
+.athlete-legend > button { position: relative; display: grid; grid-template-columns: minmax(92px, 1fr) auto auto; align-items: center; gap: 8px; width: 100%; padding: 9px 5px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #dce4ef; text-align: left; }
+.athlete-legend > button:hover, .athlete-legend > button.active { border-color: #27364d; background: rgba(255,255,255,.025); }
+.legend-name { display: flex; align-items: center; gap: 7px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.legend-name i { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.athlete-legend b { font-size: 10px; white-space: nowrap; }
+.athlete-legend em { color: #8290a4; font-size: 9px; font-style: normal; font-weight: 800; white-space: nowrap; }
+.good { color: #28d17c !important; }
+.bad { color: #ff5269 !important; }
+.remove-player { position: absolute; right: -1px; top: -2px; color: #59677b; font-size: 12px; }
+.add-athlete-wrap { position: relative; margin-top: 8px; }
+.add-athlete-button { width: 100%; padding: 9px; border: 1px solid #2d3c53; border-radius: 7px; background: #0c1728; color: #c8d2df; font-size: 10px; font-weight: 750; }
+.add-athlete-menu { position: absolute; left: 0; right: 0; }
+
+.summary-grid { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 10px; }
+.summary-card { display: flex; flex-direction: column; min-height: 92px; padding: 13px 14px; border: 1px solid #223149; border-radius: 9px; background: linear-gradient(145deg, #0b1628, #081120); }
+.summary-card.current { border-color: rgba(255,43,74,.38); box-shadow: inset 3px 0 #ff2b4a; }
+.summary-card > span { color: #8e9bad; font-size: 9px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
+.summary-card b { margin-top: 9px; color: #f2f6fb; font-size: 20px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.summary-card b.accent { color: #f6c84a; }
+.summary-card small { margin-top: 6px; color: #94a1b3; font-size: 9px; }
+.readiness-track { height: 6px; margin-top: 9px; border-radius: 999px; background: #263247; overflow: hidden; }
+.readiness-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #31d37f, #75e6a9); }
+
+.middle-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(320px, .95fr); gap: 14px; align-items: stretch; }
+.sort-control { display: flex; align-items: center; gap: 7px; color: #7f8da1; font-size: 9px; }
+.sort-control select { padding: 6px 9px; border: 1px solid #2b3a51; border-radius: 7px; background: #091323; color: #cbd5e1; font-size: 9px; }
+.table-scroll { overflow: auto; }
+.comparison-table, .benchmark-table { width: 100%; border-collapse: collapse; }
+.comparison-table th, .comparison-table td { padding: 9px 10px; border-bottom: 1px solid rgba(148,163,184,.08); white-space: nowrap; text-align: left; }
+.comparison-table th { color: #748196; font-size: 8px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+.comparison-table th small { display: block; font-size: 7px; }
+.comparison-table td { color: #bdc8d7; font-size: 10px; }
+.comparison-table tbody tr { cursor: pointer; }
+.comparison-table tbody tr:hover, .comparison-table tbody tr.selected { background: rgba(255,43,74,.055); box-shadow: inset 3px 0 #ff2b4a; }
+.player-cell { display: flex; align-items: center; gap: 7px; color: white !important; }
+.player-cell i { width: 24px; height: 24px; border: 2px solid rgba(255,255,255,.18); border-radius: 50%; }
+.status-pill { padding: 4px 8px; border: 1px solid; border-radius: 5px; font-size: 8px; font-weight: 850; text-transform: uppercase; }
+.status-pill.good { border-color: rgba(40,209,124,.35); background: rgba(40,209,124,.1); }
+.status-pill.warn { border-color: rgba(246,200,74,.35); background: rgba(246,200,74,.1); color: #f6c84a; }
+.status-pill.bad { border-color: rgba(255,82,105,.35); background: rgba(255,82,105,.1); }
+.status-pill.muted { border-color: #364359; color: #7f8ca0; }
+.sparkline { color: #ff2b4a; font-size: 19px; }
+.benchmark-table th, .benchmark-table td { padding: 9px 12px; border-bottom: 1px solid rgba(148,163,184,.09); font-size: 9px; text-align: left; }
+.benchmark-table th { color: #758398; text-transform: uppercase; }
+.benchmark-table td { color: #c5cfdb; }
+.benchmark-table tbody tr:nth-child(1) { background: rgba(23,178,99,.11); }
+.benchmark-table tbody tr:nth-child(2) { background: rgba(67,188,80,.08); }
+.benchmark-table tbody tr:nth-child(3) { background: rgba(246,200,74,.08); }
+.benchmark-table tbody tr:nth-child(4) { background: rgba(245,129,37,.08); }
+.benchmark-table tbody tr:nth-child(5) { background: rgba(220,38,38,.09); }
+.benchmark-table tr.active { outline: 1px solid rgba(255,255,255,.18); outline-offset: -1px; }
+.benchmark-position { padding: 16px; text-align: center; }
+.benchmark-position b { display: block; margin-bottom: 11px; color: #cdd7e3; font-size: 10px; }
+.percentile-track { position: relative; height: 8px; border-radius: 999px; background: linear-gradient(90deg, #e5394e 0 20%, #ef7536 20% 40%, #e5b83d 40% 60%, #77b52e 60% 80%, #21b96d 80%); }
+.percentile-track i { position: absolute; top: -5px; width: 3px; height: 18px; border-radius: 2px; background: white; box-shadow: 0 0 0 2px #182235; transform: translateX(-50%); }
+.benchmark-position span { display: block; margin-top: 9px; color: #d7e0eb; font-size: 10px; }
+.empty-copy { margin: 0; padding: 30px 20px; color: #77859a; font-size: 11px; }
+
+.bottom-grid { display: grid; grid-template-columns: .95fr 1.15fr 1.1fr; gap: 14px; align-items: stretch; }
+.balance-panel, .relationship-panel, .insights-panel { min-height: 310px; }
+.relationship-list { padding: 14px 16px; }
+.relationship-row { display: grid; grid-template-columns: 82px 42px minmax(70px, 1fr) 62px 45px; align-items: center; gap: 8px; padding: 8px 0; }
+.relationship-row > span, .relationship-row b, .relationship-row small, .relationship-row em { font-size: 9px; }
+.relationship-row > span { color: #aab6c6; }
+.relationship-row b { color: white; }
+.relationship-row > div { height: 7px; border-radius: 99px; background: #344157; overflow: hidden; }
+.relationship-row > div i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #c91d34, #ff455e); }
+.relationship-row small { color: #8b98aa; }
+.relationship-row em { font-style: normal; font-weight: 850; }
+.insight-list { padding: 7px 16px; }
+.insight-list > div { display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: start; padding: 11px 0; border-bottom: 1px solid rgba(148,163,184,.1); }
+.insight-list i { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 10px; font-style: normal; }
+.insight-list .good { color: #28d17c; }
+.insight-list .warn { color: #f6c84a; }
+.insight-list .bad { color: #ff5269; }
+.insight-list .muted { color: #7c899c; }
+.insight-list p { margin: 0; color: #aeb9c8; font-size: 10px; line-height: 1.45; }
+.takeaway { margin: 0 12px 12px; padding: 10px 12px; border: 1px solid rgba(255,43,74,.34); border-radius: 7px; background: rgba(119,8,28,.12); }
+.takeaway span { color: #ff2b4a; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+.takeaway p { margin: 3px 0 0; color: #d4dce6; font-size: 10px; line-height: 1.4; }
+.loading-state, .state-card { padding: 50px; border: 1px solid #223149; border-radius: 12px; background: #081221; color: #91a0b5; text-align: center; }
+.state-card { max-width: 680px; margin: 80px auto; }
+.state-card h2 { color: white; }
+.primary-button { margin-top: 14px; padding: 10px 18px; border: 0; border-radius: 7px; background: #d71935; color: white; font-weight: 800; }
+
+@media (max-width: 1450px) {
+  .summary-grid { grid-template-columns: repeat(4, 1fr); }
+  .bottom-grid { grid-template-columns: 1fr 1fr; }
+  .insights-panel { grid-column: 1 / -1; min-height: auto; }
 }
-.compare-page * { box-sizing: border-box; }
-
-.compare-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  max-width: 1280px;
-  margin: 0 auto 12px;
-  padding: 8px 12px;
-  border: 1px solid #233f51;
-  border-radius: 9px;
-  background: #06131f;
-}
-
-.brand { display: flex; align-items: center; gap: 12px; }
-.brand b { font-size: 17px; font-style: italic; }
-.brand b span { color: #1ac2c0; }
-.brand small { text-transform: uppercase; color: #91a5b3; font-size: 9px; letter-spacing: .12em; }
-
-.back-link {
-  padding: 7px 14px;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 7px;
-  background: transparent;
-  color: #91a5b3;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.back-link:hover { color: #edf5fa; border-color: #ff2b4a; }
-
-.state-card {
-  max-width: 640px;
-  margin: 60px auto;
-  padding: 30px;
-  text-align: center;
-  border: 1px solid #233f51;
-  border-radius: 12px;
-  background: #06131f;
-}
-
-.compare-shell {
-  display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap: 16px;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 16px;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 14px;
-  background: #060b14;
-  min-width: 0;
-}
-
-.metric-sidebar { border-right: 1px solid rgba(255,255,255,0.08); padding-right: 14px; }
-.sidebar-title { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 10px; }
-.sidebar-group { margin-bottom: 14px; }
-.sidebar-group-label { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #C00000; margin-bottom: 6px; }
-.sidebar-metric-btn { display: block; width: 100%; text-align: left; font-size: 12px; font-weight: 600; padding: 6px 10px; margin-bottom: 3px; border-radius: 7px; border: 1px solid transparent; background: transparent; color: rgba(255,255,255,0.6); cursor: pointer; }
-.sidebar-metric-btn:hover { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.9); }
-.sidebar-metric-btn.active { background: rgba(192,0,0,0.12); border-color: currentColor; font-weight: 800; }
-
-.range-control { display: flex; flex-wrap: wrap; gap: 6px; }
-.range-chip { padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); background: transparent; color: rgba(255,255,255,0.6); font-size: 10px; font-weight: 800; letter-spacing: 0.03em; cursor: pointer; }
-.range-chip:hover { color: white; border-color: rgba(255,255,255,0.3); }
-.range-chip.active { background: #C00000; border-color: #C00000; color: white; }
-.custom-range-row { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-.custom-range-row label { display: flex; flex-direction: column; gap: 3px; font-size: 9px; font-weight: 800; text-transform: uppercase; color: rgba(255,255,255,0.4); }
-.custom-range-row input[type="date"] { background: #0b1120; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; color: white; font-size: 11px; padding: 6px 8px; color-scheme: dark; }
-
-.compare-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.compare-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-.compare-header h2 { font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.03em; }
-.compare-header span { font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.06em; }
-.compare-header h3 { font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.8); }
-.sort-control label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: rgba(255,255,255,0.4); display: flex; align-items: center; gap: 6px; }
-.sort-control select { background: #0b1120; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; color: white; font-size: 11px; padding: 6px 8px; }
-
-.chart-card { background: linear-gradient(160deg, #0f1a2e 0%, #0b1120 100%); border: 1px solid rgba(192,0,0,0.18); border-radius: 14px; padding: 16px; }
-.chart-card-title { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 10px; }
-.chart-body { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 16px; align-items: start; }
-.chart-area { min-width: 0; }
-
-.chart-legend { display: flex; flex-direction: column; gap: 6px; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 14px; max-height: 320px; overflow-y: auto; }
-.legend-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); margin-bottom: 2px; }
-.legend-row { display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; background: transparent; cursor: pointer; text-align: left; }
-.legend-row:hover { background: rgba(255,255,255,0.04); }
-.legend-row.active { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.05); }
-.legend-row-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.legend-row-top b { font-size: 12px; font-weight: 800; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-.legend-swatch { width: 9px; height: 9px; border-radius: 999px; flex: none; }
-.legend-row-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-left: 16px; }
-.legend-row-bottom small { font-size: 10px; color: rgba(255,255,255,0.45); }
-.legend-change { font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.4); flex: none; }
-.legend-change.good { color: #34d399; }
-.legend-change.bad { color: #f87171; }
-.legend-remove { flex: none; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 999px; color: rgba(255,255,255,0.35); font-size: 13px; line-height: 1; }
-.legend-remove:hover { color: #f87171; background: rgba(248,113,113,0.12); }
-
-.add-player-wrap { margin-top: 6px; position: relative; }
-.add-player-btn { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.2); background: transparent; color: rgba(255,255,255,0.6); font-size: 11px; font-weight: 700; cursor: pointer; }
-.add-player-btn:hover { color: white; border-color: #C00000; }
-.add-player-list { margin-top: 6px; max-height: 180px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; background: #0b1120; }
-.add-player-option { display: block; width: 100%; text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.75); background: transparent; border: 0; cursor: pointer; }
-.add-player-option:hover { background: rgba(255,255,255,0.06); color: white; }
-
-.loading-text { color: rgba(255,255,255,0.4); font-size: 13px; padding: 20px 0; }
-.loading-text.small { font-size: 11px; padding: 10px 0; }
-
-.stat-box-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
-.stat-box { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: #0b1120; min-width: 0; }
-.stat-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); }
-.stat-value { font-size: 17px; font-weight: 900; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stat-value.accent { color: #ff8798; }
-.stat-value.good { color: #34d399; }
-.stat-value.bad { color: #f87171; }
-.stat-sub { font-size: 10px; color: rgba(255,255,255,0.4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.lower-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; align-items: start; }
-.table-card, .bands-card { background: linear-gradient(160deg, #0f1a2e 0%, #0b1120 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 16px; }
-
-.table-scroll { overflow-x: auto; margin-top: 10px; }
-.compare-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.compare-table th { text-align: left; padding: 8px 10px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
-.compare-table td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.85); white-space: nowrap; }
-.compare-table tbody tr { cursor: pointer; }
-.compare-table tbody tr:hover { background: rgba(255,255,255,0.03); }
-.compare-table tbody tr.highlighted { background: rgba(192,0,0,0.1); }
-.player-cell { display: flex; align-items: center; gap: 8px; font-weight: 800; color: white; }
-.table-swatch { width: 8px; height: 8px; border-radius: 999px; flex: none; }
-
-.status-pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; }
-.status-pill.good { background: rgba(52,211,153,0.15); color: #34d399; }
-.status-pill.warn { background: rgba(251,191,36,0.15); color: #fbbf24; }
-.status-pill.bad { background: rgba(248,113,113,0.15); color: #f87171; }
-.status-pill.muted { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4); }
-
-.bands-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
-.bands-table th { text-align: left; padding: 6px 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; color: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.1); }
-.bands-table td { padding: 7px 8px; color: rgba(255,255,255,0.75); border-bottom: 1px solid rgba(255,255,255,0.05); }
-.bands-table tr.active td { color: white; font-weight: 800; background: rgba(192,0,0,0.1); }
-
-.position-bar { margin-top: 14px; }
-.position-track { position: relative; height: 10px; border-radius: 999px; background: linear-gradient(90deg, #f87171, #fbbf24, #34d399, #3b82f6); overflow: visible; }
-.position-fill { display: none; }
-.position-marker { position: absolute; top: -4px; width: 3px; height: 18px; background: white; border-radius: 2px; transform: translateX(-1.5px); box-shadow: 0 0 0 2px rgba(0,0,0,0.4); }
-.position-caption { display: block; margin-top: 10px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.7); }
-
 @media (max-width: 1180px) {
-  .lower-grid { grid-template-columns: 1fr; }
-  .chart-body { grid-template-columns: 1fr; }
-  .chart-legend { border-left: 0; border-top: 1px solid rgba(255,255,255,0.08); padding-left: 0; padding-top: 12px; max-height: none; }
+  .dashboard-shell { grid-template-columns: 190px minmax(0, 1fr); }
+  .trend-layout, .middle-grid { grid-template-columns: 1fr; }
+  .athlete-legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; border-left: 0; border-top: 1px solid rgba(148,163,184,.12); padding: 12px; }
+  .legend-heading, .add-athlete-wrap { grid-column: 1 / -1; }
 }
-
-@media (max-width: 900px) {
-  .compare-shell { grid-template-columns: 1fr; }
-  .metric-sidebar { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-right: 0; padding-bottom: 12px; }
+@media (max-width: 850px) {
+  .command-center { padding: 16px 10px 30px; }
+  .command-header { align-items: flex-start; }
+  .header-actions { flex-direction: column; align-items: stretch; }
+  .dashboard-shell { grid-template-columns: 1fr; }
+  .filter-sidebar { padding: 12px; border: 1px solid #1d2a3c; border-radius: 10px; }
+  .metric-group { display: inline; }
+  .metric-group > span { margin-top: 12px; }
+  .metric-group button { width: auto; display: inline-grid; margin: 3px; }
+  .summary-grid, .bottom-grid { grid-template-columns: repeat(2, 1fr); }
+  .insights-panel { grid-column: 1 / -1; }
+  .trend-controls { align-items: flex-end; flex-direction: column; gap: 7px; }
 }
-
-@media (max-width: 480px) {
-  .stat-box-row { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 560px) {
+  .command-header { flex-direction: column; }
+  .header-actions { width: 100%; }
+  .summary-grid, .bottom-grid { grid-template-columns: 1fr; }
+  .insights-panel { grid-column: auto; }
+  .athlete-legend { grid-template-columns: 1fr; }
+  .trend-header { align-items: flex-start; }
+  .segment-control button { min-width: 58px; padding-inline: 8px; }
+  .relationship-row { grid-template-columns: 75px 40px 1fr 45px; }
+  .relationship-row small { display: none; }
 }
 </style>
