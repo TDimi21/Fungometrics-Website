@@ -9,15 +9,24 @@ const route = useRoute()
 const router = useRouter()
 const { axiosGet } = useAxiosAuth()
 
+const PLAYER_COLORS = ['#ff2b4a', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899', '#84cc16']
+const DATE_RANGES = [
+  { label: 'All Time', months: 0 },
+  { label: '1 Month', months: 1 },
+  { label: '3 Months', months: 3 },
+  { label: '6 Months', months: 6 },
+]
+
 const teamId = computed(() => String(route.query?.teamId || '').trim())
 const playerIds = computed(() => String(route.query?.playerIds || '').split(',').map((id) => id.trim()).filter(Boolean))
 const playerNames = computed(() => String(route.query?.names || '').split('|'))
 
 const loading = ref(false)
 const errorMessage = ref('')
-const players = ref([]) // [{ id, name, intelligence }]
+const players = ref([]) // [{ id, name, color, intelligence, history }]
 const activeMetricKey = ref('bench_press')
 const sortBy = ref('percentile') // percentile | value | relative | gap
+const activeDateRange = ref(0)
 const dataWindow = ref(365)
 
 const categorizedMetrics = computed(() => categorizeMetrics())
@@ -35,11 +44,17 @@ const loadComparison = async () => {
   loading.value = true
   try {
     const results = await Promise.all(playerIds.value.map(async (id, index) => {
-      try {
-        const { data } = await axiosGet(`coach/teams/${teamId.value}/players/${id}/intelligence`, { days: dataWindow.value })
-        return { id, name: playerNames.value[index] || 'Player', intelligence: data?.data || data || null, failed: false }
-      } catch {
-        return { id, name: playerNames.value[index] || 'Player', intelligence: null, failed: true }
+      const name = playerNames.value[index] || 'Player'
+      const color = PLAYER_COLORS[index % PLAYER_COLORS.length]
+      const [intelligenceRes, historyRes] = await Promise.all([
+        axiosGet(`coach/teams/${teamId.value}/players/${id}/intelligence`, { days: dataWindow.value }).catch(() => null),
+        axiosGet(`player/fitness/${id}`).catch(() => null),
+      ])
+      return {
+        id, name, color,
+        intelligence: intelligenceRes?.data?.data || intelligenceRes?.data || null,
+        history: Array.isArray(historyRes?.data?.data) ? historyRes.data.data : [],
+        failed: !intelligenceRes && !historyRes,
       }
     }))
     players.value = results
@@ -87,6 +102,53 @@ const sortedRows = computed(() => {
 
 const maxPercentile = computed(() => Math.max(1, ...sortedRows.value.map((r) => r.percentile || 0)))
 const displayValue = (row) => row.rawValue != null ? `${row.rawValue} ${row.unit}`.trim() : '—'
+
+// ── Multi-player line series: every logged fitness entry for the active
+// metric, one line per player, filtered to the selected date range ──
+const cutoffDate = computed(() => {
+  if (activeDateRange.value === 0) return null
+  const d = new Date()
+  d.setMonth(d.getMonth() - activeDateRange.value)
+  return d
+})
+
+const lineSeries = computed(() => {
+  if (!activeMetric.value) return []
+  return players.value.map((player) => {
+    const rows = (player.history || [])
+      .filter((r) => r.fitness_date && r[activeMetric.value.key] != null && parseFloat(r[activeMetric.value.key]) > 0)
+      .filter((r) => !cutoffDate.value || new Date(r.fitness_date) >= cutoffDate.value)
+      .slice()
+      .sort((a, b) => new Date(a.fitness_date) - new Date(b.fitness_date))
+    return {
+      name: player.name,
+      data: rows.map((r) => ({ x: new Date(r.fitness_date).getTime(), y: parseFloat(r[activeMetric.value.key]) })),
+    }
+  })
+})
+const hasLineData = computed(() => lineSeries.value.some((s) => s.data.length > 0))
+const lineColors = computed(() => players.value.map((p) => p.color))
+
+const lineChartOptions = computed(() => ({
+  chart: { type: 'line', height: 320, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 350 } },
+  stroke: { curve: 'smooth', width: 2.5 },
+  colors: lineColors.value,
+  markers: { size: 5, strokeColors: '#0b1120', strokeWidth: 2, hover: { size: 7 } },
+  dataLabels: { enabled: false },
+  legend: { show: true, labels: { colors: 'rgba(255,255,255,0.65)' }, markers: { width: 10, height: 10, radius: 9999 } },
+  grid: { borderColor: 'rgba(255,255,255,0.07)' },
+  xaxis: {
+    type: 'datetime',
+    labels: { style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 }, rotate: -35, datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'MMM dd' } },
+    axisBorder: { color: 'rgba(255,255,255,0.08)' },
+    axisTicks: { color: 'rgba(255,255,255,0.08)' },
+  },
+  yaxis: {
+    labels: { style: { colors: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600 }, formatter: (v) => v != null ? `${parseFloat(v).toFixed(1)} ${activeMetric.value?.unit || ''}`.trim() : '' },
+  },
+  tooltip: { theme: 'dark', shared: true, intersect: false },
+  theme: { mode: 'dark' },
+}))
 </script>
 
 <template>
@@ -119,40 +181,59 @@ const displayValue = (row) => row.rawValue != null ? `${row.rawValue} ${row.unit
               <h2>{{ activeMetric?.label }}</h2>
               <span>{{ players.length }} Players · {{ activeMetric?.category }}</span>
             </div>
-            <div class="sort-control">
-              <label>Sort by
-                <select v-model="sortBy">
-                  <option value="percentile">Percentile</option>
-                  <option value="value">Raw Value</option>
-                  <option value="relative">Relative Strength</option>
-                  <option value="gap">Gap to Goal</option>
-                </select>
-              </label>
-            </div>
+            <label class="date-range-select">Range
+              <select v-model.number="activeDateRange">
+                <option v-for="r in DATE_RANGES" :key="r.months" :value="r.months">{{ r.label }}</option>
+              </select>
+            </label>
           </div>
 
-          <p v-if="loading" class="loading-text">Loading player benchmarks…</p>
+          <p v-if="loading" class="loading-text">Loading player data…</p>
 
-          <div v-else class="bar-list">
-            <div v-for="row in sortedRows" :key="row.id" class="bar-row">
-              <div class="bar-row-label">
-                <span class="bar-row-name">{{ row.name }}</span>
-                <span v-if="row.failed" class="bar-row-flag error">Could not load</span>
-                <span v-else-if="!row.available" class="bar-row-flag">Needs Data</span>
-                <span v-else class="bar-row-flag">{{ row.label }}</span>
+          <template v-else>
+            <div class="chart-card">
+              <div class="chart-card-title">{{ activeMetric?.label }} Over Time</div>
+              <div v-if="hasLineData" class="chart-area">
+                <apexchart width="100%" type="line" height="320" :options="lineChartOptions" :series="lineSeries" :key="activeMetricKey + '_' + activeDateRange" />
               </div>
-              <div class="bar-track">
-                <div v-if="row.available" class="bar-fill" :style="{ width: `${Math.max(4, (row.percentile / maxPercentile) * 100)}%` }"></div>
-              </div>
-              <div class="bar-row-stats">
-                <b v-if="row.available">{{ row.percentile }}th</b>
-                <b v-else class="dim">—</b>
-                <span>{{ displayValue(row) }}</span>
-                <span v-if="row.relative != null">{{ row.relative.toFixed(2) }}× BW</span>
+              <p v-else class="loading-text">No logged tests for this metric in the selected range.</p>
+            </div>
+
+            <div class="compare-header">
+              <div><h3>Current Standing</h3></div>
+              <div class="sort-control">
+                <label>Sort by
+                  <select v-model="sortBy">
+                    <option value="percentile">Percentile</option>
+                    <option value="value">Raw Value</option>
+                    <option value="relative">Relative Strength</option>
+                    <option value="gap">Gap to Goal</option>
+                  </select>
+                </label>
               </div>
             </div>
-            <p v-if="!sortedRows.length" class="loading-text">No players to compare.</p>
-          </div>
+
+            <div class="bar-list">
+              <div v-for="row in sortedRows" :key="row.id" class="bar-row">
+                <div class="bar-row-label">
+                  <span class="bar-row-name">{{ row.name }}</span>
+                  <span v-if="row.failed" class="bar-row-flag error">Could not load</span>
+                  <span v-else-if="!row.available" class="bar-row-flag">Needs Data</span>
+                  <span v-else class="bar-row-flag">{{ row.label }}</span>
+                </div>
+                <div class="bar-track">
+                  <div v-if="row.available" class="bar-fill" :style="{ width: `${Math.max(4, (row.percentile / maxPercentile) * 100)}%` }"></div>
+                </div>
+                <div class="bar-row-stats">
+                  <b v-if="row.available">{{ row.percentile }}th</b>
+                  <b v-else class="dim">—</b>
+                  <span>{{ displayValue(row) }}</span>
+                  <span v-if="row.relative != null">{{ row.relative.toFixed(2) }}× BW</span>
+                </div>
+              </div>
+              <p v-if="!sortedRows.length" class="loading-text">No players to compare.</p>
+            </div>
+          </template>
         </div>
       </section>
     </main>
@@ -234,8 +315,14 @@ const displayValue = (row) => row.rawValue != null ? `${row.rawValue} ${row.unit
 .compare-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .compare-header h2 { font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.03em; }
 .compare-header span { font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.06em; }
-.sort-control label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: rgba(255,255,255,0.4); display: flex; align-items: center; gap: 6px; }
-.sort-control select { background: #0b1120; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; color: white; font-size: 11px; padding: 6px 8px; }
+.compare-header h3 { font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.8); }
+.sort-control label,
+.date-range-select { font-size: 9px; font-weight: 800; text-transform: uppercase; color: rgba(255,255,255,0.4); display: flex; align-items: center; gap: 6px; }
+.sort-control select,
+.date-range-select select { background: #0b1120; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; color: white; font-size: 11px; padding: 6px 8px; }
+
+.chart-card { background: linear-gradient(160deg, #0f1a2e 0%, #0b1120 100%); border: 1px solid rgba(192,0,0,0.18); border-radius: 14px; padding: 16px; }
+.chart-card-title { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 10px; }
 
 .loading-text { color: rgba(255,255,255,0.4); font-size: 13px; padding: 20px 0; }
 
