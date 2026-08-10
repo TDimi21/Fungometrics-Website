@@ -206,13 +206,26 @@ const lineSeries = computed(() => {
   }))
 })
 const hasLineData = computed(() => lineSeries.value.some((s) => s.data.length > 0))
-const lineColors = computed(() => players.value.map((p) => p.color))
+
+// Emphasize the highlighted player's line and mute the rest — with several
+// players plotted at once, same-weight lines read as noise, not a chart.
+const isHighlighted = (player) => players.value.length === 1 || player.id === highlightedPlayerId.value
+const withAlpha = (hex, alpha) => {
+  const clean = (hex || '#888888').replace('#', '')
+  const r = parseInt(clean.slice(0, 2), 16)
+  const g = parseInt(clean.slice(2, 4), 16)
+  const b = parseInt(clean.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+const lineColors = computed(() => players.value.map((p) => isHighlighted(p) ? p.color : withAlpha(p.color, 0.35)))
+const lineStrokeWidths = computed(() => players.value.map((p) => isHighlighted(p) ? 3.5 : 1.5))
+const lineMarkerSizes = computed(() => players.value.map((p) => isHighlighted(p) ? 5 : 2.5))
 
 const lineChartOptions = computed(() => ({
   chart: { type: 'line', height: 320, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 350 } },
-  stroke: { curve: 'smooth', width: 2.5 },
+  stroke: { curve: 'straight', width: lineStrokeWidths.value },
   colors: lineColors.value,
-  markers: { size: 5, strokeColors: '#0b1120', strokeWidth: 2, hover: { size: 7 } },
+  markers: { size: lineMarkerSizes.value, strokeColors: '#0b1120', strokeWidth: 2, hover: { size: 7 } },
   dataLabels: { enabled: false },
   legend: { show: false },
   grid: { borderColor: 'rgba(255,255,255,0.07)' },
@@ -384,13 +397,15 @@ const percentileBarPosition = computed(() => {
                     v-for="p in players" :key="p.id" type="button" class="legend-row"
                     :class="{ active: highlightedPlayerId === p.id }" @click="highlightedPlayerId = p.id"
                   >
-                    <span class="legend-swatch" :style="{ background: p.color }"></span>
-                    <span class="legend-info">
+                    <span class="legend-row-top">
+                      <span class="legend-swatch" :style="{ background: p.color }"></span>
                       <b>{{ p.name }}</b>
-                      <small>{{ legendCurrent(p) }}</small>
+                      <span v-if="players.length > 1" class="legend-remove" title="Remove from comparison" @click.stop="removePlayer(p.id)">×</span>
                     </span>
-                    <span class="legend-change" :class="legendChangeTone(p)">{{ legendChangeLabel(p) }}</span>
-                    <span v-if="players.length > 1" class="legend-remove" title="Remove from comparison" @click.stop="removePlayer(p.id)">×</span>
+                    <span class="legend-row-bottom">
+                      <small>{{ legendCurrent(p) }}</small>
+                      <span class="legend-change" :class="legendChangeTone(p)">{{ legendChangeLabel(p) }}</span>
+                    </span>
                   </button>
 
                   <div class="add-player-wrap">
@@ -508,13 +523,17 @@ const percentileBarPosition = computed(() => {
 <style scoped>
 .compare-page {
   min-height: 100vh;
+  width: 100%;
   padding: 12px;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 88% 8%, #0c2a3b 0, transparent 25%),
     linear-gradient(145deg, #020a12, #031321 58%, #061b29);
   color: #edf5fa;
   font-family: Inter, system-ui, sans-serif;
+  box-sizing: border-box;
 }
+.compare-page * { box-sizing: border-box; }
 
 .compare-toolbar {
   display: flex;
@@ -558,7 +577,7 @@ const percentileBarPosition = computed(() => {
 
 .compare-shell {
   display: grid;
-  grid-template-columns: 230px 1fr;
+  grid-template-columns: 210px minmax(0, 1fr);
   gap: 16px;
   max-width: 1280px;
   margin: 0 auto;
@@ -566,6 +585,7 @@ const percentileBarPosition = computed(() => {
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 14px;
   background: #060b14;
+  min-width: 0;
 }
 
 .metric-sidebar { border-right: 1px solid rgba(255,255,255,0.08); padding-right: 14px; }
@@ -594,18 +614,19 @@ const percentileBarPosition = computed(() => {
 
 .chart-card { background: linear-gradient(160deg, #0f1a2e 0%, #0b1120 100%); border: 1px solid rgba(192,0,0,0.18); border-radius: 14px; padding: 16px; }
 .chart-card-title { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 10px; }
-.chart-body { display: grid; grid-template-columns: 1fr 220px; gap: 16px; align-items: start; }
+.chart-body { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 16px; align-items: start; }
 .chart-area { min-width: 0; }
 
-.chart-legend { display: flex; flex-direction: column; gap: 8px; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 14px; }
+.chart-legend { display: flex; flex-direction: column; gap: 6px; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 14px; max-height: 320px; overflow-y: auto; }
 .legend-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); margin-bottom: 2px; }
-.legend-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px; border-radius: 8px; border: 1px solid transparent; background: transparent; cursor: pointer; text-align: left; }
+.legend-row { display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; background: transparent; cursor: pointer; text-align: left; }
 .legend-row:hover { background: rgba(255,255,255,0.04); }
 .legend-row.active { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.05); }
-.legend-swatch { width: 10px; height: 10px; border-radius: 999px; flex: none; }
-.legend-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-.legend-info b { font-size: 12px; font-weight: 800; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.legend-info small { font-size: 10px; color: rgba(255,255,255,0.45); }
+.legend-row-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.legend-row-top b { font-size: 12px; font-weight: 800; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.legend-swatch { width: 9px; height: 9px; border-radius: 999px; flex: none; }
+.legend-row-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-left: 16px; }
+.legend-row-bottom small { font-size: 10px; color: rgba(255,255,255,0.45); }
 .legend-change { font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.4); flex: none; }
 .legend-change.good { color: #34d399; }
 .legend-change.bad { color: #f87171; }
@@ -622,7 +643,7 @@ const percentileBarPosition = computed(() => {
 .loading-text { color: rgba(255,255,255,0.4); font-size: 13px; padding: 20px 0; }
 .loading-text.small { font-size: 11px; padding: 10px 0; }
 
-.stat-box-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.stat-box-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 .stat-box { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: #0b1120; min-width: 0; }
 .stat-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); }
 .stat-value { font-size: 17px; font-weight: 900; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -661,16 +682,18 @@ const percentileBarPosition = computed(() => {
 .position-marker { position: absolute; top: -4px; width: 3px; height: 18px; background: white; border-radius: 2px; transform: translateX(-1.5px); box-shadow: 0 0 0 2px rgba(0,0,0,0.4); }
 .position-caption { display: block; margin-top: 10px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.7); }
 
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
   .lower-grid { grid-template-columns: 1fr; }
-  .stat-box-row { grid-template-columns: repeat(3, 1fr); }
   .chart-body { grid-template-columns: 1fr; }
-  .chart-legend { border-left: 0; border-top: 1px solid rgba(255,255,255,0.08); padding-left: 0; padding-top: 12px; }
+  .chart-legend { border-left: 0; border-top: 1px solid rgba(255,255,255,0.08); padding-left: 0; padding-top: 12px; max-height: none; }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .compare-shell { grid-template-columns: 1fr; }
   .metric-sidebar { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-right: 0; padding-bottom: 12px; }
+}
+
+@media (max-width: 480px) {
   .stat-box-row { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
