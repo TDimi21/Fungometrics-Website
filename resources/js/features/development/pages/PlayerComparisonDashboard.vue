@@ -53,6 +53,7 @@ const activeMetricKey = ref('body_weight')
 const sortBy = ref('percentile')
 const highlightedPlayerId = ref('')
 const chartInterval = ref('daily')
+const showAllAthletes = ref(false)
 const ageGroupFilter = ref('all')
 const weightClassFilter = ref('all')
 const activeQuickIndex = ref(1)
@@ -132,7 +133,14 @@ const loadComparison = async () => {
       }
     }))
     players.value = results
-    if (!results.some((player) => player.id === highlightedPlayerId.value)) highlightedPlayerId.value = results[0]?.id || ''
+    if (!results.some((player) => player.id === highlightedPlayerId.value)) {
+      const metricKey = activeMetricKey.value
+      const richestHistory = results.slice().sort((a, b) =>
+        (b.history || []).filter((row) => row?.[metricKey] != null).length
+        - (a.history || []).filter((row) => row?.[metricKey] != null).length
+      )[0]
+      highlightedPlayerId.value = richestHistory?.id || results[0]?.id || ''
+    }
   } catch {
     errorMessage.value = 'The comparison data could not be loaded. Please refresh and try again.'
   } finally {
@@ -212,6 +220,11 @@ const metricRowsFor = (player, limitToRange = true) => {
     .slice()
     .sort((a, b) => new Date(a.fitness_date) - new Date(b.fitness_date))
 }
+watch(activeMetricKey, () => {
+  if (metricRowsFor(comparedPlayers.value.find((player) => player.id === highlightedPlayerId.value)).length) return
+  const best = comparedPlayers.value.slice().sort((a, b) => metricRowsFor(b).length - metricRowsFor(a).length)[0]
+  highlightedPlayerId.value = best?.id || highlightedPlayerId.value
+})
 
 const periodStart = (value, interval) => {
   const date = new Date(value)
@@ -259,33 +272,86 @@ const legendChangeTone = (player) => {
   return (activeMetric.value?.lowerBetter ? change < 0 : change > 0) ? 'good' : 'bad'
 }
 
-const lineSeries = computed(() => comparedPlayers.value.map((player) => ({
+const chartPlayers = computed(() => {
+  if (showAllAthletes.value) return comparedPlayers.value
+  const focused = comparedPlayers.value.find((player) => player.id === highlightedPlayerId.value)
+  return focused ? [focused] : comparedPlayers.value.slice(0, 1)
+})
+const lineSeries = computed(() => chartPlayers.value.map((player) => ({
   name: player.name,
   data: aggregateRows(metricRowsFor(player)),
 })))
 const hasLineData = computed(() => lineSeries.value.some((series) => series.data.length))
-const isHighlighted = (player) => comparedPlayers.value.length === 1 || player.id === highlightedPlayerId.value
+const isHighlighted = (player) => chartPlayers.value.length === 1 || player.id === highlightedPlayerId.value
 const withAlpha = (hex, alpha) => {
   const clean = (hex || '#888888').replace('#', '')
   return `rgba(${parseInt(clean.slice(0, 2), 16)}, ${parseInt(clean.slice(2, 4), 16)}, ${parseInt(clean.slice(4, 6), 16)}, ${alpha})`
 }
-const lineColors = computed(() => comparedPlayers.value.map((player) => isHighlighted(player) ? player.color : withAlpha(player.color, 0.32)))
+const lineColors = computed(() => chartPlayers.value.map((player) => isHighlighted(player) ? player.color : withAlpha(player.color, 0.48)))
+const chartBenchmarkAnnotations = computed(() => {
+  if (showAllAthletes.value) return []
+  const benchmark = highlightedBenchmark.value
+  const anchors = benchmark?.evidence?.age_percentile_anchors
+  if (!anchors) return []
+  const definitions = [
+    { value: anchors.p50, text: 'AVERAGE (50–74%)', color: '#7f8da1' },
+    { value: anchors.p75, text: 'ABOVE AVG (75–89%)', color: '#f5a623' },
+    { value: anchors.p95 ?? anchors.p90, text: 'ELITE (90–100%)', color: '#28d17c' },
+    { value: benchmark?.goal, text: 'GOAL', color: '#36d6a0' },
+  ]
+  const seen = new Set()
+  return definitions.filter((definition) => {
+    const value = Number(definition.value)
+    if (!Number.isFinite(value) || seen.has(value)) return false
+    seen.add(value)
+    return true
+  }).map((definition) => ({
+    y: Number(definition.value),
+    borderColor: definition.color,
+    strokeDashArray: definition.text === 'GOAL' ? 6 : 4,
+    label: {
+      borderColor: definition.color,
+      position: 'right',
+      offsetX: -4,
+      text: definition.text,
+      style: { background: '#10192a', color: definition.color, fontSize: '9px', fontWeight: 800 },
+    },
+  }))
+})
+const chartBounds = computed(() => {
+  const values = [
+    ...lineSeries.value.flatMap((series) => series.data.map((point) => Number(point.y))),
+    ...chartBenchmarkAnnotations.value.map((annotation) => Number(annotation.y)),
+  ].filter(Number.isFinite)
+  if (!values.length) return { min: undefined, max: undefined }
+  const low = Math.min(...values)
+  const high = Math.max(...values)
+  const spread = high - low
+  const padding = spread > 0 ? spread * 0.12 : Math.max(Math.abs(high) * 0.1, activeMetric.value?.unit === 's' ? 0.25 : 5)
+  const precision = activeMetric.value?.unit === 's' ? 10 : 1
+  return {
+    min: Math.max(0, Math.floor((low - padding) * precision) / precision),
+    max: Math.ceil((high + padding) * precision) / precision,
+  }
+})
 const lineChartOptions = computed(() => ({
-  chart: { type: 'line', height: 300, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 300 } },
-  stroke: { curve: 'straight', width: comparedPlayers.value.map((player) => isHighlighted(player) ? 3 : 1.5) },
+  chart: { type: 'line', height: 340, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 500, animateGradually: { enabled: true, delay: 80 }, dynamicAnimation: { enabled: true, speed: 350 } } },
+  annotations: { yaxis: chartBenchmarkAnnotations.value },
+  stroke: { curve: 'smooth', lineCap: 'round', width: chartPlayers.value.map((player) => isHighlighted(player) ? 3.5 : 2) },
   colors: lineColors.value,
-  markers: { size: comparedPlayers.value.map((player) => isHighlighted(player) ? 4 : 2), strokeColors: '#07101f', strokeWidth: 2, hover: { size: 6 } },
+  markers: { size: chartPlayers.value.map((player) => isHighlighted(player) ? 5 : 3), strokeColors: '#07101f', strokeWidth: 2, hover: { size: 7 } },
   dataLabels: { enabled: false },
   legend: { show: false },
-  grid: { borderColor: 'rgba(148,163,184,.12)', strokeDashArray: 0, padding: { left: 4, right: 8 } },
+  grid: { borderColor: 'rgba(148,163,184,.13)', strokeDashArray: 0, padding: { left: 8, right: 18, top: 8, bottom: 0 } },
   xaxis: {
     type: 'datetime',
-    labels: { style: { colors: '#718096', fontSize: '11px', fontWeight: 600 }, datetimeFormatter: { year: 'yyyy', month: 'MMM dd', day: 'MMM dd' } },
+    tickAmount: 8,
+    labels: { hideOverlappingLabels: true, style: { colors: '#8794a7', fontSize: '10px', fontWeight: 650 }, datetimeFormatter: { year: 'yyyy', month: 'MMM dd', day: 'MMM dd' } },
     axisBorder: { color: 'rgba(148,163,184,.12)' },
     axisTicks: { color: 'rgba(148,163,184,.12)' },
   },
-  yaxis: { labels: { style: { colors: '#718096', fontSize: '11px', fontWeight: 600 }, formatter: (value) => displayMetricValue(value) } },
-  tooltip: { theme: 'dark', shared: true, intersect: false, x: { format: 'MMM dd, yyyy' } },
+  yaxis: { min: chartBounds.value.min, max: chartBounds.value.max, tickAmount: 5, forceNiceScale: false, labels: { style: { colors: '#8794a7', fontSize: '10px', fontWeight: 650 }, formatter: (value) => displayMetricValue(value) } },
+  tooltip: { theme: 'dark', shared: showAllAthletes.value, intersect: !showAllAthletes.value, followCursor: false, x: { format: 'dd MMM yyyy' }, marker: { show: true } },
   theme: { mode: 'dark' },
 }))
 
@@ -517,10 +583,12 @@ const takeaway = computed(() => {
               <div class="panel-header trend-header">
                 <div>
                   <h2>{{ activeMetric?.label }} Over Time <small>ⓘ</small></h2>
-                  <p>{{ rangeLabel }}</p>
+                  <p>{{ showAllAthletes ? `${comparedPlayers.length} athletes` : (highlightedPlayer?.name || 'Selected athlete') }} · {{ rangeLabel }}</p>
                 </div>
                 <div class="trend-controls">
-                  <span>Compare Athletes ({{ comparedPlayers.length }})</span>
+                  <button type="button" class="chart-mode-button" :class="{ active: showAllAthletes }" @click="showAllAthletes = !showAllAthletes">
+                    {{ showAllAthletes ? 'Focus Selected Athlete' : `Compare All (${comparedPlayers.length})` }}
+                  </button>
                   <div class="segment-control">
                     <button v-for="interval in INTERVALS" :key="interval" type="button" :class="{ active: chartInterval === interval }" @click="chartInterval = interval">{{ interval }}</button>
                   </div>
@@ -529,7 +597,7 @@ const takeaway = computed(() => {
 
               <div class="trend-layout">
                 <div class="chart-area">
-                  <apexchart v-if="hasLineData" width="100%" type="line" height="300" :options="lineChartOptions" :series="lineSeries" :key="`${activeMetricKey}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
+                  <apexchart v-if="hasLineData" width="100%" type="line" height="340" :options="lineChartOptions" :series="lineSeries" :key="`${activeMetricKey}_${highlightedPlayerId}_${showAllAthletes}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
                   <div v-else class="empty-chart">No logged tests for this metric in the selected range.</div>
                 </div>
                 <aside class="athlete-legend">
@@ -688,13 +756,14 @@ button { cursor: pointer; }
 .panel-header > span { color: #77859a; font-size: 9px; }
 .trend-header p { margin: 4px 0 0; color: #8491a4; font-size: 10px; }
 .trend-controls { display: flex; align-items: center; gap: 20px; }
-.trend-controls > span { min-width: 170px; padding: 9px 12px; border: 1px solid #2b3a51; border-radius: 8px; color: #c8d1de; font-size: 11px; }
+.chart-mode-button { min-width: 170px; padding: 9px 12px; border: 1px solid #2b3a51; border-radius: 8px; background: #0a1424; color: #c8d1de; font-size: 11px; font-weight: 750; }
+.chart-mode-button:hover, .chart-mode-button.active { border-color: #d91e38; background: rgba(192,0,0,.16); color: white; }
 .segment-control { display: flex; border: 1px solid #2b3a51; border-radius: 999px; overflow: hidden; }
 .segment-control button { min-width: 78px; padding: 8px 13px; border: 0; background: transparent; color: #99a5b5; font-size: 10px; font-weight: 750; text-transform: capitalize; }
 .segment-control button.active { background: linear-gradient(180deg, #8f1123, #5f0b19); color: white; box-shadow: 0 0 18px rgba(255,43,74,.2); }
 .trend-layout { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 0; padding: 0 10px 10px; }
 .chart-area { min-width: 0; padding-right: 14px; }
-.empty-chart { display: grid; place-items: center; height: 300px; color: #67758a; font-size: 12px; }
+.empty-chart { display: grid; place-items: center; height: 340px; color: #67758a; font-size: 12px; }
 .athlete-legend { padding: 15px 0 0 18px; border-left: 1px solid rgba(148,163,184,.12); }
 .legend-heading { display: flex; justify-content: space-between; margin-bottom: 8px; color: #68778c; font-size: 9px; font-weight: 850; text-transform: uppercase; }
 .athlete-legend > button { position: relative; display: grid; grid-template-columns: minmax(92px, 1fr) auto auto; align-items: center; gap: 8px; width: 100%; padding: 9px 5px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #dce4ef; text-align: left; }
