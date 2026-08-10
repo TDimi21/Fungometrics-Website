@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
@@ -24,6 +24,7 @@ import MobilityAssessmentCard from '../components/MobilityAssessmentCard.vue'
 import PlayerMetricHistoryChart from '../components/PlayerMetricHistoryChart.vue'
 
 const route = useRoute()
+const router = useRouter()
 const { axiosGet } = useAxiosAuth()
 const { team } = storeToRefs(useTeamStore())
 const userStore = useUserStore()
@@ -37,7 +38,11 @@ const playersLoading = ref(false)
 const state = ref('idle')
 const errorMessage = ref('')
 const dataWindow = ref(365)
-const activeView = ref('overview')
+const activeView = ref(route.query?.view === 'chart' ? 'chart' : 'overview')
+const setActiveView = (view) => {
+  activeView.value = view
+  router.replace({ query: { ...route.query, view } })
+}
 const fitnessHistory = ref([])
 
 const isPlayerUser = computed(() => String(userStore.userData?.type || '').toLowerCase() === 'player')
@@ -63,7 +68,7 @@ const assessmentRoute = computed(() => ({
 const playerRoute = (option) => ({
   name: 'development.player',
   params: { playerId: option.id },
-  query: { ...(teamId.value ? { teamId: teamId.value } : {}), playerName: option.name },
+  query: { ...(teamId.value ? { teamId: teamId.value } : {}), playerName: option.name, ...(route.query?.view ? { view: route.query.view } : {}) },
 })
 
 const normalizePlayer = (row) => {
@@ -216,8 +221,8 @@ watch(
         <div v-if="state === 'partial'" class="partial-notice no-print" data-testid="partial-data-state"><b>Partial data</b><span>Available panels are shown. Missing measurements remain marked Needs Data.</span></div>
 
         <nav class="view-tabs no-print" aria-label="Player development view" data-testid="development-view-tabs">
-          <button type="button" :class="{ active: activeView === 'overview' }" @click="activeView = 'overview'">Overview</button>
-          <button type="button" :class="{ active: activeView === 'chart' }" @click="activeView = 'chart'" data-testid="chart-tab">Chart</button>
+          <button type="button" :class="{ active: activeView === 'overview' }" @click="setActiveView('overview')">Overview</button>
+          <button type="button" :class="{ active: activeView === 'chart' }" @click="setActiveView('chart')" data-testid="chart-tab">Chart</button>
         </nav>
 
         <div v-if="activeView === 'overview'" class="dashboard-grid">

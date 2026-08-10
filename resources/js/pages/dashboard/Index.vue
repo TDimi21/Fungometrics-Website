@@ -2802,6 +2802,7 @@ watch(
               </div>
               <div class="flex flex-wrap gap-2">
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development')">Player</button>
+                <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-red-500/40 text-red-300 hover:text-white hover:border-red-500" @click="router.push({ path: '/development', query: { view: 'chart' } })">Chart</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/team')">Team</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/coach')">Coach</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/admin/benchmarks')">Admin</button>
