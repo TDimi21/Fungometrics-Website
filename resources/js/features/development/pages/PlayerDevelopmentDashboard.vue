@@ -21,6 +21,7 @@ import CorrelationInsightsCard from '../components/CorrelationInsightsCard.vue'
 import RecoverySleepCard from '../components/RecoverySleepCard.vue'
 import StrengthMetricsCard from '../components/StrengthMetricsCard.vue'
 import MobilityAssessmentCard from '../components/MobilityAssessmentCard.vue'
+import PlayerMetricHistoryChart from '../components/PlayerMetricHistoryChart.vue'
 
 const route = useRoute()
 const { axiosGet } = useAxiosAuth()
@@ -36,6 +37,8 @@ const playersLoading = ref(false)
 const state = ref('idle')
 const errorMessage = ref('')
 const dataWindow = ref(365)
+const activeView = ref('overview')
+const fitnessHistory = ref([])
 
 const isPlayerUser = computed(() => String(userStore.userData?.type || '').toLowerCase() === 'player')
 const canViewAdmin = computed(() => canManageSubscriptions(userStore.userData))
@@ -108,6 +111,18 @@ const loadIntelligence = async () => {
   }
 }
 
+const loadFitnessHistory = async () => {
+  fitnessHistory.value = []
+  if (!playerId.value) return
+  try {
+    const { data } = await axiosGet(`player/fitness/${playerId.value}`)
+    fitnessHistory.value = Array.isArray(data?.data) ? data.data : []
+  } catch {
+    // The chart tab simply shows its own empty state when history is unavailable.
+    fitnessHistory.value = []
+  }
+}
+
 const loadDashboard = async () => {
   live.value = null
   intelligence.value = null
@@ -138,7 +153,7 @@ const loadDashboard = async () => {
       return
     }
     live.value = payload
-    await loadIntelligence()
+    await Promise.all([loadIntelligence(), loadFitnessHistory()])
     state.value = dashboard.value.dataQuality.partial ? 'partial' : 'ready'
   } catch (error) {
     const statusCode = error?.response?.status
@@ -199,7 +214,13 @@ watch(
 
       <template v-else-if="live">
         <div v-if="state === 'partial'" class="partial-notice no-print" data-testid="partial-data-state"><b>Partial data</b><span>Available panels are shown. Missing measurements remain marked Needs Data.</span></div>
-        <div class="dashboard-grid">
+
+        <nav class="view-tabs no-print" aria-label="Player development view" data-testid="development-view-tabs">
+          <button type="button" :class="{ active: activeView === 'overview' }" @click="activeView = 'overview'">Overview</button>
+          <button type="button" :class="{ active: activeView === 'chart' }" @click="activeView = 'chart'" data-testid="chart-tab">Chart</button>
+        </nav>
+
+        <div v-if="activeView === 'overview'" class="dashboard-grid">
           <aside class="left-column">
             <PlayerIdentityCard :player="dashboard.player" :metrics="dashboard.quickMetrics" />
             <PlayerCurrentBaselineCard :rows="dashboard.baseline" :assessment-route="assessmentRoute" />
@@ -220,6 +241,8 @@ watch(
             </div>
           </section>
         </div>
+
+        <PlayerMetricHistoryChart v-else :history="fitnessHistory" :percentile-groups="dashboard.percentileGroups" />
       </template>
     </main>
   </Layout>
@@ -314,6 +337,38 @@ watch(
   padding: 6px 8px;
   color: #d9e5ec;
   font-size: 9px;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 8px;
+  max-width: 1780px;
+  margin: 0 auto 12px;
+}
+
+.view-tabs button {
+  padding: 9px 20px;
+  border: 1px solid #233f51;
+  border-radius: 8px;
+  background: #06131f;
+  color: #91a5b3;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.view-tabs button:hover {
+  color: #edf5fa;
+  border-color: #ff2b4a;
+}
+
+.view-tabs button.active {
+  background: #ff2b4a;
+  border-color: #ff2b4a;
+  color: #ffffff;
 }
 
 .dashboard-grid {
