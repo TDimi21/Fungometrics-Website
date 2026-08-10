@@ -47,6 +47,7 @@ const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
 const NewStatistic = () => import("@/pages/statistics/NewStatistic.vue");
 const NewStatsSessionView = () => import("@/pages/statistics/NewStatsSessionView.vue");
 const PlayerDevelopmentDashboard = () => import('@/features/development/pages/PlayerDevelopmentDashboard.vue');
+const PlayerComparisonDashboard = () => import('@/features/development/pages/PlayerComparisonDashboard.vue');
 const TeamDevelopmentDashboard = () => import('@/features/development/pages/TeamDevelopmentDashboard.vue');
 const CoachDevelopmentDashboard = () => import('@/features/development/pages/CoachDevelopmentDashboard.vue');
 const AdminBenchmarksDashboard = () => import('@/features/development/pages/AdminBenchmarksDashboard.vue');
@@ -177,6 +178,12 @@ const routes = [
 		name: 'development.admin.benchmarks',
 		path: '/development/admin/benchmarks',
 		component: AdminBenchmarksDashboard,
+		meta: { requiresAuth: true, coachOnly: true, entitlement: 'view_advanced_stats' },
+	},
+	{
+		name: 'development.compare',
+		path: '/development/compare',
+		component: PlayerComparisonDashboard,
 		meta: { requiresAuth: true, coachOnly: true, entitlement: 'view_advanced_stats' },
 	},
 	{

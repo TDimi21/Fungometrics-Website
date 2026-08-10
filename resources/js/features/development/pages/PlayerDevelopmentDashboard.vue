@@ -44,6 +44,18 @@ const setActiveView = (view) => {
   router.replace({ query: { ...route.query, view } })
 }
 const fitnessHistory = ref([])
+const compareSelection = ref(new Set())
+const toggleCompareSelection = (id) => {
+  const next = new Set(compareSelection.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  compareSelection.value = next
+}
+const openComparison = () => {
+  const ids = [...compareSelection.value]
+  const names = ids.map((id) => playerOptions.value.find((option) => option.id === id)?.name || '')
+  router.push({ name: 'development.compare', query: { playerIds: ids.join(','), teamId: teamId.value || '', names: names.join('|') } })
+}
 
 const isPlayerUser = computed(() => String(userStore.userData?.type || '').toLowerCase() === 'player')
 const canViewAdmin = computed(() => canManageSubscriptions(userStore.userData))
@@ -209,9 +221,17 @@ watch(
       <section v-else-if="state === 'error'" class="state-card error" data-testid="error-state"><h1>Could Not Load Dashboard</h1><p>{{ errorMessage }}</p><button type="button" @click="loadDashboard">Try Again</button></section>
 
       <section v-else-if="isEmptySelection" class="state-card" data-testid="empty-player-state">
-        <h1>Select a Player</h1><p>Choose a player to open their live development dashboard.</p>
+        <h1>Select a Player</h1><p>Open one player's dashboard, or check multiple to compare them on a metric.</p>
         <p v-if="playersLoading">Loading players…</p>
-        <div v-else-if="playerOptions.length" class="player-picker"><RouterLink v-for="option in playerOptions" :key="option.id" :to="playerRoute(option)"><span>{{ option.name }}</span><small>{{ option.jersey ? `#${option.jersey}` : 'Player' }}</small></RouterLink></div>
+        <template v-else-if="playerOptions.length">
+          <div class="player-picker" data-testid="player-picker">
+            <div v-for="option in playerOptions" :key="option.id" class="player-picker-row">
+              <input type="checkbox" :checked="compareSelection.has(option.id)" :aria-label="`Select ${option.name} to compare`" @change="toggleCompareSelection(option.id)">
+              <RouterLink :to="playerRoute(option)"><span>{{ option.name }}</span><small>{{ option.jersey ? `#${option.jersey}` : 'Player' }}</small></RouterLink>
+            </div>
+          </div>
+          <button v-if="compareSelection.size >= 2" type="button" class="compare-button" data-testid="compare-players-button" @click="openComparison">Compare {{ compareSelection.size }} Players →</button>
+        </template>
         <p v-else>No players are available for this team.</p>
       </section>
 
@@ -491,7 +511,22 @@ watch(
   text-align: left;
 }
 
-.player-picker a {
+.player-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-picker-row input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: #ff2b4a;
+}
+
+.player-picker-row a {
+  flex: 1;
+  min-width: 0;
   padding: 10px;
   border: 1px solid #29495d;
   border-radius: 7px;
@@ -500,6 +535,24 @@ watch(
 .player-picker span,
 .player-picker small {
   display: block;
+}
+
+.compare-button {
+  margin-top: 14px;
+  padding: 10px 18px;
+  border: 1px solid #ff2b4a;
+  border-radius: 8px;
+  background: #ff2b4a;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.compare-button:hover {
+  background: #e0203b;
 }
 
 .player-picker small {
