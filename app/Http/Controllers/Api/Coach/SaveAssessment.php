@@ -157,7 +157,8 @@ class SaveAssessment extends Controller
             'front_squat', 'back_squat', 'bench_press', 'dead_lift', 'trap_bar_deadlift',
             'power_clean', 'pull_ups', 'push_ups', 'grip_strength_left', 'grip_strength_right',
             'vertical_jump', 'broad_jump', 'med_ball_rotational_throw', 'plank_hold',
-            'yd_40_dash', 'yd_60_dash', 'strength_test_metadata',
+            'yd_40_dash', 'yd_60_dash', 'sleep_hours', 'sleep_quality_1_to_5', 'recovery_score',
+            'strength_test_metadata',
         ] as $field) {
             if (array_key_exists($field, $snapshot) && null !== $snapshot[$field] && '' !== $snapshot[$field]) {
                 $fitness[$field] = $snapshot[$field];

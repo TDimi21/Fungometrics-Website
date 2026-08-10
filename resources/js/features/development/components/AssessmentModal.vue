@@ -301,6 +301,9 @@ const buildPayload = () => {
     plank_hold: num(form.plank_hold),
     yd_40_dash: num(form.yd_40_dash_sec),
     yd_60_dash: num(form.yd_60_dash_sec),
+    sleep_hours: num(form.sleep_hours),
+    sleep_quality_1_to_5: int(form.sleep_quality_1_to_5),
+    recovery_score: int(form.recovery_score),
     strength_test_metadata: {
       metrics: Object.fromEntries(Object.entries(form.lift_repetitions || {}).map(([key, repetitions]) => [key, {
         repetitions: int(repetitions), method: form.lift_test_methods?.[key] || (Number(repetitions) === 1 ? 'tested_1rm' : 'rep_max'),
