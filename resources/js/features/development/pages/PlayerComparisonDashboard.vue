@@ -54,6 +54,9 @@ const sortBy = ref('percentile')
 const highlightedPlayerId = ref('')
 const chartInterval = ref('daily')
 const showAllAthletes = ref(false)
+const selectedChartMetricKeys = ref(['body_weight'])
+const showMetricPicker = ref(false)
+const metricPickerMessage = ref('')
 const ageGroupFilter = ref('all')
 const weightClassFilter = ref('all')
 const activeQuickIndex = ref(1)
@@ -97,6 +100,8 @@ const rangeLabel = computed(() => {
 
 const categorizedMetrics = computed(() => categorizeMetrics())
 const activeMetric = computed(() => METRICS.find((metric) => metric.key === activeMetricKey.value) || null)
+const selectedChartMetrics = computed(() => selectedChartMetricKeys.value.map((key) => METRICS.find((metric) => metric.key === key)).filter(Boolean))
+const multiMetricChart = computed(() => !showAllAthletes.value && selectedChartMetrics.value.length > 1)
 const tableMetrics = computed(() => TABLE_METRIC_KEYS.map((key) => METRICS.find((metric) => metric.key === key)).filter(Boolean))
 const strengthMetrics = computed(() => STRENGTH_METRIC_KEYS.map((key) => METRICS.find((metric) => metric.key === key)).filter(Boolean))
 const comparisonContext = (player) => player?.intelligence?.benchmark_profile?.comparison_context || {}
@@ -211,8 +216,8 @@ const removePlayer = (id) => {
 }
 
 const metricBenchmark = (player, metric) => benchmarkFor(player?.intelligence?.benchmark_profile?.metrics, metric)
-const metricRowsFor = (player, limitToRange = true) => {
-  const key = activeMetric.value?.key
+const metricRowsFor = (player, limitToRange = true, metric = activeMetric.value) => {
+  const key = metric?.key
   if (!key) return []
   return (player?.history || [])
     .filter((row) => row.fitness_date && row[key] != null && Number.isFinite(Number(row[key])))
@@ -221,10 +226,30 @@ const metricRowsFor = (player, limitToRange = true) => {
     .sort((a, b) => new Date(a.fitness_date) - new Date(b.fitness_date))
 }
 watch(activeMetricKey, () => {
+  selectedChartMetricKeys.value = [activeMetricKey.value]
+  metricPickerMessage.value = ''
   if (metricRowsFor(comparedPlayers.value.find((player) => player.id === highlightedPlayerId.value)).length) return
   const best = comparedPlayers.value.slice().sort((a, b) => metricRowsFor(b).length - metricRowsFor(a).length)[0]
   highlightedPlayerId.value = best?.id || highlightedPlayerId.value
 })
+
+const toggleChartMetric = (metric) => {
+  metricPickerMessage.value = ''
+  const selected = selectedChartMetricKeys.value
+  if (selected.includes(metric.key)) {
+    if (metric.key === activeMetricKey.value) {
+      metricPickerMessage.value = 'The primary dashboard metric stays selected.'
+      return
+    }
+    selectedChartMetricKeys.value = selected.filter((key) => key !== metric.key)
+    return
+  }
+  if (selected.length >= 4) {
+    metricPickerMessage.value = 'Select up to four metrics so the chart stays readable.'
+    return
+  }
+  selectedChartMetricKeys.value = [...selected, metric.key]
+}
 
 const periodStart = (value, interval) => {
   const date = new Date(value)
@@ -233,12 +258,12 @@ const periodStart = (value, interval) => {
   if (interval === 'monthly') date.setDate(1)
   return date.getTime()
 }
-const aggregateRows = (rows) => {
+const aggregateRows = (rows, metric = activeMetric.value) => {
   const groups = new Map()
   rows.forEach((row) => {
     const bucket = periodStart(row.fitness_date, chartInterval.value)
     const values = groups.get(bucket) || []
-    values.push(Number(row[activeMetric.value.key]))
+    values.push(Number(row[metric.key]))
     groups.set(bucket, values)
   })
   return [...groups.entries()].map(([x, values]) => ({
@@ -277,19 +302,37 @@ const chartPlayers = computed(() => {
   const focused = comparedPlayers.value.find((player) => player.id === highlightedPlayerId.value)
   return focused ? [focused] : comparedPlayers.value.slice(0, 1)
 })
-const lineSeries = computed(() => chartPlayers.value.map((player) => ({
-  name: player.name,
-  data: aggregateRows(metricRowsFor(player)),
-})))
+const lineSeries = computed(() => {
+  if (showAllAthletes.value) {
+    return chartPlayers.value.map((player) => ({
+      name: player.name,
+      data: aggregateRows(metricRowsFor(player), activeMetric.value),
+    }))
+  }
+  const player = chartPlayers.value[0]
+  if (!player) return []
+  return selectedChartMetrics.value.map((metric) => {
+    const points = aggregateRows(metricRowsFor(player, true, metric), metric)
+    const baseline = Number(points[0]?.y)
+    return {
+      name: metric.label,
+      data: multiMetricChart.value && Number.isFinite(baseline) && baseline !== 0
+        ? points.map((point) => ({ ...point, raw: point.y, y: Number((((point.y - baseline) / baseline) * 100).toFixed(2)) }))
+        : points,
+    }
+  })
+})
 const hasLineData = computed(() => lineSeries.value.some((series) => series.data.length))
 const isHighlighted = (player) => chartPlayers.value.length === 1 || player.id === highlightedPlayerId.value
 const withAlpha = (hex, alpha) => {
   const clean = (hex || '#888888').replace('#', '')
   return `rgba(${parseInt(clean.slice(0, 2), 16)}, ${parseInt(clean.slice(2, 4), 16)}, ${parseInt(clean.slice(4, 6), 16)}, ${alpha})`
 }
-const lineColors = computed(() => chartPlayers.value.map((player) => isHighlighted(player) ? player.color : withAlpha(player.color, 0.48)))
+const lineColors = computed(() => showAllAthletes.value
+  ? chartPlayers.value.map((player) => isHighlighted(player) ? player.color : withAlpha(player.color, 0.48))
+  : selectedChartMetrics.value.map((metric) => metric.color))
 const chartBenchmarkAnnotations = computed(() => {
-  if (showAllAthletes.value) return []
+  if (showAllAthletes.value || multiMetricChart.value) return []
   const benchmark = highlightedBenchmark.value
   const anchors = benchmark?.evidence?.age_percentile_anchors
   if (!anchors) return []
@@ -329,17 +372,18 @@ const chartBounds = computed(() => {
   const spread = high - low
   const padding = spread > 0 ? spread * 0.12 : Math.max(Math.abs(high) * 0.1, activeMetric.value?.unit === 's' ? 0.25 : 5)
   const precision = activeMetric.value?.unit === 's' ? 10 : 1
+  const paddedMinimum = Math.floor((low - padding) * precision) / precision
   return {
-    min: Math.max(0, Math.floor((low - padding) * precision) / precision),
+    min: multiMetricChart.value ? paddedMinimum : Math.max(0, paddedMinimum),
     max: Math.ceil((high + padding) * precision) / precision,
   }
 })
 const lineChartOptions = computed(() => ({
   chart: { type: 'line', height: 340, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 500, animateGradually: { enabled: true, delay: 80 }, dynamicAnimation: { enabled: true, speed: 350 } } },
   annotations: { yaxis: chartBenchmarkAnnotations.value },
-  stroke: { curve: 'smooth', lineCap: 'round', width: chartPlayers.value.map((player) => isHighlighted(player) ? 3.5 : 2) },
+  stroke: { curve: 'smooth', lineCap: 'round', width: showAllAthletes.value ? chartPlayers.value.map((player) => isHighlighted(player) ? 3.5 : 2) : lineSeries.value.map(() => 3.5) },
   colors: lineColors.value,
-  markers: { size: chartPlayers.value.map((player) => isHighlighted(player) ? 5 : 3), strokeColors: '#07101f', strokeWidth: 2, hover: { size: 7 } },
+  markers: { size: lineSeries.value.map(() => 5), strokeColors: '#07101f', strokeWidth: 2, hover: { size: 7 } },
   dataLabels: { enabled: false },
   legend: { show: false },
   grid: { borderColor: 'rgba(148,163,184,.13)', strokeDashArray: 0, padding: { left: 8, right: 18, top: 8, bottom: 0 } },
@@ -350,8 +394,23 @@ const lineChartOptions = computed(() => ({
     axisBorder: { color: 'rgba(148,163,184,.12)' },
     axisTicks: { color: 'rgba(148,163,184,.12)' },
   },
-  yaxis: { min: chartBounds.value.min, max: chartBounds.value.max, tickAmount: 5, forceNiceScale: false, labels: { style: { colors: '#8794a7', fontSize: '10px', fontWeight: 650 }, formatter: (value) => displayMetricValue(value) } },
-  tooltip: { theme: 'dark', shared: showAllAthletes.value, intersect: !showAllAthletes.value, followCursor: false, x: { format: 'dd MMM yyyy' }, marker: { show: true } },
+  yaxis: { min: chartBounds.value.min, max: chartBounds.value.max, tickAmount: 5, forceNiceScale: false, labels: { style: { colors: '#8794a7', fontSize: '10px', fontWeight: 650 }, formatter: (value) => multiMetricChart.value ? `${Number(value).toFixed(1)}%` : displayMetricValue(value) } },
+  tooltip: {
+    theme: 'dark',
+    shared: showAllAthletes.value || multiMetricChart.value,
+    intersect: !(showAllAthletes.value || multiMetricChart.value),
+    followCursor: false,
+    x: { format: 'dd MMM yyyy' },
+    marker: { show: true },
+    y: {
+      formatter: (value, context) => {
+        if (!multiMetricChart.value) return displayMetricValue(value)
+        const metric = selectedChartMetrics.value[context?.seriesIndex]
+        const raw = context?.w?.config?.series?.[context.seriesIndex]?.data?.[context.dataPointIndex]?.raw
+        return `${displayMetricValue(raw, metric)} (${Number(value).toFixed(1)}%)`
+      },
+    },
+  },
   theme: { mode: 'dark' },
 }))
 
@@ -583,12 +642,27 @@ const takeaway = computed(() => {
               <div class="panel-header trend-header">
                 <div>
                   <h2>{{ activeMetric?.label }} Over Time <small>ⓘ</small></h2>
-                  <p>{{ showAllAthletes ? `${comparedPlayers.length} athletes` : (highlightedPlayer?.name || 'Selected athlete') }} · {{ rangeLabel }}</p>
+                  <p>{{ showAllAthletes ? `${comparedPlayers.length} athletes` : `${highlightedPlayer?.name || 'Selected athlete'} · ${selectedChartMetrics.length} metric${selectedChartMetrics.length === 1 ? '' : 's'}` }} · {{ rangeLabel }}</p>
                 </div>
                 <div class="trend-controls">
                   <button type="button" class="chart-mode-button" :class="{ active: showAllAthletes }" @click="showAllAthletes = !showAllAthletes">
                     {{ showAllAthletes ? 'Focus Selected Athlete' : `Compare All (${comparedPlayers.length})` }}
                   </button>
+                  <div v-if="!showAllAthletes" class="metric-picker-wrap">
+                    <button type="button" class="chart-mode-button metric-picker-button" :class="{ active: selectedChartMetrics.length > 1 }" @click="showMetricPicker = !showMetricPicker">
+                      Metrics ({{ selectedChartMetrics.length }}) ▾
+                    </button>
+                    <div v-if="showMetricPicker" class="metric-picker-menu">
+                      <div class="metric-picker-title"><b>Compare metrics</b><span>Up to 4</span></div>
+                      <div v-for="group in categorizedMetrics" :key="group.label" class="metric-picker-group">
+                        <span>{{ group.label }}</span>
+                        <button v-for="metric in group.metrics" :key="metric.key" type="button" :class="{ selected: selectedChartMetricKeys.includes(metric.key) }" @click="toggleChartMetric(metric)">
+                          <i :style="{ background: metric.color }"></i>{{ metric.label }}<b>{{ selectedChartMetricKeys.includes(metric.key) ? '✓' : '+' }}</b>
+                        </button>
+                      </div>
+                      <p v-if="metricPickerMessage">{{ metricPickerMessage }}</p>
+                    </div>
+                  </div>
                   <div class="segment-control">
                     <button v-for="interval in INTERVALS" :key="interval" type="button" :class="{ active: chartInterval === interval }" @click="chartInterval = interval">{{ interval }}</button>
                   </div>
@@ -597,7 +671,11 @@ const takeaway = computed(() => {
 
               <div class="trend-layout">
                 <div class="chart-area">
-                  <apexchart v-if="hasLineData" width="100%" type="line" height="340" :options="lineChartOptions" :series="lineSeries" :key="`${activeMetricKey}_${highlightedPlayerId}_${showAllAthletes}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
+                  <div v-if="multiMetricChart" class="metric-line-legend">
+                    <span v-for="metric in selectedChartMetrics" :key="metric.key"><i :style="{ background: metric.color }"></i>{{ metric.label }}</span>
+                    <small>Trend indexed to each metric’s first test (0%)</small>
+                  </div>
+                  <apexchart v-if="hasLineData" width="100%" type="line" height="340" :options="lineChartOptions" :series="lineSeries" :key="`${activeMetricKey}_${selectedChartMetricKeys.join('-')}_${highlightedPlayerId}_${showAllAthletes}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
                   <div v-else class="empty-chart">No logged tests for this metric in the selected range.</div>
                 </div>
                 <aside class="athlete-legend">
@@ -758,11 +836,27 @@ button { cursor: pointer; }
 .trend-controls { display: flex; align-items: center; gap: 20px; }
 .chart-mode-button { min-width: 170px; padding: 9px 12px; border: 1px solid #2b3a51; border-radius: 8px; background: #0a1424; color: #c8d1de; font-size: 11px; font-weight: 750; }
 .chart-mode-button:hover, .chart-mode-button.active { border-color: #d91e38; background: rgba(192,0,0,.16); color: white; }
+.metric-picker-wrap { position: relative; }
+.metric-picker-button { min-width: 112px; }
+.metric-picker-menu { position: absolute; z-index: 40; top: calc(100% + 7px); right: 0; width: 300px; max-height: 420px; overflow-y: auto; padding: 10px; border: 1px solid #30415a; border-radius: 10px; background: #081322; box-shadow: 0 20px 55px rgba(0,0,0,.65); }
+.metric-picker-title { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 8px; color: white; font-size: 11px; }
+.metric-picker-title span { color: #7f8da1; font-size: 9px; text-transform: uppercase; }
+.metric-picker-group > span { display: block; margin: 8px 4px 4px; color: #5f6f85; font-size: 8px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; }
+.metric-picker-group button { display: grid; grid-template-columns: 9px 1fr auto; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #aeb9c8; font-size: 10px; text-align: left; }
+.metric-picker-group button:hover { background: rgba(255,255,255,.04); color: white; }
+.metric-picker-group button.selected { border-color: rgba(255,43,74,.25); background: rgba(192,0,0,.1); color: white; }
+.metric-picker-group button i { width: 8px; height: 8px; border-radius: 50%; }
+.metric-picker-group button b { color: #ff6075; }
+.metric-picker-menu > p { margin: 8px 4px 2px; color: #f6c84a; font-size: 9px; line-height: 1.35; }
 .segment-control { display: flex; border: 1px solid #2b3a51; border-radius: 999px; overflow: hidden; }
 .segment-control button { min-width: 78px; padding: 8px 13px; border: 0; background: transparent; color: #99a5b5; font-size: 10px; font-weight: 750; text-transform: capitalize; }
 .segment-control button.active { background: linear-gradient(180deg, #8f1123, #5f0b19); color: white; box-shadow: 0 0 18px rgba(255,43,74,.2); }
 .trend-layout { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 0; padding: 0 10px 10px; }
 .chart-area { min-width: 0; padding-right: 14px; }
+.metric-line-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 12px 0; color: #b8c3d1; font-size: 9px; font-weight: 750; }
+.metric-line-legend span { display: flex; align-items: center; gap: 5px; }
+.metric-line-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.metric-line-legend small { margin-left: auto; color: #68778c; font-size: 8px; font-weight: 650; }
 .empty-chart { display: grid; place-items: center; height: 340px; color: #67758a; font-size: 12px; }
 .athlete-legend { padding: 15px 0 0 18px; border-left: 1px solid rgba(148,163,184,.12); }
 .legend-heading { display: flex; justify-content: space-between; margin-bottom: 8px; color: #68778c; font-size: 9px; font-weight: 850; text-transform: uppercase; }
