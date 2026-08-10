@@ -30,6 +30,7 @@ import PlayerAssessmentReport from '@/features/development/components/PlayerAsse
 import { resolveBornValue, toISODOB, formatDOB } from '@/utils/dob.js'
 import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
 import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
+import PlayerComparisonDashboard from '@/features/development/pages/PlayerComparisonDashboard.vue'
 import DataHubDashboard from '@/pages/data-hub/DataHubDashboard.vue'
 import { sessionUserId } from '@/utils/sessionCache.js'
 
@@ -2247,7 +2248,7 @@ const ensureQuickStatsLoaded = async () => {
   quickStatsLoaded.value = true
 }
 
-const allowedDashboardTabs = ['overview', 'development', 'strength', 'datahub']
+const allowedDashboardTabs = ['overview', 'development', 'strengthcenter', 'strength', 'datahub']
 
 const setDashTab = (tab) => {
   const nextTab = allowedDashboardTabs.includes(tab) ? tab : 'overview'
@@ -2274,11 +2275,11 @@ watch(
 watch(
   () => dashTab.value,
   async (tab) => {
-    if (tab === 'strength') {
+    if (tab === 'strength' || tab === 'strengthcenter') {
       await ensureQuickStatsLoaded().catch(e => console.warn('ensureQuickStatsLoaded error:', e?.message ?? e))
     }
 
-    if (tab === 'strength' && !strengthPlayersLoading.value && !strengthPlayers.value.length) {
+    if ((tab === 'strength' || tab === 'strengthcenter') && !strengthPlayersLoading.value && !strengthPlayers.value.length) {
       await fetchStrengthPlayers().catch(e => console.warn('fetchStrengthPlayers error:', e?.message ?? e))
     }
   },
@@ -2398,6 +2399,11 @@ watch(
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
             :class="dashTab === 'development' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
           >Player Development</button>
+          <button
+            @click="setDashTab('strengthcenter')"
+            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
+            :class="dashTab === 'strengthcenter' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
+          >Strength Center</button>
           <button
             @click="setDashTab('strength')"
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
@@ -2802,7 +2808,6 @@ watch(
               </div>
               <div class="flex flex-wrap gap-2">
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development')">Player</button>
-                <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-red-500/40 text-red-300 hover:text-white hover:border-red-500" @click="router.push({ path: '/development', query: { view: 'chart' } })">Chart</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/team')">Team</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/coach')">Coach</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/admin/benchmarks')">Admin</button>
@@ -2859,6 +2864,18 @@ watch(
           </div>
 
         </div><!-- end development tab -->
+
+        <!-- STRENGTH CENTER TAB -->
+        <div v-if="dashTab === 'strengthcenter' && strengthPlayersLoading" class="rounded-2xl border border-white/10 bg-[#0a1020]/80 p-8 text-center text-sm text-white/40">
+          Loading Strength Center roster…
+        </div>
+        <PlayerComparisonDashboard
+          v-else-if="dashTab === 'strengthcenter'"
+          embedded
+          :team-id="activeTeamId || ''"
+          :team-name="team?.name || team?.team_name || 'Current Team'"
+          :player-options="strengthPlayers"
+        />
 
         <!-- STRENGTH ASSESSMENT TAB -->
         <div v-if="dashTab === 'strength'" class="strength-assessment flex flex-col gap-5">

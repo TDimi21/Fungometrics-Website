@@ -8,6 +8,13 @@ import { categorizeMetrics, benchmarkFor, METRICS } from '../lib/strengthMetricC
 const route = useRoute()
 const router = useRouter()
 const { axiosGet } = useAxiosAuth()
+const props = defineProps({
+  embedded: { type: Boolean, default: false },
+  teamId: { type: [String, Number], default: '' },
+  teamName: { type: String, default: '' },
+  playerOptions: { type: Array, default: () => [] },
+})
+const pageWrapper = computed(() => props.embedded ? 'div' : Layout)
 
 const PLAYER_COLORS = ['#ff2b4a', '#3b82f6', '#20c878', '#a855f7', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16']
 const QUICK_RANGES = [
@@ -21,10 +28,23 @@ const TABLE_METRIC_KEYS = ['body_weight', 'bench_press', 'front_squat', 'dead_li
 const STRENGTH_METRIC_KEYS = ['bench_press', 'front_squat', 'back_squat', 'dead_lift', 'power_clean']
 const INTERVALS = ['daily', 'weekly', 'monthly']
 
-const teamId = computed(() => String(route.query?.teamId || '').trim())
-const teamName = computed(() => String(route.query?.teamName || 'Current Team'))
-const playerIds = computed(() => String(route.query?.playerIds || '').split(',').map((id) => id.trim()).filter(Boolean))
-const playerNames = computed(() => String(route.query?.names || '').split('|'))
+const embeddedSelection = ref([])
+watch(
+  () => props.playerOptions,
+  (options) => {
+    if (!props.embedded) return
+    embeddedSelection.value = (options || []).map((option) => String(option?.id || '')).filter(Boolean)
+  },
+  { immediate: true },
+)
+const teamId = computed(() => String(props.teamId || route.query?.teamId || '').trim())
+const teamName = computed(() => String(props.teamName || route.query?.teamName || 'Current Team'))
+const playerIds = computed(() => props.embedded
+  ? embeddedSelection.value
+  : String(route.query?.playerIds || '').split(',').map((id) => id.trim()).filter(Boolean))
+const playerNames = computed(() => props.embedded
+  ? playerIds.value.map((id) => props.playerOptions.find((option) => String(option?.id) === id)?.name || 'Player')
+  : String(route.query?.names || '').split('|'))
 
 const loading = ref(false)
 const errorMessage = ref('')
@@ -130,6 +150,11 @@ const rosterLoaded = ref(false)
 const showAddPlayer = ref(false)
 const loadRoster = async () => {
   if (rosterLoaded.value || !teamId.value) return
+  if (props.embedded) {
+    rosterOptions.value = props.playerOptions.map((option) => ({ id: String(option.id), name: option.name }))
+    rosterLoaded.value = true
+    return
+  }
   try {
     const { data } = await axiosGet(`coach/teams/${teamId.value}/player-development-board`)
     const rows = Array.isArray(data?.data) ? data.data : []
@@ -151,6 +176,11 @@ const toggleAddPlayer = () => {
   if (showAddPlayer.value) loadRoster()
 }
 const addPlayer = (option) => {
+  if (props.embedded) {
+    embeddedSelection.value = [...embeddedSelection.value, option.id]
+    showAddPlayer.value = false
+    return
+  }
   const ids = [...playerIds.value, option.id]
   const names = [...playerNames.value.slice(0, playerIds.value.length), option.name]
   showAddPlayer.value = false
@@ -159,6 +189,10 @@ const addPlayer = (option) => {
 const removePlayer = (id) => {
   const index = playerIds.value.indexOf(id)
   if (index === -1 || playerIds.value.length <= 1) return
+  if (props.embedded) {
+    embeddedSelection.value = embeddedSelection.value.filter((playerId) => playerId !== id)
+    return
+  }
   router.replace({
     query: {
       ...route.query,
@@ -396,16 +430,16 @@ const takeaway = computed(() => {
 </script>
 
 <template>
-  <Layout>
-    <main class="command-center">
+  <component :is="pageWrapper">
+    <main class="command-center" :class="{ embedded }">
       <header class="command-header">
         <div>
-          <h1>Strength &amp; Weight Metrics Command Center</h1>
+          <h1>Strength Center</h1>
           <p>Coach Comparison &amp; Benchmarking</p>
         </div>
         <div class="header-actions">
           <span class="season-chip">{{ rangeLabel }}</span>
-          <button type="button" class="back-button" @click="router.push('/development')">← Player Development</button>
+          <button v-if="!embedded" type="button" class="back-button" @click="router.push('/dashboard?tab=strengthcenter')">← Coach Dashboard</button>
         </div>
       </header>
 
@@ -599,15 +633,16 @@ const takeaway = computed(() => {
         </div>
       </section>
     </main>
-  </Layout>
+  </component>
 </template>
 
 <style scoped>
-:global(body:has(.command-center) .screen-stage) { width: 100%; margin: 0; }
-:global(body:has(.command-center) .screen-stage > .command-center) { border: 0; border-radius: 0; background: #020817; box-shadow: none; }
-:global(body:has(.command-center) .app-main-shell) { background: #020817 !important; }
+:global(body:has(.command-center:not(.embedded)) .screen-stage) { width: 100%; margin: 0; }
+:global(body:has(.command-center:not(.embedded)) .screen-stage > .command-center) { border: 0; border-radius: 0; background: #020817; box-shadow: none; }
+:global(body:has(.command-center:not(.embedded)) .app-main-shell) { background: #020817 !important; }
 
 .command-center { min-height: 100vh; width: 100%; padding: 24px clamp(16px, 2vw, 34px) 40px; overflow-x: hidden; color: #f7f9fc; background: radial-gradient(circle at 75% 0, rgba(25,45,85,.16), transparent 34%), #020817; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.command-center.embedded { min-height: 0; padding: 4px 0 12px; overflow: visible; background: transparent; }
 .command-center * { box-sizing: border-box; }
 button, select, input { font: inherit; }
 button { cursor: pointer; }
