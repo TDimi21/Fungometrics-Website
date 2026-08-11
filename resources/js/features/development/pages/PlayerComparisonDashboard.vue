@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
-import { categorizeMetrics, benchmarkFor, METRICS } from '../lib/strengthMetricCatalog.js'
+import { categorizeMetrics, benchmarkFor, METRICS, positiveMetricNumber } from '../lib/strengthMetricCatalog.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -141,8 +141,8 @@ const loadComparison = async () => {
     if (!results.some((player) => player.id === highlightedPlayerId.value)) {
       const metricKey = activeMetricKey.value
       const richestHistory = results.slice().sort((a, b) =>
-        (b.history || []).filter((row) => row?.[metricKey] != null).length
-        - (a.history || []).filter((row) => row?.[metricKey] != null).length
+        (b.history || []).filter((row) => positiveMetricNumber(row?.[metricKey]) !== null).length
+        - (a.history || []).filter((row) => positiveMetricNumber(row?.[metricKey]) !== null).length
       )[0]
       highlightedPlayerId.value = richestHistory?.id || results[0]?.id || ''
     }
@@ -220,7 +220,7 @@ const metricRowsFor = (player, limitToRange = true, metric = activeMetric.value)
   const key = metric?.key
   if (!key) return []
   return (player?.history || [])
-    .filter((row) => row.fitness_date && row[key] != null && Number.isFinite(Number(row[key])))
+    .filter((row) => row.fitness_date && positiveMetricNumber(row[key]) !== null)
     .filter((row) => !limitToRange || withinRange(row.fitness_date))
     .slice()
     .sort((a, b) => new Date(a.fitness_date) - new Date(b.fitness_date))
@@ -274,13 +274,14 @@ const aggregateRows = (rows, metric = activeMetric.value) => {
 
 const legendCurrentValue = (player) => {
   const benchmark = metricBenchmark(player, activeMetric.value)
-  if (benchmark?.raw_value != null) return Number(benchmark.raw_value)
+  const benchmarkValue = positiveMetricNumber(benchmark?.raw_value)
+  if (benchmarkValue !== null) return benchmarkValue
   const rows = metricRowsFor(player, false)
   return rows.length ? Number(rows[rows.length - 1][activeMetric.value.key]) : null
 }
-const displayMetricValue = (value, metric = activeMetric.value, precision = 1) => value == null
+const displayMetricValue = (value, metric = activeMetric.value, precision = 1) => positiveMetricNumber(value) === null
   ? '—'
-  : `${Number(value).toFixed(precision)} ${metric?.unit || ''}`.trim()
+  : `${positiveMetricNumber(value).toFixed(precision)} ${metric?.unit || ''}`.trim()
 const legendCurrent = (player) => displayMetricValue(legendCurrentValue(player))
 const legendChange = (player) => {
   const rows = metricRowsFor(player)
@@ -311,16 +312,10 @@ const lineSeries = computed(() => {
   }
   const player = chartPlayers.value[0]
   if (!player) return []
-  return selectedChartMetrics.value.map((metric) => {
-    const points = aggregateRows(metricRowsFor(player, true, metric), metric)
-    const baseline = Number(points[0]?.y)
-    return {
-      name: metric.label,
-      data: multiMetricChart.value && Number.isFinite(baseline) && baseline !== 0
-        ? points.map((point) => ({ ...point, raw: point.y, y: Number((((point.y - baseline) / baseline) * 100).toFixed(2)) }))
-        : points,
-    }
-  })
+  return selectedChartMetrics.value.map((metric) => ({
+    name: metric.label,
+    data: aggregateRows(metricRowsFor(player, true, metric), metric),
+  }))
 })
 const hasLineData = computed(() => lineSeries.value.some((series) => series.data.length))
 const isHighlighted = (player) => chartPlayers.value.length === 1 || player.id === highlightedPlayerId.value
@@ -344,8 +339,8 @@ const chartBenchmarkAnnotations = computed(() => {
   ]
   const seen = new Set()
   return definitions.filter((definition) => {
-    const value = Number(definition.value)
-    if (!Number.isFinite(value) || seen.has(value)) return false
+    const value = positiveMetricNumber(definition.value)
+    if (value === null || seen.has(value)) return false
     seen.add(value)
     return true
   }).map((definition) => ({
@@ -378,6 +373,47 @@ const chartBounds = computed(() => {
     max: Math.ceil((high + padding) * precision) / precision,
   }
 })
+const multiMetricYAxes = computed(() => {
+  const unitOrder = [...new Set(selectedChartMetrics.value.map((metric) => metric.unit || 'value'))]
+  const boundsByUnit = new Map(unitOrder.map((unit) => {
+    const seriesIndexes = selectedChartMetrics.value.map((metric, index) => metric.unit === unit ? index : -1).filter((index) => index >= 0)
+    const values = seriesIndexes.flatMap((index) => lineSeries.value[index]?.data?.map((point) => Number(point.y)) || []).filter(Number.isFinite)
+    if (!values.length) return [unit, { min: undefined, max: undefined }]
+    const low = Math.min(...values)
+    const high = Math.max(...values)
+    const spread = high - low
+    const padding = spread > 0 ? spread * 0.12 : Math.max(Math.abs(high) * 0.1, unit === 's' ? 0.25 : 5)
+    const precision = unit === 's' ? 100 : 10
+    return [unit, {
+      min: Math.max(0, Math.floor((low - padding) * precision) / precision),
+      max: Math.ceil((high + padding) * precision) / precision,
+    }]
+  }))
+
+  return selectedChartMetrics.value.map((metric, index) => {
+    const unit = metric.unit || 'value'
+    const unitIndex = unitOrder.indexOf(unit)
+    const firstForUnit = selectedChartMetrics.value.findIndex((candidate) => (candidate.unit || 'value') === unit) === index
+    const bounds = boundsByUnit.get(unit) || {}
+    return {
+      seriesName: metric.label,
+      show: firstForUnit,
+      opposite: unitIndex % 2 === 1,
+      min: bounds.min,
+      max: bounds.max,
+      tickAmount: 5,
+      forceNiceScale: false,
+      axisBorder: { show: firstForUnit, color: metric.color },
+      axisTicks: { show: firstForUnit, color: metric.color },
+      title: { text: firstForUnit ? unit : '', style: { color: metric.color, fontSize: '9px', fontWeight: 800 } },
+      labels: {
+        show: firstForUnit,
+        style: { colors: metric.color, fontSize: '9px', fontWeight: 700 },
+        formatter: (value) => `${Number(value).toFixed(unit === 's' ? 2 : 1)} ${unit}`,
+      },
+    }
+  })
+})
 const lineChartOptions = computed(() => ({
   chart: { type: 'line', height: 340, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 500, animateGradually: { enabled: true, delay: 80 }, dynamicAnimation: { enabled: true, speed: 350 } } },
   annotations: { yaxis: chartBenchmarkAnnotations.value },
@@ -394,7 +430,7 @@ const lineChartOptions = computed(() => ({
     axisBorder: { color: 'rgba(148,163,184,.12)' },
     axisTicks: { color: 'rgba(148,163,184,.12)' },
   },
-  yaxis: { min: chartBounds.value.min, max: chartBounds.value.max, tickAmount: 5, forceNiceScale: false, labels: { style: { colors: '#8794a7', fontSize: '10px', fontWeight: 650 }, formatter: (value) => multiMetricChart.value ? `${Number(value).toFixed(1)}%` : displayMetricValue(value) } },
+  yaxis: multiMetricChart.value ? multiMetricYAxes.value : { min: chartBounds.value.min, max: chartBounds.value.max, tickAmount: 5, forceNiceScale: false, labels: { style: { colors: '#8794a7', fontSize: '10px', fontWeight: 650 }, formatter: (value) => displayMetricValue(value) } },
   tooltip: {
     theme: 'dark',
     shared: showAllAthletes.value || multiMetricChart.value,
@@ -406,8 +442,7 @@ const lineChartOptions = computed(() => ({
       formatter: (value, context) => {
         if (!multiMetricChart.value) return displayMetricValue(value)
         const metric = selectedChartMetrics.value[context?.seriesIndex]
-        const raw = context?.w?.config?.series?.[context.seriesIndex]?.data?.[context.dataPointIndex]?.raw
-        return `${displayMetricValue(raw, metric)} (${Number(value).toFixed(1)}%)`
+        return displayMetricValue(value, metric, metric?.unit === 's' ? 2 : 1)
       },
     },
   },
@@ -421,9 +456,9 @@ const tableRows = computed(() => comparedPlayers.value.map((player) => {
     name: player.name,
     color: player.color,
     failed: player.failed,
-    cells: tableMetrics.value.map((metric) => ({ key: metric.key, value: metricBenchmark(player, metric)?.raw_value ?? null })),
-    rawValue: activeBenchmark?.raw_value ?? legendCurrentValue(player),
-    relative: activeBenchmark?.relative_value ?? null,
+    cells: tableMetrics.value.map((metric) => ({ key: metric.key, value: positiveMetricNumber(metricBenchmark(player, metric)?.raw_value) })),
+    rawValue: positiveMetricNumber(activeBenchmark?.raw_value) ?? legendCurrentValue(player),
+    relative: positiveMetricNumber(activeBenchmark?.relative_value),
     percentile: activeBenchmark?.percentile ?? null,
     gap: activeBenchmark?.gap ?? null,
   }
@@ -470,7 +505,7 @@ const groupStats = computed(() => {
 })
 const dataReadiness = computed(() => {
   const metrics = highlightedPlayer.value?.intelligence?.benchmark_profile?.metrics || []
-  const populated = METRICS.filter((metric) => benchmarkFor(metrics, metric)?.raw_value != null).length
+  const populated = METRICS.filter((metric) => positiveMetricNumber(benchmarkFor(metrics, metric)?.raw_value) !== null).length
   return Math.round((populated / METRICS.length) * 100)
 })
 
@@ -524,8 +559,8 @@ const radarOptions = computed(() => ({
 }))
 
 const strengthRelationships = computed(() => strengthMetrics.value.map((metric) => {
-  const selected = metricBenchmark(highlightedPlayer.value, metric)?.relative_value ?? null
-  const peerValues = comparedPlayers.value.map((player) => metricBenchmark(player, metric)?.relative_value).filter((value) => value != null).map(Number)
+  const selected = positiveMetricNumber(metricBenchmark(highlightedPlayer.value, metric)?.relative_value)
+  const peerValues = comparedPlayers.value.map((player) => positiveMetricNumber(metricBenchmark(player, metric)?.relative_value)).filter((value) => value !== null)
   const average = peerValues.length ? peerValues.reduce((total, value) => total + value, 0) / peerValues.length : null
   const difference = selected != null && average ? ((Number(selected) - average) / average) * 100 : null
   return { metric, selected: selected == null ? null : Number(selected), average, difference }
@@ -673,7 +708,7 @@ const takeaway = computed(() => {
                 <div class="chart-area">
                   <div v-if="multiMetricChart" class="metric-line-legend">
                     <span v-for="metric in selectedChartMetrics" :key="metric.key"><i :style="{ background: metric.color }"></i>{{ metric.label }}</span>
-                    <small>Trend indexed to each metric’s first test (0%)</small>
+                    <small>Actual recorded values · each unit uses its own scale</small>
                   </div>
                   <apexchart v-if="hasLineData" width="100%" type="line" height="340" :options="lineChartOptions" :series="lineSeries" :key="`${activeMetricKey}_${selectedChartMetricKeys.join('-')}_${highlightedPlayerId}_${showAllAthletes}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
                   <div v-else class="empty-chart">No logged tests for this metric in the selected range.</div>

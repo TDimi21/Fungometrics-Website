@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { estimatePercentileFromAnchors } from '../lib/percentileInterpolation.js'
-import { METRICS, categorizeMetrics, benchmarkFor as lookupBenchmark } from '../lib/strengthMetricCatalog.js'
+import { METRICS, categorizeMetrics, benchmarkFor as lookupBenchmark, positiveMetricNumber } from '../lib/strengthMetricCatalog.js'
 
 const props = defineProps({
   history: { type: Array, default: () => [] },
@@ -61,7 +61,7 @@ const activeBenchmark = computed(() => singleMetric.value
 const anchors = computed(() => activeBenchmark.value?.evidence?.age_percentile_anchors || null)
 const higherIsBetter = computed(() => activeBenchmark.value?.evidence?.higher_is_better ?? !(singleMetric.value?.lowerBetter))
 
-const canShowRelative = computed(() => activeBenchmark.value?.relative_value != null)
+const canShowRelative = computed(() => positiveMetricNumber(activeBenchmark.value?.relative_value) !== null)
 const canShowPercentile = computed(() => !!anchors.value)
 
 // ── Series builders per view mode (single-metric only; compare mode below always uses absolute) ──
@@ -131,10 +131,10 @@ const singleStats = computed(() => {
     current, change, changePct, good,
     currentDisplay: `${current}${m.unit.startsWith('/') ? '' : ' '}${m.unit}`.trim(),
     changeDisplay: change === null ? null : `${change > 0 ? '+' : ''}${change} ${m.unit}`.trim(),
-    relative: b?.relative_value ?? null,
+    relative: positiveMetricNumber(b?.relative_value),
     percentile: b?.percentile ?? null,
     label: b?.label ?? null,
-    goal: b?.goal ?? null,
+    goal: positiveMetricNumber(b?.goal),
     gap: b?.gap ?? null,
     confidence: b?.confidence ?? null,
     peerGroup: b?.peer_group ?? [],
@@ -157,7 +157,7 @@ const chartOptions = computed(() => {
         { tier: 'p25', text: 'BELOW AVG (25-49%)', color: '#60a5fa' },
       ]
       bands.forEach((band) => {
-        if (anchors.value[band.tier] != null) {
+        if (positiveMetricNumber(anchors.value[band.tier]) !== null) {
           yaxisAnnotations.push({
             y: anchors.value[band.tier],
             borderColor: band.color,

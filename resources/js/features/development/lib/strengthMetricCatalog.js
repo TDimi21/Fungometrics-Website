@@ -33,6 +33,13 @@ export const categorizeMetrics = () => CATEGORY_ORDER
   .map((label) => ({ label, metrics: METRICS.filter((m) => m.category === label) }))
   .filter((group) => group.metrics.length)
 
+// A recorded physical metric must be positive. Legacy/imported zeroes are
+// placeholders or bad measurements, never legitimate player results.
+export const positiveMetricNumber = (value) => {
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0 ? number : null
+}
+
 // Looks up a metric's governed benchmark entry from a benchmark_profile.metrics array.
 export const benchmarkFor = (metricsArray, metric) => {
   if (!Array.isArray(metricsArray) || !metric) return null
