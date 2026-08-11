@@ -5,6 +5,7 @@ import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { categorizeMetrics, benchmarkFor, METRICS, positiveMetricNumber } from '../lib/strengthMetricCatalog.js'
 import { getPath } from '../lib/assessmentItemCatalog.js'
+import { projectTrend } from '../lib/trendProjection.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,6 +56,7 @@ const sortBy = ref('percentile')
 const highlightedPlayerId = ref('')
 const chartInterval = ref('daily')
 const showAllAthletes = ref(false)
+const showProjections = ref(true)
 const selectedChartMetricKeys = ref(['body_weight'])
 const showMetricPicker = ref(false)
 const metricPickerMessage = ref('')
@@ -337,6 +339,9 @@ const lineSeries = computed(() => {
     data: aggregateRows(metricRowsFor(player, true, metric), metric),
   }))
 })
+const lineSeriesMetrics = computed(() => showAllAthletes.value
+  ? lineSeries.value.map(() => activeMetric.value)
+  : selectedChartMetrics.value)
 const hasLineData = computed(() => lineSeries.value.some((series) => series.data.length))
 const isHighlighted = (player) => chartPlayers.value.length === 1 || player.id === highlightedPlayerId.value
 const withAlpha = (hex, alpha) => {
@@ -346,6 +351,36 @@ const withAlpha = (hex, alpha) => {
 const lineColors = computed(() => showAllAthletes.value
   ? chartPlayers.value.map((player) => isHighlighted(player) ? player.color : withAlpha(player.color, 0.48))
   : selectedChartMetrics.value.map((metric) => metric.color))
+const projectionDescriptors = computed(() => {
+  if (!showProjections.value) return []
+  return lineSeries.value.map((series, sourceIndex) => {
+    const projection = projectTrend(series.data, { months: 3 })
+    if (!projection) return null
+    return {
+      sourceIndex,
+      metric: lineSeriesMetrics.value[sourceIndex],
+      color: lineColors.value[sourceIndex],
+      projection,
+      series: { name: `${series.name} · 3M Projection`, data: projection.data },
+    }
+  }).filter(Boolean)
+})
+const chartSeries = computed(() => [...lineSeries.value, ...projectionDescriptors.value.map((descriptor) => descriptor.series)])
+const chartSeriesMetrics = computed(() => [...lineSeriesMetrics.value, ...projectionDescriptors.value.map((descriptor) => descriptor.metric)])
+const chartColors = computed(() => [...lineColors.value, ...projectionDescriptors.value.map((descriptor) => descriptor.color)])
+const highlightedProjection = computed(() => {
+  const sourceIndex = showAllAthletes.value
+    ? chartPlayers.value.findIndex((player) => player.id === highlightedPlayerId.value)
+    : selectedChartMetrics.value.findIndex((metric) => metric.key === activeMetricKey.value)
+  return projectionDescriptors.value.find((descriptor) => descriptor.sourceIndex === sourceIndex)?.projection || null
+})
+const projectionTone = computed(() => {
+  const projected = highlightedProjection.value?.projectedValue
+  const current = legendCurrentValue(highlightedPlayer.value)
+  if (projected == null || current == null || projected === current) return ''
+  const improving = activeMetric.value?.lowerBetter ? projected < current : projected > current
+  return improving ? 'good' : 'bad'
+})
 const chartBenchmarkAnnotations = computed(() => {
   if (showAllAthletes.value || multiMetricChart.value) return []
   const benchmark = highlightedBenchmark.value
@@ -378,7 +413,7 @@ const chartBenchmarkAnnotations = computed(() => {
 })
 const chartBounds = computed(() => {
   const values = [
-    ...lineSeries.value.flatMap((series) => series.data.map((point) => Number(point.y))),
+    ...chartSeries.value.flatMap((series) => series.data.map((point) => Number(point.y))),
     ...chartBenchmarkAnnotations.value.map((annotation) => Number(annotation.y)),
   ].filter(Number.isFinite)
   if (!values.length) return { min: undefined, max: undefined }
@@ -396,8 +431,8 @@ const chartBounds = computed(() => {
 const multiMetricYAxes = computed(() => {
   const unitOrder = [...new Set(selectedChartMetrics.value.map((metric) => metric.unit || 'value'))]
   const boundsByUnit = new Map(unitOrder.map((unit) => {
-    const seriesIndexes = selectedChartMetrics.value.map((metric, index) => metric.unit === unit ? index : -1).filter((index) => index >= 0)
-    const values = seriesIndexes.flatMap((index) => lineSeries.value[index]?.data?.map((point) => Number(point.y)) || []).filter(Number.isFinite)
+    const seriesIndexes = chartSeriesMetrics.value.map((metric, index) => metric?.unit === unit ? index : -1).filter((index) => index >= 0)
+    const values = seriesIndexes.flatMap((index) => chartSeries.value[index]?.data?.map((point) => Number(point.y)) || []).filter(Number.isFinite)
     if (!values.length) return [unit, { min: undefined, max: undefined }]
     const low = Math.min(...values)
     const high = Math.max(...values)
@@ -410,13 +445,13 @@ const multiMetricYAxes = computed(() => {
     }]
   }))
 
-  return selectedChartMetrics.value.map((metric, index) => {
+  return chartSeriesMetrics.value.map((metric, index) => {
     const unit = metric.unit || 'value'
     const unitIndex = unitOrder.indexOf(unit)
-    const firstForUnit = selectedChartMetrics.value.findIndex((candidate) => (candidate.unit || 'value') === unit) === index
+    const firstForUnit = chartSeriesMetrics.value.findIndex((candidate) => (candidate?.unit || 'value') === unit) === index
     const bounds = boundsByUnit.get(unit) || {}
     return {
-      seriesName: metric.label,
+      seriesName: chartSeries.value[index]?.name,
       show: firstForUnit,
       opposite: unitIndex % 2 === 1,
       min: bounds.min,
@@ -437,9 +472,17 @@ const multiMetricYAxes = computed(() => {
 const lineChartOptions = computed(() => ({
   chart: { type: 'line', height: 340, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: true, speed: 500, animateGradually: { enabled: true, delay: 80 }, dynamicAnimation: { enabled: true, speed: 350 } } },
   annotations: { yaxis: chartBenchmarkAnnotations.value },
-  stroke: { curve: 'smooth', lineCap: 'round', width: showAllAthletes.value ? chartPlayers.value.map((player) => isHighlighted(player) ? 3.5 : 2) : lineSeries.value.map(() => 3.5) },
-  colors: lineColors.value,
-  markers: { size: lineSeries.value.map(() => 5), strokeColors: '#07101f', strokeWidth: 2, hover: { size: 7 } },
+  stroke: {
+    curve: 'smooth',
+    lineCap: 'round',
+    width: [
+      ...(showAllAthletes.value ? chartPlayers.value.map((player) => isHighlighted(player) ? 3.5 : 2) : lineSeries.value.map(() => 3.5)),
+      ...projectionDescriptors.value.map(() => 2.25),
+    ],
+    dashArray: [...lineSeries.value.map(() => 0), ...projectionDescriptors.value.map(() => 7)],
+  },
+  colors: chartColors.value,
+  markers: { size: [...lineSeries.value.map(() => 5), ...projectionDescriptors.value.map(() => 3)], strokeColors: '#07101f', strokeWidth: 2, hover: { size: 7 } },
   dataLabels: { enabled: false },
   legend: { show: false },
   grid: { borderColor: 'rgba(148,163,184,.13)', strokeDashArray: 0, padding: { left: 8, right: 18, top: 8, bottom: 0 } },
@@ -461,7 +504,7 @@ const lineChartOptions = computed(() => ({
     y: {
       formatter: (value, context) => {
         if (!multiMetricChart.value) return displayMetricValue(value)
-        const metric = selectedChartMetrics.value[context?.seriesIndex]
+        const metric = chartSeriesMetrics.value[context?.seriesIndex]
         return displayMetricValue(value, metric, metric?.unit === 's' ? 2 : 1)
       },
     },
@@ -706,6 +749,9 @@ const takeaway = computed(() => {
                   <p>{{ showAllAthletes ? `${comparedPlayers.length} athletes` : `${highlightedPlayer?.name || 'Selected athlete'} · ${selectedChartMetrics.length} metric${selectedChartMetrics.length === 1 ? '' : 's'}` }} · {{ rangeLabel }}</p>
                 </div>
                 <div class="trend-controls">
+                  <button type="button" class="projection-toggle" :class="{ active: showProjections }" @click="showProjections = !showProjections">
+                    <span>⌁</span> 3M Projection
+                  </button>
                   <button type="button" class="chart-mode-button" :class="{ active: showAllAthletes }" @click="showAllAthletes = !showAllAthletes">
                     {{ showAllAthletes ? 'Focus Selected Athlete' : `Compare All (${comparedPlayers.length})` }}
                   </button>
@@ -738,11 +784,12 @@ const takeaway = computed(() => {
 
               <div class="trend-layout">
                 <div class="chart-area">
-                  <div v-if="multiMetricChart" class="metric-line-legend">
-                    <span v-for="metric in selectedChartMetrics" :key="metric.key"><i :style="{ background: metric.color }"></i>{{ metric.label }}</span>
-                    <small>Actual recorded values · each unit uses its own scale</small>
+                  <div v-if="multiMetricChart || projectionDescriptors.length" class="metric-line-legend">
+                    <span v-if="multiMetricChart" v-for="metric in selectedChartMetrics" :key="metric.key"><i :style="{ background: metric.color }"></i>{{ metric.label }}</span>
+                    <span v-if="projectionDescriptors.length" class="projection-key"><i></i>Projected next 3 months</span>
+                    <small>Projections use the selected range’s recorded trend</small>
                   </div>
-                  <apexchart v-if="hasLineData" width="100%" type="line" height="340" :options="lineChartOptions" :series="lineSeries" :key="`${activeMetricKey}_${selectedChartMetricKeys.join('-')}_${highlightedPlayerId}_${showAllAthletes}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
+                  <apexchart v-if="hasLineData" width="100%" type="line" height="340" :options="lineChartOptions" :series="chartSeries" :key="`${activeMetricKey}_${selectedChartMetricKeys.join('-')}_${highlightedPlayerId}_${showAllAthletes}_${showProjections}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
                   <div v-else class="empty-chart">No logged tests for this metric in the selected range.</div>
                 </div>
                 <aside class="athlete-legend">
@@ -767,6 +814,7 @@ const takeaway = computed(() => {
             <section class="summary-grid">
               <article class="summary-card current"><span>Current (Selected)</span><b>{{ displayMetricValue(highlightedBenchmark?.raw_value ?? legendCurrentValue(highlightedPlayer)) }}</b><small>{{ highlightedPlayer?.name || '—' }}</small></article>
               <article class="summary-card"><span>Change ({{ rangeLabel }})</span><b :class="legendChangeTone(highlightedPlayer)">{{ highlightedPlayer ? legendChangeLabel(highlightedPlayer) : '—' }}</b><small>{{ chartInterval }} view</small></article>
+              <article class="summary-card projection"><span>3M Projection</span><b :class="projectionTone">{{ displayMetricValue(highlightedProjection?.projectedValue) }}</b><small>{{ highlightedProjection ? `${highlightedProjection.sampleCount} recorded points · trend estimate` : 'Needs at least 2 recorded points' }}</small></article>
               <article class="summary-card"><span>Selected Avg</span><b>{{ displayMetricValue(groupStats.avg) }}</b><small>{{ comparedPlayers.length }} athletes</small></article>
               <article class="summary-card"><span>Best Selected</span><b>{{ displayMetricValue(groupStats.best) }}</b><small>{{ groupStats.bestName || '—' }}</small></article>
               <article class="summary-card"><span>Benchmark</span><b>{{ displayMetricValue(benchmarkMedian) }}</b><small>Age-group median</small></article>
@@ -907,6 +955,9 @@ button { cursor: pointer; }
 .panel-header > span { color: #77859a; font-size: 9px; }
 .trend-header p { margin: 4px 0 0; color: #8491a4; font-size: 10px; }
 .trend-controls { display: flex; align-items: center; gap: 20px; }
+.projection-toggle { min-width: 125px; padding: 9px 11px; border: 1px solid #2b3a51; border-radius: 8px; background: #0a1424; color: #8f9bad; font-size: 10px; font-weight: 800; }
+.projection-toggle span { color: #36d6a0; font-size: 14px; }
+.projection-toggle:hover, .projection-toggle.active { border-color: rgba(54,214,160,.55); background: rgba(54,214,160,.09); color: #d9fff2; }
 .chart-mode-button { min-width: 170px; padding: 9px 12px; border: 1px solid #2b3a51; border-radius: 8px; background: #0a1424; color: #c8d1de; font-size: 11px; font-weight: 750; }
 .chart-mode-button:hover, .chart-mode-button.active { border-color: #d91e38; background: rgba(192,0,0,.16); color: white; }
 .metric-picker-wrap { position: relative; }
@@ -929,6 +980,7 @@ button { cursor: pointer; }
 .metric-line-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 12px 0; color: #b8c3d1; font-size: 9px; font-weight: 750; }
 .metric-line-legend span { display: flex; align-items: center; gap: 5px; }
 .metric-line-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.metric-line-legend .projection-key i { width: 22px; height: 0; border-top: 2px dashed #36d6a0; border-radius: 0; background: none; }
 .metric-line-legend small { margin-left: auto; color: #68778c; font-size: 8px; font-weight: 650; }
 .empty-chart { display: grid; place-items: center; height: 340px; color: #67758a; font-size: 12px; }
 .athlete-legend { padding: 15px 0 0 18px; border-left: 1px solid rgba(148,163,184,.12); }
@@ -946,9 +998,10 @@ button { cursor: pointer; }
 .add-athlete-button { width: 100%; padding: 9px; border: 1px solid #2d3c53; border-radius: 7px; background: #0c1728; color: #c8d2df; font-size: 10px; font-weight: 750; }
 .add-athlete-menu { position: absolute; left: 0; right: 0; }
 
-.summary-grid { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 10px; }
+.summary-grid { display: grid; grid-template-columns: repeat(8, minmax(115px, 1fr)); gap: 10px; }
 .summary-card { display: flex; flex-direction: column; min-height: 92px; padding: 13px 14px; border: 1px solid #223149; border-radius: 9px; background: linear-gradient(145deg, #0b1628, #081120); }
 .summary-card.current { border-color: rgba(255,43,74,.38); box-shadow: inset 3px 0 #ff2b4a; }
+.summary-card.projection { border-color: rgba(54,214,160,.25); box-shadow: inset 3px 0 rgba(54,214,160,.75); }
 .summary-card > span { color: #8e9bad; font-size: 9px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
 .summary-card b { margin-top: 9px; color: #f2f6fb; font-size: 20px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .summary-card b.accent { color: #f6c84a; }
