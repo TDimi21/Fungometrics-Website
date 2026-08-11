@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { categorizeMetrics, benchmarkFor, METRICS, positiveMetricNumber } from '../lib/strengthMetricCatalog.js'
+import { getPath } from '../lib/assessmentItemCatalog.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -57,6 +58,8 @@ const showAllAthletes = ref(false)
 const selectedChartMetricKeys = ref(['body_weight'])
 const showMetricPicker = ref(false)
 const metricPickerMessage = ref('')
+const selectedMetricCategory = ref('Body')
+const metricPickerCategory = ref('Body')
 const ageGroupFilter = ref('all')
 const weightClassFilter = ref('all')
 const activeQuickIndex = ref(1)
@@ -99,6 +102,8 @@ const rangeLabel = computed(() => {
 })
 
 const categorizedMetrics = computed(() => categorizeMetrics())
+const selectedMetricGroup = computed(() => categorizedMetrics.value.find((group) => group.label === selectedMetricCategory.value) || categorizedMetrics.value[0])
+const metricPickerGroup = computed(() => categorizedMetrics.value.find((group) => group.label === metricPickerCategory.value) || categorizedMetrics.value[0])
 const activeMetric = computed(() => METRICS.find((metric) => metric.key === activeMetricKey.value) || null)
 const selectedChartMetrics = computed(() => selectedChartMetricKeys.value.map((key) => METRICS.find((metric) => metric.key === key)).filter(Boolean))
 const multiMetricChart = computed(() => !showAllAthletes.value && selectedChartMetrics.value.length > 1)
@@ -124,9 +129,10 @@ const loadComparison = async () => {
   loading.value = true
   try {
     const results = await Promise.all(playerIds.value.map(async (id, index) => {
-      const [intelligenceResponse, historyResponse] = await Promise.all([
+      const [intelligenceResponse, historyResponse, assessmentResponse] = await Promise.all([
         axiosGet(`coach/teams/${teamId.value}/players/${id}/intelligence`, { days: dataWindowDays.value }).catch(() => null),
         axiosGet(`player/fitness/${id}`).catch(() => null),
+        axiosGet(`assessments/player/${id}`).catch(() => null),
       ])
       return {
         id,
@@ -134,7 +140,8 @@ const loadComparison = async () => {
         color: PLAYER_COLORS[index % PLAYER_COLORS.length],
         intelligence: intelligenceResponse?.data?.data || intelligenceResponse?.data || null,
         history: Array.isArray(historyResponse?.data?.data) ? historyResponse.data.data : [],
-        failed: !intelligenceResponse && !historyResponse,
+        assessmentHistory: Array.isArray(assessmentResponse?.data?.data) ? assessmentResponse.data.data : [],
+        failed: !intelligenceResponse && !historyResponse && !assessmentResponse,
       }
     }))
     players.value = results
@@ -217,13 +224,15 @@ const removePlayer = (id) => {
 
 const metricBenchmark = (player, metric) => benchmarkFor(player?.intelligence?.benchmark_profile?.metrics, metric)
 const metricRowsFor = (player, limitToRange = true, metric = activeMetric.value) => {
-  const key = metric?.key
-  if (!key) return []
-  return (player?.history || [])
-    .filter((row) => row.fitness_date && positiveMetricNumber(row[key]) !== null)
-    .filter((row) => !limitToRange || withinRange(row.fitness_date))
-    .slice()
-    .sort((a, b) => new Date(a.fitness_date) - new Date(b.fitness_date))
+  if (!metric?.key) return []
+  const assessmentSource = metric.source === 'assessment'
+  const rows = assessmentSource ? player?.assessmentHistory : player?.history
+  const dateField = assessmentSource ? 'assessment_date' : 'fitness_date'
+  return (rows || [])
+    .map((row) => ({ recordedAt: row?.[dateField], value: positiveMetricNumber(getPath(row, metric.key)) }))
+    .filter((row) => row.recordedAt && row.value !== null)
+    .filter((row) => !limitToRange || withinRange(row.recordedAt))
+    .sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt))
 }
 watch(activeMetricKey, () => {
   selectedChartMetricKeys.value = [activeMetricKey.value]
@@ -261,9 +270,9 @@ const periodStart = (value, interval) => {
 const aggregateRows = (rows, metric = activeMetric.value) => {
   const groups = new Map()
   rows.forEach((row) => {
-    const bucket = periodStart(row.fitness_date, chartInterval.value)
+    const bucket = periodStart(row.recordedAt, chartInterval.value)
     const values = groups.get(bucket) || []
-    values.push(Number(row[metric.key]))
+    values.push(Number(row.value))
     groups.set(bucket, values)
   })
   return [...groups.entries()].map(([x, values]) => ({
@@ -277,7 +286,7 @@ const legendCurrentValue = (player) => {
   const benchmarkValue = positiveMetricNumber(benchmark?.raw_value)
   if (benchmarkValue !== null) return benchmarkValue
   const rows = metricRowsFor(player, false)
-  return rows.length ? Number(rows[rows.length - 1][activeMetric.value.key]) : null
+  return rows.length ? Number(rows[rows.length - 1].value) : null
 }
 const displayMetricValue = (value, metric = activeMetric.value, precision = 1) => positiveMetricNumber(value) === null
   ? '—'
@@ -286,7 +295,7 @@ const legendCurrent = (player) => displayMetricValue(legendCurrentValue(player))
 const legendChange = (player) => {
   const rows = metricRowsFor(player)
   if (rows.length < 2) return null
-  return Number(rows[rows.length - 1][activeMetric.value.key]) - Number(rows[0][activeMetric.value.key])
+  return Number(rows[rows.length - 1].value) - Number(rows[0].value)
 }
 const legendChangeLabel = (player) => {
   const change = legendChange(player)
@@ -659,9 +668,15 @@ const takeaway = computed(() => {
           </div>
 
           <div class="sidebar-heading metric-heading"><span>Metric Category</span></div>
-          <div v-for="group in categorizedMetrics" :key="group.label" class="metric-group">
-            <span>{{ group.label }}</span>
-            <button v-for="metric in group.metrics" :key="metric.key" type="button" :class="{ active: activeMetricKey === metric.key }" @click="activeMetricKey = metric.key">
+          <label class="metric-category-select">
+            <select v-model="selectedMetricCategory">
+              <option v-for="group in categorizedMetrics" :key="group.label" :value="group.label">{{ group.label }}</option>
+            </select>
+            <span>▾</span>
+          </label>
+          <div v-if="selectedMetricGroup" class="metric-group">
+            <span>{{ selectedMetricGroup.label }}</span>
+            <button v-for="metric in selectedMetricGroup.metrics" :key="metric.key" type="button" :class="{ active: activeMetricKey === metric.key }" @click="activeMetricKey = metric.key">
               <i :style="{ color: metric.color }">◇</i>{{ metric.label }}<b v-if="activeMetricKey === metric.key">⌁</b>
             </button>
           </div>
@@ -689,9 +704,15 @@ const takeaway = computed(() => {
                     </button>
                     <div v-if="showMetricPicker" class="metric-picker-menu">
                       <div class="metric-picker-title"><b>Compare metrics</b><span>Up to 4</span></div>
-                      <div v-for="group in categorizedMetrics" :key="group.label" class="metric-picker-group">
-                        <span>{{ group.label }}</span>
-                        <button v-for="metric in group.metrics" :key="metric.key" type="button" :class="{ selected: selectedChartMetricKeys.includes(metric.key) }" @click="toggleChartMetric(metric)">
+                      <label class="metric-picker-category">
+                        <select v-model="metricPickerCategory">
+                          <option v-for="group in categorizedMetrics" :key="group.label" :value="group.label">{{ group.label }}</option>
+                        </select>
+                        <span>▾</span>
+                      </label>
+                      <div v-if="metricPickerGroup" class="metric-picker-group">
+                        <span>{{ metricPickerGroup.label }}</span>
+                        <button v-for="metric in metricPickerGroup.metrics" :key="metric.key" type="button" :class="{ selected: selectedChartMetricKeys.includes(metric.key) }" @click="toggleChartMetric(metric)">
                           <i :style="{ background: metric.color }"></i>{{ metric.label }}<b>{{ selectedChartMetricKeys.includes(metric.key) ? '✓' : '+' }}</b>
                         </button>
                       </div>
@@ -854,6 +875,12 @@ button { cursor: pointer; }
 .sidebar-player-list button:hover, .add-athlete-menu button:hover { background: #152137; color: white; }
 .sidebar-player-list p, .add-athlete-menu p { margin: 5px; color: #728097; font-size: 10px; }
 .metric-group { margin: 0 0 10px; }
+.metric-category-select, .metric-picker-category { position: relative; display: block; }
+.metric-category-select select, .metric-picker-category select { width: 100%; appearance: none; border: 1px solid #2b3a51; border-radius: 8px; background: #0a1424; color: #edf3fb; font-size: 11px; font-weight: 750; outline: none; }
+.metric-category-select select { min-height: 42px; padding: 0 32px 0 11px; }
+.metric-picker-category select { min-height: 36px; padding: 0 30px 0 10px; }
+.metric-category-select > span, .metric-picker-category > span { position: absolute; top: 50%; right: 11px; color: #748196; font-size: 10px; pointer-events: none; transform: translateY(-50%); }
+.metric-category-select select:focus, .metric-picker-category select:focus { border-color: #d91e38; }
 .metric-group > span { display: block; margin: 10px 0 4px; color: #56647a; font-size: 8px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
 .metric-group button { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; width: 100%; margin: 3px 0; padding: 9px 10px; border: 1px solid #243249; border-radius: 7px; background: #091323; color: #a9b4c4; font-size: 11px; font-weight: 700; text-align: left; }
 .metric-group button:hover { border-color: #42516a; color: white; }

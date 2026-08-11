@@ -1,9 +1,9 @@
-// Metric catalog — mirrors StrengthBenchmarkRegistry's real category
-// taxonomy (app/Services/Intelligence/StrengthBenchmarkRegistry.php) so any
-// metric picker built from this matches what the governed benchmark engine
-// actually computes. percentileKey is the normalized metric_key
-// BenchmarkDefinitions uses to key entries in benchmark_profile.metrics.
-export const METRICS = [
+import { ITEM_CATALOG } from './assessmentItemCatalog.js'
+
+// Benchmark-backed fitness metrics. Assessment-only measurements are merged
+// below so the Strength Center can chart the complete assessment catalog while
+// keeping every stored metric key unique.
+const BENCHMARK_METRICS = [
   { key: 'body_weight', label: 'Weight', unit: 'lb', lowerBetter: false, color: '#C00000', percentileKey: 'body_weight', category: 'Body' },
   { key: 'bench_press', label: 'Bench Press', unit: 'lb', lowerBetter: false, color: '#3b82f6', percentileKey: 'bench_press', category: 'Maximum Strength' },
   { key: 'front_squat', label: 'Front Squat', unit: 'lb', lowerBetter: false, color: '#f59e0b', percentileKey: 'front_squat', category: 'Maximum Strength' },
@@ -27,7 +27,52 @@ export const METRICS = [
   { key: 'mobility_score', label: 'Mobility Score', unit: '/100', lowerBetter: false, color: '#4ade80', percentileKey: 'mobility_score', category: 'Recovery' },
 ]
 
-export const CATEGORY_ORDER = ['Body', 'Maximum Strength', 'Explosive Strength', 'Strength Endurance', 'Grip', 'Speed', 'Recovery']
+const ASSESSMENT_CATEGORY_COLORS = {
+  Recovery: '#22d3ee',
+  Mobility: '#4ade80',
+  Hitting: '#f97316',
+  Pitching: '#3b82f6',
+  'Throwing / Arm Health': '#a855f7',
+  Scores: '#f43f5e',
+}
+
+const benchmarkByKey = new Map(BENCHMARK_METRICS.map((metric) => [metric.key, metric]))
+const assessmentMetrics = ITEM_CATALOG.flatMap((group) => group.items.map((item, index) => {
+  const existing = benchmarkByKey.get(item.key)
+  if (existing) return { ...existing, source: item.source }
+  return {
+    key: item.key,
+    label: item.label,
+    unit: item.unit.trim(),
+    lowerBetter: false,
+    color: ASSESSMENT_CATEGORY_COLORS[group.category] || ['#38bdf8', '#fb7185', '#c084fc', '#2dd4bf'][index % 4],
+    percentileKey: item.key,
+    category: group.category,
+    source: item.source,
+  }
+}))
+
+// Assessment items are authoritative for shared keys. The remaining benchmark
+// metrics (for example 10 Yard Sprint and Mobility Score) are appended once.
+export const METRICS = [
+  ...assessmentMetrics,
+  ...BENCHMARK_METRICS.filter((metric) => !assessmentMetrics.some((item) => item.key === metric.key)),
+]
+
+export const CATEGORY_ORDER = [
+  'Body',
+  'Maximum Strength',
+  'Explosive Strength',
+  'Strength Endurance',
+  'Grip',
+  'Speed',
+  'Recovery',
+  'Mobility',
+  'Hitting',
+  'Pitching',
+  'Throwing / Arm Health',
+  'Scores',
+]
 
 export const categorizeMetrics = () => CATEGORY_ORDER
   .map((label) => ({ label, metrics: METRICS.filter((m) => m.category === label) }))
