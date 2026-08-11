@@ -38,6 +38,20 @@ const ASSESSMENT_CATEGORY_COLORS = {
 
 const benchmarkByKey = new Map(BENCHMARK_METRICS.map((metric) => [metric.key, metric]))
 const assessmentMetrics = ITEM_CATALOG.flatMap((group) => group.items.map((item, index) => {
+  if (item.key === 'hitting_data.avg_exit_velo') {
+    return {
+      key: 'average_hitting_velocity', sourceKey: item.key, label: 'Average Hitting Velocity', unit: 'mph',
+      lowerBetter: false, color: ASSESSMENT_CATEGORY_COLORS.Hitting, percentileKey: 'average_exit_velocity',
+      category: 'Hitting', source: 'daily_velocity', dailyValueKey: 'average_hitting_velocity',
+    }
+  }
+  if (item.key === 'pitching_data.fastball_velocity') {
+    return {
+      key: 'average_pitching_velocity', sourceKey: item.key, label: 'Average Pitching Velocity', unit: 'mph',
+      lowerBetter: false, color: ASSESSMENT_CATEGORY_COLORS.Pitching, percentileKey: 'average_fastball_velocity',
+      category: 'Pitching', source: 'daily_velocity', dailyValueKey: 'average_pitching_velocity',
+    }
+  }
   const existing = benchmarkByKey.get(item.key)
   if (existing) return { ...existing, source: item.source }
   return {

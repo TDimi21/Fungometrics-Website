@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\Coach;
 
 use App\Models\CoachTeam;
+use App\Models\BattingPracticeResult;
+use App\Models\BullpenPracticeResult;
+use App\Models\CagePracticeResult;
 use App\Models\Concerns\UserTypes;
+use App\Models\ExitVelocityPractice;
 use App\Models\Player;
 use App\Models\PlayerAssessment;
 use App\Models\PlayerFitness;
 use App\Models\PlayerTeam;
+use App\Models\Practice;
 use App\Models\Profile;
 use App\Models\Team;
 use App\Models\User;
@@ -139,6 +144,57 @@ class IntelligenceControllerTest extends TestCase
             ->assertJsonPath('summary.physical.hand_strength', 58)
             ->assertJsonPath('summary.physical.med_ball_rotational_throw', 44)
             ->assertJsonPath('summary.physical.bat_speed', 72);
+    }
+
+    public function test_player_intelligence_returns_one_cross_session_velocity_average_per_day(): void
+    {
+        [$coach, $team, $player] = $this->createCoachTeamPlayer();
+        $date = '2026-08-05';
+        $practice = Practice::factory()->create([
+            'team_id' => $team->id,
+            'user_id' => $coach->id,
+            'started' => $date.' 15:00:00',
+        ]);
+
+        BattingPracticeResult::factory()->create([
+            'practice_id' => $practice->id, 'team_id' => $team->id, 'batter_id' => $player->id,
+            'velocity' => 80, 'created_at' => $date.' 15:01:00',
+        ]);
+        CagePracticeResult::factory()->create([
+            'practice_id' => $practice->id, 'team_id' => $team->id, 'user_id' => $player->id,
+            'launch_angle_velocity' => 100, 'created_at' => $date.' 15:02:00',
+        ]);
+        ExitVelocityPractice::factory()->create([
+            'practice_id' => $practice->id, 'team_id' => $team->id, 'user_id' => $player->id,
+            'velocity' => 90, 'created_at' => $date.' 15:03:00',
+        ]);
+        BullpenPracticeResult::factory()->create([
+            'practice_id' => $practice->id, 'team_id' => $team->id, 'pitcher_id' => $player->id,
+            'miles_per_hour' => 88, 'created_at' => $date.' 15:04:00',
+        ]);
+        BullpenPracticeResult::factory()->create([
+            'practice_id' => $practice->id, 'team_id' => $team->id, 'pitcher_id' => $player->id,
+            'miles_per_hour' => 92, 'created_at' => $date.' 15:05:00',
+        ]);
+        PlayerFitness::factory()->create([
+            'user_id' => $player->id, 'fitness_date' => $date, 'exit_velo' => 110, 'pitch_velo' => 94,
+        ]);
+        PlayerAssessment::query()->create([
+            'user_id' => $player->id, 'team_id' => $team->id, 'assessed_by' => $coach->id,
+            'assessment_date' => $date, 'type' => 'full',
+            'hitting_data' => ['avg_exit_velo' => 95],
+            'pitching_data' => ['fastball_velocity' => 90],
+        ]);
+
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+
+        $this->getJson("api/coach/teams/{$team->id}/players/{$player->id}/intelligence?days=365")
+            ->assertOk()
+            ->assertJsonPath('daily_velocity_averages.0.date', $date)
+            ->assertJsonPath('daily_velocity_averages.0.average_hitting_velocity', 95)
+            ->assertJsonPath('daily_velocity_averages.0.hitting_sample_count', 5)
+            ->assertJsonPath('daily_velocity_averages.0.average_pitching_velocity', 91)
+            ->assertJsonPath('daily_velocity_averages.0.pitching_sample_count', 4);
     }
 
     public function test_player_development_uses_most_recent_recorded_athletic_hand_strength(): void

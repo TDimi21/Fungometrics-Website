@@ -20,14 +20,25 @@ describe('strength metric value validation', () => {
   it('includes every assessment item exactly once in the Strength Center catalog', () => {
     const assessmentKeys = ITEM_CATALOG.flatMap((group) => group.items.map((item) => item.key))
     const metricKeys = METRICS.map((metric) => metric.key)
+    const representedKeys = METRICS.flatMap((metric) => [metric.key, metric.sourceKey].filter(Boolean))
 
     expect(new Set(metricKeys).size).toBe(metricKeys.length)
-    assessmentKeys.forEach((key) => expect(metricKeys).toContain(key))
+    assessmentKeys.forEach((key) => expect(representedKeys).toContain(key))
   })
 
   it('places every metric in one selectable category', () => {
     const categorizedKeys = categorizeMetrics().flatMap((group) => group.metrics.map((metric) => metric.key))
     expect(categorizedKeys).toHaveLength(METRICS.length)
     expect(new Set(categorizedKeys).size).toBe(METRICS.length)
+  })
+
+  it('uses one cross-session daily metric for each average velocity concept', () => {
+    const hitting = METRICS.find((metric) => metric.key === 'average_hitting_velocity')
+    const pitching = METRICS.find((metric) => metric.key === 'average_pitching_velocity')
+
+    expect(hitting).toMatchObject({ source: 'daily_velocity', percentileKey: 'average_exit_velocity', category: 'Hitting' })
+    expect(pitching).toMatchObject({ source: 'daily_velocity', percentileKey: 'average_fastball_velocity', category: 'Pitching' })
+    expect(METRICS.some((metric) => metric.key === 'hitting_data.avg_exit_velo')).toBe(false)
+    expect(METRICS.some((metric) => metric.key === 'pitching_data.fastball_velocity')).toBe(false)
   })
 })

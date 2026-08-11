@@ -225,6 +225,13 @@ const removePlayer = (id) => {
 const metricBenchmark = (player, metric) => benchmarkFor(player?.intelligence?.benchmark_profile?.metrics, metric)
 const metricRowsFor = (player, limitToRange = true, metric = activeMetric.value) => {
   if (!metric?.key) return []
+  if (metric.source === 'daily_velocity') {
+    return (player?.intelligence?.daily_velocity_averages || [])
+      .map((row) => ({ recordedAt: row?.date, value: positiveMetricNumber(row?.[metric.dailyValueKey]) }))
+      .filter((row) => row.recordedAt && row.value !== null)
+      .filter((row) => !limitToRange || withinRange(row.recordedAt))
+      .sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt))
+  }
   const assessmentSource = metric.source === 'assessment'
   const rows = assessmentSource ? player?.assessmentHistory : player?.history
   const dateField = assessmentSource ? 'assessment_date' : 'fitness_date'
@@ -282,6 +289,10 @@ const aggregateRows = (rows, metric = activeMetric.value) => {
 }
 
 const legendCurrentValue = (player) => {
+  if (activeMetric.value?.source === 'daily_velocity') {
+    const rows = metricRowsFor(player, false)
+    return rows.length ? Number(rows[rows.length - 1].value) : null
+  }
   const benchmark = metricBenchmark(player, activeMetric.value)
   const benchmarkValue = positiveMetricNumber(benchmark?.raw_value)
   if (benchmarkValue !== null) return benchmarkValue

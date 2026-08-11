@@ -39,6 +39,7 @@ class IntelligenceDataAssembler
         private readonly CageStatisticsService $cageStatistics,
         private readonly ExitVelocityStatisticsService $exitVelocityStatistics,
         private readonly PlayerMetricFreshnessService $metricFreshness,
+        private readonly DailyVelocityAverageService $dailyVelocityAverages,
     ) {
     }
 
@@ -226,6 +227,7 @@ class IntelligenceDataAssembler
             'long_toss_summary' => $this->longTossSummary($longToss),
             'arm_care_summary' => $this->armCareSummary($armCare),
             'session_summary' => $this->sessionSummary($practices, $lineups),
+            'daily_velocity_averages' => $this->dailyVelocityAverages->forPlayer($teamId, $playerId, $since),
             'trend_blocks' => $this->trendBlocks($batting, $bullpen, $cage, $exitVelocity, $weightedBall, $longToss, $last30, $prev30Start),
             'data_sources_used' => array_values(array_unique($sources)),
             'data_gaps' => $gaps,

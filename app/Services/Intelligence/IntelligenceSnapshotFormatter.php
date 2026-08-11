@@ -27,6 +27,7 @@ class IntelligenceSnapshotFormatter
             'data_gaps' => $assembled['data_gaps'] ?? [],
             'summary' => $this->playerSummary($assembled),
             'scores' => $this->scores($assembled),
+            'daily_velocity_averages' => $assembled['daily_velocity_averages'] ?? [],
             'signals' => $signals,
             'recommendations' => $recommendations,
             'trend_blocks' => $trendBlocks ?? $assembled['trend_blocks'] ?? [],
