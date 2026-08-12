@@ -5,7 +5,8 @@ import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { categorizeMetrics, benchmarkFor, METRICS, positiveMetricNumber } from '../lib/strengthMetricCatalog.js'
 import { getPath } from '../lib/assessmentItemCatalog.js'
-import { projectTrend } from '../lib/trendProjection.js'
+import { buildTrendModel } from '../lib/trendProjection.js'
+import { trendBehaviorFor } from '../lib/trendMetricRegistry.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -56,7 +57,7 @@ const sortBy = ref('percentile')
 const highlightedPlayerId = ref('')
 const chartInterval = ref('daily')
 const showAllAthletes = ref(false)
-const showProjections = ref(true)
+const showTrendModel = ref(true)
 const selectedChartMetricKeys = ref(['body_weight'])
 const showMetricPicker = ref(false)
 const metricPickerMessage = ref('')
@@ -351,36 +352,74 @@ const withAlpha = (hex, alpha) => {
 const lineColors = computed(() => showAllAthletes.value
   ? chartPlayers.value.map((player) => isHighlighted(player) ? player.color : withAlpha(player.color, 0.48))
   : selectedChartMetrics.value.map((metric) => metric.color))
-const projectionDescriptors = computed(() => {
-  if (!showProjections.value) return []
-  return lineSeries.value.map((series, sourceIndex) => {
-    const projection = projectTrend(series.data, { months: 3 })
-    if (!projection) return null
-    return {
-      sourceIndex,
-      metric: lineSeriesMetrics.value[sourceIndex],
-      color: lineColors.value[sourceIndex],
-      projection,
-      series: { name: `${series.name} · 3M Projection`, data: projection.data },
-    }
-  }).filter(Boolean)
+const trendModelDescriptors = computed(() => lineSeries.value.map((series, sourceIndex) => {
+  const metric = lineSeriesMetrics.value[sourceIndex]
+  return {
+    sourceIndex,
+    metric,
+    color: lineColors.value[sourceIndex],
+    name: series.name,
+    model: buildTrendModel(series.data, trendBehaviorFor(metric)),
+  }
+}))
+const actualDescriptors = computed(() => lineSeries.value.map((series, sourceIndex) => ({
+  kind: 'actual',
+  sourceIndex,
+  metric: lineSeriesMetrics.value[sourceIndex],
+  color: lineColors.value[sourceIndex],
+  series: { ...series, type: 'line' },
+})))
+const trendDescriptors = computed(() => {
+  if (!showTrendModel.value) return []
+  return trendModelDescriptors.value.filter(({ model }) => model.trend).map((descriptor) => ({
+    ...descriptor,
+    kind: 'trend',
+    series: { name: `${descriptor.name} · Historical Trend`, type: 'line', data: descriptor.model.trend.data },
+  }))
 })
-const chartSeries = computed(() => [...lineSeries.value, ...projectionDescriptors.value.map((descriptor) => descriptor.series)])
-const chartSeriesMetrics = computed(() => [...lineSeriesMetrics.value, ...projectionDescriptors.value.map((descriptor) => descriptor.metric)])
-const chartColors = computed(() => [...lineColors.value, ...projectionDescriptors.value.map((descriptor) => descriptor.color)])
-const highlightedProjection = computed(() => {
+const projectionDescriptors = computed(() => {
+  if (!showTrendModel.value) return []
+  return trendModelDescriptors.value.filter(({ model }) => model.projection).map((descriptor) => ({
+    ...descriptor,
+    kind: 'projection',
+    projection: descriptor.model.projection,
+    series: { name: `${descriptor.name} · 30-Day Outlook`, type: 'line', data: descriptor.model.projection.data },
+  }))
+})
+const outlookRangeDescriptors = computed(() => {
+  if (!showTrendModel.value || showAllAthletes.value || multiMetricChart.value) return []
+  return trendModelDescriptors.value.filter(({ model }) => model.projection).map((descriptor) => ({
+    ...descriptor,
+    kind: 'range',
+    series: { name: `${descriptor.name} · Outlook Range`, type: 'rangeArea', data: descriptor.model.projection.rangeData },
+  }))
+})
+const chartDescriptors = computed(() => [
+  ...outlookRangeDescriptors.value,
+  ...actualDescriptors.value,
+  ...trendDescriptors.value,
+  ...projectionDescriptors.value,
+])
+const chartSeries = computed(() => chartDescriptors.value.map((descriptor) => descriptor.series))
+const chartSeriesMetrics = computed(() => chartDescriptors.value.map((descriptor) => descriptor.metric))
+const chartColors = computed(() => chartDescriptors.value.map((descriptor) => descriptor.color))
+const highlightedTrendModel = computed(() => {
   const sourceIndex = showAllAthletes.value
     ? chartPlayers.value.findIndex((player) => player.id === highlightedPlayerId.value)
     : selectedChartMetrics.value.findIndex((metric) => metric.key === activeMetricKey.value)
-  return projectionDescriptors.value.find((descriptor) => descriptor.sourceIndex === sourceIndex)?.projection || null
+  return trendModelDescriptors.value.find((descriptor) => descriptor.sourceIndex === sourceIndex)?.model || null
 })
-const projectionTone = computed(() => {
-  const projected = highlightedProjection.value?.projectedValue
-  const current = legendCurrentValue(highlightedPlayer.value)
-  if (projected == null || current == null || projected === current) return ''
-  const improving = activeMetric.value?.lowerBetter ? projected < current : projected > current
-  return improving ? 'good' : 'bad'
-})
+const highlightedProjection = computed(() => highlightedTrendModel.value?.projection || null)
+const trendTone = computed(() => highlightedTrendModel.value?.trend?.direction === 'Improving'
+  ? 'good'
+  : highlightedTrendModel.value?.trend?.direction === 'Declining' ? 'bad' : '')
+const displayMetricRange = (low, high, metric = activeMetric.value) => {
+  const minimum = positiveMetricNumber(low)
+  const maximum = positiveMetricNumber(high)
+  if (minimum === null || maximum === null) return '—'
+  const precision = metric?.unit === 's' ? 2 : 1
+  return `${minimum.toFixed(precision)}–${maximum.toFixed(precision)} ${metric?.unit || ''}`.trim()
+}
 const chartBenchmarkAnnotations = computed(() => {
   if (showAllAthletes.value || multiMetricChart.value) return []
   const benchmark = highlightedBenchmark.value
@@ -411,9 +450,12 @@ const chartBenchmarkAnnotations = computed(() => {
     },
   }))
 })
+const chartPointValues = (point) => (Array.isArray(point?.y) ? point.y : [point?.y])
+  .map(Number)
+  .filter(Number.isFinite)
 const chartBounds = computed(() => {
   const values = [
-    ...chartSeries.value.flatMap((series) => series.data.map((point) => Number(point.y))),
+    ...chartSeries.value.flatMap((series) => series.data.flatMap(chartPointValues)),
     ...chartBenchmarkAnnotations.value.map((annotation) => Number(annotation.y)),
   ].filter(Number.isFinite)
   if (!values.length) return { min: undefined, max: undefined }
@@ -432,7 +474,7 @@ const multiMetricYAxes = computed(() => {
   const unitOrder = [...new Set(selectedChartMetrics.value.map((metric) => metric.unit || 'value'))]
   const boundsByUnit = new Map(unitOrder.map((unit) => {
     const seriesIndexes = chartSeriesMetrics.value.map((metric, index) => metric?.unit === unit ? index : -1).filter((index) => index >= 0)
-    const values = seriesIndexes.flatMap((index) => chartSeries.value[index]?.data?.map((point) => Number(point.y)) || []).filter(Number.isFinite)
+    const values = seriesIndexes.flatMap((index) => chartSeries.value[index]?.data?.flatMap(chartPointValues) || []).filter(Number.isFinite)
     if (!values.length) return [unit, { min: undefined, max: undefined }]
     const low = Math.min(...values)
     const high = Math.max(...values)
@@ -475,14 +517,18 @@ const lineChartOptions = computed(() => ({
   stroke: {
     curve: 'smooth',
     lineCap: 'round',
-    width: [
-      ...(showAllAthletes.value ? chartPlayers.value.map((player) => isHighlighted(player) ? 3.5 : 2) : lineSeries.value.map(() => 3.5)),
-      ...projectionDescriptors.value.map(() => 2.25),
-    ],
-    dashArray: [...lineSeries.value.map(() => 0), ...projectionDescriptors.value.map(() => 7)],
+    width: chartDescriptors.value.map((descriptor) => {
+      if (descriptor.kind === 'range') return 0
+      if (descriptor.kind === 'projection') return 2.25
+      if (descriptor.kind === 'trend') return 2
+      if (showAllAthletes.value) return isHighlighted(chartPlayers.value[descriptor.sourceIndex]) ? 3.5 : 2
+      return 3.5
+    }),
+    dashArray: chartDescriptors.value.map((descriptor) => descriptor.kind === 'projection' ? 7 : 0),
   },
   colors: chartColors.value,
-  markers: { size: [...lineSeries.value.map(() => 5), ...projectionDescriptors.value.map(() => 3)], strokeColors: '#07101f', strokeWidth: 2, hover: { size: 7 } },
+  fill: { opacity: chartDescriptors.value.map((descriptor) => descriptor.kind === 'range' ? 0.12 : 1) },
+  markers: { size: chartDescriptors.value.map((descriptor) => descriptor.kind === 'actual' ? 5 : descriptor.kind === 'projection' ? 3 : 0), strokeColors: '#07101f', strokeWidth: 2, hover: { size: 7 } },
   dataLabels: { enabled: false },
   legend: { show: false },
   grid: { borderColor: 'rgba(148,163,184,.13)', strokeDashArray: 0, padding: { left: 8, right: 18, top: 8, bottom: 0 } },
@@ -503,6 +549,11 @@ const lineChartOptions = computed(() => ({
     marker: { show: true },
     y: {
       formatter: (value, context) => {
+        const descriptor = chartDescriptors.value[context?.seriesIndex]
+        if (descriptor?.kind === 'range') {
+          const range = descriptor.series.data?.[context?.dataPointIndex]?.y
+          return Array.isArray(range) ? displayMetricRange(range[0], range[1], descriptor.metric) : '—'
+        }
         if (!multiMetricChart.value) return displayMetricValue(value)
         const metric = chartSeriesMetrics.value[context?.seriesIndex]
         return displayMetricValue(value, metric, metric?.unit === 's' ? 2 : 1)
@@ -749,8 +800,8 @@ const takeaway = computed(() => {
                   <p>{{ showAllAthletes ? `${comparedPlayers.length} athletes` : `${highlightedPlayer?.name || 'Selected athlete'} · ${selectedChartMetrics.length} metric${selectedChartMetrics.length === 1 ? '' : 's'}` }} · {{ rangeLabel }}</p>
                 </div>
                 <div class="trend-controls">
-                  <button type="button" class="projection-toggle" :class="{ active: showProjections }" @click="showProjections = !showProjections">
-                    <span>⌁</span> 3M Projection
+                  <button type="button" class="projection-toggle" :class="{ active: showTrendModel }" @click="showTrendModel = !showTrendModel">
+                    <span>⌁</span> Trend &amp; Outlook
                   </button>
                   <button type="button" class="chart-mode-button" :class="{ active: showAllAthletes }" @click="showAllAthletes = !showAllAthletes">
                     {{ showAllAthletes ? 'Focus Selected Athlete' : `Compare All (${comparedPlayers.length})` }}
@@ -784,12 +835,14 @@ const takeaway = computed(() => {
 
               <div class="trend-layout">
                 <div class="chart-area">
-                  <div v-if="multiMetricChart || projectionDescriptors.length" class="metric-line-legend">
+                  <div v-if="multiMetricChart || trendDescriptors.length || projectionDescriptors.length" class="metric-line-legend">
                     <span v-if="multiMetricChart" v-for="metric in selectedChartMetrics" :key="metric.key"><i :style="{ background: metric.color }"></i>{{ metric.label }}</span>
-                    <span v-if="projectionDescriptors.length" class="projection-key"><i></i>Projected next 3 months</span>
-                    <small>Projections use the selected range’s recorded trend</small>
+                    <span v-if="trendDescriptors.length" class="trend-key"><i></i>Historical trend</span>
+                    <span v-if="projectionDescriptors.length" class="projection-key"><i></i>30-day outlook</span>
+                    <span v-if="outlookRangeDescriptors.length" class="outlook-range-key"><i></i>Confidence range</span>
+                    <small v-if="highlightedTrendModel?.trend">{{ highlightedTrendModel.trend.direction }} · {{ highlightedTrendModel.trend.confidence }} confidence</small>
                   </div>
-                  <apexchart v-if="hasLineData" width="100%" type="line" height="340" :options="lineChartOptions" :series="chartSeries" :key="`${activeMetricKey}_${selectedChartMetricKeys.join('-')}_${highlightedPlayerId}_${showAllAthletes}_${showProjections}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
+                  <apexchart v-if="hasLineData" width="100%" type="line" height="340" :options="lineChartOptions" :series="chartSeries" :key="`${activeMetricKey}_${selectedChartMetricKeys.join('-')}_${highlightedPlayerId}_${showAllAthletes}_${showTrendModel}_${dataWindowDays}_${chartInterval}_${customFrom}_${customTo}`" />
                   <div v-else class="empty-chart">No logged tests for this metric in the selected range.</div>
                 </div>
                 <aside class="athlete-legend">
@@ -814,7 +867,7 @@ const takeaway = computed(() => {
             <section class="summary-grid">
               <article class="summary-card current"><span>Current (Selected)</span><b>{{ displayMetricValue(highlightedBenchmark?.raw_value ?? legendCurrentValue(highlightedPlayer)) }}</b><small>{{ highlightedPlayer?.name || '—' }}</small></article>
               <article class="summary-card"><span>Change ({{ rangeLabel }})</span><b :class="legendChangeTone(highlightedPlayer)">{{ highlightedPlayer ? legendChangeLabel(highlightedPlayer) : '—' }}</b><small>{{ chartInterval }} view</small></article>
-              <article class="summary-card projection"><span>3M Projection</span><b :class="projectionTone">{{ displayMetricValue(highlightedProjection?.projectedValue) }}</b><small>{{ highlightedProjection ? `${highlightedProjection.sampleCount} recorded points · trend estimate` : 'Needs at least 2 recorded points' }}</small></article>
+              <article class="summary-card projection"><span>30-Day Outlook</span><b :class="trendTone">{{ displayMetricRange(highlightedProjection?.outlookLow, highlightedProjection?.outlookHigh) }}</b><small v-if="highlightedProjection">{{ highlightedTrendModel?.trend?.direction }} · {{ highlightedProjection.confidence }} confidence · {{ highlightedProjection.sampleCount }} tests</small><small v-else>{{ highlightedTrendModel?.reason || 'Needs at least 3 recorded dates for a trend.' }}</small></article>
               <article class="summary-card"><span>Selected Avg</span><b>{{ displayMetricValue(groupStats.avg) }}</b><small>{{ comparedPlayers.length }} athletes</small></article>
               <article class="summary-card"><span>Best Selected</span><b>{{ displayMetricValue(groupStats.best) }}</b><small>{{ groupStats.bestName || '—' }}</small></article>
               <article class="summary-card"><span>Benchmark</span><b>{{ displayMetricValue(benchmarkMedian) }}</b><small>Age-group median</small></article>
@@ -955,7 +1008,7 @@ button { cursor: pointer; }
 .panel-header > span { color: #77859a; font-size: 9px; }
 .trend-header p { margin: 4px 0 0; color: #8491a4; font-size: 10px; }
 .trend-controls { display: flex; align-items: center; gap: 20px; }
-.projection-toggle { min-width: 125px; padding: 9px 11px; border: 1px solid #2b3a51; border-radius: 8px; background: #0a1424; color: #8f9bad; font-size: 10px; font-weight: 800; }
+.projection-toggle { min-width: 145px; padding: 9px 11px; border: 1px solid #2b3a51; border-radius: 8px; background: #0a1424; color: #8f9bad; font-size: 10px; font-weight: 800; }
 .projection-toggle span { color: #36d6a0; font-size: 14px; }
 .projection-toggle:hover, .projection-toggle.active { border-color: rgba(54,214,160,.55); background: rgba(54,214,160,.09); color: #d9fff2; }
 .chart-mode-button { min-width: 170px; padding: 9px 12px; border: 1px solid #2b3a51; border-radius: 8px; background: #0a1424; color: #c8d1de; font-size: 11px; font-weight: 750; }
@@ -980,7 +1033,9 @@ button { cursor: pointer; }
 .metric-line-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 12px 0; color: #b8c3d1; font-size: 9px; font-weight: 750; }
 .metric-line-legend span { display: flex; align-items: center; gap: 5px; }
 .metric-line-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.metric-line-legend .trend-key i { width: 22px; height: 0; border-top: 2px solid #aab6c6; border-radius: 0; background: none; }
 .metric-line-legend .projection-key i { width: 22px; height: 0; border-top: 2px dashed #36d6a0; border-radius: 0; background: none; }
+.metric-line-legend .outlook-range-key i { width: 22px; height: 9px; border: 1px solid rgba(54,214,160,.38); border-radius: 2px; background: rgba(54,214,160,.14); }
 .metric-line-legend small { margin-left: auto; color: #68778c; font-size: 8px; font-weight: 650; }
 .empty-chart { display: grid; place-items: center; height: 340px; color: #67758a; font-size: 12px; }
 .athlete-legend { padding: 15px 0 0 18px; border-left: 1px solid rgba(148,163,184,.12); }
