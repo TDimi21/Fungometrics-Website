@@ -8,6 +8,7 @@ import {
 } from '../../resources/js/features/development/lib/teamPercentileLeaderboard.js'
 
 const dashboardPage = fs.readFileSync(path.resolve(process.cwd(), 'resources/js/pages/dashboard/Index.vue'), 'utf8')
+const leaderboardComponent = fs.readFileSync(path.resolve(process.cwd(), 'resources/js/components/dashboard/TeamPercentileLeaderboard.vue'), 'utf8')
 
 const snapshot = (id, name, age, ageGroup, percentile, raw) => ({
   player_id: id,
@@ -56,11 +57,14 @@ describe('team percentile leaderboard', () => {
     expect(rankTeamPercentileRows(rows, 'max_exit_velocity').map((row) => row.rank)).toEqual([1, 1, 3])
   })
 
-  it('loads the team intelligence profile and renders benchmark group, percentile, and actual result columns', () => {
+  it('replaces Team Leaders on the dashboard with the percentile leaderboard and does not duplicate it', () => {
     expect(dashboardPage).toContain('coach/teams/${id}/intelligence?days=365')
-    expect(dashboardPage).toContain('Top 25 by Metric')
-    expect(dashboardPage).toContain('Benchmark Group')
-    expect(dashboardPage).toContain('Age Percentile')
-    expect(dashboardPage).toContain('Actual Result')
+    expect(dashboardPage).toContain('Percentile Leaders')
+    expect(dashboardPage).not.toContain('Team Leaders')
+    expect(dashboardPage.match(/<TeamPercentileLeaderboard/g)).toHaveLength(1)
+    expect(leaderboardComponent).toContain('Top 25 by Metric')
+    expect(leaderboardComponent).toContain('Benchmark Group')
+    expect(leaderboardComponent).toContain('Age Percentile')
+    expect(leaderboardComponent).toContain('Actual Result')
   })
 })

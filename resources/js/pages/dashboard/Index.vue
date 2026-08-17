@@ -9,6 +9,7 @@ import { useAccessStore } from '@/store/access.js'
 import { IndicatorChart } from '@/components/dashboard'
 import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
 import HallOfFameWall from '@/components/dashboard/HallOfFameWall.vue'
+import TeamPercentileLeaderboard from '@/components/dashboard/TeamPercentileLeaderboard.vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
 import ExitVeloPanel from '@/components/dashboard/ExitVeloPanel.vue'
 import BullpenLocationPanel from '@/components/dashboard/BullpenLocationPanel.vue'
@@ -242,7 +243,7 @@ const formatDate = (d) => {
 
 // ── Hall of Fame leaderboard ─────────────────────────────────────────────────
 const top10Range = ref(0)
-const top10Mode = ref('players') // 'players' | 'team'
+const top10Mode = ref('players') // 'players' | 'percentiles'
 const top10FallbackAvatar = updatedLogo
 
 // ── Player Development Board ──────────────────────────────────────────────────
@@ -283,20 +284,6 @@ watch(selectedPercentileCategory, (category) => {
     selectedPercentileMetricKey.value = options[0]?.key || ''
   }
 })
-
-const percentileCategoryLabel = (value) => String(value || 'Other').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
-const percentileRankLabel = (value) => {
-  const rank = Math.round(Number(value))
-  const suffix = rank % 100 >= 11 && rank % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[rank % 10] || 'th')
-  return `${rank}${suffix}`
-}
-const percentileRankColor = (value) => Number(value) >= 75 ? '#2ecc71' : Number(value) >= 40 ? '#efa92f' : '#ff2d4f'
-const percentileActualLabel = (row) => {
-  if (!row || !Number.isFinite(Number(row.actual)) || Number(row.actual) <= 0) return '—'
-  const value = Number(row.actual)
-  const precision = row.unit === 's' || row.unit === 'sec' ? 2 : Number.isInteger(value) ? 0 : 1
-  return `${value.toFixed(precision)} ${row.unit || ''}`.trim()
-}
 
 const fetchPercentileLeaderboard = async (force = false) => {
   const teamId = String(activeTeamId.value || '')
@@ -362,18 +349,6 @@ const fetchDevBoard = async (force = false) => {
   } catch (e) { console.warn('fetchDevBoard', e) }
   finally { devBoardLoading.value = false }
 }
-
-// Team leaders computed from perf data already loaded
-const teamLeaders = computed(() => [
-  { label: 'Team Batting Score (FPS)',   value: perf.value.batting  != null ? perf.value.batting  : null, suffix: '' },
-  { label: 'Team Bullpen Score (BPS)',   value: perf.value.bullpen  != null ? perf.value.bullpen  : null, suffix: '' },
-  { label: 'Team Cage Score (FCS)',      value: perf.value.cage     != null ? perf.value.cage     : null, suffix: '' },
-  { label: 'Team EV Score (EVS)',        value: perf.value.ev       != null ? perf.value.ev       : null, suffix: '' },
-  { label: 'Team Long Toss Score (LTS)', value: perf.value.lt       != null ? perf.value.lt       : null, suffix: '' },
-  { label: 'Avg Pitch Velo',             value: pitchVelocityAverage.value?.FB ?? null, suffix: ' mph' },
-  { label: 'Strike %',                   value: pitchThrows.value?.strike_percent ?? null, suffix: '%' },
-  { label: 'Total Pitches',              value: pitchThrows.value?.totals ?? null, suffix: '' },
-].filter(r => r.value != null))
 
 // Server-driven leaderboard: all twelve categories arrive in one response.
 const leaderboardServer = ref(null)
@@ -2353,10 +2328,7 @@ watch(
   () => dashTab.value,
   async (tab) => {
     if (tab === 'development') {
-      await Promise.all([
-        fetchDevBoard().catch(e => console.warn('fetchDevBoard error:', e?.message ?? e)),
-        fetchPercentileLeaderboard().catch(e => console.warn('fetchPercentileLeaderboard error:', e?.message ?? e)),
-      ])
+      await fetchDevBoard().catch(e => console.warn('fetchDevBoard error:', e?.message ?? e))
     }
 
     if (tab === 'strength' || tab === 'strengthcenter') {
@@ -2365,6 +2337,16 @@ watch(
 
     if ((tab === 'strength' || tab === 'strengthcenter') && !strengthPlayersLoading.value && !strengthPlayers.value.length) {
       await fetchStrengthPlayers().catch(e => console.warn('fetchStrengthPlayers error:', e?.message ?? e))
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  [top10Mode, activeTeamId],
+  ([mode, teamId]) => {
+    if (mode === 'percentiles' && teamId) {
+      fetchPercentileLeaderboard().catch(e => console.warn('fetchPercentileLeaderboard error:', e?.message ?? e))
     }
   },
   { immediate: true }
@@ -2463,7 +2445,7 @@ watch(
       if (String(activeTeamId.value || '') !== resolvedTeamId) return
       fetchPerformanceOverview(true).catch(e => console.warn('fetchPerformanceOverview team refresh error:', e?.message ?? e))
       fetchDevBoard()
-      if (dashTab.value === 'development') {
+      if (top10Mode.value === 'percentiles') {
         fetchPercentileLeaderboard().catch(e => console.warn('fetchPercentileLeaderboard team refresh error:', e?.message ?? e))
       }
       getStaticChartData().catch(e => console.warn('getStaticChartData error:', e?.message ?? e)) // contact_spray → velocity field
@@ -2746,10 +2728,10 @@ watch(
                       :class="top10Mode === 'players' ? 'bg-[#C00000] text-white shadow' : 'text-white/40 hover:text-white'">
                       <span>👤</span> Player Leaders
                     </button>
-                    <button @click="top10Mode = 'team'"
+                    <button @click="top10Mode = 'percentiles'"
                       class="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-black uppercase tracking-wide transition"
-                      :class="top10Mode === 'team' ? 'bg-[#C00000] text-white shadow' : 'text-white/40 hover:text-white'">
-                      <span>👥</span> Team Leaders
+                      :class="top10Mode === 'percentiles' ? 'bg-[#C00000] text-white shadow' : 'text-white/40 hover:text-white'">
+                      <span>📊</span> Percentile Leaders
                     </button>
                   </div>
                 </div>
@@ -2781,25 +2763,20 @@ watch(
                 />
               </template>
 
-              <!-- TEAM LEADERS -->
+              <!-- AGE-ADJUSTED PERCENTILE LEADERS -->
               <template v-else>
-                <div v-if="perfLoading" class="flex justify-center py-10">
-                  <svg class="animate-spin w-6 h-6 text-[#C00000]" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                  </svg>
-                </div>
-                <div v-else-if="!teamLeaders.length" class="text-white/25 text-sm text-center py-10">No team data yet</div>
-                <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                  <div v-for="(row, idx) in teamLeaders" :key="row.label"
-                    class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3.5 flex items-center justify-between gap-3">
-                    <div class="min-w-0">
-                      <div class="text-[10px] font-black uppercase tracking-widest text-white/35">#{{ idx + 1 }}</div>
-                      <div class="text-sm font-bold text-white/85 truncate">{{ row.label }}</div>
-                    </div>
-                    <span class="text-lg font-black tabular-nums whitespace-nowrap" :style="{ color: scoreColor(row.value) }">{{ row.value }}{{ row.suffix }}</span>
-                  </div>
-                </div>
+                <TeamPercentileLeaderboard
+                  v-model:category="selectedPercentileCategory"
+                  v-model:metric-key="selectedPercentileMetricKey"
+                  :loading="percentileLeaderboardLoading"
+                  :error="percentileLeaderboardError"
+                  :categories="percentileLeaderboardCategories"
+                  :metrics="percentileMetricsForCategory"
+                  :selected-metric="selectedPercentileMetric"
+                  :rows="rankedPercentilePlayers"
+                  @retry="fetchPercentileLeaderboard(true)"
+                  @select-player="openSharedPlayerDevelopmentProfile({ id: $event.playerId, name: $event.playerName })"
+                />
               </template>
             </div>
 
@@ -2904,87 +2881,6 @@ watch(
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/coach')">Coach</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide border border-white/20 text-white/80 hover:text-white hover:border-white/40" @click="router.push('/development/admin/benchmarks')">Admin</button>
               </div>
-            </div>
-          </div>
-
-          <!-- Age-adjusted percentile leaders -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl">
-            <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-              <div class="max-w-3xl">
-                <div class="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff4058]">Team Percentile Leaderboards</div>
-                <h2 class="mt-1 text-lg font-black uppercase tracking-wide text-white">Top 25 by Metric</h2>
-                <p class="mt-1 text-xs leading-relaxed text-white/45">
-                  Players are ranked by their governed age-benchmark percentile. Actual results remain visible, so athletes of different ages are compared fairly without treating the largest raw number as the automatic winner.
-                </p>
-              </div>
-              <div class="grid w-full gap-2 sm:grid-cols-2 xl:w-auto xl:min-w-[520px]">
-                <label class="flex flex-col gap-1 text-[9px] font-black uppercase tracking-widest text-white/35">
-                  Category
-                  <select v-model="selectedPercentileCategory" class="rounded-lg border border-white/15 bg-[#10192a] px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-white outline-none focus:border-[#C00000]">
-                    <option v-for="category in percentileLeaderboardCategories" :key="category" :value="category">{{ percentileCategoryLabel(category) }}</option>
-                  </select>
-                </label>
-                <label class="flex flex-col gap-1 text-[9px] font-black uppercase tracking-widest text-white/35">
-                  Metric
-                  <select v-model="selectedPercentileMetricKey" class="rounded-lg border border-white/15 bg-[#10192a] px-3 py-2.5 text-xs font-bold normal-case tracking-normal text-white outline-none focus:border-[#C00000]">
-                    <option v-for="metric in percentileMetricsForCategory" :key="metric.key" :value="metric.key">{{ metric.label }} ({{ metric.playerCount }})</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div v-if="percentileLeaderboardLoading" class="mt-5 space-y-2">
-              <div v-for="index in 6" :key="index" class="h-11 animate-pulse rounded-lg bg-white/5"></div>
-            </div>
-            <div v-else-if="percentileLeaderboardError" class="mt-5 rounded-xl border border-red-500/25 bg-red-500/5 px-4 py-6 text-center">
-              <p class="text-sm text-red-200/80">{{ percentileLeaderboardError }}</p>
-              <button type="button" class="mt-3 rounded-lg border border-red-400/30 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-red-300" @click="fetchPercentileLeaderboard(true)">Try Again</button>
-            </div>
-            <div v-else-if="!selectedPercentileMetric || !rankedPercentilePlayers.length" class="mt-5 rounded-xl border border-dashed border-white/10 py-10 text-center text-sm text-white/30">
-              No players have a valid age-adjusted percentile for this metric yet.
-            </div>
-            <div v-else class="mt-5 overflow-x-auto rounded-xl border border-white/10">
-              <div class="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3">
-                <div>
-                  <b class="text-sm text-white">{{ selectedPercentileMetric.label }}</b>
-                  <span class="ml-2 text-[10px] uppercase tracking-widest text-white/30">{{ percentileCategoryLabel(selectedPercentileMetric.category) }}</span>
-                </div>
-                <span class="text-[10px] font-bold text-white/35">{{ rankedPercentilePlayers.length }} ranked player{{ rankedPercentilePlayers.length === 1 ? '' : 's' }}</span>
-              </div>
-              <table class="w-full min-w-[820px] border-collapse">
-                <thead>
-                  <tr class="bg-black/10 text-left text-[9px] font-black uppercase tracking-widest text-white/30">
-                    <th class="w-14 px-4 py-3">Rank</th>
-                    <th class="px-3 py-3">Player</th>
-                    <th class="px-3 py-3">Age</th>
-                    <th class="px-3 py-3">Benchmark Group</th>
-                    <th class="min-w-[210px] px-3 py-3">Age Percentile</th>
-                    <th class="px-3 py-3 text-right">Actual Result</th>
-                    <th class="px-4 py-3">Classification</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="(row, index) in rankedPercentilePlayers"
-                    :key="`${row.metricKey}-${row.playerId}`"
-                    class="cursor-pointer border-t border-white/[0.06] text-xs text-white/75 transition hover:bg-white/[0.035]"
-                    @click="openSharedPlayerDevelopmentProfile({ id: row.playerId, name: row.playerName })"
-                  >
-                    <td class="px-4 py-3"><span class="inline-flex h-7 w-7 items-center justify-center rounded-lg font-black" :class="index === 0 ? 'bg-[#C00000] text-white' : 'bg-white/[0.06] text-white/55'">{{ row.rank }}</span></td>
-                    <td class="px-3 py-3 font-black text-white">{{ row.playerName }}</td>
-                    <td class="px-3 py-3 tabular-nums">{{ row.age != null ? `${row.age} yrs` : '—' }}</td>
-                    <td class="px-3 py-3"><span class="rounded-md border border-sky-400/20 bg-sky-400/5 px-2 py-1 text-[10px] font-black text-sky-300">{{ row.ageGroupLabel }}</span></td>
-                    <td class="px-3 py-3">
-                      <div class="flex items-center gap-3">
-                        <b class="w-10 text-right text-sm tabular-nums" :style="{ color: percentileRankColor(row.percentile) }">{{ percentileRankLabel(row.percentile) }}</b>
-                        <div class="h-2 flex-1 overflow-hidden rounded-full bg-white/10"><i class="block h-full rounded-full" :style="{ width: `${row.percentile}%`, backgroundColor: percentileRankColor(row.percentile) }"></i></div>
-                      </div>
-                    </td>
-                    <td class="px-3 py-3 text-right text-sm font-black tabular-nums text-white">{{ percentileActualLabel(row) }}</td>
-                    <td class="px-4 py-3"><b class="block text-[10px] uppercase tracking-wide" :style="{ color: percentileRankColor(row.percentile) }">{{ percentileCategoryLabel(row.label) }}</b><small class="mt-0.5 block text-[9px] text-white/30">{{ percentileCategoryLabel(row.confidence) }} confidence</small></td>
-                  </tr>
-                </tbody>
-              </table>
             </div>
           </div>
 
