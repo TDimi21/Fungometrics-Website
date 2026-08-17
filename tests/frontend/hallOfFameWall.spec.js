@@ -20,9 +20,12 @@ describe('Hall of Fame rotating leaderboard', () => {
     expect(component).toContain('mode="out-in"')
   })
 
-  it('shows a top five, a featured athlete, the full top ten, icons, units, and controls', () => {
-    expect(component).toContain('active.value.rows.slice(0, 5)')
-    expect(component).toContain('View Full Top 10')
+  it('shows the full top ten directly on the left without a scroll or modal', () => {
+    expect(component).toContain('active.value.rows.slice(0, activeLimit.value)')
+    expect(component).toContain("'--visible-rows': visibleRowCount")
+    expect(component).toContain('height: calc(var(--row-height) * var(--visible-rows, 10))')
+    expect(component).not.toContain('View Full Top 10')
+    expect(component).not.toContain('hof-modal')
     expect(component).toContain('Featured Athlete')
     expect(component).toContain("active.icon || '★'")
     expect(component).toContain('active.unit')

@@ -3,7 +3,7 @@
  * HallOfFameWall.vue — the FMTRX facility "Hall of Fame Wall".
  *
  * ONE rotating leaderboard experience (not many cards). Every 5s it cycles to the
- * next category: the Top-5 board (left) and the #1 featured athlete (right) update
+ * next category: the Top-10 board (left) and the #1 featured athlete (right) update
  * together with a color theme, a countdown, and smooth transitions.
  *
  * Every slot in the design is rendered — trend chips, sparklines, and sub-metric
@@ -29,7 +29,6 @@ const props = defineProps({
 const idx = ref(0)
 const countdown = ref(props.interval)
 const paused = ref(false)
-const showAll = ref(false)
 const hofRoot = ref(null)
 const isFullscreen = ref(false)
 let timer = null
@@ -38,21 +37,20 @@ const cats = computed(() => (Array.isArray(props.categories) ? props.categories.
 const active = computed(() => cats.value[idx.value] ?? cats.value[0] ?? null)
 const color = computed(() => active.value?.color || '#ef4444')
 const activeLimit = computed(() => Math.min(Number(active.value?.limit) || 10, 10))
-const rankedRows = computed(() => (Array.isArray(active.value?.rows) ? active.value.rows.slice(0, 5) : []))
-const fullRows = computed(() => (Array.isArray(active.value?.rows) ? active.value.rows.slice(0, activeLimit.value) : []))
+const rankedRows = computed(() => (Array.isArray(active.value?.rows) ? active.value.rows.slice(0, activeLimit.value) : []))
+const visibleRowCount = computed(() => Math.max(5, rankedRows.value.length))
 
 const advance = (step = 1) => {
   const n = cats.value.length
   if (!n) return
   idx.value = ((idx.value + step) % n + n) % n
   countdown.value = props.interval
-  showAll.value = false
 }
-const goTo = (i) => { idx.value = i; countdown.value = props.interval; showAll.value = false }
+const goTo = (i) => { idx.value = i; countdown.value = props.interval }
 
 onMounted(() => {
   timer = setInterval(() => {
-    if (paused.value || showAll.value || !cats.value.length) return
+    if (paused.value || !cats.value.length) return
     countdown.value -= 1
     if (countdown.value <= 0) advance(1)
   }, 1000)
@@ -140,7 +138,7 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
 
     <Transition v-else-if="active" name="hof" mode="out-in">
       <div class="hof-stage" :key="active.value">
-        <!-- LEFT: Top 5 board -->
+        <!-- LEFT: Full Top 10 board, visible without scrolling -->
         <div class="hof-board">
           <div class="hof-board-head">
             <div>
@@ -153,8 +151,8 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
 
           <div class="hof-cols"><span>Rank</span><span>Player</span><span class="right">Score</span></div>
 
-          <div class="hof-rows">
-            <div class="hof-scroll-track">
+          <div class="hof-rows" :style="{ '--visible-rows': visibleRowCount }">
+            <div class="hof-list">
               <template v-for="copy in 1" :key="copy">
                 <div v-for="(row, i) in rankedRows" :key="`${copy}-${row.id || row.name}-${i}`" class="hof-row" :class="{ 'is-first': i === 0 }">
                   <span class="hof-rank">{{ i + 1 }}</span>
@@ -176,9 +174,6 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
             </div>
           </div>
 
-          <button v-if="active.rows.length" class="hof-viewall" @click="showAll = true">
-            View Full Top 10 <span>›</span>
-          </button>
         </div>
 
         <!-- RIGHT: Featured athlete -->
@@ -277,33 +272,6 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
       </div>
     </div>
 
-    <!-- Full Top 10 modal -->
-    <Transition name="hof-modal">
-      <div v-if="showAll && active" class="hof-modal-bg" @click.self="showAll = false">
-        <div class="hof-modal" :style="{ '--accent': color }">
-          <div class="hof-modal-head">
-            <div>
-              <div class="hof-modal-title">Top {{ activeLimit }} • {{ active.label }}</div>
-              <div class="hof-sub">{{ active.subtitle }}</div>
-            </div>
-            <button class="hof-modal-x" @click="showAll = false" aria-label="Close">✕</button>
-          </div>
-          <div class="hof-modal-rows">
-            <div v-for="(row, i) in fullRows" :key="row.id || row.name" class="hof-row" :class="{ 'is-first': i === 0 }">
-              <span class="hof-rank">{{ i + 1 }}</span>
-              <img class="hof-ava" :src="row.avatar || fallbackAvatar" @error="onAvatarError" alt="" />
-              <div class="hof-who">
-                <div class="hof-name">{{ row.name }}</div>
-                <div v-if="row.subtitle" class="hof-pos">{{ row.subtitle }}</div>
-              </div>
-              <span class="hof-trend" :class="trendClass(row.trend)">{{ trendGlyph(row.trend) }}<template v-if="row.trend"> {{ trendText(row.trend) }}</template></span>
-              <span class="hof-score">{{ row.value }}<small v-if="active.unit && row.value !== '—'"> {{ active.unit }}</small></span>
-            </div>
-            <div v-if="!active.rows.length" class="hof-none">No ranked players yet</div>
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -339,30 +307,25 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
 .hof-sub { font-size: 11px; color: rgba(255,255,255,.42); margin-top: 2px; }
 .hof-timer { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.4); white-space: nowrap; }
 .hof-timer b { color: var(--accent); font-variant-numeric: tabular-nums; margin-left: 3px; }
-.hof-cols { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.3); padding: 0 4px 8px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.hof-cols { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.3); padding: 0 4px 8px; border-bottom: 1px solid rgba(255,255,255,.07); }
 .hof-cols .right { text-align: right; }
-.hof-rows { --row-height: 49px; display: flex; flex-direction: column; margin-top: 4px; height: calc(var(--row-height) * 5); overflow: hidden; }
-.hof-scroll-track { display: flex; flex-direction: column; }
-.hof-rows.is-scrolling .hof-scroll-track { animation: hof-scroll-list var(--scroll-duration, 12s) linear infinite; }
-.hof-rows.is-paused .hof-scroll-track { animation-play-state: paused; }
-@keyframes hof-scroll-list { to { transform: translateY(-50%); } }
-.hof-row { min-height: var(--row-height); box-sizing: border-box; display: grid; grid-template-columns: 34px auto 1fr auto auto; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid rgba(255,255,255,.05); }
+.hof-rows { --row-height: 38px; display: flex; flex-direction: column; margin-top: 4px; height: calc(var(--row-height) * var(--visible-rows, 10)); overflow: hidden; }
+.hof-list { display: flex; flex-direction: column; }
+.hof-row { min-height: var(--row-height); box-sizing: border-box; display: grid; grid-template-columns: 30px auto 1fr auto auto; align-items: center; gap: 8px; padding: 4px; border-bottom: 1px solid rgba(255,255,255,.05); }
 .hof-row.is-first { background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 10px; border-bottom-color: transparent; }
-.hof-rank { width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: rgba(255,255,255,.55); background: rgba(255,255,255,.06); }
+.hof-rank { width: 23px; height: 23px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: rgba(255,255,255,.55); background: rgba(255,255,255,.06); }
 .hof-row.is-first .hof-rank { background: var(--accent); color: #0a1020; }
-.hof-ava { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,.15); }
+.hof-ava { width: 27px; height: 27px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,.15); }
 .hof-who { min-width: 0; }
-.hof-name { font-size: 14px; font-weight: 800; color: #fff; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hof-pos { font-size: 10px; color: rgba(255,255,255,.4); }
+.hof-name { font-size: 12px; font-weight: 800; color: #fff; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hof-pos { font-size: 9px; color: rgba(255,255,255,.4); }
 .hof-evidence { margin-top: 2px; font-size: 9px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
 .hof-trend { font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 18px; text-align: center; }
 .hof-trend.up { color: #37d67a; } .hof-trend.down { color: #ef4444; } .hof-trend.flat { color: rgba(255,255,255,.3); }
-.hof-score { font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; color: #fff; }
+.hof-score { font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums; color: #fff; }
 .hof-score small { font-size: 8px; font-weight: 800; opacity: .45; text-transform: uppercase; }
 .hof-row.is-first .hof-score { color: var(--accent); }
 .hof-none { padding: 24px 0; text-align: center; color: rgba(255,255,255,.3); font-size: 12px; }
-.hof-viewall { margin-top: auto; padding-top: 12px; align-self: flex-start; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; background: none; border: none; }
-.hof-viewall span { font-size: 14px; }
 
 /* RIGHT featured */
 .hof-feature {
@@ -473,12 +436,4 @@ const profileChartY = (arr, index) => Number(profileChartPoints(arr)?.split(' ')
 }
 
 /* Modal */
-.hof-modal-bg { position: fixed; inset: 0; z-index: 60; background: rgba(3, 6, 15, 0.72); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.hof-modal { --accent: #ef4444; width: 100%; max-width: 520px; max-height: 82vh; overflow-y: auto; border-radius: 18px; border: 1px solid rgba(255,255,255,.12); background: #0b1223; box-shadow: 0 30px 80px rgba(0,0,0,.55); padding: 18px; }
-.hof-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-.hof-modal-title { font-size: 16px; font-weight: 900; color: #fff; text-transform: uppercase; }
-.hof-modal-x { background: rgba(255,255,255,.06); border: none; color: #fff; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 13px; }
-.hof-modal-rows { display: flex; flex-direction: column; }
-.hof-modal-enter-active, .hof-modal-leave-active { transition: opacity .2s ease; }
-.hof-modal-enter-from, .hof-modal-leave-to { opacity: 0; }
 </style>
