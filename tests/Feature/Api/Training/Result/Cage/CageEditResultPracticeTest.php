@@ -12,9 +12,12 @@ use Arr;
 use Laravel\Sanctum\Sanctum;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 class CageEditResultPracticeTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     public function test_cage_practice_result_ok(): void
     {
         Sanctum::actingAs(User::factory()->create());

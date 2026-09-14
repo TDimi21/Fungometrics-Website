@@ -49,7 +49,7 @@ class PremiumSessionPlanGatingTest extends TestCase
     {
         $coach = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'free']);
         $team  = Team::factory()->create();
-        $practice = Practice::factory()->create(['team_id' => $team->id, 'type' => PracticeTypes::TRAINING->value]);
+        $practice = Practice::factory()->create(['user_id' => $coach->id, 'team_id' => $team->id, 'type' => PracticeTypes::TRAINING->value]);
 
         Sanctum::actingAs($coach, ['coach']);
 

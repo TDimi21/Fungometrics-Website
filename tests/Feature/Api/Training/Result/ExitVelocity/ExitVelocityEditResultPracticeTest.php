@@ -10,9 +10,12 @@ use App\Models\ExitVelocityPractice;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 class ExitVelocityEditResultPracticeTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     public function test_velocity_exit_practice_result_ok(): void
     {
         Sanctum::actingAs(User::factory()->create());

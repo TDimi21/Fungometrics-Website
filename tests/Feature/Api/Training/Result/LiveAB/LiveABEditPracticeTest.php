@@ -17,9 +17,12 @@ use App\Models\Team;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 class LiveABEditResultPracticeTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     public function test_liveab_edit_practice_result_ok(): void
     {
         Sanctum::actingAs(User::factory()->create(['type' => UserTypes::COACH->value]), [UserTypes::COACH->value]);

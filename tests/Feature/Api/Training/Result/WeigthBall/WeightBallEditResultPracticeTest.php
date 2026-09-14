@@ -9,9 +9,12 @@ use App\Models\User;
 use App\Models\WeightBallPractice;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 class WeightBallEditResultPracticeTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     public function test_weight_ball_practice_result_ok(): void
     {
         Sanctum::actingAs(User::factory()->create());

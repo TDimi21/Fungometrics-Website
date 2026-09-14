@@ -8,9 +8,12 @@ use App\Models\BattingPracticeResult;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 class BattingGetResultPracticeTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     public function test_get_batting_practice_result_by_uuid_ok(): void
     {
         Sanctum::actingAs(User::factory()->create());

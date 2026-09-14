@@ -8,9 +8,12 @@ use App\Models\LongTossPractice;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 class LongTossGetResultPracticeTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     public function test_get_long_toss_practice_result_by_uuid_ok(): void
     {
         Sanctum::actingAs(User::factory()->create());

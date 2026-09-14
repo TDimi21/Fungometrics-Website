@@ -17,9 +17,12 @@ use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 class BullpenResultPracticeTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     public function test_save_result_bullpen_practice_ok(): void
     {
         Sanctum::actingAs(User::factory()->create());

@@ -8,9 +8,12 @@ use App\Models\CagePracticeResult;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 class CageGetResultPracticeTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     public function test_get_cage_practice_result_by_uuid_ok(): void
     {
         Sanctum::actingAs(User::factory()->create());

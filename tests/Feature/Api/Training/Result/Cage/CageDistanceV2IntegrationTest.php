@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use RuntimeException;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 /**
  * Covers the FMTRX Cage Distance Model v2 integration: storage, the feature
@@ -23,6 +24,8 @@ use Tests\TestCase;
  */
 class CageDistanceV2IntegrationTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     private function validPayload(array $overrides = []): array
     {
         return array_merge([

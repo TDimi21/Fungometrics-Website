@@ -14,9 +14,12 @@ use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
+use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
 class ExitVelocityResultPracticeTest extends TestCase
 {
+    use OwnsCreatedPracticeFixtures;
+
     public function test_velocity_exit_practice_result_ok(): void
     {
         $user = User::factory()->create(['type' => UserTypes::PLAYER->value, 'subscription_plan' => 'player_pro']);

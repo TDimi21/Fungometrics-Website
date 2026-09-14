@@ -4,12 +4,19 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Models\BattingPracticeResult;
+use App\Models\BullpenPracticeResult;
+use App\Models\CagePracticeResult;
 use App\Models\CoachTeam;
+use App\Models\ExitVelocityPractice;
+use App\Models\LiveABPracticeResult;
+use App\Models\LongTossPractice;
 use App\Models\PlayerTeam;
 use App\Models\Practice;
 use App\Models\Team;
 use App\Models\TeamsLiveAB;
 use App\Models\User;
+use App\Models\WeightBallPractice;
 use App\Services\Access\AdministrativeAccess;
 use Closure;
 use Illuminate\Http\Request;
@@ -30,6 +37,8 @@ class AuthorizeRouteScope
         if ($this->administration->canManageSubscriptions($user)) {
             return $next($request);
         }
+
+        $this->authorizeResult($request, $user);
 
         $team = $this->firstRouteValue($request, ['team', 'teamId']);
         $teamId = $team ? $this->modelId($team) : null;
@@ -59,6 +68,59 @@ class AuthorizeRouteScope
         return $next($request);
     }
 
+    /** Resolve result IDs independently of client-supplied practice IDs. */
+    private function authorizeResult(Request $request, User $user): void
+    {
+        $models = [
+            'batting' => BattingPracticeResult::class,
+            'bullpen' => BullpenPracticeResult::class,
+            'cage' => CagePracticeResult::class,
+            'liveab' => LiveABPracticeResult::class,
+            'longtoss' => LongTossPractice::class,
+            'exitvelocity' => ExitVelocityPractice::class,
+            'weightball' => WeightBallPractice::class,
+        ];
+        $uri = (string) $request->route()?->uri();
+        foreach ($models as $type => $model) {
+            $collection = 'api/result/'.$type;
+            if ($uri !== $collection && $uri !== $collection.'/{uuid}') {
+                continue;
+            }
+
+            $practiceId = $request->input('practice_id');
+            if (null !== $practiceId && ! is_string($practiceId)) {
+                abort(422, 'The practice_id must be a string.');
+            }
+
+            if ($uri === $collection.'/{uuid}') {
+                $result = $model::query()->find($request->route('uuid'));
+                // Preserve the controllers' missing-result response contracts.
+                if ( ! $result) {
+                    return;
+                }
+                $practice = Practice::query()->find($result->practice_id);
+                if ( ! $practice || ! $this->canAccessPractice($user, $practice)) {
+                    abort(404);
+                }
+                // A result cannot be moved to another session through an edit.
+                if ($request->exists('practice_id') && $practiceId !== (string) $practice->id) {
+                    abort(422, 'The result practice_id cannot be changed.');
+                }
+            } else {
+                // Required-field validation remains the FormRequest's responsibility.
+                if (null === $practiceId || '' === $practiceId) {
+                    return;
+                }
+                $practice = Practice::query()->find($practiceId);
+                if ( ! $practice || ! $this->canAccessPractice($user, $practice)) {
+                    abort(404);
+                }
+            }
+
+            return;
+        }
+    }
+
     private function canAccessTeam(User $user, string $teamId): bool
     {
         if ( ! Team::query()->whereKey($teamId)->exists()) {
@@ -66,7 +128,7 @@ class AuthorizeRouteScope
         }
 
         return CoachTeam::query()->where('coach_id', $user->id)->where('team_id', $teamId)->exists()
-            || PlayerTeam::query()->where('user_id', $user->id)->where('team_id', $teamId)->exists();
+            || PlayerTeam::query()->where('user_id', $user->id)->where('team_id', $teamId)->where('actual', true)->exists();
     }
 
     private function canAccessPlayer(User $user, string $playerId): bool
@@ -108,6 +170,7 @@ class AuthorizeRouteScope
             || PlayerTeam::query()
                 ->where('user_id', $user->id)
                 ->whereIn('team_id', clone $liveAbTeamIds)
+                ->where('actual', true)
                 ->exists();
     }
 
