@@ -26,6 +26,7 @@ class BullpenResultRequest extends FormRequest
     {
         return [
             'practice_id' => ['required', 'string'],
+            'client_request_id' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
             'team_id' => ['nullable', 'string'],
             'pitcher_id' => ['nullable', 'string'],
             'pitch_side' => ['nullable', 'required'],

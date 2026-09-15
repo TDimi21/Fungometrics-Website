@@ -21,6 +21,8 @@ class BullpenPracticeResult extends Model
 
     protected $keyType = 'string';
 
+    protected $hidden = ['recorded_by', 'request_hash'];
+
     protected $casts = [
         'id' => 'string',
         'is_in_match' => 'boolean',

@@ -13,10 +13,13 @@ import { usePlayerStore } from '@/store/players.js'
 import Loader from "../../components/Loader.vue";
 import router from "../../../router";
 import { useUserStore } from "@/store/user";
+import {createBullpenSubmission} from '@/utils/bullpenSubmission.js'
 import DefaultImg from '@/assets/img/login/assteslogin/updatedlogo.webp'
 
 const {team, teams} = useTeamStore();
 const {axiosPost, axiosPut} = useAxiosAuth()
+const submitPitch = createBullpenSubmission(axiosPost)
+let savingPitch = false
 const { userData } = useUserStore();
 const { players } = usePlayerStore()
 const isLoading = reactive({status: true})
@@ -192,6 +195,7 @@ const addPlayer = async () => {
 }
 
 const save = async () => {
+  if (savingPitch) return;
   isLoading.status = !isLoading.status;
 
   if (dataProcess.value.pitch === '') {
@@ -238,6 +242,8 @@ const save = async () => {
     zone: zoneCatcher
   }
 
+  savingPitch = true;
+  let saved = false;
   try {
     if(training.trainingActive.sort != null){
       await axiosPut('result/bullpen/'+ training.trainingActive.id, {
@@ -251,6 +257,7 @@ const save = async () => {
         'sort' : training.trainingActive.sort,
       }).then(async (response) => {
         if (response) {
+          saved = true;
           isLoading.status = !isLoading.status;
           toast.fire({
             icon: 'success',
@@ -264,8 +271,9 @@ const save = async () => {
         }
       })
     }else{
-      await axiosPost('result/bullpen', dataToSave).then(async (response) => {
+      await submitPitch(dataToSave).then(async (response) => {
         if (response) {
+          saved = true;
           isLoading.status = !isLoading.status;
           toast.fire({
             icon: 'success',
@@ -283,11 +291,13 @@ const save = async () => {
     toast.fire({
       icon: 'error',
       title: 'Not save training',
-      text: 'Sorry it is not possible save the information in this moment',
+      text: error?.response?.data?.message || error.message || 'Pitch not confirmed. Retry to save it.',
     })
   } finally {
+    savingPitch = false;
     zoneCatcher = 'T'
   }
+  if (!saved) return;
   localStorage.removeItem('pitch')
   change.value += 1;
   dataProcess.value.mph = 0;

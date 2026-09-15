@@ -491,6 +491,7 @@ Route::middleware(['auth:sanctum', 'route.scope'])->prefix('result')->group(func
     Route::middleware('session.entitlement')->post('/batting', SaveBattingResultPractice::class);
     Route::middleware('session.entitlement')->put('/batting/{uuid}', EditBattingResultPractice::class);
 
+    Route::get('/bullpen/sync-capabilities', \App\Http\Controllers\Api\Training\Result\BullpenSyncCapabilities::class);
     Route::middleware('session.entitlement')->get('/bullpen/{uuid}', GetBullpenResultPractice::class);
     Route::middleware('session.entitlement')->post('/bullpen', SaveBullpenResultPractice::class);
     Route::middleware('session.entitlement')->put('/bullpen/{uuid}', EditBullpenResultPractice::class);
