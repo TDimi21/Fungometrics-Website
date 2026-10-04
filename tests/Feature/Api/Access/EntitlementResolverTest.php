@@ -88,7 +88,7 @@ class EntitlementResolverTest extends TestCase
         $this->assertFalse($this->resolver->hasEntitlement($player, 'edit_team'));
     }
 
-    public function test_temporary_full_access_requires_a_valid_future_expiration(): void
+    public function test_temporary_full_access_allows_no_cutoff_but_rejects_invalid_or_expired_cutoffs(): void
     {
         $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);
 
@@ -96,7 +96,8 @@ class EntitlementResolverTest extends TestCase
             'access.temporary_full_access.enabled' => true,
             'access.temporary_full_access.ends_at' => null,
         ]);
-        $this->assertFalse($this->resolver->hasEntitlement($coach, 'view_team_stats'));
+        $this->assertTrue($this->resolver->hasEntitlement($coach, 'view_team_stats'));
+        $this->assertNull($this->resolver->getAccessSummary($coach)['expires_at']);
 
         config(['access.temporary_full_access.ends_at' => 'not-a-date']);
         $this->assertFalse($this->resolver->hasEntitlement($coach, 'view_team_stats'));
@@ -105,6 +106,32 @@ class EntitlementResolverTest extends TestCase
         $summary = $this->resolver->getAccessSummary($coach);
         $this->assertFalse($this->resolver->hasEntitlement($coach, 'view_team_stats'));
         $this->assertFalse($summary['temporary_access']['active']);
+    }
+
+    public function test_open_free_period_unlocks_both_roles_and_can_be_switched_off(): void
+    {
+        config(['access.temporary_full_access.enabled' => true, 'access.temporary_full_access.ends_at' => null]);
+        foreach (['coach', 'player'] as $role) {
+            $user = User::factory()->create(['type' => $role, 'subscription_plan' => 'free']);
+            $summary = $this->resolver->getAccessSummary($user);
+            $excluded = array_merge(config('entitlements.deprecated', []), config('entitlements.not_implemented', []));
+            foreach (array_diff(config("access.plans.{$role}_pro.entitlements"), $excluded) as $feature) {
+                $request = Request::create('/protected', 'GET');
+                $request->setUserResolver(fn () => $user);
+                $response = app(RequiresPlan::class)->handle($request, fn () => response('allowed'), $feature);
+                $this->assertSame(200, $response->getStatusCode());
+                $this->assertTrue($this->resolver->hasEntitlement($user, $feature), $role.': '.$feature);
+            }
+            $this->assertSame(['players' => null, 'coaches' => null, 'teams' => null], $summary['limits']);
+            Sanctum::actingAs($user, [$role]);
+            $this->getJson('/api/me/access')->assertOk()->assertJsonPath('data.temporary_access.active', true);
+            $this->getJson('/api/me/billing/revenuecat/products')->assertOk()->assertJsonPath('data', []);
+            $this->assertSame('free', $user->fresh()->subscription_plan);
+            $this->assertFalse(app(\App\Services\Access\AdministrativeAccess::class)->canManageSubscriptions($user));
+        }
+        config(['access.temporary_full_access.enabled' => false]);
+        $this->assertFalse($this->resolver->hasEntitlement($user, 'view_advanced_stats'));
+        $this->assertDatabaseCount('subscriptions', 0);
     }
 
     public function test_temporary_full_access_does_not_bypass_team_membership(): void

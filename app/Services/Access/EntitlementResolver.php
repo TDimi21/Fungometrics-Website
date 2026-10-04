@@ -291,18 +291,20 @@ class EntitlementResolver
 
         $plan = config("access.temporary_full_access.plans.{$audience}");
         $endsAt = trim((string) config('access.temporary_full_access.ends_at'));
-        if ( ! is_string($plan) || '' === $plan || '' === $endsAt) {
+        if ( ! is_string($plan) || '' === $plan) {
             return null;
         }
 
-        try {
-            $expires = Carbon::parse($endsAt);
-        } catch (Throwable) {
-            return null;
-        }
-
-        if ( ! now()->lt($expires)) {
-            return null;
+        $expires = null;
+        if ('' !== $endsAt) {
+            try {
+                $expires = Carbon::parse($endsAt);
+            } catch (Throwable) {
+                return null;
+            }
+            if ( ! now()->lt($expires)) {
+                return null;
+            }
         }
 
         $entitlements = config("access.plans.{$plan}.entitlements");

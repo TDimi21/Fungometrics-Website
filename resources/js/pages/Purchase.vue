@@ -50,7 +50,11 @@ onMounted(async () => {
             <p class="mt-1 text-2xl font-black">{{ access.summary.plan || 'free' }}</p>
             <p class="mt-1 text-sm text-white/60">Status: {{ access.summary.status || 'unknown' }}</p>
           </div>
-          <div class="rounded-xl border border-white/10 bg-black/20 p-5">
+          <div v-if="access.summary.source === 'temporary_full_access'" class="rounded-xl border border-white/10 bg-black/20 p-5">
+            <p class="font-bold">Full access is free during this promotional period.</p>
+            <p class="mt-2 text-sm text-white/60">All features for your account are unlocked. No purchase is required.</p>
+          </div>
+          <div v-else class="rounded-xl border border-white/10 bg-black/20 p-5">
             <p class="font-bold">Store products available for this account: {{ products.length }}</p>
             <p class="mt-2 text-sm text-white/60">Open FMTRX on iPhone, then choose More → Plans &amp; Billing to purchase, restore, or manage your subscription.</p>
           </div>

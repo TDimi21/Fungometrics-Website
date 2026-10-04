@@ -8,11 +8,11 @@ return [
     /*
      * Temporary evaluation access is deliberately server-authoritative so the
      * web and mobile clients receive the same decision from /api/me/access.
-     * An explicit expiration is required; an enabled flag without a valid
-     * future timestamp grants nothing.
+     * Leave the expiration blank to keep the free period open until disabled.
+     * A supplied expiration must be valid and in the future.
      */
     'temporary_full_access' => [
-        'enabled' => (bool) env('FMTRX_TEMPORARY_FULL_ACCESS_ENABLED', false),
+        'enabled' => (bool) env('FMTRX_TEMPORARY_FULL_ACCESS_ENABLED', true),
         'ends_at' => env('FMTRX_TEMPORARY_FULL_ACCESS_ENDS_AT'),
         'plans' => [
             'coach' => 'coach_pro',
