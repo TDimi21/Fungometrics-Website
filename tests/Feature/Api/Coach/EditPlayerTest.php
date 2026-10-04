@@ -17,6 +17,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -29,7 +30,10 @@ class EditPlayerTest extends TestCase
             'subscription_plan' => 'player_basic',
         ]);
         Profile::factory()->create(['user_id' => $user->id]);
-        Player::factory()->create(['user_id' => $user->id]);
+        Player::factory()->create(['user_id' => $user->id, 'grad_year' => 2028]);
+        $team = Team::factory()->create();
+        PlayerTeam::factory()->create(['user_id' => $user->id, 'team_id' => $team->id]);
+        Cache::put('roster_team_'.$team->id, ['stale profile'], 60);
         PlayerPosition::factory()->create(['player_id' => $user->id]);
         Sanctum::actingAs($user, [UserTypes::PLAYER->value]);
 
@@ -50,7 +54,19 @@ class EditPlayerTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('data.profile.first_name', 'Updated')
-            ->assertJsonPath('data.player.height_in_ft', 5);
+            ->assertJsonPath('data.player.height_in_ft', 5)
+            ->assertJsonPath('data.player.grad_year', 2028);
+        $this->assertFalse(Cache::has('roster_team_'.$team->id));
+        Sanctum::actingAs($user->fresh(), [UserTypes::PLAYER->value]);
+        $this->getJson('api/player/me')->assertOk()
+            ->assertJsonPath('data.name.first', 'Updated')
+            ->assertJsonPath('data.born_date', '2010-05-12')
+            ->assertJsonPath('data.ft', 5)
+            ->assertJsonPath('data.inch', 10)
+            ->assertJsonPath('data.shirt_number', 24)
+            ->assertJsonPath('data.hit_side', 'L')
+            ->assertJsonPath('data.throw_side', 'R')
+            ->assertJsonPath('data.positions.0.position', PlayerPositions::SHORT_STOP->value);
     }
 
     public function test_player_cannot_edit_another_player_profile(): void

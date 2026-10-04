@@ -56,6 +56,7 @@ class GetMe extends Controller
                     'picture' => $picture,
                     'avatar' => $picture,
                 ],
+                'born_date' => $player?->born_date,
                 'ft' => $player?->height_in_ft ?? 0,
                 'inch' => $player?->height_in_inch ?? 0,
                 'grad_year' => $player?->grad_year,

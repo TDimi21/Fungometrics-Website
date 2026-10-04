@@ -41,7 +41,8 @@ class EditPlayerRequest extends FormRequest
             'player.sides.pitch' => ['nullable', 'string', 'in:L,R'],
             'player.sides.hit' => ['nullable', 'string', 'in:L,R,S'],
             'player.inch' => ['required', 'integer'],
-            'positions' => ['required'],
+            'positions' => ['required', 'array', 'min:1'],
+            'positions.*.position' => ['required', 'string', 'distinct'],
         ];
     }
 

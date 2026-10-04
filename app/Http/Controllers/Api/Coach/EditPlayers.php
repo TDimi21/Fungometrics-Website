@@ -16,6 +16,7 @@ use App\Services\UploadS3File;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
@@ -104,7 +105,7 @@ class EditPlayers extends Controller
                 // were accessed directly, so a missing key threw "Undefined array key"
                 // and the whole save failed with "player not updated" (picture included).
                 'born_date' => $playerInput['born'] ?? null,
-                'grad_year' => $playerInput['grad_year'] ?? null,
+                'grad_year' => array_key_exists('grad_year', $playerInput) ? $playerInput['grad_year'] : $player->player?->grad_year,
                 'number_in_shirt' => $playerInput['shirt'] ?? null,
                 'hit_side' => $playerInput['sides']['hit'] ?? "",
                 'throw_side' => $playerInput['sides']['pitch'] ?? "",
@@ -126,6 +127,9 @@ class EditPlayers extends Controller
                 $response['photo_error'] = 'Photo could not be stored; other changes were saved.';
             }
             DB::commit();
+            foreach (PlayerTeam::where('user_id', $playerId)->pluck('team_id')->unique() as $teamId) {
+                Cache::forget('roster_team_'.$teamId);
+            }
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {
             DB::rollBack();
