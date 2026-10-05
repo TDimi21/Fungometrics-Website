@@ -587,3 +587,19 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'subscription.admin'])->pref
     // CAGE_DISTANCE_VALIDATION_ENABLED (off by default, including prod).
     Route::post('/cage-distance/validate', [\App\Http\Controllers\Api\Admin\CageDistanceValidationController::class, 'check']);
 });
+
+// Free Assessment has explicit event/team policies and does not require a paid plan.
+Route::middleware(['auth:sanctum', 'ability:coach,admin,super_admin'])->prefix('free-assessments')->group(function () {
+    $controller = \App\Http\Controllers\Api\FreeAssessment\FreeAssessmentController::class;
+    Route::get('/', [$controller, 'index']);
+    Route::post('/', [$controller, 'store']);
+    Route::get('/{assessment}', [$controller, 'show']);
+    Route::patch('/{assessment}', [$controller, 'status']);
+    Route::get('/{assessment}/candidates', [$controller, 'candidates']);
+    Route::post('/{assessment}/players', [$controller, 'enroll']);
+    Route::post('/{assessment}/quick-add', [$controller, 'quickAdd'])->middleware('throttle:30,1');
+    Route::put('/{assessment}/players/{player}/stations/{station}', [$controller, 'save']);
+    Route::post('/{assessment}/players/{player}/claim', [$controller, 'claim'])->middleware('throttle:10,1');
+    Route::get('/{assessment}/rankings', [$controller, 'rankings']);
+    Route::get('/{assessment}/export', [$controller, 'export'])->middleware('throttle:20,1');
+});

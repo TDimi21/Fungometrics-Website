@@ -151,7 +151,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         $query->where('team_id', $teamScopeId)->orWhereNull('team_id');
                     });
                 }
-                $evCurrent = $evCurrentQuery->get();
+                $evCurrent = $evCurrentQuery->get()->toBase()->concat(app(\App\Services\FreeAssessment\AssessmentMetricSource::class)->velocities('exit_velocity', $teamScopeId, $playerId, $since));
+                $assessmentPitching = app(\App\Services\FreeAssessment\AssessmentMetricSource::class)->velocities('pitching_velocity', $teamScopeId, $playerId, $since);
 
                 $battingLast30 = $battingCurrent->where('created_at', '>=', $last30);
                 $battingPrev30 = $battingCurrent->where('created_at', '<', $last30)->where('created_at', '>=', $prev30Start);
@@ -238,8 +239,8 @@ class GetPlayerDevelopmentDashboard extends Controller
 
                 $battingAggCurrent = $this->aggregateBatting($battingCurrentWindow, $evCurrent);
                 $battingAggPrev = $this->aggregateBatting($battingPrev30, collect());
-                $bullpenAggCurrent = $this->aggregateBullpen($bullpenCurrentWindow, $bullpenAllCurrentWindow);
-                $bullpenAggPrev = $this->aggregateBullpen($bullpenPrev30, $bullpenAllPrev30);
+                $bullpenAggCurrent = $this->aggregateBullpen($bullpenCurrentWindow, $bullpenAllCurrentWindow, $assessmentPitching);
+                $bullpenAggPrev = $this->aggregateBullpen($bullpenPrev30, $bullpenAllPrev30, $assessmentPitching->where('created_at', '<', $last30)->where('created_at', '>=', $prev30Start));
 
                 $bpScore = $battingCurrent->count() > 0
                     ? (new BattingStatisticsService())->fps($battingCurrent)['fps'] ?? null
@@ -447,6 +448,8 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'strike_percentage' => $bullpenAggCurrent['strike_percentage'],
                         'pitch_quality_score' => $bullpenAggCurrent['command_score'],
 
+                        'shuttle_5_10_5' => $fitnessLatest?->shuttle_5_10_5,
+                        'pull_strength' => $fitnessLatest?->pull_strength,
                         'body_weight' => $bodyWeight,
                         'strength_score' => $strengthScore,
                         'athletic_performance_index' => $athleticLatest?->overall_api_score,
@@ -708,11 +711,11 @@ class GetPlayerDevelopmentDashboard extends Controller
         ];
     }
 
-    private function aggregateBullpen(Collection $bullpen, ?Collection $allBullpen = null): array
+    private function aggregateBullpen(Collection $bullpen, ?Collection $allBullpen = null, ?Collection $assessment = null): array
     {
         // Use the broader combined collection (regular + scripted) for FB velocity if provided
-        $fbSource = $allBullpen ?? $bullpen;
-        $velocities = $bullpen->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
+        $fbSource = ($allBullpen ?? $bullpen)->toBase()->concat($assessment ?? collect());
+        $velocities = $bullpen->toBase()->concat($assessment ?? collect())->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
         $fbVelocities = $fbSource->where('type_throw', 'FB')->pluck('miles_per_hour')->filter(fn ($v) => is_numeric($v) && (float) $v > 0)->map(fn ($v) => (float) $v);
         $total = max(1, $bullpen->count());
         $strikes = $bullpen->where('is_strike', true)->count();

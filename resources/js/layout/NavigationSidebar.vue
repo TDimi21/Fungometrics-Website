@@ -19,6 +19,7 @@ const userStore = useUserStore();
 const { userData } = storeToRefs(userStore);
 
 const sidebarItems = ref([
+  { title: 'Free Assessment', iconPath: iconStartPractice, url: '/free-assessment' },
   {
     title: 'Player Directory',
     iconPath: iconDashboard,
@@ -153,6 +154,7 @@ const props = defineProps({
 onMounted(() => {
   if (isAdminUser.value) {
     sidebarItems.value = [
+      { title: 'Free Assessment', iconPath: iconStartPractice, url: '/free-assessment' },
       { title: 'Dashboard',  iconPath: iconAdmin,           url: '/admin' },
       { title: 'Users',      iconPath: iconRoster,          url: '/admin/users' },
       { title: 'Teams',      iconPath: iconManageTeam,      url: '/admin/teams' },

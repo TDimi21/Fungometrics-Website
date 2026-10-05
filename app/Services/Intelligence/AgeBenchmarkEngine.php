@@ -151,8 +151,8 @@ class AgeBenchmarkEngine
         $weighted = $assembled['weighted_ball_summary'] ?? [];
 
         return [
-            'average_fastball_velocity' => $this->firstNumber([$bullpen['avg_pitch_velocity'] ?? null, $assessment['baseline_pitch_velocity'] ?? null, $physical['pitch_velocity'] ?? null]),
-            'max_fastball_velocity' => $this->firstNumber([$bullpen['max_pitch_velocity'] ?? null, $assessment['baseline_pitch_velocity'] ?? null, $physical['pitch_velocity'] ?? null]),
+            'average_fastball_velocity' => array_key_exists('avg_fastball_velocity', $bullpen) ? $bullpen['avg_fastball_velocity'] : $this->firstNumber([$bullpen['avg_pitch_velocity'] ?? null, $assessment['baseline_pitch_velocity'] ?? null, $physical['pitch_velocity'] ?? null]),
+            'max_fastball_velocity' => array_key_exists('max_fastball_velocity', $bullpen) ? $bullpen['max_fastball_velocity'] : $this->firstNumber([$bullpen['max_pitch_velocity'] ?? null, $assessment['baseline_pitch_velocity'] ?? null, $physical['pitch_velocity'] ?? null]),
             'strike_percentage' => $bullpen['strike_rate'] ?? null,
             'long_toss_max_distance' => $longToss['max_distance'] ?? null,
             'weighted_ball_5oz_velocity' => $weighted['five_oz_max_velocity'] ?? null,

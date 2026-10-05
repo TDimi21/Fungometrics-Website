@@ -66,6 +66,7 @@ class PopulationMetricRepository
         $cacheKey = 'population_metric_audit_v1_'.sha1(json_encode([
             $metricKey,
             $cacheContext,
+            Cache::get('free_assessment_population_version', '0'),
             $days,
         ], JSON_THROW_ON_ERROR));
 
@@ -679,8 +680,8 @@ class PopulationMetricRepository
         return match ($metricKey) {
             'average_exit_velocity' => $this->exitVelocityRows($context, $days, 'avg', $metricKey, $stats),
             'max_exit_velocity' => $this->exitVelocityRows($context, $days, 'max', $metricKey, $stats),
-            'average_fastball_velocity' => $this->aggregateRows($this->sourceRows('bullpen_practice_results', 'pitcher_id', 'miles_per_hour', $context, $days, $metricKey, $stats), 'avg'),
-            'max_fastball_velocity' => $this->aggregateRows($this->sourceRows('bullpen_practice_results', 'pitcher_id', 'miles_per_hour', $context, $days, $metricKey, $stats), 'max'),
+            'average_fastball_velocity' => $this->aggregateRows($this->sourceRows('bullpen_practice_results', 'pitcher_id', 'miles_per_hour', $context, $days, $metricKey, $stats)->merge($this->assessmentVelocityRows('pitching_velocity', $context, $days, $metricKey, $stats)), 'avg'),
+            'max_fastball_velocity' => $this->aggregateRows($this->sourceRows('bullpen_practice_results', 'pitcher_id', 'miles_per_hour', $context, $days, $metricKey, $stats)->merge($this->assessmentVelocityRows('pitching_velocity', $context, $days, $metricKey, $stats)), 'max'),
             'strike_percentage' => $this->strikePercentageRows($context, $days, $stats),
             'long_toss_max_distance' => $this->aggregateRows($this->sourceRows('long_toss_practices', 'user_id', 'distance', $context, $days, $metricKey, $stats), 'max'),
             'weighted_ball_5oz_velocity' => $this->aggregateRows($this->sourceRows('weight_ball_practices', 'user_id', 'velocity', $context, $days, $metricKey, $stats, ['weight' => 5]), 'max'),
@@ -766,12 +767,26 @@ class PopulationMetricRepository
         };
     }
 
+    private function assessmentVelocityRows(string $station, array $context, int $days, string $metricKey, array &$stats): Collection
+    {
+        return app(\App\Services\FreeAssessment\AssessmentMetricSource::class)
+            ->velocities($station, $context['team_id'] ?? $context['teamId'] ?? null, null, now()->subDays($days), $station === 'pitching_velocity')
+            ->map(function ($row) use ($metricKey, &$stats) {
+                $stats['raw_values_found']++;
+                $check = $this->guardrail->validate($metricKey, $row->value);
+                if (!($check['included'] ?? false)) return null;
+                $stats['raw_values_included']++;
+                return ['user_id' => $row->user_id, 'value' => $check['value'], 'created_at' => $row->created_at, 'source' => 'table', 'table' => 'free_assessment_attempts', 'column' => 'value'];
+            })->filter()->values();
+    }
+
     private function exitVelocityRows(array $context, int $days, string $aggregate, string $metricKey, array &$stats): Collection
     {
         $rows = collect()
             ->merge($this->sourceRows('exit_velocity_practices', 'user_id', 'velocity', $context, $days, $metricKey, $stats))
             ->merge($this->sourceRows('batting_practice_results', 'batter_id', 'velocity', $context, $days, $metricKey, $stats))
-            ->merge($this->sourceRows('cage_practice_results', 'user_id', 'launch_angle_velocity', $context, $days, $metricKey, $stats));
+            ->merge($this->sourceRows('cage_practice_results', 'user_id', 'launch_angle_velocity', $context, $days, $metricKey, $stats))
+            ->merge($this->assessmentVelocityRows('exit_velocity', $context, $days, $metricKey, $stats));
 
         return $this->aggregateRows($rows, $aggregate);
     }
@@ -821,7 +836,18 @@ class PopulationMetricRepository
             ]);
 
         if (Schema::hasColumn($table, 'created_at')) {
-            $query->addSelect('created_at')->where('created_at', '>=', now()->subDays($days));
+            $query->addSelect('created_at');
+            if ($table === 'player_fitnesses' && Schema::hasColumn($table, 'free_assessment_id')) {
+                $query->where(function ($q) use ($days) {
+                    $q->where(function ($legacy) use ($days) { $legacy->whereNull('free_assessment_id')->where('created_at', '>=', now()->subDays($days)); })
+                      ->orWhere(function ($assessment) use ($days) { $assessment->whereNotNull('free_assessment_id')->where('fitness_date', '>=', now()->subDays($days)->toDateString()); });
+                });
+                if ($teamId = ($context['team_id'] ?? $context['teamId'] ?? null)) {
+                    $query->where(function ($q) use ($teamId) { $q->whereNull('free_assessment_id')->orWhereIn('free_assessment_id', DB::table('free_assessments')->where('team_id', $teamId)->select('id')); });
+                }
+            } else {
+                $query->where('created_at', '>=', now()->subDays($days));
+            }
         }
 
         if (Schema::hasColumn($table, 'deleted_at')) {

@@ -44,6 +44,8 @@ final class PlayerMetricFreshnessService
             ['source' => 'player_assessment', 'field' => 'broad_jump_in'],
         ],
         'med_ball_rotational_throw' => [['source' => 'player_fitness', 'field' => 'med_ball_rotational_throw']],
+        'shuttle_5_10_5' => [['source' => 'player_fitness', 'field' => 'shuttle_5_10_5']],
+        'pull_strength' => [['source' => 'player_fitness', 'field' => 'pull_strength']],
         'sprint_10yd' => [
             ['source' => 'player_fitness', 'field' => 'sprint_10yd'],
             ['source' => 'player_assessment', 'field' => 'sprint_10yd_sec'],
@@ -78,6 +80,9 @@ final class PlayerMetricFreshnessService
     {
         $fitnessRows = PlayerFitness::query()
             ->where('user_id', $playerId)
+            ->when($teamId && \Illuminate\Support\Facades\Schema::hasColumn('player_fitnesses', 'free_assessment_id'), function ($q) use ($teamId) {
+                $q->where(fn ($scope) => $scope->whereNull('free_assessment_id')->orWhereIn('free_assessment_id', \App\Models\FreeAssessment::where('team_id', $teamId)->select('id')));
+            })
             ->get()
             ->sortByDesc(fn (PlayerFitness $fitness): string => $this->rowSortKey($fitness->fitness_date, $fitness->updated_at ?? $fitness->created_at))
             ->values();

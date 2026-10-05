@@ -29,6 +29,10 @@ final class DailyVelocityAverageService
         $this->addLegacySamples($samples, 'exit_velocity_practices', 'user_id', 'velocity', 'hitting', $teamId, $playerId, $since);
         $this->addLegacySamples($samples, 'bullpen_practice_results', 'pitcher_id', 'miles_per_hour', 'pitching', $teamId, $playerId, $since);
         $this->addFitnessSamples($samples, $playerId, $since);
+        foreach (['exit_velocity' => 'hitting', 'pitching_velocity' => 'pitching'] as $station => $type) {
+            app(\App\Services\FreeAssessment\AssessmentMetricSource::class)->velocities($station, $teamId, $playerId, $since)
+                ->each(fn ($row) => $this->push($samples, $type, $row->value, $row->created_at));
+        }
         $this->addAssessmentSamples($samples, $teamId, $playerId, $since);
         $this->addCanonicalSamples($samples, $teamId, $playerId, $since);
 
@@ -83,6 +87,7 @@ final class DailyVelocityAverageService
         PlayerFitness::query()
             ->where('user_id', $playerId)
             ->where('fitness_date', '>=', $since->toDateString())
+            ->when(Schema::hasColumn('player_fitnesses', 'free_assessment_id'), fn ($q) => $q->whereNull('free_assessment_id'))
             ->get(['fitness_date', 'exit_velo', 'pitch_velo'])
             ->each(function (PlayerFitness $row) use ($samples): void {
                 $this->push($samples, 'hitting', $row->exit_velo, $row->fitness_date);

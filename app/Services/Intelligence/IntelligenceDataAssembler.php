@@ -219,11 +219,11 @@ class IntelligenceDataAssembler
             'assessment_summary' => $this->assessmentSummary($assessmentLatest),
             'physical_development' => $this->physicalSummary($fitnessLatest, $fitnessPrevious, $athleticLatest, $athleticPrevious),
             'batting_summary' => $this->battingSummary($batting),
-            'bullpen_summary' => $this->bullpenSummary($bullpen),
+            'bullpen_summary' => $this->bullpenSummary($bullpen, app(\App\Services\FreeAssessment\AssessmentMetricSource::class)->velocities('pitching_velocity', $teamId, $playerId, $since)),
             'liveab_summary' => $this->liveAbSummary($liveAb),
             'cage_summary' => $this->cageSummary($cage),
             'weighted_ball_summary' => $this->weightedBallSummary($weightedBall),
-            'exit_velocity_summary' => $this->exitVelocitySummary($exitVelocity),
+            'exit_velocity_summary' => $this->exitVelocitySummary($exitVelocity, app(\App\Services\FreeAssessment\AssessmentMetricSource::class)->velocities('exit_velocity', $teamId, $playerId, $since)),
             'long_toss_summary' => $this->longTossSummary($longToss),
             'arm_care_summary' => $this->armCareSummary($armCare),
             'session_summary' => $this->sessionSummary($practices, $lineups),
@@ -429,6 +429,8 @@ class IntelligenceDataAssembler
             'med_ball_rotational_throw' => $this->numberOrNull($latest?->med_ball_rotational_throw),
             'bat_speed' => $this->numberOrNull($latest?->bat_speed),
             'sprint_10yd' => $this->numberOrNull($latest?->sprint_10yd),
+            'shuttle_5_10_5' => $this->numberOrNull($latest?->shuttle_5_10_5),
+            'pull_strength' => $this->numberOrNull($latest?->pull_strength),
             '40_yard_dash' => $fortyYardDash,
             '60_yard_dash' => $sixtyYardDash,
             'exit_velocity' => $this->numberOrNull($latest?->exit_velo),
@@ -501,10 +503,11 @@ class IntelligenceDataAssembler
         ];
     }
 
-    private function bullpenSummary(Collection $rows): array
+    private function bullpenSummary(Collection $rows, ?Collection $assessment = null): array
     {
         $stats = $rows->isNotEmpty() ? $this->bullpenStatistics->bps($rows) : [];
-        $veloRows = $rows->filter(fn ($row) => null !== $this->positiveNumber($row->miles_per_hour));
+        $veloRows = $rows->toBase()->concat($assessment ?? collect())->filter(fn ($row) => null !== $this->positiveNumber($row->miles_per_hour));
+        $fastballs = $veloRows->where('type_throw', 'FB');
 
         return [
             'result_count' => $rows->count(),
@@ -512,6 +515,7 @@ class IntelligenceDataAssembler
             'score_breakdown' => $stats,
             'avg_pitch_velocity' => $veloRows->isNotEmpty() ? round((float) $veloRows->avg('miles_per_hour'), 1) : null,
             'max_pitch_velocity' => $veloRows->isNotEmpty() ? round((float) $veloRows->max('miles_per_hour'), 1) : null,
+            ...(($assessment?->isNotEmpty() ?? false) ? ['avg_fastball_velocity' => $fastballs->isNotEmpty() ? round((float) $fastballs->avg('miles_per_hour'), 1) : null, 'max_fastball_velocity' => $fastballs->isNotEmpty() ? round((float) $fastballs->max('miles_per_hour'), 1) : null] : []),
             'strike_rate' => $this->numberOrNull($stats['strikeRate'] ?? null),
         ];
     }
@@ -581,10 +585,10 @@ class IntelligenceDataAssembler
         ];
     }
 
-    private function exitVelocitySummary(Collection $rows): array
+    private function exitVelocitySummary(Collection $rows, ?Collection $assessment = null): array
     {
         $stats = $rows->isNotEmpty() ? $this->exitVelocityStatistics->evs($rows) : [];
-        $veloRows = $rows->filter(fn ($row) => null !== $this->positiveNumber($row->velocity));
+        $veloRows = $rows->toBase()->concat($assessment ?? collect())->filter(fn ($row) => null !== $this->positiveNumber($row->velocity));
 
         return [
             'result_count' => $rows->count(),

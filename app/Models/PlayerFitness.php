@@ -23,6 +23,9 @@ class PlayerFitness extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
+        'free_assessment_id',
+        'shuttle_5_10_5',
+        'pull_strength',
         'user_id',
         'fitness_date',
         'bench_press',
@@ -58,6 +61,8 @@ class PlayerFitness extends Model
     ];
 
     protected $casts = [
+        'shuttle_5_10_5' => 'float',
+        'pull_strength' => 'float',
         'fitness_date' => 'date',
         'id' => 'string',
         'user_id' => 'string',
