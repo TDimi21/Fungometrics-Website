@@ -16,13 +16,17 @@ class AssessmentScoringService
         abort_unless($definition, 404);
         validator($data, [
             'revision' => 'required|integer|min:0',
-            'values' => 'required|array|size:'.$definition['count'],
-            'values.*' => ['required', 'reps' === $definition['unit'] ? 'integer' : 'numeric', 'min:'.$definition['min'], 'max:'.$definition['max']],
+            'values' => 'required|array|min:1|max:'.$definition['count'],
+            'values.*' => ['nullable', 'reps' === $definition['unit'] ? 'integer' : 'numeric', 'min:'.$definition['min'], 'max:'.$definition['max']],
             'notes' => 'nullable|string|max:2000',
             'protocol' => 'pull_strength' === $station ? 'required|string|max:120' : 'nullable|string|max:120',
         ])->validate();
         if ( ! array_is_list($data['values'])) {
             throw ValidationException::withMessages(['values' => 'Attempts must be an ordered list.']);
+        }
+        $data['values'] = array_pad(array_map(fn ($value) => $value === null || $value === '' ? null : (float) $value, $data['values']), $definition['count'], null);
+        if (!count(array_filter($data['values'], fn ($value) => $value !== null))) {
+            throw ValidationException::withMessages(['values' => 'Enter at least one result, or skip this station without saving.']);
         }
         if ('pitching_velocity' === $station && ! in_array($data['protocol'] ?? null, ['fastball', 'mixed'], true)) {
             throw ValidationException::withMessages(['protocol' => 'Select fastball-only or mixed pitches.']);
@@ -36,14 +40,15 @@ class AssessmentScoringService
             $currentRevision = $result->revision ?? 0;
             // A retry of the exact accepted payload is safe, even after a lost response.
             if ($result->exists && $currentRevision !== (int) $data['revision']) {
-                $old = $result->attempts()->where('revision', $currentRevision)->orderBy('side')->orderBy('attempt_number')->pluck('value')->map(fn ($v) => (float) $v)->all();
-                if ($old === array_map('floatval', $data['values']) && ($result->notes ?? '') === ($data['notes'] ?? '') && ($result->protocol ?? '') === ($data['protocol'] ?? '')) {
+                $old = Stations::attemptValues($station, $result->attempts()->where('revision', $currentRevision)->get());
+                if ($old === $data['values'] && ($result->notes ?? '') === ($data['notes'] ?? '') && ($result->protocol ?? '') === ($data['protocol'] ?? '')) {
                     return $result;
                 }
                 abort(409, 'Another coach updated this result. Your draft is preserved. Reload the saved result before replacing it.');
             }
             $result->fill(['revision' => $currentRevision + 1, 'summary' => Stations::summarize($station, $data['values']), 'notes' => $data['notes'] ?? null, 'protocol' => $data['protocol'] ?? null, 'entered_by' => $coach->id])->save();
             foreach ($data['values'] as $i => $value) {
+                if ($value === null) continue;
                 FreeAssessmentAttempt::create([
                     'result_id' => $result->id, 'revision' => $result->revision,
                     'attempt_number' => 'grip_strength' === $station ? ($i % 3) + 1 : $i + 1,

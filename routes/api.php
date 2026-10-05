@@ -601,6 +601,7 @@ Route::middleware(['auth:sanctum', 'ability:coach,admin,super_admin'])->prefix('
     Route::put('/{assessment}/players/{player}/stations/{station}', [$controller, 'save']);
     Route::post('/{assessment}/players/{player}/claim', [$controller, 'claim'])->middleware('throttle:10,1');
     Route::get('/{assessment}/rankings', [$controller, 'rankings']);
+    Route::get('/{assessment}/team-report', [$controller, 'teamReport']);
     Route::get('/{assessment}/export', [$controller, 'export'])->middleware('throttle:20,1');
 });
 

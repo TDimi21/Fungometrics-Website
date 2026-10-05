@@ -20,14 +20,28 @@ final class Stations
             'pitching_velocity' => ['name' => 'Pitching Velocity', 'count' => 10, 'unit' => 'mph', 'metric' => 'max_fastball_velocity', 'field' => 'pitch_velo', 'min' => 1, 'max' => 130],
         ];
     }
+    public static function attemptValues(string $station, $attempts): array
+    {
+        $values = array_fill(0, self::all()[$station]['count'], null);
+        foreach ($attempts as $attempt) {
+            $index = $attempt->attempt_number - 1 + ($attempt->side === 'right' ? 3 : 0);
+            $values[$index] = (float) $attempt->value;
+        }
+        return $values;
+    }
+
     public static function summarize(string $station, array $values): array
     {
         $definition = self::all()[$station];
-        $aggregate = static fn ($v) => ['best' => ($definition['lower'] ?? false) ? min($v) : max($v), 'average' => round(array_sum($v) / count($v), 3)];
+        $aggregate = static function ($v) use ($definition) {
+            $v = array_filter($v, fn ($value) => $value !== null);
+            return ['best' => $v ? (($definition['lower'] ?? false) ? min($v) : max($v)) : null,
+                'average' => $v ? round(array_sum($v) / count($v), 3) : null];
+        };
         if ('grip_strength' === $station) {
             $left = $aggregate(array_slice($values, 0, 3));
             $right = $aggregate(array_slice($values, 3, 3));
-            return ['left' => $left, 'right' => $right, 'best' => max($left['best'], $right['best']), 'difference_percent' => round(abs($left['best'] - $right['best']) / max($left['best'], $right['best']) * 100, 1)];
+            return ['left' => $left, 'right' => $right, 'best' => max($left['best'], $right['best']), 'difference_percent' => ($left['best'] !== null && $right['best'] !== null ? round(abs($left['best'] - $right['best']) / max($left['best'], $right['best']) * 100, 1) : null)];
         }
         return $aggregate($values);
     }

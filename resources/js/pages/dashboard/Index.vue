@@ -2927,6 +2927,7 @@ watch(
                   @click="openSharedPlayerDevelopmentProfile(player)"
                 >
                   <DevelopmentCard :player="player" :team="team" />
+                  <RouterLink :to="{ path: '/assessment-reports', query: { player: player.id } }" @click.stop class="block text-center text-xs font-bold text-sky-300 py-3">Assessment Reports →</RouterLink>
                 </div>
               </div>
             </div>

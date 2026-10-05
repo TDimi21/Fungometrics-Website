@@ -224,10 +224,10 @@ const loadReports = async () => {
     axiosGet('free-assessment-reports', freeParams),
   ])
   if (generation !== loadGeneration) return
-  const legacyRows = legacy.status === 'fulfilled' ? legacy.value.data?.data || [] : []
+  const legacyRows = (legacy.status === 'fulfilled' ? legacy.value.data?.data || [] : []).filter(r => !route.query.player || String(r.user_id) === String(route.query.player))
   const freeRows = free.status === 'fulfilled' ? free.value.data?.data || [] : []
   rows.value = [...legacyRows, ...freeRows].sort((a,b) => String(b.assessment_date).localeCompare(String(a.assessment_date)))
-  selected.value = rows.value.find(r => r.kind === 'free_assessment' && r.assessment_id === route.query.assessment && r.player_id === route.query.player) || rows.value[0] || null
+  selected.value = rows.value.find(r => r.kind === 'free_assessment' && r.assessment_id === route.query.assessment && r.player_id === route.query.player) || (route.query.player ? rows.value.find(r => r.kind === 'free_assessment') : null) || rows.value[0] || null
   if (free.status === 'rejected') reportError.value = 'Free Assessment reports could not be loaded. Please retry.'
   else if (legacy.status === 'rejected' && legacy.reason?.response?.status !== 403) reportError.value = 'Some older assessment reports could not be loaded.'
   if (route.query.assessment && !rows.value.some(r => r.assessment_id === route.query.assessment && r.player_id === route.query.player)) {

@@ -141,9 +141,9 @@ class FreeAssessmentTest extends TestCase
         $this->assertEquals(95, $f->grip_strength_right);
         $this->assertEquals([70,80,75,85,90,95], $this->getJson($this->url())->json('results.0.values'));
     }
-    public function test_incomplete_results_and_missing_protocols_are_not_finalized(): void
+    public function test_invalid_results_and_missing_protocols_are_not_finalized(): void
     {
-        $this->save('exit_velocity', [80])->assertUnprocessable();
+        $this->save('exit_velocity', array_fill(0, 11, 80))->assertUnprocessable();
         $this->save('pull_strength', [80,90,100])->assertUnprocessable();
         $this->save('pushups', [-1])->assertUnprocessable();
         $this->save('pushups', [null])->assertUnprocessable();
@@ -282,4 +282,111 @@ class FreeAssessmentTest extends TestCase
         $this->assertStringNotContainsString('Other team private event', $response->getContent());
         $this->assertStringNotContainsString($other->id, $response->getContent());
     }
+    public function test_team_report_averages_current_results_including_zero_and_excluding_missing(): void
+    {
+        $others = [];
+        foreach (['Second', 'Missing'] as $name) {
+            $other = User::factory()->create(['type' => 'player']);
+            Profile::factory()->create(['user_id' => $other->id, 'first_name' => $name]);
+            $this->grantTeamAccess($other, $this->team);
+            $this->postJson($this->url('/players'), ['player_id' => $other->id])->assertOk();
+            $others[] = $other;
+        }
+        $this->save('pushups', [10])->assertOk();
+        $this->save('pushups', [20], 1)->assertOk();
+        $this->putJson($this->url('/players/'.$others[0]->id.'/stations/pushups'), ['values' => [0], 'revision' => 0])->assertOk();
+        $this->save('sprint_10yd', [2, 3, 4])->assertOk();
+        $this->putJson($this->url('/players/'.$others[0]->id.'/stations/sprint_10yd'), ['values' => [1.5, 2, 2.5], 'revision' => 0])->assertOk();
+        $response = $this->getJson($this->url('/team-report'))->assertOk()->assertJsonPath('total_players', 3)->assertJsonPath('complete_players', 0);
+        $rows = collect($response->json('stations'));
+        $push = $rows->firstWhere('station', 'pushups');
+        $this->assertEquals(10, $push['average_best']);
+        $this->assertSame(2, $push['tested']);
+        $this->assertEquals(20, $push['best']);
+        $this->assertSame($this->player->id, $push['leaders'][0]['player_id']);
+        $this->assertNull($rows->firstWhere('station', 'pull_ups')['average_best']);
+        $sprint = $rows->firstWhere('station', 'sprint_10yd');
+        $this->assertEquals(1.75, $sprint['average_best']);
+        $this->assertEquals(2.5, $sprint['average_attempts']);
+        $this->assertSame($others[0]->id, $sprint['leaders'][0]['player_id']);
+    }
+
+    public function test_team_report_preserves_tied_leaders_grip_sides_and_pitch_protocols(): void
+    {
+        $this->save('pushups', [40])->assertOk();
+        foreach ([30, 20, 20, 10] as $reps) {
+            $other = User::factory()->create(['type' => 'player']);
+            Profile::factory()->create(['user_id' => $other->id]);
+            $this->grantTeamAccess($other, $this->team);
+            $this->postJson($this->url('/players'), ['player_id' => $other->id])->assertOk();
+            $this->putJson($this->url('/players/'.$other->id.'/stations/pushups'), ['values' => [$reps], 'revision' => 0])->assertOk();
+        }
+        $this->save('grip_strength', [70, 80, 90, 100, 110, 120])->assertOk();
+        $this->save('pitching_velocity', array_fill(0, 10, 80), 0, ['protocol' => 'fastball'])->assertOk();
+        $this->putJson($this->url('/players/'.$other->id.'/stations/pitching_velocity'), ['values' => array_fill(0, 10, 60), 'revision' => 0, 'protocol' => 'mixed'])->assertOk();
+        $rows = collect($this->getJson($this->url('/team-report'))->assertOk()->json('stations'));
+        $this->assertSame([1, 2, 3, 3], array_column($rows->firstWhere('station', 'pushups')['leaders'], 'rank'));
+        $grip = $rows->where('station', 'grip_strength')->keyBy('side');
+        $this->assertEquals(90, $grip['left']['average_best']);
+        $this->assertEquals(120, $grip['right']['average_best']);
+        $pitch = $rows->where('station', 'pitching_velocity')->keyBy('protocol');
+        $this->assertCount(2, $pitch);
+        $this->assertEquals(80, $pitch['fastball']['average_best']);
+        $this->assertEquals(60, $pitch['mixed']['average_best']);
+    }
+
+    public function test_team_report_and_csv_are_team_scoped_and_export_escapes_names(): void
+    {
+        $this->player->profile->update(['first_name' => '=HYPERLINK("bad")']);
+        $this->save('pushups', [20])->assertOk();
+        $csv = $this->get($this->url('/team-report?format=csv'))->assertOk()->getContent();
+        $this->assertStringContainsString("'=HYPERLINK", $csv);
+        $this->assertStringNotContainsString($this->player->phone, $csv);
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']), ['coach']);
+        $this->getJson($this->url('/team-report'))->assertNotFound();
+        $this->getJson($this->url('/team-report?format=csv'))->assertNotFound();
+        Sanctum::actingAs($this->player, ['player']);
+        $this->getJson($this->url('/team-report'))->assertForbidden();
+        $this->getJson($this->url('/team-report?format=csv'))->assertForbidden();
+    }
+
+    public function test_partial_attempts_preserve_slots_on_reload_retry_and_edit(): void
+    {
+        $this->save('exit_velocity', [80, null, 90])->assertOk()->assertJsonPath('revision', 1);
+        $this->save('exit_velocity', [80, null, 90])->assertOk()->assertJsonPath('revision', 1);
+        $this->assertDatabaseCount('free_assessment_attempts', 2);
+        $snapshot = $this->getJson($this->url())->assertOk()->json('results.0');
+        $this->assertEquals([80, null, 90, null, null, null, null, null, null, null], $snapshot['values']);
+        $this->assertEquals(85, $snapshot['summary']['average']);
+        $this->save('exit_velocity', [null, null, 90], 1)->assertOk();
+        $result = FreeAssessmentResult::where('station', 'exit_velocity')->sole();
+        $this->assertEquals(90, $result->summary['average']);
+        $this->assertSame(1, $result->currentAttempts()->count());
+        $this->assertEquals([90], app(PopulationMetricRepository::class)->valuesForMetric('average_exit_velocity', ['team_id' => $this->team->id]));
+        $this->getJson('/api/free-assessment-reports/'.$this->event->id.'/players/'.$this->player->id)->assertOk()->assertJsonPath('data.completed_stations', 1);
+        $this->getJson($this->url('/export'))->assertOk();
+        $this->patchJson($this->url(), ['status' => 'completed'])->assertOk();
+    }
+
+    public function test_single_hand_grip_does_not_create_zero_results_or_rank_missing_hand(): void
+    {
+        $this->save('grip_strength', [null, null, null, null, 95])->assertOk();
+        $this->save('grip_strength', [null, null, null, null, 95])->assertOk()->assertJsonPath('revision', 1);
+        $snapshot = $this->getJson($this->url())->assertOk()->json('results.0');
+        $this->assertEquals([null, null, null, null, 95, null], $snapshot['values']);
+        $this->assertNull($snapshot['summary']['left']['best']);
+        $this->assertNull($snapshot['summary']['difference_percent']);
+        $fitness = PlayerFitness::where('free_assessment_id', $this->event->id)->sole();
+        $this->assertNull($fitness->grip_strength_left);
+        $this->assertNull($fitness->hand_strength);
+        $this->assertEquals(95, $fitness->grip_strength_right);
+        $this->getJson($this->url('/rankings'))->assertOk()->assertJsonPath('0.rank', null);
+        $rows = collect($this->getJson($this->url('/team-report'))->assertOk()->json('stations'))->where('station', 'grip_strength')->keyBy('side');
+        $this->assertSame(0, $rows['left']['tested']);
+        $this->assertNull($rows['left']['average_best']);
+        $this->assertEquals(95, $rows['right']['average_best']);
+        $this->save('grip_strength', [70], 1)->assertOk();
+        $this->assertNull($fitness->fresh()->grip_strength_right);
+    }
+
 }

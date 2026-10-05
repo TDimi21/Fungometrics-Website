@@ -22,7 +22,7 @@ class AssessmentMetricSyncService
         if ('grip_strength' === $result->station) {
             $fitness->grip_strength_left = $result->summary['left']['best'];
             $fitness->grip_strength_right = $result->summary['right']['best'];
-            $fitness->hand_strength = ($fitness->grip_strength_left + $fitness->grip_strength_right) / 2;
+            $fitness->hand_strength = ($fitness->grip_strength_left !== null && $fitness->grip_strength_right !== null ? ($fitness->grip_strength_left + $fitness->grip_strength_right) / 2 : null);
         } else {
             $fitness->{$station['field']} = $result->summary['best'];
         }

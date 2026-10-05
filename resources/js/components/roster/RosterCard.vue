@@ -228,7 +228,7 @@ const submitDelete = async () => {
 
       <!-- Name -->
       <h3 class="mt-2 text-white font-black text-sm text-center leading-tight line-clamp-2">
-        {{ fullName }}
+        <RouterLink v-if="type === 'player'" :to="{ path: '/assessment-reports', query: { player: resolvedPlayerId || item.id } }" @click.stop>{{ fullName }}</RouterLink><span v-else>{{ fullName }}</span>
       </h3>
 
       <!-- Positions (player only) -->
@@ -256,6 +256,7 @@ const submitDelete = async () => {
       <p class="text-app-muted text-xs text-center truncate font-bold">{{ email }}</p>
     </div>
 
+    <RouterLink v-if="type === 'player'" :to="{ path: '/assessment-reports', query: { player: resolvedPlayerId || item.id } }" @click.stop class="block px-4 py-3 text-center text-xs font-bold text-sky-300 border-t border-white/10">Assessment Reports →</RouterLink>
     <!-- Action buttons -->
     <div class="flex gap-2 px-4 py-3 border-t border-white/10">
       <!-- Edit — players only (have a detail page) -->

@@ -31,7 +31,7 @@ class AssessmentReportService
             return [
                 'id' => $r->id, 'player_id' => $r->player_id, 'station' => $r->station, 'revision' => $r->revision,
                 'summary' => $r->summary, 'notes' => $r->notes, 'protocol' => $r->protocol,
-                'values' => $r->currentAttempts->sortBy(fn ($a) => $a->side.sprintf('%03d', $a->attempt_number))->pluck('value')->values()->all(),
+                'values' => Stations::attemptValues($r->station, $r->currentAttempts),
                 'updated_at' => $r->updated_at->toIso8601String(),
                 'coach' => trim(($r->coach?->profile?->first_name ?? '').' '.($r->coach?->profile?->last_name ?? '')) ?: 'Coach',
             ];
@@ -53,10 +53,11 @@ class AssessmentReportService
             }
             // Grip uses left-hand values consistently for both ranking and benchmarks.
             $peerValue = fn ($row) => 'grip_strength' === $r['station'] ? $row['summary']['left']['best'] : $row['summary']['best'];
-            $rank = 1 + $peers->filter(fn ($other) => ($def['lower'] ?? false) ? $peerValue($other) < $value : $peerValue($other) > $value)->count();
+            $peers = $peers->filter(fn ($other) => $peerValue($other) !== null);
+            $rank = $value === null ? null : 1 + $peers->filter(fn ($other) => ($def['lower'] ?? false) ? $peerValue($other) < $value : $peerValue($other) > $value)->count();
             $context = ['team_id' => $event->team_id, 'age' => $p['age'], 'body_weight' => $p['weight'], 'position' => $p['position']];
             $supported = ! in_array($r['station'], ['shuttle_5_10_5', 'pull_strength'], true) && ! ('pitching_velocity' === $r['station'] && 'fastball' !== $r['protocol']);
-            $supported = $supported && (app(\App\Services\Intelligence\PopulationValueGuardrail::class)->validate($def['metric'], $value)['included'] ?? false);
+            $supported = $value !== null && $supported && (app(\App\Services\Intelligence\PopulationValueGuardrail::class)->validate($def['metric'], $value)['included'] ?? false);
             $research = $supported ? app(ResearchPercentileEngine::class)->percentileForMetric($def['metric'], $value, null, $context) : [];
             $population = $supported ? app(PopulationPercentileEngine::class)->percentileFromRepository($def['metric'], $value, $context) : [];
             return $r + ['player' => $p, 'value' => $value, 'rank' => $rank, 'participants' => $peers->count(),

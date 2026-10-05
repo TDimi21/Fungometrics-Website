@@ -13,7 +13,7 @@ export const resultSummary = (result, definitions) => {
   if (!result) return 'Not recorded'
   const def = definitions[result.station]
   const s = result.summary
-  if (result.station === 'grip_strength') return `L ${s.left.best} / R ${s.right.best} ${def.unit}`
+  if (result.station === 'grip_strength') return `L ${s.left.best ?? '—'} / R ${s.right.best ?? '—'} ${def.unit}`
   return `${def.count === 1 ? '' : def.lower ? 'Best ' : 'Max '}${s.best} ${def.unit}`
 }
 export const percentComplete = (completed, total) => total ? Math.round(completed / total * 100) : 0

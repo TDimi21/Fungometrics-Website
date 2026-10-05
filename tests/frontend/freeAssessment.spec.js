@@ -19,4 +19,8 @@ describe('Free Assessment workflow', () => {
     expect(percentComplete(22,28)).toBe(79)
     expect(resultSummary({ station: 'pushups', summary: { best: 0 } }, { pushups: { unit: 'reps', count: 1 } })).toBe('0 reps')
   })
+  it('displays missing grip sides as untested rather than zero', () => {
+    expect(resultSummary({ station: 'grip_strength', summary: { left: { best: null }, right: { best: 95 } } }, { grip_strength: { unit: 'lbs' } })).toBe('L — / R 95 lbs')
+  })
+
 })

@@ -114,6 +114,16 @@ class FreeAssessmentController extends Controller
         abort_if($phone && ! $this->access->admin($request->user()), 403, 'Phone export requires administrative access.');
         return response($this->reports->csv($assessment, $phone), 200, ['Content-Type' => 'text/csv; charset=UTF-8', 'Content-Disposition' => 'attachment; filename="free-assessment-'.$assessment->id.'.csv"', 'Cache-Control' => 'no-store']);
     }
+    public function teamReport(Request $request, FreeAssessment $assessment)
+    {
+        $this->access->event($request->user(), $assessment);
+        $service = app(\App\Services\FreeAssessment\TeamAssessmentReportService::class);
+        $report = $service->build($assessment);
+        if ($request->query('format') === 'csv') {
+            return response($service->csv($report), 200, ['Content-Type' => 'text/csv; charset=UTF-8', 'Content-Disposition' => 'attachment; filename="team-assessment-'.$assessment->id.'.csv"', 'Cache-Control' => 'no-store']);
+        }
+        return response()->json($report)->header('Cache-Control', 'no-store');
+    }
     public function claim(Request $request, FreeAssessment $assessment, string $player)
     {
         $this->access->event($request->user(), $assessment);
