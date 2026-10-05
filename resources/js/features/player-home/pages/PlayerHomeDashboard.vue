@@ -1,4 +1,5 @@
 <script setup>
+import PlayerAssessmentLinks from '@/components/free-assessment/PlayerAssessmentLinks.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
@@ -201,6 +202,7 @@ const openRecapReport = (session) => {
 
     <div class="min-h-full bg-surface px-4 py-5 text-white lg:px-6">
       <div class="mx-auto max-w-6xl space-y-4">
+        <PlayerAssessmentLinks :player-id="userData?.id || ''" />
         <div
           v-if="sessionExpired"
           class="rounded-lg border border-accent-2/50 bg-accent-2/15 px-4 py-3 text-sm text-white"

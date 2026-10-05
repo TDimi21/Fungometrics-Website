@@ -603,3 +603,10 @@ Route::middleware(['auth:sanctum', 'ability:coach,admin,super_admin'])->prefix('
     Route::get('/{assessment}/rankings', [$controller, 'rankings']);
     Route::get('/{assessment}/export', [$controller, 'export'])->middleware('throttle:20,1');
 });
+
+// Read-only player reports have separate self/team checks from coach event editing.
+Route::middleware(['auth:sanctum', 'ability:player,coach,admin,super_admin'])->prefix('free-assessment-reports')->group(function () {
+    $controller = \App\Http\Controllers\Api\FreeAssessment\PlayerAssessmentReportController::class;
+    Route::get('/', [$controller, 'index']);
+    Route::get('/{assessment}/players/{player}', [$controller, 'show']);
+});

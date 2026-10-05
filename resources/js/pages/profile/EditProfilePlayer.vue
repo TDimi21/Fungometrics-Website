@@ -1,4 +1,5 @@
 <script setup>
+import PlayerAssessmentLinks from '@/components/free-assessment/PlayerAssessmentLinks.vue'
 import Layout from "@/layout/Layout.vue";
 import { resolveBornValue, toISODOB } from "@/utils/dob.js";
 import {
@@ -396,6 +397,7 @@ const typeClicked = (type) => {
     </section>
       </div>
     </div>
+  <PlayerAssessmentLinks :player-id="userStore.userData?.id || ''" />
   </Layout>
 </template>
 <style lang="css" scoped>

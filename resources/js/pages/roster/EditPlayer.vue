@@ -1,4 +1,5 @@
 <script setup>
+import PlayerAssessmentLinks from '@/components/free-assessment/PlayerAssessmentLinks.vue'
 import Layout from '@/layout/Layout.vue'
 import {
   InputBase,
@@ -278,6 +279,7 @@ const submitUpdate = async () => {
         </section>
       </div>
     </div>
+  <PlayerAssessmentLinks :player-id="id" />
   </Layout>
 </template>
 

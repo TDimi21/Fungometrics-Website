@@ -220,4 +220,48 @@ class FreeAssessmentTest extends TestCase
         $this->assertSame([], $repo->valuesForMetric('broad_jump', ['team_id' => $anotherTeam->id]));
         $this->assertSame([], $repo->valuesForMetric('max_exit_velocity', ['team_id' => $anotherTeam->id]));
     }
+
+    public function test_saved_results_automatically_appear_in_profile_report_list(): void
+    {
+        $this->getJson('/api/free-assessment-reports?player_id='.$this->player->id)->assertOk()->assertJsonCount(0, 'data');
+        $this->save('pushups', [32])->assertOk();
+        $this->getJson('/api/free-assessment-reports?team_id='.$this->team->id)->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.player_id', $this->player->id)
+            ->assertJsonPath('data.0.completed_stations', 1)->assertJsonPath('data.0.kind', 'free_assessment');
+        $this->save('pushups', [35], 1)->assertOk();
+        $this->getJson('/api/free-assessment-reports?player_id='.$this->player->id)->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/free-assessment-reports/'.$this->event->id.'/players/'.$this->player->id)
+            ->assertOk()->assertJsonPath('data.results.0.summary.best', 35)->assertJsonPath('data.total_stations', 9);
+    }
+
+    public function test_player_can_read_own_report_without_exposing_other_participants(): void
+    {
+        $this->save('pushups', [32])->assertOk();
+        $other = User::factory()->create(['type' => 'player']);
+        Profile::factory()->create(['user_id' => $other->id, 'first_name' => 'PrivateOtherAthlete']);
+        $this->grantTeamAccess($other, $this->team);
+        $this->postJson($this->url('/players'), ['player_id' => $other->id])->assertOk();
+        $this->putJson($this->url('/players/'.$other->id.'/stations/pushups'), ['values' => [40], 'revision' => 0])->assertOk();
+        Sanctum::actingAs($this->player, ['player']);
+        $this->getJson('/api/free-assessment-reports')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.player_id', $this->player->id);
+        $response = $this->getJson('/api/free-assessment-reports/'.$this->event->id.'/players/'.$this->player->id)
+            ->assertOk()->assertJsonCount(1, 'data.results')->assertJsonPath('data.results.0.rank', 2);
+        $this->assertStringNotContainsString($other->id, $response->getContent());
+        $this->assertStringNotContainsString('PrivateOtherAthlete', $response->getContent());
+        $this->assertStringNotContainsString($this->player->phone, $response->getContent());
+        $this->getJson('/api/free-assessment-reports/'.$this->event->id.'/players/'.$other->id)->assertNotFound();
+        $this->getJson('/api/free-assessment-reports?player_id='.$other->id)->assertForbidden();
+    }
+
+    public function test_report_access_is_scoped_for_coaches_and_rejects_claim_only_tokens(): void
+    {
+        $this->save('pushups', [32])->assertOk();
+        $outsider = User::factory()->create(['type' => 'coach']);
+        Sanctum::actingAs($outsider, ['coach']);
+        $this->getJson('/api/free-assessment-reports')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/free-assessment-reports?team_id='.$this->team->id)->assertNotFound();
+        $this->getJson('/api/free-assessment-reports/'.$this->event->id.'/players/'.$this->player->id)->assertNotFound();
+        Sanctum::actingAs($this->player, ['profile-claim']);
+        $this->getJson('/api/free-assessment-reports')->assertForbidden();
+    }
 }

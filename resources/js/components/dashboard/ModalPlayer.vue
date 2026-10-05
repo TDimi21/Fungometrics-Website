@@ -1,4 +1,5 @@
 <script setup>
+import PlayerAssessmentLinks from '@/components/free-assessment/PlayerAssessmentLinks.vue'
 import { Dialog, DialogPanel, TransitionRoot, TransitionChild } from '@headlessui/vue'
 import { InputImage, InputBase, LabelField } from '@/components/form'
 import { ArrowRightIcon } from '@/components/icons'
@@ -603,6 +604,7 @@ import { getAuthToken } from '@/utils/authToken.js'
                 </Tabs>
               </div>
 
+              <PlayerAssessmentLinks v-if="isOpen" :player-id="String(item?.id || '')" />
             </DialogPanel>
           </TransitionChild>
         </div>

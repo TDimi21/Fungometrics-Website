@@ -1,5 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import PlayerAssessmentReport from '@/components/free-assessment/PlayerAssessmentReport.vue'
+import { useRoute } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
@@ -13,19 +15,16 @@ const userStore = useUserStore()
 const { team } = storeToRefs(teamStore)
 const { userData } = storeToRefs(userStore)
 
+const route = useRoute()
+const reportError = ref('')
+let loadGeneration = 0
 const loading = ref(false)
 const rows = ref([])
 const selected = ref(null)
 
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
 const isPlayerUser = computed(() => String(userData.value?.type || '').toLowerCase() === 'player')
-const activePlayerId = computed(() => (
-  userData.value?.player?.id ||
-  userData.value?.user?.player?.id ||
-  userData.value?.user?.id ||
-  userData.value?.id ||
-  null
-))
+const activePlayerId = computed(() => userData.value?.id || userData.value?.user?.id || null)
 
 const parseData = (value) => {
   if (!value) return {}
@@ -211,32 +210,31 @@ const printPitchGrades = computed(() => pitchOrder
   .filter(([, value]) => value !== null && value !== undefined && value !== ''))
 
 const loadReports = async () => {
-  if (isPlayerUser.value && !activePlayerId.value) {
-    rows.value = []
-    selected.value = null
-    return
-  }
-
-  if (!isPlayerUser.value && !activeTeamId.value) {
-    rows.value = []
-    selected.value = null
-    return
-  }
-
+  const generation = ++loadGeneration
   loading.value = true
-  try {
-    const endpoint = isPlayerUser.value
-      ? `assessments/player/${activePlayerId.value}`
-      : `assessments/team/${activeTeamId.value}?all=1`
-    const { data } = await axiosGet(endpoint)
-    rows.value = data?.data ?? []
-    selected.value = rows.value[0] ?? null
-  } catch {
-    rows.value = []
+  reportError.value = ''
+  selected.value = null
+  rows.value = []
+  const freeParams = isPlayerUser.value ? {} : route.query.player ? { player_id: route.query.player } : activeTeamId.value ? { team_id: activeTeamId.value } : {}
+  const legacyEndpoint = isPlayerUser.value
+    ? (activePlayerId.value ? `assessments/player/${activePlayerId.value}` : null)
+    : (activeTeamId.value ? `assessments/team/${activeTeamId.value}?all=1` : null)
+  const [legacy, free] = await Promise.allSettled([
+    legacyEndpoint ? axiosGet(legacyEndpoint) : Promise.resolve({ data: { data: [] } }),
+    axiosGet('free-assessment-reports', freeParams),
+  ])
+  if (generation !== loadGeneration) return
+  const legacyRows = legacy.status === 'fulfilled' ? legacy.value.data?.data || [] : []
+  const freeRows = free.status === 'fulfilled' ? free.value.data?.data || [] : []
+  rows.value = [...legacyRows, ...freeRows].sort((a,b) => String(b.assessment_date).localeCompare(String(a.assessment_date)))
+  selected.value = rows.value.find(r => r.kind === 'free_assessment' && r.assessment_id === route.query.assessment && r.player_id === route.query.player) || rows.value[0] || null
+  if (free.status === 'rejected') reportError.value = 'Free Assessment reports could not be loaded. Please retry.'
+  else if (legacy.status === 'rejected' && legacy.reason?.response?.status !== 403) reportError.value = 'Some older assessment reports could not be loaded.'
+  if (route.query.assessment && !rows.value.some(r => r.assessment_id === route.query.assessment && r.player_id === route.query.player)) {
     selected.value = null
-  } finally {
-    loading.value = false
+    reportError.value = 'The requested report is unavailable or you do not have access.'
   }
+  loading.value = false
 }
 
 const printReport = () => window.print()
@@ -244,6 +242,8 @@ const printReport = () => window.print()
 onMounted(loadReports)
 watch(activeTeamId, loadReports)
 watch(activePlayerId, loadReports)
+watch(() => [route.query.assessment, route.query.player], loadReports)
+watch(isPlayerUser, loadReports)
 </script>
 
 <template>
@@ -256,8 +256,9 @@ watch(activePlayerId, loadReports)
             <h1>Assessment Reports</h1>
           </div>
 
+          <div v-if="reportError" role="alert" class="empty-state">{{ reportError }} <button @click="loadReports">Retry</button></div>
           <div v-if="loading" class="empty-state">Loading reports...</div>
-          <div v-else-if="!rows.length" class="empty-state">No assessment reports found for this team.</div>
+          <div v-else-if="!rows.length" class="empty-state">{{ isPlayerUser ? 'No saved assessment reports yet.' : 'No saved assessment reports found for this selection.' }}</div>
 
           <template v-else>
             <button
@@ -269,12 +270,14 @@ watch(activePlayerId, loadReports)
             >
               <span>{{ playerName(r) }}</span>
               <small>{{ formatDate(r.assessment_date) }}</small>
-              <strong :style="{ color: scoreColor(r.overall_score) }">{{ r.overall_score ?? '—' }}</strong>
+              <small v-if="r.kind === 'free_assessment'">Free Assessment · {{ r.completed_stations }}/{{ r.total_stations }} stations · {{ r.status }}</small>
+              <strong v-else :style="{ color: scoreColor(r.overall_score) }">{{ r.overall_score ?? '—' }}</strong>
             </button>
           </template>
         </aside>
 
-        <main v-if="selected" class="report" id="assessment-print">
+        <PlayerAssessmentReport v-if="selected?.kind === 'free_assessment'" :assessment-id="selected.assessment_id" :player-id="selected.player_id" />
+        <main v-if="selected && selected.kind !== 'free_assessment'" class="report" id="assessment-print">
           <header class="report-top">
             <div class="brand">
               <span>FMTRX</span>
@@ -461,7 +464,7 @@ watch(activePlayerId, loadReports)
           </footer>
         </main>
 
-        <section v-if="selected" class="print-sheet" id="assessment-print-sheet">
+        <section v-if="selected && selected.kind !== 'free_assessment'" class="print-sheet" id="assessment-print-sheet">
           <header class="print-header">
             <div>
               <strong>FMTRX</strong>

@@ -38,12 +38,12 @@ class AssessmentReportService
         })->values();
         return ['assessment' => $event, 'stations' => Stations::all(), 'players' => $players, 'results' => $results];
     }
-    public function rankings(FreeAssessment $event): array
+    public function rankings(FreeAssessment $event, ?string $playerId = null): array
     {
         $snapshot = $this->snapshot($event);
         $players = $snapshot['players']->keyBy('id');
         $results = $snapshot['results'];
-        return $results->map(function ($r) use ($players, $results, $event) {
+        return $results->filter(fn ($r) => $playerId === null || $r['player_id'] === $playerId)->map(function ($r) use ($players, $results, $event) {
             $p = $players[$r['player_id']] ?? null;
             $def = Stations::all()[$r['station']];
             $value = 'grip_strength' === $r['station'] ? $r['summary']['left']['best'] : $r['summary']['best'];

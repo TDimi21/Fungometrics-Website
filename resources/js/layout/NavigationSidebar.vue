@@ -164,6 +164,7 @@ onMounted(() => {
     ]
   } else if (userData.value?.type == "player") {
     sidebarItems.value = [
+      { title: 'Assessment Reports', iconPath: iconDashboard, url: '/assessment-reports' },
       {
         title: 'Dashboard',
         iconPath: iconDashboard,

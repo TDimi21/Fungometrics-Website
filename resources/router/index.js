@@ -130,7 +130,7 @@ const routes = [
 		name: "assessment.reports",
 		path: "/assessment-reports",
 		component: AssessmentReports,
-		meta: { requiresAuth: true, entitlement: 'view_assessment_reports' },
+		meta: { requiresAuth: true, allowAdmin: true },
 	},
 	{
 		name: "playerDashboard",

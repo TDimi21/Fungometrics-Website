@@ -9,7 +9,9 @@ describe('web entitlement gate coverage', () => {
   it('routes paid entry points through the Laravel-backed access store', () => {
     const router = source('resources/router/index.js')
 
-    expect(router).toContain("entitlement: 'view_assessment_reports'")
+    // The shared library includes free reports; legacy report APIs retain their gates.
+    expect(router).toContain('path: "/assessment-reports"')
+    expect(source('routes/api.php')).toContain("plan:view_assessment_reports")
     expect(router).toContain("entitlement: 'arm_care'")
     expect(router).toContain("entitlement: 'liveab_sessions'")
     expect(router).toContain("entitlement: 'view_session_report'")
