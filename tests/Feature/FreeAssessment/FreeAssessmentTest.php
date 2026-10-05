@@ -264,4 +264,22 @@ class FreeAssessmentTest extends TestCase
         Sanctum::actingAs($this->player, ['profile-claim']);
         $this->getJson('/api/free-assessment-reports')->assertForbidden();
     }
+
+    public function test_player_report_history_is_limited_to_own_earlier_same_team_results(): void
+    {
+        $this->save('pushups', [32])->assertOk();
+        $older = FreeAssessment::create(['team_id' => $this->team->id, 'created_by' => $this->coach->id, 'name' => 'Earlier test', 'location' => 'The Yard', 'assessment_date' => now()->subMonth()->toDateString()]);
+        FreeAssessmentResult::create(['assessment_id' => $older->id, 'player_id' => $this->player->id, 'station' => 'pushups', 'revision' => 1, 'summary' => ['best' => 20, 'average' => 20], 'entered_by' => $this->coach->id]);
+        $other = User::factory()->create(['type' => 'player']);
+        FreeAssessmentResult::create(['assessment_id' => $older->id, 'player_id' => $other->id, 'station' => 'pull_ups', 'revision' => 1, 'summary' => ['best' => 12, 'average' => 12], 'entered_by' => $this->coach->id]);
+        $differentTeam = Team::factory()->create();
+        $outside = FreeAssessment::create(['team_id' => $differentTeam->id, 'created_by' => $this->coach->id, 'name' => 'Other team private event', 'location' => 'Other', 'assessment_date' => now()->subWeek()->toDateString()]);
+        FreeAssessmentResult::create(['assessment_id' => $outside->id, 'player_id' => $this->player->id, 'station' => 'pushups', 'revision' => 1, 'summary' => ['best' => 21, 'average' => 21], 'entered_by' => $this->coach->id]);
+        Sanctum::actingAs($this->player, ['player']);
+        $response = $this->getJson('/api/free-assessment-reports/'.$this->event->id.'/players/'.$this->player->id)
+            ->assertOk()->assertJsonCount(1, 'data.history')->assertJsonCount(1, 'data.history.0.results')
+            ->assertJsonPath('data.history.0.results.0.summary.best', 20)->assertJsonPath('data.overall_score', null);
+        $this->assertStringNotContainsString('Other team private event', $response->getContent());
+        $this->assertStringNotContainsString($other->id, $response->getContent());
+    }
 }

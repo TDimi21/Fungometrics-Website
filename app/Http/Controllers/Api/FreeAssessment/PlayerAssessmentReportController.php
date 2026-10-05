@@ -62,9 +62,25 @@ class PlayerAssessmentReportController extends Controller
         $results = collect($this->reports->rankings($assessment, $player->id))->values();
         abort_if($results->isEmpty(), 404, 'No saved assessment results for this player.');
         $player->load(['profile', 'player', 'fitness', 'positions']);
+        // History uses the same athlete and team boundary as this report.
+        $history = FreeAssessment::where('team_id', $assessment->team_id)
+            ->where('assessment_date', '<', $assessment->assessment_date)
+            ->whereHas('results', fn ($q) => $q->where('player_id', $player->id))
+            ->with(['results' => fn ($q) => $q->where('player_id', $player->id)])
+            ->orderByDesc('assessment_date')->orderByDesc('created_at')->limit(12)->get()
+            ->map(fn ($event) => [
+                'assessment_id' => $event->id, 'name' => $event->name,
+                'assessment_date' => $event->assessment_date->toDateString(),
+                'results' => $event->results->map(fn ($r) => [
+                    'station' => $r->station, 'summary' => $r->summary, 'protocol' => $r->protocol,
+                ])->values(),
+            ])->values();
         return response()->json(['data' => [
             'assessment' => ['id' => $assessment->id, 'name' => $assessment->name, 'location' => $assessment->location, 'assessment_date' => $assessment->assessment_date->toDateString(), 'status' => $assessment->status],
-            'player' => $this->reports->player($player, $assessment->assessment_date->toDateString()),
+            'player' => $this->reports->player($player, $assessment->assessment_date->toDateString()) + ['picture' => $player->profile?->picture],
+            'history' => $history,
+            'overall_score' => null,
+            'overall_score_note' => 'An overall score is not available for this assessment protocol.',
             'stations' => Stations::all(), 'results' => $results,
             'completed_stations' => $results->count(), 'total_stations' => count(Stations::all()),
         ]])->header('Cache-Control', 'no-store');
