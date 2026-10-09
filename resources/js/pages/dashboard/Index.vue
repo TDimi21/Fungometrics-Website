@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import CoachHomeOverview from '@/components/dashboard/CoachHomeOverview.vue'
 import Layout from "../../layout/Layout.vue"
 import { useUserStore } from "../../store/user";
 import { usePlayerStore } from "../../store/players";
@@ -690,7 +691,7 @@ const selectedPerfStats = computed(() => {
       { label: 'Avg EV', value: f(d.avgEV, ' mph'), color: '#37D67A' },
       { label: 'Max EV', value: f(d.topEV, ' mph'), color: '#3B82F6' },
       { label: 'Hard Hit %', value: f(all.ev?.hhPct, '%'), color: '#F59E0B' },
-      { label: 'Barrel %', value: '—', color: '#A855F7', hint: 'needs backend' },
+      { label: 'Barrel %', value: '—', color: '#A855F7', hint: 'Not recorded' },
     ]
     case 'ev': return [
       { label: 'Avg EV', value: f(d.avgEV, ' mph'), color: '#37D67A' },
@@ -2458,11 +2459,10 @@ watch(
 
 <template>
   <Layout>
-    <div class="min-h-screen bg-[#060b14] text-white">
-      <div v-show="!devOnlyMode" class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
-
+    <template #dashboard-header="{ logout }">
+      <div class="coach-topbar"><RouterLink to="/dashboard" class="coach-wordmark">FMTR<span>X</span><small>TRAIN SMARTER.<br>PLAY FURTHER.</small></RouterLink>
         <!-- Dashboard tabs live above the shared content container. -->
-        <div class="flex gap-1 mb-6 bg-[#0a1020]/60 border border-white/10 rounded-xl p-1 w-fit">
+        <div class="coach-top-tabs">
           <button
             @click="setDashTab('overview')"
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
@@ -2490,70 +2490,21 @@ watch(
             :class="dashTab === 'datahub' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
           >Data Hub</button>
         </div>
+<RouterLink to="/settings" class="coach-account">Coach <small>{{ team?.name || 'Your team' }}</small></RouterLink><button class="coach-account" @click="logout">Log out</button></div>
+    </template>
+    <div class="coach-dashboard min-h-screen text-white">
+      <div v-show="!devOnlyMode" class="w-full px-3 py-4 lg:px-5 pb-28 md:pb-12">
 
-        <div class="rounded-2xl border border-white/10 bg-[#080f1d]/55 p-3 md:p-5 shadow-2xl">
-        <!-- OVERVIEW TAB -->
-        <div v-if="dashTab === 'overview'">
 
-          <div class="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-5 mb-5 items-start">
-
-          <!-- Performance Review — scored disciplines (left) + stat detail (right) -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 shadow-xl xl:col-start-2 xl:row-start-1">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-base font-black uppercase tracking-widest text-white">Performance Review</h2>
-              <span class="text-white/30 text-xs">Last 10 sessions · FMTRX score</span>
-            </div>
-
-            <div v-if="!access.loaded" class="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center text-sm text-white/40">
-              Verifying authoritative access…
-            </div>
-
-            <div v-else-if="!canViewPerformanceOverview" class="rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-10 text-center">
-              <p class="text-sm font-black uppercase tracking-wider text-amber-200">Performance Overview is not included in this plan.</p>
-              <p class="mt-2 text-xs text-white/45">Refresh access or upgrade to view scored performance analysis.</p>
-            </div>
-
-            <!-- Loading skeleton -->
-            <div v-else-if="perfLoading" class="flex flex-col gap-3">
-              <div v-for="i in 6" :key="i" class="h-7 rounded-lg bg-white/5 animate-pulse"></div>
-            </div>
-
-            <div v-else-if="!scoredPerfRows.length" class="text-white/25 text-sm text-center py-10">
-              No scored disciplines yet — scores appear here once sessions are logged.
-            </div>
-
-            <div v-else class="grid gap-5 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-              <!-- LEFT: discipline scores (only scored ones) -->
-              <div class="flex flex-col gap-1.5">
-                <button
-                  v-for="row in scoredPerfRows" :key="row.key"
-                  class="text-left px-3 py-2.5 rounded-xl border transition"
-                  :class="selectedPerfKey === row.key ? 'border-white/25 bg-white/[0.07]' : 'border-transparent hover:bg-white/[0.04]'"
-                  @click="selectedPerfKey = row.key"
-                >
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: row.dot }"></span>
-                    <span class="text-sm font-bold text-white/85">{{ row.label }}</span>
-                    <span class="text-[10px] font-black text-white/30">{{ row.abbr }}</span>
-                    <span class="ml-auto text-sm font-black tabular-nums" :style="{ color: scoreColor(row.score) }">{{ row.score }}</span>
-                  </div>
-                  <div class="mt-1.5 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full transition-all duration-700" :style="{ width: Math.min(row.score, 100) + '%', backgroundColor: scoreColor(row.score) }"></div>
-                  </div>
-                </button>
-              </div>
-
-              <!-- RIGHT: stat detail for the selected discipline -->
-              <div class="rounded-xl border border-white/10 bg-white/[0.03] p-4 min-w-0">
-                <div class="flex items-center justify-between mb-3">
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: selectedPerfRow?.dot }"></span>
-                    <span class="text-sm font-black uppercase tracking-wide text-white truncate">{{ selectedPerfRow?.label }} <span class="text-white/35">{{ selectedPerfRow?.abbr }}</span></span>
-                    <span class="ml-1 text-sm font-black tabular-nums" :style="{ color: scoreColor(selectedPerfRow?.score) }">{{ selectedPerfRow?.score }}</span>
-                  </div>
-                  <button class="text-[10px] font-black uppercase tracking-widest text-sky-300 hover:text-sky-200 shrink-0" @click="openBreakdown(selectedPerfRow)">Full breakdown →</button>
-                </div>
-
+        <div :class="dashTab === 'overview' ? 'coach-overview-container' : 'rounded-2xl border border-white/10 bg-[#080f1d]/55 p-3 md:p-5 shadow-2xl'">
+        <CoachHomeOverview v-if="dashTab === 'overview'" :key="activeTeamId" :players="devBoard" :rows="canViewPerformanceOverview ? perfRows : []" :categories="canViewPerformanceOverview ? wallCategories : []" :sessions="recentSessions" :session-types="sessionTypeColor" :loading="devBoardLoading" :performance-loading="perfLoading" :sessions-loading="recentLoading" :selected-key="selectedPerfKey" :team-name="team?.name" :leaderboard-error="leaderboardError" @select-performance="selectedPerfKey=$event" @player="openSharedPlayerDevelopmentProfile" @session="openSessionReport" @roster="setDashTab('development')" @sessions="router.push({name:'sessions.all'})" :leader-mode="top10Mode" :leaders-loading="leaderboardLoading" @leader-mode="top10Mode=$event" @retry-leaders="loadLeaderboard">
+          <template #percentiles>
+            <TeamPercentileLeaderboard v-model:category="selectedPercentileCategory" v-model:metric-key="selectedPercentileMetricKey" :loading="percentileLeaderboardLoading" :error="percentileLeaderboardError" :categories="percentileLeaderboardCategories" :metrics="percentileMetricsForCategory" :selected-metric="selectedPercentileMetric" :rows="rankedPercentilePlayers" @retry="fetchPercentileLeaderboard(true)" @select-player="openSharedPlayerDevelopmentProfile({id:$event.playerId,name:$event.playerName})" />
+          </template>
+          <template #performance>
+            <p v-if="!access.loaded" class="text-sm text-white/50">Loading access…</p>
+            <p v-else-if="!canViewPerformanceOverview" class="text-sm text-white/50">Performance review is unavailable for this account.</p>
+            <div v-else class="coach-chart-panel"><h3>{{ selectedPerfRow?.label }} {{ selectedPerfRow?.abbr }} Breakdown</h3>
                 <!-- Field / location visualization per discipline (ported from the app) -->
                 <div v-if="showSprayFor" class="mb-4">
                   <!-- Bullpen: catcher's-view heat / velocity map of pitch locations -->
@@ -2574,7 +2525,7 @@ watch(
                   <VelocitySprayField v-else :balls="allSwingBalls" mode="heatmap" />
                 </div>
                 <div v-else class="mb-4 rounded-lg border border-dashed border-white/10 py-10 text-center text-white/25 text-xs">
-                  {{ selectedPerfRow?.label }} visualization coming next — key stats below.
+                  {{ selectedPerfRow?.label }} has no visualization available yet.
                 </div>
 
                 <!-- Key stat tiles (bullpen shows its own filter-aware tiles inside the panel) -->
@@ -2586,285 +2537,9 @@ watch(
                   </div>
                 </div>
 
-                <!-- Inline score breakdown — updates as you select a discipline -->
-                <div v-if="selectedBreakdown" class="mt-4 pt-4 border-t border-white/10">
-                  <div class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2.5">
-                    Score Breakdown <span class="text-white/25 font-bold normal-case tracking-normal">· {{ selectedBreakdown.subtitle }}</span>
-                  </div>
-                  <div class="flex flex-col gap-2.5">
-                    <div v-for="c in selectedBreakdown.components" :key="c.label">
-                      <div class="flex items-center gap-3">
-                        <div class="w-44 shrink-0 flex items-center gap-1.5 min-w-0">
-                          <span v-if="c.dotColor" class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: c.dotColor }"></span>
-                          <span v-else class="text-xs shrink-0">{{ c.emoji }}</span>
-                          <span class="text-xs font-bold text-white/80 truncate">{{ c.label }}</span>
-                          <span class="text-[9px] font-black text-white/25 shrink-0">{{ c.weight }}</span>
-                        </div>
-                        <div class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                          <div class="h-full rounded-full transition-all duration-500" :style="{ width: Math.min(Number(c.score) || 0, 100) + '%', backgroundColor: compScoreColor(c.score) }"></div>
-                        </div>
-                        <span class="w-9 text-right text-xs font-black tabular-nums shrink-0" :style="{ color: compScoreColor(c.score) }">{{ c.score != null ? Math.round(Number(c.score)) : '—' }}</span>
-                      </div>
-                      <div v-if="c.detail" class="pl-0.5 mt-0.5 text-[10px] text-white/30 truncate">{{ c.detail }}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ── Player Cards ── -->
-          <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-4 shadow-xl flex flex-col min-h-0 xl:col-start-1 xl:row-start-1">
-            <div class="flex items-center justify-between mb-3 shrink-0">
-              <h2 class="text-sm font-black uppercase tracking-widest text-white">Roster</h2>
-              <button
-                class="text-[10px] font-black uppercase tracking-widest text-[#C00000] hover:text-red-400 transition"
-                @click="setDashTab('development')"
-              >View All →</button>
-            </div>
-
-            <!-- Loading -->
-            <div v-if="devBoardLoading" class="flex flex-col gap-2">
-              <div v-for="i in 6" :key="i" class="h-14 rounded-xl bg-white/5 animate-pulse"></div>
-            </div>
-
-            <!-- Empty -->
-            <div v-else-if="!devBoard.length" class="flex-1 flex items-center justify-center text-white/25 text-sm">
-              No players yet
-            </div>
-
-            <!-- Roster cards stack vertically in the left column. -->
-            <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3 xl:max-h-[760px] xl:overflow-y-auto xl:pr-1">
-              <div
-                v-for="p in devBoard" :key="p.id"
-                class="relative rounded-2xl overflow-hidden cursor-pointer group"
-                style="min-height: 120px;"
-                @click="openPlayerMetricsModal(p)"
-              >
-                <!-- Background photo -->
-                <div class="absolute inset-0">
-                  <img
-                    v-if="p.picture"
-                    :src="p.picture"
-                    class="w-full h-full object-cover object-top"
-                    :alt="p.name"
-                  />
-                  <div v-else class="w-full h-full bg-gradient-to-br from-[#1a2030] to-[#0a1020] flex items-center justify-center">
-                    <img :src="updatedLogo" class="w-12 h-12 opacity-20 object-contain" />
-                  </div>
-                </div>
-
-                <!-- Dark gradient overlay -->
-                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20"></div>
-
-                <!-- Content overlay -->
-                <div class="relative z-10 flex flex-col justify-between h-full p-3" style="min-height: 120px;">
-                  <!-- Top: name + jersey # small + trend -->
-                  <div class="flex items-start justify-between gap-1">
-                    <div class="flex flex-col leading-tight">
-                      <span class="text-xs font-black text-white drop-shadow">{{ p.name }}</span>
-                      <span v-if="p.jersey != null" class="text-[11px] font-black text-white/40 leading-tight">#{{ p.jersey }}</span>
-                    </div>
-                    <span class="text-base leading-none" :class="trendColor(p.trend)">{{ trendIcon(p.trend) }}</span>
-                  </div>
-
-                  <!-- Bottom section: left = height/weight, right = velocity stats -->
-                  <div class="flex items-end justify-between gap-2 mt-auto">
-                    <!-- Left: height + weight -->
-                    <div v-if="p.height_ft != null || p.weight != null" class="flex items-center gap-1.5 text-[10px] text-white/60 font-bold">
-                      <span v-if="p.height_ft != null">{{ p.height_ft }}'{{ p.height_in != null ? p.height_in + '"' : '' }}</span>
-                      <span v-if="p.height_ft != null && p.weight != null" class="text-white/25">·</span>
-                      <span v-if="p.weight != null">{{ p.weight }} lbs</span>
-                    </div>
-                    <div v-else></div>
-
-                    <!-- Right: FB + EV labeled velocity stats -->
-                    <div class="flex items-stretch gap-1.5 shrink-0">
-                      <div
-                        v-if="p.scores?.bullpen != null"
-                        class="flex flex-col items-center px-2.5 py-1 rounded-lg bg-[#C00000]/70 border border-[#C00000] text-white"
-                      >
-                        <span class="text-[9px] font-black uppercase tracking-widest leading-none opacity-80">FB</span>
-                        <span class="text-sm font-black leading-tight tabular-nums">{{ p.scores.bullpen }}</span>
-                      </div>
-                      <div
-                        v-if="p.top_ev_mph != null"
-                        class="flex flex-col items-center px-2.5 py-1 rounded-lg bg-green-600/70 border border-green-500 text-white"
-                      >
-                        <span class="text-[9px] font-black uppercase tracking-widest leading-none opacity-80">EV</span>
-                        <span class="text-sm font-black leading-tight tabular-nums">{{ p.top_ev_mph }}</span>
-                      </div>
-                      <div
-                        v-if="p.scores?.overall != null"
-                        class="flex flex-col items-center px-2.5 py-1 rounded-lg"
-                        :style="{ backgroundColor: scoreColor(p.scores.overall) + '28', border: '1px solid ' + scoreColor(p.scores.overall) + '55' }"
-                      >
-                        <span class="text-[9px] font-black uppercase tracking-widest leading-none opacity-80" :style="{ color: scoreColor(p.scores.overall) }">OVR</span>
-                        <span class="text-sm font-black leading-tight tabular-nums" :style="{ color: scoreColor(p.scores.overall) }">{{ Math.round(p.scores.overall) }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          </div>
-
-        <!-- Full-width rotating leaderboard + Recent Sessions (stacked) -->
-        <div class="flex flex-col gap-5">
-
-          <!-- Top 25 Metrics & Performers — the Hall of Fame Wall -->
-          <div class="flex flex-col gap-5">
-
-            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl p-5 md:p-6 shadow-xl">
-              <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-5">
-                <div>
-                  <h2 class="text-xl font-black uppercase tracking-wide text-white">Top 25 Metrics &amp; Performers</h2>
-                  <p class="text-white/45 text-sm mt-1">Explore the top performers across key performance categories.</p>
-                  <div class="flex gap-1 mt-4 bg-white/5 rounded-lg p-1 w-fit">
-                    <button @click="top10Mode = 'players'"
-                      class="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-black uppercase tracking-wide transition"
-                      :class="top10Mode === 'players' ? 'bg-[#C00000] text-white shadow' : 'text-white/40 hover:text-white'">
-                      <span>👤</span> Player Leaders
-                    </button>
-                    <button @click="top10Mode = 'percentiles'"
-                      class="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-black uppercase tracking-wide transition"
-                      :class="top10Mode === 'percentiles' ? 'bg-[#C00000] text-white shadow' : 'text-white/40 hover:text-white'">
-                      <span>📊</span> Percentile Leaders
-                    </button>
-                  </div>
-                </div>
-                <div v-if="top10Mode === 'players'" class="flex items-center gap-2">
-                  <span class="text-white/30 text-[10px] uppercase tracking-widest">Period</span>
-                  <div class="flex gap-1.5">
-                    <button v-for="r in [{ l: 'All', v: 0 }, { l: '1Y', v: 12 }, { l: '1M', v: 6 }, { l: '1W', v: 3 }]" :key="r.v"
-                      @click="top10Range = r.v; loadLeaderboard()"
-                      class="px-3 py-1.5 rounded-lg text-xs font-black transition border"
-                      :class="top10Range === r.v ? 'bg-white/10 border-white/30 text-white' : 'bg-transparent border-white/10 text-white/40 hover:text-white/70'">
-                      {{ r.l }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- PLAYER LEADERS — rotating Hall of Fame Wall -->
-              <template v-if="top10Mode === 'players'">
-                <div v-if="!canViewPerformanceOverview" class="rounded-xl border border-white/10 bg-white/[0.03] px-6 py-12 text-center">
-                  <div class="text-sm font-black uppercase tracking-widest text-white/75">Coach Pro Hall of Fame</div>
-                  <div class="mt-2 text-sm text-white/40">Upgrade to unlock the live team leaderboard and athlete performance wall.</div>
-                </div>
-                <HallOfFameWall
-                  v-else
-                  :categories="wallCategories"
-                  :fallback-avatar="top10FallbackAvatar"
-                  :loading="leaderboardLoading"
-                  :error="leaderboardError"
-                />
-              </template>
-
-              <!-- AGE-ADJUSTED PERCENTILE LEADERS -->
-              <template v-else>
-                <TeamPercentileLeaderboard
-                  v-model:category="selectedPercentileCategory"
-                  v-model:metric-key="selectedPercentileMetricKey"
-                  :loading="percentileLeaderboardLoading"
-                  :error="percentileLeaderboardError"
-                  :categories="percentileLeaderboardCategories"
-                  :metrics="percentileMetricsForCategory"
-                  :selected-metric="selectedPercentileMetric"
-                  :rows="rankedPercentilePlayers"
-                  @retry="fetchPercentileLeaderboard(true)"
-                  @select-player="openSharedPlayerDevelopmentProfile({ id: $event.playerId, name: $event.playerName })"
-                />
-              </template>
-            </div>
-
-          </div>
-
-          <!-- COL 3: Recent Sessions -->
-          <div class="flex flex-col gap-5">
-
-            <div class="rounded-2xl border border-white/10 bg-[#0a1020]/80 backdrop-blur-xl shadow-xl overflow-hidden">
-              <div class="flex items-center justify-between px-5 py-4 border-b border-white/10">
-                <h2 class="text-base font-black uppercase tracking-widest text-white">Recent Sessions</h2>
-                <button @click="router.push({ name: 'sessions.all' })"
-                  class="text-[#C00000] text-xs font-black hover:text-red-400 transition flex items-center gap-1">
-                  View All
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                  </svg>
-                </button>
-              </div>
-
-              <!-- Loading -->
-              <div v-if="recentLoading" class="flex justify-center py-10">
-                <svg class="animate-spin w-6 h-6 text-[#C00000]" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                </svg>
-              </div>
-
-              <!-- Empty -->
-              <div v-else-if="!recentSessions.length" class="text-white/25 text-sm text-center py-10 px-5">No sessions yet</div>
-
-              <!-- Session list -->
-              <div v-else class="divide-y divide-white/5">
-                <div
-                  v-for="session in recentSessions" :key="session.id"
-                  class="flex items-center gap-3 px-5 py-3.5 hover:bg-white/5 transition cursor-pointer group"
-                  @click="openSessionReport(session)"
-                >
-                  <!-- Type badge -->
-                  <span
-                    class="shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border"
-                    :class="[
-                      sessionTypeColor[session._type]?.bg,
-                      sessionTypeColor[session._type]?.border,
-                      sessionTypeColor[session._type]?.text
-                    ]"
-                  >{{ sessionTypeColor[session._type]?.label ?? session._type }}</span>
-
-                  <!-- Date + player -->
-                  <div class="flex-1 min-w-0">
-                    <p class="text-white/80 text-sm font-bold truncate">{{ formatDate(session.updated_at ?? session.created_at) }}</p>
-                    <p v-if="session.lineup?.length" class="text-white/35 text-xs truncate">
-                      {{ session.lineup[0]?.name?.full ?? session.lineup[0]?.user?.profile?.first_name ?? '' }}
-                      <span v-if="session.lineup.length > 1" class="text-white/25">+{{ session.lineup.length - 1 }}</span>
-                    </p>
-                  </div>
-
-                  <!-- Completed / arrow -->
-                  <div class="shrink-0 flex items-center gap-1.5">
-                    <svg v-if="session.is_completed" class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-                    </svg>
-                    <svg class="w-4 h-4 text-white/20 group-hover:text-white/50 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Footer link -->
-              <div class="px-5 py-4 border-t border-white/10">
-                <button
-                  @click="router.push({ name: 'sessions.all' })"
-                  class="w-full text-center text-[#C00000] hover:text-red-400 text-sm font-black transition flex items-center justify-center gap-1.5"
-                >
-                  View All Sessions
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-
-          </div>
-
-        </div>
-        </div><!-- end overview tab -->
+            <button class="coach-breakdown-link" @click="openBreakdown(selectedPerfRow)">Full score breakdown →</button></div>
+          </template>
+        </CoachHomeOverview>
 
         <!-- PLAYER DEVELOPMENT TAB -->
         <div v-if="dashTab === 'development'" class="flex flex-col gap-5">
@@ -3678,4 +3353,8 @@ watch(
   color: rgba(254, 226, 226, 0.98);
   line-height: 1.35;
 }
+</style>
+
+<style>
+.coach-dashboard{background:radial-gradient(ellipse at 90% 0%,#14264066,transparent 45%),#071120}.coach-topbar{display:flex;align-items:center;gap:22px;background:linear-gradient(110deg,#0e203b,#060d19);border-bottom:1px solid #21334e;padding:12px 25px;min-height:78px;color:white}.coach-wordmark{font-style:italic;font-size:29px;font-weight:950;display:flex;align-items:center;letter-spacing:-1px;white-space:nowrap}.coach-wordmark>span{color:#fa3037}.coach-wordmark small{font-style:normal;font-size:8px;letter-spacing:2px;margin-left:15px;padding-left:15px;border-left:2px solid #e8353b}.coach-top-tabs{display:flex;align-items:center;flex:1;gap:2px;overflow:auto}.coach-top-tabs button{font-size:10px;padding:18px 12px;white-space:nowrap;border-radius:0;background:none!important;box-shadow:none!important;font-weight:600}.coach-top-tabs button.text-white{border-bottom:3px solid #f83038}.coach-account{font-size:12px;padding:8px 12px;border:1px solid #31415b;border-radius:8px}.coach-account small{display:block;font-size:10px;color:#8ea3c1}.coach-chart-panel{border:1px solid #2c3f56;border-radius:8px;padding:12px;background:#071422}.coach-chart-panel>h3{text-transform:uppercase;letter-spacing:1px;font-size:11px;font-weight:800;margin-bottom:14px}.coach-breakdown-link{color:#9fb8df;font-size:11px;margin-top:12px}.coach-chart-panel .text-\[8px\]{font-size:10px}@media(max-width:1000px){.coach-topbar{flex-wrap:wrap;gap:8px;padding:10px 15px}.coach-top-tabs{order:3;flex-basis:100%}.coach-account{margin-left:auto}.coach-top-tabs button{padding:12px 10px}}
 </style>

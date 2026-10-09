@@ -482,7 +482,8 @@ watch(
       class="h-full w-full relative overflow-y-auto transition-[margin] duration-500"
       :class="hasSidebar.active ? 'ml-0 lg:ml-72' : 'ml-0'"
     >
-      <header class="top-brand-nav w-full">
+      <slot v-if="$slots['dashboard-header']" name="dashboard-header" :logout="logout" />
+      <header v-else class="top-brand-nav w-full">
         <div class="top-brand-content">
           <div class="top-brand-left">
             <RouterLink :to="dashboardHomeRoute" class="top-brand-logo-wrap" title="Go to dashboard">

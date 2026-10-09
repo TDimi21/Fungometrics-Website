@@ -57,10 +57,12 @@ describe('team percentile leaderboard', () => {
     expect(rankTeamPercentileRows(rows, 'max_exit_velocity').map((row) => row.rank)).toEqual([1, 1, 3])
   })
 
-  it('replaces Team Leaders on the dashboard with the percentile leaderboard and does not duplicate it', () => {
+  it('retains the percentile leaderboard alongside the redesigned team leader cards without duplicating it', () => {
     expect(dashboardPage).toContain('coach/teams/${id}/intelligence?days=365')
-    expect(dashboardPage).toContain('Percentile Leaders')
-    expect(dashboardPage).not.toContain('Team Leaders')
+    const overview = fs.readFileSync(path.resolve(process.cwd(), 'resources/js/components/dashboard/CoachHomeOverview.vue'), 'utf8')
+    expect(overview).toContain('Percentile Leaders')
+    expect(overview).toContain('Team Leaders')
+    expect(dashboardPage).toContain('@leader-mode="top10Mode=$event"')
     expect(dashboardPage.match(/<TeamPercentileLeaderboard/g)).toHaveLength(1)
     expect(leaderboardComponent).toContain('Top 25 by Metric')
     expect(leaderboardComponent).toContain('Benchmark Group')
