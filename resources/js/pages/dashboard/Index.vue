@@ -1578,6 +1578,8 @@ const openPlayerMetricsModal = async (player) => {
     number_in_shirt: player?.jersey ?? null,
   }
 
+  playerMetricsScore.value = {}
+  playerMetricsData.value = []
   isLoadingPlayerMetricsModal.value = true
   isOpenPlayerMetricsModal.value = true
   try {
@@ -1585,11 +1587,12 @@ const openPlayerMetricsModal = async (player) => {
       axiosGet(`coach/statistics/${pid}`).catch(() => null),
       axiosGet(`player/fitness/${pid}`).catch(() => null),
     ])
+    if (playerMetricsItem.value.id !== pid) return
     playerMetricsScore.value = scoreRes?.data?.data ?? {}
     const raw = fitnessRes?.data?.data
     playerMetricsData.value = Array.isArray(raw) ? raw : (raw ? [raw] : [])
   } finally {
-    isLoadingPlayerMetricsModal.value = false
+    if (playerMetricsItem.value.id === pid) isLoadingPlayerMetricsModal.value = false
   }
 }
 
@@ -2497,7 +2500,7 @@ watch(
 
 
         <div :class="dashTab === 'overview' ? 'coach-overview-container' : 'rounded-2xl border border-white/10 bg-[#080f1d]/55 p-3 md:p-5 shadow-2xl'">
-        <CoachHomeOverview v-if="dashTab === 'overview'" :key="activeTeamId" :players="devBoard" :rows="canViewPerformanceOverview ? perfRows : []" :categories="canViewPerformanceOverview ? wallCategories : []" :sessions="recentSessions" :session-types="sessionTypeColor" :loading="devBoardLoading" :performance-loading="perfLoading" :sessions-loading="recentLoading" :selected-key="selectedPerfKey" :team-name="team?.name" :leaderboard-error="leaderboardError" @select-performance="selectedPerfKey=$event" @player="openSharedPlayerDevelopmentProfile" @session="openSessionReport" @roster="setDashTab('development')" @sessions="router.push({name:'sessions.all'})" :leader-mode="top10Mode" :leaders-loading="leaderboardLoading" @leader-mode="top10Mode=$event" @retry-leaders="loadLeaderboard">
+        <CoachHomeOverview v-if="dashTab === 'overview'" :key="activeTeamId" :players="devBoard" :rows="canViewPerformanceOverview ? perfRows : []" :categories="canViewPerformanceOverview ? wallCategories : []" :sessions="recentSessions" :session-types="sessionTypeColor" :loading="devBoardLoading" :performance-loading="perfLoading" :sessions-loading="recentLoading" :selected-key="selectedPerfKey" :team-name="team?.name" :leaderboard-error="leaderboardError" @select-performance="selectedPerfKey=$event" @player="openSharedPlayerDevelopmentProfile" @player-metrics="openPlayerMetricsModal" @session="openSessionReport" @roster="setDashTab('development')" @sessions="router.push({name:'sessions.all'})" :leader-mode="top10Mode" :leaders-loading="leaderboardLoading" @leader-mode="top10Mode=$event" @retry-leaders="loadLeaderboard">
           <template #percentiles>
             <TeamPercentileLeaderboard v-model:category="selectedPercentileCategory" v-model:metric-key="selectedPercentileMetricKey" :loading="percentileLeaderboardLoading" :error="percentileLeaderboardError" :categories="percentileLeaderboardCategories" :metrics="percentileMetricsForCategory" :selected-metric="selectedPercentileMetric" :rows="rankedPercentilePlayers" @retry="fetchPercentileLeaderboard(true)" @select-player="openSharedPlayerDevelopmentProfile({id:$event.playerId,name:$event.playerName})" />
           </template>
