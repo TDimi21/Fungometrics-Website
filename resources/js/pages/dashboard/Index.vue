@@ -9,7 +9,6 @@ import { useTeamStore } from "../../store/team";
 import { useAccessStore } from '@/store/access.js'
 import { IndicatorChart } from '@/components/dashboard'
 import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
-import HallOfFameWall from '@/components/dashboard/HallOfFameWall.vue'
 import TeamPercentileLeaderboard from '@/components/dashboard/TeamPercentileLeaderboard.vue'
 import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
 import ExitVeloPanel from '@/components/dashboard/ExitVeloPanel.vue'

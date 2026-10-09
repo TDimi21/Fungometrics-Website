@@ -76,6 +76,8 @@ const toggleFullscreen = async () => {
   }
 }
 
+defineExpose({ toggleFullscreen })
+
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFullscreenState)
   document.addEventListener('webkitfullscreenchange', syncFullscreenState)

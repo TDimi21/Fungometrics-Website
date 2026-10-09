@@ -11,7 +11,23 @@ const dashboard = fs.readFileSync(
   'utf8',
 )
 
+const overview = fs.readFileSync(
+  path.resolve(process.cwd(), 'resources/js/components/dashboard/CoachHomeOverview.vue'), 'utf8',
+)
+
 describe('Hall of Fame rotating leaderboard', () => {
+  it('renders the Hall of Fame in the coach overview and exposes presentation access', () => {
+    expect(dashboard).toContain('<CoachHomeOverview')
+    expect(overview).toContain('<HallOfFameWall')
+    expect(overview).toContain(':categories="categories"')
+    expect(overview).toContain(':loading="leadersLoading"')
+    expect(overview).toContain(':error="leaderboardError"')
+    expect(overview).toContain('hallOfFame?.toggleFullscreen()')
+    expect(overview).toContain('Present on TV')
+    expect(component).toContain('defineExpose({ toggleFullscreen })')
+    expect(component).toContain('await el.requestFullscreen()')
+  })
+
   it('is one unified 40/60 stage that rotates every five seconds', () => {
     expect(component).toContain('class="hof-stage"')
     expect(component).toContain('grid-template-columns: minmax(0, 2fr) minmax(0, 3fr)')
