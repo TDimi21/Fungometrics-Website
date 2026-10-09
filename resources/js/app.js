@@ -5,7 +5,7 @@
  */
 
 import './bootstrap';
-import { createApp, h } from 'vue';
+import { createApp, h, defineAsyncComponent } from 'vue';
 import { RouterView } from 'vue-router';
 import Router, { routeEntitlement } from "../router";
 import {createPinia} from "pinia";
@@ -18,7 +18,7 @@ import { migrateLegacyAuthToken } from "./utils/authToken.js";
 import { ensureSessionSchema } from "./utils/sessionCache.js";
 import 'vue3-carousel/dist/carousel.css'
 import JsonExcel from "vue-json-excel3";
-import VueApexCharts from 'vue3-apexcharts'
+
 import { useAccessStore } from '@/store/access.js'
 import { useAuthStore } from '@/store/auth.js'
 import { useTeamStore } from '@/store/team.js'
@@ -94,7 +94,7 @@ window.addEventListener('fmtrx-access-forbidden', refreshAndEnforceAccess)
 document.addEventListener('visibilitychange', () => {
   if ('visible' === document.visibilityState) refreshAndEnforceAccess()
 })
-app.use(VueApexCharts)
+app.component('apexchart', defineAsyncComponent(() => import('vue3-apexcharts')))
 app.use(plugin,
   defaultConfig({
     config: {

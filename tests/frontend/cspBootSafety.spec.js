@@ -8,7 +8,7 @@ const appSource = readFileSync(
 
 describe('CSP-safe Vue startup', () => {
   it('renders RouterView without compiling an in-DOM template at runtime', () => {
-    expect(appSource).toContain("import { createApp, h } from 'vue'")
+    expect(appSource).toContain("import { createApp, h, defineAsyncComponent } from 'vue'")
     expect(appSource).toContain("import { RouterView } from 'vue-router'")
     expect(appSource).toContain('render: () => h(RouterView)')
     expect(appSource).not.toContain('createApp();')

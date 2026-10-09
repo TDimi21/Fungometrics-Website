@@ -18,6 +18,14 @@ class TeamIntelligenceService
 
     public function build(string $teamId, int $days = 60): array
     {
+        return \App\Support\RequestComputationCache::remember(
+            __METHOD__.json_encode([$teamId, $days]),
+            fn (): array => $this->buildUncached($teamId, $days),
+        );
+    }
+
+    private function buildUncached(string $teamId, int $days = 60): array
+    {
         $assembled = $this->assembler->assembleForTeam($teamId, $days);
         $playerSnapshots = [];
 

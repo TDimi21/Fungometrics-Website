@@ -25,6 +25,27 @@ use Tests\TestCase;
 
 class IntelligenceControllerTest extends TestCase
 {
+    public function test_repeated_team_report_calculations_do_not_repeat_database_queries(): void
+    {
+        [$coach, $team] = $this->createCoachTeamPlayer();
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+        request()->setMethod('GET');
+        request()->attributes->set('_fmtrx_reuse_intelligence', true);
+        $service = app(\App\Services\Intelligence\TeamIntelligenceService::class);
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        try {
+            $first = $service->build((string) $team->id, 60);
+            $this->assertGreaterThan(0, count(\Illuminate\Support\Facades\DB::getQueryLog()));
+            \Illuminate\Support\Facades\DB::flushQueryLog();
+            $second = $service->build((string) $team->id, 60);
+            $this->assertSame($first, $second);
+            $this->assertCount(0, \Illuminate\Support\Facades\DB::getQueryLog());
+        } finally {
+            \Illuminate\Support\Facades\DB::disableQueryLog();
+            request()->attributes->remove('_fmtrx_reuse_intelligence');
+        }
+    }
+
     public function test_player_intelligence_is_cached_and_fitness_changes_invalidate_it(): void
     {
         [$coach, $team, $player] = $this->createCoachTeamPlayer();

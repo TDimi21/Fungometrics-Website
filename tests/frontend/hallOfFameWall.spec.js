@@ -71,7 +71,7 @@ describe('Hall of Fame rotating leaderboard', () => {
   })
 
   it('invalidates stale responses when team or entitlement access changes', () => {
-    expect(dashboard).toContain('[canViewPerformanceOverview, activeTeamId]')
+    expect(dashboard).toContain('[canViewPerformanceOverview, activeTeamId, dashTab, dashboardReadyTeam]')
     expect(dashboard).toContain('++leaderboardRequestId')
     expect(dashboard).toContain('if (requestId !== leaderboardRequestId) return')
     expect(dashboard).toContain('leaderboardServer.value = null')

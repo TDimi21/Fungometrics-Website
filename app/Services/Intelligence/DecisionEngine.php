@@ -71,6 +71,14 @@ class DecisionEngine
 
     public function buildTeamDecisionBrief(string $teamId, int $days = 365): array
     {
+        return \App\Support\RequestComputationCache::remember(
+            __METHOD__.json_encode([$teamId, $days]),
+            fn (): array => $this->buildTeamDecisionBriefUncached($teamId, $days),
+        );
+    }
+
+    private function buildTeamDecisionBriefUncached(string $teamId, int $days = 365): array
+    {
         $days = max(7, min(365, $days));
         $teamSnapshot = $this->teamIntelligence->build($teamId, $days);
 

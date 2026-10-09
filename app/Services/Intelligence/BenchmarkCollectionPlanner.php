@@ -111,6 +111,14 @@ class BenchmarkCollectionPlanner
 
     public function buildTeamCollectionPlan(string $teamId, int $days = 365): array
     {
+        return \App\Support\RequestComputationCache::remember(
+            __METHOD__.json_encode([$teamId, $days]),
+            fn (): array => $this->buildTeamCollectionPlanUncached($teamId, $days),
+        );
+    }
+
+    private function buildTeamCollectionPlanUncached(string $teamId, int $days = 365): array
+    {
         $days = max(7, min(365, $days));
         $benchmarkProfile = $this->teamBenchmarkProfileService->build($teamId, $days);
         $decisionBrief = $this->decisionBrief($teamId, $days);

@@ -45,6 +45,14 @@ class IntelligenceDataAssembler
 
     public function assembleForPlayer(string $teamId, string $playerId, int $days = 60): array
     {
+        return \App\Support\RequestComputationCache::remember(
+            __METHOD__.json_encode([$teamId, $playerId, $days]),
+            fn (): array => $this->assembleForPlayerUncached($teamId, $playerId, $days),
+        );
+    }
+
+    private function assembleForPlayerUncached(string $teamId, string $playerId, int $days = 60): array
+    {
         $since = now()->subDays($days);
         $last30 = now()->subDays(30);
         $prev30Start = now()->subDays(60);
@@ -235,6 +243,14 @@ class IntelligenceDataAssembler
     }
 
     public function assembleForTeam(string $teamId, int $days = 60): array
+    {
+        return \App\Support\RequestComputationCache::remember(
+            __METHOD__.json_encode([$teamId, $days]),
+            fn (): array => $this->assembleForTeamUncached($teamId, $days),
+        );
+    }
+
+    private function assembleForTeamUncached(string $teamId, int $days = 60): array
     {
         $team = Team::query()->find($teamId);
         $playerIds = PlayerTeam::query()

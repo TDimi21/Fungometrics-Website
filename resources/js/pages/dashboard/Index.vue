@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, defineAsyncComponent } from 'vue'
 import { storeToRefs } from 'pinia'
 import CoachHomeOverview from '@/components/dashboard/CoachHomeOverview.vue'
 import Layout from "../../layout/Layout.vue"
@@ -7,18 +7,18 @@ import { useUserStore } from "../../store/user";
 import { usePlayerStore } from "../../store/players";
 import { useTeamStore } from "../../store/team";
 import { useAccessStore } from '@/store/access.js'
-import { IndicatorChart } from '@/components/dashboard'
-import DevelopmentCard from '@/components/dashboard/DevelopmentCard.vue'
-import TeamPercentileLeaderboard from '@/components/dashboard/TeamPercentileLeaderboard.vue'
-import VelocitySprayField from '@/components/dashboard/VelocitySprayField.vue'
-import ExitVeloPanel from '@/components/dashboard/ExitVeloPanel.vue'
-import BullpenLocationPanel from '@/components/dashboard/BullpenLocationPanel.vue'
-import TrainingLineChart from '@/components/dashboard/TrainingLineChart.vue'
-import VelocityZoneChart from '@/components/dashboard/VelocityZoneChart.vue'
-import PitchHeatmapChart from '@/components/dashboard/PitchHeatmapChart.vue'
-import PitchTypeStatsCard from '@/components/dashboard/PitchTypeStatsCard.vue'
-import PlayerCompare from '@/components/dashboard/PlayerCompare.vue'
-import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
+const IndicatorChart = defineAsyncComponent(() => import('@/components/dashboard/IndicatorChart.vue'))
+const DevelopmentCard = defineAsyncComponent(() => import('@/components/dashboard/DevelopmentCard.vue'))
+const TeamPercentileLeaderboard = defineAsyncComponent(() => import('@/components/dashboard/TeamPercentileLeaderboard.vue'))
+const VelocitySprayField = defineAsyncComponent(() => import('@/components/dashboard/VelocitySprayField.vue'))
+const ExitVeloPanel = defineAsyncComponent(() => import('@/components/dashboard/ExitVeloPanel.vue'))
+const BullpenLocationPanel = defineAsyncComponent(() => import('@/components/dashboard/BullpenLocationPanel.vue'))
+const TrainingLineChart = defineAsyncComponent(() => import('@/components/dashboard/TrainingLineChart.vue'))
+const VelocityZoneChart = defineAsyncComponent(() => import('@/components/dashboard/VelocityZoneChart.vue'))
+const PitchHeatmapChart = defineAsyncComponent(() => import('@/components/dashboard/PitchHeatmapChart.vue'))
+const PitchTypeStatsCard = defineAsyncComponent(() => import('@/components/dashboard/PitchTypeStatsCard.vue'))
+const PlayerCompare = defineAsyncComponent(() => import('@/components/dashboard/PlayerCompare.vue'))
+const ModalPlayer = defineAsyncComponent(() => import('@/components/dashboard/ModalPlayer.vue'))
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
 import useChart from '@/composables/useChart.js'
 import useChartOptions from '@/composables/useChartOptions.js'
@@ -26,18 +26,18 @@ import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useRoute, useRouter } from 'vue-router'
 import { computeStrengthAssessmentScore } from '@/features/development/lib/strengthAssessmentScore.js'
 import { computeFmtrxAssessment, throwsPerDayOptions, pitchCountOptions, intensityOptions } from '@/features/development/lib/fmtrxAssessmentScore.js'
-import AssessmentModal from '@/features/development/components/AssessmentModal.vue'
-import PlayerAssessmentReport from '@/features/development/components/PlayerAssessmentReport.vue'
+const AssessmentModal = defineAsyncComponent(() => import('@/features/development/components/AssessmentModal.vue'))
+const PlayerAssessmentReport = defineAsyncComponent(() => import('@/features/development/components/PlayerAssessmentReport.vue'))
 import { resolveBornValue, toISODOB, formatDOB } from '@/utils/dob.js'
-import StrengthStandardsCard from '@/features/development/components/StrengthStandardsCard.vue'
-import CoachAssessmentPanel from '@/features/development/components/CoachAssessmentPanel.vue'
-import PlayerComparisonDashboard from '@/features/development/pages/PlayerComparisonDashboard.vue'
+const StrengthStandardsCard = defineAsyncComponent(() => import('@/features/development/components/StrengthStandardsCard.vue'))
+const CoachAssessmentPanel = defineAsyncComponent(() => import('@/features/development/components/CoachAssessmentPanel.vue'))
+const PlayerComparisonDashboard = defineAsyncComponent(() => import('@/features/development/pages/PlayerComparisonDashboard.vue'))
 import {
   buildTeamPercentileRows,
   rankTeamPercentileRows,
   teamPercentileMetricOptions,
 } from '@/features/development/lib/teamPercentileLeaderboard.js'
-import DataHubDashboard from '@/pages/data-hub/DataHubDashboard.vue'
+const DataHubDashboard = defineAsyncComponent(() => import('@/pages/data-hub/DataHubDashboard.vue'))
 import { sessionUserId } from '@/utils/sessionCache.js'
 
 const router = useRouter()
@@ -45,6 +45,7 @@ const route = useRoute()
 const { axiosPost, axiosGet } = useAxiosAuth()
 const user = useUserStore()
 const dashTab = ref('overview')
+const dashboardReadyTeam = ref('')
 const teamStore = useTeamStore()
 const access = useAccessStore()
 const { team } = storeToRefs(teamStore)
@@ -343,7 +344,9 @@ const fetchDevBoard = async (force = false) => {
   if (!getActiveTeamIdCandidates().length) return
   devBoardLoading.value = true
   try {
+    const requestedTeam = String(activeTeamId.value)
     const { data } = await withTeamIdFallbackGet((id) => 'coach/teams/' + id + '/player-development-board')
+    if (requestedTeam !== String(activeTeamId.value)) return
     devBoard.value = data?.data ?? []
     writeDashboardCache({ devBoard: devBoard.value })
   } catch (e) { console.warn('fetchDevBoard', e) }
@@ -431,13 +434,13 @@ let performanceRequestId = 0
 // runs before access is ready, loadLeaderboard exits early; watch both inputs so
 // the paid leaderboard is fetched as soon as it is actually available.
 watch(
-  [canViewPerformanceOverview, activeTeamId],
-  ([allowed, teamId]) => {
+  [canViewPerformanceOverview, activeTeamId, dashTab, dashboardReadyTeam],
+  ([allowed, teamId, tab, readyTeam]) => {
     ++leaderboardRequestId
     leaderboardServer.value = null
     leaderboardError.value = ''
     leaderboardLoading.value = false
-    if (allowed && teamId) {
+    if (allowed && String(teamId) === readyTeam && tab === 'overview') {
       loadLeaderboard().catch(e => console.warn('loadLeaderboard access/team refresh error:', e?.message ?? e))
     }
   },
@@ -602,8 +605,8 @@ const fetchPerformanceOverview = async (force = false) => {
 }
 
 watch(
-  [() => access.loaded, canViewPerformanceOverview, activeTeamId],
-  ([loaded, allowed, teamId]) => {
+  [() => access.loaded, canViewPerformanceOverview, activeTeamId, dashTab, dashboardReadyTeam],
+  ([loaded, allowed, teamId, tab, readyTeam]) => {
     // An unloaded access store is not a denial. Keep cached/rendered data in
     // place until Laravel returns the authoritative entitlement snapshot.
     if (!loaded) return
@@ -612,8 +615,8 @@ watch(
       clearPerformanceOverview()
       return
     }
-    if (!teamId) return
-    fetchPerformanceOverview(true).catch(e => console.warn('fetchPerformanceOverview access refresh error:', e?.message ?? e))
+    if (!teamId || String(teamId) !== readyTeam || tab !== 'overview') return
+    fetchPerformanceOverview().catch(e => console.warn('fetchPerformanceOverview access refresh error:', e?.message ?? e))
   },
   { immediate: true }
 )
@@ -1093,7 +1096,9 @@ const fitnessStanding = (metric) => {
 
 const ensureTeamPlayerCards = async () => {
   if (playerCardsLoaded.value || !getActiveTeamIdCandidates().length) return
+  const requestedTeam = String(activeTeamId.value)
   const { data } = await withTeamIdFallbackGet((id) => 'coach/teams/' + id + '/player-cards')
+  if (requestedTeam !== String(activeTeamId.value)) return
   teamPlayerCards.value = data?.data ?? []
   playerCardsLoaded.value = true
 }
@@ -2328,8 +2333,14 @@ watch(
 )
 
 watch(
-  () => dashTab.value,
-  async (tab) => {
+  [dashTab, dashboardReadyTeam],
+  async ([tab, readyTeam]) => {
+    if (!readyTeam || String(activeTeamId.value) !== readyTeam) return
+    if (tab === 'overview' && access.loaded && activeTeamId.value) {
+      getRecentSessions()
+      fetchDevBoard()
+      getStaticChartData()
+    }
     if (tab === 'development') {
       await fetchDevBoard().catch(e => console.warn('fetchDevBoard error:', e?.message ?? e))
     }
@@ -2346,9 +2357,9 @@ watch(
 )
 
 watch(
-  [top10Mode, activeTeamId],
-  ([mode, teamId]) => {
-    if (mode === 'percentiles' && teamId) {
+  [top10Mode, activeTeamId, dashTab, dashboardReadyTeam],
+  ([mode, teamId, tab, readyTeam]) => {
+    if (mode === 'percentiles' && teamId && String(teamId) === readyTeam && tab === 'overview') {
       fetchPercentileLeaderboard().catch(e => console.warn('fetchPercentileLeaderboard error:', e?.message ?? e))
     }
   },
@@ -2388,6 +2399,7 @@ const hydrateDashboardFromCache = () => {
   }
 
   if (canViewPerformanceOverview.value && cache.perf) {
+    perfLastFetch.value = cache.savedAt
     perf.value = cache.perf
   }
 
@@ -2405,6 +2417,13 @@ const hydrateDashboardFromCache = () => {
 watch(
   () => activeTeamId.value,
   async (teamId) => {
+    dashboardReadyTeam.value = ''
+    ++performanceRequestId
+    clearPerformanceOverview()
+    devBoard.value = []
+    recentSessions.value = []
+    teamPlayerCards.value = []
+    playerCardsLoaded.value = false
     const requestedTeamId = teamId ? String(teamId) : null
     if (!teamId) {
       await ensureActiveTeam()
@@ -2426,12 +2445,7 @@ watch(
     }
     if (String(activeTeamId.value || '') !== resolvedTeamId) return
 
-    ++performanceRequestId
-    clearPerformanceOverview()
     hydrateDashboardFromCache()
-
-    // Priority 1 — fast/cached, render immediately
-    getRecentSessions()
     // Selected team changed — the assessment roster must follow it.
     leaderboardServer.value = null
     leaderboardError.value = ''
@@ -2441,19 +2455,9 @@ watch(
     percentileLeaderboardTeamId.value = ''
     percentileLeaderboardError.value = ''
     strengthSelectedPlayerId.value = ''
-    fetchStrengthPlayers().catch(e => console.warn('fetchStrengthPlayers (team change) error:', e?.message ?? e))
+    // Visible-tab watchers start immediately once this team's access and cache are ready.
+    dashboardReadyTeam.value = resolvedTeamId
 
-    // Priority 2 — heavier, defer until after first paint
-    setTimeout(() => {
-      if (String(activeTeamId.value || '') !== resolvedTeamId) return
-      fetchPerformanceOverview(true).catch(e => console.warn('fetchPerformanceOverview team refresh error:', e?.message ?? e))
-      fetchDevBoard()
-      if (top10Mode.value === 'percentiles') {
-        fetchPercentileLeaderboard().catch(e => console.warn('fetchPercentileLeaderboard team refresh error:', e?.message ?? e))
-      }
-      getStaticChartData().catch(e => console.warn('getStaticChartData error:', e?.message ?? e)) // contact_spray → velocity field
-      ensureTeamPlayerCards().catch(e => console.warn('ensureTeamPlayerCards preload error:', e?.message ?? e))
-    }, 800)
   },
   { immediate: true }
 )
@@ -3134,6 +3138,7 @@ watch(
     />
 
     <AssessmentModal
+      v-if="assessmentModalOpen"
       :visible="assessmentModalOpen"
       :player-name="selectedStrengthPlayerName"
       :player-id="strengthSelectedPlayerId"

@@ -68,6 +68,7 @@ class IntelligenceController extends Controller
         }
 
         $days = $this->days($request);
+        $request->attributes->set('_fmtrx_reuse_intelligence', true);
         $snapshot = $this->teamIntelligence->build($teamId, $days);
         try {
             $snapshot['decision_brief'] = $this->decisionEngine->buildTeamDecisionBrief($teamId, $days);

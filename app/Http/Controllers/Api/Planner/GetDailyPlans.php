@@ -10,6 +10,7 @@ use App\Models\DailyPlan;
 use Auth;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
@@ -19,12 +20,18 @@ use Symfony\Component\HttpFoundation\Response as HttpCodes;
  */
 class GetDailyPlans extends Controller
 {
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
+        $filters = $request->validate([
+            'team_id' => ['sometimes', 'required', 'string', 'max:191'],
+            'date' => ['sometimes', 'required', 'date_format:Y-m-d'],
+        ]);
         try {
             $teamIds = CoachTeam::where('coach_id', Auth::id())->pluck('team_id')->all();
 
             $plans = DailyPlan::whereIn('team_id', $teamIds)
+                ->when(isset($filters['team_id']), fn ($query) => $query->where('team_id', $filters['team_id']))
+                ->when(isset($filters['date']), fn ($query) => $query->where('date', $filters['date']))
                 ->with('assignments')
                 ->orderByDesc('updated_at')
                 ->get();

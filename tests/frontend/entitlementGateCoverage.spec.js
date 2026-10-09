@@ -49,7 +49,7 @@ describe('web entitlement gate coverage', () => {
     expect(dashboard).toContain("access.canAccess('performance_overview')")
     expect(dashboard).toContain('if (!canViewPerformanceOverview.value)')
     expect(dashboard).toContain('clearPerformanceOverview()')
-    expect(dashboard).toContain('[() => access.loaded, canViewPerformanceOverview, activeTeamId]')
+    expect(dashboard).toContain('[() => access.loaded, canViewPerformanceOverview, activeTeamId, dashTab, dashboardReadyTeam]')
     expect(dashboard).toContain('await access.refresh({ team_id: resolvedTeamId })')
     expect(dashboard).toContain('requestId !== performanceRequestId')
     expect(dashboard).toContain("String(activeTeamId.value) !== String(teamId)")

@@ -19,13 +19,13 @@ async function load() {
   if(!id)return
   loading.value=true
   try {
-    const {data} = await axiosGet('coach/daily-plans')
+    const {data} = await axiosGet(`coach/daily-plans?team_id=${encodeURIComponent(id)}&date=${encodeURIComponent(date.value)}`)
     if(!Array.isArray(data?.data)) throw new Error('Invalid planner response')
     if(request===generation)plans.value=teamPlannerRows(data.data,id).map(planFromApi)
   } catch {if(request===generation)error.value='Could not load workouts. Please retry.'}
   finally {if(request===generation)loading.value=false}
 }
-watch(teamId,load,{immediate:true})
+watch([teamId,date],load,{immediate:true})
 onBeforeUnmount(()=>{generation++})
 </script>
 <template>

@@ -53,6 +53,14 @@ class TeamBenchmarkProfileService
 
     public function build(string $teamId, int $days = 365): array
     {
+        return \App\Support\RequestComputationCache::remember(
+            __METHOD__.json_encode([$teamId, $days]),
+            fn (): array => $this->buildUncached($teamId, $days),
+        );
+    }
+
+    private function buildUncached(string $teamId, int $days = 365): array
+    {
         $days = max(7, min(365, $days));
         $playerIds = PlayerTeam::query()
             ->where('team_id', $teamId)
