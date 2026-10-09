@@ -66,6 +66,10 @@ class SaveDailyPlan extends Controller
                 ], HttpCodes::HTTP_FORBIDDEN);
             }
 
+            if ($existing && collect($existing->buckets)->contains(fn ($b) => isset($b['template_source'])) && \App\Models\DailyPlanProgress::where('plan_id', $existing->id)->exists()) {
+                return response()->json(['message'=>'This workout already has athlete results. Duplicate it to preserve the assigned prescriptions.'], 409);
+            }
+
             // Tie the plan to one of the coach's teams (so team staff can reuse it).
             $teamId = in_array($validated['team_id'] ?? null, $teamIds, true)
                 ? $validated['team_id']
@@ -74,6 +78,8 @@ class SaveDailyPlan extends Controller
             $status = $validated['status'] ?? ($existing->status ?? 'draft');
 
             $plan = DB::transaction(function () use ($validated, $planId, $teamId, $status, $existing) {
+                $locked = DailyPlan::whereKey($planId)->lockForUpdate()->first();
+                abort_if($locked && collect($locked->buckets)->contains(fn ($b) => isset($b['template_source'])) && \App\Models\DailyPlanProgress::where('plan_id', $planId)->exists(), 409, 'This workout already has athlete results. Duplicate it to preserve prescriptions.');
                 $plan = DailyPlan::updateOrCreate(
                     ['id' => $planId],
                     [
@@ -124,6 +130,8 @@ class SaveDailyPlan extends Controller
                 'status'  => 'success',
                 'data'    => $plan,
             ], HttpCodes::HTTP_OK);
+        } catch (\Illuminate\Validation\ValidationException $e) { throw $e;
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) { throw $e;
         } catch (Exception $e) {
             Log::error('SaveDailyPlan: ' . $e->getMessage());
 

@@ -27,6 +27,7 @@ export const BUCKETS = [
   { type: 'strength_accessory', title: 'Accessory Strength', kind: 'content', icon: 'arm-flex', color: '#fbbf24', strength: true, role: 'accessory', hint: '3–6 movements, isolation (8–20 reps)' },
   { type: 'conditioning', title: 'Conditioning', kind: 'content', icon: 'heart', color: '#14b8a6', hint: 'Energy-system work' },
   { type: 'recovery', title: 'Recovery', kind: 'content', icon: 'sleep', color: '#38bdf8', hint: 'Soft tissue, mobility, breathing' },
+  { type: 'assessments', title: 'Assessments', kind: 'content', icon: 'clipboard-check', color: '#38bdf8', hint: 'Assigned assessment activities' },
   { type: 'education', title: 'Education', kind: 'content', icon: 'book-open-variant', color: '#94a3b8', hint: 'Video / reading / mental skills' },
   { type: 'coach_notes', title: 'Coach Notes', kind: 'note', icon: 'clipboard-text', color: '#64748b', hint: 'Message to the player' },
   { type: 'player_reflection', title: 'Player Reflection', kind: 'survey', icon: 'comment-quote', color: '#8b5cf6', hint: 'Player completes after the session' },

@@ -1,15 +1,23 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { planFromApi, bucketTitle } from '@/features/planner/dailyPlanner.js'
 import { coalesceMaxes, setSummary, oneRMFieldForExercise } from '@/features/planner/lib/strengthLoad.js'
 import { formatMetricName, formatReviewStatus } from '@/utils/fmtrxLabels.js'
+
+import TemplateExerciseActuals from '@/components/workouts/TemplateExerciseActuals.vue'
 
 const { axiosGet, axiosPost } = useAxiosAuth()
 
 const workouts = ref([])
 const playerMaxes = ref({})   // { bench_press, back_squat, … } — resolves % 1RM sets to lb
 const current = ref(null)   // { plan, items: { [id]: { done } }, startedAt }
+const workoutSessions = ref([])
+watch(() => current.value?.plan.id, async id => {
+  workoutSessions.value=[]
+  if(!id)return
+  try { const res=await axiosGet(`player/daily-plans/${id}/sessions`); if(current.value?.plan.id===id)workoutSessions.value=res.data?.data||[] } catch { /* Results remain optional; retry by reopening. */ }
+})
 const loading = ref(false)
 const saving = ref(false)
 const offline = ref(false)
@@ -826,7 +834,7 @@ const open = (w) => {
     }
   }))
   expandedInstructions.value = new Set()
-  current.value = { plan: w, items, startedAt: w.progress?.started_at || new Date().toISOString() }
+  current.value = { plan: w, items, reflection: { ...(w.progress?.reflection || {}) }, startedAt: w.progress?.started_at || new Date().toISOString() }
   fetchCompletionSummary(w.id)
 }
 
@@ -867,10 +875,12 @@ const toggleItem = (id) => {
 }
 
 const finish = async () => {
+  if(saving.value)return
   saving.value = true
   try {
     const res = await axiosPost(`player/daily-plans/${current.value.plan.id}/progress`, {
       items: current.value.items,
+      reflection: current.value.reflection,
       started_at: current.value.startedAt,
       completed_at: new Date().toISOString(),
     })
@@ -879,6 +889,7 @@ const finish = async () => {
     const freshPlan = workouts.value.find((workout) => workout.id === current.value.plan.id)
     if (freshPlan) {
       current.value.plan = freshPlan
+      current.value.items = { ...current.value.items, ...(freshPlan.progress?.items || {}) }
     }
     await fetchCompletionSummary(current.value.plan.id)
   } catch {
@@ -1346,9 +1357,13 @@ const finish = async () => {
         No benchmark baselines in today’s workout.
       </div>
 
+      <p v-if="current.plan.buckets[0]?.template_source?.description" class="pw-bucket-note">{{ current.plan.buckets[0].template_source.description }} · Intensity: {{ current.plan.workloadLevel }}</p>
+      <label v-if="current.plan.buckets.some(b=>b.template_source)" class="pw-bucket">Post-workout feedback<textarea v-model="current.reflection.comments" maxlength="2000" class="pw-input" placeholder="How did the workout feel?" /></label>
+
       <div v-for="bucket in current.plan.buckets" :key="bucket.type" class="pw-bucket">
         <div class="pw-bucket-head">
-          <div class="pw-bucket-title">{{ bucketTitle(bucket.type) }}</div>
+          <div class="pw-bucket-title">{{ bucket.title || bucketTitle(bucket.type) }}</div>
+          <button v-if="bucket.items?.length" type="button" @click="bucket.items.forEach(it => { if(!current.items[it.id]?.done)toggleItem(it.id) })">Complete section</button>
           <span v-if="hasBenchmarkItems(bucket)" class="pw-benchmark-bucket">FMTRX Benchmark</span>
         </div>
         <p v-if="bucket.note" class="pw-bucket-note">{{ bucket.note }}</p>
@@ -1376,6 +1391,7 @@ const finish = async () => {
               </span>
             </div>
             <span class="pw-item-name">{{ it.name || 'Item' }}</span>
+            <TemplateExerciseActuals v-if="it.template_id" :item="it" v-model="current.items[it.id]" :sessions="workoutSessions" />
             <span v-if="itemMetaParts(it, bucket).length" class="pw-item-meta">{{ itemMetaParts(it, bucket).join(' · ') }}</span>
 
             <!-- STRENGTH: per-set targets, with % 1RM resolved to lb from the player's maxes -->

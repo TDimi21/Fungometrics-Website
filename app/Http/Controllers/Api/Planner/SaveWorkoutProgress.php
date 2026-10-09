@@ -42,21 +42,14 @@ class SaveWorkoutProgress extends Controller
             $validated = $request->validate([
                 'readiness'    => ['nullable', 'array'],
                 'items'        => ['nullable', 'array'],
+                'items.*'      => ['array'],
                 'reflection'   => ['nullable', 'array'],
                 'started_at'   => ['nullable', 'date'],
                 'completed_at' => ['nullable', 'date'],
             ]);
 
-            $progress = DailyPlanProgress::updateOrCreate(
-                ['plan_id' => $id, 'user_id' => $userId],
-                [
-                    'readiness'    => $validated['readiness'] ?? [],
-                    'items'        => $validated['items'] ?? [],
-                    'reflection'   => $validated['reflection'] ?? [],
-                    'started_at'   => $validated['started_at'] ?? null,
-                    'completed_at' => $validated['completed_at'] ?? null,
-                ]
-            );
+            $plan = \App\Models\DailyPlan::where('status', 'published')->findOrFail($id);
+            $progress = app(\App\Services\Workouts\WorkoutPerformanceService::class)->save($plan, (string) $userId, $validated);
 
             $bridgeResult = null;
             try {
@@ -87,6 +80,9 @@ class SaveWorkoutProgress extends Controller
                 'data'    => $progress,
                 'benchmark_completion_bridge' => $bridgeResult,
             ], HttpCodes::HTTP_OK);
+        } catch (\Illuminate\Validation\ValidationException $e) { throw $e;
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) { throw $e;
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) { throw $e;
         } catch (Exception $e) {
             Log::error('SaveWorkoutProgress: ' . $e->getMessage());
 

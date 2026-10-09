@@ -2928,7 +2928,7 @@ const del = async (p) => {
             <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Daily Planner</h1>
             <p class="text-white/40 text-sm mt-0.5">Plan. Execute. Develop. Every Day Counts.</p>
           </div>
-          <div class="flex flex-wrap items-center gap-2"><button class="dp-btn" aria-label="Previous day" @click="calendarDate=shiftCalendarDate(calendarDate,-1)">‹</button><input class="dp-input" style="width:auto;color-scheme:dark" type="date" aria-label="Selected planner date" :value="calendarDate" @change="$event.target.value && (calendarDate=$event.target.value)"><button class="dp-btn" aria-label="Next day" @click="calendarDate=shiftCalendarDate(calendarDate,1)">›</button><button class="dp-btn" @click="calendarDate=localDateKey()">Today</button><button class="dp-btn" @click="plannerView=plannerView==='day'?'calendar':'day'">{{ plannerView==='day'?'Week / Month':'Day Schedule' }}</button><button class="dp-btn dp-btn--primary" @click="newPlan">＋ Create Plan</button></div>
+          <div class="flex flex-wrap items-center gap-2"><RouterLink class="dp-btn dp-btn--primary" :to="{name:'workout.library',query:{date:calendarDate}}">＋ Add Workout</RouterLink><button class="dp-btn" aria-label="Previous day" @click="calendarDate=shiftCalendarDate(calendarDate,-1)">‹</button><input class="dp-input" style="width:auto;color-scheme:dark" type="date" aria-label="Selected planner date" :value="calendarDate" @change="$event.target.value && (calendarDate=$event.target.value)"><button class="dp-btn" aria-label="Next day" @click="calendarDate=shiftCalendarDate(calendarDate,1)">›</button><button class="dp-btn" @click="calendarDate=localDateKey()">Today</button><button class="dp-btn" @click="plannerView=plannerView==='day'?'calendar':'day'">{{ plannerView==='day'?'Week / Month':'Day Schedule' }}</button><button class="dp-btn dp-btn--primary" @click="newPlan">＋ Create Plan</button></div>
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
         <PlannerDaySchedule v-if="plannerView==='day'" :key="activeTeamId" :plans="plans" :date="calendarDate" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @date="calendarDate=$event" @management="openTeamManagement" />
@@ -5991,7 +5991,7 @@ const del = async (p) => {
         <div v-for="bucket in editing.buckets" :key="bucket.type" class="dp-bucket">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2 font-bold">
-              <span class="dp-dot" :style="{ background: bucketDef(bucket.type).color }"></span>{{ bucketTitle(bucket.type) }}
+              <span class="dp-dot" :style="{ background: bucketDef(bucket.type).color }"></span>{{ bucket.title || bucketTitle(bucket.type) }}
             </div>
             <button class="dp-link dp-link--danger" @click="removeBucket(bucket.type)">Remove</button>
           </div>
@@ -6002,6 +6002,7 @@ const del = async (p) => {
             <label class="dp-field"><span class="dp-label">End time (optional)</span><input v-model="bucket.endTime" type="time" class="dp-input" /></label>
             <label class="dp-field"><span class="dp-label">Location (optional)</span><input v-model="bucket.location" maxlength="150" placeholder="e.g. Main Field" class="dp-input" /></label>
           </div>
+          <label v-if="bucket.template_source" class="dp-field"><span class="dp-label">Section instructions</span><textarea v-model="bucket.note" class="dp-input"></textarea></label>
           <!-- survey buckets -->
           <div v-if="bucketDef(bucket.type).kind === 'survey'" class="dp-note-box">
             The player completes this survey {{ bucket.type === 'daily_readiness' ? 'before' : 'after' }} the session.
@@ -6019,7 +6020,7 @@ const del = async (p) => {
               </div>
 
               <!-- STRENGTH: per-set prescription (type of reps) -->
-              <div v-if="isStrengthItem(it)" class="mt-2">
+              <div v-if="isStrengthItem(it) && !it.template_id" class="mt-2">
                 <div v-for="s in it.setList" :key="s.id" class="dp-set">
                   <span class="dp-set-n">{{ s.setNumber }}</span>
                   <select v-model="s.prescriptionType" class="dp-input dp-input--sm">
@@ -6039,8 +6040,17 @@ const del = async (p) => {
                 <button class="dp-link mt-1" @click="addSet(it)">+ Add set</button>
               </div>
 
+              <div v-if="it.template_id" class="mt-3">
+                <label class="dp-field"><span class="dp-label">Written prescription</span><textarea v-model="it.prescription_text" class="dp-input"></textarea></label>
+                <div class="flex flex-wrap gap-2"><label v-for="field in ['sets_min','sets_max','reps_min','reps_max','durationSec','distance','intensity_min','intensity_max']" :key="field" class="dp-mini"><span>{{ field.replaceAll('_',' ') }}</span><input v-model.number="it[field]" type="number" min="0" class="dp-input dp-input--num"></label></div>
+                <label class="dp-field"><span class="dp-label">Equipment</span><input v-model="it.equipment" class="dp-input"></label>
+                <label class="dp-field"><span class="dp-label">Ball weights / colors</span><input :value="it.ball_weights?.join(', ')" @change="it.ball_weights=$event.target.value.split(',').map(v=>v.trim()).filter(Boolean)" class="dp-input"></label>
+                <label class="dp-field"><span class="dp-label">Coach instructions</span><textarea v-model="it.note" class="dp-input"></textarea></label>
+                <label><input type="checkbox" v-model="it.required"> Required exercise</label>
+                <template v-if="it.metadata?.session_type==='bullpen'"><label class="dp-field"><span class="dp-label">Bullpen focus</span><input v-model="it.metadata.focus" class="dp-input"></label><label class="dp-field"><span class="dp-label">Planned pitch count</span><input v-model.number="it.metadata.planned_pitch_count" type="number" min="0" class="dp-input"></label><label class="dp-field"><span class="dp-label">Pitch types</span><input :value="it.metadata.pitch_types?.join(', ')" @change="it.metadata.pitch_types=$event.target.value.split(',').map(v=>v.trim()).filter(Boolean)" class="dp-input"></label><label class="dp-field"><span class="dp-label">Targets</span><input :value="it.metadata.targets?.join(', ')" @change="it.metadata.targets=$event.target.value.split(',').map(v=>v.trim()).filter(Boolean)" class="dp-input"></label></template>
+              </div>
               <!-- CONTENT: sets / reps / intensity (+ throwing intent) -->
-              <div v-else class="mt-2 flex flex-wrap items-center gap-2">
+              <div v-if="!isStrengthItem(it) && !it.template_id" class="mt-2 flex flex-wrap items-center gap-2">
                 <label class="dp-mini"><span>Sets</span><input v-model.number="it.sets" type="number" min="0" class="dp-input dp-input--num" /></label>
                 <label class="dp-mini"><span>Reps</span><input v-model.number="it.reps" type="number" min="0" class="dp-input dp-input--num" /></label>
                 <label class="dp-mini"><span>Intensity</span>

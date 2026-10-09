@@ -27,6 +27,7 @@ class GetCustomDrills extends Controller
 
             $drills = PlannerCustomDrill::where(function ($q) use ($userId, $teamIds): void {
                 $q->where('created_by', $userId)
+                    ->orWhere(fn ($global) => $global->whereNull('created_by')->whereNull('team_id')->where('visibility', 'public')->where('source', 'flamebangers'))
                     ->orWhere(function ($q2) use ($teamIds): void {
                         $q2->whereIn('team_id', $teamIds)
                             ->whereIn('visibility', ['team', 'public']);

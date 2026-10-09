@@ -1,0 +1,1210 @@
+[
+  {
+    "name": "Velocity Day",
+    "slug": "flamebangers-velocity-day",
+    "category": "Pitching / Velocity",
+    "description": "High-intensity weighted-ball velocity development and throwing preparation.\nUse PlyoCare drills for warm-up. Radar weighted-ball throws.",
+    "sport": "baseball",
+    "program_type": "FlameBangers Pitching Development",
+    "intensity_label": "High",
+    "target_rpe_min": null,
+    "target_rpe_max": null,
+    "sections": [
+      {
+        "name": "Warm-Up",
+        "section_type": "movement_prep",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "Foam Roll",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per pass, full body",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Lacrosse Ball Rollout",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Approximately 20 seconds per body part or to tolerance",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Wrist Weight Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      },
+      {
+        "name": "Throwing",
+        "section_type": "throwing",
+        "instructions": "Use PlyoCare drills for warm-up. Radar weighted-ball throws.",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Reverse Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "No more than 10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Pivot Pickoffs",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "No more than 10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Roll-In Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "No more than 10 reps with 1 kg and 450 g balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "450 g"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Rocker Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "1 throw each with blue, red, yellow, and gray",
+            "equipment": "Weighted balls",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Walking Windup",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "1 throw each with blue, red, yellow, and gray",
+            "equipment": "Weighted balls",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Long Toss Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Extension phase / light catch",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Run and Gun Weighted Balls",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "3–4 throws each with 5, 6, 7, 5, 4, and 3 oz balls; first throw at 80%",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "5 oz",
+              "6 oz",
+              "7 oz",
+              "5 oz",
+              "4 oz",
+              "3 oz"
+            ],
+            "is_optional": false,
+            "metadata": {
+              "tracking_type": "radar",
+              "session_type": "weighted_ball"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Recovery",
+        "section_type": "recovery",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Rebounders",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Band Pullaparts",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Waiter Walks",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "Approximately 20 yards",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Running",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Refer to separately assigned running plan",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Recovery Day",
+    "slug": "flamebangers-recovery-day",
+    "category": "Pitching / Recovery",
+    "description": "All PlyoCare and light-catch throws must be performed at no more than 60% RPE.",
+    "sport": "baseball",
+    "program_type": "FlameBangers Pitching Development",
+    "intensity_label": "Recovery",
+    "target_rpe_min": null,
+    "target_rpe_max": 60,
+    "sections": [
+      {
+        "name": "Warm-Up",
+        "section_type": "movement_prep",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "Foam Roll",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per pass, full body",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Lacrosse Ball Rollout",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Approximately 20 seconds per body part or to tolerance",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Wrist Weight Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      },
+      {
+        "name": "Throwing",
+        "section_type": "throwing",
+        "instructions": "All PlyoCare and light-catch throws must be performed at no more than 60% RPE.",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Reverse Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Pivot Pickoffs",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "New Torque",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Dangles",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Final Arc",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Light Catch",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "No more than 30 throws",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      },
+      {
+        "name": "Recovery",
+        "section_type": "recovery",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Rebounders",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "10 reps with 450 g and 1 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "450 g",
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Band Pullaparts",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Waiter Walks",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "Approximately 20 yards",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Upward Tosses",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "15 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Running",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Refer to separately assigned running plan",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Bullpen Day",
+    "slug": "flamebangers-bullpen-day",
+    "category": "Pitching / Bullpen",
+    "description": "PlyoCare repetitions and bullpen workload are set according to athlete tolerance, with pitch mix and focus determined by the athlete and pitching coach.",
+    "sport": "baseball",
+    "program_type": "FlameBangers Pitching Development",
+    "intensity_label": "Coach-defined",
+    "target_rpe_min": null,
+    "target_rpe_max": null,
+    "sections": [
+      {
+        "name": "Warm-Up",
+        "section_type": "movement_prep",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "Foam Roll",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per pass, full body",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Lacrosse Ball Rollout",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Approximately 20 seconds per body part or to tolerance",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Wrist Weight Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      },
+      {
+        "name": "Throwing",
+        "section_type": "throwing",
+        "instructions": "PlyoCare repetitions and bullpen workload are set according to athlete tolerance, with pitch mix and focus determined by the athlete and pitching coach.",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Reverse Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Pivot Pickoffs",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Roll-In Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg and 450 g balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "450 g"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Rocker Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "1 throw each with blue, red, yellow, gray",
+            "equipment": "Weighted balls",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Walking Windup",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "1 throw each with blue, red, yellow, gray",
+            "equipment": "Weighted balls",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Long Toss Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Extension phase / light catch",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Bullpen",
+            "sets_min": 5.0,
+            "sets_max": 8.0,
+            "prescription_text": "5 pitches per set; mix fastballs, off-speed pitches, and locations",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {
+              "tracking_type": "session",
+              "session_type": "bullpen",
+              "planned_pitch_count": null,
+              "pitch_types": [],
+              "targets": [],
+              "focus": ""
+            }
+          }
+        ]
+      },
+      {
+        "name": "Recovery",
+        "section_type": "recovery",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Rebounders",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "15 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Band Pullaparts",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Waiter Walks",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "Approximately 20 yards",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Marc Pro",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "15 minutes",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      },
+      {
+        "name": "Additional Recovery (optional)",
+        "section_type": "arm_care",
+        "instructions": "Coach may add optional recovery exercises.",
+        "exercises": []
+      }
+    ]
+  },
+  {
+    "name": "Hybrid A",
+    "slug": "flamebangers-hybrid-a",
+    "category": "Pitching / High-Intensity Hybrid",
+    "description": "PlyoCare reps are performed according to athlete tolerance, subject to coach-defined limits.",
+    "sport": "baseball",
+    "program_type": "FlameBangers Pitching Development",
+    "intensity_label": "High",
+    "target_rpe_min": null,
+    "target_rpe_max": null,
+    "sections": [
+      {
+        "name": "Warm-Up",
+        "section_type": "movement_prep",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "Foam Roll",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per pass, full body",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Lacrosse Ball Rollout",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Approximately 20 seconds per body part or to tolerance",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Wrist Weight Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      },
+      {
+        "name": "Throwing",
+        "section_type": "throwing",
+        "instructions": "PlyoCare reps are performed according to athlete tolerance, subject to coach-defined limits.",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Reverse Throws",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Pivot Pickoffs",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Roll-In Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg and 450 g balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "450 g"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Rocker Throws",
+            "sets_min": 3.0,
+            "sets_max": 3.0,
+            "prescription_text": "1 throw each with blue, red, yellow, gray",
+            "equipment": "Weighted balls",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Walking Windup",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "1 throw each with blue, red, yellow, gray",
+            "equipment": "Weighted balls",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jump Backs",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Step Behinds",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Double Crow Hop",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Long Toss Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Maximum tolerance distance plus 8–12 compression throws",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      },
+      {
+        "name": "Recovery",
+        "section_type": "recovery",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Rebounders",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Band Pullaparts",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Waiter Walks",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "Approximately 20 yards",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Running",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Refer to separately assigned running plan",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Hybrid B",
+    "slug": "flamebangers-hybrid-b",
+    "category": "Pitching / Moderate-Intensity Hybrid",
+    "description": "PlyoCare repetitions at 70–80% RPE.",
+    "sport": "baseball",
+    "program_type": "FlameBangers Pitching Development",
+    "intensity_label": "Moderate",
+    "target_rpe_min": 70,
+    "target_rpe_max": 80,
+    "sections": [
+      {
+        "name": "Warm-Up",
+        "section_type": "movement_prep",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "Foam Roll",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per pass, full body",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Lacrosse Ball Rollout",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Approximately 20 seconds per body part or to tolerance",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Wrist Weight Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      },
+      {
+        "name": "Throwing",
+        "section_type": "throwing",
+        "instructions": "PlyoCare repetitions at 70–80% RPE.",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Reverse Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg and 2 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "2 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Pivot Pickoffs",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Roll-In Throws",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "5 reps with 1 kg and 450 g balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg",
+              "450 g"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Rocker Throws",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "1 throw each with blue, red, yellow, gray",
+            "equipment": "Weighted balls",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "PlyoCare Walking Windups",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "1 throw each with blue, red, yellow, gray",
+            "equipment": "Weighted balls",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Double Plays",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Rev Ups",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Hook'em Drills",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps with 1 kg ball",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Long Toss Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Extension phase",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      },
+      {
+        "name": "Recovery",
+        "section_type": "recovery",
+        "instructions": "",
+        "exercises": [
+          {
+            "exercise_name": "PlyoCare Rebounders",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "15 reps with 450 g and 1 kg balls",
+            "equipment": "Weighted balls",
+            "ball_weights": [
+              "450 g",
+              "1 kg"
+            ],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Band Pullaparts",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "15 reps per exercise",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Waiter Walks",
+            "sets_min": 2.0,
+            "sets_max": 2.0,
+            "prescription_text": "Approximately 20 yards",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Jaeger Band Series",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 reps",
+            "equipment": "Resistance band",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Shoulder Tube",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "10 seconds per exercise",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          },
+          {
+            "exercise_name": "Running",
+            "sets_min": 1.0,
+            "sets_max": 1.0,
+            "prescription_text": "Refer to separately assigned running plan",
+            "equipment": "Coach-defined",
+            "ball_weights": [],
+            "is_optional": false,
+            "metadata": {}
+          }
+        ]
+      }
+    ]
+  }
+]

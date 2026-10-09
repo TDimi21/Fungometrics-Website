@@ -270,7 +270,7 @@ const markReviewed = async () => {
       <div v-if="!hasExercises" class="cwp-panel cwp-dim">No exercises in this workout.</div>
       <template v-else>
         <div v-for="bucket in contentBuckets" :key="bucket.type" class="cwp-panel">
-        <div class="cwp-bucket-title">{{ bucketTitle(bucket.type) }}</div>
+        <div class="cwp-bucket-title">{{ bucket.title || bucketTitle(bucket.type) }}</div>
         <div v-for="it in (bucket.items || [])" :key="it.id" class="cwp-item">
           <div class="cwp-item-head">
             <span class="cwp-item-dot" :class="{ 'cwp-item-dot--done': itemProgress(it.id).done }">{{ itemProgress(it.id).done ? '✓' : '○' }}</span>
@@ -278,7 +278,14 @@ const markReviewed = async () => {
             <span v-if="it.required === false" class="cwp-opt">optional</span>
             <span v-if="itemProgress(it.id).pain" class="cwp-pain">⚠</span>
           </div>
-          <div v-if="isStrength(it)" class="cwp-sets">
+          <div v-if="it.template_id" class="cwp-item-sub">
+            <p>Prescribed: {{ it.sets_min }}{{ it.sets_max!==it.sets_min ? '–'+it.sets_max : '' }} sets · {{ it.prescription_text }}</p>
+            <p v-for="[key,label] in [['actual_sets','Actual sets'],['actual_reps','Actual reps'],['actual_distance_yards','Distance (yards)'],['actual_rpe','Actual RPE']]" :key="key">{{ label }}: {{ itemProgress(it.id)[key] ?? 'Not recorded' }}</p>
+            <p v-if="itemProgress(it.id).player_note">Player note: {{ itemProgress(it.id).player_note }}</p>
+            <p v-for="r in itemProgress(it.id).radar||[]" :key="r.id">Throw {{ r.attempt }}: {{ r.weight }} oz · {{ r.velocity }} mph</p>
+            <RouterLink v-if="itemProgress(it.id).session_id" :to="{name:'session.report',params:{id:itemProgress(it.id).session_id,type:it.metadata?.session_type==='bullpen'?'bullpen':'weight_ball'}}">View recorded session →</RouterLink>
+          </div>
+          <div v-else-if="isStrength(it)" class="cwp-sets">
             <div v-for="(s, idx) in it.setList" :key="s.id || idx" class="cwp-set-row">
               <span class="cwp-set-n">{{ idx + 1 }}</span>
               <span class="cwp-set-target">Target {{ setSummary(s) }}</span>

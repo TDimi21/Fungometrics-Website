@@ -299,6 +299,7 @@ Route::prefix('player')->group(function (): void {
         Route::post('daily-plans/{id}/acknowledge-update', AcknowledgeDailyPlanUpdate::class);
         Route::post('daily-plans/{id}/mark-update-seen', MarkDailyPlanUpdateSeen::class);
         Route::post('daily-plans/{id}/progress', SaveWorkoutProgress::class);
+        Route::get('daily-plans/{id}/sessions', [\App\Http\Controllers\Api\Workouts\WorkoutSessionController::class, 'index']);
     });
 });
 
@@ -349,6 +350,20 @@ Route::prefix('coach')->group(function (): void {
         Route::middleware('plan:planner_create')->get('/practice-plans', GetPracticePlans::class);
         Route::middleware('plan:planner_create')->post('/practice-plans', SavePracticePlan::class);
         Route::middleware('plan:planner_create')->delete('/practice-plans/{id}', DeletePracticePlan::class);
+
+        Route::middleware('plan:planner_create')->group(function () {
+            $templates = \App\Http\Controllers\Api\Workouts\WorkoutTemplateController::class;
+            Route::get('/workout-templates', [$templates, 'index']);
+            Route::get('/workout-templates/{id}', [$templates, 'show']);
+            Route::post('/workout-templates', [$templates, 'store']);
+            Route::put('/workout-templates/{id}', [$templates, 'update']);
+            Route::post('/workout-templates/{id}/duplicate', [$templates, 'duplicate']);
+            Route::post('/workout-templates/{id}/use', [$templates, 'instantiate']);
+            $programs = \App\Http\Controllers\Api\Workouts\WorkoutProgramController::class;
+            Route::get('/workout-programs', [$programs, 'index']);
+            Route::post('/workout-programs', [$programs, 'save']);
+            Route::post('/workout-programs/{id}/publish', [$programs, 'publish']);
+        });
 
         // Daily Planner (coach authoring) — synced between app and web
         Route::middleware('plan:planner_create')->get('/daily-plans', GetDailyPlans::class);

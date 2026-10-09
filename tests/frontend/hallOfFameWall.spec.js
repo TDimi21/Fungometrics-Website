@@ -42,8 +42,8 @@ describe('Hall of Fame rotating leaderboard', () => {
     expect(dashboard).toContain('coach/leaderboard/${id}?range=${top10Range.value}')
     expect(dashboard).toContain("data?.status !== 'success'")
     expect(dashboard).toContain('leaderboardServer.value = null')
-    expect(dashboard).toContain(':loading="leaderboardLoading"')
-    expect(dashboard).toContain(':error="leaderboardError"')
+    expect(dashboard).toContain(':leaders-loading="leaderboardLoading"')
+    expect(dashboard).toContain(':leaderboard-error="leaderboardError"')
   })
 
   it('is safe for long-running TV presentation and clears every global resource', () => {
