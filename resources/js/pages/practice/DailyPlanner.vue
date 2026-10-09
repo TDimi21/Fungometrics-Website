@@ -1,5 +1,7 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
+import {useRoute} from 'vue-router'
+import {validPlannerDate} from '@/features/planner/lib/plannerLinks'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
 import { storeToRefs } from 'pinia'
@@ -24,7 +26,10 @@ const teamStore = useTeamStore()
 const { team } = storeToRefs(teamStore)
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
 
-const calendarDate = ref(localDateKey())
+const plannerRoute = useRoute()
+const calendarDate = ref(validPlannerDate(plannerRoute.query.date) ? plannerRoute.query.date : localDateKey())
+const plannerLinkError = ref('')
+let handledPlannerLink = ''
 const plannerView = ref('day')
 const openTeamManagement = async () => { teamManagementOpen.value = true; await nextTick(); document.querySelector('.planner-management')?.scrollIntoView({behavior:'smooth'}) }
 const teamManagementOpen = ref(false)
@@ -1018,6 +1023,22 @@ const duplicatePlan = (p) => {
   copy.publishedAt = null
   editing.value = copy
 }
+watch(() => [plannerRoute.query.date, plannerRoute.query.action, plannerRoute.query.plan, plans.value, loading.value], () => {
+  const {date, action, plan: planId} = plannerRoute.query
+  const signature = JSON.stringify([date, action, planId])
+  if (signature === handledPlannerLink || loading.value || offline.value) return
+  if (validPlannerDate(date)) calendarDate.value = date
+  plannerLinkError.value = ''
+  if (action === 'create') newPlan(calendarDate.value)
+  else if (planId && ['edit', 'players'].includes(action)) {
+    const plan = plans.value.find(p => String(p.id) === String(planId))
+    if (!plan) { plannerLinkError.value = 'This workout is unavailable. Refresh the plan list or select another workout.'; return }
+    if (action === 'players' && plan.status === 'published') viewPlayers(plan)
+    else editPlan(plan)
+  }
+  handledPlannerLink = signature
+})
+
 const cancelEdit = () => { if (editing.value?.date) calendarDate.value = editing.value.date; editing.value = null }
 
 const itemCount = (p) => (p.buckets || []).reduce((n, b) => n + (b.items || []).length, 0)
@@ -2896,6 +2917,7 @@ const del = async (p) => {
   <div class="min-h-screen bg-[#060b14] text-white">
     <div class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
 
+      <p v-if="plannerLinkError" role="alert" class="dp-hint mb-4">{{ plannerLinkError }}</p>
       <!-- ══ VIEW PLAYERS (per-player progress + review) ══ -->
       <CoachWorkoutPlayers v-if="viewingPlayers" :plan="viewingPlayers" @back="viewingPlayers = null" />
 

@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import {useRoute} from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
@@ -19,7 +20,9 @@ const { team } = storeToRefs(teamStore)
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
 
 // Practice / Workout tabs — the Workout tab is the Daily Planner.
-const activeTab = ref('practice')
+const plannerRoute = useRoute()
+const activeTab = ref(plannerRoute.query.tab === 'workout' ? 'workout' : 'practice')
+watch(() => plannerRoute.query.tab, tab => { if (tab === 'workout' || tab === 'practice') activeTab.value = tab })
 
 const CUSTOM_KEY = 'fmtrx_custom_drills'
 const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
