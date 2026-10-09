@@ -1,6 +1,15 @@
 import {describe, it, expect} from 'vitest'
+import {planToApi, planFromApi} from '../../resources/js/features/planner/dailyPlanner'
 import {calendarDays, localDateKey, shiftCalendarDate, moveCalendar, plansOnDate} from '../../resources/js/features/planner/lib/calendar'
 describe('workout calendar dates', () => {
+  it('retains scheduled times, location and notes when saving and reloading a workout', () => {
+    const plan = {id:'p1',name:'Morning work',date:'2026-10-09',status:'draft',assignedPlayerIds:['u1'],buckets:[{type:'movement_prep',startTime:'07:00',endTime:'07:30',location:'Main Field',items:[]},{type:'coach_notes',note:'Focus on control',items:[]}]}
+    const restored = planFromApi(planToApi(plan,'team1'))
+    expect(restored.buckets).toEqual(plan.buckets)
+    expect(restored.date).toBe('2026-10-09')
+    expect(restored.assignedPlayerIds).toEqual(['u1'])
+  })
+
   it('shows Monday through Sunday across a year boundary', () => {
     expect(calendarDays('2027-01-01')).toEqual(['2026-12-28','2026-12-29','2026-12-30','2026-12-31','2027-01-01','2027-01-02','2027-01-03'])
   })

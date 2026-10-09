@@ -13,8 +13,9 @@ import { PRESCRIPTION_TYPES, makeSet, renumber, setSummary } from '@/features/pl
 import {
   blankPlan, estimateMinutes, planToApi, planFromApi, groupFromApi, bucketTitle, uid,
 } from '@/features/planner/dailyPlanner.js'
+import PlannerDaySchedule from '@/components/planner/PlannerDaySchedule.vue'
 import PlannerCalendar from '@/components/planner/PlannerCalendar.vue'
-import { localDateKey } from '@/features/planner/lib/calendar'
+import { localDateKey, shiftCalendarDate } from '@/features/planner/lib/calendar'
 import CoachWorkoutPlayers from '@/components/planner/CoachWorkoutPlayers.vue'
 import { formatDeliveryStatus, formatLabel, formatMetricName, formatPlanStatus } from '@/utils/fmtrxLabels.js'
 
@@ -24,6 +25,8 @@ const { team } = storeToRefs(teamStore)
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
 
 const calendarDate = ref(localDateKey())
+const plannerView = ref('day')
+const openTeamManagement = async () => { teamManagementOpen.value = true; await nextTick(); document.querySelector('.planner-management')?.scrollIntoView({behavior:'smooth'}) }
 const teamManagementOpen = ref(false)
 const plans = ref([])
 const groups = ref([])
@@ -1011,6 +1014,7 @@ const duplicatePlan = (p) => {
   copy.id = undefined
   copy.name = `${p.name || 'Workout'} (copy)`
   copy.status = 'draft'
+  copy.date = calendarDate.value
   copy.publishedAt = null
   editing.value = copy
 }
@@ -2868,6 +2872,7 @@ const filteredPlayers = computed(() => {
 
 // ── save / delete ────────────────────────────────────────────────────────────
 const save = async (status) => {
+  if (editing.value.buckets.some(b => b.startTime && b.endTime && b.endTime <= b.startTime)) { alert('Each block end time must be after its start time.'); return }
   if (!String(editing.value.name || '').trim()) { alert('Name your plan first.'); return }
   editing.value.status = status
   if (status === 'published' && !editing.value.publishedAt) editing.value.publishedAt = new Date().toISOString()
@@ -2899,12 +2904,13 @@ const del = async (p) => {
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
             <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Daily Planner</h1>
-            <p class="text-white/40 text-sm mt-0.5">Choose a day, plan a workout, and follow player progress.</p>
+            <p class="text-white/40 text-sm mt-0.5">Plan. Execute. Develop. Every Day Counts.</p>
           </div>
-          <button class="dp-btn dp-btn--primary" @click="newPlan">+ New Plan</button>
+          <div class="flex flex-wrap items-center gap-2"><button class="dp-btn" aria-label="Previous day" @click="calendarDate=shiftCalendarDate(calendarDate,-1)">‹</button><input class="dp-input" style="width:auto;color-scheme:dark" type="date" aria-label="Selected planner date" :value="calendarDate" @change="$event.target.value && (calendarDate=$event.target.value)"><button class="dp-btn" aria-label="Next day" @click="calendarDate=shiftCalendarDate(calendarDate,1)">›</button><button class="dp-btn" @click="calendarDate=localDateKey()">Today</button><button class="dp-btn" @click="plannerView=plannerView==='day'?'calendar':'day'">{{ plannerView==='day'?'Week / Month':'Day Schedule' }}</button><button class="dp-btn dp-btn--primary" @click="newPlan">＋ Create Plan</button></div>
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
-        <PlannerCalendar v-model="calendarDate" :plans="plans" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @refresh="loadPlans" />
+        <PlannerDaySchedule v-if="plannerView==='day'" :key="activeTeamId" :plans="plans" :date="calendarDate" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @date="calendarDate=$event" @management="openTeamManagement" />
+        <PlannerCalendar v-else v-model="calendarDate" :plans="plans" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @refresh="loadPlans" />
         <details class="planner-management" :open="teamManagementOpen" @toggle="teamManagementOpen = $event.target.open">
           <summary>Team management <span>Alerts, reviews, reports & all saved plans</span></summary>
         <section class="dp-command mb-5" data-dp-section="operating_system_home">
@@ -5969,6 +5975,11 @@ const del = async (p) => {
           </div>
           <p class="text-white/35 text-xs -mt-1 mb-3">{{ bucketDef(bucket.type).hint }}</p>
 
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <label class="dp-field"><span class="dp-label">Start time (optional)</span><input v-model="bucket.startTime" type="time" class="dp-input" /></label>
+            <label class="dp-field"><span class="dp-label">End time (optional)</span><input v-model="bucket.endTime" type="time" class="dp-input" /></label>
+            <label class="dp-field"><span class="dp-label">Location (optional)</span><input v-model="bucket.location" maxlength="150" placeholder="e.g. Main Field" class="dp-input" /></label>
+          </div>
           <!-- survey buckets -->
           <div v-if="bucketDef(bucket.type).kind === 'survey'" class="dp-note-box">
             The player completes this survey {{ bucket.type === 'daily_readiness' ? 'before' : 'after' }} the session.
