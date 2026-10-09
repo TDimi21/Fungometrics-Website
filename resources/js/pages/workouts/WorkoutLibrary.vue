@@ -371,7 +371,7 @@ function newTemplate() {
           No matching templates. Create a custom workout or load the premade
           library.
         </p></template
-      ><ProgramBuilder
+      ><ProgramBuilder @template-created="templates.push($event)"
         v-else-if="teamId && !loading"
         :key="teamId + programTemplate"
         :templates="templates"

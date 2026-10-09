@@ -2932,7 +2932,7 @@ const del = async (p) => {
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
         <PlannerDaySchedule v-if="plannerView==='day'" :key="activeTeamId" :plans="plans" :date="calendarDate" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @date="calendarDate=$event" @management="openTeamManagement" />
-        <PlannerCalendar v-else v-model="calendarDate" :plans="plans" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @refresh="loadPlans" />
+        <PlannerCalendar v-else @open-day="calendarDate=$event;plannerView='day'" v-model="calendarDate" :plans="plans" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @refresh="loadPlans" />
         <details class="planner-management" :open="teamManagementOpen" @toggle="teamManagementOpen = $event.target.open">
           <summary>Team management <span>Alerts, reviews, reports & all saved plans</span></summary>
         <section class="dp-command mb-5" data-dp-section="operating_system_home">

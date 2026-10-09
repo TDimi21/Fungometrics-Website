@@ -10,6 +10,7 @@ import {
   copyEntries,
   overlapWarnings,
 } from "@/features/workouts/programSchedule";
+import { Dialog, DialogPanel, DialogTitle } from "@headlessui/vue";
 import TemplateEditor from "./TemplateEditor.vue";
 const props = defineProps({
   templates: Array,
@@ -18,6 +19,68 @@ const props = defineProps({
   teamId: String,
   initialTemplate: String,
 });
+const emit = defineEmits(["template-created"]);
+const activeDay = ref(null),
+  customWorkout = ref(null);
+const dayEntries = computed(() =>
+  program.value.schedule.filter((e) => e.day_offset === activeDay.value)
+);
+const dayDate = computed(() =>
+  shiftCalendarDate(program.value.start_date, activeDay.value ?? 0)
+);
+function openDay(offset) {
+  if (busy.value || offset < 0 || offset >= totalDays.value) return;
+  activeDay.value = offset;
+  editingEntry.value = null;
+  customWorkout.value = null;
+}
+function closeDay() {
+  if (!busy.value) {
+    activeDay.value = null;
+    editingEntry.value = null;
+    customWorkout.value = null;
+  }
+}
+function buildCustom() {
+  customWorkout.value = {
+    name: "New workout",
+    sport: "baseball",
+    category: "Custom",
+    program_type: program.value.name,
+    description: "",
+    intensity_label: "Coach-defined",
+    sections: [
+      {
+        name: "Warm-Up",
+        section_type: "movement_prep",
+        instructions: "",
+        exercises: [],
+      },
+    ],
+  };
+}
+async function saveWorkout(snapshot) {
+  if (editingEntry.value) {
+    editingEntry.value.snapshot = snapshot;
+    editingEntry.value = null;
+    approved.value = false;
+    return;
+  }
+  if (busy.value) return;
+  busy.value = true;
+  error.value = "";
+  try {
+    const { data } = await axiosPost("coach/workout-templates", snapshot);
+    emit("template-created", data.data);
+    templateId.value = data.data.id;
+    insertWorkout(data.data);
+    customWorkout.value = null;
+  } catch (e) {
+    error.value = e?.response?.data?.message || "Workout could not be saved.";
+  } finally {
+    busy.value = false;
+  }
+}
 const { axiosGet, axiosPost } = useAxiosAuth();
 const uuid = () => crypto.randomUUID(),
   clone = (x) => JSON.parse(JSON.stringify(x));
@@ -35,7 +98,6 @@ const program = ref(fresh()),
   week = ref(0),
   templateId = ref(props.initialTemplate || props.templates[0]?.id || ""),
   selectedPlayers = ref([]),
-  dayOffset = ref(0),
   phase = ref("Foundation"),
   busy = ref(false),
   error = ref(""),
@@ -46,17 +108,30 @@ const program = ref(fresh()),
   copyDayTo = ref(2),
   copyWeekFrom = ref(1),
   copyWeekTo = ref(2);
-const safeWeeks = computed(() => Math.max(1, Math.min(52, Math.floor(Number(program.value.weeks) || 4))));
+watch(
+  () => props.templates,
+  (templates) => {
+    if (!templates.some((t) => t.id === templateId.value))
+      templateId.value = templates[0]?.id || "";
+  },
+  { immediate: true, deep: true }
+);
+const safeWeeks = computed(() =>
+  Math.max(1, Math.min(52, Math.floor(Number(program.value.weeks) || 4)))
+);
 const totalDays = computed(() => safeWeeks.value * 7);
 const locked = computed(() => program.value.status === "published");
 const warnings = computed(() => overlapWarnings(program.value.schedule));
 const startWeekday = computed(
-  () => ((new Date(program.value.start_date + "T12:00:00").getDay() || 0) + 6) % 7
+  () =>
+    ((new Date(program.value.start_date + "T12:00:00").getDay() || 0) + 6) % 7
 );
 const calendarWeeks = computed(() =>
   Math.ceil((totalDays.value + startWeekday.value) / 7)
 );
-watch(calendarWeeks, count => { week.value = Math.max(0, Math.min(week.value, count - 1)); });
+watch(calendarWeeks, (count) => {
+  week.value = Math.max(0, Math.min(week.value, count - 1));
+});
 const days = computed(() =>
   Array.from({ length: 7 }, (_, i) => ({
     offset: week.value * 7 + i - startWeekday.value,
@@ -82,17 +157,21 @@ async function load() {
   }
 }
 onMounted(load);
+function insertWorkout(template) {
+  if (locked.value || activeDay.value == null) return;
+  program.value.schedule.push({
+    id: uuid(),
+    day_offset: activeDay.value,
+    phase: phase.value,
+    player_ids: [...selectedPlayers.value],
+    template_id: template.id,
+    snapshot: clone(template),
+  });
+  approved.value = false;
+}
 function add() {
-  const t = props.templates.find((x) => x.id === templateId.value);
-  if (t)
-    program.value.schedule.push({
-      id: uuid(),
-      day_offset: Number(dayOffset.value),
-      phase: phase.value,
-      player_ids: [...selectedPlayers.value],
-      template_id: t.id,
-      snapshot: clone(t),
-    });
+  const template = props.templates.find((t) => t.id === templateId.value);
+  if (template) insertWorkout(template);
 }
 function copy(from, to, count) {
   program.value.schedule.push(
@@ -108,6 +187,7 @@ function copy(from, to, count) {
   approved.value = false;
 }
 function open(p) {
+  closeDay();
   program.value = clone(p);
   week.value = 0;
   approved.value = false;
@@ -145,6 +225,7 @@ async function save(publish = false) {
       ? "Program published. Assigned workouts are available to players."
       : "Program draft saved.";
     await load();
+    return true;
   } catch (e) {
     error.value = e?.response?.data?.message || "Program could not be saved.";
   } finally {
@@ -162,15 +243,15 @@ function selectGroup(id) {
   <div>
     <header>
       <h2>Pitching Program Builder</h2>
-      <button @click="open(fresh())">New program</button
-      ><button @click="duplicate">Copy program</button
+      <button :disabled="busy" @click="open(fresh())">New program</button
+      ><button :disabled="busy" @click="duplicate">Copy program</button
       ><button :disabled="busy || locked" @click="save()">Save draft</button>
     </header>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
     <div class="toolbar">
       <label
-        >Saved programs<select
+        >Saved programs<select :disabled="busy"
           @change="
             saved.find((p) => p.id === $event.target.value) &&
               open(saved.find((p) => p.id === $event.target.value))
@@ -212,46 +293,6 @@ function selectGroup(id) {
         Calendar weeks run Monday–Sunday. No workouts are automatically
         scheduled.
       </p>
-      <section class="workout-panel">
-        <h3>Add workout to a day</h3>
-        <div class="form-grid">
-          <label
-            >Template<select v-model="templateId">
-              <option v-for="t in templates" :value="t.id" :key="t.id">
-                {{ t.name }}
-              </option>
-            </select></label
-          ><label
-            >Day<select v-model.number="dayOffset">
-              <option v-for="n in totalDays" :key="n" :value="n - 1">
-                {{ shiftCalendarDate(program.start_date, n - 1) }}
-              </option>
-            </select></label
-          ><label
-            >Phase<select v-model="phase">
-              <option v-for="p in phases" :key="p">{{ p }}</option>
-            </select></label
-          ><label
-            >Add group<select @change="selectGroup($event.target.value)">
-              <option value="">Choose group</option>
-              <option v-for="g in groups" :key="g.id" :value="g.id">
-                {{ g.name }}
-              </option>
-            </select></label
-          >
-        </div>
-        <button @click="selectedPlayers = players.map((p) => p.id)">
-          Select whole team</button
-        ><button @click="selectedPlayers = []">Clear athletes</button>
-        <div class="athlete-options">
-          <label v-for="p in players" :key="p.id"
-            ><input type="checkbox" v-model="selectedPlayers" :value="p.id" />{{
-              p.name
-            }}</label
-          >
-        </div>
-        <button class="primary" @click="add">Add selected workout</button>
-      </section>
     </fieldset>
     <div class="toolbar">
       <button :disabled="week === 0" @click="week--">‹</button
@@ -260,82 +301,43 @@ function selectGroup(id) {
     </div>
     <div class="program-scroll">
       <div class="program-week">
-        <section v-for="day in days" :key="day.offset">
-          <h3>
-            {{
+        <section
+          v-for="day in days"
+          :key="day.offset"
+          :class="{ 'program-day-selected': activeDay === day.offset }"
+        >
+          <button
+            class="program-day-button"
+            type="button"
+            :disabled="busy || day.offset < 0 || day.offset >= totalDays"
+            :aria-label="`${locked ? 'View' : 'Build'} workouts for ${
+              day.date
+            }`"
+            @click="openDay(day.offset)"
+          >
+            <strong>{{
               new Date(day.date + "T12:00:00").toLocaleDateString(undefined, {
                 weekday: "short",
               })
-            }}
-          </h3>
-          <small>{{ day.date }}</small
-          ><small v-if="day.offset < 0 || day.offset >= totalDays"
-            >Outside program</small
-          >
-          <article
-            v-for="entry in program.schedule.filter(
-              (e) => e.day_offset === day.offset
-            )"
-            :key="entry.id"
-          >
-            <strong>{{ entry.snapshot.name }}</strong
-            ><label v-if="!locked"
-              >Phase<input v-model="entry.phase" maxlength="60"
-            /></label>
-            <p>{{ entry.phase }} · {{ entry.player_ids.length }} players</p>
-            <template v-if="!locked"
-              ><label
-                >Move to day<select v-model.number="entry.day_offset">
-                  <option
-                    v-for="n in totalDays"
-                    :key="n"
-                    :value="n - 1"
-                  >
-                    {{ shiftCalendarDate(program.start_date, n - 1) }}
-                  </option>
-                </select></label
-              ><label
-                >Swap template<select
-                  :value="entry.template_id"
-                  @change="
-                    entry.template_id = $event.target.value;
-                    entry.snapshot = clone(
-                      templates.find((t) => t.id === entry.template_id)
-                    );
-                  "
-                >
-                  <option v-for="t in templates" :key="t.id" :value="t.id">
-                    {{ t.name }}
-                  </option>
-                </select></label
-              ><button @click="editingEntry = entry">
-                Edit this day's prescription
-              </button>
-              <details>
-                <summary>Adjust athletes</summary>
-                <label v-for="p in players" :key="p.id"
-                  ><input
-                    v-model="entry.player_ids"
-                    type="checkbox"
-                    :value="p.id"
-                  />{{ p.name }}</label
-                >
-              </details>
-              <button
-                @click="
-                  program.schedule = program.schedule.filter(
-                    (e) => e.id !== entry.id
-                  )
-                "
-              >
-                Remove
-              </button></template
-            ><RouterLink
-              v-else
-              :to="plannerLink(day.date, 'edit', entry.daily_plan_id)"
-              >Open assigned workout →</RouterLink
+            }}</strong>
+            <small>{{ day.date }}</small>
+            <small v-if="day.offset < 0 || day.offset >= totalDays"
+              >Outside program</small
             >
-          </article>
+            <template v-else
+              ><span
+                v-for="entry in program.schedule.filter(
+                  (e) => e.day_offset === day.offset
+                )"
+                :key="entry.id"
+                class="program-day-workout"
+                >{{ entry.snapshot.name
+                }}<small>{{ entry.player_ids.length }} players</small></span
+              ><span class="program-day-action">{{
+                locked ? "View day →" : "＋ Open & build day"
+              }}</span></template
+            >
+          </button>
         </section>
       </div>
     </div>
@@ -355,7 +357,9 @@ function selectGroup(id) {
               type="number"
               min="1"
               :max="totalDays" /></label
-          ><button @click="copy(copyDayFrom - 1, copyDayTo - 1, 1)">Copy day</button>
+          ><button @click="copy(copyDayFrom - 1, copyDayTo - 1, 1)">
+            Copy day
+          </button>
         </div>
         <small
           >Day 1 is the program start date. Copying adds workouts without
@@ -374,7 +378,9 @@ function selectGroup(id) {
               type="number"
               min="1"
               :max="safeWeeks" /></label
-          ><button @click="copy((copyWeekFrom - 1) * 7, (copyWeekTo - 1) * 7, 7)">
+          ><button
+            @click="copy((copyWeekFrom - 1) * 7, (copyWeekTo - 1) * 7, 7)"
+          >
             Copy week</button
           ><button
             @click="
@@ -403,16 +409,268 @@ function selectGroup(id) {
         Save & publish assigned workouts
       </button>
     </fieldset>
-    <div v-if="editingEntry" class="editor-overlay">
-      <TemplateEditor
-        :template="editingEntry.snapshot"
-        @cancel="editingEntry = null"
-        @save="
-          editingEntry.snapshot = $event;
-          editingEntry = null;
-          approved = false;
-        "
-      />
-    </div>
+    <Dialog
+      :open="activeDay !== null"
+      @close="closeDay"
+      class="program-day-dialog workout-library"
+    >
+      <div class="program-day-backdrop" aria-hidden="true"></div>
+      <div class="program-day-container">
+        <DialogPanel class="program-day-panel">
+          <header>
+            <div>
+              <DialogTitle>{{
+                locked ? "Day’s workouts" : "Build day’s workouts"
+              }}</DialogTitle>
+              <p>{{ dayDate }} · {{ program.name }}</p>
+            </div>
+            <button :disabled="busy" @click="closeDay">Back to calendar</button>
+          </header>
+          <p v-if="error" role="alert">{{ error }}</p>
+          <p v-if="notice" role="status">{{ notice }}</p>
+          <TemplateEditor
+            v-if="editingEntry || customWorkout"
+            :key="editingEntry?.id || 'new'"
+            :template="editingEntry?.snapshot || customWorkout"
+            :busy="busy"
+            @cancel="
+              editingEntry = null;
+              customWorkout = null;
+            "
+            @save="saveWorkout"
+          />
+          <template v-else>
+            <fieldset v-if="!locked" :disabled="busy">
+              <section class="workout-panel">
+                <h3>Add a workout</h3>
+                <p v-if="!templates.length">
+                  No saved templates are available. Build a custom workout
+                  below.
+                </p>
+                <div class="form-grid">
+                  <label
+                    >Template<select v-model="templateId">
+                      <option v-for="t in templates" :value="t.id" :key="t.id">
+                        {{ t.name }}
+                      </option>
+                    </select></label
+                  ><label
+                    >Phase<select v-model="phase">
+                      <option v-for="p in phases" :key="p">{{ p }}</option>
+                    </select></label
+                  ><label
+                    >Add group<select
+                      @change="selectGroup($event.target.value)"
+                    >
+                      <option value="">Choose group</option>
+                      <option v-for="g in groups" :key="g.id" :value="g.id">
+                        {{ g.name }}
+                      </option>
+                    </select></label
+                  >
+                </div>
+                <button @click="selectedPlayers = players.map((p) => p.id)">
+                  Select whole team</button
+                ><button @click="selectedPlayers = []">Clear athletes</button>
+                <div class="athlete-options">
+                  <label v-for="p in players" :key="p.id"
+                    ><input
+                      type="checkbox"
+                      v-model="selectedPlayers"
+                      :value="p.id"
+                    />{{ p.name }}</label
+                  >
+                </div>
+                <button
+                  class="primary"
+                  :disabled="!templates.some((t) => t.id === templateId)"
+                  @click="add"
+                >
+                  Add selected workout</button
+                ><button @click="buildCustom">＋ Build custom workout</button>
+              </section>
+            </fieldset>
+            <section class="workout-panel">
+              <h3>Workouts for {{ dayDate }}</h3>
+              <p v-if="!dayEntries.length">
+                No workouts yet. Add a template or build a custom workout for
+                this day.
+              </p>
+              <fieldset :disabled="busy">
+                <article v-for="entry in dayEntries" :key="entry.id">
+                  <strong>{{ entry.snapshot.name }}</strong
+                  ><label v-if="!locked"
+                    >Phase<input v-model="entry.phase" maxlength="60"
+                  /></label>
+                  <p>
+                    {{ entry.phase }} · {{ entry.player_ids.length }} players
+                  </p>
+                  <template v-if="!locked"
+                    ><label
+                      >Move to day<select v-model.number="entry.day_offset">
+                        <option v-for="n in totalDays" :key="n" :value="n - 1">
+                          {{ shiftCalendarDate(program.start_date, n - 1) }}
+                        </option>
+                      </select></label
+                    ><label
+                      >Swap template<select
+                        :value="entry.template_id"
+                        @change="
+                          entry.template_id = $event.target.value;
+                          entry.snapshot = clone(
+                            templates.find((t) => t.id === entry.template_id)
+                          );
+                        "
+                      >
+                        <option
+                          v-for="t in templates"
+                          :key="t.id"
+                          :value="t.id"
+                        >
+                          {{ t.name }}
+                        </option>
+                      </select></label
+                    ><button @click="editingEntry = entry">
+                      Edit this day's prescription
+                    </button>
+                    <details>
+                      <summary>Adjust athletes</summary>
+                      <label v-for="p in players" :key="p.id"
+                        ><input
+                          v-model="entry.player_ids"
+                          type="checkbox"
+                          :value="p.id"
+                        />{{ p.name }}</label
+                      >
+                    </details>
+                    <button
+                      @click="
+                        program.schedule = program.schedule.filter(
+                          (e) => e.id !== entry.id
+                        )
+                      "
+                    >
+                      Remove
+                    </button></template
+                  ><RouterLink
+                    v-else
+                    :to="plannerLink(dayDate, 'edit', entry.daily_plan_id)"
+                    >Open assigned workout →</RouterLink
+                  >
+                </article>
+              </fieldset>
+            </section>
+            <footer class="toolbar">
+              <button :disabled="busy" @click="closeDay">
+                Back to calendar</button
+              ><button
+                v-if="!locked"
+                class="primary"
+                :disabled="busy"
+                @click="
+                  save().then((ok) => {
+                    if (ok) closeDay();
+                  })
+                "
+              >
+                {{ busy ? "Saving…" : "Save day to program" }}
+              </button>
+            </footer>
+            <p v-if="!locked">
+              Saving keeps this day in the program draft. Publish the program
+              when you are ready to assign it to players.
+            </p>
+          </template>
+        </DialogPanel>
+      </div>
+    </Dialog>
   </div>
 </template>
+
+<style>
+.workout-library .program-day-button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  width: 100%;
+  min-height: 150px;
+  background: transparent;
+  border: 0;
+  gap: 8px;
+  padding: 8px;
+}
+.workout-library .program-day-button:not(:disabled):hover {
+  background: #20324b;
+}
+.program-day-selected {
+  outline: 2px solid #ef4444;
+}
+.program-day-workout {
+  display: block;
+  padding: 8px;
+  background: #22324a;
+  border-left: 3px solid #e33d4d;
+  border-radius: 4px;
+}
+.program-day-action {
+  color: #8bc1ff;
+  margin-top: auto;
+  font-size: 12px;
+}
+.program-day-dialog.workout-library {
+  position: relative;
+  z-index: 100;
+  padding: 0;
+  min-height: 0;
+}
+.program-day-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+}
+.program-day-container {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.program-day-panel {
+  width: 100%;
+  max-width: 1080px;
+  background: #0b1628;
+  border: 1px solid #455b78;
+  border-radius: 14px;
+  padding: 24px;
+}
+.program-day-panel article {
+  padding: 16px;
+  border: 1px solid #344b68;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+.program-day-panel footer {
+  position: sticky;
+  bottom: -24px;
+  background: #0b1628;
+  padding: 16px 0;
+  margin: 0;
+}
+.program-day-panel h2 {
+  font-size: 24px;
+}
+@media (max-width: 650px) {
+  .program-day-container {
+    padding: 8px;
+  }
+  .program-day-panel {
+    padding: 14px;
+  }
+  .program-day-panel footer {
+    bottom: -14px;
+  }
+}
+</style>
