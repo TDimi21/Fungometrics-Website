@@ -13,6 +13,8 @@ import { PRESCRIPTION_TYPES, makeSet, renumber, setSummary } from '@/features/pl
 import {
   blankPlan, estimateMinutes, planToApi, planFromApi, groupFromApi, bucketTitle, uid,
 } from '@/features/planner/dailyPlanner.js'
+import PlannerCalendar from '@/components/planner/PlannerCalendar.vue'
+import { localDateKey } from '@/features/planner/lib/calendar'
 import CoachWorkoutPlayers from '@/components/planner/CoachWorkoutPlayers.vue'
 import { formatDeliveryStatus, formatLabel, formatMetricName, formatPlanStatus } from '@/utils/fmtrxLabels.js'
 
@@ -21,6 +23,8 @@ const teamStore = useTeamStore()
 const { team } = storeToRefs(teamStore)
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
 
+const calendarDate = ref(localDateKey())
+const teamManagementOpen = ref(false)
 const plans = ref([])
 const groups = ref([])
 const teamPlayers = ref([])
@@ -997,7 +1001,7 @@ onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); l
 watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; operatingHomeActionMessage.value = ''; launchReadiness.value = null; launchReadinessMessage.value = ''; loadRoster(); loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
-const newPlan = () => { editing.value = blankPlan() }
+const newPlan = (date) => { if (typeof date === 'string') calendarDate.value = date; editing.value = { ...blankPlan(), date: calendarDate.value } }
 const editPlan = (p) => { editing.value = JSON.parse(JSON.stringify(p)) }
 // Open the app-style "View Players" review flow for a published plan.
 const viewPlayers = (p) => { viewingPlayers.value = JSON.parse(JSON.stringify(p)) }
@@ -1010,7 +1014,7 @@ const duplicatePlan = (p) => {
   copy.publishedAt = null
   editing.value = copy
 }
-const cancelEdit = () => { editing.value = null }
+const cancelEdit = () => { if (editing.value?.date) calendarDate.value = editing.value.date; editing.value = null }
 
 const itemCount = (p) => (p.buckets || []).reduce((n, b) => n + (b.items || []).length, 0)
 const fmtDate = (iso) => {
@@ -1984,6 +1988,8 @@ const alertActionConfirmText = (action) => {
   return `Run "${action?.title || 'this action'}"?`
 }
 const openDevelopmentAlertSection = async (section) => {
+  teamManagementOpen.value = true
+  await nextTick()
   if (section === 'review_queue') {
     await openReviewQueue()
     developmentHealthAlertActionMessage.value = 'Review queue opened.'
@@ -2024,6 +2030,8 @@ const openDevelopmentAlertSection = async (section) => {
   developmentHealthAlertActionMessage.value = 'Related workflow opened.'
 }
 const openOperatingHomeTarget = async (target) => {
+  teamManagementOpen.value = true
+  await nextTick()
   const section = typeof target === 'string' ? target : (target?.target_section || target?.section || '')
   if (!section) return
 
@@ -2868,6 +2876,7 @@ const save = async (status) => {
     await axiosPost('coach/daily-plans', planToApi(editing.value, activeTeamId.value))
     await loadPlans()
     await loadCommandCenter()
+    calendarDate.value = editing.value.date
     editing.value = null
   } catch { alert('Could not reach the server — check your connection and try again.') } finally { saving.value = false }
 }
@@ -2890,11 +2899,14 @@ const del = async (p) => {
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
             <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Daily Planner</h1>
-            <p class="text-white/40 text-sm mt-0.5">Build the day, save drafts, publish plans, and manage Player Workouts.</p>
+            <p class="text-white/40 text-sm mt-0.5">Choose a day, plan a workout, and follow player progress.</p>
           </div>
           <button class="dp-btn dp-btn--primary" @click="newPlan">+ New Plan</button>
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
+        <PlannerCalendar v-model="calendarDate" :plans="plans" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @refresh="loadPlans" />
+        <details class="planner-management" :open="teamManagementOpen" @toggle="teamManagementOpen = $event.target.open">
+          <summary>Team management <span>Alerts, reviews, reports & all saved plans</span></summary>
         <section class="dp-command mb-5" data-dp-section="operating_system_home">
           <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
@@ -5911,12 +5923,13 @@ const del = async (p) => {
             </div>
           </div>
         </div>
+        </details>
       </template>
 
       <!-- ══ BUILDER ══ -->
       <template v-else>
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <button class="dp-link" @click="cancelEdit">‹ Back to plans</button>
+          <button class="dp-link" @click="cancelEdit">‹ Back to calendar</button>
           <div class="flex gap-2">
             <button class="dp-btn" :disabled="saving" @click="save('draft')">Save Draft</button>
             <button class="dp-btn dp-btn--primary" :disabled="saving" @click="save('published')">{{ saving ? 'Saving…' : 'Publish' }}</button>
@@ -6559,4 +6572,8 @@ const del = async (p) => {
 .dp-drill-row { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,.07); cursor:pointer; }
 .dp-drill-row:hover { background:rgba(255,255,255,.04); }
 .dp-plus { color:#7ca6f5; font-size:20px; font-weight:800; flex:none; }
+</style>
+
+<style scoped>
+.planner-management{border:1px solid #2f425b;border-radius:12px;padding:16px;background:#0b1626}.planner-management>summary{cursor:pointer;font-size:14px;font-weight:700;color:#d6e2f2}.planner-management>summary span{font-size:12px;font-weight:400;color:#8fa5c3;margin-left:12px}.planner-management[open]>summary{margin-bottom:22px}
 </style>
