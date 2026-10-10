@@ -34,7 +34,6 @@ const value = v => v == null || v === '' ? '—' : v
 const tiles = p => [{label: 'EV', value: p?.top_ev_mph, unit: 'mph'}, {label: 'BAT', value: p?.scores?.batting}, {label: 'PITCH', value: p?.scores?.bullpen}, {label: 'OVR', value: p?.scores?.overall}]
 const visibleRows = computed(() => (props.rows || []).filter(r => discipline.value === 'All' || (discipline.value === 'Hitting' ? ['batting','ev','cage'].includes(r.key) : ['bullpen','lt','wb'].includes(r.key))))
 const sessionsShown = computed(() => (props.sessions || []).filter(s => !sessionFilter.value || s._type === sessionFilter.value))
-const todayCount = computed(() => (props.sessions || []).filter(s => { const d = new Date(s.created_at); return !Number.isNaN(d.getTime()) && d.toDateString() === new Date().toDateString() }).length)
 const date = s => { const d = new Date(s.created_at || s.updated_at); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}) }
 const sessionPlayer = s => s.lineup?.[0]?.name?.full || s.lineup?.[0]?.user?.profile?.first_name || 'Team session'
 const featuredCategory = computed(() => props.categories?.find(c => c.featured?.id === featured.value?.id))
@@ -48,7 +47,7 @@ const featuredEvidence = computed(() => featuredCategory.value?.featured)
 </script>
 <template>
   <div class="coach-home">
-    <section class="welcome"><div><h1>Welcome Back, Coach</h1><p>Data-driven development for the next generation.</p></div><div class="welcome-stat"><span class="stat-icon">▣</span><div><small>Today · recent activity</small><strong>{{ todayCount }} Sessions</strong><small>{{ teamName || 'Your team' }}</small></div></div><blockquote>“Better Data.<br>Bigger Players.”<small>— FMTRX</small></blockquote></section>
+
     <div class="overview-grid">
       <section class="panel roster"><header><h2>Roster</h2><button :disabled="activityLoading" @click="loadActivity" aria-label="Refresh player activity">↻</button><button @click="emit('roster')" class="red-link">View All →</button></header><input v-model="search" aria-label="Search roster" placeholder="⌕  Search players…"><div class="filters"><button v-for="f in ['All','Hitters','Pitchers']" :key="f" :class="{active:rosterFilter===f}" @click="rosterFilter=f">{{ f }} ({{ players?.filter(p=>matchRole(p,f)).length || 0 }})</button></div><p v-if="loading" role="status">Loading roster…</p><div v-else class="roster-scroll"><button v-for="p in roster" :key="p.id" class="athlete" :class="{chosen:featured?.id===p.id}" @click="featuredId=p.id; emit('player-metrics',p)" :aria-label="`Open metrics for ${p.name}`"><img v-if="p.picture" :src="p.picture" :alt="p.name"><span v-else class="avatar">{{ p.name?.slice(0,1) }}</span><div class="athlete-body"><small>{{ p.jersey != null ? '#'+p.jersey : 'Player' }}</small><strong>{{ p.name }}</strong><span class="activity-login" :class="{recent:recentlyLoggedIn(p)}">{{ activityLoading ? 'Loading activity…' : activityError || (recentlyLoggedIn(p) ? '● Logged in within 24h' : 'Last login: ' + activityTime(activity[p.id]?.last_login_at)) }}</span>
               <small v-if="recentlyLoggedIn(p)">{{ activityTime(activity[p.id]?.last_login_at) }}</small>
