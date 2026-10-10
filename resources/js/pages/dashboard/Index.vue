@@ -2474,6 +2474,10 @@ watch(
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
             :class="dashTab === 'overview' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
           >Overview</button>
+          <RouterLink
+            :to="{name: 'practice.planner', query: {tab: 'workout'}}"
+            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all text-white/70 hover:text-white"
+          >Workout</RouterLink>
           <button
             @click="setDashTab('development')"
             class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
