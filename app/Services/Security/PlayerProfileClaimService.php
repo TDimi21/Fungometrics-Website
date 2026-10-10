@@ -19,12 +19,17 @@ class PlayerProfileClaimService
     }
 
     /** @return array{status: string, token: string} */
-    public function claim(string $phone, string $teamCode, Request $request): array
+    public function claim(string $contact, string $teamCode, Request $request): array
     {
-        $normalizedPhone = preg_replace('/\D+/', '', $phone) ?? '';
+        $contact = trim($contact);
+        $email = filter_var($contact, FILTER_VALIDATE_EMAIL) ? strtolower($contact) : null;
+        $normalizedPhone = $this->normalizePhone($contact);
+        if ($email === null && (!preg_match('/^[+()\d\s.-]+$/', $contact) || strlen($normalizedPhone) < 10 || strlen($normalizedPhone) > 15)) {
+            $this->failClaim();
+        }
         $normalizedTeamCode = mb_strtoupper(trim($teamCode));
 
-        return DB::transaction(function () use ($normalizedPhone, $normalizedTeamCode, $request): array {
+        return DB::transaction(function () use ($email, $normalizedPhone, $normalizedTeamCode, $request): array {
             $team = Team::query()
                 ->where('join_code', $normalizedTeamCode)
                 ->first();
@@ -33,26 +38,28 @@ class PlayerProfileClaimService
                 $this->failClaim();
             }
 
-            // Restrict phone matching to players already added to this roster.
+            // Match contact details only among active players on this roster.
             // Comparing normalized values in PHP also supports older formatted
             // phone values without relying on database-specific SQL functions.
-            $matchedPlayer = User::query()
+            $matches = User::query()
                 ->where('type', UserTypes::PLAYER->value)
                 ->where('status', true)
                 ->whereHas('team_players', fn ($query) => $query
                     ->where('team_id', $team->id)
                     ->where('actual', true))
                 ->get()
-                ->first(fn (User $user): bool => $this->normalizePhone((string) $user->phone) === $normalizedPhone);
+                ->filter(fn (User $user): bool => $email !== null
+                    ? strtolower((string) $user->email) === $email
+                    : $this->normalizePhone((string) $user->phone) === $normalizedPhone);
 
-            if ( ! $matchedPlayer) {
+            if ($matches->count() !== 1) {
                 $this->failClaim();
             }
 
             /** @var User $player */
-            $player = User::query()->lockForUpdate()->findOrFail($matchedPlayer->id);
+            $player = User::query()->lockForUpdate()->findOrFail($matches->first()->id);
 
-            if (filled($player->email) || filled($player->password)) {
+            if (filled($player->password)) {
                 $this->audit->record('player_profile.claim_rejected_already_complete', $player->id, $team->id, $request);
                 $this->failClaim();
             }
@@ -119,7 +126,7 @@ class PlayerProfileClaimService
     private function failClaim(): never
     {
         throw ValidationException::withMessages([
-            'claim' => 'No unclaimed player profile matches that mobile number and team code.',
+            'claim' => 'No unclaimed player profile matches that email or phone number and team code.',
         ]);
     }
 }

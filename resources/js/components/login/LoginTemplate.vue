@@ -34,7 +34,7 @@ const formData = reactive({user: '', password: '', remember: false})
 const loginMode = ref(props.title === 'player' ? 'claim' : 'email')
 const claimForm = reactive({
   phone: String(route.query.phone || ''),
-  teamCode: String(route.query.claim_code || '').toUpperCase(),
+  teamCode: String(route.query.team_code || '').toUpperCase(),
 })
 const claimStep = ref('find')
 const claimedSession = ref(null)
@@ -202,8 +202,8 @@ const submitClaimForm = async () => {
     return
   }
 
-  if (teamCode.length !== 12) {
-    await toast.fire({ icon: 'warning', title: 'Claim Warning', text: 'Your individual claim code must be 12 characters.' })
+  if (teamCode.length !== 6) {
+    await toast.fire({ icon: 'warning', title: 'Claim Warning', text: 'Enter the six-character team code from your coach.' })
     return
   }
 
@@ -211,7 +211,7 @@ const submitClaimForm = async () => {
   try {
     const dataForm = new FormData()
     dataForm.append('contact', phone)
-    dataForm.append('claim_code', teamCode)
+    dataForm.append('team_code', teamCode)
 
     const response = await axios.post(api_url + 'player/join', dataForm)
     const body = response?.data || {}
@@ -377,19 +377,19 @@ const submitClaimCredentials = async () => {
             />
           </div>
           <div>
-            <label class="block text-sm font-bold text-white mb-2">Individual Claim Code</label>
+            <label class="block text-sm font-bold text-white mb-2">Team Code</label>
             <input
               v-model="claimForm.teamCode"
               type="text"
-              maxlength="12"
+              maxlength="6"
               autocomplete="off"
-              placeholder="12-character claim code"
+              placeholder="Team code from your coach"
               @input="claimForm.teamCode = String(claimForm.teamCode || '').toUpperCase()"
               class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2 uppercase tracking-[0.18em]"
             />
           </div>
           <p class="text-xs text-white/75">
-            Use the email or phone your coach used and your individual 12-character claim code.
+            Use the email or phone your coach used and your individual Team code from your coach.
           </p>
           <div class="grid place-content-center">
             <BigButtonField color="red" label="Claim Profile" type="submit"></BigButtonField>

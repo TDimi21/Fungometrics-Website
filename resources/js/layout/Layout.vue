@@ -196,7 +196,7 @@ const submitAddPlayer = async () => {
     await axios
       .post(api_url + "coach/add/players", dataForm, config)
       .then(async function (response) {
-        if (response.data.claim_code) window.alert(`Player added. Individual claim code: ${response.data.claim_code}. Share this privately with the player; they can claim using their email or phone.`);
+        if (response.data.team_code) window.alert(`Player added. Team code: ${response.data.team_code}. The player can claim using this code and the email or phone on their profile.`);
         let tempResponse = response.data.data;
         let playerToSetInStore = {
           id: tempResponse.id,

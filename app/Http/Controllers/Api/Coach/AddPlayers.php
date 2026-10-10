@@ -94,7 +94,7 @@ class AddPlayers extends Controller
             ];
             $claimUser = User::findOrFail($userId);
             if (!filled($claimUser->password)) {
-                $response['claim_code'] = app(\App\Services\Security\AccountClaimService::class)->issue($claimUser);
+                $response['team_code'] = Team::findOrFail($data['team'])->join_code;
             }
             DB::commit();
             if (null !== $changedEventData) {
