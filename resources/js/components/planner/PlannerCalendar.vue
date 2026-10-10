@@ -2,7 +2,7 @@
 import {computed, ref, watch} from 'vue'
 import {calendarDays, localDateKey, moveCalendar, parseCalendarDate, plansOnDate} from '@/features/planner/lib/calendar'
 import {estimateMinutes, bucketTitle} from '@/features/planner/dailyPlanner'
-const props = defineProps({plans: {type:Array,default:()=>[]}, modelValue:String, loading:Boolean, offline:Boolean, initialMode:{type:String,default:'week'}})
+const props = defineProps({hideViewSwitch:Boolean, plans: {type:Array,default:()=>[]}, modelValue:String, loading:Boolean, offline:Boolean, initialMode:{type:String,default:'week'}})
 const emit = defineEmits(['update:modelValue','open-day','create','edit','players','duplicate','refresh','mode'])
 const mode = ref(props.initialMode), status = ref('all')
 watch(() => props.initialMode, value => { mode.value = value })
@@ -17,7 +17,7 @@ function move(direction) {emit('update:modelValue',moveCalendar(props.modelValue
 </script>
 <template>
   <section class="planner-calendar" aria-label="Workout calendar">
-    <header class="calendar-toolbar"><div class="calendar-navigation"><button aria-label="Previous period" @click="move(-1)">‹</button><button @click="emit('update:modelValue',localDateKey())">Today</button><button aria-label="Next period" @click="move(1)">›</button><h2 aria-live="polite">{{ heading }}</h2></div><div class="calendar-options"><label class="calendar-jump">Go to date<input type="date" :value="modelValue" @change="$event.target.value && emit('update:modelValue',$event.target.value)"></label><select v-model="status" aria-label="Filter plan status"><option value="all">All plans</option><option value="draft">Drafts</option><option value="published">Published</option></select><div class="view-switch"><button v-for="view in ['week','month']" :key="view" :aria-pressed="mode===view" :class="{active:mode===view}" @click="mode=view">{{ view }}</button></div></div></header>
+    <header class="calendar-toolbar"><div class="calendar-navigation"><button aria-label="Previous period" @click="move(-1)">‹</button><button @click="emit('update:modelValue',localDateKey())">Today</button><button aria-label="Next period" @click="move(1)">›</button><h2 aria-live="polite">{{ heading }}</h2></div><div class="calendar-options"><label class="calendar-jump">Go to date<input type="date" :value="modelValue" @change="$event.target.value && emit('update:modelValue',$event.target.value)"></label><select v-model="status" aria-label="Filter plan status"><option value="all">All plans</option><option value="draft">Drafts</option><option value="published">Published</option></select><div v-if="!hideViewSwitch" class="view-switch"><button v-for="view in ['week','month']" :key="view" :aria-pressed="mode===view" :class="{active:mode===view}" @click="mode=view">{{ view }}</button></div></div></header>
     <div class="calendar-legend"><span><i class="draft-dot"></i>Draft · not visible to players</span><span><i class="published-dot"></i>Published · available to assigned players</span><button :disabled="loading" @click="emit('refresh')">{{ loading?'Refreshing…':'Refresh' }}</button></div>
     <p v-if="offline" class="calendar-warning" role="alert">Couldn’t refresh plans. Displayed plans may be out of date.</p>
     <p v-if="loading" role="status" class="calendar-loading">Loading scheduled workouts…</p>
