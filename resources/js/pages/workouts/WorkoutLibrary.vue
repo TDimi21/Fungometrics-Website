@@ -195,9 +195,14 @@ function newTemplate() {
 }
 </script>
 <template>
-  <Layout
-    ><main class="workout-library">
-      <header>
+  <component :is="embedded ? 'div' : Layout">
+    <component
+      :is="embedded ? 'section' : 'main'"
+      class="workout-library"
+      :class="{ 'workout-library--embedded': embedded }"
+      aria-label="Workout library and program builder"
+    >
+      <header v-if="!embedded">
         <div>
           <span class="eyebrow">FMTRX TRAINING</span>
           <h1>Workout Library</h1>
@@ -385,8 +390,8 @@ function newTemplate() {
         :initial-template="programTemplate"
       />
       <p v-else-if="!teamId">Select a team to build and assign a program.</p>
-    </main></Layout
-  >
+    </component>
+  </component>
 </template>
 <style>
 .workout-library {
@@ -605,5 +610,16 @@ function newTemplate() {
     inset: 6px;
     padding: 14px;
   }
+}
+</style>
+
+<style>
+.workout-library.workout-library--embedded {
+  padding: 0;
+  margin: 0;
+  max-width: none;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
 }
 </style>
