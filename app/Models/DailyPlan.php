@@ -18,6 +18,9 @@ class DailyPlan extends Model
     protected $keyType   = 'string';
 
     protected $fillable = [
+        'version',
+        'settings',
+
         'id',
         'team_id',
         'created_by',
@@ -32,7 +35,7 @@ class DailyPlan extends Model
         'published_at',
     ];
 
-    protected $casts = [
+    protected $casts = ['version' => 'integer','settings' => 'array',
         'buckets'      => 'array',
         'date'         => 'date:Y-m-d',
         'published_at' => 'datetime',
@@ -44,6 +47,13 @@ class DailyPlan extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(DailyPlanAssignment::class, 'plan_id');
+    }
+
+    public function bucketsFor(string $playerId): array
+    {
+        $this->loadMissing('assignments');
+        $assignment=$this->assignments->firstWhere('user_id',$playerId);
+        return $assignment?->prescription_override['buckets']??$this->buckets??[];
     }
 
     public function progress(): HasMany

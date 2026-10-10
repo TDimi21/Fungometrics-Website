@@ -1,4 +1,6 @@
 <script setup xmlns="http://www.w3.org/1999/html">
+import {plannerSessionReturn} from '@/features/planner/lib/sessionReturn'
+import {useUserStore as plannerUserStore} from '@/store/user'
 import Layout from "../../layout/Layout.vue"
 import LongTossIcon from "../../components/icons/LongTossIcon.vue";
 import {useTeamStore} from "../../store/team";
@@ -244,7 +246,7 @@ const endPractice = async () => {
             })
             training.countThrowArray = {}
             training.setCountBallsTraining(0);
-            await router.push('/dashboard')
+            await router.push(plannerSessionReturn(sessionStorage,dataProcess.value.practice,plannerUserStore().userData.id,'/dashboard'))
           }
 
         })

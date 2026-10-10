@@ -12,6 +12,8 @@ import {
 } from "@/features/planner/lib/plannerLinks";
 import TemplateEditor from "@/components/workouts/TemplateEditor.vue";
 import ProgramBuilder from "@/components/workouts/ProgramBuilder.vue";
+const props=defineProps({embedded:Boolean,initialTab:{type:String,default:'library'}})
+const libraryView=ref('premade')
 const { axiosGet, axiosPost, axiosPut } = useAxiosAuth(),
   router = useRouter(),
   route = useRoute();
@@ -30,7 +32,7 @@ const templates = ref([]),
   ownership = ref(""),
   selected = ref(null),
   editing = ref(null),
-  tab = ref("library"),
+  tab = ref(props.initialTab),
   programTemplate = ref("");
 const date = ref(
     validPlannerDate(route.query.date) ? route.query.date : localDateKey()
@@ -46,6 +48,7 @@ const choices = (key) => [
 const filtered = computed(() =>
   templates.value.filter(
     (t) =>
+      (libraryView.value==='premade' ? t.is_premade : libraryView.value==='mine' ? !t.is_premade : !!t.last_used_at) &&
       (t.name + " " + (t.description || ""))
         .toLowerCase()
         .includes(search.value.toLowerCase()) &&
@@ -331,6 +334,7 @@ function newTemplate() {
             ><button @click="addProgram(selected)">Add to program</button>
           </div>
         </section>
+        <nav class="toolbar" aria-label="Workout library"><button @click="libraryView='premade'">FMTRX WORKOUTS</button><button @click="libraryView='mine'">MY WORKOUTS</button><button @click="libraryView='recent'">RECENT</button></nav>
         <div class="template-grid">
           <article v-for="t in filtered" :key="t.id" class="workout-panel">
             <small
@@ -357,7 +361,7 @@ function newTemplate() {
             </div>
             <p>{{ t.description }}</p>
             <div class="toolbar">
-              <button @click="preview(t)">Preview / Use template</button
+              <button @click="preview(t)">Use Today / Preview</button
               ><button :disabled="busy" @click="duplicate(t)">
                 Duplicate & customize</button
               ><button v-if="!t.is_premade" @click="editing = t">

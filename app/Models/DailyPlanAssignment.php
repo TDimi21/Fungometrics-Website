@@ -17,7 +17,14 @@ class DailyPlanAssignment extends Model
     public $incrementing = false;
     protected $keyType   = 'string';
 
+    protected $casts = ['scheduled_date' => 'date:Y-m-d','schedule_adjustments' => 'array','prescription_override'=>'array',];
+
     protected $fillable = [
+        'prescription_override',
+        'scheduled_date',
+        'schedule_status',
+        'schedule_adjustments',
+
         'plan_id',
         'user_id',
     ];

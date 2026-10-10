@@ -41,6 +41,7 @@ class DailyPlanPlayerUpdateService
 
         $revision = DailyPlanRevision::query()
             ->where('daily_plan_id', $dailyPlanId)
+            ->where(fn($q)=>$q->where('source','!=','player_day_adjustment')->orWhereNull('source')->orWhereJsonContains('diff_summary->players_affected',$playerId))
             ->orderByDesc('revision_number')
             ->first();
 

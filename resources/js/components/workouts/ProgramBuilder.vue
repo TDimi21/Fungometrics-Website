@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref, onMounted, watch } from "vue";
+import { computed, ref, onMounted, watch, onBeforeUnmount } from "vue";
+import {useUserStore} from "@/store/user";
 import { useAxiosAuth } from "@/composables/axios-auth";
 import {
   localDateKey,
@@ -120,7 +121,18 @@ const safeWeeks = computed(() =>
   Math.max(1, Math.min(52, Math.floor(Number(program.value.weeks) || 4)))
 );
 const totalDays = computed(() => safeWeeks.value * 7);
-const locked = computed(() => program.value.status === "published");
+const locked = computed(() => false);
+const sessionConflicts=ref([]), resolutions=ref([]);
+const publishEntries=ref([]), publishPlayers=ref([]), saveState=ref('Saved');
+let autosaveTimer=null, lastSaved=JSON.stringify(program.value), autosaveConflict=false;
+const draftKey=()=>`fmtrx-program-draft:${useUserStore().userData.id}:${props.teamId}`;
+const pendingDraft=ref(null);
+try{pendingDraft.value=JSON.parse(localStorage.getItem(draftKey())||'null')}catch{}
+function persistDraft(){try{localStorage.setItem(draftKey(),JSON.stringify(program.value))}catch{error.value='Device storage is full. Save before leaving.'}}
+function queueSave(){clearTimeout(autosaveTimer);if(!autosaveConflict&&JSON.stringify(program.value)!==lastSaved){saveState.value='Changes pending';autosaveTimer=setTimeout(()=>{if(program.value.name.trim())save()},1200)}}
+watch(program,()=>{persistDraft();if(!busy.value)queueSave()},{deep:true});
+onBeforeUnmount(()=>{clearTimeout(autosaveTimer);if(JSON.stringify(program.value)!==lastSaved)persistDraft()});
+function restoreDraft(){if(!pendingDraft.value)return;program.value=clone(pendingDraft.value);pendingDraft.value=null;saveState.value='Restored — save to sync';queueSave()}
 const warnings = computed(() => overlapWarnings(program.value.schedule));
 const startWeekday = computed(
   () =>
@@ -189,6 +201,7 @@ function copy(from, to, count) {
 function open(p) {
   closeDay();
   program.value = clone(p);
+  lastSaved=JSON.stringify(program.value); autosaveConflict=false;
   week.value = 0;
   approved.value = false;
   notice.value = "";
@@ -201,7 +214,7 @@ function duplicate() {
   p.status = "draft";
   p.name += " (copy)";
   p.schedule = p.schedule.map((e) => {
-    delete e.daily_plan_id;
+    delete e.daily_plan_id; delete e.daily_plan_ids; delete e.published_version; delete e.published_at;
     return { ...e, id: uuid() };
   });
   open(p);
@@ -212,14 +225,19 @@ async function save(publish = false) {
   error.value = "";
   notice.value = "";
   try {
-    const { data } = await axiosPost("coach/workout-programs", program.value);
+    const submitted=JSON.stringify(program.value);
+    const { data } = await axiosPost("coach/workout-programs", JSON.parse(submitted));
+    if(JSON.stringify(program.value)!==submitted){program.value.version=data.data.version;lastSaved=JSON.stringify(data.data);persistDraft();notice.value='Latest edits are waiting to save.';return false}
     program.value = data.data;
+    lastSaved=JSON.stringify(program.value);saveState.value='Saved ✓';
+    localStorage.removeItem(draftKey());pendingDraft.value=null;
     if (publish) {
       const r = await axiosPost(
         `coach/workout-programs/${program.value.id}/publish`,
-        { version: program.value.version, workload_approved: approved.value }
+        { resolutions: resolutions.value, version: program.value.version, workload_approved: approved.value, ...(publishEntries.value.length?{entry_ids:publishEntries.value}:{}), ...(publishPlayers.value.length?{player_ids:publishPlayers.value}:{}) }
       );
-      program.value = r.data.data;
+      program.value = r.data.data;sessionConflicts.value=[];resolutions.value=[];
+      lastSaved=JSON.stringify(program.value);
     }
     notice.value = publish
       ? "Program published. Assigned workouts are available to players."
@@ -227,9 +245,13 @@ async function save(publish = false) {
     await load();
     return true;
   } catch (e) {
-    error.value = e?.response?.data?.message || "Program could not be saved.";
+    sessionConflicts.value=e?.response?.data?.conflicts||[];
+    for(const conflict of sessionConflicts.value)if(!resolutions.value.some(r=>r.plan_id===conflict.plan_id&&r.player_id===conflict.player_id))resolutions.value.push({...conflict,action:'',date:conflict.date});
+    autosaveConflict=e?.response?.status===409;saveState.value=autosaveConflict?'Conflict — reload latest':'Offline changes pending';
+    error.value = e?.response?.data?.message || 'Program could not be saved.';
   } finally {
     busy.value = false;
+    if(!error.value)queueSave();
   }
 }
 function selectGroup(id) {
@@ -242,13 +264,14 @@ function selectGroup(id) {
 <template>
   <div>
     <header>
-      <h2>Pitching Program Builder</h2>
+      <h2>Program Builder</h2><button v-if="pendingDraft" @click="restoreDraft">Restore device draft</button><span role="status">{{saveState}}</span>
       <button :disabled="busy" @click="open(fresh())">New program</button
       ><button :disabled="busy" @click="duplicate">Copy program</button
       ><button :disabled="busy || locked" @click="save()">Save draft</button>
     </header>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
+    <section v-if="sessionConflicts.length" class="workout-panel" role="alert"><h3>Session conflict — choose what to keep</h3><p>No assignments have changed. Recorded work cannot be replaced or merged.</p><div v-for="choice in resolutions" :key="choice.plan_id+choice.player_id"><strong>{{players.find(p=>p.id===choice.player_id)?.name||'Player'}} · {{choice.name}}</strong><select v-model="choice.action"><option value="">Choose a resolution</option><option value="keep_existing">Keep existing workout</option><option value="replace">Use new workout instead</option><option value="merge">Merge prescriptions into one workout</option><option value="move">Move new workout to another day</option></select><input v-if="choice.action==='move'" type="date" v-model="choice.date"></div><button :disabled="busy||resolutions.some(r=>!r.action)" @click="save(true)">Apply decisions & publish</button></section>
     <div class="toolbar">
       <label
         >Saved programs<select :disabled="busy"
@@ -264,6 +287,7 @@ function selectGroup(id) {
         </select></label
       ><span>{{ program.status || "draft" }}</span>
     </div>
+    <details class="workout-panel"><summary>Publish / selective update review</summary><p>Choose days to publish. Select athletes only when updating an already published day. Unselected athletes keep their current prescriptions.</p><label v-for="entry in program.schedule" :key="entry.id"><input type="checkbox" :value="entry.id" v-model="publishEntries">{{shiftCalendarDate(program.start_date,entry.day_offset)}} · {{entry.snapshot.name}} · {{entry.published_at?'Published':'Draft'}}</label><h3>Apply updates to</h3><label v-for="player in players" :key="player.id"><input type="checkbox" v-model="publishPlayers" :value="player.id">{{player.name}}</label></details>
     <fieldset :disabled="locked || busy">
       <div class="form-grid">
         <label>Program name<input v-model="program.name" required /></label
@@ -278,7 +302,7 @@ function selectGroup(id) {
         /></label>
         <div class="toolbar">
           <button
-            v-for="n in [4, 8, 10, 12]"
+            v-for="n in [2, 4, 6, 8, 10, 12]"
             :key="n"
             @click="
               program.weeks = n;

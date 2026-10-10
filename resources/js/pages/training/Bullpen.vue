@@ -1,4 +1,6 @@
 <script setup xmlns="http://www.w3.org/1999/html">
+import {plannerSessionReturn} from '@/features/planner/lib/sessionReturn'
+import {useUserStore as plannerUserStore} from '@/store/user'
 import Layout from "../../layout/Layout.vue"
 import {useTeamStore} from "../../store/team";
 import {useTrainingStore} from "../../store/training";
@@ -350,7 +352,7 @@ const endPractice = async () => {
             } else {
               name_route = '/dashboard'
             }
-            await router.push(name_route)
+            await router.push(plannerSessionReturn(sessionStorage,dataProcess.value.practice,plannerUserStore().userData.id,name_route))
           }
           training.setCountBallsTraining(0);
         })

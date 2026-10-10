@@ -1,0 +1,388 @@
+FMTRX UNIFIED PLANNER v2 — IMPLEMENTATION / VALIDATION HANDOFF
+
+Overall result: FAIL against the complete supplied acceptance specification.
+Recommendation: NOT READY.
+Core implementation and targeted regression checks pass. The remaining requirements
+listed below prevent representing this as the complete production-ready v2 build.
+No commit, push, production migration, seed, deployment, or external notification
+was performed. Existing web/native repositories were reused; no replacement planner.
+
+BRANCH / BASE
+Both repositories: feature/unified-planner-v2
+Web base: 80ee196056db5c52d6762480b87192bc76c35dd3
+Native base: 0f6b6fcb9a26160b445844236af1e950bd2cd4b4
+Both HEADs remain at their base commits. All implementation is uncommitted.
+Seven supplied text attachments were byte-identical; one combined specification
+was used with the supplied reference screenshots.
+
+REPOSITORY INVENTORY / ARCHITECTURE REUSED
+Complete initial file inventory: docs/planner/unified-v2-inventory.md.
+Existing records: DailyPlan, DailyPlanAssignment, DailyPlanProgress,
+DailyPlanRevision; WorkoutTemplate, WorkoutTemplateSection,
+WorkoutTemplateExercise; WorkoutProgram; workout_session_links.
+Existing services: WorkoutTemplateService, WorkoutPerformanceService,
+DailyPlanRevisionService, DailyPlanPlayerUpdateService, existing completion and
+benchmark bridge services. Existing session creation and scoring engines remain
+in use. Strength actuals use PlayerFitness.strength_test_metadata; throwing
+uses BullpenPracticeResult, LongTossPractice, WeightBallPractice.
+Existing web entry points: PracticePlanner/DailyPlanner, WorkoutLibrary,
+TemplateEditor, ProgramBuilder, PlayerWorkoutsPanel.
+Existing app entry points: Home, DailyPlannerScreen, PlanBuilderScreen,
+PlayerPlannerScreen, PlayerWorkoutScreen and plannerApi.
+New views are composed inside these existing entry points. Legacy advanced tools
+and history remain reachable. No independent planner database or scoring engine.
+
+MIGRATION ADDED / JUSTIFICATION
+2026_10_10_000000_extend_unified_planner_contract.php
+- daily_plans.version: optimistic concurrency for cross-device edits.
+- daily_plans.settings: execution/check-in policies for assigned workouts.
+- daily_plan_assignments.scheduled_date and schedule_status: player-specific
+  schedule changes/superseded assignments without changing master prescriptions.
+- daily_plan_assignments.schedule_adjustments: dated actor/request audit for
+  idempotent missed-workout changes, including extension beyond program end.
+- daily_plan_assignments.prescription_override: versioned player-specific
+  remaining-work adjustment; master and recorded exercises stay unchanged.
+- daily_plan_progress.version: detect stale player edits and coach review races.
+- daily_plan_progress.post_training: separate from pre-training readiness.
+- daily_plan_progress.actual_history: preserve prior submitted actuals when edited.
+- daily_plan_progress.alert_review: reviewed-by, reviewed-at and action taken.
+All additions extend existing tables. Migration rollback drops these new fields
+and their v2 data; do not treat rollback as data-preserving. Tests applied the
+migration only to the guarded isolated fungo_test database. Production untouched.
+
+WEB SCREEN STATUS
+- Planner home: implemented Today/Workouts/Programs/Assignments navigation,
+  calendar date selector, counts, quick actions, assigned rows, drafts,
+  readiness/post-training attention list and player detail.
+- Workout library: FMTRX / My Workouts / Recent filters, existing preview/use,
+  immutable master/copy workflow retained.
+- Workout Builder: existing editor extended with three-column block library,
+  sequence and settings layout, drag/drop ordering and execution metadata.
+- Program Builder: existing calendar/day drawer retained; duration presets,
+  debounce autosave, draft recovery, rolling publication/selective updates,
+  explicit conflict choices. Existing copy-day/week tools retained.
+- Player Today: assigned blocks in any order, next seven days, readiness,
+  quick counts, set logging, canonical radar, session linking, completion,
+  post-training check-in, missed-workout actions, throw ledger and history.
+- Player-specific coach day adjustment: edit unfinished prescriptions with
+  reason/revision; recorded exercises are protected; only selected player changes.
+These are implementation-complete core views, NOT a claim that every screen and
+visual detail in the supplied specification has passed product/device review.
+
+MOBILE SCREEN STATUS
+- Coach Home opens the planner tab; calendar-first Today replaces the initial
+  legacy planner list, with an explicit route back to advanced tools.
+- Quick Workout: choose Recent/FMTRX/Mine -> team/group/selected players -> send.
+- Programs: list/create server drafts, continue by adding a dated workout,
+  publish a selected day, and Finish on Web.
+- Coach player detail/review and remaining-work adjustment use the same APIs.
+- Player Today: next seven days, readiness, blocks, quick throws, strength sets,
+  radar and existing band reference modal, canonical session start/link/return,
+  post-check-in, schedule adjustments and ledger. History retained.
+- Device-scoped pending result cache survives offline load; stale versions produce
+  a reload message instead of overwriting the server. Reload explicitly discards
+  local pending edits.
+Native screens bundle and pass targeted lint/tests. No simulator/device interaction
+or pixel-level screenshot comparison was performed.
+
+SHARED API CONTRACT
+Additive planner_contract_version: "2.0" on unified responses, preserving existing
+legacy identifiers and request shapes. Unified plan payload contains:
+version, owner, team, scheduled_date, source, blocks/buckets, assignment,
+progress, completion, actual_results, readiness, post_training, alert_review,
+schedule_adjustments, session_links, update_status and settings.
+Execution metadata is server-derived: COMPLETE / LOG / LAUNCH_SESSION.
+POST progress supports version and assignment_version; mismatches return 409.
+Legacy requests without a version remain accepted for backward compatibility;
+they do not provide the same stale-write protection as v2 callers.
+
+New routes under existing authentication/entitlement groups:
+GET  /api/coach/planner/day?team_id=...&date=...&player_id=... (optional player)
+GET  /api/player/planner/day?date=... (own published assignments only)
+POST /api/coach/daily-plans/{id}/schedule-adjustment
+POST /api/player/daily-plans/{id}/schedule-adjustment
+POST /api/coach/daily-plans/{id}/prescription-adjustment
+POST /api/coach/daily-plans/{id}/alert-review
+Existing daily-plan, template, program, progress and training routes extended.
+POST /api/training accepts planner_plan_id/planner_item_id to validate and reuse
+one linked canonical session on retries. Player, team and session type checked.
+Program publish accepts entry_ids, selected player_ids and explicit resolutions.
+No subscription gate was removed or new paid restriction introduced.
+
+FEATURE STATUS
+Premade FMTRX workouts: PASS preservation check. Five masters / 94 exercises.
+Velocity Day, Bullpen Day, Hybrid A, Hybrid B and Recovery Day retained.
+Comparison against base JSON, excluding metadata, is identical. Metadata-only
+version-2 seed upgrade; historical assigned snapshots are not rewritten.
+
+Workout Builder: PARTIAL against full spec. Reuses editor, block selection,
+ordering and metadata. Full progressive-disclosure/settings experience and
+all requested authoring controls still need completion/product review.
+
+Program Builder: PARTIAL against full spec. Server-owned versioned draft,
+existing manual calendar/copy tools, native add-day continuation, rolling publish.
+Advanced setup/focus/remote-policy fields, explicit rest/assessment day affordances,
+all six-step behaviors and comprehensive mobile program editing are incomplete.
+
+Rolling Publish: IMPLEMENTED/TESTED. Selected days can publish without generating
+all future weeks. Explicit selected-player updates create fresh player snapshots;
+unselected assignments remain unchanged. Master ownership enforced. Existing
+published entries remain in history. Recorded work is protected from replacement.
+
+Assignment: IMPLEMENTED core team/group/individual selection and backend team
+scope. Per-player publication avoids modifying teammates' prescriptions.
+Full assignment conflict/preview workflow across both clients is incomplete.
+
+Cross-device autosave: PARTIAL. Program drafts debounce to server with version
+checks and local recovery. Daily-plan draft saves share versions/IDs across
+web/app but not every daily/template/native editor autosaves. Results save
+explicitly with pending local persistence. Real two-device UI walkthrough pending.
+
+Linked sessions: registry covers bullpen, long_toss, weighted_ball, exit_velocity,
+cage, live_ab, strength, assessment. Existing scoring tables reused.
+Web and native direct canonical start/retry/return implemented for bullpen/LT/WB/EV.
+Native launches use the existing PracticeStack resume engines and shared EndPractice
+completion; returning refreshes canonical completion while preserving pending notes.
+Cage/Live AB still need normal setup and manual linking. Strength logs directly;
+assessment capture handoff remains incomplete. Registry coverage is not being
+reported as fully implemented launch coverage.
+
+Quick Throw Logger: IMPLEMENTED counts, weight, intent, timestamps and item notes.
+Web category selection supports warm-up/catch-play/flat-ground/other. Native quick
+entries currently default to warm-up; richer category/edit controls remain.
+
+Daily Throw Ledger: IMPLEMENTED derived read model, not a new measurements table.
+Combines scoped canonical pitch/LT/WB rows with quick counts, suppressing quick
+counts for the same linked item. Tested example: 20 quick warm-up throws +
+28 canonical long-toss records = 48 total throws; stale retry returns 409 and
+still totals 48. Canonical observed rows remain single records.
+Volume categories are not represented as equal-intensity or medical workload.
+
+Strength: IMPLEMENTED set weight/reps/RPE/completion, volume/top-set summary,
+existing fitness history and edit audit. Observed single reps update explicitly
+mapped max fields; no fabricated estimated 1RM. Tested 100x5 + 110x3 = 830 lb
+volume, one fitness row, audited correction, no inferred back-squat max.
+
+Pre-training readiness: shared server weighting, alerts and display; program
+session start requires a saved check-in. Some authoring-policy controls remain.
+Post-training check-in: separate effort/fatigue/arm fatigue/soreness/pain/notes;
+required numeric completion answers when policy enabled.
+Coach alerts: arms >=7, overall fatigue >=8, pain flag; team-coach view/review,
+actor/time/action, version checks. No automatic workout change or diagnosis.
+
+Conflict merge: backend detects overlapping canonical types/strength. Web PROGRAM
+publication offers merge/keep-existing/replace/move; requires explicit decision and
+current versions. Merge retains source programs and exact merged prescriptions
+with one canonical launcher. Recorded results cannot be merged/replaced.
+Quick assignment and native publishing still lack the complete choice UI and
+report the conflict for resolution instead. This is a release-blocking gap.
+
+Missed workout: per-player shift or same-program replace, transactional audit,
+request retry idempotency, canonical conflict rejection, no master/teammate change.
+Beyond-end extension is recorded. Standalone replace semantics and all schedule
+resolution/edit affordances require further work.
+
+TESTS / BUILD / REVIEW
+Backend relevant regression: PASS — 26 tests / 177 assertions.
+Command: vendor/bin/phpunit --filter 'Planner|Workout|DailyPlan|SessionEntitlement'
+Includes 11 new unified tests (91 assertions) covering:
+- shared contract, stale draft versions and player visibility;
+- rolling publication, selected-player updates and master ownership;
+- duplicate session publication rollback;
+- quick/canonical ledger totals and stale retry rejection;
+- post-check-in alerts and review by another authorized team coach;
+- legacy execution fallback and foreign-team denial;
+- idempotent canonical start and session-owned completion;
+- explicit conflict merge preserving sources/single launcher;
+- per-player missed schedule adjustment and safe retries;
+- remaining-work override with preserved actuals/teammates/stale version rejection;
+- strength observed results, single fitness record and edit audit.
+
+Web tests: PASS — 45 files / 277 tests (session return and pending-edit preservation included).
+Web production build: PASS. Existing chart vendor chunk warning (>500 KiB)
+remains; warning is not claimed fixed. No production performance measurement.
+PHP syntax: PASS for all 30 changed/new PHP files.
+Native targeted planner tests: PASS — 4 suites / 13 tests.
+Native full tests: FAIL — 44 suites pass, 2 fail; 268 tests pass, 2 fail (270 total).
+Both failures reproduced on the untouched base in a separate temporary worktree:
+1. maintainabilityBudgets: homePlayer.js has 3509 lines vs 3500 budget.
+2. App-test: initBullpenOfflineStore test mock returns undefined; .catch fails.
+Temporary baseline worktree was removed after comparison.
+Native changed planner files lint: PASS.
+Native full lint: TOOL FAILURE — @typescript-eslint/no-unused-vars crashes with
+"node.params is not iterable" in unchanged BandReferenceModal.tsx.
+Native production iOS JavaScript bundle: PASS. This is not an Xcode/archive or
+Android APK build, nor proof of device-level navigation/behavior.
+git diff --check: PASS in both repositories.
+
+KNOWN GAPS / WHY NOT READY
+1. Verify the new four-mode native canonical start/resume/return flow on devices;
+   finish explicit Cage/Live AB/assessment setup handoffs. Manual linking for
+   those modes is not full parity.
+2. Complete conflict choice UX for quick assignment/native, remaining program
+   setup/day types/assignment previews, and every requested builder control.
+3. Finish autosave/recovery coverage in daily/template/native editing surfaces;
+   legacy unversioned requests have weaker concurrency guarantees.
+4. Finish requested coach home/assignment attention metrics (conflicts, overdue,
+   updated workouts), presentation details, metadata/source visibility and
+   all merged-prescription scheduling/duration handling across clients. Exact
+   combined prescription text is displayed in both execution views.
+5. Address standalone missed-workout replacement and full schedule conflict UI.
+6. Real web/app cross-device interaction, offline/reconnect, timezone/DST,
+   accessibility, small-screen visual QA and actual device launches not verified.
+   Browser automation skill was read, but no callable browser runtime was available.
+7. Existing full-mobile-test failures and lint tool crash remain. Full native
+   application build/archive was not run; iOS JS bundle only.
+8. No large-roster performance benchmark. Day queries scope date/team/player and
+   legacy analytics are deferred, but linked/update projections still warrant
+   profiling before rollout. Actual-history JSON grows with revisions.
+9. Apply the migration and metadata seed in a controlled deployment only after
+   completing review. No production 504/server configuration diagnosis or fix
+   is claimed by this planner implementation pass.
+
+FILES CREATED / MODIFIED
+
+WEB — modified tracked files:
+app/Http/Controllers/Api/Planner/GetDailyPlans.php
+app/Http/Controllers/Api/Planner/GetMyWorkout.php
+app/Http/Controllers/Api/Planner/GetMyWorkouts.php
+app/Http/Controllers/Api/Planner/SaveDailyPlan.php
+app/Http/Controllers/Api/Planner/SaveWorkoutProgress.php
+app/Http/Controllers/Api/Training/AddNewSession.php
+app/Http/Controllers/Api/Workouts/WorkoutProgramController.php
+app/Http/Controllers/Api/Workouts/WorkoutSessionController.php
+app/Http/Controllers/Api/Workouts/WorkoutTemplateController.php
+app/Http/Requests/Api/Training/AddNewSessionRequest.php
+app/Models/DailyPlan.php
+app/Models/DailyPlanAssignment.php
+app/Models/DailyPlanProgress.php
+app/Services/Planner/DailyPlanPlayerUpdateService.php
+app/Services/Workouts/WorkoutPerformanceService.php
+app/Services/Workouts/WorkoutTemplateService.php
+database/data/flamebangers-workouts.json
+database/seeders/FlameBangersWorkoutTemplateSeeder.php
+resources/js/components/planner/PlayerWorkoutsPanel.vue
+resources/js/components/workouts/ProgramBuilder.vue
+resources/js/components/workouts/TemplateEditor.vue
+resources/js/features/planner/dailyPlanner.js
+resources/js/features/player-home/pages/PlayerHomeDashboard.vue
+resources/js/pages/practice/DailyPlanner.vue
+resources/js/pages/training/Bullpen.vue
+resources/js/pages/training/ExitVelocity.vue
+resources/js/pages/training/LongToss.vue
+resources/js/pages/training/WeigthBall.vue
+resources/js/pages/workouts/WorkoutLibrary.vue
+resources/router/index.js
+routes/api.php
+tests/Feature/Workouts/WorkoutLibraryTest.php
+
+WEB — created untracked files:
+app/Http/Controllers/Api/Planner/UnifiedPlannerController.php
+app/Services/Planner/DailyThrowLedgerService.php
+app/Services/Planner/LinkedSessionRegistry.php
+app/Services/Planner/PlannerConflictResolutionService.php
+app/Services/Planner/PlannerConflictService.php
+app/Services/Planner/PlannerContract.php
+app/Services/Planner/PlannerScheduleService.php
+app/Services/Planner/PlannerStrengthMetricsService.php
+app/Services/Planner/PlannerWellnessService.php
+database/migrations/2026_10_10_000000_extend_unified_planner_contract.php
+docs/planner/unified-v2-inventory.md
+docs/planner/unified-v2-validation.txt
+resources/css/planner-studio.css
+resources/js/components/planner/PlannerStudioHome.vue
+resources/js/components/planner/PlayerToday.vue
+resources/js/features/planner/lib/pendingDay.js
+resources/js/features/planner/lib/sessionReturn.js
+tests/Feature/Api/Planner/UnifiedPlannerTest.php
+tests/frontend/plannerPendingDay.spec.js
+tests/frontend/plannerSessionReturn.spec.js
+
+NATIVE — modified tracked files:
+src/screens/Home.js
+src/screens/Planner/DailyPlannerScreen.js
+src/screens/Planner/PlanBuilderScreen.js
+src/screens/Planner/PlayerPlannerScreen.js
+src/screens/ResumeSession/EndPractice.js
+src/screens/ResumeSession/ResumeBullpenModern.js
+src/screens/ResumeSession/ResumeExitVelo.js
+src/screens/ResumeSession/ResumeLongToss.js
+src/screens/ResumeSession/ResumeWeighted.js
+src/services/plannerApi.js
+
+NATIVE — created untracked files:
+src/screens/Planner/CoachPlannerToday.js
+src/screens/Planner/PlayerToday.js
+src/services/__tests__/unifiedPlannerApi.test.js
+src/services/unifiedPlannerApi.js
+
+EXACT git status --short — WEB
+ M app/Http/Controllers/Api/Planner/GetDailyPlans.php
+ M app/Http/Controllers/Api/Planner/GetMyWorkout.php
+ M app/Http/Controllers/Api/Planner/GetMyWorkouts.php
+ M app/Http/Controllers/Api/Planner/SaveDailyPlan.php
+ M app/Http/Controllers/Api/Planner/SaveWorkoutProgress.php
+ M app/Http/Controllers/Api/Training/AddNewSession.php
+ M app/Http/Controllers/Api/Workouts/WorkoutProgramController.php
+ M app/Http/Controllers/Api/Workouts/WorkoutSessionController.php
+ M app/Http/Controllers/Api/Workouts/WorkoutTemplateController.php
+ M app/Http/Requests/Api/Training/AddNewSessionRequest.php
+ M app/Models/DailyPlan.php
+ M app/Models/DailyPlanAssignment.php
+ M app/Models/DailyPlanProgress.php
+ M app/Services/Planner/DailyPlanPlayerUpdateService.php
+ M app/Services/Workouts/WorkoutPerformanceService.php
+ M app/Services/Workouts/WorkoutTemplateService.php
+ M database/data/flamebangers-workouts.json
+ M database/seeders/FlameBangersWorkoutTemplateSeeder.php
+ M resources/js/components/planner/PlayerWorkoutsPanel.vue
+ M resources/js/components/workouts/ProgramBuilder.vue
+ M resources/js/components/workouts/TemplateEditor.vue
+ M resources/js/features/planner/dailyPlanner.js
+ M resources/js/features/player-home/pages/PlayerHomeDashboard.vue
+ M resources/js/pages/practice/DailyPlanner.vue
+ M resources/js/pages/training/Bullpen.vue
+ M resources/js/pages/training/ExitVelocity.vue
+ M resources/js/pages/training/LongToss.vue
+ M resources/js/pages/training/WeigthBall.vue
+ M resources/js/pages/workouts/WorkoutLibrary.vue
+ M resources/router/index.js
+ M routes/api.php
+ M tests/Feature/Workouts/WorkoutLibraryTest.php
+?? app/Http/Controllers/Api/Planner/UnifiedPlannerController.php
+?? app/Services/Planner/DailyThrowLedgerService.php
+?? app/Services/Planner/LinkedSessionRegistry.php
+?? app/Services/Planner/PlannerConflictResolutionService.php
+?? app/Services/Planner/PlannerConflictService.php
+?? app/Services/Planner/PlannerContract.php
+?? app/Services/Planner/PlannerScheduleService.php
+?? app/Services/Planner/PlannerStrengthMetricsService.php
+?? app/Services/Planner/PlannerWellnessService.php
+?? database/migrations/2026_10_10_000000_extend_unified_planner_contract.php
+?? docs/planner/
+?? resources/css/planner-studio.css
+?? resources/js/components/planner/PlannerStudioHome.vue
+?? resources/js/components/planner/PlayerToday.vue
+?? resources/js/features/planner/lib/pendingDay.js
+?? resources/js/features/planner/lib/sessionReturn.js
+?? tests/Feature/Api/Planner/UnifiedPlannerTest.php
+?? tests/frontend/plannerPendingDay.spec.js
+?? tests/frontend/plannerSessionReturn.spec.js
+
+EXACT git status --short — NATIVE
+ M src/screens/Home.js
+ M src/screens/Planner/DailyPlannerScreen.js
+ M src/screens/Planner/PlanBuilderScreen.js
+ M src/screens/Planner/PlayerPlannerScreen.js
+ M src/screens/ResumeSession/EndPractice.js
+ M src/screens/ResumeSession/ResumeBullpenModern.js
+ M src/screens/ResumeSession/ResumeExitVelo.js
+ M src/screens/ResumeSession/ResumeLongToss.js
+ M src/screens/ResumeSession/ResumeWeighted.js
+ M src/services/plannerApi.js
+?? src/screens/Planner/CoachPlannerToday.js
+?? src/screens/Planner/PlayerToday.js
+?? src/services/__tests__/unifiedPlannerApi.test.js
+?? src/services/unifiedPlannerApi.js
+
+No commit. No push. No deployment.

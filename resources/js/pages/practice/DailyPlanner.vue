@@ -1,4 +1,6 @@
 <script setup>
+import PlannerStudioHome from '@/components/planner/PlannerStudioHome.vue'
+const showAdvancedPlanner = ref(false)
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import {useRoute} from 'vue-router'
 import {validPlannerDate} from '@/features/planner/lib/plannerLinks'
@@ -278,6 +280,7 @@ const loadPlans = async () => {
   } catch { offline.value = true } finally { loading.value = false }
 }
 const loadCommandCenter = async () => {
+  if (!showAdvancedPlanner.value) return
   if (!activeTeamId.value) {
     commandCenter.value = null
     completionSummary.value = null
@@ -1005,8 +1008,9 @@ const loadCustomDrills = async () => {
     customDrills.value = Array.isArray(rows) ? rows : []
   } catch { customDrills.value = [] }
 }
-onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
-watch(activeTeamId, () => { weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; operatingHomeActionMessage.value = ''; launchReadiness.value = null; launchReadinessMessage.value = ''; loadRoster(); loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); })
+watch(showAdvancedPlanner, open => { if (open) { loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() } })
+watch(activeTeamId, () => { if (!showAdvancedPlanner.value) { loadPlans(); loadRoster(); return } weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; operatingHomeActionMessage.value = ''; launchReadiness.value = null; launchReadinessMessage.value = ''; loadRoster(); loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = (date) => { if (typeof date === 'string') calendarDate.value = date; editing.value = { ...blankPlan(), date: calendarDate.value } }
@@ -2921,8 +2925,10 @@ const del = async (p) => {
       <!-- ══ VIEW PLAYERS (per-player progress + review) ══ -->
       <CoachWorkoutPlayers v-if="viewingPlayers" :plan="viewingPlayers" @back="viewingPlayers = null" />
 
+      <PlannerStudioHome v-else-if="!editing && !showAdvancedPlanner" @create="newPlan" @edit="p=>editPlan(planFromApi(p))" @advanced="showAdvancedPlanner=true" />
       <!-- ══ LIST ══ -->
       <template v-else-if="!editing">
+        <button class="dp-btn" @click="showAdvancedPlanner=false">← Today</button>
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
             <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Daily Planner</h1>

@@ -15,17 +15,19 @@ class WorkoutTemplateController extends Controller
 {
     public function index(Request $r, WorkoutTemplateService $service)
     {
-        return response()->json(['data' => $service->visible($r->user())->with('sections.exercises')->orderBy('name')->get()])->header('Cache-Control', 'no-store');
+        $recent=[];
+        foreach(DailyPlan::where('created_by',$r->user()->id)->latest()->limit(100)->get(['buckets','created_at']) as $plan)foreach($plan->buckets??[] as $block){$id=$block['template_source']['id']??null;if($id&&!isset($recent[$id]))$recent[$id]=$plan->created_at;}
+        return response()->json(['planner_contract_version'=>'2.0','data' => $service->visible($r->user())->with('sections.exercises')->orderBy('name')->get()->map(function($template)use($recent){$row=$template->toArray();$row['last_used_at']=$recent[$template->id]??null;$row['planner_contract_version']='2.0';return $row;})])->header('Cache-Control', 'no-store');
     }
     public function show(Request $r, string $id, WorkoutTemplateService $service)
     {
-        return response()->json(['data' => $service->get($r->user(), $id)]);
+        return response()->json(['planner_contract_version'=>'2.0','data' => $service->get($r->user(), $id)]);
     }
     public function store(Request $r, WorkoutTemplateService $service)
     {
         $data = $service->validate($r->all());
         unset($data['slug']);
-        return response()->json(['data' => $service->write($data, null, $r->user()->id)], 201);
+        return response()->json(['planner_contract_version'=>'2.0','data' => $service->write($data, null, $r->user()->id)], 201);
     }
     public function update(Request $r, string $id, WorkoutTemplateService $service)
     {
@@ -34,14 +36,14 @@ class WorkoutTemplateController extends Controller
         $r->validate(['version' => 'required|integer|min:1']);
         $data = $service->validate($r->all());
         unset($data['slug']);
-        return response()->json(['data' => $service->write($data, $t)]);
+        return response()->json(['planner_contract_version'=>'2.0','data' => $service->write($data, $t)]);
     }
     public function duplicate(Request $r, string $id, WorkoutTemplateService $service)
     {
         $data = $service->get($r->user(), $id)->toArray();
         unset($data['slug'],$data['version']);
         $data['name'] = Str::limit($data['name'], 193, '').' (copy)';
-        return response()->json(['data' => $service->write($data, null, $r->user()->id)], 201);
+        return response()->json(['planner_contract_version'=>'2.0','data' => $service->write($data, null, $r->user()->id)], 201);
     }
     public function instantiate(Request $r, string $id, WorkoutTemplateService $service)
     {
@@ -62,6 +64,6 @@ class WorkoutTemplateController extends Controller
             }
             return $plan;
         });
-        return response()->json(['data' => $plan->load('assignments')], 201);
+        return response()->json(['planner_contract_version'=>'2.0','data' => app(\App\Services\Planner\PlannerContract::class)->plan($plan->fresh())], 201);
     }
 }

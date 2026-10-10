@@ -40,7 +40,25 @@ class SaveWorkoutProgress extends Controller
             }
 
             $validated = $request->validate([
+                'assignment_version'=>['sometimes','integer','min:0'],
+                'version' => ['sometimes','integer','min:0'],
+                'post_training' => ['sometimes','array'],
+                'post_training.pain' => ['sometimes','boolean'],
+                'post_training.notes' => ['nullable','string','max:2000'],
+                'post_training.overall_effort' => ['nullable','integer','between:0,10'],
+                'post_training.overall_fatigue' => ['nullable','integer','between:0,10'],
+                'post_training.arm_fatigue' => ['nullable','integer','between:0,10'],
+                'post_training.arm_soreness' => ['nullable','integer','between:0,10'],
                 'readiness'    => ['nullable', 'array'],
+                'readiness.sleep_hours' => ['nullable','numeric','between:0,24'],
+                'readiness.sleep_quality' => ['nullable','integer','between:1,5'],
+                'readiness.energy' => ['nullable','integer','between:1,5'],
+                'readiness.overall_soreness' => ['nullable','integer','between:1,5'],
+                'readiness.stress' => ['nullable','integer','between:1,5'],
+                'readiness.motivation' => ['nullable','integer','between:1,5'],
+                'readiness.arm_soreness' => ['nullable','integer','between:0,10'],
+                'readiness.shoulder_soreness' => ['nullable','integer','between:0,10'],
+                'readiness.elbow_soreness' => ['nullable','integer','between:0,10'],
                 'items'        => ['nullable', 'array'],
                 'items.*'      => ['array'],
                 'reflection'   => ['nullable', 'array'],
@@ -74,6 +92,7 @@ class SaveWorkoutProgress extends Controller
             }
 
             return response()->json([
+                'planner_contract_version' => '2.0',
                 'code'    => '095',
                 'message' => 'progress saved',
                 'status'  => 'success',

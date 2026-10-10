@@ -17,7 +17,13 @@ class FlameBangersWorkoutTemplateSeeder extends Seeder
         DB::transaction(function (): void {
             foreach(json_decode(file_get_contents(database_path('data/flamebangers-workouts.json')), true, 512, JSON_THROW_ON_ERROR) as $data) {
                 // Seed once: deployments must not overwrite customized or historical master versions.
-                if(WorkoutTemplate::where('slug', $data['slug'])->exists()) {
+                $existing=WorkoutTemplate::where('slug',$data['slug'])->lockForUpdate()->first();
+                if($existing) {
+                    if($existing->is_premade && $existing->version<2){
+                        $metadata=collect($data['sections'])->flatMap(fn($section)=>$section['exercises'])->keyBy('exercise_name');
+                        foreach($existing->sections as $section)foreach($section->exercises as $exercise)if(isset($metadata[$exercise->exercise_name]))$exercise->update(['metadata'=>$metadata[$exercise->exercise_name]['metadata']]);
+                        $existing->update(['version'=>2]);
+                    }
                     continue;
                 }
                 foreach($data['sections'] as &$section) {
@@ -29,7 +35,7 @@ class FlameBangersWorkoutTemplateSeeder extends Seeder
                 }
                 unset($section,$exercise);
                 $template = app(WorkoutTemplateService::class)->write($data);
-                $template->update(['is_premade' => true,'is_public' => true]);
+                $template->update(['is_premade' => true,'is_public' => true,'version'=>2]);
             }
         });
     }

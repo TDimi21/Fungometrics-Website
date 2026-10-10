@@ -1,4 +1,6 @@
 <script setup>
+import PlayerToday from './PlayerToday.vue'
+const showWorkoutHistory=ref(false)
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { planFromApi, bucketTitle } from '@/features/planner/dailyPlanner.js'
@@ -361,7 +363,7 @@ const loadMaxes = async () => {
     playerMaxes.value = coalesceMaxes(Array.isArray(rows) ? rows : (rows ? [rows] : []))
   } catch { /* targets fall back to % if we can't load maxes */ }
 }
-onMounted(() => { load(); loadMaxes() })
+watch(showWorkoutHistory, open => { if(open){load();loadMaxes()} })
 
 // ── strength / percent-of-1RM resolution (player side) ───────────────────────
 const strengthSets = (it) => ((it?.workloadType === 'strength' && Array.isArray(it?.setList)) ? it.setList : [])
@@ -901,6 +903,8 @@ const finish = async () => {
 </script>
 
 <template>
+  <PlayerToday v-if="!showWorkoutHistory" @history="showWorkoutHistory=true" />
+  <div v-else><button @click="showWorkoutHistory=false">← Today</button>
   <div>
     <div v-if="saveNotice" class="pw-save-notice">{{ saveNotice }}</div>
 
@@ -1537,6 +1541,7 @@ const finish = async () => {
       </div>
     </template>
   </div>
+</div>
 </template>
 
 <style scoped>

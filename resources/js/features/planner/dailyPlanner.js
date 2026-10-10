@@ -35,6 +35,8 @@ export function blankPlan() {
 // ── shape mappers (web camelCase ↔ api snake_case) ───────────────────────────
 export const planToApi = (p, teamId) => ({
   id: p.id,
+  version: p.version,
+  settings: p.settings,
   ...(teamId ? { team_id: String(teamId) } : {}),
   name: p.name ?? '',
   date: p.date ?? null,
@@ -50,6 +52,8 @@ export const planToApi = (p, teamId) => ({
 
 export const planFromApi = (r = {}) => ({
   id: r.id,
+  version: r.version,
+  settings: r.settings,
   name: r.name ?? '',
   date: r.date ?? todayISO(),
   phase: r.phase ?? 'Foundation',
@@ -63,6 +67,8 @@ export const planFromApi = (r = {}) => ({
 
 export const groupFromApi = (r = {}) => ({
   id: r.id,
+  version: r.version,
+  settings: r.settings,
   name: r.name ?? '',
   memberIds: Array.isArray(r.member_ids) ? r.member_ids.map(String) : [],
 })

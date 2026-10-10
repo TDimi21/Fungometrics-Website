@@ -40,7 +40,8 @@ class GetDailyPlans extends Controller
                 'code'    => '090',
                 'message' => 'list of daily plans',
                 'status'  => 'success',
-                'data'    => $plans,
+                'planner_contract_version'=>'2.0',
+                'data' => $plans->map(fn($plan)=>app(\App\Services\Planner\PlannerContract::class)->plan($plan)),
             ], HttpCodes::HTTP_OK);
         } catch (Exception $e) {
             Log::error('GetDailyPlans: ' . $e->getMessage());

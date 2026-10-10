@@ -28,6 +28,8 @@ class SaveDailyPlan extends Controller
     {
         try {
             $validated = $request->validate([
+                'version' => ['sometimes','integer','min:0'],
+                'settings' => ['sometimes','nullable','array'],
                 'id'                  => ['nullable', 'string', 'max:64'],
                 'team_id'             => ['nullable', 'string'],
                 'name'                => ['nullable', 'string', 'max:200'],
@@ -79,10 +81,23 @@ class SaveDailyPlan extends Controller
 
             $plan = DB::transaction(function () use ($validated, $planId, $teamId, $status, $existing) {
                 $locked = DailyPlan::whereKey($planId)->lockForUpdate()->first();
-                abort_if($locked && collect($locked->buckets)->contains(fn ($b) => isset($b['template_source'])) && \App\Models\DailyPlanProgress::where('plan_id', $planId)->exists(), 409, 'This workout already has athlete results. Duplicate it to preserve prescriptions.');
+                if($locked && isset($validated['version'])) abort_if((int)$locked->version !== (int)$validated['version'],409,'This plan changed on another device. Reload the latest version before saving.');
+                $before=$locked?->toArray();
+                abort_if($locked && collect($locked->buckets)->contains(fn ($b) => isset($b['template_source'])) && (\App\Models\DailyPlanProgress::where('plan_id', $planId)->exists() || DB::table('workout_session_links')->where('plan_id',$planId)->exists()), 409, 'This workout already has athlete results. Duplicate it to preserve prescriptions.');
+                if($status==='published') {
+                    $players=$validated['assigned_player_ids']??($locked?->assignments->pluck('user_id')->all()??[]);
+                    $players=PlayerTeam::where('team_id',$teamId)->whereIn('user_id',$players)->pluck('user_id')->all();
+                    foreach($players as $player){
+                        \App\Models\User::whereKey($player)->lockForUpdate()->firstOrFail();
+                        $conflicts=app(\App\Services\Planner\PlannerConflictService::class)->check($teamId,$player,\Carbon\Carbon::parse($validated['date']??$locked?->date)->toDateString(),$validated['buckets']??[],[$planId]);
+                        if($conflicts)throw new \Illuminate\Http\Exceptions\HttpResponseException(response()->json(['message'=>'SESSION CONFLICT','conflicts'=>$conflicts],409));
+                    }
+                }
                 $plan = DailyPlan::updateOrCreate(
                     ['id' => $planId],
                     [
+                        'version' => ($locked?->version??0)+1,
+                        'settings' => $validated['settings']??$locked?->settings??[],
                         'team_id'           => $teamId,
                         'created_by'        => $existing->created_by ?? Auth::id(),
                         'name'              => $validated['name'] ?? null,
@@ -119,6 +134,10 @@ class SaveDailyPlan extends Controller
                     }
                 }
 
+                if($before) {
+                    $revision=app(\App\Services\Planner\DailyPlanRevisionService::class)->createRevision($plan->id,$before,$plan->toArray(),['created_by_user_id'=>Auth::id(),'source'=>'unified_planner','reason'=>'Coach saved plan']);
+                    abort_if($revision['revision_status']==='failed',500,'Could not save revision history.');
+                }
                 return $plan;
             });
 
@@ -128,8 +147,9 @@ class SaveDailyPlan extends Controller
                 'code'    => '091',
                 'message' => 'daily plan saved',
                 'status'  => 'success',
-                'data'    => $plan,
+                'data'    => app(\App\Services\Planner\PlannerContract::class)->plan($plan),
             ], HttpCodes::HTTP_OK);
+        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) { throw $e;
         } catch (\Illuminate\Validation\ValidationException $e) { throw $e;
         } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) { throw $e;
         } catch (Exception $e) {

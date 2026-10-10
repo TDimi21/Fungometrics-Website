@@ -32,6 +32,8 @@ class AddNewSessionRequest extends FormRequest
     public function rules()
     {
         return [
+            'planner_plan_id' => ['nullable', 'string', 'required_with:planner_item_id'],
+            'planner_item_id' => ['nullable', 'string', 'required_with:planner_plan_id'],
             'team' => ['nullable', 'string'],
             'type' => ['nullable', Rule::enum(PracticeTypes::class)],
             'modes' => ['nullable', Rule::enum(PracticeModes::class)],

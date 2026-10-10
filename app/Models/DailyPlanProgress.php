@@ -20,6 +20,11 @@ class DailyPlanProgress extends Model
     protected $keyType   = 'string';
 
     protected $fillable = [
+        'version',
+        'post_training',
+        'actual_history',
+        'alert_review',
+
         'plan_id',
         'user_id',
         'readiness',
@@ -30,7 +35,7 @@ class DailyPlanProgress extends Model
         'completed_at',
     ];
 
-    protected $casts = [
+    protected $casts = ['version' => 'integer','post_training' => 'array','actual_history' => 'array','alert_review' => 'array',
         'readiness'    => 'array',
         'items'        => 'array',
         'reflection'   => 'array',

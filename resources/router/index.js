@@ -464,6 +464,14 @@ const router = createRouter({
 const WEB_START_PRACTICE_ENABLED = false;
 const START_PRACTICE_BLOCKED_PATHS = ['/create', '/track'];
 
+// Allow the existing tracker only after the authenticated planner launch has returned a session.
+const hasPlannerSessionContext = (to, user) => {
+  try {
+    const context=JSON.parse(sessionStorage.getItem('fmtrx-planner-session-return')||'null');
+    return to.path.startsWith('/track/') && !!context?.session_id && context.user_id===user.id && to.query.planner_plan===context.plan_id && to.query.planner_item===context.item_id;
+  } catch { return false; }
+};
+
 export const routeEntitlement = (to, audience = null) => {
 	if (to.meta?.entitlement) return to.meta.entitlement;
 	if (to.meta?.entitlementByAudience) {
@@ -516,6 +524,7 @@ router.beforeEach(async (to) => {
 	if (
 		requiresAuth
 		&& !WEB_START_PRACTICE_ENABLED
+		&& !hasPlannerSessionContext(to, userData)
 		&& START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))
 	) {
 		return '/dashboard';

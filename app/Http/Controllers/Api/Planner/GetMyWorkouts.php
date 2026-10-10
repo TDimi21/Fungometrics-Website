@@ -26,7 +26,7 @@ class GetMyWorkouts extends Controller
         try {
             $userId = Auth::id();
 
-            $planIds = DailyPlanAssignment::where('user_id', $userId)->pluck('plan_id')->all();
+            $planIds = DailyPlanAssignment::where('user_id', $userId)->where('schedule_status','active')->pluck('plan_id')->all();
 
             $plans = DailyPlan::whereIn('id', $planIds)
                 ->where('status', 'published')
@@ -39,17 +39,7 @@ class GetMyWorkouts extends Controller
                 ->keyBy('plan_id');
 
             $data = $plans->map(function (DailyPlan $plan) use ($progress, $updateService, $userId) {
-                $arr = $plan->toArray();
-                $arr['progress'] = $progress->get($plan->id);
-                // Fail-safe: a broken/undeployed update service must never stop a
-                // player from loading their workouts.
-                try {
-                    $arr['update_status'] = $updateService->buildPlayerPlanUpdateStatus((string) $plan->id, (string) $userId);
-                } catch (\Throwable $e) {
-                    Log::warning('GetMyWorkouts update_status failed: ' . $e->getMessage());
-                    $arr['update_status'] = null;
-                }
-
+                $arr = app(\App\Services\Planner\PlannerContract::class)->plan($plan, (string)$userId);
                 return $arr;
             });
 

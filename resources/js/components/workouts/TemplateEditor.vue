@@ -8,6 +8,9 @@ const draft = ref(JSON.parse(JSON.stringify(props.template)));
 for (const section of draft.value.sections) for (const exercise of section.exercises) {
   if (!exercise.metadata || Array.isArray(exercise.metadata)) exercise.metadata = {};
 }
+const dragged=ref(null)
+function addBlock(b){if(draft.value.sections.some(s=>s.section_type===b.type))return;draft.value.sections.push({name:b.title,section_type:b.type,instructions:'',exercises:[]})}
+function dropBlock(index){if(dragged.value===null)return;const [block]=draft.value.sections.splice(dragged.value,1);draft.value.sections.splice(index,0,block);dragged.value=null}
 const optionalNumberFields = [
   "sets_min",
   "sets_max",
@@ -56,13 +59,14 @@ function normalize() {
 <template>
   <form class="workout-editor" @submit.prevent="normalize">
     <header>
-      <h2>Edit Workout Copy</h2>
+      <h2>Workout Builder</h2>
       <button type="button" @click="emit('cancel')">Cancel</button
       ><button class="primary" :disabled="busy">
         {{ busy ? "Saving…" : "Save workout" }}
       </button>
     </header>
-    <div class="form-grid">
+    <aside class="block-library"><h3>Workout Blocks</h3><p>Add a block, then prescribe the exercises.</p><button v-for="b in BUCKETS.filter(b=>b.kind!=='survey')" :key="b.type" type="button" @click="addBlock(b)">{{b.title}} ＋</button></aside>
+    <div class="form-grid workout-settings">
       <label>Name<input v-model="draft.name" required maxlength="200" /></label
       ><label>Sport<input v-model="draft.sport" required /></label
       ><label>Category<input v-model="draft.category" required /></label
@@ -97,7 +101,7 @@ function normalize() {
     <section
       v-for="(section, si) in draft.sections"
       :key="si"
-      class="workout-panel"
+      class="workout-panel" draggable="true" @dragstart="dragged=si" @dragover.prevent @drop.prevent="dropBlock(si)"
     >
       <div class="toolbar">
         <input
@@ -199,12 +203,12 @@ function normalize() {
             >Tracking<select v-model="e.metadata.tracking_type">
               <option :value="null">Completion / actuals</option>
               <option value="radar">Weighted-ball radar</option>
-              <option value="session">Existing session</option>
+              <option value="session">Existing session</option><option value="quick_throws">Quick throw count</option>
             </select></label
           ><label v-if="e.metadata.tracking_type"
             >Session type<select v-model="e.metadata.session_type">
               <option value="weighted_ball">Weighted ball</option>
-              <option value="bullpen">Bullpen</option>
+              <option value="bullpen">Bullpen</option><option v-for="type in ['long_toss','exit_velocity','cage','live_ab','strength','assessment']" :key="type" :value="type">{{type.replaceAll('_',' ')}}</option>
             </select></label
           ><label
             >Demonstration image URL<input
@@ -263,3 +267,7 @@ function normalize() {
     </button>
   </form>
 </template>
+
+<style scoped>
+.workout-editor{display:grid;grid-template-columns:200px minmax(0,1fr) 270px;gap:18px;align-items:start}.workout-editor>header{grid-column:1/-1}.block-library{grid-column:1;grid-row:2/span 50;border:1px solid #254157;border-radius:12px;padding:14px}.block-library button{display:block;width:100%;text-align:left;margin-top:10px}.workout-settings{grid-column:3;grid-row:2;display:flex!important;flex-direction:column}.workout-settings label{width:100%}.workout-editor>label{grid-column:3;grid-row:3}.workout-editor>.workout-panel,.workout-editor>button{grid-column:2}.workout-editor>.workout-panel:first-of-type{grid-row:2}.workout-editor .workout-panel{border-radius:12px}.workout-editor input,.workout-editor textarea,.workout-editor select{max-width:100%}@media(max-width:1000px){.workout-editor{display:flex;flex-direction:column}.workout-editor>*{width:100%}.block-library{display:flex;gap:8px;overflow-x:auto}.block-library h3,.block-library p{display:none}.block-library button{width:auto;flex-shrink:0}}
+</style>

@@ -1,7 +1,7 @@
 <script setup>
 import PlayerAssessmentLinks from '@/components/free-assessment/PlayerAssessmentLinks.vue'
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import Layout from '@/layout/Layout.vue'
 import ModalPlayer from '@/components/dashboard/ModalPlayer.vue'
@@ -58,6 +58,7 @@ const playerFitnessLatest = ref(null)
 const playerFitnessRows = ref([])
 
 const activeStatTab = ref('percentiles')
+if (useRoute().query.tab === 'workout') activeStatTab.value = 'workout'
 const lastStatTab = ref('percentiles')
 
 const toggleWorkout = () => {

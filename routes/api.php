@@ -292,6 +292,8 @@ Route::prefix('player')->group(function (): void {
         // Daily Planner (player side) — "My Workouts" + progress
         Route::get('weekly-plans', GetPlayerWeeklyPlans::class);
         Route::get('weekly-completion-summary', GetPlayerWeeklyCompletionSummary::class);
+        Route::get('planner/day', [\App\Http\Controllers\Api\Planner\UnifiedPlannerController::class, 'day']);
+        Route::post('daily-plans/{id}/schedule-adjustment', [\App\Http\Controllers\Api\Planner\UnifiedPlannerController::class, 'adjust']);
         Route::get('daily-plans', GetMyWorkouts::class);
         Route::get('daily-plans/{id}', GetMyWorkout::class);
         Route::get('daily-plans/{dailyPlanId}/completion-summary', GetPlayerDailyPlanCompletionSummary::class);
@@ -366,6 +368,10 @@ Route::prefix('coach')->group(function (): void {
         });
 
         // Daily Planner (coach authoring) — synced between app and web
+        Route::middleware('plan:planner_create')->get('planner/day', [\App\Http\Controllers\Api\Planner\UnifiedPlannerController::class,'day']);
+        Route::middleware('plan:planner_create')->post('daily-plans/{id}/schedule-adjustment', [\App\Http\Controllers\Api\Planner\UnifiedPlannerController::class,'adjust']);
+        Route::middleware('plan:planner_create')->post('daily-plans/{id}/prescription-adjustment', [\App\Http\Controllers\Api\Planner\UnifiedPlannerController::class,'adjustPrescription']);
+        Route::middleware('plan:view_workout_progress')->post('daily-plans/{id}/alert-review', [\App\Http\Controllers\Api\Planner\UnifiedPlannerController::class,'reviewAlert']);
         Route::middleware('plan:planner_create')->get('/daily-plans', GetDailyPlans::class);
         Route::middleware('plan:planner_create')->post('/daily-plans', SaveDailyPlan::class);
         Route::middleware('plan:planner_create')->delete('/daily-plans/{id}', DeleteDailyPlan::class);

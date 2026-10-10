@@ -92,7 +92,7 @@ class WorkoutLibraryTest extends TestCase
         $this->postJson($url, ['version' => 1])->assertUnprocessable();
         $this->postJson($url, ['version' => 1,'workload_approved' => true])->assertOk();
         $this->postJson($url, ['version' => 1,'workload_approved' => true])->assertOk();
-        $this->assertDatabaseCount('daily_plans', 2);
+        $this->assertDatabaseCount('daily_plans', 3); // one immutable player prescription per published entry
         $this->assertDatabaseCount('daily_plan_assignments', 3);
         $this->assertDatabaseHas('daily_plans', ['date' => '2026-10-14','name' => 'Recovery Day']);
         $this->postJson('/api/coach/workout-programs', $payload)->assertStatus(409);

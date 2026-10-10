@@ -45,6 +45,25 @@ class AddNewSession extends Controller
             $dataRequest['is_scripted'] = (bool) ($dataRequest['scripted'] ?? false);
             unset($dataRequest['scripted']);
 
+            $plannerPlan = null;
+            $plannerItem = null;
+            if (!empty($dataRequest['planner_plan_id'])) {
+                $plannerPlan = \App\Models\DailyPlan::where('status','published')->lockForUpdate()->findOrFail($dataRequest['planner_plan_id']);
+                abort_unless($plannerPlan->assignments()->where('user_id', Auth::id())->where('schedule_status','active')->exists(),403);
+                abort_unless(($dataRequest['team_id']??null)===$plannerPlan->team_id && count($dataRequest['players'])===1 && $dataRequest['players'][0]['id']===Auth::id(),422,'Planner sessions must belong to the assigned player and team.');
+                $plannerItem = collect($plannerPlan->bucketsFor((string)Auth::id()))->flatMap(fn($b)=>$b['items']??[])->firstWhere('id',$dataRequest['planner_item_id']);
+                abort_unless($plannerItem && app(\App\Services\Planner\LinkedSessionRegistry::class)->matches($plannerItem['metadata']['session_type']??'',new Practice($dataRequest)),422,'Session type does not match this workout block.');
+                $link=DB::table('workout_session_links')->where(['plan_id'=>$plannerPlan->id,'user_id'=>Auth::id(),'item_id'=>$plannerItem['id']])->first();
+                if($link) {
+                    $practice=Practice::findOrFail($link->practice_id);
+                    abort_unless($practice->team_id===$plannerPlan->team_id && ($practice->user_id===Auth::id() || $practice->lineup()->where('user_id',Auth::id())->exists()),403);
+                    DB::commit();
+                    return response()->json(['status'=>'success','data'=>new PracticeSessionResource(['practice'=>$practice,'players'=>$practice->lineup()->get(),'meta'=>CagePracticeMeta::where('practice_id',$practice->id)->first()])],200);
+                }
+                if($plannerPlan->settings['readiness_required']??false)abort_unless(\App\Models\DailyPlanProgress::where('plan_id',$plannerPlan->id)->where('user_id',Auth::id())->first()?->readiness,422,'Save your pre-training check-in before starting this session.');
+                $dataRequest['user_id']=Auth::id();
+                unset($dataRequest['planner_plan_id'],$dataRequest['planner_item_id']);
+            }
             $practice = (new CreateServiceData(new Practice()))->handle($dataRequest);
             $metaCage = null;
             if (isset($dataRequest['cage'])) {
@@ -71,6 +90,7 @@ class AddNewSession extends Controller
                           !== PracticeTypes::TRAINING->value,
                     ]);
             }
+            if($plannerPlan) DB::table('workout_session_links')->insert(['id'=>(string)\Illuminate\Support\Str::uuid(),'plan_id'=>$plannerPlan->id,'user_id'=>Auth::id(),'item_id'=>$plannerItem['id'],'practice_id'=>$practice->id,'type'=>$plannerItem['metadata']['session_type'],'created_for_workout'=>true,'created_at'=>now(),'updated_at'=>now()]);
             $response = [
                 'code' => '006',
                 'message' => 'add new session training',
@@ -84,6 +104,8 @@ class AddNewSession extends Controller
             DB::commit();
 
             return response()->json($response, HttpCodes::HTTP_CREATED);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface|\Illuminate\Database\Eloquent\ModelNotFoundException $exception) {
+            DB::rollBack(); throw $exception;
         } catch (Exception $exception) {
             DB::rollBack();
             $response = [

@@ -43,18 +43,7 @@ class GetMyWorkout extends Controller
                 ], HttpCodes::HTTP_NOT_FOUND);
             }
 
-            $arr = $plan->toArray();
-            $arr['progress'] = DailyPlanProgress::where('plan_id', $id)
-                ->where('user_id', $userId)
-                ->first();
-            // Fail-safe: never let the update service block loading the workout.
-            try {
-                $arr['update_status'] = $updateService->buildPlayerPlanUpdateStatus((string) $plan->id, (string) $userId);
-            } catch (\Throwable $e) {
-                Log::warning('GetMyWorkout update_status failed: ' . $e->getMessage());
-                $arr['update_status'] = null;
-            }
-
+            $arr = app(\App\Services\Planner\PlannerContract::class)->plan($plan, (string)$userId);
             return response()->json([
                 'code'    => '094',
                 'message' => 'my workout',
