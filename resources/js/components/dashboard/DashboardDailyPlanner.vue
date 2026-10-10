@@ -1,11 +1,17 @@
 <script setup>
 import {computed, ref, watch, onBeforeUnmount} from 'vue'
+import PlannerDaySchedule from '@/components/planner/PlannerDaySchedule.vue'
+import CoachWorkoutPlayers from '@/components/planner/CoachWorkoutPlayers.vue'
+import {useRouter} from 'vue-router'
 import {storeToRefs} from 'pinia'
 import {useTeamStore} from '@/store/team'
 import {useAxiosAuth} from '@/composables/axios-auth'
 import {localDateKey, shiftCalendarDate, plansOnDate} from '@/features/planner/lib/calendar'
-import {planFromApi, bucketTitle, estimateMinutes} from '@/features/planner/dailyPlanner'
+import {planFromApi} from '@/features/planner/dailyPlanner'
 import {plannerLink, teamPlannerRows} from '@/features/planner/lib/plannerLinks'
+const router = useRouter()
+const reviewPlan = ref(null), reviewPlayer = ref(null), refreshKey = ref(0)
+const openReview = (plan, playerId = null) => { reviewPlan.value = plan; reviewPlayer.value = playerId }
 const {team} = storeToRefs(useTeamStore())
 const teamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
 const {axiosGet} = useAxiosAuth()
@@ -15,7 +21,7 @@ const assigned = computed(() => new Set(day.value.flatMap(p=>p.assignedPlayerIds
 let generation = 0
 async function load() {
   const request = ++generation, id = teamId.value
-  plans.value=[]; error.value=''; loading.value=false
+  plans.value=[]; error.value=''; loading.value=false; reviewPlan.value=null; refreshKey.value++
   if(!id)return
   loading.value=true
   try {
@@ -34,7 +40,8 @@ onBeforeUnmount(()=>{generation++})
     <div class="planner-date"><button aria-label="Previous planner day" @click="date=shiftCalendarDate(date,-1)">‹</button><input type="date" :value="date" aria-label="Dashboard planner date" @change="$event.target.value && (date=$event.target.value)"><button aria-label="Next planner day" @click="date=shiftCalendarDate(date,1)">›</button><button @click="date=localDateKey()">Today</button></div>
     <div class="planner-summary"><span>{{ day.length }} workouts · {{ assigned }} players</span><button :disabled="loading" @click="load" aria-label="Refresh daily planner">↻</button></div>
     <p v-if="!teamId">Select a team to see its daily plans.</p><p v-else-if="loading" role="status">Loading workouts…</p><div v-else-if="error" role="alert"><p>{{ error }}</p><button @click="load">Retry</button></div><p v-else-if="!day.length">No workouts scheduled for this day.</p>
-    <div v-else class="planner-workouts"><article v-for="plan in day" :key="plan.id"><div class="plan-title"><h3>{{ plan.name || 'Untitled workout' }}</h3><span :class="plan.status">{{ plan.status==='published'?'Published':'Draft' }}</span></div><p>{{ estimateMinutes(plan) }} min · {{ plan.assignedPlayerIds.length }} players</p><p v-if="plan.primaryGoal">{{ plan.primaryGoal }}</p><ul><li v-for="bucket in plan.buckets.filter(b=>b.type!=='coach_notes')" :key="bucket.type"><span class="block-dot"></span><div><strong>{{ bucketTitle(bucket.type) }}</strong><small>{{ bucket.startTime || 'Time not set' }}{{ bucket.endTime ? ' – '+bucket.endTime : '' }}{{ bucket.location ? ' · '+bucket.location : '' }}</small></div></li></ul><div class="planner-actions"><RouterLink :to="plannerLink(date,'edit',plan.id)">{{ plan.status==='published'?'Edit workout':'Review & publish' }}</RouterLink><RouterLink v-if="plan.status==='published'" :to="plannerLink(date,'players',plan.id)">Player progress</RouterLink></div></article></div>
+    <CoachWorkoutPlayers v-if="reviewPlan" :plan="reviewPlan" :initial-player-id="reviewPlayer" @back="reviewPlan=null; refreshKey++" />
+    <PlannerDaySchedule v-else-if="teamId && !loading && !error" :key="String(teamId) + ':' + refreshKey" compact :plans="plans" :date="date" :loading="loading" :offline="!!error" @date="date=$event" @create="router.push(plannerLink($event || date,'create'))" @edit="router.push(plannerLink(date,'edit',$event.id))" @players="openReview" @check-in="openReview" @management="router.push(plannerLink(date))" />
     <RouterLink v-if="teamId" class="create-plan" :to="plannerLink(date,'create')">＋ Create plan for this day</RouterLink>
   </section>
 </template>

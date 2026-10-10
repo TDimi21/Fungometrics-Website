@@ -325,6 +325,7 @@ Route::prefix('coach')->group(function (): void {
         Route::get('/roster/players', GetPlayersList::class);
         Route::get('/teams', GetTeamsPlayersV2::class);
         Route::get('/teams/{id}', GetTeamById::class);
+        Route::get('/teams/{id}/roster-activity', \App\Http\Controllers\Api\Coach\GetRosterActivity::class);
         Route::get('/teams/{id}/code', GetTeamCode::class);  // retrieve join code for a team
         Route::middleware('plan:view_player_cards')->get('/teams/{id}/player-cards', GetTeamPlayerCards::class);
         Route::middleware('plan:view_advanced_stats')->get('/teams/{id}/player-development-board', GetPlayerDevelopmentBoard::class);
