@@ -6,6 +6,12 @@ import WorkoutPreview from '@/components/workouts/WorkoutPreview.vue'
 import {workoutTiming, sectionMinutes, drillMinutes} from '@/features/planner/lib/workoutTiming'
 import PlannerStudioHome from '@/components/planner/PlannerStudioHome.vue'
 import WorkoutLibrary from '@/pages/workouts/WorkoutLibrary.vue'
+import {WORKOUT_STARTERS, preloadWorkoutSections} from '@/features/planner/lib/workoutStarters'
+const starterMessage = ref('')
+const selectWorkoutStarter = (starter) => {
+  editing.value.buckets = preloadWorkoutSections(editing.value.buckets, starter.type)
+  starterMessage.value = `${starter.label} sections are ready. Add drills as you move through each section.`
+}
 const guideStep = ref(0)
 const workoutPreviewOpen = ref(false)
 const workoutPanel = ref('schedule')
@@ -2845,7 +2851,7 @@ const addBucket = (b) => {
   editing.value.buckets.splice(index < 0 ? editing.value.buckets.length : index, 0, { type: b.type, title: b.title, kind: b.kind, items: [], note: '' })
 }
 const removeBucket = (type) => { if (['daily_readiness', 'player_reflection'].includes(type)) return; editing.value.buckets = editing.value.buckets.filter((b) => b.type !== type) }
-watch(() => editing.value?.id, () => { guideStep.value = 0; workoutPreviewOpen.value = false })
+watch(() => editing.value?.id, () => { guideStep.value = 0; workoutPreviewOpen.value = false; starterMessage.value = '' })
 const editingTiming = computed(() => workoutTiming(editing.value || {}))
 const isStrengthItem = (it) => Array.isArray(it.setList)
 
@@ -6020,6 +6026,17 @@ const del = async (p) => {
         </div>
 
         <WorkoutBuilderLayout>
+        <section v-if="guideStep <= 1" class="dp-panel mb-4" aria-label="Workout type">
+          <h2 class="text-lg font-bold mb-2">What kind of workout are you building?</h2>
+          <p class="text-white/60 text-sm mb-3">Choose a type to preload sections, then add your drills. You can combine types; existing drills and notes are kept.</p>
+          <div class="flex flex-wrap gap-3">
+            <button v-for="starter in WORKOUT_STARTERS" :key="starter.type" type="button" class="dp-btn"
+              :class="{'dp-btn--primary': starter.sections.every(type => editing.buckets.some(b => b.type === type))}"
+              :aria-pressed="starter.sections.every(type => editing.buckets.some(b => b.type === type))"
+              @click="selectWorkoutStarter(starter)">{{ starter.label }}</button>
+          </div>
+          <p v-if="starterMessage" class="text-sm mt-3" role="status">{{ starterMessage }}</p>
+        </section>
         <WorkoutGuide v-model:step="guideStep" :buckets="BUCKETS" :included="editing.buckets.map(b => b.type)" @use="addBucket" @preview="workoutPreviewOpen = true" />
         <!-- Plan info -->
         <div v-if="guideStep === 0" class="dp-panel grid gap-3 sm:grid-cols-2 mb-4">

@@ -21,6 +21,7 @@ export const BUCKETS = [
   { type: 'throwing', title: 'Throwing', kind: 'content', icon: 'baseball', color: '#ef4444', throwing: true, hint: 'Catch play → long toss → pulldowns' },
   { type: 'pitching', title: 'Pitching Development', kind: 'content', icon: 'baseball-bat', color: '#e11d48', throwing: true, hint: 'Bullpen / command work' },
   { type: 'hitting', title: 'Hitting', kind: 'content', icon: 'bat', color: '#2160C4', hint: 'Cage / tee / live' },
+  { type: 'defense', title: 'Defense / Fielding', kind: 'content', icon: 'baseball', color: '#10b981', hint: 'Ground balls, fly balls, footwork and defensive skills' },
   { type: 'speed_agility', title: 'Speed and Agility', kind: 'content', icon: 'lightning-bolt', color: '#a78bfa', hint: 'Sprints, change of direction' },
   { type: 'strength_primary', title: 'Primary Strength', kind: 'content', icon: 'weight-lifter', color: '#f97316', strength: true, role: 'primary', hint: 'Main lift — 1 movement, heavy (3–6 reps)' },
   { type: 'strength_secondary', title: 'Secondary Strength', kind: 'content', icon: 'dumbbell', color: '#fb923c', strength: true, role: 'secondary', hint: '2–4 movements, moderate (5–10 reps)' },
