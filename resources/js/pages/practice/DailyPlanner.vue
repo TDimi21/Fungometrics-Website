@@ -1,4 +1,5 @@
 <script setup>
+import {workoutTiming, sectionMinutes, drillMinutes} from '@/features/planner/lib/workoutTiming'
 import PlannerStudioHome from '@/components/planner/PlannerStudioHome.vue'
 const showAdvancedPlanner = ref(false)
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
@@ -2834,6 +2835,7 @@ const addBucket = (b) => {
   editing.value.buckets.push({ type: b.type, title: b.title, kind: b.kind, items: [], note: '' })
 }
 const removeBucket = (type) => { editing.value.buckets = editing.value.buckets.filter((b) => b.type !== type) }
+const editingTiming = computed(() => workoutTiming(editing.value || {}))
 const isStrengthItem = (it) => Array.isArray(it.setList)
 
 // ── drill picker ─────────────────────────────────────────────────────────────
@@ -2916,7 +2918,8 @@ const filteredPlayers = computed(() => {
 
 // ── save / delete ────────────────────────────────────────────────────────────
 const save = async (status) => {
-  if (editing.value.buckets.some(b => b.startTime && b.endTime && b.endTime <= b.startTime)) { alert('Each block end time must be after its start time.'); return }
+  if (editingTiming.value.minutes > 1440) { alert('Keep the workout duration within 24 hours.'); return }
+  if (editing.value.buckets.some(b => (b.durationMinutes !== '' && b.durationMinutes != null && (!Number.isFinite(Number(b.durationMinutes)) || Number(b.durationMinutes) < 0)) || (b.items || []).some(it => it.plannedMinutes !== '' && it.plannedMinutes != null && (!Number.isFinite(Number(it.plannedMinutes)) || Number(it.plannedMinutes) < 0)))) { alert('Durations must be zero or more minutes.'); return }
   if (!String(editing.value.name || '').trim()) { alert('Name your plan first.'); return }
   editing.value.status = status
   if (status === 'published' && !editing.value.publishedAt) editing.value.publishedAt = new Date().toISOString()
@@ -5994,6 +5997,8 @@ const del = async (p) => {
           <label class="dp-field sm:col-span-2"><span class="dp-label">Plan name</span>
             <input v-model="editing.name" class="dp-input" placeholder="e.g. Tuesday Lift + Throw" /></label>
           <label class="dp-field"><span class="dp-label">Date</span><input v-model="editing.date" type="date" class="dp-input" /></label>
+          <label class="dp-field"><span class="dp-label">Workout start time</span><input v-model="editing.startTime" type="time" class="dp-input" /></label>
+          <p class="sm:col-span-2 text-white/60 text-sm" role="status">{{ editingTiming.minutes }} min total<span v-if="editingTiming.endTime"> · Ends {{ editingTiming.endTime }}{{ editingTiming.endDayOffset ? ' (next day)' : '' }}</span>. Section times follow the order below. Untimed drills default to 4 minutes; adjust to include rest and transitions.</p>
           <label class="dp-field"><span class="dp-label">Phase</span>
             <select v-model="editing.phase" class="dp-input"><option v-for="ph in PHASES" :key="ph" :value="ph">{{ ph }}</option></select></label>
           <label class="dp-field"><span class="dp-label">Workload</span>
@@ -6020,7 +6025,7 @@ const del = async (p) => {
         </div>
 
         <!-- Buckets -->
-        <div v-for="bucket in editing.buckets" :key="bucket.type" class="dp-bucket">
+        <div v-for="(bucket, bucketIndex) in editing.buckets" :key="bucket.type" class="dp-bucket">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2 font-bold">
               <span class="dp-dot" :style="{ background: bucketDef(bucket.type).color }"></span>{{ bucket.title || bucketTitle(bucket.type) }}
@@ -6030,8 +6035,8 @@ const del = async (p) => {
           <p class="text-white/35 text-xs -mt-1 mb-3">{{ bucketDef(bucket.type).hint }}</p>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            <label class="dp-field"><span class="dp-label">Start time (optional)</span><input v-model="bucket.startTime" type="time" class="dp-input" /></label>
-            <label class="dp-field"><span class="dp-label">End time (optional)</span><input v-model="bucket.endTime" type="time" class="dp-input" /></label>
+            <label class="dp-field"><span class="dp-label">Section duration (minutes)</span><input v-model.number="bucket.durationMinutes" type="number" min="0" max="1440" step="1" :placeholder="String(sectionMinutes({...bucket, durationMinutes: null})) + ' from drills'" class="dp-input" /><small class="text-white/50">Leave blank to total drill times.</small></label>
+            <div class="dp-field"><span class="dp-label">Calculated schedule</span><p>{{ editingTiming.sections[bucketIndex].minutes }} min<span v-if="editing.startTime"> · {{ editingTiming.sections[bucketIndex].startTime }}{{ editingTiming.sections[bucketIndex].startDayOffset ? ' (+1 day)' : '' }} – {{ editingTiming.sections[bucketIndex].endTime }}{{ editingTiming.sections[bucketIndex].endDayOffset ? ' (+1 day)' : '' }}</span></p></div>
             <label class="dp-field"><span class="dp-label">Location (optional)</span><input v-model="bucket.location" maxlength="150" placeholder="e.g. Main Field" class="dp-input" /></label>
           </div>
           <label v-if="bucket.template_source" class="dp-field"><span class="dp-label">Section instructions</span><textarea v-model="bucket.note" class="dp-input"></textarea></label>
@@ -6051,6 +6056,7 @@ const del = async (p) => {
                 <button class="dp-x" title="Remove" @click="removeItem(bucket, it.id)">×</button>
               </div>
 
+              <label class="dp-field mt-2"><span class="dp-label">Drill time (minutes, including rest)</span><input v-model.number="it.plannedMinutes" type="number" min="0" max="1440" step="0.5" :placeholder="String(drillMinutes({...it, plannedMinutes: null}))" class="dp-input" /></label>
               <!-- STRENGTH: per-set prescription (type of reps) -->
               <div v-if="isStrengthItem(it) && !it.template_id" class="mt-2">
                 <div v-for="s in it.setList" :key="s.id" class="dp-set">

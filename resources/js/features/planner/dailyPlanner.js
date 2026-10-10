@@ -6,6 +6,7 @@
 // plans). Keep this file pure — API calls stay in the component.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { workoutTiming, restoreSectionTiming } from './lib/workoutTiming'
 import { BUCKET_BY_TYPE } from './lib/plannerBuckets'
 
 export const bucketTitle = (type) => BUCKET_BY_TYPE[type]?.title || type
@@ -13,14 +14,14 @@ export const bucketTitle = (type) => BUCKET_BY_TYPE[type]?.title || type
 export const uid = (p = 'dp') => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 export const todayISO = () => new Date().toISOString().slice(0, 10)
 
-// ~4 min per item, matching the app's rough estimate.
-export const estimateMinutes = (plan) =>
-  (plan.buckets || []).reduce((n, b) => n + (b.items || []).length, 0) * 4
+// Explicit section durations override drill totals; untimed drills default to 4 minutes.
+export const estimateMinutes = (plan) => workoutTiming(plan).minutes
 
 export function blankPlan() {
   return {
     id: uid('plan'),
     name: '',
+    startTime: '',
     date: todayISO(),
     phase: 'Foundation',
     primaryGoal: '',
@@ -32,11 +33,17 @@ export function blankPlan() {
   }
 }
 
+const timedBuckets = plan => {
+  if (plan.startTime === undefined) return plan.buckets || []
+  const timing = workoutTiming(plan)
+  return (plan.buckets || []).map((bucket, index) => ({...bucket, ...timing.sections[index], timingMode: 'automatic'}))
+}
+
 // ── shape mappers (web camelCase ↔ api snake_case) ───────────────────────────
 export const planToApi = (p, teamId) => ({
   id: p.id,
   version: p.version,
-  settings: p.settings,
+  settings: {...p.settings, ...(p.startTime !== undefined ? {workout_start_time: p.startTime || ''} : {})},
   ...(teamId ? { team_id: String(teamId) } : {}),
   name: p.name ?? '',
   date: p.date ?? null,
@@ -45,7 +52,7 @@ export const planToApi = (p, teamId) => ({
   estimated_minutes: estimateMinutes(p),
   workload_level: p.workloadLevel ?? null,
   status: p.status ?? 'draft',
-  buckets: Array.isArray(p.buckets) ? p.buckets : [],
+  buckets: timedBuckets(p),
   assigned_player_ids: Array.isArray(p.assignedPlayerIds) ? p.assignedPlayerIds.map(String) : [],
   published_at: p.publishedAt ?? null,
 })
@@ -54,12 +61,13 @@ export const planFromApi = (r = {}) => ({
   id: r.id,
   version: r.version,
   settings: r.settings,
+  startTime: r.settings?.workout_start_time ?? r.buckets?.find(b => b.startTime)?.startTime ?? '',
   name: r.name ?? '',
   date: r.date ?? todayISO(),
   phase: r.phase ?? 'Foundation',
   primaryGoal: r.primary_goal ?? '',
   workloadLevel: r.workload_level ?? 'Moderate',
-  buckets: Array.isArray(r.buckets) ? r.buckets : [],
+  buckets: Array.isArray(r.buckets) ? r.buckets.map(restoreSectionTiming) : [],
   assignedPlayerIds: Array.isArray(r.assigned_player_ids) ? r.assigned_player_ids.map(String) : [],
   status: r.status ?? 'draft',
   publishedAt: r.published_at ?? null,

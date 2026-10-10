@@ -5,7 +5,9 @@ describe('workout calendar dates', () => {
   it('retains scheduled times, location and notes when saving and reloading a workout', () => {
     const plan = {id:'p1',name:'Morning work',date:'2026-10-09',status:'draft',assignedPlayerIds:['u1'],buckets:[{type:'movement_prep',startTime:'07:00',endTime:'07:30',location:'Main Field',items:[]},{type:'coach_notes',note:'Focus on control',items:[]}]}
     const restored = planFromApi(planToApi(plan,'team1'))
-    expect(restored.buckets).toEqual(plan.buckets)
+    expect(restored.buckets).toMatchObject(plan.buckets)
+    expect(restored.startTime).toBe('07:00')
+    expect(restored.buckets[0].durationMinutes).toBe(30)
     expect(restored.date).toBe('2026-10-09')
     expect(restored.assignedPlayerIds).toEqual(['u1'])
   })
