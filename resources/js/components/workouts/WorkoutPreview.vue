@@ -1,5 +1,6 @@
 <script setup>
 import {ref, onMounted} from 'vue';
+import PlayerWorkoutPreview from './PlayerWorkoutPreview.vue';
 const props = defineProps({name: String, date: String, sections: Array, minutes: Number, startTime: String, endTime: String});
 const emit = defineEmits(['close']);
 const dialog = ref(null);
@@ -8,23 +9,7 @@ onMounted(() => dialog.value.showModal());
 <template>
   <dialog ref="dialog" class="workout-preview" aria-label="Workout preview" @close="emit('close')" @click="e => { if (e.target === dialog) dialog.close() }">
     <header><div><small>WORKOUT PREVIEW · UNSAVED CHANGES INCLUDED</small><h2>{{ name || 'Untitled workout' }}</h2></div><button type="button" autofocus @click="dialog.close()">Close preview</button></header>
-    <p>{{ date }} <span v-if="minutes != null">· {{ minutes }} min</span><span v-if="startTime"> · {{ startTime }} – {{ endTime }}</span></p>
-    <p v-if="!sections.length">No sections yet. Use a section and add drills to start building.</p>
-    <section v-for="(section, i) in sections" :key="i">
-      <h3>{{ i + 1 }}. {{ section.title || section.name }}</h3>
-      <p v-if="section.startTime">{{ section.startTime }} – {{ section.endTime }}</p>
-      <p v-if="section.note || section.instructions">{{ section.note || section.instructions }}</p>
-      <p v-if="section.kind === 'survey'">Players complete this survey in their workout.</p>
-      <p v-else-if="!(section.items || section.exercises || []).length">No drills added.</p>
-      <ol><li v-for="(item, j) in section.items || section.exercises || []" :key="j">
-        <strong>{{ item.name || item.exercise_name || 'Unnamed drill' }}</strong>
-        <p v-if="item.prescription_text">{{ item.prescription_text }}</p>
-        <p v-else><span v-if="item.sets != null">{{ item.sets }} sets · </span><span v-if="item.reps != null">{{ item.reps }} reps · </span><span v-if="item.throws != null">{{ item.throws }} throws · </span>{{ item.intensity }}</p>
-        <p v-for="(set, k) in item.setList || []" :key="k">Set {{ k + 1 }}: {{ set.targetReps }} reps · {{ set.prescriptionType }} <span v-if="set.weight">{{ set.weight }} lb</span><span v-if="set.percentage">{{ set.percentage }}%</span></p>
-        <p v-if="item.plannedMinutes != null">{{ item.plannedMinutes }} min</p>
-        <p v-if="item.note || item.instructions || item.coachCue">{{ item.note || item.instructions || item.coachCue }}</p>
-      </li></ol>
-    </section>
+    <PlayerWorkoutPreview :name="name" :date="date" :sections="sections" :minutes="minutes" :start-time="startTime" :end-time="endTime" />
   </dialog>
 </template>
 <style scoped>

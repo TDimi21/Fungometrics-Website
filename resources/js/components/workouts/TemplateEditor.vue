@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import WorkoutGuide from './WorkoutGuide.vue';
+import PlayerWorkoutPreview from './PlayerWorkoutPreview.vue';
 import WorkoutPreview from './WorkoutPreview.vue';
 import {searchDrills} from '@/features/planner/lib/plannerDrills';
 import {useAxiosAuth} from '@/composables/axios-auth';
@@ -100,6 +101,7 @@ function normalize() {
     <p v-if="formError" role="alert">{{ formError }}</p>
     <WorkoutGuide v-model:step="step" :buckets="guideBuckets" :included="draft.sections.map(s => s.section_type)" @use="addBlock" @preview="preview = true; libraryOpen = false" />
     <div v-if="step === guideBuckets.length + 1"><h3>Ready to save</h3><p>{{ draft.sections.length }} sections · {{ draft.sections.reduce((n,s) => n + s.exercises.length,0) }} drills. Preview your workout, then save it to your library.</p></div>
+    <PlayerWorkoutPreview v-if="step === guideBuckets.length + 1" :name="draft.name" :sections="draft.sections" :minutes="draft.estimated_duration_minutes" />
     <div v-show="step === 0" class="form-grid workout-settings">
       <label>Name<input v-model="draft.name" required maxlength="200" /></label
       ><label>Sport<input v-model="draft.sport" required /></label

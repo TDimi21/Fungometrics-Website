@@ -1,5 +1,6 @@
 <script setup>
 import WorkoutGuide from '@/components/workouts/WorkoutGuide.vue'
+import PlayerWorkoutPreview from '@/components/workouts/PlayerWorkoutPreview.vue'
 import WorkoutPreview from '@/components/workouts/WorkoutPreview.vue'
 import {workoutTiming, sectionMinutes, drillMinutes} from '@/features/planner/lib/workoutTiming'
 import PlannerStudioHome from '@/components/planner/PlannerStudioHome.vue'
@@ -6092,6 +6093,7 @@ const del = async (p) => {
           </template>
         </div>
 
+        <PlayerWorkoutPreview v-if="guideStep === BUCKETS.length + 1" :name="editing.name" :date="editing.date" :minutes="editingTiming.minutes" :start-time="editing.startTime" :end-time="editingTiming.endTime" :sections="editing.buckets.map((b,i) => ({...b, ...editingTiming.sections[i]}))" />
         <!-- Assign -->
         <div v-if="guideStep === BUCKETS.length + 1" class="dp-panel mt-4">
           <div class="dp-section flex items-center justify-between">
