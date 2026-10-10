@@ -40,6 +40,41 @@ class FreeAssessmentTest extends TestCase
     {
         return $this->putJson($this->url('/players/'.$this->player->id.'/stations/'.$station), ['values' => $values, 'revision' => $revision] + $extra);
     }
+    public function test_finalized_report_preserves_profile_and_benchmarks_until_reopened(): void
+    {
+        $this->save('broad_jump', [70,80,75])->assertOk();
+        $this->patchJson($this->url(), ['status'=>'completed'])->assertOk();
+        $path='/api/free-assessment-reports/'.$this->event->id.'/players/'.$this->player->id;
+        $before=$this->getJson($path)->assertOk()->json('data');
+        $this->assertNotNull($before['report_finalized_at']);
+        Profile::where('user_id',$this->player->id)->update(['first_name'=>'Changed']);
+        $after=$this->getJson($path)->assertOk()->json('data');
+        $this->assertSame($before['player']['name'],$after['player']['name']);
+        $this->assertSame($before['results'],$after['results']);
+        $this->patchJson($this->url(), ['status'=>'completed'])->assertOk();
+        $this->assertSame($before['results'],$this->getJson($path)->json('data.results'));
+        $this->patchJson($this->url(), ['status'=>'active'])->assertOk();
+        $this->assertNull($this->event->fresh()->report_snapshot);
+        $this->assertStringContainsString('Changed',$this->getJson($path)->json('data.player.name'));
+    }
+
+    public function test_report_distinguishes_partial_protocols_and_both_grip_hands(): void
+    {
+        $this->save('broad_jump',[70])->assertOk();
+        $this->save('grip_strength',[60,65,70,80,85,90])->assertOk();
+        $path='/api/free-assessment-reports/'.$this->event->id.'/players/'.$this->player->id;
+        $report=$this->getJson($path)->assertOk()->json('data');
+        $this->assertSame(2,$report['completed_stations']);
+        $this->assertSame(1,$report['full_protocol_stations']);
+        $grip=collect($report['results'])->firstWhere('station','grip_strength');
+        $this->assertEquals(70,$grip['grip_ranks']['left']['value']);
+        $this->assertEquals(90,$grip['grip_ranks']['right']['value']);
+        $team=$this->getJson($this->url('/team-report'))->assertOk()->json();
+        $this->assertSame(0,$team['complete_players']);
+        $this->assertContains('Broad Jump',$team['follow_up_players'][0]['remaining_protocols']);
+        $this->assertNotContains('Grip Strength',$team['follow_up_players'][0]['remaining_protocols']);
+    }
+
     public function test_retries_edits_and_other_stations_do_not_duplicate_or_overwrite_metrics(): void
     {
         $unrelated = PlayerFitness::create(['user_id' => $this->player->id, 'fitness_date' => now()->toDateString(), 'push_ups' => 12]);

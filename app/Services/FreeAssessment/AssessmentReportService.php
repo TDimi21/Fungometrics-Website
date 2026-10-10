@@ -26,6 +26,9 @@ class AssessmentReportService
     }
     public function snapshot(FreeAssessment $event): array
     {
+        if ($event->status === 'completed' && $event->report_snapshot) {
+            return ['assessment'=>$event, 'stations'=>$event->report_snapshot['stations'], 'players'=>collect($event->report_snapshot['players']), 'results'=>collect($event->report_snapshot['results'])];
+        }
         $players = $event->participants()->with(['profile', 'player', 'fitness', 'positions'])->get()->map(fn ($p) => $this->player($p, $event->assessment_date->toDateString()))->values();
         $results = $event->results()->with(['coach.profile', 'currentAttempts'])->orderByDesc('updated_at')->orderBy('id')->get()->map(function ($r) {
             return [
@@ -33,6 +36,9 @@ class AssessmentReportService
                 'summary' => $r->summary, 'notes' => $r->notes, 'protocol' => $r->protocol,
                 'values' => Stations::attemptValues($r->station, $r->currentAttempts),
                 'updated_at' => $r->updated_at->toIso8601String(),
+                'recorded_attempts' => $r->currentAttempts->count(),
+                'expected_attempts' => Stations::all()[$r->station]['count'],
+                'protocol_complete' => $r->currentAttempts->count() === Stations::all()[$r->station]['count'],
                 'coach' => trim(($r->coach?->profile?->first_name ?? '').' '.($r->coach?->profile?->last_name ?? '')) ?: 'Coach',
             ];
         })->values();
@@ -40,6 +46,9 @@ class AssessmentReportService
     }
     public function rankings(FreeAssessment $event, ?string $playerId = null): array
     {
+        if ($event->status === 'completed' && $event->report_snapshot) {
+            return collect($event->report_snapshot['rankings'])->filter(fn($r) => $playerId === null || $r['player_id'] === $playerId)->values()->all();
+        }
         $snapshot = $this->snapshot($event);
         $players = $snapshot['players']->keyBy('id');
         $results = $snapshot['results'];
@@ -65,6 +74,13 @@ class AssessmentReportService
                 'population_percentile' => $population['percentile'] ?? null,
                 'confidence' => $population['confidence'] ?? 'unavailable',
                 'peer_confidence' => $research['confidence'] ?? 'unavailable',
+                'benchmark_evidence' => ['research'=>$research['evidence'] ?? [], 'population'=>$population['evidence'] ?? [], 'calculated_at'=>now()->toIso8601String()],
+                'comparison_basis' => $r['station'] === 'grip_strength' ? 'Left hand only' : 'Best recorded attempt',
+                'grip_ranks' => $r['station'] === 'grip_strength' ? collect(['left','right'])->mapWithKeys(function ($side) use ($r,$results) {
+                    $v = $r['summary'][$side]['best'];
+                    $values = $results->where('station','grip_strength')->pluck('summary.'.$side.'.best')->filter(fn($n) => $n !== null);
+                    return [$side=>['value'=>$v,'rank'=>$v === null ? null : 1+$values->filter(fn($n) => $n > $v)->count(), 'participants'=>$values->count()]];
+                })->all() : null,
                 'benchmark_note' => $supported ? null : 'No compatible benchmark or valid comparison range is available.',
             ];
         })->all();
@@ -83,7 +99,7 @@ class AssessmentReportService
             foreach ('grip_strength' === $key ? ['Left Best', 'Left Average', 'Right Best', 'Right Average'] : ['Best', 'Average'] as $label) {
                 $headers[] = "{$prefix} {$label}";
             }
-            foreach (['Assessment Rank', 'Age/Peer Percentile', 'Yard/FMTRX Percentile', 'Confidence', 'Protocol'] as $label) {
+            foreach (['Assessment Rank', 'Age/Peer Percentile', 'Yard/FMTRX Percentile', 'Confidence', 'Protocol', 'Full Protocol', 'Comparison Basis', 'Right Grip Rank', 'Right Grip Participants'] as $label) {
                 $headers[] = $station['name'].' '.$label;
             }
         }
@@ -103,6 +119,10 @@ class AssessmentReportService
                 foreach (['rank', 'peer_percentile', 'population_percentile', 'confidence', 'protocol'] as $field) {
                     $row[] = $r[$field] ?? null;
                 }
+                $row[] = $r ? (!empty($r['protocol_complete']) ? 'Yes' : 'Partial') : 'Not tested';
+                $row[] = $r['comparison_basis'] ?? null;
+                $row[] = $r['grip_ranks']['right']['rank'] ?? null;
+                $row[] = $r['grip_ranks']['right']['participants'] ?? null;
             }
             // Prevent spreadsheet formula execution from names and other user-entered cells.
             fputcsv($stream, array_map(fn ($v) => is_string($v) && preg_match('/^[\s]*[=+@\-]/u', $v) ? "'".$v : $v, $row));

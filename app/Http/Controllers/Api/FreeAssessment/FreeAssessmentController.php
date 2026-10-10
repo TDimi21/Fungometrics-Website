@@ -40,7 +40,18 @@ class FreeAssessmentController extends Controller
         $this->access->event($request->user(), $assessment);
         $data = $request->validate(['status' => 'required|in:active,completed']);
         DB::transaction(function () use ($assessment, $data): void {
-            FreeAssessment::whereKey($assessment->id)->lockForUpdate()->firstOrFail()->update($data);
+            $event = FreeAssessment::whereKey($assessment->id)->lockForUpdate()->firstOrFail();
+            if ($event->status === $data['status']) return;
+            if ($data['status'] === 'completed') {
+                $snapshot = $this->reports->snapshot($event);
+                $event->report_snapshot = [
+                    'schema_version'=>1, 'finalized_at'=>now()->toIso8601String(),
+                    'players'=>$snapshot['players']->all(), 'results'=>$snapshot['results']->all(),
+                    'stations'=>$snapshot['stations'], 'rankings'=>$this->reports->rankings($event),
+                ];
+            } else $event->report_snapshot = null;
+            $event->status = $data['status'];
+            $event->save();
         });
         return response()->json(['status' => $data['status']]);
     }

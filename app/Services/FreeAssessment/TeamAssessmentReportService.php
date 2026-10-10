@@ -35,7 +35,7 @@ class TeamAssessmentReportService
                     $rows[] = [
                         'station' => $station, 'name' => $definition['name'].($side ? ' — '.ucfirst($side) : ''),
                         'side' => $side, 'protocol' => $protocol ?: null, 'unit' => $definition['unit'],
-                        'lower_is_better' => $lower, 'tested' => $values->count(), 'total_players' => $players->count(),
+                        'lower_is_better' => $lower, 'tested' => $values->count(), 'full_protocol_players'=>$group->where('protocol_complete',true)->count(), 'total_players' => $players->count(),
                         'average_best' => $values->isEmpty() ? null : round((float) $values->avg('best'), 3),
                         'average_attempts' => $values->whereNotNull('average')->isEmpty() ? null : round((float) $values->avg('average'), 3),
                         'best' => $sorted->first()['best'] ?? null, 'leaders' => $leaders,
@@ -43,9 +43,14 @@ class TeamAssessmentReportService
                 }
             }
         }
-        $complete = $players->filter(fn ($p) => $results->where('player_id', $p['id'])->count() === count(Stations::all()))->count();
+        $complete = $players->filter(fn ($p) => $results->where('player_id', $p['id'])->where('protocol_complete', true)->count() === count(Stations::all()))->count();
         return [
             'assessment' => ['id' => $event->id, 'name' => $event->name, 'assessment_date' => $event->assessment_date->toDateString(), 'location' => $event->location, 'team_name' => $event->team?->name],
+            'follow_up_players'=>$players->map(function ($p) use ($results) {
+                $recorded=$results->where('player_id',$p['id']);
+                return ['player_id'=>$p['id'],'name'=>$p['name'],'recorded_stations'=>$recorded->count(),'full_protocol_stations'=>$recorded->where('protocol_complete',true)->count(),'remaining_protocols'=>collect(Stations::all())->filter(fn($def,$key) => !$recorded->where('station',$key)->where('protocol_complete',true)->count())->pluck('name')->values()->all()];
+            })->filter(fn($p) => count($p['remaining_protocols']))->values()->all(),
+            'report_finalized_at'=>$event->report_snapshot['finalized_at'] ?? null,
             'total_players' => $players->count(), 'complete_players' => $complete,
             'average_stations_completed' => $players->isEmpty() ? 0 : round($results->count() / $players->count(), 2),
             'total_stations' => count(Stations::all()), 'stations' => $rows,
@@ -55,12 +60,12 @@ class TeamAssessmentReportService
     public function csv(array $report): string
     {
         $stream = fopen('php://temp', 'r+');
-        fputcsv($stream, ['Station', 'Protocol', 'Unit', 'Tested', 'Enrolled', 'Team average of player bests', 'Team average of player attempt averages', 'Best result', 'Top rank', 'Player', 'Player result']);
+        fputcsv($stream, ['Station', 'Protocol', 'Unit', 'Tested', 'Enrolled', 'Full protocol players', 'Team average of player bests', 'Team average of player attempt averages', 'Best result', 'Top rank', 'Player', 'Player result']);
         foreach ($report['stations'] as $station) {
             $leaders = collect($station['leaders']);
             if ($leaders->isEmpty()) $leaders = collect([[]]);
             foreach ($leaders as $leader) {
-                $row = [$station['name'], $station['protocol'], $station['unit'], $station['tested'], $station['total_players'], $station['average_best'], $station['average_attempts'], $station['best'], $leader['rank'] ?? null, $leader['name'] ?? null, $leader['best'] ?? null];
+                $row = [$station['name'], $station['protocol'], $station['unit'], $station['tested'], $station['total_players'], $station['full_protocol_players'], $station['average_best'], $station['average_attempts'], $station['best'], $leader['rank'] ?? null, $leader['name'] ?? null, $leader['best'] ?? null];
                 fputcsv($stream, array_map(fn ($value) => is_string($value) && preg_match('/^\s*[=+@\-]/u', $value) ? "'".$value : $value, $row));
             }
         }

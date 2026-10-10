@@ -13,7 +13,8 @@ class FreeAssessment extends Model
     public $incrementing = false;
     protected $keyType = 'string';
     protected $guarded = ['id'];
-    protected $casts = ['assessment_date' => 'date'];
+    protected $casts = ['assessment_date' => 'date', 'report_snapshot' => 'array'];
+    protected $hidden = ['report_snapshot'];
     public function team()
     {
         return $this->belongsTo(Team::class);

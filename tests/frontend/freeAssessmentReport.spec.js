@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { categoryTiles, historicalComparison, ordinal } from '../../resources/js/components/free-assessment/reportPresentation'
+import { categoryTiles, historicalComparison, ordinal, recommendationEligible } from '../../resources/js/components/free-assessment/reportPresentation'
 
 describe('Free Assessment report presentation', () => {
   it('distinguishes missing percentile from a genuine zero and formats ordinals', () => {
@@ -10,11 +10,16 @@ describe('Free Assessment report presentation', () => {
   })
   it('shows a named recorded test rather than inventing category scores', () => {
     const tiles = categoryTiles({ results: [{ station: 'pushups', peer_percentile: 0 }] })
-    expect(tiles).toHaveLength(6)
+    expect(tiles).toHaveLength(9)
     expect(tiles[0].percentile).toBeNull()
-    expect(tiles[5].percentile).toBe(0)
-    expect(tiles[5].result.station).toBe('pushups')
+    expect(tiles[7].percentile).toBe(0)
+    expect(tiles[7].result.station).toBe('pushups')
     expect(tiles[5].score).toBeUndefined()
+  })
+  it('excludes partial and low-confidence results from recommendations', () => {
+    expect(recommendationEligible({peer_percentile:90,peer_confidence:'low',protocol_complete:true})).toBe(false)
+    expect(recommendationEligible({peer_percentile:90,peer_confidence:'high',protocol_complete:false})).toBe(false)
+    expect(recommendationEligible({peer_percentile:90,peer_confidence:'high',protocol_complete:true})).toBe(true)
   })
   it('recognizes faster times and preserves zero repetition baselines', () => {
     const report = { stations: { sprint_10yd: { lower: true }, pushups: {} }, results: [{ station: 'sprint_10yd', summary: { best: 1.8 } }, { station: 'pushups', summary: { best: 4 } }], history: [{ assessment_date: '2026-09-01', results: [{ station: 'sprint_10yd', summary: { best: 2 } }, { station: 'pushups', summary: { best: 0 } }] }] }

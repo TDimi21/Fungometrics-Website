@@ -77,7 +77,9 @@ class PlayerAssessmentReportController extends Controller
             ])->values();
         return response()->json(['data' => [
             'assessment' => ['id' => $assessment->id, 'name' => $assessment->name, 'location' => $assessment->location, 'assessment_date' => $assessment->assessment_date->toDateString(), 'status' => $assessment->status],
-            'player' => $this->reports->player($player, $assessment->assessment_date->toDateString()) + ['picture' => $player->profile?->picture],
+            'player' => (collect($assessment->report_snapshot['players'] ?? [])->firstWhere('id',$player->id) ?? $this->reports->player($player, $assessment->assessment_date->toDateString())) + ['picture' => $player->profile?->picture],
+            'report_finalized_at'=>$assessment->report_snapshot['finalized_at'] ?? null,
+            'full_protocol_stations'=>$results->where('protocol_complete',true)->count(),
             'history' => $history,
             'overall_score' => null,
             'overall_score_note' => 'An overall score is not available for this assessment protocol.',
