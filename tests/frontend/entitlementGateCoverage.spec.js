@@ -38,8 +38,8 @@ describe('web entitlement gate coverage', () => {
     const page = source('resources/js/pages/Purchase.vue')
     expect(router).toContain('path: "/purchase"')
     expect(router).toContain('name: "purchase"')
-    expect(page).toContain('Web checkout is not available')
-    expect(page).toContain("me/billing/revenuecat/products")
+    expect(page).toContain('FMTRX is free')
+    expect(page).not.toContain("me/billing/revenuecat/products")
     expect(page).not.toMatch(/purchasePackage|createPaymentIntent|checkout\.sessions/i)
   })
 

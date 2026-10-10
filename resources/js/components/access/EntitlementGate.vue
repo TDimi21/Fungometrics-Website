@@ -28,11 +28,9 @@ onMounted(async () => {
   <slot v-else-if="allowed" />
   <slot v-else name="locked">
     <section class="mx-auto max-w-xl rounded-xl border border-white/10 bg-white/5 p-6 text-center text-white">
-      <h2 class="text-xl font-bold">Upgrade required</h2>
-      <p class="mt-2 text-white/70">{{ label }} is not included in your current access.</p>
-      <RouterLink class="mt-4 inline-block font-bold text-fungo-red" to="/purchase">
-        View plans
-      </RouterLink>
+      <h2 class="text-xl font-bold">Access unavailable</h2>
+      <p class="mt-2 text-white/70">{{ label }} is unavailable for this account or could not be loaded. Check your connection and selected team.</p>
+      <button class="mt-4 inline-block font-bold text-fungo-red" @click="access.refresh()">Refresh access</button>
     </section>
   </slot>
 </template>

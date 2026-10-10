@@ -98,10 +98,10 @@ class EntitlementResolver
         usort($sources, fn (array $a, array $b): int => $this->sourceRank($b) <=> $this->sourceRank($a)
             ?: strcmp($a['identity'], $b['identity']));
         $effective = $sources[0];
-        $limits = 'temporary_full_access' === $effective['source']
+        $limits = in_array($effective['source'], ['free_access', 'temporary_full_access'], true)
             ? array_replace(
                 ['players' => null, 'coaches' => null, 'teams' => null],
-                config('access.temporary_full_access.limits', [])
+                $effective['source'] === 'free_access' ? [] : config('access.temporary_full_access.limits', [])
             )
             : $this->limits($effective['plan'], $audience);
         if (
@@ -117,6 +117,8 @@ class EntitlementResolver
         $usage = $this->usage($user, $teamId, $audience, $limits);
 
         return [
+            'free_access' => 'free_access' === $effective['source'],
+            'billing_enabled' => !in_array($effective['source'], ['free_access', 'temporary_full_access'], true),
             'plan' => $effective['plan'],
             'source_plan' => $effective['plan'],
             'effective_access_tier' => $this->effectiveAccessTier($effective['plan'], $audience, $teamId),
@@ -285,12 +287,13 @@ class EntitlementResolver
     /** @return array<string, mixed>|null */
     private function temporaryFullAccessSource(string $audience): ?array
     {
-        if (true !== config('access.temporary_full_access.enabled')) {
+        $freeAccess = true === config('access.free_access_enabled');
+        if (!$freeAccess && true !== config('access.temporary_full_access.enabled')) {
             return null;
         }
 
         $plan = config("access.temporary_full_access.plans.{$audience}");
-        $endsAt = trim((string) config('access.temporary_full_access.ends_at'));
+        $endsAt = $freeAccess ? '' : trim((string) config('access.temporary_full_access.ends_at'));
         if ( ! is_string($plan) || '' === $plan) {
             return null;
         }
@@ -315,7 +318,7 @@ class EntitlementResolver
         return $this->source(
             $plan,
             $entitlements,
-            'temporary_full_access',
+            $freeAccess ? 'free_access' : 'temporary_full_access',
             'active',
             null,
             $expires,
@@ -327,7 +330,7 @@ class EntitlementResolver
 
     private function sourceRank(array $source): int
     {
-        if ('temporary_full_access' === $source['source']) {
+        if (in_array($source['source'], ['free_access', 'temporary_full_access'], true)) {
             return PHP_INT_MAX;
         }
 

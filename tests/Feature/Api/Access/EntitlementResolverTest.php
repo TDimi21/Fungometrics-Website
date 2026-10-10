@@ -29,6 +29,34 @@ class EntitlementResolverTest extends TestCase
         $this->resolver = app(EntitlementResolver::class);
     }
 
+    public function test_permanent_free_access_unlocks_both_roles_without_billing_or_expiration(): void
+    {
+        config(['access.free_access_enabled' => true, 'access.temporary_full_access.enabled' => false,
+            'access.temporary_full_access.ends_at' => now()->subYear()->toIso8601String()]);
+        foreach (['coach', 'player'] as $role) {
+            $user = User::factory()->create(['type' => $role, 'subscription_plan' => 'free']);
+            $summary = $this->resolver->getAccessSummary($user);
+            $this->assertSame('free_access', $summary['source']);
+            $this->assertTrue($summary['free_access']);
+            $this->assertFalse($summary['billing_enabled']);
+            $this->assertNull($summary['expires_at']);
+            $this->assertSame(['players' => null, 'coaches' => null, 'teams' => null], $summary['limits']);
+            $excluded = array_merge(config('entitlements.deprecated', []), config('entitlements.not_implemented', []));
+            foreach (array_diff(config("access.plans.{$role}_pro.entitlements"), $excluded) as $feature) {
+                $this->assertContains($feature, $summary['entitlements']);
+            }
+            Sanctum::actingAs($user, [$role]);
+            $this->getJson('/api/me/access')->assertOk()->assertJsonPath('data.free_access', true);
+            $this->getJson('/api/me/billing/revenuecat/products')->assertOk()->assertJsonPath('data', []);
+            $this->assertFalse(app(\App\Services\Access\AdministrativeAccess::class)->canManageSubscriptions($user));
+            $this->assertSame('free', $user->fresh()->subscription_plan);
+        }
+        $this->assertFalse($this->resolver->hasEntitlement($user, 'edit_team'));
+        $this->assertDatabaseCount('subscriptions', 0);
+        $this->expectException(\Illuminate\Validation\UnauthorizedException::class);
+        $this->resolver->getAccessSummary($user, Team::factory()->create()->id);
+    }
+
     public function test_legacy_plans_retain_their_entitlements(): void
     {
         $free = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'free']);

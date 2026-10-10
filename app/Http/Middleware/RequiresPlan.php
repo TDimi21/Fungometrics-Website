@@ -62,7 +62,7 @@ class RequiresPlan
         return null;
     }
 
-    private function denied(string $feature, string $plan, ?string $teamId, string $message = 'Your current plan does not include access to this feature. Please upgrade.'): Response
+    private function denied(string $feature, string $plan, ?string $teamId, string $message = 'This feature is unavailable for this account or team.'): Response
     {
         return response()->json([
             'success' => false,

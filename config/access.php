@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    // Permanent free access for all authenticated coaches and players.
+    'free_access_enabled' => (bool) env('FMTRX_FREE_ACCESS_ENABLED', true),
     'admin_emails' => array_values(array_filter(array_map('trim', explode(',', (string) env('SUBSCRIPTION_ADMIN_EMAILS', 'admin@fungometrics.com'))))),
     'administrative_entitlements' => ['data_hub_import'],
     /*
