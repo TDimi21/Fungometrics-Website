@@ -9,15 +9,19 @@ const root = path.resolve(__dirname, '../..')
 const source = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
 describe('Data Hub Phase 1', () => {
-  it('provides an entitled coach-only Data Hub entry point in the dashboard tabs', () => {
+  it('provides an entitled Data Hub entry point in the shared coach header', () => {
     const dashboard = source('resources/js/pages/dashboard/Index.vue')
     const router = source('resources/router/index.js')
 
-    expect(dashboard).toContain("setDashTab('datahub')")
-    expect(dashboard).toContain('v-if="canAccessDataHub"')
+    const header = source('resources/js/layout/CoachHeader.vue')
+    const layout = source('resources/js/layout/Layout.vue')
+
+    expect(layout).toContain('<CoachHeader v-if="userType !== \'player\'"')
+    expect(header).toMatch(/access\.canAccess\('data_hub_import'\)[\s\S]*subscription_admin[\s\S]*\?\s*\[\{id:'datahub', label:'Data Hub', to:\{path:'\/dashboard', query:\{tab:'datahub'\}\}\}\]\s*:\s*\[\]/)
+    expect(header).toContain('v-for="link in links"')
+    expect(header).toContain(':to="link.to"')
     expect(dashboard).toContain("access.canAccess('data_hub_import')")
-    expect(dashboard).toContain('>Data Hub</button>')
-    expect(dashboard).toContain('<DataHubDashboard')
+    expect(dashboard).toContain('<DataHubDashboard v-if="dashTab === \'datahub\' && canAccessDataHub" embedded />')
     expect(router).toContain('path: "/data-hub"')
     expect(router).toContain('path: "/data-hub/import"')
     expect(router).toContain('coachOnly: true')
