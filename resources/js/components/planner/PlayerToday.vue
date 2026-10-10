@@ -34,6 +34,7 @@ const normalize = (p) => ({
     items: { ...p.progress?.items },
     readiness: { ...p.progress?.readiness },
     post_training: { ...p.progress?.post_training },
+    reflection: { ...p.progress?.reflection },
   },
 });
 const cacheKey = (day) => `fmtrx-planner-v2:${user.userData.id}:${day}`;
@@ -145,6 +146,7 @@ function addThrows(plan, item) {
 }
 async function save(plan, finish = false) {
   if (busy.value) return;
+  if (finish && (!plan.progress.reflection.workout_rating || !plan.progress.reflection.session_rpe)) { error.value = 'Enter a workout rating and session effort before submitting.'; return; }
   busy.value = true;
   error.value = "";
   markPending(plan);
@@ -156,7 +158,8 @@ async function save(plan, finish = false) {
       version: plan.progress.version,
       items: plan.progress.items,
       readiness: plan.progress.readiness,
-      post_training: plan.progress.post_training,
+      reflection: plan.progress.reflection,
+      post_training: {...plan.progress.post_training, overall_effort: plan.progress.reflection.session_rpe ?? plan.progress.post_training.overall_effort},
       ...(finish ? { completed_at: new Date().toISOString() } : {}),
     };
     const r = await axiosPost(
@@ -311,6 +314,13 @@ async function adjust(plan, behavior) {
     >
       <small>{{ plan.source.name || "Assigned training" }}</small>
       <h2>{{ plan.name }}</h2>
+      <section class="today-block" v-if="plan.progress.completed_at" aria-label="Submitted workout">
+        <h3>Workout submitted</h3>
+        <p v-if="plan.progress.feedback_summary">{{ plan.progress.feedback_summary.completed_drills }}/{{ plan.progress.feedback_summary.counted_drills }} counted drills completed · Readiness: {{ plan.progress.feedback_summary.checks.readiness.status }} · Reflection: {{ plan.progress.feedback_summary.checks.reflection.status }}</p>
+        <h3>Coach feedback</h3>
+        <p>{{ plan.progress.coach_review?.feedback || (plan.progress.coach_review?.reviewed ? 'Your coach reviewed this workout.' : 'Awaiting coach review.') }}</p>
+      </section>
+
       <p v-if="plan.pending">
         Changes pending ·
         <button @click="discardPending(plan)">Reload saved results</button>
@@ -539,12 +549,16 @@ async function adjust(plan, behavior) {
           </div>
         </article>
       </section>
-      <details open>
-        <summary>Post-training check-in</summary>
+      <details :open="!plan.progress.completed_at">
+        <summary>Player Reflection · Finish your workout</summary>
+        <div class="today-fields">
+          <label>Workout rating (1–5)<input type="number" min="1" max="5" v-model.number="plan.progress.reflection.workout_rating" /></label>
+          <label>Session effort (1–10)<input type="number" min="1" max="10" v-model.number="plan.progress.reflection.session_rpe" /></label>
+          <label>Player comments<textarea v-model="plan.progress.reflection.comments" placeholder="What went well? What was unfinished, and why?" maxlength="2000" /></label>
+        </div>
         <div class="today-fields">
           <label
             v-for="key in [
-              'overall_effort',
               'overall_fatigue',
               'arm_fatigue',
               'arm_soreness',
@@ -573,7 +587,7 @@ async function adjust(plan, behavior) {
         </p>
       </details>
       <button class="primary" :disabled="busy" @click="save(plan, true)">
-        {{ busy ? "Saving…" : "Finish & Send to Coach →" }}
+        {{ busy ? "Saving…" : plan.progress.completed_at ? "Update submitted results" : "Submit workout to coach →" }}
       </button>
       <div
         v-if="date < localDateKey() && !plan.completion.completed_at"

@@ -158,14 +158,13 @@ const markReviewed = async () => {
     })
     ok = true
   } catch { ok = false }
-  // Reflect the review locally in both the detail and the list row.
-  selected.value.progress = { ...(selected.value.progress || {}), coachReview: nextReview }
+  if (!ok) { saving.value = false; savedNotice.value = 'Feedback was not sent. Your text is kept here—try saving again.'; return }
+  // Reflect a confirmed review in both the detail and the list row.
+  selected.value.progress = { ...(selected.value.progress || {}), coachReview: nextReview, feedbackSummary: null }
   const row = rows.value.find((r) => String(r.player.id) === String(playerId))
-  if (row) row.progress = { ...(row.progress || {}), coachReview: nextReview }
+  if (row) row.progress = { ...(row.progress || {}), coachReview: nextReview, feedbackSummary: null }
   saving.value = false
-  savedNotice.value = ok
-    ? 'Reviewed — your feedback is shared with the player.'
-    : 'Saved on this device — it will sync when the connection returns.'
+  savedNotice.value = 'Reviewed — your feedback is shared with the player.'
 }
 </script>
 
@@ -250,32 +249,21 @@ const markReviewed = async () => {
         </div>
         <div class="cwp-time-row">
           <span>Started {{ fmtTime(selected.progress?.startedAt) }}</span>
-          <span>Completed {{ fmtTime(selected.progress?.completedAt) }}</span>
+          <span>Submitted {{ fmtTime(selected.progress?.completedAt) }}</span>
         </div>
       </div>
 
       <div class="cwp-panel"><p>Readiness: {{ workoutFeedback(plan, selected.progress).checks.readiness.status }} · Reflection: {{ workoutFeedback(plan, selected.progress).checks.reflection.status }}</p><p v-for="reason in workoutFeedback(plan, selected.progress).attention_reasons" :key="reason">{{ reason }}</p></div>
-      <div class="cwp-section">Player Reflection</div>
+      <div class="cwp-section">Coach Feedback</div>
       <div class="cwp-panel">
-        <div class="cwp-rating-row">
-          <span class="cwp-rating-l">Workout rating</span>
-          <span class="cwp-rating-v">{{ selReflection.workout_rating != null ? `${selReflection.workout_rating}/5` : '—' }}</span>
-        </div>
-        <div v-for="f in reflectionFields" :key="f.key" class="cwp-row">
-          <span class="cwp-row-l">{{ f.label }}</span>
-          <span class="cwp-row-v">{{ fmtVal(selReflection[f.key]) }}</span>
-        </div>
+        <textarea v-model="feedback" class="cwp-feedback" placeholder="Add feedback the player will see…" rows="3"></textarea>
+        <p v-if="selReviewed" class="cwp-reviewed-note">Reviewed {{ fmtTime(selected.progress?.coachReview?.reviewedAt) }}</p>
+        <p v-if="savedNotice" class="cwp-saved">{{ savedNotice }}</p>
+        <button class="cwp-review-btn" :disabled="saving" @click="markReviewed">
+          <span>✔</span> {{ saving ? 'Saving…' : selReviewed ? 'Update Review' : 'Mark Reviewed' }}
+        </button>
       </div>
-
-      <div class="cwp-section">Readiness<span v-if="rScore != null"> · {{ rScore }} ({{ rStatus.label }})</span></div>
-      <div class="cwp-panel">
-        <div v-for="f in readinessFields" :key="f.key" class="cwp-row">
-          <span class="cwp-row-l">{{ f.label }}</span>
-          <span class="cwp-row-v">{{ fmtVal(selReadiness[f.key]) }}</span>
-        </div>
-      </div>
-
-      <div class="cwp-section">Workout Breakdown</div>
+      <div class="cwp-section">Assigned vs. completed</div>
       <div v-if="!hasExercises" class="cwp-panel cwp-dim">No exercises in this workout.</div>
       <template v-else>
         <div v-for="bucket in contentBuckets" :key="bucket.type" class="cwp-panel">
@@ -307,15 +295,28 @@ const markReviewed = async () => {
         </div>
       </template>
 
-      <div class="cwp-section">Coach Feedback</div>
+<details class="cwp-panel"><summary>View readiness and reflection details</summary>
+      <div class="cwp-section">Player Reflection</div>
       <div class="cwp-panel">
-        <textarea v-model="feedback" class="cwp-feedback" placeholder="Add feedback the player will see…" rows="3"></textarea>
-        <p v-if="selReviewed" class="cwp-reviewed-note">Reviewed {{ fmtTime(selected.progress?.coachReview?.reviewedAt) }}</p>
-        <p v-if="savedNotice" class="cwp-saved">{{ savedNotice }}</p>
-        <button class="cwp-review-btn" :disabled="saving" @click="markReviewed">
-          <span>✔</span> {{ saving ? 'Saving…' : selReviewed ? 'Update Review' : 'Mark Reviewed' }}
-        </button>
+        <div class="cwp-rating-row">
+          <span class="cwp-rating-l">Workout rating</span>
+          <span class="cwp-rating-v">{{ selReflection.workout_rating != null ? `${selReflection.workout_rating}/5` : '—' }}</span>
+        </div>
+        <div v-for="f in reflectionFields" :key="f.key" class="cwp-row">
+          <span class="cwp-row-l">{{ f.label }}</span>
+          <span class="cwp-row-v">{{ fmtVal(selReflection[f.key]) }}</span>
+        </div>
       </div>
+
+      <div class="cwp-section">Readiness<span v-if="rScore != null"> · {{ rScore }} ({{ rStatus.label }})</span></div>
+      <div class="cwp-panel">
+        <div v-for="f in readinessFields" :key="f.key" class="cwp-row">
+          <span class="cwp-row-l">{{ f.label }}</span>
+          <span class="cwp-row-v">{{ fmtVal(selReadiness[f.key]) }}</span>
+        </div>
+      </div>
+
+</details>
     </template>
   </div>
 </template>
