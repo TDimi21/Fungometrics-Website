@@ -13,7 +13,7 @@ import {
 } from '@/features/planner/lib/workoutProgress.js'
 import { progressFromApi, bucketTitle } from '@/features/planner/dailyPlanner.js'
 
-const props = defineProps({ plan: { type: Object, required: true } })
+const props = defineProps({ plan: { type: Object, required: true }, initialPlayerId: {type: [String, Number], default: null} })
 const emit = defineEmits(['back'])
 const { axiosGet, axiosPost } = useAxiosAuth()
 
@@ -114,7 +114,12 @@ const openPlayer = (e) => {
   feedback.value = e.progress?.coachReview?.feedback || ''
   savedNotice.value = ''
 }
-const closePlayer = () => { selected.value = null }
+watch([enriched, () => props.initialPlayerId], ([players, playerId]) => {
+  if (playerId == null || selected.value) return
+  const player = players.find(row => String(row.player.id) === String(playerId))
+  if (player) openPlayer(player)
+}, {immediate: true})
+const closePlayer = () => { if (props.initialPlayerId != null) emit('back'); else selected.value = null }
 
 const contentBuckets = computed(() =>
   (props.plan?.buckets || []).filter((b) => (BUCKET_BY_TYPE[b.type]?.kind || 'content') === 'content'))

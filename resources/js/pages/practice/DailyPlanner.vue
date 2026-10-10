@@ -48,6 +48,7 @@ const plans = ref([])
 const groups = ref([])
 const teamPlayers = ref([])
 const editing = ref(null)
+const initialReviewPlayer = ref(null)
 const viewingPlayers = ref(null)   // a published plan being reviewed in the View Players flow
 const loading = ref(false)
 const saving = ref(false)
@@ -1032,7 +1033,7 @@ watch(activeTeamId, () => { if (!teamManagementOpen.value) { loadPlans(); loadRo
 const newPlan = (date) => { guideStep.value = 0; if (typeof date === 'string') calendarDate.value = date; editing.value = { ...blankPlan(), date: calendarDate.value } }
 const editPlan = (p) => { editing.value = JSON.parse(JSON.stringify(p)) }
 // Open the app-style "View Players" review flow for a published plan.
-const viewPlayers = (p) => { viewingPlayers.value = JSON.parse(JSON.stringify(p)) }
+const viewPlayers = (p, playerId = null) => { initialReviewPlayer.value = playerId; viewingPlayers.value = JSON.parse(JSON.stringify(p)) }
 // Clone a plan into the builder as a fresh draft.
 const duplicatePlan = (p) => {
   const copy = JSON.parse(JSON.stringify(p))
@@ -2969,7 +2970,7 @@ const del = async (p) => {
 
       <p v-if="plannerLinkError" role="alert" class="dp-hint mb-4">{{ plannerLinkError }}</p>
       <!-- ══ VIEW PLAYERS (per-player progress + review) ══ -->
-      <CoachWorkoutPlayers v-if="viewingPlayers" :plan="viewingPlayers" @back="viewingPlayers = null" />
+      <CoachWorkoutPlayers v-if="viewingPlayers" :plan="viewingPlayers" :initial-player-id="initialReviewPlayer" @back="viewingPlayers = null" />
 
       <WorkoutLibrary v-else-if="!editing && ['library','programs'].includes(workoutPanel)" :key="workoutPanel" embedded :initial-tab="workoutPanel === 'programs' ? 'programs' : 'library'" :initial-date="calendarDate" />
       <PlannerStudioHome v-else-if="!editing && workoutPanel === 'assignments'" initial-tab="assignments" embedded @create="newPlan" @edit="p=>editPlan(planFromApi(p))" @advanced="openTeamManagement" />
@@ -2983,7 +2984,7 @@ const del = async (p) => {
           <div class="flex flex-wrap items-center gap-2"><button class="dp-btn dp-btn--primary" @click="newPlan(calendarDate)">＋ Quick Workout</button><button class="dp-btn" aria-label="Previous day" @click="calendarDate=shiftCalendarDate(calendarDate,-1)">‹</button><input class="dp-input" style="width:auto;color-scheme:dark" type="date" aria-label="Selected planner date" :value="calendarDate" @change="$event.target.value && (calendarDate=$event.target.value)"><button class="dp-btn" aria-label="Next day" @click="calendarDate=shiftCalendarDate(calendarDate,1)">›</button><button class="dp-btn" @click="calendarDate=localDateKey()">Today</button><button class="dp-btn" @click="plannerView=plannerView==='day'?'calendar':'day'">{{ plannerView==='day'?'Week / Month':'Day Schedule' }}</button><button class="dp-btn dp-btn--primary" @click="newPlan">＋ Create Plan</button></div>
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
-        <PlannerDaySchedule v-if="plannerView==='day'" :key="activeTeamId" :plans="plans" :date="calendarDate" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @date="calendarDate=$event" @management="openTeamManagement" />
+        <PlannerDaySchedule v-if="plannerView==='day'" :key="activeTeamId" :plans="plans" :date="calendarDate" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @date="calendarDate=$event" @management="openTeamManagement" @check-in="viewPlayers" />
         <PlannerCalendar v-else :initial-mode="calendarMode" @mode="calendarMode=$event" @open-day="calendarDate=$event;plannerView='day'" v-model="calendarDate" :plans="plans" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @refresh="loadPlans" />
         <details class="planner-management" :open="teamManagementOpen" @toggle="teamManagementOpen = $event.target.open">
           <summary>Team management <span>Alerts, reviews, reports & all saved plans</span></summary>
