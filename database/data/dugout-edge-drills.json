@@ -1,0 +1,3937 @@
+{
+  "source_url": "https://www.dugoutedge.com/drills/baseball",
+  "retrieved": "2026-10-10",
+  "description_type": "original concise summaries",
+  "drills": [
+    {
+      "name": "1-2-3 Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/1-2-3-drill",
+      "description": "Practice the load, stride, and swing separately before combining them into one balanced motion.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "1-2-3 Rhythm Tee",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/1-2-3-rhythm-tee",
+      "description": "Add a small approach step to tee work to connect foot rhythm with the swing.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "3 Plate Hitting Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/3-plate-hitting-drill",
+      "description": "Change the hitting distance between repetitions to challenge timing adjustments.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "3 Tee Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/3-tee-drill",
+      "description": "Use inside, middle, and outside tee positions to practice contact across the plate.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "4 Corners Bunting",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/4-corners-bunting",
+      "description": "Rotate through bunt stations targeting different areas of the infield.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "7 Ball Front Toss",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/7-ball-front-toss",
+      "description": "Use seven target areas during front toss to practice covering different pitch locations.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "90/45/Even Progression Tee",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/9045even-progression-tee",
+      "description": "Progress from an exaggerated open stance toward normal positioning while staying through contact.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Angled Force Plate Tee - Back Foot",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/angled-force-plate-tee-back-foot",
+      "description": "Use a sloped platform beneath the rear foot to practice controlling the load.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Angle Flips",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/angle-flips",
+      "description": "Receive angled tosses to rehearse a compact path that stays inside the pitch.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Back Foot Cone Tee",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/back-foot-cone-tee",
+      "description": "Position a cone near the rear foot as feedback against excessive spinning.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Back Hip Load Tee Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/back-hip-load-tee",
+      "description": "Use an extra tee as a boundary while practicing the rear-hip load.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Back Net Constraint Tee",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/back-net-constraint-tee",
+      "description": "Place a net behind the batter as a constraint on the barrel's early movement.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Backside Angle Toss",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/backside-angle-toss",
+      "description": "Track tosses arriving from behind and off to the side while delaying the swing.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Balance Beam Tee Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/balance-beam",
+      "description": "Hit from a narrow balance surface to emphasize stability throughout the motion.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Ball-Hit Front Toss",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/ball-hit-front-toss",
+      "description": "Call out ball-tracking cues during front toss to connect vision and swing timing.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bat Behind Hips",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bat-behind-hips",
+      "description": "Hold the bat behind the hips while rehearsing lower-body rotation.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Beginner Bunting Fundamentals",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/beginner-bunting-fundamentals",
+      "description": "Learn basic bunt positioning and soften contact to control where the ball goes.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Behind the Hitter Toss 1-2-3",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/behind-the-hitter-toss-1-2-3",
+      "description": "React to balls tossed from behind the batter to challenge quick contact.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Belly Button Tee",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/belly-button-tee",
+      "description": "Use the direction of the midsection as a cue for lower-body rotation.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bucket Bounce Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bucket-bounce-hitting-baseball",
+      "description": "Time a swing against a ball bounced upward from a bucket.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bunt Defense Drill",
+      "categories": [
+        "Hitting Drills",
+        "Team Defense Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bunt-defense-drill",
+      "description": "Rehearse team responsibilities and coverage against different bunt situations.",
+      "detail_available": true,
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bunting Bonanza",
+      "categories": [
+        "Hitting Drills",
+        "Infield Drills",
+        "Team Defense Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bunting-bonanza-softball-hitting",
+      "description": "Combine bunt placement practice with competitive defensive coverage.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bunting Fundamentals",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bunting-drill-ripken",
+      "description": "Practice bunt angles and placement using cones as targets away from the mound.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Change-Up Front Toss",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/change-up-front-toss",
+      "description": "Mix toss speeds so the hitter must adjust timing while maintaining control.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Change-Up Tee",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/change-up-tee",
+      "description": "Move tee contact deeper to rehearse waiting on a slower pitch.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Color Soft Toss",
+      "categories": [
+        "Hitting Drills",
+        "Fun & Games"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/color-soft-toss",
+      "description": "Identify which colored ball to strike while tracking a multiple-ball toss.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Connection Ball Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/connection-ball-hitting-drill",
+      "description": "Hold a small ball between the front arm and torso while rehearsing a connected swing.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Dry Swings (No Ball)",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/dry-swings-mirror",
+      "description": "Rehearse the batting motion without contact to focus on an individual movement.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Easy T-Ball Hitting Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/easy-tball-hitting-drill",
+      "description": "Introduce young hitters to making contact through simple group tee repetitions.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Easy Warmup Routine to Get Ready for Batting Practice",
+      "categories": [
+        "Hitting Drills",
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/easy-warmup-routine-batting-practice",
+      "description": "Prepare to hit with mobility movements and a gradual increase in swing speed.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "High Tee Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/high-tee-drill",
+      "description": "Practice compact contact against a tee positioned high and toward the hitter.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "High-Velocity Machine Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/high-velocity-machine-drill",
+      "description": "Use challenging machine-fed velocity to practice timing and composure against faster pitches.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Hips Fire First Tee Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/hips-fire-first-hitting-tee-drill",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/hips-fire-first-hitting-tee-drill",
+      "detail_available": true,
+      "description": "Practice initiating rotation with the hips while the hands experience light resistance.",
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Hitting Power & Strength Workout",
+      "categories": [
+        "Hitting Drills",
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/baseball-power-strength-increase-hitting",
+      "description": "Combine strength and explosive rotation exercises aimed at improving hitting power.",
+      "detail_available": true,
+      "duration_minutes": 45,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Homerun Derby",
+      "categories": [
+        "Hitting Drills",
+        "Fun & Games"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/homerun-derby",
+      "description": "Score a batting competition around hard contact rather than rewarding high pop-ups.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Knob and Knee Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/knob-and-knee-drill",
+      "description": "Bring the front knee and bat handle together, then separate them into the hitting position.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Knockout Hitting",
+      "categories": [
+        "Hitting Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/knockout-hitting",
+      "description": "Use progressively harder hitting challenges in an elimination-style competition.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Line Drive Derby",
+      "categories": [
+        "Hitting Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/line-drive-derby",
+      "description": "Partners alternate feeding and hitting while counting solid line drives within a time limit.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Live Batting Practice",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/live-batting-practice",
+      "description": "Take regular pitched batting repetitions with an emphasis on confidence and execution.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Lob Toss",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/lob-toss-drill",
+      "description": "Wait on high, slow tosses before driving the ball at a deeper contact point.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Medicine Ball Bat Speed Drills",
+      "categories": [
+        "Hitting Drills",
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/medicine-ball-bat-speed-drills",
+      "description": "Train explosive rotation with medicine-ball movements that support hitting performance.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pepper",
+      "categories": [
+        "Hitting Drills",
+        "Warmup",
+        "Fun & Games"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/pepper-game",
+      "description": "Alternate controlled batting and close-range fielding in a small group.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Power V Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/power-v-drill",
+      "description": "Pause the swing at contact to inspect extension and body position.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Ready Aim Bunt",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/ready-aim-bunt",
+      "description": "Award points for bunts that finish inside marked target areas.",
+      "detail_available": true,
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Roll It Back Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/roll-it-back-drill",
+      "description": "Move a connection ball across the chest while rehearsing the hands' loading action.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Single Arm Hitting",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/single-arm-hitting-drill",
+      "description": "Remove the upper hand from the bat to emphasize a short route to contact.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Situational Hitting",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/situational-hitting",
+      "description": "Respond to announced game situations by selecting and executing an appropriate hitting approach.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Slide Pad Load Drill",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/slide-pad-load-drill",
+      "description": "Slide the lead foot forward while coordinating hip and upper-body loading.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Soft Toss",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/soft-toss",
+      "description": "Hit short, gently tossed balls to repeat swing mechanics and prepare for batting practice.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Tee Time",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/tee-time-softball-hitting",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/tee-time-softball-hitting",
+      "detail_available": true,
+      "description": "Partners use a tee to practice controlled line-drive contact.",
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Tee Work",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/tee-work-basics",
+      "description": "Use stationary balls to work on weight transfer, visual focus, and direction through contact.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "The Grass Game",
+      "categories": [
+        "Hitting Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/the-grass-game",
+      "description": "Stay in the game by driving one swing into fair grass.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Top Hand Bottom Hand Tee Work",
+      "categories": [
+        "Hitting Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/top-hand-bottom-hand-tee",
+      "description": "Use the lower hand alone during tee work to rehearse the hand path.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Tunnel Ball",
+      "categories": [
+        "Hitting Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/tunnel-ball",
+      "description": "Score hits through a cone-marked lane aimed toward center field.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Wiffle Ball Circle",
+      "categories": [
+        "Hitting Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/wiffle-ball-circle",
+      "description": "Keep a group active with a circular Wiffle-ball hitting activity.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Zombies and Survivors",
+      "categories": [
+        "Hitting Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/zombies-and-survivors",
+      "description": "Players remain hitters by producing line drives; unsuccessful hitters join the defense.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "21-Point Throwing Accuracy",
+      "categories": [
+        "Throwing",
+        "Warmup",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/21-point-throwing-accuracy",
+      "description": "Compete during partner catch by assigning points to throws reaching designated heights.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "2-Line Relay",
+      "categories": [
+        "Throwing",
+        "Fun & Games"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/2-line-relay",
+      "description": "Race another line while transferring the ball from one end to the other.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "3-Man Relay",
+      "categories": [
+        "Throwing",
+        "Team Defense Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/3-man-relay",
+      "description": "Practice a three-player throwing chain with coordinated receiving, turning, and delivery.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "3rd Base Knee",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/3rd-base-knee",
+      "description": "Throw from a kneeling position to explore the lower body's contribution to distance.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Arm Slot Drill",
+      "categories": [
+        "Throwing",
+        "Warmup"
+      ],
+      "level": "advanced",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/arm-slot-drill-softball-throwing",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/arm-slot-drill-softball-throwing",
+      "detail_available": true,
+      "description": "Explore several throwing angles to develop versatility in fielding situations.",
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Arm Speed",
+      "categories": [
+        "Throwing",
+        "Pitching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/arm-speed",
+      "description": "Rehearse quick arm movement through the delivery and release.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Backhand Follow Through Throwing Drill",
+      "categories": [
+        "Throwing",
+        "Infield Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/backhand-throwing-drill",
+      "description": "After a backhand pickup, regain direction toward the throwing target.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bat Knockdown Throwing Game",
+      "categories": [
+        "Throwing",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bat-knockdown-throwing-game",
+      "description": "Aim throws at an upright bat and compete to knock it over.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Beat the Ball",
+      "categories": [
+        "Throwing",
+        "Baserunning Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/beat-the-ball",
+      "description": "Race a baserunner against a ball thrown around the bases.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Block and Recover",
+      "categories": [
+        "Throwing",
+        "Catching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/block-and-recover",
+      "description": "Combine a block with ball recovery and preparation for a throw.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Block, Recover, Throw",
+      "categories": [
+        "Throwing",
+        "Catching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/block-recover-throw",
+      "description": "Complete the full sequence of blocking, retrieving, and throwing with runners in mind.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bullseye",
+      "categories": [
+        "Throwing",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bullseye-throwing-drill",
+      "description": "Score throws that reach hoop targets attached to a fence.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Clean Up Crew",
+      "categories": [
+        "Throwing",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/cleanup-crew-throwing-drill",
+      "description": "Teams move balls out of their own playing area through repeated throws.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Crow Hop Throwing",
+      "categories": [
+        "Throwing",
+        "Outfield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/crow-hop-throwing",
+      "description": "Link an outfielder's crow-hop footwork with a throw toward the infield.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Cutoff and Relay Circuit",
+      "categories": [
+        "Throwing",
+        "Outfield Drills",
+        "Team Defense Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/cutoff-relay-circuit",
+      "description": "Rotate through relay stations connecting outfield throws with cutoff players.",
+      "detail_available": true,
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Cutoff Relay Race",
+      "categories": [
+        "Throwing",
+        "Team Defense Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/cutoff-relay-race",
+      "description": "Compete in relay throws while practicing quick exchanges and efficient turns.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Extreme Catch",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/extreme-catch-throwing-drill",
+      "description": "Move partner throwing stations farther apart after successful catches.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Flamingo Drill",
+      "categories": [
+        "Throwing",
+        "Catching Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/flamingo-drill",
+      "description": "Pause over the rear leg before moving into the catcher's throwing delivery.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Four Corners",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/four-corners-throwing-drill",
+      "description": "Move the ball around the bases while practicing receiving footwork and exchanges.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Hit the Helmet",
+      "categories": [
+        "Throwing",
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/hit-the-helmet-throwing",
+      "description": "Use a helmet placed at the plate as an accuracy target.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Hula Hoop Throwing Competition",
+      "categories": [
+        "Throwing",
+        "Warmup",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/hula-hoop-throwing-competition",
+      "description": "Teams compete to place throws through suspended hoop targets.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Infield Outfield Routine",
+      "categories": [
+        "Throwing",
+        "Infield Drills",
+        "Outfield Drills",
+        "Team Defense Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/pre-game-infield-outfield-routine",
+      "description": "Rehearse a combined defensive preparation routine involving relays, exchanges, and position plays.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Knock It Off",
+      "categories": [
+        "Throwing",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/knock-it-off-throwing-drill",
+      "description": "Try to dislodge a ball resting on a batting tee with accurate throws.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Long Toss",
+      "categories": [
+        "Throwing",
+        "Pitching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/long-toss-pitching",
+      "description": "Gradually extend partner throwing distance after warming up.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Long-Toss Golf",
+      "categories": [
+        "Throwing",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/long-toss-golf",
+      "description": "Treat distant throwing targets like golf holes in a placement-based competition.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "One-Knee Throwing",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/one-knee-throwing-drill",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/one-knee-throwing-drill",
+      "detail_available": true,
+      "description": "Throw from one knee to concentrate on the upper-body throwing movement.",
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Over Under",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/over-under-throwing-drill",
+      "description": "Partners alternate receiving and delivering both underhand and overhand throws.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pitcher's Whip Drill",
+      "categories": [
+        "Throwing",
+        "Pitching Drills",
+        "Warmup"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/pitchers-whip-drill-softball",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/pitchers-whip-drill-softball",
+      "detail_available": true,
+      "description": "Practice a shortened softball pitching motion emphasizing the release and arm acceleration.",
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Quick Toss",
+      "categories": [
+        "Throwing",
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-warmup-quick-toss",
+      "description": "Exchange short throws rapidly while maintaining clean catches and accurate returns.",
+      "detail_available": true,
+      "duration_minutes": 1,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Rapid Feet",
+      "categories": [
+        "Throwing",
+        "Catching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/rapid-feet",
+      "description": "Move along a row of balls, repeating the catcher's receiving-to-throwing footwork.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Selfies",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/selfies-throwing-drill",
+      "description": "Practice catching your own tosses using progressively more difficult variations.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Simple Youth Throwing Routine",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/throwing-routine-youth-baseball",
+      "description": "Build a youth throwing session by increasing distance gradually from close catch.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Superstar",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/superstar-throwing-drill",
+      "description": "Use a circle formation and nonadjacent passing to challenge reactions and exchanges.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Swing Shuffle Drill",
+      "categories": [
+        "Throwing",
+        "Pitching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/swing-shuffle-drill",
+      "description": "Combine a step-behind action with a coordinated hand path during a pitching throw.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Throwing Progression for Youth Players",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/throwing-progression-youth-players",
+      "description": "Follow a staged youth throwing sequence that develops movement before adding distance.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Throwing Seeds",
+      "categories": [
+        "Throwing",
+        "Outfield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/throwing-seeds-drill",
+      "description": "Field outfield balls and deliver toward a target at home plate.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Tic Tac Toe Throwing",
+      "categories": [
+        "Throwing",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/tic-tac-toe-throwing-game",
+      "description": "Aim throws at a grid to complete a three-square winning line.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Towel Throwing Drill",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/towel-throwing-drill",
+      "description": "Rehearse the throwing motion using a weighted towel as movement feedback.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Two Ball",
+      "categories": [
+        "Throwing",
+        "Warmup",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/two-ball",
+      "description": "Catch one ball in each hand to challenge coordination and confidence.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Ultimate Throwing Progression",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/baseball-throwing-progression-drills",
+      "description": "Move through a sequence of throwing drills before progressing to longer catch.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Up Top Down Low",
+      "categories": [
+        "Throwing"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/up-top-down-low-throwing-drill",
+      "description": "Alternate high and low partner throws while adjusting glove orientation.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "1-2 Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/one-two-drill",
+      "description": "Use spoken counting cues to coordinate presenting the glove and securing the grounder.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "1st Base Flip to Pitcher",
+      "categories": [
+        "Infield Drills",
+        "Pitching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/1st-base-flip-to-pitcher",
+      "description": "Practice a first baseman's feed to the pitcher covering the bag.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "1st Base Inside Receiving",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/1st-base-inside-receiving",
+      "description": "Adjust first-base receiving footwork for throws approaching close to the baseline.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "1st Base Off Bag",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/1st-base-off-bag",
+      "description": "Move away from holding a runner and into position to field a grounder.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "1st Base Receiving",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/1st-base-receiving",
+      "description": "Practice bag contact, receiving position, and the stretch at first base.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "1st Base Receiving Short Hops",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/1st-base-receiving-short-hops",
+      "description": "Pick low bouncing throws at first base while keeping the play controlled.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "2nd Baseman Backhand Flip",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/2nd-baseman-backhand-flip",
+      "description": "Practice a second baseman's backhand feed to the shortstop.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "2nd Baseman Drop Step Throw",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/2nd-baseman-drop-step-throw",
+      "description": "Pivot from second-base fielding position into a short throw for a double play.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "2nd Baseman Forehand Spin",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/2nd-baseman-forehand-spin",
+      "description": "Use a forehand spin to deliver a double-play feed from second base.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "2nd Baseman Underhand Flip",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/2nd-baseman-underhand-flip",
+      "description": "Practice controlled underhand feeds from second base toward the shortstop.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "4.3 Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/43-drill",
+      "description": "Time the complete ground-ball play and throw to first against a chosen target.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Alligator Hands Grounders",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/alligator-hands-grounders",
+      "description": "Secure rolled grounders with both hands and bring the ball toward the body's center.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Alligator Traps",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/alligator-traps",
+      "description": "Practice placing the second hand over the glove when securing rolling balls.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Alternating Shorthop Ladder",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/short-hop-ladder",
+      "description": "Move laterally between stations while handling changing short-hop feeds.",
+      "detail_available": true,
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Backhand Cross Toss",
+      "categories": [
+        "Infield Drills",
+        "Warmup"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-warmup-backhand-cross-toss",
+      "description": "Combine crossover footwork with an extended backhand pickup.",
+      "detail_available": true,
+      "duration_minutes": 1,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Backhand Pick & Stick Fungo",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/backhand-pick-stick-fungo",
+      "description": "Work on a backhand response to low balls and regain control after contact.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Backhand Rake Fungo",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/backhand-rake-fungo",
+      "description": "Sweep the glove through a backhand grounder instead of jabbing at it.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Backhand Toss",
+      "categories": [
+        "Infield Drills",
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-warmup-backhand-toss",
+      "description": "Partners feed backhands while emphasizing a low posture and visual tracking.",
+      "detail_available": true,
+      "duration_minutes": 1,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Baseball Ball-Handling Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/baseball-ball-handling-drill",
+      "description": "Move a baseball around different body regions to improve handling familiarity.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Belly Up",
+      "categories": [
+        "Infield Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/belly-up",
+      "description": "Rise from a lying position and react quickly to a ground ball.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bobble and Recover Fielding Drill",
+      "categories": [
+        "Infield Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bobble-and-recover-fielding-drill",
+      "description": "Recover an intentionally difficult pickup with the bare hand and finish the throw.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Box Drill- 2nd Baseman Double Play Feeds",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/box-drill-2nd-baseman-double-play-feeds",
+      "description": "Use a box formation to rehearse second-base feeds with the ball kept forward.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Box Drill- Shortstop Double Play Feeds",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/box-drill-shortstop-double-play-feeds",
+      "description": "Rehearse shortstop feeds in a box formation, following the direction of the flip.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Comebacker Drill",
+      "categories": [
+        "Infield Drills",
+        "Pitching Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/comebacker-drill",
+      "description": "Finish the pitching delivery ready to field a return ball and complete the play.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Crossover Step Drill",
+      "categories": [
+        "Infield Drills",
+        "Outfield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/crossover-step-drill",
+      "description": "Turn and cross over to pursue a ball moving laterally away from the fielder.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Crow Hops",
+      "categories": [
+        "Infield Drills",
+        "Outfield Drills",
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-warmup-crow-hops",
+      "description": "Connect moving ground-ball fielding with the footwork needed to throw.",
+      "detail_available": true,
+      "duration_minutes": 1,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Defend the Castle",
+      "categories": [
+        "Infield Drills",
+        "Outfield Drills",
+        "Team Defense Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/defend-the-castle",
+      "description": "Protect a central target against rolling balls arriving from multiple directions.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Dry Action Cone Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/dry-action-cone-drill",
+      "description": "Use cones to rehearse fielding approaches and glove alignment without a live ball.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "First Base Receiving Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/first-base-receiving-drill",
+      "description": "Coordinate the receiving foot and glove so the first-base stretch happens at the right time.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Football Frenzy Fielding Game",
+      "categories": [
+        "Infield Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/football-frenzy-fielding-game",
+      "description": "React to irregular bounces from a football or larger ball during fielding practice.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Force Out, Tag Out",
+      "categories": [
+        "Infield Drills",
+        "Team Defense Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/force-out-tag-out",
+      "description": "Respond to commands by choosing between touching a base and tagging a runner.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Glove-Side Foot Backhand",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/glove-side-foot-backhand",
+      "description": "Extend into a backhand pickup using crossover and lunge footwork.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Goalie Drill Game",
+      "categories": [
+        "Infield Drills",
+        "Outfield Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/goalie-drill-for-baseball-softball",
+      "description": "Protect a goal area by stopping incoming balls.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Go Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/go-drill",
+      "description": "Approach a grounder actively, shorten the final steps, and complete the throw.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Grab Bag",
+      "categories": [
+        "Infield Drills",
+        "Outfield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/grab-bag",
+      "description": "Alternate barehanded ground-ball and popup catches between lines.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Groundball Competition",
+      "categories": [
+        "Infield Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/groundball-competition",
+      "description": "Teams compete on reliable ground-ball pickups and successful throws.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Groundball Quick Catch",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/groundball-quick-catch",
+      "description": "Handle varied partner rollers while prioritizing secure, repeatable catches.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Ground Ball Shuffle",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/ground-ball-shuffle",
+      "description": "Move sideways into the ball's path using controlled shuffle steps.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Grounders",
+      "categories": [
+        "Infield Drills",
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-warmup-grounders",
+      "description": "Partners repeat routine rolling-ball pickups to develop glove control.",
+      "detail_available": true,
+      "duration_minutes": 1,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "High Toss Short Hop Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/high-toss-short-hop-drill",
+      "description": "Read a high toss and adjust position to collect its first bounce.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Infield Drop Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-drop-drill",
+      "description": "React to a nearby dropped ball, then organize the feet for a quick throw.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Infield Knockout",
+      "categories": [
+        "Infield Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-knockout-elimination",
+      "description": "Stay in an elimination fielding contest by completing each defensive repetition.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Infield L Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-l-drill",
+      "description": "Follow an L-shaped footwork pattern to practice quick directional and hip changes.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Infield Prep Step Timing",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-prep-step-timing",
+      "description": "Coordinate a small preparatory hop with the pitch reaching the hitting area.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Infield Rhythm Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/infield-rhythm-drill-softball",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/infield-rhythm-drill-softball",
+      "detail_available": true,
+      "description": "Repeat ground-ball pickups with a steady rhythm and smooth exchange.",
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Infield Square Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-square-drill",
+      "description": "Move around a square while holding the ball centrally and maintaining fielding posture.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Infield Star Drill",
+      "categories": [
+        "Infield Drills",
+        "Baserunning Drills",
+        "Team Defense Drills",
+        "Fun & Games"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/infield-star-drill-softball",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/infield-star-drill-softball",
+      "detail_available": true,
+      "description": "Race defensive throws against a runner traveling around the bases.",
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Lazy Catch",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/lazy-catch-softball-infield",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/lazy-catch-softball-infield",
+      "detail_available": true,
+      "description": "Field from the knees to isolate glove work and reading the bounce.",
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Lazy Grounders",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/lazy-catch",
+      "description": "Use kneeling ground-ball practice to emphasize receiving and backhand handling.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Middle Infield Double Play Drills",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/middle-infield-double-play-drills",
+      "description": "Rehearse feeds in both directions between shortstop and second base.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Momentum Drill (Cone Rounding)",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/momentum-drill-cone-rounding",
+      "description": "Curve the approach around cones to carry momentum from fielding into the throw.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "No Panic Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/no-panic-drill",
+      "description": "Retrieve a dropped ball calmly with the throwing hand, set the feet, and deliver.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pitcher Fielding Practice (PFP's)",
+      "categories": [
+        "Infield Drills",
+        "Pitching Drills",
+        "Team Defense Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/pitcher-fielding-practice",
+      "description": "Rotate pitchers through bunt pickups, comebackers, and first-base coverage.",
+      "detail_available": true,
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Rolled Ground Ball Fundamentals",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/rolled-ground-balls",
+      "description": "Hold the fielding position while receiving controlled rolls into the glove.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Short Fungos",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-fungos",
+      "description": "Take coach-hit grounders around the infield with difficulty matched to the players.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Shorthop Gauntlet",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/short-hop-gauntlet",
+      "description": "Progress through several short-hop stations to build handling consistency.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Short Hops",
+      "categories": [
+        "Infield Drills",
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/infield-warmup-short-hops",
+      "description": "Practice collecting the ball just after its bounce.",
+      "detail_available": true,
+      "duration_minutes": 1,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Short Hop Showdown",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/short-hop-showdown",
+      "description": "Partners race to accumulate successful catches on low bouncing feeds.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Shuffle Step Around",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/shuffle-step-around",
+      "description": "Navigate cones with lateral shuffle footwork and controlled body alignment.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Shuffle to Launch Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/shuffle-to-launch-drill",
+      "description": "Progress from a shuffle into a prepared throwing position and then a complete delivery.",
+      "detail_available": true,
+      "duration_minutes": 3,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Tag and Flip",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/tag-n-flip",
+      "description": "Receive the ball, apply a tag, and feed it onward without delay.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "T-Ball Ground Ball Basics",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/tball-ground-ball-basics",
+      "description": "Introduce young fielders to getting behind grounders and securing them with both hands.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "The Arrow Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/the-arrow-drill-softball-infield",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/the-arrow-drill-softball-infield",
+      "detail_available": true,
+      "description": "Rehearse angled approaches and foot placement for infield ground-ball plays.",
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Three Cone Fundamental Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/three-cone-fundamental-drill",
+      "description": "Link preparation, pickup, and throwing steps through three cone checkpoints.",
+      "detail_available": true,
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Two Corners Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/two-corners-drill-softball-infield",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/two-corners-drill-softball-infield",
+      "detail_available": true,
+      "description": "Run simultaneous infield repetitions at opposite corners with two coaches feeding balls.",
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Two vs. Four Step Drill",
+      "categories": [
+        "Infield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/two-vs-four-step-drill",
+      "description": "Adjust the throwing approach to a coach's late call for a different step count.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "12-Step Cone Drill",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/12-step-cone-drill",
+      "description": "Use five cones to practice a range of outfield routes and ball trajectories.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "8 Ball Softball Outfield Drill",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/8-ball-softball-outfield-drill",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/8-ball-softball-outfield-drill",
+      "detail_available": true,
+      "description": "React to balls directed toward eight surrounding locations.",
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Break Down and Come Through",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/break-down-and-come-through",
+      "description": "Approach the ball under control and continue through the pickup.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bucket Catch",
+      "categories": [
+        "Outfield Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bucket-catch",
+      "description": "Catch tossed balls in a bucket to introduce tracking and positioning.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Chicken Drill",
+      "categories": [
+        "Outfield Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/chicken-drill",
+      "description": "Use helmeted tennis-ball tracking to help beginners become comfortable getting under a fly ball.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Concentration Drill",
+      "categories": [
+        "Outfield Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/concentration-drill",
+      "description": "Attempt unusual catching positions to demand sustained visual attention.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Drop Step Drill",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/drop-step-drill",
+      "description": "Open the hips with a backward first step before pursuing a deep ball.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Fence Drill",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/fence-drill",
+      "description": "Track a fly ball near the boundary while locating the fence with the free hand.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Fly Ball Communication Drill",
+      "categories": [
+        "Outfield Drills",
+        "Team Defense Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/fly-ball-communication",
+      "description": "Practice decisive vocal calls when converging on airborne balls.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Fungo to Outfielders",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/fungo-to-outfielders",
+      "description": "Field coach-hit grounders and fly balls with repetitions adjusted to individual ability.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Kneeled It",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/kneeled-it-softball-outfield",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/kneeled-it-softball-outfield",
+      "detail_available": true,
+      "description": "Lower the throwing-side knee while securing an outfield ground ball.",
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Mind the Gap",
+      "categories": [
+        "Outfield Drills",
+        "Team Defense Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/mind-the-gap",
+      "description": "Two fielders converge in the gap, assigning one the catch and the other backup.",
+      "detail_available": true,
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "No False Steps Drill",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/no-false-steps-drill",
+      "description": "Use a ground marker to expose unnecessary movement in the first step.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Outfield Communication Drill",
+      "categories": [
+        "Outfield Drills",
+        "Team Defense Drills",
+        "Fun & Games"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/outfield-communication-drill",
+      "description": "Require repeated calls as two outfielders converge on the same ball.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Outfield Drop Step",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/outfield-drop-step",
+      "description": "Practice opening backward and selecting an angle for a ball overhead.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Outfield Fungos",
+      "categories": [
+        "Outfield Drills",
+        "Team Defense Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/outfield-fungos",
+      "description": "Take fly-ball repetitions and complete throws to bases or cutoff players.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pop Quiz",
+      "categories": [
+        "Outfield Drills",
+        "Team Defense Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/pop-quiz",
+      "description": "Build a team streak of successful popup catches without a drop.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Route Running",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/route-running",
+      "description": "Follow football-style running patterns while tracking and catching tossed balls.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "The Box",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/the-box",
+      "description": "Start at a central cone and pursue popups toward four surrounding corners.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Trust Catch",
+      "categories": [
+        "Outfield Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/trust-catch-softball-outfield",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/trust-catch-softball-outfield",
+      "detail_available": true,
+      "description": "Read a directional cue before locating and catching a ball over the shoulder.",
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Balance Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/balance-drill",
+      "description": "Hold the lifted-leg position briefly before continuing the pitching delivery.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Balanced Stationary Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/balanced-stationary-drill",
+      "description": "Throw from a fixed base to emphasize trunk involvement and reaching through delivery.",
+      "detail_available": true,
+      "duration_minutes": 2,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Balance Pause Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/balance-pause-drill",
+      "description": "Pause at the top of the leg lift before completing the pitch.",
+      "detail_available": true,
+      "duration_minutes": 2,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Break of the Hands Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/break-of-the-hands-drill",
+      "description": "Coordinate the moment the hands separate with the rest of the delivery.",
+      "detail_available": true,
+      "duration_minutes": 2,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bucket Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/bucket-drill",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/bucket-drill",
+      "detail_available": true,
+      "description": "Practice a softball stride that coordinates rear-leg drive with front-leg movement.",
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Chair Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/chair-drill",
+      "description": "Use a chair as a reference for where the stride foot should land.",
+      "detail_available": true,
+      "duration_minutes": 3,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Change-Up Catch",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/change-up-catch",
+      "description": "Play catch with changeups while preserving the delivery's usual arm tempo.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Change-Up Grips",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/change-up-grips",
+      "description": "Try alternative changeup holds to identify a comfortable, useful grip.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Closed Janitor Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/closed-janitor-drill",
+      "description": "Practice shifting rear-leg loading back toward the hip before moving forward.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Dynamic Warmup Routine for Pitchers",
+      "categories": [
+        "Pitching Drills",
+        "Warmup"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/dynamic-warmup-routine-pitchers",
+      "description": "Prepare pitchers with mobility, whole-body movement, and a gradual transition into throwing.",
+      "detail_available": true,
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Lunge Throw",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/lunge-throw",
+      "description": "Begin from a deep lunge to emphasize the rear leg's contribution to delivery.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pockets Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/pockets-drill",
+      "description": "Start with both arms hanging to simplify their path into a pitching throw.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pre-Game Routine Guide for Baseball Pitchers",
+      "categories": [
+        "Pitching Drills",
+        "Warmup"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/pre-game-routine-guide-pitchers",
+      "description": "Organize game preparation around mental readiness, movement, throwing, and bullpen work.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pro Pitcher Warm-Up",
+      "categories": [
+        "Pitching Drills",
+        "Warmup"
+      ],
+      "level": "advanced",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/pro-pitcher-warmup-routine",
+      "description": "Follow a multi-stage pitcher preparation sequence leading into pitch execution.",
+      "detail_available": true,
+      "duration_minutes": 25,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "RDL Throw",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/rdl-throw",
+      "description": "Carry a single-leg hip hinge into the lift and throwing motion.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Rotational Strength & Power Workout for Pitchers",
+      "categories": [
+        "Pitching Drills",
+        "Strength & Conditioning"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/rotational-strength-power-mlb-pitchers",
+      "description": "Train trunk rotation and explosive force production for pitching.",
+      "detail_available": true,
+      "duration_minutes": 40,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Structured 12-Pitch Bullpen",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/structured-12-pitch-bullpen",
+      "description": "Use a short bullpen sequence to practice fastball locations and off-speed strikes.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Towel Pitching Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/towel-pitching-drill",
+      "description": "Rehearse the pitching delivery with a towel in place of a baseball.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Yamamoto Drill",
+      "categories": [
+        "Pitching Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/yamamoto-drill",
+      "description": "Remove the usual leg lift and use a backward step to challenge direction and rotation.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "3 Softball Catcher's Drills for Throwing",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/blocking-side-to-side-drill",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/blocking-side-to-side-drill",
+      "detail_available": true,
+      "description": "Practice softball catcher movement and responses to balls away from the centerline.",
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "5-Ball Drill",
+      "categories": [
+        "Catching Drills",
+        "Fun & Games"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/5-ball-drill",
+      "description": "Move between five ball locations while repeating the catcher's blocking action.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "All Together Receiving",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/all-together-receiving",
+      "description": "Receive varied pitch locations while maintaining a controlled glove and receiving posture.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bare-Handed Catch",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bare-handed-catch",
+      "description": "Track short underhand feeds into the bare hand from a catching position.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Basic Blocking",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/basic-blocking",
+      "description": "Learn the catcher's central blocking position against low pitches.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Basic Receiving",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/basic-receiving",
+      "description": "Use glove-free tennis-ball catches to develop touch when receiving.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Bite the Ball",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/bite-the-ball",
+      "description": "Use tennis-ball blocking repetitions to emphasize head placement.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Block to Throw Down",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/block-to-throw-down-softball-catching",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/block-to-throw-down-softball-catching",
+      "detail_available": true,
+      "description": "Block a low ball and recover quickly into readiness to throw.",
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Catcher Pop Time Drills",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/baseball-catcher-pop-time",
+      "description": "Combine faster exchanges, efficient feet, and accurate throws to improve catcher delivery time.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Clap Drill",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/clap-drill",
+      "description": "React to a clap by turning between receiving and throwing alignments.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Crouch Walks",
+      "categories": [
+        "Catching Drills",
+        "Strength & Conditioning"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/crouch-walks",
+      "description": "Move in several directions from a crouch to challenge catching-position endurance.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Self Toss Transfers",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/self-toss-transfers-softball-catching",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/self-toss-transfers-softball-catching",
+      "detail_available": true,
+      "description": "Toss to yourself, exchange the ball, and organize the feet for a throw.",
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Slow Rolls",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/slow-rolls",
+      "description": "Wait on slowly rolled balls before committing to the blocking movement.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Triple Threat",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/triple-threat-catcher-drill",
+      "description": "Practice a stance ready for receiving, blocking, or throwing and choose the appropriate response.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Wall Ball for Catchers",
+      "categories": [
+        "Catching Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/wall-ball-catchers-softball",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/wall-ball-catchers-softball",
+      "detail_available": true,
+      "description": "Use wall rebounds for individual catcher receiving and low-ball practice.",
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "21 Outs Game",
+      "categories": [
+        "Baserunning Drills",
+        "Team Defense Drills",
+        "Fun & Games"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/21-outs-game",
+      "description": "Challenge the defense to complete a full sequence of outs without an error.",
+      "detail_available": true,
+      "duration_minutes": 30,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "All the Way Through 1st Base",
+      "categories": [
+        "Baserunning Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/all-the-way-through-1st-base",
+      "description": "Sprint beyond first base before slowing under control.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Base Running Circuit",
+      "categories": [
+        "Baserunning Drills",
+        "Warmup",
+        "Strength & Conditioning"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/base-running-circuit",
+      "description": "Practice common base-to-base routes as a movement and running circuit.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Base Running Relay Race",
+      "categories": [
+        "Baserunning Drills",
+        "Strength & Conditioning",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/base-running-relay-race",
+      "description": "Race teams around the diamond while emphasizing efficient turns.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Basic T-Ball Baserunning",
+      "categories": [
+        "Baserunning Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/tball-basic-baserunning",
+      "description": "Teach beginning players the base order, running through first, and rounding turns.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Breakdown Drill",
+      "categories": [
+        "Baserunning Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/breakdown-baserunning-drill",
+      "description": "Run past first, decelerate, and look for a possible overthrow.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Dirt Ball Reads",
+      "categories": [
+        "Baserunning Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/balls-in-the-dirt-reads",
+      "description": "Read a pitch bouncing in the dirt and decide whether to advance.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Leads and Breaks",
+      "categories": [
+        "Baserunning Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/leads-and-breaks",
+      "description": "Practice lead positioning, pitcher reads, and a decisive first move.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pickle (Rundown Game)",
+      "categories": [
+        "Baserunning Drills",
+        "Team Defense Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/pickle-rundown-game",
+      "description": "Work together to retire a runner trapped between two bases.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pole Sprints",
+      "categories": [
+        "Baserunning Drills",
+        "Strength & Conditioning"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/pole-sprints",
+      "description": "Run between the outfield foul poles as a conditioning activity.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Rock Paper Scissors Base Running",
+      "categories": [
+        "Baserunning Drills",
+        "Strength & Conditioning",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/rock-paper-scissors-base-running",
+      "description": "Advance to the next base after winning a rock-paper-scissors matchup.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Situational Team Defense Practice",
+      "categories": [
+        "Baserunning Drills",
+        "Team Defense Drills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/defensive-situations",
+      "description": "Place runners in planned situations and rehearse the defense's assignments.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Slip and Slide",
+      "categories": [
+        "Baserunning Drills",
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/slip-and-slide",
+      "description": "Practice the bent-leg slide using a sliding mat or wet sliding surface.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Softball Baserunning Fundamentals",
+      "categories": [
+        "Baserunning Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/softball-baserunning-fundamentals",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/softball-baserunning-fundamentals",
+      "detail_available": true,
+      "description": "Rehearse softball-specific departures from bases and running through first.",
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Tag Up Drill",
+      "categories": [
+        "Baserunning Drills"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/tag-up-drill",
+      "description": "Time departure from the base to a defender's catch of a fly ball.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Hoosier Scramble",
+      "categories": [
+        "Team Defense Drills"
+      ],
+      "level": "advanced",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/hoosier-scramble-drill-softball",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/hoosier-scramble-drill-softball",
+      "detail_available": true,
+      "description": "Coordinate multiple runners, sliding actions, and changing defensive responsibilities.",
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Refuse to Lose",
+      "categories": [
+        "Team Defense Drills",
+        "Fun & Games"
+      ],
+      "level": "advanced",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/refuse-to-lose-softball-scrimmage",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/refuse-to-lose-softball-scrimmage",
+      "detail_available": true,
+      "description": "Compete through late-game scenarios that require execution under pressure.",
+      "duration_minutes": 25,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "8 Step Dynamic Baseball or Softball Warmup",
+      "categories": [
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/8-step-dynamic-baseball-softball-warmup",
+      "description": "Follow an eight-part preparation sequence spanning mobility, movement, and throwing.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Dynamic Warmup Circuit",
+      "categories": [
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/dynamic-warmup-circuit",
+      "description": "Rotate through cone-based movement stations before beginning baseball work.",
+      "detail_available": true,
+      "duration_minutes": 8,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Easy Team Warm Up Routine for Youth Baseball",
+      "categories": [
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/easy-team-warmup-routine-youth-baseball",
+      "description": "Progress a youth team from light running through moving stretches and catch.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pre-Game Baseball Warm-Up",
+      "categories": [
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/pre-game-baseball-warmup",
+      "description": "Build game readiness with movement, throwing, and position-specific preparation.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Pro Style Full Baseball Warmup",
+      "categories": [
+        "Warmup"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/warm-up-like-a-pro-routine",
+      "description": "Move from general physical activation into baseball-specific actions.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Youth Baseball Practice Warm-Up Routine",
+      "categories": [
+        "Warmup"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/youth-baseball-practice-warmup-routine",
+      "description": "Let players lead preparation exercises before progressing into partner throwing.",
+      "detail_available": true,
+      "duration_minutes": 12,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "14 Best Gym Exercises For Baseball Players",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/14-best-gym-exercises-baseball",
+      "description": "Combine a range of gym exercises addressing major baseball strength demands.",
+      "detail_available": true,
+      "duration_minutes": 60,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Ab Wheel Rollout",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/ab-wheel-rollout-baseball",
+      "description": "Roll outward and return while keeping the trunk controlled.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "At Home No Equipment Baseball Workout",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/best-at-home-baseball-workout",
+      "description": "Use bodyweight movements for a training session without gym equipment.",
+      "detail_available": true,
+      "duration_minutes": 30,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Baseball-Specific Strength Workout",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/best-baseball-specific-strength-workout",
+      "description": "Train the whole body through movements selected for baseball demands.",
+      "detail_available": true,
+      "duration_minutes": 45,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Baseball Workouts for More Power",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/get-stronger-more-powerful-full-workouts",
+      "description": "Pair upper-body and lower-body sessions to develop strength and explosive movement.",
+      "detail_available": true,
+      "duration_minutes": 50,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Building Your Own Baseball Workout",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/baseball-workout-formula",
+      "description": "Choose from a foundational exercise group to assemble a baseball workout.",
+      "detail_available": true,
+      "duration_minutes": 40,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Chaos External Rotation",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/chaos-external-rotation-baseball",
+      "description": "Use an unstable resistance setup to challenge control during shoulder rotation.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Crow Hop Medicine Ball Throw",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/crow-hop-medball-throw-baseball",
+      "description": "Link a crow hop with an explosive medicine-ball delivery.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Drop External Rotation",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "advanced",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/drop-external-rotation-baseball",
+      "description": "Catch and stabilize a light load to challenge rapid shoulder control.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Dumbbell External Rotation",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/dumbbell-external-rotation-baseball",
+      "description": "Perform controlled shoulder rotation against dumbbell resistance.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Forearm Roller",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/forearm-roller-baseball",
+      "description": "Wind a weighted roller to train forearm and grip endurance.",
+      "detail_available": true,
+      "duration_minutes": 5,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "GHD Rotational Back Extension",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/ghd-rotational-back-extension-baseball",
+      "description": "Add trunk rotation to a supported back-extension movement.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Incline Y Raises",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/incline-ys-baseball",
+      "description": "Raise the arms into a Y while supported on an incline.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Meadows Swings",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/meadows-swings-baseball",
+      "description": "Use upper-back swings to emphasize shoulder-blade control.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Power Snatch",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "advanced",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/power-snatch-baseball",
+      "description": "Practice an explosive Olympic-lifting movement that rapidly transfers force.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Single Leg Squat",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/single-leg-squat-baseball",
+      "description": "Progress a one-leg squat to build strength on each side independently.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Speed & Agility Lower Body Strength Workout",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/baseball-speed-agility-lower-body-workout",
+      "description": "Combine leg strength exercises with acceleration and change-of-direction work.",
+      "detail_available": true,
+      "duration_minutes": 50,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Speed, Agility, Quickness Conditioning Drills",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/best-conditioning-drills-speed-agility-quickness",
+      "description": "Use speed and directional movement patterns to develop athletic conditioning.",
+      "detail_available": true,
+      "duration_minutes": 30,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Upper Body Power & Strength Workout for Elite Baseball Athletes",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "advanced",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/upper-body-power-strength-elite-athletes",
+      "description": "Train upper-body force production with advanced strength and power exercises.",
+      "detail_available": true,
+      "duration_minutes": 45,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "V Up Throw",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/v-up-throw-baseball",
+      "description": "Combine a V-up movement with holding or releasing a ball.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Zombie Squats",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "intermediate",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/zombie-squats-baseball",
+      "description": "Perform a front-loaded squat with the arms reaching forward to challenge posture.",
+      "detail_available": true,
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Zottman Curls",
+      "categories": [
+        "Strength & Conditioning"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/zottman-curls-baseball",
+      "description": "Rotate the grip during curls to add forearm involvement.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "5 Mental Toughness Exercises Every Athlete Should Practice",
+      "categories": [
+        "Mental Skills"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/5-mental-toughness-exercises-athletes",
+      "description": "Practice mental exercises aimed at focus, resilience, and response to difficulty.",
+      "detail_available": true,
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Four-Step Mental Skills Routine for Softball",
+      "categories": [
+        "Mental Skills"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/four-step-mental-skills-routine",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/four-step-mental-skills-routine",
+      "detail_available": true,
+      "description": "Use a four-part mental routine to regain focus during softball competition.",
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Four Steps to Mental Toughness for Softball Pitchers",
+      "categories": [
+        "Mental Skills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/four-steps-mental-toughness-pitchers",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/four-steps-mental-toughness-pitchers",
+      "detail_available": true,
+      "description": "Apply a structured mental approach to the demands of softball pitching.",
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Mental Imagery for Softball",
+      "categories": [
+        "Mental Skills"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/mental-imagery-for-softball",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/mental-imagery-for-softball",
+      "detail_available": true,
+      "description": "Rehearse softball performance mentally through guided visualization.",
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Mental Skills For Softball Infielders",
+      "categories": [
+        "Mental Skills"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/make-fewer-errors-mental-skills-infielders",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/make-fewer-errors-mental-skills-infielders",
+      "detail_available": true,
+      "description": "Practice attention and recovery strategies for softball infield play.",
+      "duration_minutes": 15,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Mental Training Tips For Softball Coaches & Players",
+      "categories": [
+        "Mental Skills"
+      ],
+      "level": "intermediate",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/mental-training-tips-coaches-players",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/mental-training-tips-coaches-players",
+      "detail_available": true,
+      "description": "Develop mental practice habits and coaching approaches that support team performance.",
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Blast Ball",
+      "categories": [
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "softball",
+      "url": "https://www.dugoutedge.com/drills/softball/blast-ball-softball-scrimmage",
+      "original_directory_url": "https://www.dugoutedge.com/drills/baseball/blast-ball-softball-scrimmage",
+      "detail_available": true,
+      "description": "Introduce game rules through a simplified scrimmage with plastic equipment.",
+      "duration_minutes": 20,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Coach-Pitch Scrimmage",
+      "categories": [
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "baseball",
+      "url": "https://www.dugoutedge.com/drills/baseball/coach-pitch-scrimmage",
+      "description": "Rotate small batting groups through a coach-pitched practice game.",
+      "detail_available": true,
+      "duration_minutes": 25,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    },
+    {
+      "name": "Water Balloon Derby",
+      "categories": [
+        "Fun & Games"
+      ],
+      "level": "beginner",
+      "sport_label": "unmarked",
+      "url": "https://www.dugoutedge.com/drills/baseball/water-balloon-derby",
+      "description": "Finish practice with batting attempts against gently tossed water balloons.",
+      "detail_available": true,
+      "duration_minutes": 10,
+      "source": "Dugout Edge",
+      "retrieved": "2026-10-10"
+    }
+  ]
+}
