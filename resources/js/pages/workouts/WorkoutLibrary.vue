@@ -29,7 +29,6 @@ const templates = ref([]),
   category = ref(""),
   programFilter = ref(""),
   intensity = ref(""),
-  ownership = ref(""),
   selected = ref(null),
   editing = ref(null),
   tab = ref(props.initialTab),
@@ -54,9 +53,7 @@ const filtered = computed(() =>
         .includes(search.value.toLowerCase()) &&
       (!category.value || t.category === category.value) &&
       (!programFilter.value || t.program_type === programFilter.value) &&
-      (!intensity.value || t.intensity_label === intensity.value) &&
-      (!ownership.value ||
-        (ownership.value === "premade" ? t.is_premade : !t.is_premade))
+      (!intensity.value || t.intensity_label === intensity.value)
   )
 );
 const message = (e) =>
@@ -78,7 +75,7 @@ async function load() {
   groups.value = [];
   templates.value = [];
   try {
-    const [library, roster, groupList] = await Promise.all([
+    const [library, roster, groupList] = await Promise.allSettled([
       axiosGet("coach/workout-templates"),
       teamId.value
         ? axiosGet(`coach/teams/${teamId.value}`)
@@ -86,8 +83,13 @@ async function load() {
       axiosGet("coach/player-groups"),
     ]);
     if (request !== generation) return;
-    templates.value = library.data.data;
-    players.value = (roster.data.data || []).map((p) => ({
+    templates.value = library.status === 'fulfilled' ? library.value.data.data : [];
+    error.value = [library, roster, groupList].flatMap((result, index) =>
+      result.status === 'rejected'
+        ? [`${['Workout library', 'Team roster', 'Player groups'][index]}: ${message(result.reason)}`]
+        : []
+    ).join(' ');
+    players.value = (roster.status === 'fulfilled' ? roster.value.data.data || [] : []).map((p) => ({
       id: String(p.id ?? p.user_id),
       name:
         p.name?.full ||
@@ -96,7 +98,7 @@ async function load() {
           .join(" ") ||
         "Player",
     }));
-    groups.value = (groupList.data.data || []).filter(
+    groups.value = (groupList.status === 'fulfilled' ? groupList.value.data.data || [] : []).filter(
       (g) => g.team_id === teamId.value
     );
   } catch (e) {
@@ -137,6 +139,7 @@ async function saveTemplate(data) {
     const t = response.data.data;
     templates.value = [...templates.value.filter((x) => x.id !== t.id), t];
     editing.value = null;
+    libraryView.value = 'mine';
     selected.value = t;
   } catch (e) {
     error.value = message(e);
@@ -257,12 +260,7 @@ function newTemplate() {
             <option value="">All intensities</option>
             <option v-for="v in choices('intensity_label')" :key="v">
               {{ v }}
-            </option></select
-          ><select v-model="ownership" aria-label="Ownership">
-            <option value="">All templates</option>
-            <option value="premade">Premade</option>
-            <option value="custom">Custom / shared</option>
-          </select>
+            </option></select>
         </div>
         <section v-if="selected" class="workout-panel preview">
           <header>
@@ -376,9 +374,8 @@ function newTemplate() {
             </div>
           </article>
         </div>
-        <p v-if="!loading && !filtered.length">
-          No matching templates. Create a custom workout or load the premade
-          library.
+        <p v-if="!loading && !error && !filtered.length">
+          No workouts match this tab and its filters. Try FMTRX WORKOUTS for premades or MY WORKOUTS for saved custom workouts.
         </p></template
       ><ProgramBuilder @template-created="templates.push($event)"
         v-else-if="teamId && !loading"
