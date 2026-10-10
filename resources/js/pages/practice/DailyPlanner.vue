@@ -11,7 +11,7 @@ import {
   BUCKETS, BUCKET_BY_TYPE, INTENSITY_LEVELS, THROW_INTENTS, PHASES, WORKLOAD_LEVELS,
 } from '@/features/planner/lib/plannerBuckets.js'
 import {
-  getCategoriesForBucket, searchDrills, drillCategory, itemFromDrill,
+  getCategoriesForBucket, searchDrills, drillCategory, addLibraryDrill,
 } from '@/features/planner/lib/plannerDrills.js'
 import { PRESCRIPTION_TYPES, makeSet, renumber, setSummary } from '@/features/planner/lib/strengthLoad.js'
 import {
@@ -189,6 +189,10 @@ const weeklyPublishLoading = ref('')
 
 // Drill picker
 const picker = ref(null)          // the bucket object being added to
+const pickerBucket = ref('')
+const pickerAdded = ref('')
+const drillLibraryLoading = ref(false)
+const drillLibraryError = ref('')
 const pickerCategory = ref(null)
 const pickerQuery = ref('')
 const customName = ref('')
@@ -1002,11 +1006,14 @@ const loadRoster = async () => {
 }
 // Coach's saved custom drills/lifts — merged into the picker library (+ shared team ones).
 const loadCustomDrills = async () => {
+  drillLibraryLoading.value = true
+  drillLibraryError.value = ''
   try {
     const res = await axiosGet('coach/drills')
     const rows = res?.data?.data
     customDrills.value = Array.isArray(rows) ? rows : []
-  } catch { customDrills.value = [] }
+  } catch { drillLibraryError.value = 'Saved and shared drills could not load. Built-in drills are still available.' }
+  finally { drillLibraryLoading.value = false }
 }
 onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); })
 watch(showAdvancedPlanner, open => { if (open) { loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() } })
@@ -2830,16 +2837,28 @@ const removeBucket = (type) => { editing.value.buckets = editing.value.buckets.f
 const isStrengthItem = (it) => Array.isArray(it.setList)
 
 // ── drill picker ─────────────────────────────────────────────────────────────
-const openPicker = (bucket) => { picker.value = bucket; pickerCategory.value = null; pickerQuery.value = ''; customName.value = '' }
+const openPicker = (bucket = null) => {
+  picker.value = bucket || {type: null}
+  pickerBucket.value = bucket?.type || ''
+  pickerCategory.value = null
+  pickerQuery.value = ''
+  customName.value = ''
+  pickerAdded.value = ''
+  loadCustomDrills()
+}
 const closePicker = () => { picker.value = null }
-const pickerCategories = computed(() => picker.value ? getCategoriesForBucket(picker.value.type, customDrills.value) : [])
+watch(pickerBucket, () => { pickerCategory.value = null })
+const pickerCategories = computed(() => picker.value ? getCategoriesForBucket(pickerBucket.value, customDrills.value) : [])
 const pickerDrills = computed(() => {
   if (!picker.value) return []
-  let list = searchDrills(pickerQuery.value, picker.value.type, customDrills.value)
+  let list = searchDrills(pickerQuery.value, pickerBucket.value, customDrills.value)
   if (pickerCategory.value) list = list.filter((d) => drillCategory(d) === pickerCategory.value)
-  return list.slice(0, 200)
+  return list
 })
-const addDrill = (drill) => { picker.value.items.push(itemFromDrill(drill)) }
+const addDrill = (drill) => {
+  const bucket = addLibraryDrill(editing.value, drill, picker.value.type ? picker.value : null)
+  pickerAdded.value = bucket ? `${drill.name} added to ${bucket.title}.` : 'Select a bucket for this drill first.'
+}
 
 const buildCustomDrill = (name, bucketType) => {
   const def = bucketDef(bucketType)
@@ -2853,9 +2872,9 @@ const buildCustomDrill = (name, bucketType) => {
 }
 const addCustomDrill = async () => {
   const name = customName.value.trim()
-  if (!name || !picker.value) return
-  const drill = buildCustomDrill(name, picker.value.type)
-  picker.value.items.push(itemFromDrill(drill))     // drop it into the plan now
+  if (!name || !picker.value || !(picker.value.type || pickerBucket.value)) return
+  const drill = buildCustomDrill(name, picker.value.type || pickerBucket.value)
+  addDrill(drill)     // drop it into the plan now
   customDrills.value = [drill, ...customDrills.value] // and into the library list
   customName.value = ''
   // Persist to the drill library so it syncs and reappears next time (best-effort).
@@ -2934,7 +2953,7 @@ const del = async (p) => {
             <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Daily Planner</h1>
             <p class="text-white/40 text-sm mt-0.5">Plan. Execute. Develop. Every Day Counts.</p>
           </div>
-          <div class="flex flex-wrap items-center gap-2"><RouterLink class="dp-btn dp-btn--primary" :to="{name:'workout.library',query:{date:calendarDate}}">＋ Add Workout</RouterLink><button class="dp-btn" aria-label="Previous day" @click="calendarDate=shiftCalendarDate(calendarDate,-1)">‹</button><input class="dp-input" style="width:auto;color-scheme:dark" type="date" aria-label="Selected planner date" :value="calendarDate" @change="$event.target.value && (calendarDate=$event.target.value)"><button class="dp-btn" aria-label="Next day" @click="calendarDate=shiftCalendarDate(calendarDate,1)">›</button><button class="dp-btn" @click="calendarDate=localDateKey()">Today</button><button class="dp-btn" @click="plannerView=plannerView==='day'?'calendar':'day'">{{ plannerView==='day'?'Week / Month':'Day Schedule' }}</button><button class="dp-btn dp-btn--primary" @click="newPlan">＋ Create Plan</button></div>
+          <div class="flex flex-wrap items-center gap-2"><button class="dp-btn dp-btn--primary" @click="newPlan(calendarDate)">＋ Quick Workout</button><button class="dp-btn" aria-label="Previous day" @click="calendarDate=shiftCalendarDate(calendarDate,-1)">‹</button><input class="dp-input" style="width:auto;color-scheme:dark" type="date" aria-label="Selected planner date" :value="calendarDate" @change="$event.target.value && (calendarDate=$event.target.value)"><button class="dp-btn" aria-label="Next day" @click="calendarDate=shiftCalendarDate(calendarDate,1)">›</button><button class="dp-btn" @click="calendarDate=localDateKey()">Today</button><button class="dp-btn" @click="plannerView=plannerView==='day'?'calendar':'day'">{{ plannerView==='day'?'Week / Month':'Day Schedule' }}</button><button class="dp-btn dp-btn--primary" @click="newPlan">＋ Create Plan</button></div>
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
         <PlannerDaySchedule v-if="plannerView==='day'" :key="activeTeamId" :plans="plans" :date="calendarDate" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @date="calendarDate=$event" @management="openTeamManagement" />
@@ -5993,6 +6012,13 @@ const del = async (p) => {
           </div>
         </div>
 
+        <div class="dp-bucket">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div><div class="font-bold">Drill library</div><p class="text-white/50 text-sm">Browse all drills, lifts, and saved exercises. Selecting a drill adds its bucket automatically.</p></div>
+            <button class="dp-btn dp-btn--primary" @click="openPicker()">Browse all drills</button>
+          </div>
+        </div>
+
         <!-- Buckets -->
         <div v-for="bucket in editing.buckets" :key="bucket.type" class="dp-bucket">
           <div class="flex items-center justify-between mb-2">
@@ -6132,25 +6158,32 @@ const del = async (p) => {
 
     <!-- ══ DRILL PICKER MODAL ══ -->
     <div v-if="picker" class="dp-modal" @click.self="closePicker">
-      <div class="dp-modal-card">
+      <div class="dp-modal-card" role="dialog" aria-modal="true" aria-label="Drill library" @keydown.esc="closePicker">
         <div class="flex items-center justify-between mb-3">
-          <div class="font-black text-lg">Add to {{ bucketTitle(picker.type) }}</div>
-          <button class="dp-x" @click="closePicker">×</button>
+          <div class="font-black text-lg">{{ picker.type ? `Add to ${bucketTitle(picker.type)}` : 'Drill library' }}</div>
+          <button class="dp-x" aria-label="Close drill library" @click="closePicker">×</button>
         </div>
-        <div v-if="pickerCategories.length" class="flex flex-wrap gap-1.5 mb-3">
-          <button class="dp-cat" :class="{ 'dp-cat--on': !pickerCategory }" @click="pickerCategory = null">All</button>
-          <button v-for="c in pickerCategories" :key="c.label" class="dp-cat" :class="{ 'dp-cat--on': pickerCategory === c.label }" @click="pickerCategory = c.label">{{ c.label }} ({{ c.count }})</button>
-        </div>
+        <label class="dp-field mb-3"><span class="dp-label">Library bucket</span>
+          <select v-model="pickerBucket" class="dp-input"><option value="">All drills / all buckets</option><option v-for="b in BUCKETS.filter(b => b.kind === 'content')" :key="b.type" :value="b.type">{{ b.title }}</option></select>
+        </label>
+        <p v-if="drillLibraryLoading" role="status">Loading saved and shared drills…</p>
+        <p v-if="drillLibraryError" role="alert">{{ drillLibraryError }} <button class="dp-link" @click="loadCustomDrills">Retry</button></p>
+        <p v-if="pickerAdded" role="status" class="mb-2">{{ pickerAdded }}</p>
+        <label v-if="pickerCategories.length" class="dp-field mb-3"><span class="dp-label">Category</span>
+          <select v-model="pickerCategory" class="dp-input"><option :value="null">All categories</option><option v-for="c in pickerCategories" :key="c.label" :value="c.label">{{ c.label }} ({{ c.count }})</option></select>
+        </label>
+        <p v-if="!picker.type && !pickerBucket" class="text-white/50 text-xs mb-2">To create a custom drill, choose its library bucket above.</p>
         <div class="flex gap-2 mb-2">
           <input v-model="customName" class="dp-input flex-1" placeholder="Custom drill / lift name…" @keyup.enter="addCustomDrill" />
-          <button class="dp-btn dp-btn--primary" @click="addCustomDrill">+</button>
+          <button class="dp-btn dp-btn--primary" :disabled="!customName.trim() || !(picker.type || pickerBucket)" @click="addCustomDrill">+</button>
         </div>
-        <input v-model="pickerQuery" class="dp-input mb-2" placeholder="Search library…" />
+        <input v-model="pickerQuery" class="dp-input mb-2" aria-label="Search drill library" placeholder="Search all drills, equipment, or coaching cues…" />
+        <p class="text-white/50 text-sm mb-2">{{ pickerDrills.length }} drills · {{ picker.type ? `Adding to ${bucketTitle(picker.type)}` : 'Drills go into their matching buckets' }}</p>
         <div class="dp-modal-list">
           <button v-for="d in pickerDrills" :key="d.id" class="dp-drill-row" @click="addDrill(d)">
             <div class="min-w-0 text-left">
               <div class="font-bold truncate">{{ d.name }}</div>
-              <div class="text-white/40 text-xs truncate">{{ drillCategory(d) || d.subcategory || '' }}</div>
+              <div class="text-white/40 text-xs truncate">{{ bucketTitle(d.bucket) }} · {{ drillCategory(d) || d.subcategory || '' }}</div>
             </div>
             <span class="dp-plus">+</span>
           </button>

@@ -15,6 +15,7 @@
 //     bodyRegion, movementPattern, tags:[], coachCue, source }
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { BUCKET_BY_TYPE } from './plannerBuckets';
 import { CAGE_DRILLS } from './cageDrills';
 import { ARM_CARE_ROUTINES } from './armCareRoutines';
 import { EXERCISE_LIBRARY } from './exerciseLibrary';
@@ -199,7 +200,7 @@ export const drillCategory = (drill) =>
 // tap-to-filter buttons instead of one long scroll.
 export function getCategoriesForBucket(bucketType, extraDrills = []) {
   const counts = new Map();
-  getDrillsForBucket(bucketType, extraDrills).forEach((x) => {
+  searchDrills('', bucketType, extraDrills).forEach((x) => {
     const label = drillCategory(x);
     if (!label) return;
     counts.set(label, (counts.get(label) || 0) + 1);
@@ -216,7 +217,7 @@ export function searchDrills(query, bucketType, extraDrills = []) {
   const q = String(query || '').trim().toLowerCase();
   if (!q) return all;
   return all.filter((x) =>
-    `${x.name} ${x.subcategory} ${x.categoryGroup} ${x.physicalQuality} ${x.baseballCorrelation} ${(x.physicalQualities || []).join(' ')} ${(x.baseballCorrelations || []).join(' ')} ${(x.tags || []).join(' ')}`.toLowerCase().includes(q),
+    `${x.name} ${x.description || ''} ${x.equipment || ''} ${x.coachCue || ''} ${x.subcategory} ${x.categoryGroup} ${x.physicalQuality} ${x.baseballCorrelation} ${(x.physicalQualities || []).join(' ')} ${(x.baseballCorrelations || []).join(' ')} ${(x.tags || []).join(' ')}`.toLowerCase().includes(q),
   );
 }
 
@@ -261,4 +262,19 @@ export function itemFromDrill(drill) {
     tags: drill.tags || [],
     source: drill.source || 'seed',
   };
+}
+
+// Full-library selection adds the exercise to its own section, creating it once.
+export function addLibraryDrill(plan, drill, targetBucket = null) {
+  const type = drill.bucket === 'strength' ? 'strength_primary' : drill.bucket;
+  const definition = BUCKET_BY_TYPE[type];
+  let bucket = targetBucket || plan.buckets.find((entry) => entry.type === type);
+  if (!bucket) {
+    if (!definition || definition.kind !== 'content') return null;
+    bucket = {type, title: definition.title, kind: definition.kind, items: [], note: ''};
+    plan.buckets.push(bucket);
+  }
+  const item = itemFromDrill(drill);
+  bucket.items.push(item);
+  return bucket;
 }

@@ -169,7 +169,7 @@ async function saveAdjustment() {
           ›</button
         ><button @click="date = localDateKey()">Today</button
         ><button @click="load">Refresh</button
-        ><button class="primary" @click="tab = 'workouts'">
+        ><button class="primary" @click="emit('create', date)">
           ＋ Quick Workout
         </button>
       </div>
@@ -199,9 +199,9 @@ async function saveAdjustment() {
           <small>CREATE A SINGLE WORKOUT</small>
           <h2>Design a Workout</h2>
           <p>Build reusable training sessions with modular blocks.</p>
-          <button class="primary" @click="tab = 'workouts'">
+          <button class="primary" @click="emit('create', date)">
             Create Workout →</button
-          ><button @click="emit('create', date)">Quick blank plan</button>
+          ><button @click="tab = 'workouts'">Browse premade workouts</button>
         </article>
         <article>
           <small>BUILD A TRAINING PLAN</small>
