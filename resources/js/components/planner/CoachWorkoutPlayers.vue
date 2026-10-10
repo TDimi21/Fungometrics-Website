@@ -9,7 +9,7 @@ import { setSummary } from '@/features/planner/lib/strengthLoad.js'
 import { readinessScore, readinessStatus } from '@/features/planner/lib/readiness.js'
 import {
   buildWorkoutCompletionSummary, getWorkoutRating, getPlayerWorkoutNote,
-  needsAttention, isReviewed, contentItems,
+  needsAttention, isReviewed, contentItems, workoutFeedback,
 } from '@/features/planner/lib/workoutProgress.js'
 import { progressFromApi, bucketTitle } from '@/features/planner/dailyPlanner.js'
 
@@ -26,11 +26,11 @@ const feedback = ref('')
 const saving = ref(false)
 const savedNotice = ref('')
 
-const FILTERS = ['All', 'Completed', 'In Progress', 'Not Started', 'Needs Attention', 'Reviewed']
+const FILTERS = ['All', 'Submitted', 'In Progress', 'Not Started', 'Needs Attention', 'Reviewed']
 const STATUS = {
   not_started: { label: 'Not Started', color: '#64748B' },
   in_progress: { label: 'In Progress', color: '#f59e0b' },
-  completed: { label: 'Completed', color: '#22c55e' },
+  completed: { label: 'Submitted', color: '#22c55e' },
   reviewed: { label: 'Reviewed', color: '#2160C4' },
 }
 const statusMeta = (s) => STATUS[s] || STATUS.not_started
@@ -62,6 +62,7 @@ const enriched = computed(() => rows.value.map((r) => {
   return {
     ...r,
     summary,
+    feedbackSummary: workoutFeedback(props.plan || {}, r.progress || {}),
     rating: getWorkoutRating(r.progress),
     rpe: r.progress?.reflection?.session_rpe ?? null,
     pain: r.progress?.reflection?.pain_after ?? null,
@@ -82,7 +83,7 @@ const stats = computed(() => {
 
 const filtered = computed(() => enriched.value.filter((e) => {
   switch (filter.value) {
-    case 'Completed': return e.summary.status === 'completed' || e.summary.status === 'reviewed'
+    case 'Submitted': return e.summary.status === 'completed' || e.summary.status === 'reviewed'
     case 'In Progress': return e.summary.status === 'in_progress'
     case 'Not Started': return e.summary.status === 'not_started'
     case 'Needs Attention': return e.attention
@@ -215,8 +216,8 @@ const markReviewed = async () => {
               </div>
             </div>
             <div class="cwp-pct">
-              <div class="cwp-pct-n">{{ e.summary.completionPct }}%</div>
-              <div class="cwp-pct-s">{{ e.summary.completedItems }}/{{ e.summary.totalItems }}</div>
+              <div class="cwp-pct-n">{{ e.feedbackSummary.completion_pct == null ? '—' : e.feedbackSummary.completion_pct + '%' }}</div>
+              <div class="cwp-pct-s">{{ e.feedbackSummary.completed_drills }}/{{ e.feedbackSummary.counted_drills }} required drills</div>
             </div>
           </div>
           <div v-if="e.rating != null || e.rpe != null || e.pain != null" class="cwp-metrics">
@@ -224,6 +225,8 @@ const markReviewed = async () => {
             <span v-if="e.rpe != null">🔥 RPE {{ e.rpe }}</span>
             <span v-if="e.pain != null" :style="Number(e.pain) >= 4 ? 'color:#ef4444' : ''">⚠ Pain {{ e.pain }}</span>
           </div>
+          <div class="cwp-note">Readiness: {{ e.feedbackSummary.checks.readiness.status }} · Reflection: {{ e.feedbackSummary.checks.reflection.status }}</div>
+          <div v-for="reason in e.feedbackSummary.attention_reasons" :key="reason" class="cwp-note">{{ reason }}</div>
           <div v-if="e.note" class="cwp-note">“{{ e.note }}”</div>
         </button>
       </div>
@@ -251,6 +254,7 @@ const markReviewed = async () => {
         </div>
       </div>
 
+      <div class="cwp-panel"><p>Readiness: {{ workoutFeedback(plan, selected.progress).checks.readiness.status }} · Reflection: {{ workoutFeedback(plan, selected.progress).checks.reflection.status }}</p><p v-for="reason in workoutFeedback(plan, selected.progress).attention_reasons" :key="reason">{{ reason }}</p></div>
       <div class="cwp-section">Player Reflection</div>
       <div class="cwp-panel">
         <div class="cwp-rating-row">

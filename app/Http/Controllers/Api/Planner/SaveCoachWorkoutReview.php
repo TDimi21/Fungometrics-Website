@@ -37,6 +37,9 @@ class SaveCoachWorkoutReview extends Controller
                 ], HttpCodes::HTTP_FORBIDDEN);
             }
 
+            if (!\App\Models\DailyPlanAssignment::where('plan_id', $planId)->where('user_id', $playerId)->exists()) {
+                return response()->json(['message' => 'Player is not assigned to this workout.'], 404);
+            }
             $validated = $request->validate([
                 'reviewed'    => ['nullable', 'boolean'],
                 'feedback'    => ['nullable', 'string', 'max:4000'],

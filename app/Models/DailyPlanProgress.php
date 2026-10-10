@@ -15,6 +15,14 @@ class DailyPlanProgress extends Model
     use HasUuid;
 
     protected $table = 'daily_plan_progress';
+    protected $appends = ['feedback_summary'];
+    protected $hidden = ['plan'];
+
+    public function getFeedbackSummaryAttribute(): ?array
+    {
+        return $this->plan ? app(\App\Services\Planner\WorkoutFeedbackSummary::class)->build($this->plan, $this) : null;
+    }
+
 
     public $incrementing = false;
     protected $keyType   = 'string';

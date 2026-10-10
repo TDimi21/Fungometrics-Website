@@ -92,17 +92,33 @@ export function getWorkoutRating(progress) {
 // Coach-review helpers.
 export const isReviewed = (progress) => !!(progress?.coachReview && progress.coachReview.reviewed);
 
-// "Review recommended" flags — coaching signals, never medical conclusions.
-export function needsAttention(plan, progress) {
+// Prefer the shared API summary; compute a fallback for offline/older clients.
+export function workoutFeedback(plan, progress = {}) {
   const p = progress || {};
-  if (!p.completedAt) return false;
-  const rating = getWorkoutRating(p);
-  const rpe = p.reflection?.session_rpe;
-  const pain = p.reflection?.pain_after;
+  if (p.feedbackSummary && !p.pendingSync) return p.feedbackSummary;
   const summary = buildWorkoutCompletionSummary(plan, p);
-  if (pain != null && Number(pain) >= 4) return true;
-  if (rating != null && rating <= 2) return true;
-  if (rpe != null && Number(rpe) >= 9) return true;
-  if (summary.completionPct < 70) return true;
-  return false;
+  const check = (answers, keys) => {
+    const answered = keys.filter(k => answers?.[k] != null && answers[k] !== '').length;
+    return {status: answered === keys.length ? 'received' : answered ? 'partial' : 'missing', answered, expected: keys.length};
+  };
+  const checks = {
+    readiness: check(p.readiness, ['sleep_hours','sleep_quality','energy','overall_soreness','arm_soreness','shoulder_soreness','elbow_soreness','lower_body_soreness','stress','motivation','pain_flag']),
+    reflection: check(p.reflection, ['workout_rating','session_rpe']),
+  };
+  const count = summary.requiredItems || summary.totalItems;
+  const done = summary.requiredItems ? summary.completedRequiredItems : summary.completedItems;
+  const reasons = [];
+  if (Number(p.reflection?.pain_after) >= 4) reasons.push('Pain reported after training');
+  if (getWorkoutRating(p) != null && getWorkoutRating(p) <= 2) reasons.push('Low workout rating');
+  if (Number(p.reflection?.session_rpe) >= 9) reasons.push('High reported effort');
+  if (Object.values(p.items || {}).some(i => i.pain)) reasons.push('Discomfort reported during a drill');
+  if (p.completedAt) {
+    if (done < count) reasons.push('Submitted with unfinished drills');
+    for (const [name, c] of Object.entries(checks)) if (c.status !== 'received') reasons.push(`${name[0].toUpperCase()}${name.slice(1)} ${c.status}`);
+  }
+  return {submission_status: p.completedAt ? 'submitted' : p.startedAt || done ? 'in_progress' : 'not_started', completed_drills: done, counted_drills: count, completion_pct: count ? summary.completionPct : null, checks, attention_reasons: reasons, review_status: isReviewed(p) ? 'reviewed' : 'awaiting_review', coach_feedback: p.coachReview?.feedback || ''};
+}
+
+export function needsAttention(plan, progress) {
+  return workoutFeedback(plan, progress).attention_reasons.length > 0;
 }

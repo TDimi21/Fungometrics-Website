@@ -103,6 +103,32 @@ class WorkoutLibraryTest extends TestCase
         $this->postJson('/api/coach/workout-programs', $payload)->assertStatus(422);
     }
 
+    public function test_player_submission_and_coach_feedback_share_summary_endpoints(): void
+    {
+        $plan = $this->useTemplate();
+        $plan->update(['status'=>'published']);
+        Sanctum::actingAs($this->player, ['player']);
+        $response = $this->postJson('/api/player/daily-plans/'.$plan->id.'/progress', [
+            'items'=>[], 'reflection'=>['workout_rating'=>2, 'session_rpe'=>9],
+            'completed_at'=>now()->toIso8601String(),
+        ])->assertOk()->assertJsonPath('data.feedback_summary.submission_status', 'submitted')
+          ->assertJsonPath('data.feedback_summary.completion_pct', 0)
+          ->assertJsonPath('data.feedback_summary.checks.readiness.status', 'missing')
+          ->assertJsonPath('data.feedback_summary.checks.reflection.status', 'received');
+        $this->assertContains('Submitted with unfinished drills', $response->json('data.feedback_summary.attention_reasons'));
+        Sanctum::actingAs($this->coach, ['coach']);
+        $this->getJson('/api/coach/daily-plans/'.$plan->id.'/progress')->assertOk()
+            ->assertJsonPath('data.players.0.progress.feedback_summary.submission_status', 'submitted');
+        $this->postJson('/api/coach/daily-plans/'.$plan->id.'/players/'.$this->player->id.'/review', [
+            'reviewed'=>true, 'feedback'=>'We will review your remaining drills together.',
+        ])->assertOk()->assertJsonPath('data.feedback_summary.review_status', 'reviewed');
+        $other = User::factory()->create(['type'=>'player']);
+        $this->postJson('/api/coach/daily-plans/'.$plan->id.'/players/'.$other->id.'/review', ['feedback'=>'Wrong player'])->assertNotFound();
+        Sanctum::actingAs($this->player, ['player']);
+        $this->getJson('/api/player/daily-plans')->assertOk()
+            ->assertJsonPath('data.0.progress.feedback_summary.coach_feedback', 'We will review your remaining drills together.');
+    }
+
     public function test_seed_is_idempotent_and_preserves_all_prescriptions(): void
     {
         $this->seed(FlameBangersWorkoutTemplateSeeder::class);

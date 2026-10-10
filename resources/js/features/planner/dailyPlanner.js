@@ -91,7 +91,8 @@ export const progressFromApi = (pr, planId) => {
     items: pr.items || {},
     reflection: pr.reflection || {},
     completionSummary: pr.completion_summary || pr.completionSummary || undefined,
-    coachReview: pr.coach_review || pr.coachReview || undefined,
+    feedbackSummary: pr.feedback_summary || null,
+    coachReview: pr.coach_review ? {...pr.coach_review, reviewedAt: pr.coach_review.reviewed_at, reviewedBy: pr.coach_review.reviewed_by} : pr.coachReview || undefined,
     startedAt: pr.started_at ?? pr.startedAt ?? null,
     completedAt: pr.completed_at ?? pr.completedAt ?? null,
   }

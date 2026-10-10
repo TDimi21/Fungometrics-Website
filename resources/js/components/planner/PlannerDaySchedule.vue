@@ -21,7 +21,7 @@ const maxMinutes = computed(() => Math.max(1,...weeks.value.map(d=>d.minutes)))
 const completion = computed(() => !progress.value.length || progressError.value ? null : Math.round(progress.value.reduce((sum,r)=>sum+buildWorkoutCompletionSummary(r.plan,r.progress).completionPct,0)/progress.value.length))
 const checkIns = computed(() => progress.value.map(row => {
   const summary = buildWorkoutCompletionSummary(row.plan, row.progress)
-  const labels = {not_started: 'Not started', in_progress: summary.completedItems ? 'In progress' : 'Started', completed: 'Completed', reviewed: 'Reviewed'}
+  const labels = {not_started: 'Not started', in_progress: summary.completedItems ? 'In progress' : 'Started', completed: 'Submitted', reviewed: 'Reviewed'}
   return {...row, summary, statusLabel: labels[summary.status], name: [row.player?.first_name, row.player?.last_name].filter(Boolean).join(' ') || row.player?.name?.full || 'Player'}
 }))
 let generation = 0
