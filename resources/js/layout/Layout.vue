@@ -1,4 +1,5 @@
 <script setup>
+import CoachHeader from "./CoachHeader.vue";
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from "vue";
 import { useUserStore } from "../store/user";
 import { useTeamStore } from "../store/team";
@@ -482,7 +483,7 @@ watch(
       class="h-full w-full relative overflow-y-auto transition-[margin] duration-500"
       :class="hasSidebar.active ? 'ml-0 lg:ml-72' : 'ml-0'"
     >
-      <slot v-if="$slots['dashboard-header']" name="dashboard-header" :logout="logout" />
+      <CoachHeader v-if="userType !== 'player'" @logout="logout" />
       <header v-else class="top-brand-nav w-full">
         <div class="top-brand-content">
           <div class="top-brand-left">

@@ -2465,43 +2465,7 @@ watch(
 
 <template>
   <Layout>
-    <template #dashboard-header="{ logout }">
-      <div class="coach-topbar"><RouterLink to="/dashboard" class="coach-wordmark">FMTR<span>X</span><small>TRAIN SMARTER.<br>PLAY FURTHER.</small></RouterLink>
-        <!-- Dashboard tabs live above the shared content container. -->
-        <div class="coach-top-tabs">
-          <button
-            @click="setDashTab('overview')"
-            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
-            :class="dashTab === 'overview' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
-          >Overview</button>
-          <RouterLink
-            :to="{name: 'practice.planner', query: {tab: 'workout'}}"
-            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all text-white/70 hover:text-white"
-          >Workout</RouterLink>
-          <button
-            @click="setDashTab('development')"
-            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
-            :class="dashTab === 'development' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
-          >Player Development</button>
-          <button
-            @click="setDashTab('strengthcenter')"
-            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
-            :class="dashTab === 'strengthcenter' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
-          >Strength Center</button>
-          <button
-            @click="setDashTab('strength')"
-            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
-            :class="dashTab === 'strength' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
-          >Assessment</button>
-          <button
-            v-if="canAccessDataHub"
-            @click="setDashTab('datahub')"
-            class="px-5 py-2 rounded-lg text-sm font-black uppercase tracking-wide transition-all"
-            :class="dashTab === 'datahub' ? 'bg-[#C00000] text-white shadow-lg shadow-red-900/30' : 'text-white/40 hover:text-white'"
-          >Data Hub</button>
-        </div>
-<RouterLink to="/settings" class="coach-account">Coach <small>{{ team?.name || 'Your team' }}</small></RouterLink><button class="coach-account" @click="logout">Log out</button></div>
-    </template>
+
     <div class="coach-dashboard min-h-screen text-white">
       <div v-show="!devOnlyMode" class="w-full px-3 py-4 lg:px-5 pb-28 md:pb-12">
 
