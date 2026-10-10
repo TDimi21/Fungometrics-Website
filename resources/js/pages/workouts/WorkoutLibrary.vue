@@ -12,7 +12,7 @@ import {
 } from "@/features/planner/lib/plannerLinks";
 import TemplateEditor from "@/components/workouts/TemplateEditor.vue";
 import ProgramBuilder from "@/components/workouts/ProgramBuilder.vue";
-const props=defineProps({embedded:Boolean,initialTab:{type:String,default:'library'}})
+const props=defineProps({embedded:Boolean,initialDate:String,initialTab:{type:String,default:'library'}})
 const libraryView=ref('premade')
 const { axiosGet, axiosPost, axiosPut } = useAxiosAuth(),
   router = useRouter(),
@@ -34,7 +34,7 @@ const templates = ref([]),
   tab = ref(props.initialTab),
   programTemplate = ref("");
 const date = ref(
-    validPlannerDate(route.query.date) ? route.query.date : localDateKey()
+    validPlannerDate(props.initialDate) ? props.initialDate : validPlannerDate(route.query.date) ? route.query.date : localDateKey()
   ),
   selectedPlayers = ref([]),
   selectedGroups = ref([]),

@@ -10,6 +10,7 @@ import {
 const Library = defineAsyncComponent(() =>
   import("@/pages/workouts/WorkoutLibrary.vue")
 );
+const props = defineProps({initialTab: {type: String, default: 'today'}, embedded: Boolean});
 const emit = defineEmits(["create", "edit", "advanced"]);
 const { team } = storeToRefs(useTeamStore()),
   { axiosGet, axiosPost } = useAxiosAuth();
@@ -17,7 +18,7 @@ const teamId = computed(() =>
   String(team.value?.id_team ?? team.value?.id ?? "")
 );
 const date = ref(localDateKey()),
-  tab = ref("today"),
+  tab = ref(props.initialTab),
   rows = ref([]),
   roster = ref([]),
   drafts = ref([]),
@@ -131,7 +132,7 @@ async function saveAdjustment() {
 </script>
 <template>
   <section class="planner-studio">
-    <header class="studio-hero">
+    <header v-if="!embedded" class="studio-hero">
       <div>
         <small>FMTRX · PLANNER</small>
         <h1>Daily Planner</h1>
@@ -139,7 +140,7 @@ async function saveAdjustment() {
       </div>
       <div class="studio-motto">BUILD<br />BETTER<br />ATHLETES</div>
     </header>
-    <nav class="studio-tabs" aria-label="Planner sections">
+    <nav v-if="!embedded" class="studio-tabs" aria-label="Planner sections">
       <button
         v-for="section in ['today', 'workouts', 'programs', 'assignments']"
         :key="section"
@@ -194,7 +195,7 @@ async function saveAdjustment() {
           <small>TRAINING BLOCKS</small><strong>{{ total }}</strong>
         </article>
       </div>
-      <div class="studio-actions">
+      <div v-if="!embedded" class="studio-actions">
         <article>
           <small>CREATE A SINGLE WORKOUT</small>
           <h2>Design a Workout</h2>

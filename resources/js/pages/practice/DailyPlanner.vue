@@ -4,9 +4,11 @@ import PlayerWorkoutPreview from '@/components/workouts/PlayerWorkoutPreview.vue
 import WorkoutPreview from '@/components/workouts/WorkoutPreview.vue'
 import {workoutTiming, sectionMinutes, drillMinutes} from '@/features/planner/lib/workoutTiming'
 import PlannerStudioHome from '@/components/planner/PlannerStudioHome.vue'
+import WorkoutLibrary from '@/pages/workouts/WorkoutLibrary.vue'
 const guideStep = ref(0)
 const workoutPreviewOpen = ref(false)
-const showAdvancedPlanner = ref(false)
+const workoutPanel = ref('schedule')
+const calendarMode = ref('week')
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import {useRoute} from 'vue-router'
 import {validPlannerDate} from '@/features/planner/lib/plannerLinks'
@@ -39,7 +41,8 @@ const calendarDate = ref(validPlannerDate(plannerRoute.query.date) ? plannerRout
 const plannerLinkError = ref('')
 let handledPlannerLink = ''
 const plannerView = ref('day')
-const openTeamManagement = async () => { teamManagementOpen.value = true; await nextTick(); document.querySelector('.planner-management')?.scrollIntoView({behavior:'smooth'}) }
+const openSchedule = (mode = 'day') => { workoutPanel.value = 'schedule'; plannerView.value = mode === 'day' ? 'day' : 'calendar'; if (mode !== 'day') calendarMode.value = mode }
+const openTeamManagement = async () => { workoutPanel.value = 'schedule'; teamManagementOpen.value = true; await nextTick(); document.querySelector('.planner-management')?.scrollIntoView({behavior:'smooth'}) }
 const teamManagementOpen = ref(false)
 const plans = ref([])
 const groups = ref([])
@@ -290,7 +293,7 @@ const loadPlans = async () => {
   } catch { offline.value = true } finally { loading.value = false }
 }
 const loadCommandCenter = async () => {
-  if (!showAdvancedPlanner.value) return
+  if (!teamManagementOpen.value) return
   if (!activeTeamId.value) {
     commandCenter.value = null
     completionSummary.value = null
@@ -1022,8 +1025,8 @@ const loadCustomDrills = async () => {
   finally { drillLibraryLoading.value = false }
 }
 onMounted(() => { loadPlans(); loadGroups(); loadRoster(); loadCustomDrills(); })
-watch(showAdvancedPlanner, open => { if (open) { loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() } })
-watch(activeTeamId, () => { if (!showAdvancedPlanner.value) { loadPlans(); loadRoster(); return } weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; operatingHomeActionMessage.value = ''; launchReadiness.value = null; launchReadinessMessage.value = ''; loadRoster(); loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
+watch(teamManagementOpen, open => { if (open) { loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); loadWeeklyReportTemplates(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() } })
+watch(activeTeamId, () => { if (!teamManagementOpen.value) { loadPlans(); loadRoster(); return } weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; operatingHomeActionMessage.value = ''; launchReadiness.value = null; launchReadinessMessage.value = ''; loadRoster(); loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
 const newPlan = (date) => { guideStep.value = 0; if (typeof date === 'string') calendarDate.value = date; editing.value = { ...blankPlan(), date: calendarDate.value } }
@@ -2934,6 +2937,7 @@ const save = async (status) => {
     await loadPlans()
     await loadCommandCenter()
     calendarDate.value = editing.value.date
+    workoutPanel.value = 'schedule'
     editing.value = null
   } catch { alert('Could not reach the server — check your connection and try again.') } finally { saving.value = false }
 }
@@ -2946,16 +2950,31 @@ const del = async (p) => {
 
 <template>
   <div class="min-h-screen bg-[#060b14] text-white">
-    <div class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
+    <div class="workout-workspace" :class="{'workout-workspace--editing': editing || viewingPlayers}">
+      <aside v-if="!editing && !viewingPlayers" class="workout-sidebar">
+        <small>FMTRX TRAINING</small><h2>Workouts</h2><p>Plan the day. Build the month.</p>
+        <nav aria-label="Workout tools">
+          <button :class="{active:workoutPanel === 'schedule' && plannerView === 'day'}" @click="openSchedule()">Day’s schedule</button>
+          <button class="sidebar-create" @click="newPlan(calendarDate)">＋ Build a daily plan</button>
+          <button :class="{active:workoutPanel === 'schedule' && plannerView === 'calendar' && calendarMode === 'week'}" @click="openSchedule('week')">Weekly calendar</button>
+          <button :class="{active:workoutPanel === 'schedule' && plannerView === 'calendar' && calendarMode === 'month'}" @click="openSchedule('month')">Monthly plan</button>
+          <button :class="{active:workoutPanel === 'library'}" @click="workoutPanel = 'library'">Workout library</button>
+          <button :class="{active:workoutPanel === 'programs'}" @click="workoutPanel = 'programs'">Build a multi-week program</button>
+          <button :class="{active:workoutPanel === 'assignments'}" @click="workoutPanel = 'assignments'">Player assignments</button>
+          <button @click="openTeamManagement">Team tools & reports</button>
+        </nav>
+        <p class="sidebar-help">Use the monthly calendar to add a workout on any day, or build a program to schedule several weeks.</p>
+      </aside>
+      <div class="workout-main w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
 
       <p v-if="plannerLinkError" role="alert" class="dp-hint mb-4">{{ plannerLinkError }}</p>
       <!-- ══ VIEW PLAYERS (per-player progress + review) ══ -->
       <CoachWorkoutPlayers v-if="viewingPlayers" :plan="viewingPlayers" @back="viewingPlayers = null" />
 
-      <PlannerStudioHome v-else-if="!editing && !showAdvancedPlanner" @create="newPlan" @edit="p=>editPlan(planFromApi(p))" @advanced="showAdvancedPlanner=true" />
+      <WorkoutLibrary v-else-if="!editing && ['library','programs'].includes(workoutPanel)" :key="workoutPanel" embedded :initial-tab="workoutPanel === 'programs' ? 'programs' : 'library'" :initial-date="calendarDate" />
+      <PlannerStudioHome v-else-if="!editing && workoutPanel === 'assignments'" initial-tab="assignments" embedded @create="newPlan" @edit="p=>editPlan(planFromApi(p))" @advanced="openTeamManagement" />
       <!-- ══ LIST ══ -->
       <template v-else-if="!editing">
-        <button class="dp-btn" @click="showAdvancedPlanner=false">← Today</button>
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
             <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Daily Planner</h1>
@@ -2965,7 +2984,7 @@ const del = async (p) => {
         </div>
         <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
         <PlannerDaySchedule v-if="plannerView==='day'" :key="activeTeamId" :plans="plans" :date="calendarDate" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @date="calendarDate=$event" @management="openTeamManagement" />
-        <PlannerCalendar v-else @open-day="calendarDate=$event;plannerView='day'" v-model="calendarDate" :plans="plans" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @refresh="loadPlans" />
+        <PlannerCalendar v-else :initial-mode="calendarMode" @mode="calendarMode=$event" @open-day="calendarDate=$event;plannerView='day'" v-model="calendarDate" :plans="plans" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @refresh="loadPlans" />
         <details class="planner-management" :open="teamManagementOpen" @toggle="teamManagementOpen = $event.target.open">
           <summary>Team management <span>Alerts, reviews, reports & all saved plans</span></summary>
         <section class="dp-command mb-5" data-dp-section="operating_system_home">
@@ -6118,6 +6137,8 @@ const del = async (p) => {
       </template>
     </div>
 
+    </div>
+
     <!-- ══ WEEKLY REPORT PREVIEW MODAL ══ -->
     <div v-if="weeklyReportPreviewOpen" class="dp-modal" @click.self="weeklyReportPreviewOpen = false">
       <div class="dp-modal-card dp-modal-card--report">
@@ -6655,4 +6676,8 @@ const del = async (p) => {
 
 <style scoped>
 .planner-management{border:1px solid #2f425b;border-radius:12px;padding:16px;background:#0b1626}.planner-management>summary{cursor:pointer;font-size:14px;font-weight:700;color:#d6e2f2}.planner-management>summary span{font-size:12px;font-weight:400;color:#8fa5c3;margin-left:12px}.planner-management[open]>summary{margin-bottom:22px}
+</style>
+
+<style scoped>
+.workout-workspace{display:grid;grid-template-columns:220px minmax(0,1fr);align-items:start}.workout-workspace--editing{grid-template-columns:minmax(0,1fr)}.workout-main{min-width:0}.workout-sidebar{position:sticky;top:16px;padding:24px 16px;margin:16px 0 16px 16px;border:1px solid #294158;border-radius:14px;background:#0b1929;color:#edf5ff}.workout-sidebar small{font-size:10px;letter-spacing:1.5px;color:#ff465d}.workout-sidebar h2{font-size:24px;font-weight:800;margin:10px 0}.workout-sidebar p{font-size:12px;line-height:1.6;color:#9ebbd6}.workout-sidebar nav{display:flex;flex-direction:column;gap:8px;margin:20px 0}.workout-sidebar button{min-height:46px;text-align:left;border:1px solid #294158;border-radius:8px;padding:11px 12px;color:#dfeaf6;background:#102237;font-size:13px;font-weight:700}.workout-sidebar button.active{border-color:#ff2942;background:#391422}.workout-sidebar button.sidebar-create{background:#d90023;border-color:#ff2942;color:white}.workout-sidebar button:focus-visible{outline:2px solid #9ecbff;outline-offset:2px}@media(max-width:1100px){.workout-workspace{grid-template-columns:minmax(0,1fr)}.workout-sidebar{position:static;margin:16px 16px 0}.workout-sidebar nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:12px 0}.sidebar-help{display:none}}@media(max-width:420px){.workout-sidebar nav{grid-template-columns:minmax(0,1fr)}}
 </style>

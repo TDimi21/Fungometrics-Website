@@ -1,10 +1,12 @@
 <script setup>
-import {computed, ref} from 'vue'
+import {computed, ref, watch} from 'vue'
 import {calendarDays, localDateKey, moveCalendar, parseCalendarDate, plansOnDate} from '@/features/planner/lib/calendar'
 import {estimateMinutes, bucketTitle} from '@/features/planner/dailyPlanner'
-const props = defineProps({plans: {type:Array,default:()=>[]}, modelValue:String, loading:Boolean, offline:Boolean})
-const emit = defineEmits(['update:modelValue','open-day','create','edit','players','duplicate','refresh'])
-const mode = ref('week'), status = ref('all')
+const props = defineProps({plans: {type:Array,default:()=>[]}, modelValue:String, loading:Boolean, offline:Boolean, initialMode:{type:String,default:'week'}})
+const emit = defineEmits(['update:modelValue','open-day','create','edit','players','duplicate','refresh','mode'])
+const mode = ref(props.initialMode), status = ref('all')
+watch(() => props.initialMode, value => { mode.value = value })
+watch(mode, value => emit('mode', value))
 const days = computed(() => calendarDays(props.modelValue,mode.value))
 const selectedPlans = computed(() => plansOnDate(props.plans,props.modelValue,status.value))
 const forDay = day => plansOnDate(props.plans,day,status.value)
