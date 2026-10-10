@@ -82,16 +82,18 @@ const setTheme = (next) => {
                 type="button"
                 class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
                 :class="theme === 'dark' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
+                :aria-pressed="theme === 'dark'"
                 @click="setTheme('dark')"
               >Dark</button>
               <button
                 type="button"
                 class="px-3 py-2 rounded-lg border text-xs font-black uppercase tracking-wide"
                 :class="theme === 'light' ? 'bg-[#C00000]/20 border-[#C00000]/50 text-white' : 'bg-white/5 border-white/15 text-white/60'"
+                :aria-pressed="theme === 'light'"
                 @click="setTheme('light')"
               >Light</button>
             </div>
-            <p class="mt-3 text-sm font-bold text-white/65">Current: {{ theme === 'light' ? 'Light mode' : 'Dark mode' }}</p>
+            <p class="mt-3 text-sm font-bold text-white/65">Current: {{ theme === 'light' ? 'Light mode' : 'Dark mode' }}. Applies immediately across the website and is remembered on this browser.</p>
           </div>
 
           <div v-if="isPlayer" class="settings-tile rounded-xl border border-white/15 bg-white/5 p-5 md:col-span-2">
@@ -132,6 +134,9 @@ const setTheme = (next) => {
 </template>
 
 <style scoped>
+.settings-tile button { min-height:44px; }
+.settings-tile button[aria-pressed="true"] { outline:2px solid #be123c; outline-offset:2px; }
+
 .settings-page.theme-light .settings-panel {
   background: rgba(255, 255, 255, 0.92) !important;
   border-color: rgba(15, 23, 42, 0.14) !important;

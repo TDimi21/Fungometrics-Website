@@ -1,0 +1,164 @@
+/* Light-mode compatibility for screens that predate the shared theme tokens. */
+html[data-ui-theme='light'] {
+  color-scheme: light;
+  --app-bg: #eef2f6;
+  --app-surface: #fff;
+  --app-surface-soft: #f5f7fb;
+  --app-border: #c4cfdd;
+  --app-text: #17263b;
+  --app-text-soft: #475b73;
+  --design-panel-bg: #fff;
+  --design-panel-border: #c4cfdd;
+  --design-panel-shadow: 0 6px 24px #2239570d;
+}
+html[data-ui-theme='dark'] { color-scheme: dark; }
+[data-ui-theme='light'] .planner-studio {
+  --studio-bg: #f5f7fb;
+  --studio-card: #fff;
+  --studio-line: #c4cfdd;
+  --studio-text: #17263b;
+  --studio-muted: #475b73;
+}
+[data-ui-theme='light'] :is(.coach-header,.top-brand-nav) {
+  background: #fff !important; color: #17263b !important; border-color: #c4cfdd !important;
+}
+[data-ui-theme='light'] .coach-header :is(.wordmark,.account) { color: #17263b !important; }
+[data-ui-theme='light'] .coach-header nav a { color: #475b73; }
+[data-ui-theme='light'] .coach-header nav a.selected { color: #9f1239; background: #fff1f2; }
+[data-ui-theme='light'] .coach-header .account small { color: #475b73; }
+[data-ui-theme='light'] :is(.coach-dashboard,.coach-home,.day-dashboard,.workout-workspace,.workout-library,.dp,.cwp,.pw,.planner-calendar) {
+  background: var(--app-bg) !important; color: var(--app-text) !important;
+}
+[data-ui-theme='light'] :is(.panel,.dashboard-planner,.day-panel,.day-stats article,.attention-panel,.weekly-results,.workout-sidebar,.workout-panel,.workout-guide,.workout-builder-preview,.workout-preview,.dp-card,.dp-panel,.dp-bucket,.dp-section,.dp-modal-card,.pp-modal-card,.pp-modal-box,.cwp-panel,.cwp-card,.cwp-feedback,.cwp-stat,.pw-card,.pw-bucket,.pw-summary,.pw-workout-hero,.calendar-day,.selected-day,.day-plan,.coach-chart-panel,.settings-panel) {
+  background: #fff !important; color: #17263b !important; border-color: #c4cfdd !important;
+  box-shadow: 0 3px 12px #22395708;
+}
+[data-ui-theme='light'] :is(.screen-stage,.workout-preview,.dp-modal,.pp-modal) :is(h1,h2,h3,h4,label,th,legend) {
+  color: #17263b !important;
+}
+[data-ui-theme='light'] :is(.screen-stage,.workout-preview,.dp-modal,.pp-modal) :is(p,small) {
+  color: #475b73 !important;
+}
+[data-ui-theme='light'] :is(.cwp-name,.cwp-title,.cwp-workout-name,.cwp-item-name,.cwp-stat-n,.cwp-pct-n,.pw-item-name,.pw-item-meta,.dp-label,.dp-title,.dp-bucket-title,.live-preview-heading,.block-content,.attention-row,.weekly-results,.roster-card,.player-name,.activity-note,.activity-login) { color: #17263b !important; }
+[data-ui-theme='light'] :is(.cwp-dim,.cwp-item-sub,.cwp-stat-l,.cwp-date,.block-time,.live-preview-hint,.attention-row span,.planner-summary,.empty,.weekday) { color: #475b73 !important; }
+[data-ui-theme='light'] :is(.screen-stage,.workout-preview,.dp-modal,.pp-modal) :is(input,select,textarea) {
+  background: #fff !important; color: #17263b !important; border: 1px solid #93a5bd !important;
+  color-scheme: light; accent-color: #be123c;
+}
+[data-ui-theme='light'] :is(input,textarea)::placeholder { color: #61748b !important; opacity: 1; }
+[data-ui-theme='light'] :is(.screen-stage,.workout-preview,.dp-modal,.pp-modal) button {
+  color: #243a55; border-color: #afbed0;
+}
+[data-ui-theme='light'] :is(.day-dashboard,.planner-calendar,.workout-guide,.workout-sidebar,.workout-panel,.workout-preview,.attention-panel,.weekly-results,.coach-home,.dashboard-planner) button,
+[data-ui-theme='light'] :is(.dp-btn,.pp-btn,.cwp-chip,.cwp-back,.cwp-review-btn,.attention-row,.account) {
+  background: #f1f5fa !important; color: #243a55 !important; border-color: #afbed0 !important;
+}
+[data-ui-theme='light'] :is(.screen-stage,.workout-preview) :is(a,.link,.review-link,.cwp-back) { color: #1559a0; }
+[data-ui-theme='light'] :is(.screen-stage,.workout-preview) :is(button,a).primary,
+[data-ui-theme='light'] :is(.calendar-primary,.dp-btn--primary,.pp-btn--primary,.create-plan),
+[data-ui-theme='light'] :is(.day-filters,.attention-filters,.schedule-views,.view-switch) button:is(.active,[aria-pressed='true']),
+[data-ui-theme='light'] .cwp-chip--on {
+  background: #b91c32 !important; color: #fff !important; border-color: #b91c32 !important;
+}
+[data-ui-theme='light'] .calendar-day.selected { background: #eaf2ff !important; box-shadow: inset 0 0 0 2px #2563a6; }
+[data-ui-theme='light'] .calendar-day.muted { background: #edf1f6 !important; }
+[data-ui-theme='light'] .calendar-event.published { background: #e2f3ec !important; border-color: #46876c !important; }
+[data-ui-theme='light'] .calendar-event.draft { background: #fff2d9 !important; border-color: #a57620 !important; }
+[data-ui-theme='light'] .calendar-event :is(strong,small) { color: #243a55 !important; }
+[data-ui-theme='light'] :is(.block-tag,.tags span,.status-badge) { color: #245c77; }
+[data-ui-theme='light'] :is(.screen-stage,.coach-header,.workout-preview) :is(button,a,input,textarea,select):focus-visible {
+  outline: 3px solid #2563a6 !important; outline-offset: 3px;
+}
+[data-ui-theme='light'] :is(button,input,select,textarea):disabled { opacity: .65; cursor: not-allowed; }
+[data-ui-theme='light'] .apexcharts-tooltip { background: #fff !important; color: #17263b !important; border-color: #c4cfdd !important; }
+[data-ui-theme='light'] .apexcharts-tooltip-title { background: #edf2f8 !important; color: #17263b !important; }
+[data-ui-theme='light'] .apexcharts-text { fill: #475b73 !important; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* Legacy utility surfaces use the same neutral palette. */
+[data-ui-theme='light'] [class~="bg-[#001030]"],
+[data-ui-theme='light'] [class*="bg-[#001030]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#020817]"],
+[data-ui-theme='light'] [class*="bg-[#020817]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#050b18]"],
+[data-ui-theme='light'] [class*="bg-[#050b18]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#060b14]"],
+[data-ui-theme='light'] [class*="bg-[#060b14]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#060d1a]"],
+[data-ui-theme='light'] [class*="bg-[#060d1a]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#061530]"],
+[data-ui-theme='light'] [class*="bg-[#061530]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#080f1d]"],
+[data-ui-theme='light'] [class*="bg-[#080f1d]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#081226]"],
+[data-ui-theme='light'] [class*="bg-[#081226]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#090e1f]"],
+[data-ui-theme='light'] [class*="bg-[#090e1f]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0C1021]"],
+[data-ui-theme='light'] [class*="bg-[#0C1021]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0a1020]"],
+[data-ui-theme='light'] [class*="bg-[#0a1020]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0a1628]"],
+[data-ui-theme='light'] [class*="bg-[#0a1628]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0b1120]"],
+[data-ui-theme='light'] [class*="bg-[#0b1120]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0b1230]"],
+[data-ui-theme='light'] [class*="bg-[#0b1230]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0b1322]"],
+[data-ui-theme='light'] [class*="bg-[#0b1322]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0b1324]"],
+[data-ui-theme='light'] [class*="bg-[#0b1324]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0b1328]"],
+[data-ui-theme='light'] [class*="bg-[#0b1328]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0b142b]"],
+[data-ui-theme='light'] [class*="bg-[#0b142b]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0c1630]"],
+[data-ui-theme='light'] [class*="bg-[#0c1630]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0d1b33]"],
+[data-ui-theme='light'] [class*="bg-[#0d1b33]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0d1f3c]"],
+[data-ui-theme='light'] [class*="bg-[#0d1f3c]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0e1628]"],
+[data-ui-theme='light'] [class*="bg-[#0e1628]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#0f172a]"],
+[data-ui-theme='light'] [class*="bg-[#0f172a]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#10192a]"],
+[data-ui-theme='light'] [class*="bg-[#10192a]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#101A34]"],
+[data-ui-theme='light'] [class*="bg-[#101A34]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#111b2e]"],
+[data-ui-theme='light'] [class*="bg-[#111b2e]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#12172B]"],
+[data-ui-theme='light'] [class*="bg-[#12172B]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#121a29]"],
+[data-ui-theme='light'] [class*="bg-[#121a29]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#16243a]"],
+[data-ui-theme='light'] [class*="bg-[#16243a]/"] { background-color: #f5f7fb !important; }
+[data-ui-theme='light'] [class~="bg-[#2f333d]"],
+[data-ui-theme='light'] [class*="bg-[#2f333d]/"] { background-color: #f5f7fb !important; }
+
+[data-ui-theme='light'] :is(.bg-slate-900,.bg-slate-800,.bg-gray-900,.bg-gray-800,.bg-fungo-gray2) {background-color:#f5f7fb!important;}
+/* White utility text must remain white on solid accent actions. */
+[data-ui-theme='light'] :is(button,a)[class~="bg-[#C00000]"],
+[data-ui-theme='light'] :is(button,a)[class~="bg-[#d8232a]"],
+[data-ui-theme='light'] :is(button,a).bg-red-600,
+[data-ui-theme='light'] :is(button,a).bg-red-700 {color:#fff!important;}
+
+/* Nested content surfaces and secondary text in the planner/review screens. */
+[data-ui-theme='light'] :is(.dp-modal-card,.pp-modal-card,.cwp,.pw,.day-dashboard,.coach-home,.workout-workspace,.weekly-results,.workout-panel) :is([class*="-title"],[class*="-name"],[class*="-label"],[class*="-meta"],[class*="-note"],[class*="-sub"],[class*="-hint"],[class*="-empty"]) { color:#344b65 !important; }
+[data-ui-theme='light'] :is(.roster-player,.player-row,.metric-box,.athlete-metrics,.leader-card,.leader-metric,.dp-item,.dp-drill,.dp-quick-load,.dp-template,.dp-modal-card,.pp-modal-card,.cwp-item,.cwp-note,.pw-results,.pw-day-card,.settings-tile) {background:#f5f7fb!important;border-color:#c4cfdd!important;color:#17263b!important;}
+[data-ui-theme='light'] :is(.coach-home,.dashboard-planner,.dp-modal-card,.pp-modal-card) :is(strong,b,td) {color:#243a55;}
+[data-ui-theme='light'] :is(.dp-btn,.pp-btn,.cwp-chip,.pw-card,.dp-bucket-chip) {color:#243a55!important;}
+[data-ui-theme='light'] :is(.dp-btn--primary,.pp-btn--primary,.cwp-chip--on) {color:#fff!important;}
+/* The phone is a faithful preview of the player's dark app, independent of the web preference. */
+[data-ui-theme='light'] .player-phone :is(h2,h3,summary,label,button) {color:#edf5ff!important;}
+[data-ui-theme='light'] .player-phone :is(p,small,.player-meta,.player-date) {color:#b8cee2!important;}
+[data-ui-theme='light'] .player-phone button {background:#0a1928!important;border-color:#49617e!important;}
+[data-ui-theme='light'] .player-phone {color:#edf5ff!important;}
+/* Status messages keep a distinct, readable meaning in the lighter palette. */
+[data-ui-theme='light'] :is(.cwp-warn,.calendar-warning,.day-message) {background:#fff4dd!important;color:#744500!important;border-color:#ba9047!important;}
+[data-ui-theme='light'] :is(.cwp-check,.block-count,.activity-login.recent) {color:#14633f!important;}
+/* Data Hub history and import landing page. */
+[data-ui-theme='light'] :is(.hub-dashboard>header,.phase-card,.platform-section,.platform-list article,.import-list a) {background:#fff!important;color:#17263b!important;border-color:#c4cfdd!important;box-shadow:0 3px 12px #22395708!important;}
+[data-ui-theme='light'] .hub-dashboard :is(strong,h1,h2,h3) {color:#17263b!important;}
+[data-ui-theme='light'] .hub-actions .secondary {background:#f1f5fa!important;color:#243a55!important;border-color:#afbed0!important;}
