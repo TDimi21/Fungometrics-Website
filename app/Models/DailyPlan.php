@@ -51,8 +51,12 @@ class DailyPlan extends Model
             if (!collect($buckets)->contains(fn ($bucket) => ($bucket['type'] ?? null) === 'daily_readiness')) {
                 // Append to preserve existing section order and template snapshot references.
                 $buckets[] = ['type'=>'daily_readiness','title'=>'Daily Readiness','kind'=>'survey','items'=>[],'note'=>'Complete before starting your workout.'];
-                $plan->buckets = $buckets;
             }
+            $reflection = collect($buckets)->firstWhere('type', 'player_reflection')
+                ?? ['type'=>'player_reflection','title'=>'Player Reflection','kind'=>'survey','items'=>[],'note'=>'Complete after finishing your workout.'];
+            $buckets = array_values(array_filter($buckets, fn ($bucket) => ($bucket['type'] ?? null) !== 'player_reflection'));
+            $buckets[] = $reflection;
+            $plan->buckets = $buckets;
         });
     }
 

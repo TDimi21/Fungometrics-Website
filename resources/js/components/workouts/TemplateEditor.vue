@@ -14,7 +14,7 @@ const draft = ref(JSON.parse(JSON.stringify(props.template)));
 for (const section of draft.value.sections) for (const exercise of section.exercises) {
   if (!exercise.metadata || Array.isArray(exercise.metadata)) exercise.metadata = {};
 }
-const previewSections = computed(() => [{type:'daily_readiness', title:'Daily Readiness', kind:'survey', items:[], note:'Complete before starting your workout.'}, ...draft.value.sections]);
+const previewSections = computed(() => [{type:'daily_readiness', title:'Daily Readiness', kind:'survey', items:[], note:'Complete before starting your workout.'}, ...draft.value.sections, {type:'player_reflection', title:'Player Reflection', kind:'survey', items:[], note:'Complete after finishing your workout.'}]);
 const guideBuckets = BUCKETS.filter(b => b.kind !== 'survey');
 const step = ref(0), preview = ref(false), drillSearch = ref(''), libraryOpen = ref(false), allBuckets = ref(false), customDrills = ref([]), libraryError = ref('');
 const {axiosGet} = useAxiosAuth();
@@ -101,7 +101,7 @@ function normalize() {
       </button>
     </header>
     <p v-if="formError" role="alert">{{ formError }}</p>
-    <p>Daily Readiness is automatically included when this workout is assigned.</p>
+    <p>Daily Readiness and a closing Player Reflection are automatically included when this workout is assigned.</p>
     <WorkoutBuilderLayout>
     <WorkoutGuide v-model:step="step" :buckets="guideBuckets" :included="draft.sections.map(s => s.section_type)" @use="addBlock" @preview="preview = true; libraryOpen = false" />
     <div v-if="step === guideBuckets.length + 1"><h3>Ready to save</h3><p>{{ draft.sections.length }} sections · {{ draft.sections.reduce((n,s) => n + s.exercises.length,0) }} drills. Preview your workout, then save it to your library.</p></div>

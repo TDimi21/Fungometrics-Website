@@ -2840,10 +2840,11 @@ const publishSelectedWeeklyDraftPlans = async (assignAll = false) => {
 
 const bucketDef = (type) => BUCKET_BY_TYPE[type] || {}
 const addBucket = (b) => {
-  // Append in the order the coach selects them (matches the app's PlanBuilder).
-  editing.value.buckets.push({ type: b.type, title: b.title, kind: b.kind, items: [], note: '' })
+  // Keep the closing reflection after every training section.
+  const index = editing.value.buckets.findIndex(bucket => bucket.type === 'player_reflection')
+  editing.value.buckets.splice(index < 0 ? editing.value.buckets.length : index, 0, { type: b.type, title: b.title, kind: b.kind, items: [], note: '' })
 }
-const removeBucket = (type) => { if (type === 'daily_readiness') return; editing.value.buckets = editing.value.buckets.filter((b) => b.type !== type) }
+const removeBucket = (type) => { if (['daily_readiness', 'player_reflection'].includes(type)) return; editing.value.buckets = editing.value.buckets.filter((b) => b.type !== type) }
 watch(() => editing.value?.id, () => { guideStep.value = 0; workoutPreviewOpen.value = false })
 const editingTiming = computed(() => workoutTiming(editing.value || {}))
 const isStrengthItem = (it) => Array.isArray(it.setList)
@@ -6040,7 +6041,7 @@ const del = async (p) => {
             <div class="flex items-center gap-2 font-bold">
               <span class="dp-dot" :style="{ background: bucketDef(bucket.type).color }"></span>{{ bucket.title || bucketTitle(bucket.type) }}
             </div>
-            <span v-if="bucket.type === 'daily_readiness'" class="text-white/60 text-sm">Included in every workout</span><button v-else class="dp-link dp-link--danger" @click="removeBucket(bucket.type)">Remove</button>
+            <span v-if="['daily_readiness', 'player_reflection'].includes(bucket.type)" class="text-white/60 text-sm">Included in every workout</span><button v-else class="dp-link dp-link--danger" @click="removeBucket(bucket.type)">Remove</button>
           </div>
           <p class="text-white/35 text-xs -mt-1 mb-3">{{ bucketDef(bucket.type).hint }}</p>
 

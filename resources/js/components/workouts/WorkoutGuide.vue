@@ -17,7 +17,7 @@ const emit = defineEmits(['update:step', 'use', 'preview']);
     <progress :value="step + 1" :max="buckets.length + 2" aria-label="Builder progress"></progress>
     <h2>{{ step === 0 ? 'Workout details' : step > buckets.length ? 'Review & finish' : buckets[step - 1].title }}</h2>
     <template v-if="step > 0 && step <= buckets.length">
-      <p v-if="buckets[step - 1].type === 'daily_readiness'">Daily Readiness is included automatically in every workout. Players complete their check-in before training.</p><p v-else>{{ buckets[step - 1].hint }}. Include this section if it fits your workout, or skip ahead.</p>
+      <p v-if="buckets[step - 1].type === 'daily_readiness'">Daily Readiness is included automatically in every workout. Players complete their check-in before training.</p><p v-else-if="buckets[step - 1].type === 'player_reflection'">Player Reflection is included automatically at the end of every workout. Players complete it after training.</p><p v-else>{{ buckets[step - 1].hint }}. Include this section if it fits your workout, or skip ahead.</p>
       <button v-if="!included.includes(buckets[step - 1].type)" type="button" class="primary" @click="emit('use', buckets[step - 1])">Use this section</button>
     </template>
     <div class="guide-row">

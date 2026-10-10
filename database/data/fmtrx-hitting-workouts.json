@@ -1,0 +1,431 @@
+{
+  "schema_version": "1.0",
+  "library": "FMTRX Hitting Workout Templates",
+  "import_mode": "upsert_by_slug",
+  "notes": "Seed presets, not player performance data. All volumes illustrative and coach-editable. Set exercise links by matching existing library records; retain text where ambiguous.",
+  "templates": [
+    {
+      "slug": "hitting-exit-velocity-day",
+      "name": "Exit Velocity Day",
+      "sport": "baseball",
+      "category": "hitting",
+      "program_type": "FMTRX Hitting Development",
+      "focus": "High-intent hard contact and measured exit velocity",
+      "intensity_label": "High",
+      "coach_editable": true,
+      "is_premade": true,
+      "sections": [
+        {
+          "name": "Warm-Up",
+          "sort_order": 1,
+          "exercises": [
+            {
+              "exercise_name": "Dynamic Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, thoracic spine, shoulders"
+            },
+            {
+              "exercise_name": "Band Rotations",
+              "sets": 1,
+              "prescription_text": "10 reps each direction"
+            },
+            {
+              "exercise_name": "Dry Swings",
+              "sets": 1,
+              "prescription_text": "10 controlled swings"
+            }
+          ]
+        },
+        {
+          "name": "Hitting",
+          "sort_order": 2,
+          "exercises": [
+            {
+              "exercise_name": "Tee: Center-Barrel Build",
+              "sets": 2,
+              "prescription_text": "8 swings per set; controlled solid contact"
+            },
+            {
+              "exercise_name": "Tee: High-Intent Swings",
+              "sets": 3,
+              "prescription_text": "5 swings per set; full reset between swings",
+              "track_metric": "exit_velocity_mph"
+            },
+            {
+              "exercise_name": "Front Toss: Hard Contact",
+              "sets": 3,
+              "prescription_text": "6 swings per set; collect exit velocity when available",
+              "track_metric": "exit_velocity_mph"
+            },
+            {
+              "exercise_name": "Machine or Overhand BP: Damage Zone",
+              "sets": 3,
+              "prescription_text": "5 swings per set; attack coach-designated locations",
+              "track_metric": "exit_velocity_mph"
+            },
+            {
+              "exercise_name": "Best 5 EV Review",
+              "sets": 1,
+              "prescription_text": "Record best 5 valid readings, equipment/source and notes",
+              "track_metric": "exit_velocity_mph"
+            }
+          ]
+        },
+        {
+          "name": "Recovery",
+          "sort_order": 3,
+          "exercises": [
+            {
+              "exercise_name": "Cooldown Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, trunk, shoulders"
+            },
+            {
+              "exercise_name": "Hitting Session Feedback",
+              "sets": 1,
+              "prescription_text": "Record RPE (1\u201310), soreness, and notes"
+            }
+          ]
+        }
+      ],
+      "instructions": "Coach sets safe swing volume and rest; radar/launch monitor readings are optional. Do not fabricate EV."
+    },
+    {
+      "slug": "hitting-recovery-feel-day",
+      "name": "Recovery / Feel Day",
+      "sport": "baseball",
+      "category": "hitting",
+      "program_type": "FMTRX Hitting Development",
+      "focus": "Low-intensity contact quality and swing feel",
+      "intensity_label": "Low / RPE <= 4",
+      "coach_editable": true,
+      "is_premade": true,
+      "sections": [
+        {
+          "name": "Warm-Up",
+          "sort_order": 1,
+          "exercises": [
+            {
+              "exercise_name": "Dynamic Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, thoracic spine, shoulders"
+            },
+            {
+              "exercise_name": "Band Rotations",
+              "sets": 1,
+              "prescription_text": "10 reps each direction"
+            },
+            {
+              "exercise_name": "Dry Swings",
+              "sets": 1,
+              "prescription_text": "10 controlled swings"
+            }
+          ]
+        },
+        {
+          "name": "Hitting",
+          "sort_order": 2,
+          "exercises": [
+            {
+              "exercise_name": "Mirror or Dry Swing Path",
+              "sets": 2,
+              "prescription_text": "8 reps per set; relaxed movements"
+            },
+            {
+              "exercise_name": "Tee: Opposite-Field Line Drives",
+              "sets": 3,
+              "prescription_text": "8 swings per set; easy controlled intent"
+            },
+            {
+              "exercise_name": "Short Toss: Barrel Awareness",
+              "sets": 3,
+              "prescription_text": "8 swings per set; focus on square contact"
+            },
+            {
+              "exercise_name": "Two-Strike Contact Drill",
+              "sets": 2,
+              "prescription_text": "6 swings per set; shorten up and control barrel"
+            },
+            {
+              "exercise_name": "Player Feel Check",
+              "sets": 1,
+              "prescription_text": "Record timing/barrel feel and soreness; no max-intent swings"
+            }
+          ]
+        },
+        {
+          "name": "Recovery",
+          "sort_order": 3,
+          "exercises": [
+            {
+              "exercise_name": "Cooldown Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, trunk, shoulders"
+            },
+            {
+              "exercise_name": "Hitting Session Feedback",
+              "sets": 1,
+              "prescription_text": "Record RPE (1\u201310), soreness, and notes"
+            }
+          ]
+        }
+      ],
+      "instructions": "Intent should stay low; adjust for discomfort and athlete readiness."
+    },
+    {
+      "slug": "hitting-cage-bp-day",
+      "name": "Cage / BP Day",
+      "sport": "baseball",
+      "category": "hitting",
+      "program_type": "FMTRX Hitting Development",
+      "focus": "Game approach, pitch recognition and execution",
+      "intensity_label": "Moderate / Coach-set",
+      "coach_editable": true,
+      "is_premade": true,
+      "sections": [
+        {
+          "name": "Warm-Up",
+          "sort_order": 1,
+          "exercises": [
+            {
+              "exercise_name": "Dynamic Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, thoracic spine, shoulders"
+            },
+            {
+              "exercise_name": "Band Rotations",
+              "sets": 1,
+              "prescription_text": "10 reps each direction"
+            },
+            {
+              "exercise_name": "Dry Swings",
+              "sets": 1,
+              "prescription_text": "10 controlled swings"
+            }
+          ]
+        },
+        {
+          "name": "Hitting",
+          "sort_order": 2,
+          "exercises": [
+            {
+              "exercise_name": "Tee: Approach Rehearsal",
+              "sets": 2,
+              "prescription_text": "8 swings per set; target zones selected by coach"
+            },
+            {
+              "exercise_name": "Front Toss: Directional Rounds",
+              "sets": 3,
+              "prescription_text": "8 swings per set; pull, middle, opposite"
+            },
+            {
+              "exercise_name": "Machine or Live BP: Situational Rounds",
+              "sets": 5,
+              "prescription_text": "6 pitches per round; specify count and situation",
+              "track_metric": "hard_contact_rate"
+            },
+            {
+              "exercise_name": "Two-Strike Round",
+              "sets": 2,
+              "prescription_text": "6 pitches per set; track decisions and contact",
+              "track_metric": "contact_rate"
+            },
+            {
+              "exercise_name": "Cage Session Review",
+              "sets": 1,
+              "prescription_text": "Record pitch count, swing count, hard-contact count, misses, and notes",
+              "track_metric": "hard_contact_rate"
+            }
+          ]
+        },
+        {
+          "name": "Recovery",
+          "sort_order": 3,
+          "exercises": [
+            {
+              "exercise_name": "Cooldown Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, trunk, shoulders"
+            },
+            {
+              "exercise_name": "Hitting Session Feedback",
+              "sets": 1,
+              "prescription_text": "Record RPE (1\u201310), soreness, and notes"
+            }
+          ]
+        }
+      ],
+      "instructions": "Link to existing Cage/BP session records; coach chooses approach and pitch-mix. No duplicated performance entries."
+    },
+    {
+      "slug": "hitting-hybrid-a-power",
+      "name": "Hybrid A \u2014 Power",
+      "sport": "baseball",
+      "category": "hitting",
+      "program_type": "FMTRX Hitting Development",
+      "focus": "Rotational power and high-intent hard contact",
+      "intensity_label": "High / Coach-set",
+      "coach_editable": true,
+      "is_premade": true,
+      "sections": [
+        {
+          "name": "Warm-Up",
+          "sort_order": 1,
+          "exercises": [
+            {
+              "exercise_name": "Dynamic Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, thoracic spine, shoulders"
+            },
+            {
+              "exercise_name": "Band Rotations",
+              "sets": 1,
+              "prescription_text": "10 reps each direction"
+            },
+            {
+              "exercise_name": "Dry Swings",
+              "sets": 1,
+              "prescription_text": "10 controlled swings"
+            }
+          ]
+        },
+        {
+          "name": "Hitting",
+          "sort_order": 2,
+          "exercises": [
+            {
+              "exercise_name": "Rotational Med-Ball Scoop Toss",
+              "sets": 3,
+              "prescription_text": "5 reps per side; coach-selected load"
+            },
+            {
+              "exercise_name": "Step-Behind Dry Swings",
+              "sets": 2,
+              "prescription_text": "6 reps per set"
+            },
+            {
+              "exercise_name": "Tee: Load and Launch",
+              "sets": 3,
+              "prescription_text": "6 swings per set; high intent",
+              "track_metric": "exit_velocity_mph"
+            },
+            {
+              "exercise_name": "Front Toss: Drive the Gap",
+              "sets": 3,
+              "prescription_text": "6 swings per set; high-intent line drives",
+              "track_metric": "exit_velocity_mph"
+            },
+            {
+              "exercise_name": "Machine BP: Attack Pitch",
+              "sets": 3,
+              "prescription_text": "5 pitches per set; swing at designated attack pitches",
+              "track_metric": "hard_contact_rate"
+            }
+          ]
+        },
+        {
+          "name": "Recovery",
+          "sort_order": 3,
+          "exercises": [
+            {
+              "exercise_name": "Cooldown Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, trunk, shoulders"
+            },
+            {
+              "exercise_name": "Hitting Session Feedback",
+              "sets": 1,
+              "prescription_text": "Record RPE (1\u201310), soreness, and notes"
+            }
+          ]
+        }
+      ],
+      "instructions": "High intent only when appropriate for individual athlete; record actual velocity if measured."
+    },
+    {
+      "slug": "hitting-hybrid-b-contact",
+      "name": "Hybrid B \u2014 Contact",
+      "sport": "baseball",
+      "category": "hitting",
+      "program_type": "FMTRX Hitting Development",
+      "focus": "Barrel accuracy, contact point and direction",
+      "intensity_label": "Moderate / RPE 5\u20137",
+      "coach_editable": true,
+      "is_premade": true,
+      "sections": [
+        {
+          "name": "Warm-Up",
+          "sort_order": 1,
+          "exercises": [
+            {
+              "exercise_name": "Dynamic Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, thoracic spine, shoulders"
+            },
+            {
+              "exercise_name": "Band Rotations",
+              "sets": 1,
+              "prescription_text": "10 reps each direction"
+            },
+            {
+              "exercise_name": "Dry Swings",
+              "sets": 1,
+              "prescription_text": "10 controlled swings"
+            }
+          ]
+        },
+        {
+          "name": "Hitting",
+          "sort_order": 2,
+          "exercises": [
+            {
+              "exercise_name": "Tee: Inside/Middle/Outside",
+              "sets": 3,
+              "prescription_text": "6 swings per location; clarify per-round target"
+            },
+            {
+              "exercise_name": "One-Hand Path Drill",
+              "sets": 2,
+              "prescription_text": "6 reps per side; light controlled swings"
+            },
+            {
+              "exercise_name": "Front Toss: Directional Contact",
+              "sets": 3,
+              "prescription_text": "8 swings per set; vary field direction",
+              "track_metric": "contact_rate"
+            },
+            {
+              "exercise_name": "Mixed-Location BP",
+              "sets": 3,
+              "prescription_text": "8 pitches per set; track swing decisions",
+              "track_metric": "contact_rate"
+            },
+            {
+              "exercise_name": "Two-Strike Finish",
+              "sets": 2,
+              "prescription_text": "6 pitches per set; emphasize quality contact",
+              "track_metric": "contact_rate"
+            }
+          ]
+        },
+        {
+          "name": "Recovery",
+          "sort_order": 3,
+          "exercises": [
+            {
+              "exercise_name": "Cooldown Mobility",
+              "sets": 1,
+              "prescription_text": "5 minutes; hips, trunk, shoulders"
+            },
+            {
+              "exercise_name": "Hitting Session Feedback",
+              "sets": 1,
+              "prescription_text": "Record RPE (1\u201310), soreness, and notes"
+            }
+          ]
+        }
+      ],
+      "instructions": "Coach may adjust one-hand drills and total swing volume based on readiness."
+    }
+  ]
+}

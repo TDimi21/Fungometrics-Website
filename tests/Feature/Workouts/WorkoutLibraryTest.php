@@ -37,14 +37,57 @@ class WorkoutLibraryTest extends TestCase
         $this->postJson('/api/coach/workout-templates/'.$this->template($slug)->id.'/use', ['id' => $id,'team_id' => $this->team->id,'date' => '2026-10-09','player_ids' => [$this->player->id]])->assertCreated();
         return DailyPlan::findOrFail($id);
     }
-    public function test_every_saved_workout_includes_readiness_without_duplicates(): void
+    public function test_every_saved_workout_includes_surveys_without_duplicates(): void
     {
         $plan = $this->useTemplate();
         $this->assertCount(1, collect($plan->buckets)->where('type', 'daily_readiness'));
+        $this->assertSame('player_reflection', collect($plan->buckets)->last()['type']);
         $plan->buckets = [['type'=>'throwing','items'=>[]]];
         $plan->save();
         $plan->save();
-        $this->assertCount(1, collect($plan->fresh()->buckets)->where('type', 'daily_readiness'));
+        $buckets = $plan->fresh()->buckets;
+        $this->assertCount(1, collect($buckets)->where('type', 'daily_readiness'));
+        $this->assertCount(1, collect($buckets)->where('type', 'player_reflection'));
+        $this->assertSame('player_reflection', collect($buckets)->last()['type']);
+        $buckets[] = ['type'=>'recovery','items'=>[]];
+        $plan->buckets = $buckets;
+        $plan->save();
+        $this->assertSame('player_reflection', collect($plan->fresh()->buckets)->last()['type']);
+    }
+
+    public function test_hitting_presets_preserve_source_and_quick_load_with_surveys(): void
+    {
+        $this->seed(\Database\Seeders\FmtrxHittingWorkoutTemplateSeeder::class);
+        $before = WorkoutTemplate::where('category', 'hitting')->pluck('id', 'slug')->all();
+        $this->seed(\Database\Seeders\FmtrxHittingWorkoutTemplateSeeder::class);
+        $this->assertSame($before, WorkoutTemplate::where('category', 'hitting')->pluck('id', 'slug')->all());
+        $this->assertCount(5, $before);
+        $this->assertDatabaseCount('workout_templates', 10);
+        $this->assertDatabaseCount('workout_template_exercises', 144);
+        $visible = $this->getJson('/api/coach/workout-templates')->assertOk()->json('data');
+        $this->assertCount(5, array_filter($visible, fn ($t) => $t['category'] === 'hitting' && $t['is_premade']));
+        $source = json_decode(file_get_contents(database_path('data/fmtrx-hitting-workouts.json')), true);
+        foreach ($source['templates'] as $preset) {
+            $template = WorkoutTemplate::with('sections.exercises')->where('slug', $preset['slug'])->firstOrFail();
+            $this->assertSame($preset['name'], $template->name);
+            foreach ($preset['sections'] as $index => $section) {
+                foreach ($section['exercises'] as $n => $exercise) {
+                    $saved = $template->sections[$index]->exercises[$n];
+                    $this->assertSame($exercise['exercise_name'], $saved->exercise_name);
+                    $this->assertSame($exercise['prescription_text'], $saved->prescription_text);
+                    $this->assertEquals($exercise['sets'], $saved->sets_min);
+                    $this->assertSame($exercise['track_metric'] ?? null, $saved->metadata['track_metric'] ?? null);
+                }
+            }
+            $id = (string) Str::uuid();
+            $this->postJson('/api/coach/workout-templates/'.$template->id.'/use', [
+                'id' => $id, 'team_id' => $this->team->id, 'date' => '2026-10-10', 'player_ids' => [$this->player->id],
+            ])->assertCreated();
+            $buckets = collect(DailyPlan::findOrFail($id)->buckets);
+            $this->assertCount(1, $buckets->where('type', 'daily_readiness'));
+            $this->assertSame('player_reflection', $buckets->last()['type']);
+            $this->assertCount(5, $buckets->firstWhere('type', 'hitting')['items']);
+        }
     }
 
     public function test_seed_is_idempotent_and_preserves_all_prescriptions(): void
