@@ -1,7 +1,7 @@
 import {BUCKET_BY_TYPE} from './plannerBuckets';
 
 export function quickWorkoutKind(template) {
-  if (!template.is_premade) return null;
+  if (!template.is_premade) return 'custom';
   const category = `${template.category || ''} ${template.program_type || ''}`.toLowerCase();
   if (category.includes('hitting')) return 'hitting';
   if (category.includes('pitching')) return 'pitching';

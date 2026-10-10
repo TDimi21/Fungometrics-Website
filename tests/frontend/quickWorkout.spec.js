@@ -26,9 +26,10 @@ describe('quick loading a premade into the selected day', () => {
     expect(second.buckets[1].items).toHaveLength(2);
     expect(second.buckets[1].note).toBe('Coach note\n\nFull reset');
   });
-  it('groups public premades under pitching or hitting', () => {
+  it('groups premades by discipline and saved workouts under custom', () => {
     expect(quickWorkoutKind(template)).toBe('hitting');
     expect(quickWorkoutKind({is_premade: true, category: 'Pitching / Velocity'})).toBe('pitching');
-    expect(quickWorkoutKind({...template, is_premade: false})).toBeNull();
+    expect(quickWorkoutKind({...template, is_premade: false})).toBe('custom');
+    expect(quickWorkoutKind({is_premade: false, category: 'Strength'})).toBe('custom');
   });
 });
