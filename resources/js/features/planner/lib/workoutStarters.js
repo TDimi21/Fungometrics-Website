@@ -23,3 +23,14 @@ export function preloadWorkoutSections(buckets, type) {
   }
   return [make('daily_readiness'), ...training, make('player_reflection')];
 }
+
+export function removeWorkoutSections(buckets, type, selectedTypes = []) {
+  const removable = WORKOUT_STARTERS.find(s => s.type === type)?.sections || [];
+  const shared = new Set(WORKOUT_STARTERS.filter(s => selectedTypes.includes(s.type)).flatMap(s => s.sections));
+  return buckets.filter(bucket => {
+    if (!removable.includes(bucket.type) || shared.has(bucket.type)) return true;
+    // Keep a coach's work, including custom scheduling and section notes.
+    return !!(bucket.items?.length || bucket.note?.trim() || bucket.location?.trim()
+      || bucket.durationMinutes || bucket.startTime || bucket.endTime);
+  });
+}
