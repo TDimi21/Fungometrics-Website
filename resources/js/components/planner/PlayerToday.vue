@@ -1,5 +1,6 @@
 <script setup>
 import { mergePendingPlannerDay } from "@/features/planner/lib/pendingDay";
+import SkillResults from '@/components/workouts/SkillResults.vue';
 import TemplateExerciseActuals from "@/components/workouts/TemplateExerciseActuals.vue";
 import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { useAxiosAuth } from "@/composables/axios-auth";
@@ -401,6 +402,7 @@ async function adjust(plan, behavior) {
           <div v-if="expanded[item.id]" class="today-actual">
             <p>{{ item.prescription_text || item.coachCue }}</p>
             <p>{{ item.note }}</p>
+            <SkillResults :bucket="block.type" :actual="actual(plan,item)" :sessions="sessions[plan.id] || []" @load-sessions="available(plan)" @change="plan.progress.items[item.id] = {...actual(plan,item),...$event}; markPending(plan)" />
             <details v-if="item.merged_prescriptions?.length">
               <summary>Combined prescriptions · record one session</summary>
               <p

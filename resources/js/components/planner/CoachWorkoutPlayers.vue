@@ -2,6 +2,7 @@
 // Coach "View Players" — every assigned player's progress for one workout, with a
 // per-player review detail (readiness, prescribed-vs-actual, coach feedback, Mark
 // Reviewed). Mirrors the mobile CoachWorkoutPlayers + CoachPlayerWorkoutDetail flow.
+import SkillResults from '@/components/workouts/SkillResults.vue'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { BUCKET_BY_TYPE, SURVEY_FIELDS } from '@/features/planner/lib/plannerBuckets.js'
@@ -275,6 +276,7 @@ const markReviewed = async () => {
             <span v-if="it.required === false" class="cwp-opt">optional</span>
             <span v-if="itemProgress(it.id).pain" class="cwp-pain">⚠</span>
           </div>
+          <SkillResults :bucket="bucket.type" :actual="itemProgress(it.id)" readonly />
           <div v-if="it.template_id" class="cwp-item-sub">
             <p>Prescribed: {{ it.sets_min }}{{ it.sets_max!==it.sets_min ? '–'+it.sets_max : '' }} sets · {{ it.prescription_text }}</p>
             <p v-for="[key,label] in [['actual_sets','Actual sets'],['actual_reps','Actual reps'],['actual_distance_yards','Distance (yards)'],['actual_rpe','Actual RPE']]" :key="key">{{ label }}: {{ itemProgress(it.id)[key] ?? 'Not recorded' }}</p>

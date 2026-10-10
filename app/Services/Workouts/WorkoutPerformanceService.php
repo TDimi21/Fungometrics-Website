@@ -33,6 +33,7 @@ class WorkoutPerformanceService
                 if(isset($data['items'][$itemId])) { $actual['edited_at']=now()->toIso8601String(); if(!empty($actual['done']))$actual['completed_at']=$old?->items[$itemId]['completed_at']??now()->toIso8601String(); }
 
                 $actual = array_replace($old?->items[$itemId] ?? [], $actual);
+                app(\App\Services\Planner\WorkoutSkillResults::class)->validate($actual, $exercise['_bucket_type']);
                 validator($actual, ['done' => 'sometimes|boolean','actual_reps' => 'nullable|integer|min:0','actual_sets' => 'nullable|integer|min:0','actual_distance_yards' => 'nullable|numeric|min:0','actual_rpe' => 'nullable|numeric|min:1|max:10','player_note' => 'nullable|string|max:2000','session_id' => 'nullable|uuid','radar' => 'sometimes|array|max:1000','radar.*.id' => 'required|uuid|distinct','radar.*.weight' => 'required|integer|min:1','radar.*.velocity' => 'required|integer|min:1','radar.*.attempt' => 'required|integer|min:1','radar.*.timestamp' => 'required|date'])->validate();
                 if( ! empty($actual['radar'])) {
                     abort_unless(($exercise['metadata']['tracking_type'] ?? null) === 'radar', 422, 'Radar results are not enabled for this exercise.');
@@ -65,6 +66,10 @@ class WorkoutPerformanceService
                 } elseif( ! empty($actual['session_id'])) {
                     $session = Practice::whereKey($actual['session_id'])->where('team_id', $plan->team_id)->where(fn ($q) => $q->where('user_id', $userId)->orWhereHas('lineup', fn ($l) => $l->where('user_id', $userId)))->firstOrFail();
                     $expected = $exercise['metadata']['session_type'] ?? null;
+                    if (!$expected && in_array($exercise['_bucket_type'], ['hitting','pitching','throwing'], true)) {
+                        $candidates = $exercise['_bucket_type'] === 'hitting' ? ['exit_velocity','cage','live_ab'] : ['bullpen','long_toss','weighted_ball'];
+                        foreach ($candidates as $candidate) if (app(\App\Services\Planner\LinkedSessionRegistry::class)->matches($candidate, $session)) { $expected = $candidate; break; }
+                    }
                     abort_unless(app(\App\Services\Planner\LinkedSessionRegistry::class)->matches((string)$expected, $session), 422, 'Choose a session matching this exercise.');
                     $existing = DB::table('workout_session_links')->where(['plan_id' => $plan->id,'user_id' => $userId,'item_id' => $itemId])->first();
                     abort_if($existing && $existing->practice_id !== $session->id, 409, 'This exercise already links to another session.');
