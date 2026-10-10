@@ -348,4 +348,3 @@ async function saveAdjustment() {
     </template>
   </section>
 </template>
-<style src="../../../css/planner-studio.css"></style>

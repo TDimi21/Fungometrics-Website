@@ -651,5 +651,3 @@ async function adjust(plan, behavior) {
   padding: 12px;
 }
 </style>
-
-<style src="../../../css/planner-studio.css"></style>

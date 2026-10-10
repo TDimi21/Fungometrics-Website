@@ -5,6 +5,8 @@
  */
 
 import './bootstrap';
+// Shared across coach and player routes; keep outside Vue SFC style scoping.
+import '../css/planner-studio.css';
 import { createApp, h, defineAsyncComponent } from 'vue';
 import { RouterView } from 'vue-router';
 import Router, { routeEntitlement } from "../router";
