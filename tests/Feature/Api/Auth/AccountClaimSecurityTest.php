@@ -23,6 +23,34 @@ use Tests\TestCase;
 
 class AccountClaimSecurityTest extends TestCase
 {
+    public function test_team_code_claim_accepts_email_and_keeps_the_existing_player(): void
+    {
+        $player = User::factory()->create(['type' => 'player', 'email' => 'roster@example.com', 'phone' => null, 'password' => null, 'status' => true]);
+        $team = Team::factory()->create(['join_code' => 'TEAM23']);
+        PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
+        $otherTeam = Team::factory()->create(['join_code' => 'OTHER2']);
+        $this->postJson('/api/player/join', ['contact' => 'roster@example.com', 'team_code' => $otherTeam->join_code])->assertUnprocessable();
+        $this->postJson('/api/player/join', ['contact' => 'wrong@example.com', 'team_code' => $team->join_code])->assertUnprocessable();
+        $response = $this->postJson('/api/player/join', ['contact' => 'ROSTER@example.com', 'team_code' => strtolower($team->join_code)])->assertOk();
+        $token = $response->json('data.token');
+        $this->assertSame(['profile-claim'], PersonalAccessToken::findToken($token)->abilities);
+        $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/player/set-credentials', [
+            'email' => 'roster@example.com', 'password' => 'password123', 'password_confirmation' => 'password123',
+        ])->assertOk()->assertJsonPath('data.user.id', $player->id)->assertJsonPath('data.team.id', $team->id);
+        $this->postJson('/api/player/join', ['contact' => 'roster@example.com', 'team_code' => $team->join_code])->assertUnprocessable();
+    }
+
+    public function test_team_code_claim_accepts_phone_for_email_invited_player_but_not_removed_members(): void
+    {
+        $player = User::factory()->create(['type' => 'player', 'email' => 'roster@example.com', 'phone' => '(555) 123-4567', 'password' => null, 'status' => true]);
+        $team = Team::factory()->create(['join_code' => 'TEAM23']);
+        $membership = PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
+        $this->postJson('/api/player/join', ['contact' => '5551234567', 'team_code' => $team->join_code])->assertOk();
+        $membership->update(['actual' => false]);
+        $this->postJson('/api/player/join', ['contact' => '5551234567', 'team_code' => $team->join_code])->assertUnprocessable();
+        $this->postJson('/api/player/join', ['contact' => 'not-a-contact', 'team_code' => $team->join_code])->assertUnprocessable();
+    }
+
     public function test_individual_code_accepts_email_and_preserves_player_identity(): void
     {
         $player = User::factory()->create(['type' => 'player', 'email' => 'invite@example.com', 'phone' => null, 'password' => null, 'status' => true]);

@@ -389,7 +389,7 @@ const submitClaimCredentials = async () => {
             />
           </div>
           <p class="text-xs text-white/75">
-            Use the email or phone your coach used and your individual Team code from your coach.
+            Use the email or phone your coach used and your coach’s team code.
           </p>
           <div class="grid place-content-center">
             <BigButtonField color="red" label="Claim Profile" type="submit"></BigButtonField>

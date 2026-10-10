@@ -29,7 +29,8 @@ class AddPlayersTest extends TestCase
         Sanctum::actingAs($coach, ['coach']);
         $payload = ['email' => 'NewPlayer@example.com', 'team' => $team->id, 'name' => ['first' => 'New', 'last' => 'Player']];
         $first = $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('data.email', 'newplayer@example.com');
-        $this->assertSame($team->join_code, $first->json('team_code'));
+        $this->assertSame($team->fresh()->join_code, $first->json('team_code'));
+        $this->assertSame(6, strlen($first->json('team_code')));
         $first->assertJsonMissingPath('claim_code');
         $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('data.id', $first->json('data.id'));
         $this->assertSame(1, PlayerTeam::where('team_id', $team->id)->count());
