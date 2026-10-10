@@ -1,4 +1,5 @@
 <script setup>
+import WorkoutBuilderLayout from '@/components/workouts/WorkoutBuilderLayout.vue'
 import WorkoutGuide from '@/components/workouts/WorkoutGuide.vue'
 import PlayerWorkoutPreview from '@/components/workouts/PlayerWorkoutPreview.vue'
 import WorkoutPreview from '@/components/workouts/WorkoutPreview.vue'
@@ -6017,6 +6018,7 @@ const del = async (p) => {
           </div>
         </div>
 
+        <WorkoutBuilderLayout>
         <WorkoutGuide v-model:step="guideStep" :buckets="BUCKETS" :included="editing.buckets.map(b => b.type)" @use="addBucket" @preview="workoutPreviewOpen = true" />
         <!-- Plan info -->
         <div v-if="guideStep === 0" class="dp-panel grid gap-3 sm:grid-cols-2 mb-4">
@@ -6113,7 +6115,6 @@ const del = async (p) => {
           </template>
         </div>
 
-        <PlayerWorkoutPreview v-if="guideStep === BUCKETS.length + 1" :name="editing.name" :date="editing.date" :minutes="editingTiming.minutes" :start-time="editing.startTime" :end-time="editingTiming.endTime" :sections="editing.buckets.map((b,i) => ({...b, ...editingTiming.sections[i]}))" />
         <!-- Assign -->
         <div v-if="guideStep === BUCKETS.length + 1" class="dp-panel mt-4">
           <div class="dp-section flex items-center justify-between">
@@ -6135,6 +6136,8 @@ const del = async (p) => {
           </div>
         </div>
         <div class="flex flex-wrap gap-3 mt-4"><button class="dp-btn" :disabled="guideStep === 0" @click="guideStep--">← Back</button><button class="dp-btn" @click="workoutPreviewOpen = true">Preview workout</button><button v-if="guideStep < BUCKETS.length + 1" class="dp-btn dp-btn--primary" @click="guideStep++">Next step →</button></div>
+        <template #preview><PlayerWorkoutPreview :name="editing.name" :date="editing.date" :minutes="editingTiming.minutes" :start-time="editing.startTime" :end-time="editingTiming.endTime" :sections="editing.buckets.map((b,i) => ({...b, ...editingTiming.sections[i]}))" /></template>
+        </WorkoutBuilderLayout>
       </template>
     </div>
 

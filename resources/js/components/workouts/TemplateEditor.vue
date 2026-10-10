@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
+import WorkoutBuilderLayout from './WorkoutBuilderLayout.vue';
 import WorkoutGuide from './WorkoutGuide.vue';
 import PlayerWorkoutPreview from './PlayerWorkoutPreview.vue';
 import WorkoutPreview from './WorkoutPreview.vue';
@@ -99,9 +100,9 @@ function normalize() {
       </button>
     </header>
     <p v-if="formError" role="alert">{{ formError }}</p>
+    <WorkoutBuilderLayout>
     <WorkoutGuide v-model:step="step" :buckets="guideBuckets" :included="draft.sections.map(s => s.section_type)" @use="addBlock" @preview="preview = true; libraryOpen = false" />
     <div v-if="step === guideBuckets.length + 1"><h3>Ready to save</h3><p>{{ draft.sections.length }} sections · {{ draft.sections.reduce((n,s) => n + s.exercises.length,0) }} drills. Preview your workout, then save it to your library.</p></div>
-    <PlayerWorkoutPreview v-if="step === guideBuckets.length + 1" :name="draft.name" :sections="draft.sections" :minutes="draft.estimated_duration_minutes" />
     <div v-show="step === 0" class="form-grid workout-settings">
       <label>Name<input v-model="draft.name" required maxlength="200" /></label
       ><label>Sport<input v-model="draft.sport" required /></label
@@ -291,10 +292,12 @@ function normalize() {
       </button>
     </section>
     <footer class="toolbar"><button type="button" :disabled="step === 0" @click="step--">← Back</button><button type="button" @click="preview = true">Preview workout</button><button v-if="step < guideBuckets.length + 1" type="button" class="primary" @click="step++">Next step →</button></footer>
+    <template #preview><PlayerWorkoutPreview :name="draft.name" :sections="draft.sections" :minutes="draft.estimated_duration_minutes" /></template>
+    </WorkoutBuilderLayout>
     <WorkoutPreview v-if="preview" :name="draft.name" :sections="draft.sections" :minutes="draft.estimated_duration_minutes" @close="preview = false" />
   </form>
 </template>
 
 <style scoped>
-.workout-editor{display:block;max-width:1000px;margin:auto}.workout-editor input,.workout-editor textarea,.workout-editor select{max-width:100%}.workout-editor .workout-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.drill-browser{padding:16px;border:1px solid #49617e;border-radius:12px;margin:16px 0}.drill-results{display:flex;flex-direction:column;max-height:300px;overflow:auto;gap:8px}.drill-results button{text-align:left;min-height:44px}@media(max-width:650px){.workout-editor .workout-settings{grid-template-columns:1fr}}
+.workout-editor{display:block;max-width:1440px;margin:auto}.workout-editor input,.workout-editor textarea,.workout-editor select{max-width:100%}.workout-editor .workout-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.drill-browser{padding:16px;border:1px solid #49617e;border-radius:12px;margin:16px 0}.drill-results{display:flex;flex-direction:column;max-height:300px;overflow:auto;gap:8px}.drill-results button{text-align:left;min-height:44px}@media(max-width:650px){.workout-editor .workout-settings{grid-template-columns:1fr}}
 </style>
