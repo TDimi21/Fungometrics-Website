@@ -320,9 +320,22 @@ const routes = [
 		component: Roster,
 		meta: { requiresAuth: true },
 	},
+  {
+    name: 'workout.planner',
+    path: '/workouts',
+    component: () => import('@/pages/workouts/WorkoutPlanner.vue'),
+    meta: { requiresAuth: true, entitlement: 'planner_create' },
+  },
+  {
+    path: '/practice-planner',
+    redirect: to => {
+      const {tab, ...query} = to.query
+      return {name: tab === 'workout' ? 'workout.planner' : 'practice.planner', query, hash: to.hash}
+    },
+  },
 	{
 		name: "practice.planner",
-		path: "/practice-planner",
+		path: "/practice",
 		component: PracticePlanner,
 		meta: { requiresAuth: true, entitlement: 'planner_create' },
 	},

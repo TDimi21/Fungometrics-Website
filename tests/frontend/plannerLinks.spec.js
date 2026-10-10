@@ -1,9 +1,9 @@
 import {describe,it,expect} from 'vitest'
 import {plannerLink,teamPlannerRows,validPlannerDate} from '../../resources/js/features/planner/lib/plannerLinks'
 describe('dashboard planner shortcuts',()=>{
-  it('opens the workout tab on the selected day with the requested action',()=>{
-    expect(plannerLink('2026-10-09','create')).toEqual({name:'practice.planner',query:{tab:'workout',date:'2026-10-09',action:'create'}})
-    expect(plannerLink('2026-10-10','players','p1').query).toEqual({tab:'workout',date:'2026-10-10',action:'players',plan:'p1'})
+  it('opens the workout page on the selected day with the requested action',()=>{
+    expect(plannerLink('2026-10-09','create')).toEqual({name:'workout.planner',query:{date:'2026-10-09',action:'create'}})
+    expect(plannerLink('2026-10-10','players','p1').query).toEqual({date:'2026-10-10',action:'players',plan:'p1'})
     expect(plannerLink('2026-10-10').query).not.toHaveProperty('action')
   })
   it('does not show another team’s workouts or templates',()=>{

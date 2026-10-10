@@ -10,7 +10,8 @@ const {team} = storeToRefs(useTeamStore())
 const access = useAccessStore()
 const links = computed(() => [
   {id:'overview', label:'Overview', to:{path:'/dashboard'}},
-  {id:'workout', label:'Workout', to:{name:'practice.planner', query:{tab:'workout'}}},
+  {id:'workout', label:'Workout', to:{name:'workout.planner'}},
+  {id:'practice', label:'Practice', to:{name:'practice.planner'}},
   {id:'development', label:'Player Development', to:{path:'/dashboard', query:{tab:'development'}}},
   {id:'strengthcenter', label:'Strength Center', to:{path:'/dashboard', query:{tab:'strengthcenter'}}},
   {id:'strength', label:'Assessment', to:{path:'/dashboard', query:{tab:'strength'}}},
@@ -19,7 +20,8 @@ const links = computed(() => [
 ])
 const active = computed(() => {
   if(route.path === '/dashboard') return route.query.tab || 'overview'
-  if(route.path === '/practice-planner' || route.path === '/workout-library') return 'workout'
+  if(route.path === '/workouts' || route.path === '/workout-library') return 'workout'
+  if(route.path === '/practice') return 'practice'
   if(route.path.startsWith('/data-hub')) return 'datahub'
   if(route.path.startsWith('/development')) return 'development'
   if(route.path.startsWith('/free-assessment') || route.path === '/assessment-reports') return 'strength'

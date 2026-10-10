@@ -1,6 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import {useRoute} from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { useTeamStore } from '@/store/team'
@@ -12,17 +11,11 @@ import {
 } from '@/features/practice/practicePlanner.js'
 import { EQUIPMENT_LIBRARY, EQUIPMENT_ALL, drillRunnable } from '@/features/practice/equipmentLibrary.js'
 import { LOCATION_GROUPS } from '@/features/practice/practiceLocations.js'
-import DailyPlanner from './DailyPlanner.vue'
 
 const { axiosGet, axiosPost, axiosDelete } = useAxiosAuth()
 const teamStore = useTeamStore()
 const { team } = storeToRefs(teamStore)
 const activeTeamId = computed(() => team.value?.id_team ?? team.value?.id ?? null)
-
-// Practice / Workout tabs — the Workout tab is the Daily Planner.
-const plannerRoute = useRoute()
-const activeTab = ref(plannerRoute.query.tab === 'workout' ? 'workout' : 'practice')
-watch(() => plannerRoute.query.tab, tab => { if (tab === 'workout' || tab === 'practice') activeTab.value = tab })
 
 const CUSTOM_KEY = 'fmtrx_custom_drills'
 const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
@@ -420,13 +413,7 @@ const groupColor = (g) => ({
 
 <template>
   <Layout>
-    <div class="bg-[#060b14] px-4 pt-6 lg:px-8 no-print">
-      <div class="pp-tabs">
-        <button class="pp-tab" :class="{ 'pp-tab--on': activeTab === 'practice' }" @click="activeTab = 'practice'">Practice</button>
-        <button class="pp-tab" :class="{ 'pp-tab--on': activeTab === 'workout' }" @click="activeTab = 'workout'">Workout</button>
-      </div>
-    </div>
-    <div v-show="activeTab === 'practice'">
+    <div>
     <div class="min-h-screen bg-[#060b14] text-white">
       <div class="w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
 
@@ -623,7 +610,6 @@ const groupColor = (g) => ({
       <div class="ps-foot">TRAIN · TRACK · TRANSFORM — fmtrx.com</div>
     </div>
     </div>
-    <DailyPlanner v-if="activeTab === 'workout'" />
 
     <!-- Add Drill modal -->
     <Teleport to="body">

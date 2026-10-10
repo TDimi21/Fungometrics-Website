@@ -15,7 +15,7 @@ defineProps({ actions: { type: Array, default: () => [] }, canAddToPlanner: { ty
           <p v-if="action.expected_gain" class="gain"><strong>Expected Gain:</strong> {{ action.expected_gain }}</p>
         </div>
       </article>
-      <RouterLink v-if="canAddToPlanner && !readOnly" to="/practice-planner" class="planner-action">Add to Planner</RouterLink>
+      <RouterLink v-if="canAddToPlanner && !readOnly" to="/workouts" class="planner-action">Add to Planner</RouterLink>
     </div>
     <p v-else class="empty">Needs Data — no governed coach actions are available yet.</p>
   </section>
