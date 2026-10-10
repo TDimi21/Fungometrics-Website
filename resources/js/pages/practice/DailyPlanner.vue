@@ -1,6 +1,10 @@
 <script setup>
+import WorkoutGuide from '@/components/workouts/WorkoutGuide.vue'
+import WorkoutPreview from '@/components/workouts/WorkoutPreview.vue'
 import {workoutTiming, sectionMinutes, drillMinutes} from '@/features/planner/lib/workoutTiming'
 import PlannerStudioHome from '@/components/planner/PlannerStudioHome.vue'
+const guideStep = ref(0)
+const workoutPreviewOpen = ref(false)
 const showAdvancedPlanner = ref(false)
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import {useRoute} from 'vue-router'
@@ -1021,7 +1025,7 @@ watch(showAdvancedPlanner, open => { if (open) { loadOperatingHome(); loadLaunch
 watch(activeTeamId, () => { if (!showAdvancedPlanner.value) { loadPlans(); loadRoster(); return } weeklyReportDeliveryPreview.value = null; weeklyReportDeliveryMessage.value = ''; resetWeeklyReportDeliveryReview(); seasonArchiveDeliveryPreview.value = null; seasonArchiveDeliveryMessage.value = ''; resetSeasonArchiveDeliveryReview(); selectedWeeklyReportDelivery.value = null; selectedSeasonArchiveDelivery.value = null; operatingHome.value = null; operatingHomeMessage.value = ''; operatingHomeActionMessage.value = ''; launchReadiness.value = null; launchReadinessMessage.value = ''; loadRoster(); loadOperatingHome(); loadLaunchReadiness(); loadCommandCenter(); loadWeeklyRollup(); loadWeeklyTeamReport(); loadWeeklyReportNotes(); refreshWeeklyReportDeliveryInsights(); refreshSeasonArchiveDeliveryInsights(); loadSeasonDevelopmentArchive(); loadDevelopmentProgramHealth(); loadDevelopmentHealthTrend(); loadDevelopmentHealthAlerts(); loadDevelopmentHealthAlertActions(); loadNextWeekDraft(); loadNextWeekCalendarDraft(); loadWeeklyDraftPlans() })
 
 // ── plan / builder ───────────────────────────────────────────────────────────
-const newPlan = (date) => { if (typeof date === 'string') calendarDate.value = date; editing.value = { ...blankPlan(), date: calendarDate.value } }
+const newPlan = (date) => { guideStep.value = 0; if (typeof date === 'string') calendarDate.value = date; editing.value = { ...blankPlan(), date: calendarDate.value } }
 const editPlan = (p) => { editing.value = JSON.parse(JSON.stringify(p)) }
 // Open the app-style "View Players" review flow for a published plan.
 const viewPlayers = (p) => { viewingPlayers.value = JSON.parse(JSON.stringify(p)) }
@@ -2827,14 +2831,14 @@ const publishSelectedWeeklyDraftPlans = async (assignAll = false) => {
 }
 
 // Buckets not yet on the plan (keep the app's ordering).
-const availableBuckets = computed(() =>
-  BUCKETS.filter((b) => !(editing.value?.buckets || []).some((x) => x.type === b.type)))
+
 const bucketDef = (type) => BUCKET_BY_TYPE[type] || {}
 const addBucket = (b) => {
   // Append in the order the coach selects them (matches the app's PlanBuilder).
   editing.value.buckets.push({ type: b.type, title: b.title, kind: b.kind, items: [], note: '' })
 }
 const removeBucket = (type) => { editing.value.buckets = editing.value.buckets.filter((b) => b.type !== type) }
+watch(() => editing.value?.id, () => { guideStep.value = 0; workoutPreviewOpen.value = false })
 const editingTiming = computed(() => workoutTiming(editing.value || {}))
 const isStrengthItem = (it) => Array.isArray(it.setList)
 
@@ -5992,8 +5996,9 @@ const del = async (p) => {
           </div>
         </div>
 
+        <WorkoutGuide v-model:step="guideStep" :buckets="BUCKETS" :included="editing.buckets.map(b => b.type)" @use="addBucket" @preview="workoutPreviewOpen = true" />
         <!-- Plan info -->
-        <div class="dp-panel grid gap-3 sm:grid-cols-2 mb-4">
+        <div v-if="guideStep === 0" class="dp-panel grid gap-3 sm:grid-cols-2 mb-4">
           <label class="dp-field sm:col-span-2"><span class="dp-label">Plan name</span>
             <input v-model="editing.name" class="dp-input" placeholder="e.g. Tuesday Lift + Throw" /></label>
           <label class="dp-field"><span class="dp-label">Date</span><input v-model="editing.date" type="date" class="dp-input" /></label>
@@ -6006,26 +6011,8 @@ const del = async (p) => {
           <label class="dp-field"><span class="dp-label">Primary goal</span><input v-model="editing.primaryGoal" class="dp-input" placeholder="Optional" /></label>
         </div>
 
-        <!-- Add bucket -->
-        <div class="dp-panel mb-4">
-          <div class="dp-section">Add a bucket</div>
-          <div class="flex flex-wrap gap-1.5">
-            <button v-for="b in availableBuckets" :key="b.type" class="dp-chip" @click="addBucket(b)">
-              <span class="dp-dot" :style="{ background: b.color }"></span>{{ b.title }}
-            </button>
-            <span v-if="!availableBuckets.length" class="text-white/40 text-sm">All buckets added.</span>
-          </div>
-        </div>
-
-        <div class="dp-bucket">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div><div class="font-bold">Drill library</div><p class="text-white/50 text-sm">Browse all drills, lifts, and saved exercises. Selecting a drill adds its bucket automatically.</p></div>
-            <button class="dp-btn dp-btn--primary" @click="openPicker()">Browse all drills</button>
-          </div>
-        </div>
-
         <!-- Buckets -->
-        <div v-for="(bucket, bucketIndex) in editing.buckets" :key="bucket.type" class="dp-bucket">
+        <div v-for="(bucket, bucketIndex) in editing.buckets" v-show="BUCKETS[guideStep - 1]?.type === bucket.type" :key="bucket.type" class="dp-bucket">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2 font-bold">
               <span class="dp-dot" :style="{ background: bucketDef(bucket.type).color }"></span>{{ bucket.title || bucketTitle(bucket.type) }}
@@ -6106,7 +6093,7 @@ const del = async (p) => {
         </div>
 
         <!-- Assign -->
-        <div class="dp-panel mt-4">
+        <div v-if="guideStep === BUCKETS.length + 1" class="dp-panel mt-4">
           <div class="dp-section flex items-center justify-between">
             <span>Assign to</span>
             <span class="text-white/40 text-xs font-normal normal-case">{{ editing.assignedPlayerIds.length }} selected</span>
@@ -6125,6 +6112,7 @@ const del = async (p) => {
             </label>
           </div>
         </div>
+        <div class="flex flex-wrap gap-3 mt-4"><button class="dp-btn" :disabled="guideStep === 0" @click="guideStep--">← Back</button><button class="dp-btn" @click="workoutPreviewOpen = true">Preview workout</button><button v-if="guideStep < BUCKETS.length + 1" class="dp-btn dp-btn--primary" @click="guideStep++">Next step →</button></div>
       </template>
     </div>
 
@@ -6162,6 +6150,7 @@ const del = async (p) => {
       </div>
     </div>
 
+    <WorkoutPreview v-if="workoutPreviewOpen && editing" :name="editing.name" :date="editing.date" :minutes="editingTiming.minutes" :start-time="editing.startTime" :end-time="editingTiming.endTime" :sections="editing.buckets.map((b,i) => ({...b, ...editingTiming.sections[i]}))" @close="workoutPreviewOpen = false" />
     <!-- ══ DRILL PICKER MODAL ══ -->
     <div v-if="picker" class="dp-modal" @click.self="closePicker">
       <div class="dp-modal-card" role="dialog" aria-modal="true" aria-label="Drill library" @keydown.esc="closePicker">
