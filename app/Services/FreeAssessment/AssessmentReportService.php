@@ -21,7 +21,7 @@ class AssessmentReportService
             'height' => null !== $p?->height_in_ft ? $p->height_in_ft.'′ '.($p->height_in_inch ?? 0).'″' : null,
             'weight' => $user->fitness?->body_weight, 'position' => $user->positions->pluck('position')->implode('/'),
             'bats' => $p?->hit_side, 'throws' => $p?->throw_side,
-            'claimed' => filled($user->email) || filled($user->password),
+            'claimed' => filled($user->password),
         ];
     }
     public function snapshot(FreeAssessment $event): array

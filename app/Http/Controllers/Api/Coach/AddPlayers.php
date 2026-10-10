@@ -53,7 +53,15 @@ class AddPlayers extends Controller
                     ], HttpCodes::HTTP_FORBIDDEN);
                 }
             }
-            $player = (new ListServiceData(new User()))->byParamFirst('phone', $data['phone']);
+            $email = strtolower(trim($data['email'] ?? ''));
+            $phone = preg_replace('/\D+/', '', $data['phone'] ?? '');
+            $matches = User::query()->when($phone === '', fn ($query) => $query->whereRaw('LOWER(email) = ?', [$email]))->cursor()->filter(fn ($user) =>
+                ($email !== '' && strtolower((string) $user->email) === $email) ||
+                ($phone !== '' && preg_replace('/\D+/', '', (string) $user->phone) === $phone))->take(2)->collect();
+            if ($matches->count() > 1 || ($matches->first() && (string) $matches->first()->type !== 'player')) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['contact' => 'These contact details cannot be used for this player.']);
+            }
+            $player = $matches->first();
             $message = "";
             $changedEventData = null;
             if ( ! isset($player)) {
@@ -84,12 +92,19 @@ class AddPlayers extends Controller
                 'status' => 'success',
                 'data' =>  User::with('profile', 'player', 'fitness', 'positions')->find($userId),
             ];
+            $claimUser = User::findOrFail($userId);
+            if (!filled($claimUser->password)) {
+                $response['claim_code'] = app(\App\Services\Security\AccountClaimService::class)->issue($claimUser);
+            }
             DB::commit();
             if (null !== $changedEventData) {
                 event(new UserChanged($changedEventData));
             }
 
             return response()->json($response, HttpCodes::HTTP_OK);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            DB::rollBack();
+            throw $exception;
         } catch (Exception $exception) {
             DB::rollBack();
             $response = [

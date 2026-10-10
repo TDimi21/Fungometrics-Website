@@ -6,12 +6,13 @@ const root = path.resolve(process.cwd())
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
 describe('player profile claim flow', () => {
-  it('uses mobile number and team code without an SMS verification step', () => {
+  it('uses email or phone and an individual claim code', () => {
     const login = read('resources/js/components/login/LoginTemplate.vue')
 
     expect(login).toContain("api_url + 'player/join'")
     expect(login).toContain("api_url + 'player/set-credentials'")
-    expect(login).toContain('No text message is required.')
+    expect(login).toContain("dataForm.append('contact', phone)")
+    expect(login).toContain("dataForm.append('claim_code', teamCode)")
     expect(login).not.toContain('player/join/verify')
     expect(login).not.toContain('verification_code')
     expect(login).not.toContain('verification_required')

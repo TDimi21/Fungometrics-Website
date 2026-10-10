@@ -17,16 +17,20 @@ class JoinTeamByCode extends Controller
     public function __invoke(Request $request, PlayerProfileClaimService $claims): JsonResponse
     {
         $validated = $request->validate([
-            'phone' => ['required', 'string', 'min:10', 'max:32'],
-            'team_code' => ['required', 'string', 'size:6'],
+            'contact' => ['required_with:claim_code', 'string', 'max:255'],
+            'claim_code' => ['required_with:contact', 'string', 'size:12'],
+            'phone' => ['required_without:claim_code', 'string', 'min:10', 'max:32'],
+            'team_code' => ['required_without:claim_code', 'string', 'size:6'],
         ]);
 
         try {
-            $result = $claims->claim($validated['phone'], $validated['team_code'], $request);
+            $result = isset($validated['claim_code'])
+                ? $claims->claimWithCode($validated['contact'], $validated['claim_code'], $request)
+                : $claims->claim($validated['phone'], $validated['team_code'], $request);
         } catch (ValidationException $exception) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'No unclaimed player profile matches that mobile number and team code.',
+                'message' => 'The contact detail or claim code is invalid, expired, or already used.',
                 'errors' => $exception->errors(),
             ], 422);
         } catch (Throwable $exception) {

@@ -74,6 +74,24 @@ class PlayerProfileClaimService
         });
     }
 
+    public function claimWithCode(string $contact, string $code, Request $request): array
+    {
+        return DB::transaction(function () use ($contact, $code, $request): array {
+            $claims = app(AccountClaimService::class);
+            $claim = $claims->resolve(strtoupper(trim($code)), 'player');
+            $player = User::query()->lockForUpdate()->findOrFail($claim->user_id);
+            $matches = str_contains($contact, '@')
+                ? strtolower(trim($contact)) === strtolower((string) $player->email)
+                : ($this->normalizePhone($contact) !== '' && $this->normalizePhone($contact) === $this->normalizePhone((string) $player->phone));
+            if (!$matches || !$player->status || filled($player->password)) {
+                $this->failClaim();
+            }
+            $claims->consume($claim, $request);
+            $token = $player->createToken('profile_claim:individual', ['profile-claim'], now()->addMinutes(10));
+            return ['status' => 'success', 'token' => $token->plainTextToken];
+        });
+    }
+
     public function joinAuthenticatedPlayer(User $user, string $teamCode, Request $request): Team
     {
         if (UserTypes::PLAYER->value !== (string) $user->type) {

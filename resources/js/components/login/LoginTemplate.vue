@@ -34,7 +34,7 @@ const formData = reactive({user: '', password: '', remember: false})
 const loginMode = ref(props.title === 'player' ? 'claim' : 'email')
 const claimForm = reactive({
   phone: String(route.query.phone || ''),
-  teamCode: String(route.query.team_code || '').toUpperCase(),
+  teamCode: String(route.query.claim_code || '').toUpperCase(),
 })
 const claimStep = ref('find')
 const claimedSession = ref(null)
@@ -194,24 +194,24 @@ const submitForm = async () => {
 
 const submitClaimForm = async () => {
   const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
-  const phone = normalizeDigits(claimForm.phone)
+  const phone = String(claimForm.phone || '').trim()
   const teamCode = String(claimForm.teamCode || '').trim().toUpperCase()
 
-  if (phone.length < 10) {
-    await toast.fire({ icon: 'warning', title: 'Claim Warning', text: 'Enter your full mobile number.' })
+  if (!phone.includes('@') && normalizeDigits(phone).length < 10) {
+    await toast.fire({ icon: 'warning', title: 'Claim Warning', text: 'Enter your email address or full phone number.' })
     return
   }
 
-  if (teamCode.length !== 6) {
-    await toast.fire({ icon: 'warning', title: 'Claim Warning', text: 'Team code must be 6 characters.' })
+  if (teamCode.length !== 12) {
+    await toast.fire({ icon: 'warning', title: 'Claim Warning', text: 'Your individual claim code must be 12 characters.' })
     return
   }
 
   isLoading.status = false
   try {
     const dataForm = new FormData()
-    dataForm.append('phone', phone)
-    dataForm.append('team_code', teamCode)
+    dataForm.append('contact', phone)
+    dataForm.append('claim_code', teamCode)
 
     const response = await axios.post(api_url + 'player/join', dataForm)
     const body = response?.data || {}
@@ -221,7 +221,7 @@ const submitClaimForm = async () => {
     }
 
     claimedSession.value = { token: body.data.token }
-    claimCredentials.email = ''
+    claimCredentials.email = phone.includes('@') ? phone.toLowerCase() : ''
     claimCredentials.password = ''
     claimCredentials.confirmPassword = ''
     claimStep.value = 'credentials'
@@ -367,29 +367,29 @@ const submitClaimCredentials = async () => {
       <form v-else-if="!isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
         <div class="grid grid-cols-1 gap-4">
           <div>
-            <label class="block text-sm font-bold text-white mb-2">Mobile Number</label>
+            <label class="block text-sm font-bold text-white mb-2">Email or Phone Number</label>
             <input
               v-model="claimForm.phone"
-              type="tel"
-              autocomplete="tel"
-              placeholder="(555) 867-5309"
+              type="text"
+              autocomplete="off"
+              placeholder="Email address or phone number"
               class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2"
             />
           </div>
           <div>
-            <label class="block text-sm font-bold text-white mb-2">Team Code</label>
+            <label class="block text-sm font-bold text-white mb-2">Individual Claim Code</label>
             <input
               v-model="claimForm.teamCode"
               type="text"
-              maxlength="6"
+              maxlength="12"
               autocomplete="off"
-              placeholder="HAWK7X"
+              placeholder="12-character claim code"
               @input="claimForm.teamCode = String(claimForm.teamCode || '').toUpperCase()"
               class="w-full rounded border border-fungo-lightblue bg-transparent text-white px-3 py-2 uppercase tracking-[0.18em]"
             />
           </div>
           <p class="text-xs text-white/75">
-            Use the same mobile number your coach used and your team's six-character code. No text message is required.
+            Use the email or phone your coach used and your individual 12-character claim code.
           </p>
           <div class="grid place-content-center">
             <BigButtonField color="red" label="Claim Profile" type="submit"></BigButtonField>

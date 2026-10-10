@@ -23,6 +23,30 @@ use Tests\TestCase;
 
 class AccountClaimSecurityTest extends TestCase
 {
+    public function test_individual_code_accepts_email_and_preserves_player_identity(): void
+    {
+        $player = User::factory()->create(['type' => 'player', 'email' => 'invite@example.com', 'phone' => null, 'password' => null, 'status' => true]);
+        $code = app(AccountClaimService::class)->issue($player);
+        $this->postJson('/api/player/join', ['contact' => 'wrong@example.com', 'claim_code' => $code])->assertUnprocessable();
+        $response = $this->postJson('/api/player/join', ['contact' => 'INVITE@example.com', 'claim_code' => $code])->assertOk();
+        $token = $response->json('data.token');
+        $this->postJson('/api/player/join', ['contact' => 'invite@example.com', 'claim_code' => $code])->assertUnprocessable();
+        $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/player/set-credentials', [
+            'email' => 'invite@example.com', 'password' => 'password123', 'password_confirmation' => 'password123',
+        ])->assertOk()->assertJsonPath('data.user.id', $player->id);
+        $this->assertTrue(Hash::check('password123', $player->fresh()->password));
+    }
+
+    public function test_individual_code_matches_formatted_phone_and_rejects_expiry(): void
+    {
+        $player = User::factory()->create(['type' => 'player', 'phone' => '(555) 123-4567', 'email' => null, 'password' => null, 'status' => true]);
+        $code = app(AccountClaimService::class)->issue($player);
+        $this->postJson('/api/player/join', ['contact' => '5551234567', 'claim_code' => $code])->assertOk();
+        $code = app(AccountClaimService::class)->issue($player);
+        AccountClaim::where('token_hash', hash('sha256', $code))->update(['expires_at' => now()->subMinute()]);
+        $this->postJson('/api/player/join', ['contact' => '5551234567', 'claim_code' => $code])->assertUnprocessable();
+    }
+
     public function test_account_claim_uses_a_hashed_expiring_single_use_token_and_revokes_sessions(): void
     {
         $user = User::factory()->create([

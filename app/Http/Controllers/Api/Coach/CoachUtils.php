@@ -114,7 +114,8 @@ class CoachUtils
     {
         $response = collect();
         $response_user = (new CreateServiceData(new User()))->handle([
-            'phone' => $data['phone'],
+            'phone' => $data['phone'] ?? null,
+            'email' => isset($data['email']) ? strtolower(trim($data['email'])) : null,
             'type' => $type,
             'status' => true
         ]);

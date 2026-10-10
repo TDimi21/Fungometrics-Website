@@ -50,7 +50,7 @@ class SetPlayerCredentials extends Controller
             $result = DB::transaction(function () use ($authenticatedUser, $claimTeamId, $request, $audit): array {
                 /** @var User $user */
                 $user = User::query()->lockForUpdate()->findOrFail($authenticatedUser->id);
-                if (filled($user->email) || filled($user->password)) {
+                if (filled($user->password) || ($claimTeamId !== 'individual' && filled($user->email))) {
                     throw ValidationException::withMessages([
                         'claim' => 'This player profile has already been claimed.',
                     ]);
@@ -64,10 +64,10 @@ class SetPlayerCredentials extends Controller
                 // normal player token after credentials are saved successfully.
                 $team = $user->team_players()
                     ->with('team')
-                    ->where('team_id', $claimTeamId)
+                    ->when($claimTeamId !== 'individual', fn ($query) => $query->where('team_id', $claimTeamId))
                     ->where('actual', true)
                     ->first()?->team;
-                if ( ! $team) {
+                if ( ! $team && $claimTeamId !== 'individual') {
                     throw ValidationException::withMessages(['claim' => 'This profile is no longer on that team.']);
                 }
 

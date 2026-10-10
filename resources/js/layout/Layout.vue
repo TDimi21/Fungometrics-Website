@@ -103,6 +103,7 @@ let player = reactive({
   password: "",
   confirmPassword: "",
   mobileNumber: "",
+  email: "",
 });
 import { getUiTheme, applyUiTheme } from "@/composables/useUiTheme";
 let hasSidebar = reactive({ active: false });
@@ -171,7 +172,7 @@ const getTeamsWithPalyers = async () => {
 const submitAddPlayer = async () => {
   isLoading.status = !isLoading.status;
   if (
-    player.mobileNumber == "" ||
+    (!player.mobileNumber && !player.email) ||
     player.firstName == "" ||
     player.lastName == ""
   ) {
@@ -183,7 +184,8 @@ const submitAddPlayer = async () => {
     isLoading.status = !isLoading.status;
   } else {
     let dataForm = new FormData();
-    dataForm.append("phone", player.mobileNumber);
+    if (player.mobileNumber) dataForm.append("phone", player.mobileNumber);
+    if (player.email) dataForm.append("email", player.email.trim());
     dataForm.append("team", activeTeamId.value ?? '');
     dataForm.append("name[first]", player.firstName);
     dataForm.append("name[last]", player.lastName);
@@ -194,6 +196,7 @@ const submitAddPlayer = async () => {
     await axios
       .post(api_url + "coach/add/players", dataForm, config)
       .then(async function (response) {
+        if (response.data.claim_code) window.alert(`Player added. Individual claim code: ${response.data.claim_code}. Share this privately with the player; they can claim using their email or phone.`);
         let tempResponse = response.data.data;
         let playerToSetInStore = {
           id: tempResponse.id,
@@ -584,8 +587,12 @@ watch(
               <InputBase v-model="player.lastName" />
             </div>
             <div class="add-player-field">
-              <LabelField text="Mobile number" :required="true" />
+              <LabelField text="Mobile number (or email)" />
               <InutTel v-model="player.mobileNumber" inputType="tel" />
+              </div>
+            <div class="add-player-field">
+              <LabelField text="Email (or mobile number)" />
+              <InputBase v-model="player.email" inputType="email" />
             </div>
           </div>
 

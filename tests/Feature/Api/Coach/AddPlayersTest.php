@@ -21,6 +21,32 @@ use Tests\TestCase;
 
 class AddPlayersTest extends TestCase
 {
+    public function test_coach_can_add_and_reuse_email_only_player(): void
+    {
+        $coach = User::factory()->create(['type' => 'coach']);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
+        Sanctum::actingAs($coach, ['coach']);
+        $payload = ['email' => 'NewPlayer@example.com', 'team' => $team->id, 'name' => ['first' => 'New', 'last' => 'Player']];
+        $first = $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('data.email', 'newplayer@example.com');
+        $this->assertNotEmpty($first->json('claim_code'));
+        $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('data.id', $first->json('data.id'));
+        $this->assertSame(1, PlayerTeam::where('team_id', $team->id)->count());
+    }
+
+    public function test_conflicting_contact_details_do_not_link_accounts(): void
+    {
+        $coach = User::factory()->create(['type' => 'coach']);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
+        Sanctum::actingAs($coach, ['coach']);
+        $one = User::factory()->create(['type' => 'player']);
+        $two = User::factory()->create(['type' => 'player']);
+        $this->postJson('/api/coach/add/players', ['email' => $one->email, 'phone' => $two->phone, 'team' => $team->id,
+            'name' => ['first' => 'New', 'last' => 'Player']])->assertUnprocessable();
+        $this->assertSame(0, PlayerTeam::where('team_id', $team->id)->count());
+    }
+
     public function test_player_limit_blocks_at_capacity_without_deleting_existing_roster(): void
     {
         $coach = User::factory()->create([

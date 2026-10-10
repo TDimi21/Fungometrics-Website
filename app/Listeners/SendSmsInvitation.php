@@ -23,8 +23,8 @@ class SendSmsInvitation
      */
     public function handle(UserCreated $event): void
     {
-        // Players claim an existing roster profile using their mobile number
-        // and team code. Do not create or send a separate SMS claim token.
+        // Player claim codes are returned to the coach for private sharing.
+        // Do not issue another code or invalidate it with an SMS invitation.
         if (UserTypes::PLAYER->value === (string) $event->data->type) {
             return;
         }

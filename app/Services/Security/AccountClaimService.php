@@ -76,7 +76,7 @@ class AccountClaimService
 
     private function isCompleted(User $user): bool
     {
-        return filled($user->email) || filled($user->password);
+        return filled($user->password) || ((string) $user->type !== 'player' && filled($user->email));
     }
 
     private function generateHumanClaimCode(): string
