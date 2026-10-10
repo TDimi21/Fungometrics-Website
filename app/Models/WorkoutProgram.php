@@ -15,5 +15,5 @@ class WorkoutProgram extends Model
     public $incrementing = false;
     protected $keyType = 'string';
     protected $guarded = [];
-    protected $casts = ['schedule' => 'array','version' => 'integer'];
+    protected $casts = ['training_settings' => 'array','schedule' => 'array','version' => 'integer'];
 }

@@ -90,6 +90,19 @@ class WorkoutLibraryTest extends TestCase
         }
     }
 
+    public function test_program_retains_training_days_before_workouts_are_selected(): void
+    {
+        $payload = ['id'=>(string) Str::uuid(), 'version'=>0, 'team_id'=>$this->team->id,
+            'name'=>'Three days per week', 'start_date'=>'2026-10-10', 'weeks'=>4,
+            'training_settings'=>['sessions_per_week'=>3, 'weekdays'=>[1,3,5]], 'schedule'=>[]];
+        $saved = $this->postJson('/api/coach/workout-programs', $payload)->assertOk()
+            ->assertJsonPath('data.training_settings.weekdays', [1,3,5])->json('data');
+        $this->assertSame([1,3,5], WorkoutProgram::findOrFail($payload['id'])->training_settings['weekdays']);
+        $payload['version'] = $saved['version'];
+        $payload['training_settings']['sessions_per_week'] = 2;
+        $this->postJson('/api/coach/workout-programs', $payload)->assertStatus(422);
+    }
+
     public function test_seed_is_idempotent_and_preserves_all_prescriptions(): void
     {
         $this->seed(FlameBangersWorkoutTemplateSeeder::class);

@@ -385,6 +385,7 @@ function newTemplate() {
         :groups="groups"
         :team-id="String(teamId)"
         :initial-template="programTemplate"
+        :initial-date="date"
       />
       <p v-else-if="!teamId">Select a team to build and assign a program.</p>
     </component>

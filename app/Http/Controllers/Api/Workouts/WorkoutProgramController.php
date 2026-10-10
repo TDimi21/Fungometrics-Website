@@ -20,7 +20,8 @@ class WorkoutProgramController extends Controller
     }
     public function save(Request $r, WorkoutTemplateService $s)
     {
-        $v = $r->validate(['id' => 'required|uuid','version' => 'required|integer|min:0','team_id' => 'required|string','name' => 'required|string|max:200','start_date' => 'required|date_format:Y-m-d','weeks' => 'required|integer|min:1|max:52','schedule' => 'present|array|max:1000','schedule.*.id' => 'required|uuid|distinct','schedule.*.day_offset' => 'required|integer|min:0','schedule.*.template_id' => 'required|uuid','schedule.*.phase' => 'required|string|max:60','schedule.*.player_ids' => 'present|array','schedule.*.player_ids.*' => 'string','schedule.*.snapshot' => 'sometimes|array']);
+        $v = $r->validate(['training_settings'=>'sometimes|nullable|array','training_settings.sessions_per_week'=>'required_with:training_settings|integer|min:1|max:7','training_settings.weekdays'=>'required_with:training_settings|array|min:1|max:7','training_settings.weekdays.*'=>'integer|min:0|max:6|distinct','id' => 'required|uuid','version' => 'required|integer|min:0','team_id' => 'required|string','name' => 'required|string|max:200','start_date' => 'required|date_format:Y-m-d','weeks' => 'required|integer|min:1|max:52','schedule' => 'present|array|max:1000','schedule.*.id' => 'required|uuid|distinct','schedule.*.day_offset' => 'required|integer|min:0','schedule.*.template_id' => 'required|uuid','schedule.*.phase' => 'required|string|max:60','schedule.*.player_ids' => 'present|array','schedule.*.player_ids.*' => 'string','schedule.*.snapshot' => 'sometimes|array']);
+        if (!empty($v['training_settings'])) abort_unless(count($v['training_settings']['weekdays']) === (int)$v['training_settings']['sessions_per_week'], 422, 'Select one weekday for each weekly session.');
         $s->team($r->user(), $v['team_id']);
         $program = DB::transaction(function () use ($r, $s, $v) {
             $r->user()->newQuery()->whereKey($r->user()->id)->lockForUpdate()->first();
@@ -42,7 +43,7 @@ class WorkoutProgramController extends Controller
                 $publication=collect($previous)->only(['daily_plan_ids','daily_plan_id','published_version','published_at'])->all();
                 $schedule[] = $publication + ['id' => $entry['id'],'day_offset' => $entry['day_offset'],'phase' => $entry['phase'],'template_id' => $template->id,'template_version' => $snapshot['version'] ?? $template->version,'snapshot' => $snapshot,'player_ids' => $s->athletes($r->user(), $v['team_id'], $entry['player_ids'])];
             }
-            return WorkoutProgram::updateOrCreate(['id' => $v['id']], ['created_by' => $old->created_by ?? $r->user()->id,'team_id' => $v['team_id'],'name' => $v['name'],'start_date' => $v['start_date'],'weeks' => $v['weeks'],'version' => ($old->version ?? 0) + 1,'schedule' => $schedule]);
+            return WorkoutProgram::updateOrCreate(['id' => $v['id']], ['created_by' => $old->created_by ?? $r->user()->id,'team_id' => $v['team_id'],'name' => $v['name'],'start_date' => $v['start_date'],'weeks' => $v['weeks'],'training_settings' => $v['training_settings'] ?? $old?->training_settings,'version' => ($old->version ?? 0) + 1,'schedule' => $schedule]);
         });
         return response()->json(['planner_contract_version'=>'2.0','data' => $program]);
     }

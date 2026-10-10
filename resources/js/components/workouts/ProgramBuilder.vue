@@ -8,6 +8,7 @@ import {
 } from "@/features/planner/lib/calendar";
 import { plannerLink } from "@/features/planner/lib/plannerLinks";
 import {
+  trainingDayOffsets,
   copyEntries,
   overlapWarnings,
 } from "@/features/workouts/programSchedule";
@@ -19,6 +20,7 @@ const props = defineProps({
   groups: Array,
   teamId: String,
   initialTemplate: String,
+  initialDate: String,
 });
 const emit = defineEmits(["template-created"]);
 const activeDay = ref(null),
@@ -88,10 +90,11 @@ const uuid = () => crypto.randomUUID(),
 const fresh = () => ({
   id: uuid(),
   version: 0,
-  name: "FlameBangers Pitching Development",
+  name: "New training plan",
   team_id: props.teamId,
-  start_date: localDateKey(),
+  start_date: props.initialDate || localDateKey(),
   weeks: 4,
+  training_settings: null,
   schedule: [],
 });
 const program = ref(fresh()),
@@ -117,6 +120,29 @@ watch(
   },
   { immediate: true, deep: true }
 );
+const sessionsPerWeek = ref(3), trainingWeekdays = ref([1, 3, 5]);
+const weekdayChoices = [{id:1,label:'Monday'},{id:2,label:'Tuesday'},{id:3,label:'Wednesday'},{id:4,label:'Thursday'},{id:5,label:'Friday'},{id:6,label:'Saturday'},{id:0,label:'Sunday'}];
+const workoutSearch = ref(''), workoutSource = ref('all');
+const availableWorkouts = computed(() => props.templates.filter(t =>
+  (workoutSource.value === 'all' || (workoutSource.value === 'premade' ? t.is_premade : !t.is_premade)) &&
+  `${t.name} ${t.category || ''}`.toLowerCase().includes(workoutSearch.value.toLowerCase())
+));
+watch(availableWorkouts, list => { if (!list.some(t => t.id === templateId.value)) templateId.value = list[0]?.id || ''; });
+const plannedDays = computed(() => trainingDayOffsets(program.value.start_date, Number(program.value.weeks), program.value.training_settings?.weekdays || []));
+function generateCalendar() {
+  if (trainingWeekdays.value.length !== Number(sessionsPerWeek.value)) {
+    error.value = `Choose exactly ${sessionsPerWeek.value} training days.`;
+    return;
+  }
+  program.value.training_settings = {sessions_per_week: Number(sessionsPerWeek.value), weekdays: [...trainingWeekdays.value]};
+  week.value = 0;
+  error.value = '';
+  notice.value = `${plannedDays.value.length} training dates ready. Click a date to choose its workout. Existing workouts are kept.`;
+}
+watch(() => program.value.id, () => {
+  sessionsPerWeek.value = program.value.training_settings?.sessions_per_week || 3;
+  trainingWeekdays.value = [...(program.value.training_settings?.weekdays || [1, 3, 5])];
+});
 const safeWeeks = computed(() =>
   Math.max(1, Math.min(52, Math.floor(Number(program.value.weeks) || 4)))
 );
@@ -313,10 +339,14 @@ function selectGroup(id) {
           </button>
         </div>
       </div>
-      <p>
-        Calendar weeks run Monday–Sunday. No workouts are automatically
-        scheduled.
-      </p>
+      <section class="workout-panel">
+        <h3>Set your weekly training schedule</h3>
+        <label>How many times per week?<select v-model.number="sessionsPerWeek"><option v-for="n in 7" :key="n" :value="n">{{ n }}</option></select></label>
+        <p>Which days will players train? Choose {{ sessionsPerWeek }}.</p>
+        <div class="toolbar"><label v-for="day in weekdayChoices" :key="day.id"><input type="checkbox" v-model="trainingWeekdays" :value="day.id"> {{ day.label }}</label></div>
+        <button type="button" class="primary" :disabled="trainingWeekdays.length !== sessionsPerWeek" @click="generateCalendar">{{ program.training_settings ? 'Update training calendar' : 'Preload training calendar' }}</button>
+        <p v-if="program.training_settings">{{ plannedDays.length }} training dates · Click each date below to choose a premade or a saved library workout.</p>
+      </section>
     </fieldset>
     <div class="toolbar">
       <button :disabled="week === 0" @click="week--">‹</button
@@ -328,7 +358,7 @@ function selectGroup(id) {
         <section
           v-for="day in days"
           :key="day.offset"
-          :class="{ 'program-day-selected': activeDay === day.offset }"
+          :class="{ 'program-day-selected': activeDay === day.offset, 'program-training-day': plannedDays.includes(day.offset) }"
         >
           <button
             class="program-day-button"
@@ -349,7 +379,7 @@ function selectGroup(id) {
               >Outside program</small
             >
             <template v-else
-              ><span
+              ><small>{{ plannedDays.includes(day.offset) ? 'Training day' : 'Rest / optional day' }}</small><span
                 v-for="entry in program.schedule.filter(
                   (e) => e.day_offset === day.offset
                 )"
@@ -358,7 +388,7 @@ function selectGroup(id) {
                 >{{ entry.snapshot.name
                 }}<small>{{ entry.player_ids.length }} players</small></span
               ><span class="program-day-action">{{
-                locked ? "View day →" : "＋ Open & build day"
+                locked ? "View day →" : "＋ Choose workout"
               }}</span></template
             >
           </button>
@@ -471,10 +501,12 @@ function selectGroup(id) {
                   No saved templates are available. Build a custom workout
                   below.
                 </p>
+                <div class="toolbar"><label>Workout library<select v-model="workoutSource"><option value="all">All workouts</option><option value="premade">FMTRX premade workouts</option><option value="saved">Saved library workouts</option></select></label><label>Search workouts<input v-model="workoutSearch" placeholder="Hitting, pitching, Hybrid…" /></label></div>
+                <p v-if="!availableWorkouts.length">No workouts match this selection.</p>
                 <div class="form-grid">
                   <label
-                    >Template<select v-model="templateId">
-                      <option v-for="t in templates" :value="t.id" :key="t.id">
+                    >Choose workout<select v-model="templateId">
+                      <option v-for="t in availableWorkouts" :value="t.id" :key="t.id">
                         {{ t.name }}
                       </option>
                     </select></label
@@ -510,7 +542,7 @@ function selectGroup(id) {
                   :disabled="!templates.some((t) => t.id === templateId)"
                   @click="add"
                 >
-                  Add selected workout</button
+                  Load workout onto this date</button
                 ><button @click="buildCustom">＋ Build custom workout</button>
               </section>
             </fieldset>
@@ -612,6 +644,8 @@ function selectGroup(id) {
 </template>
 
 <style>
+.workout-library .program-training-day{border:1px solid #ef334b;border-radius:8px;background:#15243b}
+
 .workout-library .program-day-button {
   display: flex;
   flex-direction: column;

@@ -33,3 +33,11 @@ export const overlapWarnings = (entries) => {
   }
   return warnings;
 };
+
+export function trainingDayOffsets(startDate, weeks, weekdays) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !Number.isInteger(weeks) || weeks < 1 || weeks > 52) return [];
+  const start = new Date(`${startDate}T12:00:00`);
+  if (Number.isNaN(start.getTime())) return [];
+  return Array.from({length: weeks * 7}, (_, offset) => offset)
+    .filter(offset => weekdays.includes((start.getDay() + offset) % 7));
+}
