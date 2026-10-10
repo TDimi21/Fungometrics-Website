@@ -294,6 +294,7 @@ Route::prefix('player')->group(function (): void {
         Route::get('weekly-completion-summary', GetPlayerWeeklyCompletionSummary::class);
         Route::get('planner/day', [\App\Http\Controllers\Api\Planner\UnifiedPlannerController::class, 'day']);
         Route::post('daily-plans/{id}/schedule-adjustment', [\App\Http\Controllers\Api\Planner\UnifiedPlannerController::class, 'adjust']);
+        Route::get('workout-weekly-summary', \App\Http\Controllers\Api\Planner\GetWorkoutWeeklySummary::class);
         Route::get('daily-plans', GetMyWorkouts::class);
         Route::get('daily-plans/{id}', GetMyWorkout::class);
         Route::get('daily-plans/{dailyPlanId}/completion-summary', GetPlayerDailyPlanCompletionSummary::class);
@@ -377,6 +378,8 @@ Route::prefix('coach')->group(function (): void {
         Route::middleware('plan:planner_create')->post('/daily-plans', SaveDailyPlan::class);
         Route::middleware('plan:planner_create')->delete('/daily-plans/{id}', DeleteDailyPlan::class);
         // Coach reviews player results: all players' progress for a plan, + per-player review.
+        Route::middleware('plan:view_workout_progress')->get('workout-attention', \App\Http\Controllers\Api\Planner\GetWorkoutAttention::class);
+        Route::middleware('plan:view_workout_progress')->get('players/{playerId}/workout-weekly-summary', \App\Http\Controllers\Api\Planner\GetWorkoutWeeklySummary::class);
         Route::middleware('plan:view_workout_progress')->get('/daily-plans/{id}/progress', GetDailyPlanProgress::class);
         Route::middleware('plan:view_workout_progress')->get('/daily-plans/{dailyPlanId}/completion-summary', GetDailyPlanCompletionSummary::class);
         Route::middleware('plan:view_workout_progress')->post('/daily-plans/{planId}/players/{playerId}/review', SaveCoachWorkoutReview::class);

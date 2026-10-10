@@ -26,6 +26,13 @@ class WorkoutPerformanceService
             $items = array_replace($old?->items ?? [], $data['items'] ?? []);
             foreach($items as $itemId => &$actual) {
                 abort_unless($prescribed->has($itemId), 422, 'An exercise does not belong to this workout.');
+                if (!isset($actual['sets']) && isset($actual['actualSets'])) {
+                    $actual['sets'] = array_map(fn($set) => array_merge($set, [
+                        'weight' => ($set['weight'] ?? '') === '' ? null : $set['weight'],
+                        'reps' => ($set['reps'] ?? '') === '' ? null : $set['reps'],
+                    ]), $actual['actualSets']);
+                }
+                unset($actual['actualSets']);
                 unset($actual['strength_fitness_id'],$actual['strength_summary']);
                 $exercise = $prescribed[$itemId];
                 $exercise=app(\App\Services\Planner\LinkedSessionRegistry::class)->item($exercise, $exercise['_bucket_type']);

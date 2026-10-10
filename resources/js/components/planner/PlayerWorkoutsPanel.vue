@@ -1,4 +1,6 @@
 <script setup>
+import WorkoutWeeklySummary from './WorkoutWeeklySummary.vue'
+import SkillResults from '@/components/workouts/SkillResults.vue'
 import PlayerToday from './PlayerToday.vue'
 const showWorkoutHistory=ref(false)
 import { ref, computed, onMounted, watch } from 'vue'
@@ -905,6 +907,7 @@ const finish = async () => {
 <template>
   <PlayerToday v-if="!showWorkoutHistory" @history="showWorkoutHistory=true" />
   <div v-else><button @click="showWorkoutHistory=false">← Today</button>
+  <WorkoutWeeklySummary />
   <div>
     <div v-if="saveNotice" class="pw-save-notice">{{ saveNotice }}</div>
 
@@ -1395,6 +1398,7 @@ const finish = async () => {
               </span>
             </div>
             <span class="pw-item-name">{{ it.name || 'Item' }}</span>
+            <SkillResults :bucket="bucket.type" :actual="current.items[it.id] || {}" readonly @click.stop />
             <TemplateExerciseActuals v-if="it.template_id" :item="it" v-model="current.items[it.id]" :sessions="workoutSessions" />
             <span v-if="itemMetaParts(it, bucket).length" class="pw-item-meta">{{ itemMetaParts(it, bucket).join(' · ') }}</span>
 

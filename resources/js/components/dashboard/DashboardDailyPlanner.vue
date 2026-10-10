@@ -41,7 +41,7 @@ onBeforeUnmount(()=>{generation++})
     <div class="planner-summary"><span>{{ day.length }} workouts · {{ assigned }} players</span><button :disabled="loading" @click="load" aria-label="Refresh daily planner">↻</button></div>
     <p v-if="!teamId">Select a team to see its daily plans.</p><p v-else-if="loading" role="status">Loading workouts…</p><div v-else-if="error" role="alert"><p>{{ error }}</p><button @click="load">Retry</button></div><p v-else-if="!day.length">No workouts scheduled for this day.</p>
     <CoachWorkoutPlayers v-if="reviewPlan" :plan="reviewPlan" :initial-player-id="reviewPlayer" @back="reviewPlan=null; refreshKey++" />
-    <PlannerDaySchedule v-else-if="teamId && !loading && !error" :key="String(teamId) + ':' + refreshKey" compact :plans="plans" :date="date" :loading="loading" :offline="!!error" @date="date=$event" @create="router.push(plannerLink($event || date,'create'))" @edit="router.push(plannerLink(date,'edit',$event.id))" @players="openReview" @check-in="openReview" @management="router.push(plannerLink(date))" />
+    <PlannerDaySchedule :team-id="teamId" v-else-if="teamId && !loading && !error" :key="String(teamId) + ':' + refreshKey" compact :plans="plans" :date="date" :loading="loading" :offline="!!error" @date="date=$event" @create="router.push(plannerLink($event || date,'create'))" @edit="router.push(plannerLink(date,'edit',$event.id))" @players="openReview" @check-in="openReview" @management="router.push(plannerLink(date))" />
     <RouterLink v-if="teamId" class="create-plan" :to="plannerLink(date,'create')">＋ Create plan for this day</RouterLink>
   </section>
 </template>

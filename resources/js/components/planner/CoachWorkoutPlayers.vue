@@ -1,4 +1,5 @@
 <script setup>
+import WorkoutWeeklySummary from './WorkoutWeeklySummary.vue'
 // Coach "View Players" — every assigned player's progress for one workout, with a
 // per-player review detail (readiness, prescribed-vs-actual, coach feedback, Mark
 // Reviewed). Mirrors the mobile CoachWorkoutPlayers + CoachPlayerWorkoutDetail flow.
@@ -240,6 +241,7 @@ const markReviewed = async () => {
         <span />
       </div>
 
+      <WorkoutWeeklySummary :player-id="selected.player.id" :date="plan.date" />
       <div class="cwp-panel">
         <div class="cwp-workout-name">{{ plan.name || 'Workout' }}</div>
         <div class="cwp-head-row">
@@ -276,6 +278,7 @@ const markReviewed = async () => {
             <span v-if="it.required === false" class="cwp-opt">optional</span>
             <span v-if="itemProgress(it.id).pain" class="cwp-pain">⚠</span>
           </div>
+          <div v-if="itemProgress(it.id).strength_summary" class="cwp-item-sub"><p>{{ itemProgress(it.id).strength_summary.completed_sets }} completed sets · {{ itemProgress(it.id).strength_summary.volume_lb }} lb total volume</p><p v-for="(set,n) in itemProgress(it.id).sets || []" :key="n">Set {{ n+1 }}: {{ set.weight ?? '—' }} lb × {{ set.reps ?? '—' }} reps · {{ set.done ? 'Completed' : 'Not completed' }}</p></div>
           <SkillResults :bucket="bucket.type" :actual="itemProgress(it.id)" readonly />
           <div v-if="it.template_id" class="cwp-item-sub">
             <p>Prescribed: {{ it.sets_min }}{{ it.sets_max!==it.sets_min ? '–'+it.sets_max : '' }} sets · {{ it.prescription_text }}</p>

@@ -12,10 +12,10 @@ const emit=defineEmits(['change','load-sessions']);
         <span v-if="readonly">: {{ actual.performance?.[key] ?? 'Not recorded' }}</span>
         <input v-else type="number" min="0" :step="key.includes('velocity') ? '0.1' : '1'" :value="actual.performance?.[key] ?? ''" @input="emit('change', {performance:{...actual.performance,[key]:$event.target.value === '' ? null : Number($event.target.value)}})" />
       </label>
-      <label>Velocity device / source<span v-if="readonly">: {{ actual.performance?.measurement_source || 'Not recorded' }}</span><input v-else :value="actual.performance?.measurement_source || ''" maxlength="200" placeholder="Radar or launch monitor used" @input="emit('change',{performance:{...actual.performance,measurement_source:$event.target.value}})" /></label>
+      <label v-if="bucket !== 'defense'">Velocity device / source<span v-if="readonly">: {{ actual.performance?.measurement_source || 'Not recorded' }}</span><input v-else :value="actual.performance?.measurement_source || ''" maxlength="200" placeholder="Radar or launch monitor used" @input="emit('change',{performance:{...actual.performance,measurement_source:$event.target.value}})" /></label>
       <p v-for="rate in skillRates(actual.performance)" :key="rate">{{ rate }}</p>
     </template>
-    <template v-if="!readonly && !actual.session_id">
+    <template v-if="!readonly && !actual.session_id && bucket !== 'defense'">
       <button type="button" @click="emit('load-sessions')">Find an existing session instead</button>
       <select aria-label="Link recorded skill session" value="" @change="$event.target.value && emit('change',{session_id:$event.target.value,performance:{}})"><option value="">Choose recorded session</option><option v-for="s in sessions.filter(s => matchesSkillSession(s,bucket))" :key="s.id" :value="s.id">{{ s.started }} · {{ s.modes || s.type }} · {{ s.is_completed ? 'Completed' : 'In progress' }}</option></select>
       <small>Linking uses that session instead of these manual measurements.</small>
