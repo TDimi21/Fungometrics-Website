@@ -26,7 +26,7 @@ export function blankPlan() {
     phase: 'Foundation',
     primaryGoal: '',
     workloadLevel: 'Moderate',
-    buckets: [],
+    buckets: [{type:'daily_readiness', title:'Daily Readiness', kind:'survey', items:[], note:'Complete before starting your workout.'}],
     assignedPlayerIds: [],
     status: 'draft',
     publishedAt: null,

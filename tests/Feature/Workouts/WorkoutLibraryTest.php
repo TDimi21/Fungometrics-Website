@@ -37,6 +37,16 @@ class WorkoutLibraryTest extends TestCase
         $this->postJson('/api/coach/workout-templates/'.$this->template($slug)->id.'/use', ['id' => $id,'team_id' => $this->team->id,'date' => '2026-10-09','player_ids' => [$this->player->id]])->assertCreated();
         return DailyPlan::findOrFail($id);
     }
+    public function test_every_saved_workout_includes_readiness_without_duplicates(): void
+    {
+        $plan = $this->useTemplate();
+        $this->assertCount(1, collect($plan->buckets)->where('type', 'daily_readiness'));
+        $plan->buckets = [['type'=>'throwing','items'=>[]]];
+        $plan->save();
+        $plan->save();
+        $this->assertCount(1, collect($plan->fresh()->buckets)->where('type', 'daily_readiness'));
+    }
+
     public function test_seed_is_idempotent_and_preserves_all_prescriptions(): void
     {
         $this->seed(FlameBangersWorkoutTemplateSeeder::class);

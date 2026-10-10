@@ -44,6 +44,18 @@ class DailyPlan extends Model
     // Expose the assigned player ids as a flat array (matches the app's plan shape).
     protected $appends = ['assigned_player_ids'];
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $plan): void {
+            $buckets = $plan->buckets ?? [];
+            if (!collect($buckets)->contains(fn ($bucket) => ($bucket['type'] ?? null) === 'daily_readiness')) {
+                // Append to preserve existing section order and template snapshot references.
+                $buckets[] = ['type'=>'daily_readiness','title'=>'Daily Readiness','kind'=>'survey','items'=>[],'note'=>'Complete before starting your workout.'];
+                $plan->buckets = $buckets;
+            }
+        });
+    }
+
     public function assignments(): HasMany
     {
         return $this->hasMany(DailyPlanAssignment::class, 'plan_id');
