@@ -63,6 +63,7 @@ const reloadData = (status) => {
 
 <template>
   <Layout>
+    <RouterLink to="/team-communications" class="inline-block m-4 px-5 py-3 rounded-lg bg-fungo-red text-white">Team Communications · Invite players</RouterLink>
     <section class="practice-shell px-[5%] py-6">
       <h1 class="text-white text-2xl md:text-[40px] text-center mb-6 font-fungo-700">Manage Team</h1>
 

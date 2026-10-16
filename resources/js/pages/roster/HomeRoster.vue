@@ -509,6 +509,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
 
 <template>
   <Layout>
+    <RouterLink to="/team-communications" class="inline-block m-4 px-5 py-3 rounded-lg bg-fungo-red text-white">Team Communications · Invite players</RouterLink>
     <Loader v-show="!isLoading.status" />
 
     <!-- ── Page wrapper ─────────────────────────────────────────────── -->

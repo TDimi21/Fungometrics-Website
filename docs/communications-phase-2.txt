@@ -1,0 +1,133 @@
+FMTRX Communications Phase 2A / 2B — review package
+==================================================
+Work performed directly on existing main. No new branch/worktree, commit, push, deployment or live email.
+Scope: architecture audit and invitations only. Phases 2C–2J are explicitly deferred pending invitation review. Validation and deployment documentation here apply to 2B, not implementation of the later notification engine.
+
+Architecture findings (2A)
+--------------------------
+Authentication: users.id is the UUID authentication identity used by Sanctum. User.profile and User.player are separate records linked by user_id. players.id is NOT users.id. PlayerTeam.user_id and CoachTeam.coach_id reference users. Existing sessions/statistics/assessments frequently use these user UUIDs. Completing an invited placeholder must update that same user; it must not move profile/history foreign keys.
+Coach registration: Api/Auth/RegisterCoachController + AuthUtils create user/profile/team/head-coach membership. Player registration: RegisterPlayerController creates user/profile/player/fitness/positions and optionally joins via team code. Existing login uses LoginController and ApiTokenCookie for web; native clients use Sanctum bearer tokens. The new UI uses that same login after acceptance.
+Existing linking: AddPlayers matches existing users by normalized email or phone, otherwise creates an unclaimed user/profile on the roster. PlayerProfileClaimService supports team code + contact and limited claim sessions; AccountClaimService stores hashed expiring individual claim codes. Existing workflows remain intact.
+Existing AddCoaches can promote account types and add membership before acceptance. The NEW invitation flow deliberately does neither: only head coaches may invite, recipients must be coaches, and assistant membership is granted on acceptance. No head/admin privileges are granted. Existing AddCoaches behavior is not changed in this phase.
+CoachUtils supplies team access/head-coach/capacity checks. Soft-deleted memberships require care; new invitations restore assistant membership only after acceptance and capacity checks. Player invitations require an existing active roster membership and never restore a removed player.
+Parents/guardians: no guardian account type, relationship, or consent records found in application/models/migrations. User explicitly instructed "allow all ages" during implementation. Invitations therefore have no DOB gate. Guardian invitations/delegation are NOT supported; do not use a guardian email to imply a guardian relationship or permission to view multiple children.
+Mail: Laravel 9.52.21, PHP constraint ^8.1; existing resend/resend-laravel integration, mail.fmtrx-notification Markdown layout and default FMTRX sender are reused. Existing UserCreated listener skips player SMS and sends legacy coach SMS. No new automatic listeners were attached.
+Queue: production reports sync; config/queue.php already supports database/Redis/etc. failed_jobs exists; jobs migration was missing. New invitation sends refuse synchronous/null queues. No additional Composer packages needed.
+Planner: SaveDailyPlan persists DailyPlan and DailyPlanAssignment in a transaction; WorkoutProgramController.publish and WeeklyPlanPublishController also publish assignments. Future events must be attached to committed publication changes across all of these paths, not every save.
+Assessments: FreeAssessmentController.status finalizes immutable report snapshots on completion, with AssessmentAccess policies and AssessmentMetricSyncService. Future notification hooks belong after committed completion, not draft results.
+Development: WorkoutProgramController publication and planner services manage schedule/assignment history. PlayerDevelopmentDashboardCache and PlayerIntelligenceService read existing metrics/benchmark_profile; future summaries must distinguish missing data from zero.
+Billing: RevenueCatWebhookController delegates provider event recording/retry to BillingEventProcessor; RevenueCatEventHandler uses RevenueCatReconciler to apply confirmed entitlement state. Future billing communications must key off processed provider event IDs and actual before/after state. No billing changes made.
+
+Migrations identified before implementation
+-------------------------------------------
+2026_10_16_180000_create_team_invitations_table: additive invitation records, existing user/team IDs, normalized email, role, hash-only token, expiration/revocation/acceptance/email-verification timestamps, generation, and delivery state. No history or ownership columns changed. Uses portable strings/timestamps (no MariaDB JSON requirement).
+2026_10_16_180100_create_jobs_table: standard Laravel database queue table. The repository had no jobs table migration. Check whether production has a manually-created jobs table BEFORE applying this migration; if it does, reconcile its schema/migration history first rather than dropping it.
+No parent relationship or separate account-to-player linking table added. Different existing user identities are NEVER merged automatically; conflict requires support review.
+
+Routes and workflow
+-------------------
+Vue /team-communications: linked from existing Manage Team and Roster pages. Select a player, confirm email, send, refresh status, resend, revoke. Player list and invitation list are paginated. Head coaches also see Assistant coach invitations. Existing stored player email cannot be redirected by the inviting coach.
+GET /api/coach/teams/{teamId}/invitations: authorized roster/invitation listing and activation status.
+POST same path: role player/coach, email, and user_id for players. user_id is the auth UUID, not players.id.
+POST /api/coach/invitations/{id}/resend: reauthorize; one-minute cooldown; rotate generation/hash; queue new email.
+POST /api/coach/invitations/{id}/revoke: invalidate pending link. Accepted invitations cannot be revoked as a shortcut to removing membership.
+POST /api/invitations/inspect: token in JSON, returns validity and expiry only; no PII or account existence.
+POST /api/invitations/accept: token, invited email, password (existing password or new password), optional name for new coaches. Signed-in users can accept only for the same identity; restricted claim tokens cannot bypass password authentication. Transactions lock team then invitation/user; replay fails. Account email verification is recorded on the invitation, not assumed for all historic user emails.
+Vue /invitations/accept receives token in URL fragment, removes it from browser history immediately, and never stores it in local/session storage. Refreshing this page requires reopening the email link. After acceptance, existing login API establishes the normal cookie and routes to /player-dashboard or /dashboard. If login fails after successful acceptance, sign in normally; do not accept the token again.
+All invitation URLs use the exact configured https://app.fmtrx.com origin and a real frontend route, never /api/. The strict allowlist intentionally prevents accidental token delivery to another host. Local email previews still point to production; do not send real invitations during local tests.
+Existing claim endpoints, account registration, dashboards, session history and billing remain unchanged.
+
+Delivery and retry semantics
+----------------------------
+FMTRX_INVITATIONS_ENABLED=false by default; UI shows disabled delivery. Async queue required before send/resend. New job carries only invitation ID and generation. Token is created inside the worker; only SHA-256 hash persists. Notification uses existing Laravel mail channel/Resend/branding. No raw token in queue or failed_jobs.
+Repeated initial sends reuse a pending invitation. Stale generation jobs, expired/revoked/accepted invitations and already attempted deliveries are ignored. Duplicate acceptance fails under database locks. SecurityAuditLogger records issued/resent/revoked/accepted with IDs, without email/token/password.
+An attempt is marked sending before contacting the provider. No automatic provider retries: a timeout may mean delivery succeeded. Failure stores only delivery_unconfirmed, not exception text. A worker crash can leave sending state; coach explicitly resends after checking, generating a new token. This intentionally favors avoiding duplicate email over automatic retry. sent means handed to provider, NOT inbox delivery; no Resend delivery/bounce webhook is added in 2B.
+Exactly-once remote delivery cannot be guaranteed across provider/network/process failures. Review provider idempotency/outbox design before expanding to the Phase 2C notification engine. A queue-dispatch failure after transaction commit can leave queued state; explicit resend recovers it. No automatic bulk notification activation.
+
+Future event mapping (design only; not wired)
+---------------------------------------------
+CoachRegistered -> after registration transaction, welcome notification.
+PlayerInvited/CoachInvited -> implemented explicitly by InvitationService and SendTeamInvitation.
+WorkoutAssigned -> after publication/new assignment, dedupe recipient+assignment+publication version.
+AssessmentCompleted -> after finalized snapshot commit, authorized recipient/report URL.
+DevelopmentPlanPublished -> after program publication, dedupe resource/version/recipient.
+WeeklyProgressReady -> opt-in scheduled summary based on existing intelligence; skip no-new-data recipients.
+SubscriptionStatusChanged -> confirmed RevenueCat reconciled state, dedupe provider event/owner/change.
+Preferences, guardian delegation, weekly scheduler, delivery webhooks and general event/delivery tables remain future work after review.
+
+Safe deployment runbook — not executed
+---------------------------------------
+1. Review these changes and tests. Approve invitation architecture first. Keep FMTRX_INVITATIONS_ENABLED=false. Ensure production backup and reconcile any manually existing jobs table. Ensure PHP >=8.1 (tested locally on 8.2.30), Node 24/npm 11 for build. Production secrets remain on server.
+2. After approved code deployment, from ~/app.fmtrx.com:
+   composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+   composer validate --no-check-publish
+   npm ci
+   npm run build
+   php artisan migrate --force
+3. Verify production mail settings without printing API keys:
+   MAIL_MAILER=resend
+   MAIL_FROM_ADDRESS=notifications@mail.fmtrx.com
+   MAIL_FROM_NAME=FMTRX
+   RESEND_API_KEY=<existing production secret, never commit>
+   FMTRX_FRONTEND_URL=https://app.fmtrx.com
+   FMTRX_INVITATIONS_ENABLED=false
+   QUEUE_CONNECTION=database
+   APP_DEBUG=false
+   TELESCOPE_ENABLED=false
+   CLOCKWORK_ENABLE=false
+   Confirm application/proxy logs do not record invitation request bodies or mail contents. URL fragments do not reach access logs. The public acceptance form sends its token/password in POST JSON over HTTPS.
+4. Configure Supervisor (administrator action) with the verified absolute production PHP binary and repository directory. Example /etc/supervisor/conf.d/fmtrx-worker.conf:
+   [program:fmtrx-worker]
+   process_name=%(program_name)s_%(process_num)02d
+   command=/usr/bin/php /var/www/vhosts/fmtrx.com/app.fmtrx.com/artisan queue:work database --queue=communications,default --sleep=3 --tries=1 --timeout=60
+   directory=/var/www/vhosts/fmtrx.com/app.fmtrx.com
+   user=develop
+   autostart=true
+   autorestart=true
+   stopasgroup=true
+   killasgroup=true
+   numprocs=1
+   redirect_stderr=true
+   stdout_logfile=/var/www/vhosts/fmtrx.com/app.fmtrx.com/storage/logs/worker.log
+   stopwaitsecs=90
+   Verify `command -v php` and its version; replace /usr/bin/php if production uses a Plesk PHP binary. retry_after=90 already exceeds worker timeout=60. Arrange worker log rotation.
+5. With feature still disabled:
+   php artisan config:cache
+   sudo supervisorctl reread
+   sudo supervisorctl update
+   sudo supervisorctl status fmtrx-worker:*
+   php artisan queue:restart
+   Changing QUEUE_CONNECTION also affects existing queued application jobs; supervise the default queue and review pending jobs before transition.
+6. Only after approval to activate live invitations, set FMTRX_INVITATIONS_ENABLED=true, run php artisan config:cache and php artisan queue:restart. Verify one approved recipient end-to-end. No test command here sends live email automatically.
+7. Disable safely by setting FMTRX_INVITATIONS_ENABLED=false, caching config and restarting workers. Keep additive tables/history; do not run destructive rollback against accepted invitations. Jobs consumed while disabled will not send; explicitly resend pending invitations after reactivation.
+Redis alternative: configure an existing supported Redis client/server, use QUEUE_CONNECTION=redis and queue:work redis; do not install new dependencies or switch production without review. Database queue is the documented baseline.
+
+Files created
+-------------
+app/Models/TeamInvitation.php
+app/Services/Communications/InvitationService.php
+app/Http/Controllers/Api/Communications/InvitationController.php
+app/Jobs/SendTeamInvitation.php
+app/Notifications/TeamInvitationNotification.php
+config/communications.php
+Two database migrations listed above.
+resources/js/pages/communications/TeamCommunications.vue
+resources/js/pages/communications/AcceptInvitation.vue
+tests/Feature/Communications/TeamInvitationsTest.php
+This review/runbook document.
+
+Files updated
+-------------
+.env.example (feature gate and dedicated frontend URL; no keys)
+routes/api.php (six invitation endpoints)
+resources/router/index.js (two lazy-loaded frontend pages)
+resources/js/pages/manage/HomeManage.vue and resources/js/pages/roster/HomeRoster.vue (navigation links only)
+
+Validation
+----------
+106 PHP tests passed: 21 invitation cases plus existing registration, claiming, coach/player addition, mail, route and RevenueCat regressions. Tests use mail/notification/queue fakes; no live email. Local test-database migrations exercised both new tables. No production migration executed.
+composer validate --no-check-publish: passed.
+composer dump-autoload -o: passed.
+npm run build: passed; existing >500 KiB chart chunk warning remains.
+Existing dependencies/lockfile unchanged. No new npm/Composer dependency required.
+Frontend compiled successfully; no interactive browser/device acceptance test was performed in this run. Review the two new screens and approved-recipient delivery before enabling broadly.

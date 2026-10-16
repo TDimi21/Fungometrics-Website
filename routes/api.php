@@ -636,3 +636,13 @@ Route::middleware(['auth:sanctum', 'ability:player,coach,admin,super_admin'])->p
     Route::get('/', [$controller, 'index']);
     Route::get('/{assessment}/players/{player}', [$controller, 'show']);
 });
+
+// Phase 2B: invitations reuse Sanctum and existing team authorization.
+Route::post('invitations/inspect', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'inspect'])->middleware('throttle:20,1');
+Route::post('invitations/accept', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'accept'])->middleware('throttle:5,1');
+Route::middleware(['auth:sanctum', 'ability:coach', 'route.scope'])->group(function () {
+    Route::get('coach/teams/{teamId}/invitations', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'index']);
+    Route::post('coach/teams/{teamId}/invitations', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'store'])->middleware('throttle:10,1');
+    Route::post('coach/invitations/{id}/resend', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'resend'])->middleware('throttle:5,1');
+    Route::post('coach/invitations/{id}/revoke', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'revoke'])->middleware('throttle:10,1');
+});
