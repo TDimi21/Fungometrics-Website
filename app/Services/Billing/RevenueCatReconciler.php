@@ -102,8 +102,17 @@ class RevenueCatReconciler implements SubscriptionReconciler
                 $item
             );
         }
-        Subscription::query()->where('user_id', $user->id)->where('provider', 'revenuecat')->whereNotIn('provider_subscription_id', $seen)
-            ->whereIn('status', ['active', 'trialing', 'grace_period', 'past_due'])->update(['status' => 'expired', 'ended_at' => now()]);
+        DB::transaction(function () use ($user, $seen): void {
+            User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $missing = Subscription::query()->where('user_id', $user->id)->where('provider', 'revenuecat')->whereNotIn('provider_subscription_id', $seen)
+                ->whereIn('status', ['active', 'trialing', 'grace_period', 'past_due'])->lockForUpdate()->get();
+            foreach ($missing as $subscription) {
+                $before = $subscription->toArray();
+                $subscription->update(['status' => 'expired', 'ended_at' => now()]);
+                SubscriptionAudit::create(['subscription_id' => $subscription->id, 'action' => 'subscription.provider_reconciled',
+                    'before_state' => $before, 'after_state' => $subscription->fresh()->toArray(), 'reason' => 'SYNC', 'created_at' => now()]);
+            }
+        });
         $this->updateCompatibilityCache($user);
     }
 

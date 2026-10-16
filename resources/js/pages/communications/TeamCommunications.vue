@@ -1,4 +1,5 @@
 <script setup>
+import CoachCommunicationTools from '@/components/communications/CoachCommunicationTools.vue'
 import { ref, onMounted, watch, computed } from 'vue'
 import Layout from '@/layout/Layout.vue'
 import { useTeamStore } from '@/store/team'
@@ -48,6 +49,7 @@ async function page(kind, delta) { if (kind === 'players') playerPage.value += d
       <ul><li v-for="i in state.invitations.data" :key="i.id"><strong>{{ i.email }}</strong><span>{{ i.role }} · {{ i.status }} · Delivery: {{ i.delivery_status }}</span><p v-if="i.failure_code">Delivery could not be confirmed. Resend creates a new link.</p><div v-if="i.status !== 'accepted' && i.status !== 'revoked'"><button :disabled="busy || !state.enabled" @click="manage(i.id,'resend')">Resend</button><button :disabled="busy || !state.enabled" @click="manage(i.id,'revoke')">Revoke</button></div></li></ul>
       <div v-if="state.invitations.last_page > 1"><button :disabled="invitationPage === 1" @click="page('invitations',-1)">Previous</button><span> {{ invitationPage }} / {{ state.invitations.last_page }} </span><button :disabled="invitationPage === state.invitations.last_page" @click="page('invitations',1)">Next</button></div>
     </template>
+    <CoachCommunicationTools :team-id="teamId" />
   </section></Layout>
 </template>
 <style scoped>

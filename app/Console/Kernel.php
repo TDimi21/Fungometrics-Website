@@ -18,6 +18,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('data-hub:cleanup-temporary-files')->hourly()->withoutOverlapping();
+        $schedule->command('fmtrx:communications-dispatch')->everyMinute()->withoutOverlapping();
+        $schedule->command('fmtrx:weekly-progress')->weeklyOn(1, '08:00')->timezone(config('app.timezone'))->withoutOverlapping();
     }
 
     /**

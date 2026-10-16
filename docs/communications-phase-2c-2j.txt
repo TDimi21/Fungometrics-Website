@@ -1,0 +1,163 @@
+FMTRX Communications Phase 2C–2J
+Implementation and deployment review — 2026-10-16
+
+Scope and architecture
+----------------------
+Implemented on existing fungoweb main. No commit, push, deployment, production migration or real email was performed. Existing Phase 2A/B audit and invitation flows are in communications-phase-2.txt; its "future phases" paragraph is superseded by this document.
+
+Laravel 9.52.21, PHP requirement ^8.1; tested locally on PHP 8.2.30. Existing Resend Laravel integration, Notifications, Markdown branding, authentication and queue drivers are reused. No Composer/npm dependency or lockfile change is required.
+
+Existing authenticated player identity is users.id. DailyPlanAssignment.user_id, PlayerAssessment.user_id, FreeAssessmentResult.player_id, PlayerTeam.user_id and CoachTeam.coach_id are used through their existing relationships. No player/profile merging, session/statistic changes, or new billing entitlement rules are introduced. Guardian accounts/links do not exist; no guardian delivery is inferred. Previously approved all-age invitation policy remains unchanged.
+
+The shared observer records events using the same DB connection as the saved model. Existing enclosing transactions also contain the event write. Workers poll committed events, resolve current recipients and record unique deliveries. Sending rechecks active account, email, assignment/resource access, current team membership and optional preferences. HTTP requests do not perform bulk mail delivery. Direct query-builder/import SQL bypasses Eloquent observers: future import code must explicitly call CommunicationOutbox::record after saving the relevant records.
+
+Event mapping and deduplication
+-------------------------------
+CoachRegistered: completed coach user creation, or initial password completion; one welcome per account.
+PlayerInvited / CoachInvited: existing Phase 2B InvitationService, SendTeamInvitation and team_invitations delivery/status history remain authoritative. They are not duplicated into the generic outbox. Coach selects existing player/email or invites coach with explicit permissions, resends/revokes through existing UI. Recipient accepts the hashed, expiring, single-use token through the existing frontend; atomic identity checks preserve history and prevent duplicate membership.
+WorkoutAssigned: published DailyPlan and newly created assignments; one initial delivery per plan/player. Drafts are silent. Ordinary edits are silent. Explicit coach notification uses the current saved version and confirmation, once per version.
+AssessmentCompleted: completed FreeAssessment with report_snapshot, participant membership and recorded results; newly saved PlayerAssessment (AssessmentDraft is separate). One initial notification per assessment/player. Public URLs contain only resource IDs, never report measurements; report authorization is unchanged.
+DevelopmentPlanPublished: published WorkoutProgram schedule and its published daily plans; one delivery per program/player. Later publication batches can reach newly assigned players without resending to existing recipients. Link opens the player's workout dashboard, where the actual assigned program workouts are delivered.
+WeeklyProgressReady: one completed Monday–Sunday week per opted-in account/team. Monday 08:00 in application timezone. Empty reports are skipped. Players get dated session counts, workout submissions, relevant goals, velocity trends, strength/athletic tests, assessments and upcoming assignments. Coaches get team activity and upcoming plans, with dashboard access to individual detail.
+SubscriptionStatusChanged: existing verified RevenueCat reconciliation audit, meaningful status/plan/period/cancellation changes. Repeated provider events are deduped. Billing sync now records an audit for its existing missing-subscription expiration operation. Entitlement behavior is unchanged. Cancellation with remaining active time is not described as expired.
+TeamAnnouncement: authorized team coach explicitly submits a message; request UUID prevents HTTP retry duplicates. Intended for team operations, not marketing.
+
+Data accuracy
+--------------
+Weekly summaries reuse PlayerIntelligenceService.daily_velocity_averages and benchmark_profile. Sample-weighted exit and general pitching averages compare only dated records from the report week and previous week. Explicitly tagged FB bullpen results supply a separate fastball trend; other pitch types are never relabeled as fastballs. No missing scores, percentile ranks or projections are generated.
+Only Practice rows with is_completed=true and recorded finished timestamps count as completed sessions. DailyPlanProgress.completed_at is labeled a workout submission, not proof of completing every drill. Missing legacy completion timestamps cannot be reconstructed by this feature. Fitness comparisons show actual recorded dates/units, not assumed weekly improvement. Existing benchmark availability is linked to the development dashboard without inventing new scores. Reports use application timezone boundaries, not per-user timezone settings. Current membership/assignments are used when processing; this is not an immutable historical roster report.
+
+New schema
+-----------
+database/migrations/2026_10_16_190000_create_communication_outbox.php creates:
+- communication_preferences: per-user optional email categories; weekly_reports=false by default.
+- communication_events: unique event key, resource, team/recipient, payload, processing attempts/status.
+- communication_deliveries: unique event/resource/occurrence/recipient/channel key, recipient/player/team, payload, pending/sending/sent/suppressed/unconfirmed state, created/attempted/sent/read timestamps and sanitized failure code.
+Payload storage uses LONGTEXT with model array casts for older MariaDB compatibility, not native JSON columns. No existing application table is replaced. The jobs table migration is already part of Phase 2B; do not generate another queue migration.
+
+API and screens
+----------------
+Authenticated coach/player, self-only:
+GET /api/me/communication-preferences
+PUT /api/me/communication-preferences
+GET /api/me/communications?page=1
+POST /api/me/communications/{id}/read
+
+Authorized team coach (same authorization as invitations):
+GET /api/coach/teams/{teamId}/communications
+POST /api/coach/teams/{teamId}/communications/announcements
+  {message: string up to 2000 characters, request_id: UUID}
+POST /api/coach/workouts/{id}/notify-update
+  {version: current integer version, confirmed: true}
+Write routes are rate-limited. Foreign records and removed assignments are not exposed. Inbox pagination filters current access after paging; a page may be empty after access removal, and total counts include historical rows. Coach tools show the 50 latest published workouts and 25 latest delivery records; API delivery pagination is available.
+
+Existing Settings embeds email preferences and recent updates. Team Communications embeds announcement, explicit workout-update and delivery activity controls. PlayerToday handles email date/plan query parameters and scrolls to the assignment. All application email buttons use validated https://app.fmtrx.com frontend routes, never /api/. Existing responsive mail.fmtrx-notification branding is reused with optional settings links. No app-native UI or push-notification channel is added; the authenticated endpoints are available to both clients.
+
+Delivery semantics and limits
+-----------------------------
+- All feature flags default false. Disabled communications do not record historical actions or backfill them automatically.
+- With engine enabled and sending disabled, workers can populate inbox/delivery records without sending emails. Those pending records WILL become eligible when sending is enabled; review them before activation.
+- Unique database keys and row locks prevent repeated jobs from making duplicate automatic send attempts.
+- Event processing errors retry through polling up to five attempts, recording only processing_failed. Monitor exhausted records.
+- A provider exception results in unconfirmed/provider_delivery_unconfirmed. A process killed during send can leave sending. These states are NOT automatically retried: the provider may already have accepted the email. Review provider records and delivery IDs before any deliberate resend. This is not an exactly-once network delivery guarantee.
+- sent means Laravel transport accepted the send; it does not prove inbox placement, opening, or bounce status. No provider delivery-webhook integration is claimed.
+- Essential account/security, invitation and verified billing emails are separate from optional preferences. Weekly requires opt-in. No marketing subscription or consent is introduced.
+- Existing invitation gate is independent from the new engine/send gates. To stop all communications, disable invitations too.
+- Mail payloads contain private training summaries. Restrict database/admin/log access; raw provider errors/credentials are not saved in delivery records.
+
+Changed files
+--------------
+New backend: CommunicationOutbox, CommunicationContent, WeeklyProgressContent; CommunicationObserver; CommunicationEvent, CommunicationDelivery, CommunicationPreference; FmtrxActivityNotification; ProcessCommunicationEvent and SendCommunicationDelivery; DispatchCommunications and WeeklyProgressEmails commands; CommunicationController; migration above.
+Updated backend: AppServiceProvider observer registrations, Console Kernel scheduler, RevenueCatReconciler missing-subscription audit, config/communications.php, .env.example and routes/api.php.
+Frontend: new CommunicationSettings.vue and CoachCommunicationTools.vue; integrations in Settings.vue and TeamCommunications.vue; PlayerToday.vue email destination handling.
+Mail: existing mail/fmtrx-notification.blade.php optional preferences link.
+Tests: tests/Feature/Communications/CommunicationEngineTest.php, plus existing invitation, mail, billing, assessment and planner regression suites.
+
+Safe production deployment commands — NOT executed
+---------------------------------------------------
+After code review and deployment approval, deploy reviewed main through the normal release process. Preserve production .env/secrets and take the normal database backup. From the deployed repository:
+
+  cd ~/app.fmtrx.com
+  php -v
+  command -v php
+  composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+  composer validate --no-check-publish
+  npm ci
+  npm run build
+  php artisan migrate --force
+
+Use PHP >=8.1 and Node 24/npm 11. composer install uses the existing lockfile; do not run composer update. Review all pending migrations before migration, including any older unrelated changes.
+
+Configure production .env through the existing secret-management process:
+  MAIL_MAILER=resend
+  MAIL_FROM_ADDRESS=notifications@mail.fmtrx.com
+  MAIL_FROM_NAME=FMTRX
+  RESEND_API_KEY=<existing server secret, never commit or print>
+  FMTRX_FRONTEND_URL=https://app.fmtrx.com
+  FMTRX_COMMUNICATIONS_ENABLED=false
+  FMTRX_COMMUNICATIONS_SEND_ENABLED=false
+  FMTRX_WEEKLY_REPORTS_ENABLED=false
+  FMTRX_INVITATIONS_ENABLED=false
+  QUEUE_CONNECTION=database
+  APP_DEBUG=false
+  TELESCOPE_ENABLED=false
+  CLOCKWORK_ENABLE=false
+
+Queue transition from sync: changing the default also changes existing queued jobs. Inspect existing queued/failed jobs and supervise both communications and default queues. Keep retry_after=90 greater than worker timeout=60. Use the verified absolute PHP binary and deployed repo path; do not assume the example path below matches Plesk. Supervisor example (replace /absolute/path/app.fmtrx.com and /absolute/path/php):
+
+  [program:fmtrx-worker]
+  process_name=%(program_name)s_%(process_num)02d
+  command=/absolute/path/php /absolute/path/app.fmtrx.com/artisan queue:work database --queue=communications,default --sleep=3 --tries=1 --timeout=60
+  directory=/absolute/path/app.fmtrx.com
+  user=develop
+  autostart=true
+  autorestart=true
+  stopasgroup=true
+  killasgroup=true
+  numprocs=1
+  redirect_stderr=true
+  stdout_logfile=/absolute/path/app.fmtrx.com/storage/logs/worker.log
+  stopwaitsecs=90
+
+Arrange log rotation. With flags still false:
+  php artisan config:cache
+  php artisan queue:restart
+  sudo supervisorctl reread
+  sudo supervisorctl update
+  sudo supervisorctl status 'fmtrx-worker:*'
+  php artisan schedule:list
+  php artisan fmtrx:communications-dispatch --dry-run
+  php artisan fmtrx:weekly-progress --dry-run
+
+Install ONE scheduler cron entry as develop, replacing the same absolute paths:
+  * * * * * cd /absolute/path/app.fmtrx.com && /absolute/path/php artisan schedule:run >> /absolute/path/app.fmtrx.com/storage/logs/scheduler.log 2>&1
+
+Readiness/activation:
+1. Review new screens and recipient permissions on staging with mail disabled. Run the automated test commands below against the isolated local/staging test database only.
+2. For approved capture-only review: set FMTRX_COMMUNICATIONS_ENABLED=true, retain SEND_ENABLED=false and WEEKLY_REPORTS_ENABLED=false; php artisan config:cache; php artisan queue:restart. Scheduler/worker records new events and inbox deliveries without mail. Both flags false in the initial dry-run command will report disabled, intentionally.
+3. Inspect pending deliveries before activation. Approve one controlled real-recipient test separately; this runbook does not send one automatically.
+4. Only after approval, set FMTRX_COMMUNICATIONS_SEND_ENABLED=true, rebuild config and restart workers. This enables all eligible pending deliveries, not only new ones.
+5. Enable FMTRX_WEEKLY_REPORTS_ENABLED=true separately after opt-in settings are verified; rebuild config and restart workers. Weekly dry-run counts memberships without writing events. Invitation activation remains a separate decision.
+6. Stop by disabling new engine/send/weekly flags (and invitations if desired), rebuilding config and restarting workers. Keep additive tables/history; do not roll back tables containing delivery history. Review pending backlog before reactivation.
+
+Redis is an alternative only when the existing deployment has a configured supported client/server; use QUEUE_CONNECTION=redis and corresponding queue:work redis. No new queue service was installed here.
+
+Verification commands (local test database only)
+------------------------------------------------
+  php artisan test --filter='CommunicationEngineTest|TeamInvitationsTest|RevenueCatTest|ResendMailTest|FreeAssessmentTest|DailyPlanFilterTest|SaveAssessmentFitnessSyncTest|IntelligenceControllerTest'
+  npm test
+  composer validate --no-check-publish
+  composer dump-autoload -o
+  npm run build
+  git diff --check
+
+Results are recorded below once the run completes. Fakes prevent real mail/provider delivery. No interactive browser/device or real-provider acceptance test is included in this run.
+
+Completed validation
+---------------------
+126 PHP tests passed (24 new communication engine cases plus existing invitation, billing, intelligence, assessment, planner and Resend tests).
+316 frontend tests passed across 55 files.
+composer validate --no-check-publish: passed.
+composer dump-autoload -o: passed, no PSR-4 skip warnings.
+npm run build: passed; existing ApexCharts chunk ~501 KiB exceeds the 500 KiB warning threshold. This is not a build failure.
+git diff --check: passed. Active branch remains main. No dependency lockfile changes, live sends, commit, push or deployment.

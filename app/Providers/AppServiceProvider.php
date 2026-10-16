@@ -44,6 +44,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(191);
+        foreach ([\App\Models\User::class, \App\Models\DailyPlan::class, \App\Models\DailyPlanAssignment::class, \App\Models\FreeAssessment::class, \App\Models\PlayerAssessment::class, \App\Models\WorkoutProgram::class, \App\Models\SubscriptionAudit::class] as $model) {
+            $model::observe(\App\Observers\CommunicationObserver::class);
+        }
+
         if ( ! app()->environment('local')) {
             URL::forceScheme('https');
             $this->app['request']->server->set('HTTPS', 'on');

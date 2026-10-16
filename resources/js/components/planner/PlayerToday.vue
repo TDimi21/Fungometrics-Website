@@ -2,11 +2,11 @@
 import { mergePendingPlannerDay } from "@/features/planner/lib/pendingDay";
 import SkillResults from '@/components/workouts/SkillResults.vue';
 import TemplateExerciseActuals from "@/components/workouts/TemplateExerciseActuals.vue";
-import { ref, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useAxiosAuth } from "@/composables/axios-auth";
 import { useTrainingStore } from "@/store/training";
 import { useUserStore } from "@/store/user";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import {
   localDateKey,
   shiftCalendarDate,
@@ -14,7 +14,9 @@ import {
 const emit = defineEmits(["history"]);
 const { axiosGet, axiosPost } = useAxiosAuth(),
   router = useRouter();
-const date = ref(localDateKey()),
+const route = useRoute();
+const linkedDate = String(route.query.date || '');
+const date = ref(/^\d{4}-\d{2}-\d{2}$/.test(linkedDate) ? linkedDate : localDateKey()),
   plans = ref([]),
   ledger = ref(null),
   loading = ref(false),
@@ -77,6 +79,10 @@ async function load() {
         pending.find((c) => c.id === p.id && c.pending)
       )
     );
+    if (plans.value.some(p => p.id === route.query.plan)) {
+      await nextTick();
+      document.getElementById(`workout-${route.query.plan}`)?.scrollIntoView({ block: 'start' });
+    }
     displayedDate = requestedDate;
     ledger.value = r.data.throw_ledger;
     upcoming.value = r.data.upcoming || [];
@@ -309,6 +315,7 @@ async function adjust(plan, behavior) {
     <article
       v-for="plan in plans"
       :key="plan.id"
+      :id="`workout-${plan.id}`"
       class="studio-detail"
       @input="markPending(plan)"
       @change="markPending(plan)"

@@ -1,4 +1,5 @@
 <script setup>
+import CommunicationSettings from '@/components/communications/CommunicationSettings.vue'
 import { reactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
@@ -130,6 +131,7 @@ const setTheme = (next) => {
         </div>
       </div>
     </div>
+    <CommunicationSettings />
   </Layout>
 </template>
 

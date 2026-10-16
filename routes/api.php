@@ -646,3 +646,16 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'route.scope'])->group(funct
     Route::post('coach/invitations/{id}/resend', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'resend'])->middleware('throttle:5,1');
     Route::post('coach/invitations/{id}/revoke', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'revoke'])->middleware('throttle:10,1');
 });
+
+// Shared web/native communication APIs. Profile-claim tokens cannot access them.
+Route::middleware(['auth:sanctum', 'ability:coach,player'])->group(function () {
+    Route::get('me/communication-preferences', [\App\Http\Controllers\Api\Communications\CommunicationController::class, 'preferences']);
+    Route::put('me/communication-preferences', [\App\Http\Controllers\Api\Communications\CommunicationController::class, 'savePreferences'])->middleware('throttle:20,1');
+    Route::get('me/communications', [\App\Http\Controllers\Api\Communications\CommunicationController::class, 'inbox']);
+    Route::post('me/communications/{id}/read', [\App\Http\Controllers\Api\Communications\CommunicationController::class, 'read'])->middleware('throttle:30,1');
+});
+Route::middleware(['auth:sanctum', 'ability:coach', 'route.scope'])->group(function () {
+    Route::get('coach/teams/{teamId}/communications', [\App\Http\Controllers\Api\Communications\CommunicationController::class, 'team']);
+    Route::post('coach/teams/{teamId}/communications/announcements', [\App\Http\Controllers\Api\Communications\CommunicationController::class, 'announce'])->middleware('throttle:5,1');
+    Route::post('coach/workouts/{id}/notify-update', [\App\Http\Controllers\Api\Communications\CommunicationController::class, 'republish'])->middleware('throttle:5,1');
+});

@@ -13,5 +13,9 @@ If the button does not work, copy this link into your browser: [{{ $actionUrl }}
 </x-slot:subcopy>
 @endif
 
+@if (!empty($preferencesUrl))
+[Manage email preferences]({{ $preferencesUrl }})
+@endif
+
 The FMTRX Team
 </x-mail::message>
