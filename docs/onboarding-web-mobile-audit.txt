@@ -1,0 +1,85 @@
+FMTRX — Web/mobile onboarding audit and email-code login proposal
+2026-10-16 | audit/proposal only
+
+Repository confirmation
+-----------------------
+Web: /Users/tomdimitroff/Downloads/fungoweb, main, clean at entry.
+Mobile: /Users/tomdimitroff/Downloads/MODERN_FungoMetrics-TomsScreeens 2, TomsScreeens, clean at entry.
+No branches/worktrees created or switched. No mobile edits made. User explicitly required authorization before mobile work; authorization to use the existing TomsScreeens branch was requested and is pending. This report is the only web change in this audit. No OTP implementation or migration is claimed.
+
+Mobile integration findings
+---------------------------
+React Native 0.78.3 / React 19; React Navigation 7. Node requirement >=18 <23; baseline tests used local Node 22.23.1.
+- src/navigations/startNavigator.js registers ClaimProfile inside the logged-out AuthStack. The current screen uses contact plus a six-character team code against player/join, then player/set-credentials with a restricted claim token. It does not accept the Phase 2 invitation code/token.
+- src/screens/loginScreen.js posts login, consumes the existing Laravel response envelope, persists the session using src/utils/sessions.js, resets account caches, refreshes access, and activates AuthContext. Player and coach/admin branches differ. Reuse this login/session lifecycle rather than inventing another response or user model.
+- src/screens/registerPlayerScreen.js calls player/register. Invitation completion must NOT call that route: it would be the wrong lifecycle for a coach-created placeholder.
+- src/services/httpService.js already has apiLite.post: online-only, no offline persistence/retries. Use that for invitation inspect/accept and authentication. Codes/passwords must never be persisted by offline queuing, stored in navigation state, logged from error objects, or treated as successful queued requests.
+- API configuration flows from nativeSettings through src/settings/index.js. Android production currently declares https://app.fmtrx.com/api/ and web https://app.fmtrx.com/; development uses emulator-local HTTP. iOS reads FMTRXApiBaseURL/FMTRXWebBaseURL from native configuration. Do not hardcode a production URL into the claim screen or test against production.
+- No React Navigation linking configuration, iOS invitation URL scheme/associated-domain declaration, or Android invitation intent filter was found in the inspected navigation/platform files. Do not promise that an email link opens the installed app. It currently has a valid web fallback.
+- startNavigator calls revenueCatService.identifyUser with the Laravel user ID. The service configures/logs in to RevenueCat with that stable UUID; it does not use email as subscription identity. Preserve this exact UUID and lifecycle after claim acceptance. Do not call RevenueCat transfer/alias APIs as part of claiming.
+
+Prepared native implementation scope (pending authorization)
+------------------------------------------------------------
+1. Add Have a Claim Code? to the native login/claim UI. Clearly distinguish Invitation code from the older shared team code.
+2. Online-only POST invitations/accept with claim_code, recipient email, and existing/selected password. Secure-link token mode uses invitations/inspect then the same accept endpoint. Never send token and claim_code together.
+3. For an existing player require existing credentials as the backend does; for a coach-created placeholder choose a password to complete that SAME account. No player/register call, profile copy, merging, or new user UUID. For a signed-in wrong account, require explicit sign-out/account confirmation; do not silently switch identities.
+4. Acceptance does not return a new app session. After accepted=true, run standard login and the existing session/bootstrap lifecycle. If acceptance succeeded but login/network/keychain persistence fails, show Accepted — sign in, not a retry-claim action. Consumed codes must not be replayed. Clear secrets on success/unmount; use secure storage only for the resulting normal auth token.
+5. Show server-safe eligibility/error text for unknown age, under 13, wrong identity, expired/revoked/used credentials, rate limiting and disabled invitations. Disable repeated taps and fail clearly offline.
+6. Native deep-link parsing can be prepared with exact allowlisted scheme/host/path, token syntax validation and ephemeral memory handling. Actual https invitation links require verified associated domains (Apple app-site-association and entitlement) and Android App Links (assetlinks.json and intent filters), plus application/bundle identity and server changes. Keep web fallback until explicitly configured and tested; do not add an unverified broad host handler. Cold/warm/signed-in link handling needs real devices.
+7. Render the linked player's dashboard using existing account data/access checks. Do not change Player DNA, stats, assessments, workouts, memberships or billing records.
+
+Laravel authentication audit
+-----------------------------
+- routes/api.php POST login uses LoginController and LoginRequest. LoginRequest requires email/password (8–20 characters); AuthUtils also has a password-authenticated phone fallback.
+- LoginController records last_login_at and user_login_history, creates a Sanctum token, returns role-specific resources and server-issued administrative capabilities.
+- Web clients send X-FMTRX-Client: web and receive the secure HttpOnly SameSite=Strict fmtrx_api_token cookie; native clients receive the token in the existing response data.
+- Team invitation acceptance validates the link/code, recipient, identity, age and roster then completes an existing placeholder in place. This is not six-digit email login.
+- No six-digit email-login request/verify endpoint was found in the audited auth routes/controllers/security services. Existing password reset and invitation emails are not interchangeable login mechanisms.
+- Resend is already the configured default mail transport, using notifications@mail.fmtrx.com and FMTRX. Reuse it, Laravel mail/notifications, and the supervised asynchronous queue. No new provider/key is needed.
+- Current AuthUtils password lookup does not explicitly include status in its credential predicate. A new method must explicitly check active/nondeleted/eligible account status and administrative capability, while any change to the old password policy must be separately reviewed and tested. This audit does not alter existing login behavior.
+
+Proposed additive six-digit email sign-in — NOT implemented
+----------------------------------------------------------
+Keep POST login and both existing password UIs working. Add a separate Email me a sign-in code option, initially behind OFF flags and exact-recipient pilot controls. This proves access to a mailbox; do not label it MFA or guardian consent.
+
+Initial scope: existing active, claimed, non-administrative player/coach accounts. For players recheck confirmed age 13+; do not let OTP bypass invitation youth restrictions. Unknown email does not create a new account. Unclaimed placeholders must complete the invitation workflow first, so email login cannot bypass membership/claim controls. A future entirely passwordless placeholder-completion flow requires its own reviewed restricted-auth design; current claiming still requires choosing a password for a placeholder.
+
+Suggested endpoints:
+  POST /api/auth/email-code/request {email}
+  POST /api/auth/email-code/verify {challenge_id, code}
+Return the same generic request message and response shape for existing/unknown/disabled/ineligible recipients, including an opaque challenge reference. Avoid account-existence leaks via timing, differentiated errors or retry behavior. Requesting a code must not lock out normal password login.
+
+Suggested security defaults, to validate in implementation:
+- Cryptographic random six-digit string, including leading zeroes; five-minute expiry, single use, purpose email_login. Not a team/invitation/recovery code.
+- Separate short-lived login-challenge state with random ID, user reference when eligible, normalized email snapshot, generation, keyed HMAC digest, expiry, attempts, delivery/used timestamps. Use MariaDB-compatible DATETIME fields. Do NOT put six-digit codes in team_invitations or use plain SHA-256: the small code space is vulnerable to offline enumeration without a separate server-held key. Use domain-separated HMAC and constant-time comparison with a securely managed key.
+- Five attempts per challenge plus aggregate account/IP budgets across resends; sixty-second resend cooldown and an initial three-requests/15-minutes account budget. Add IP limits to constrain mail bombing and distributed guessing; tune without revealing account state. Rate-limit keys must not disclose raw emails in logs. Resend rotates the generation/code and invalidates previous challenges; it must not reset aggregate abuse limits.
+- Lock and consume the challenge atomically. Recheck email, account status, age/capabilities and expiry at verification. Two concurrent verifications can issue at most one successful authentication result.
+- Queue only challenge ID/generation. Delivery worker rechecks feature/pilot gates and eligibility, generates the code in memory, writes its digest/expiry and sends through existing Laravel mail. Drop stale generations and expired queue work. Raw codes must not enter queue payloads, logs, analytics, browser persistence or native offline storage. An uncertain provider result must not lead to blind automatic sends/regeneration; the user may request a new challenge under the cooldown.
+- On success reuse a shared authenticated-session response service extracted from LoginController, with regression tests proving password login is unchanged. Reuse Sanctum abilities, cookie/native-token distinction, administrative capabilities and login auditing. Do not create or relink users; do not modify password, subscriptions or player history.
+- Suggested new flags FMTRX_EMAIL_LOGIN_ENABLED=false and FMTRX_EMAIL_LOGIN_SEND_ENABLED=false, using the existing strict pilot allowlist during rollout. These are proposals, not added environment variables. Verify flags at request, delivery and verification. Preserve existing password-reset/security mail behavior. Optional workout-mail preferences must not unexpectedly control user-requested login codes.
+- Show numeric keyboard/one-time-code autofill in the app and autocomplete=one-time-code on web, preserving leading zeroes. Clear entered codes on completion. Keep password fallback visible and preserve validated intended destinations.
+
+External guidance consulted for the proposal (not implementation claims)
+-----------------------------------------------------------------------
+OWASP's Forgot Password Cheat Sheet recommends consistent request responses, secure random single-use expiring credentials, secure storage and per-account abuse controls. Applying these properties to a separate login-code flow is a design recommendation, not a claim that password-reset guidance makes email login MFA:
+https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html
+Resend supports idempotency keys for send retries. This can help transport deduplication, but does not replace application single-use state or make email delivery exactly once:
+https://resend.com/changelog/idempotency-keys
+
+Validation performed this turn
+------------------------------
+PHP targeted invitation/claim/password-login/RevenueCat regression suite: PASS, 84 tests / 458 assertions.
+Command: php -d memory_limit=768M vendor/bin/phpunit --filter='TeamInvitationsTest|AccountClaimSecurityTest|LoginControllerTest|RevenueCatTest'
+Mobile baseline auth/session/billing contract tests: PASS, 4 suites / 34 tests.
+Command: npm test -- --runInBand src/services/__tests__/authAndAccessibilityContracts.test.js src/utils/__tests__/sessions.test.js src/services/__tests__/revenueCatService.test.js src/services/__tests__/billingAccessSync.test.js
+These are existing-code automated baselines. They do not prove native invitation claiming or email-code login works, because neither was implemented in this audit. No real device, live Resend email, production migration or real purchase was used.
+
+Implementation/acceptance gates
+-------------------------------
+- Authorize mobile changes at the confirmed path/on existing TomsScreeens branch. Do not switch branches implicitly.
+- Review the email-code proposal before implementation; maintain OFF defaults.
+- Native regression tests: API request contracts, wrong/expired/revoked/used code, acceptance-then-login failure, offline rejection, double taps, secure persistence failures and no registration calls.
+- PHP OTP tests: unknown/inactive/underage accounts, constant generic responses, expiry, replay, concurrency, resend budgets, guessing limits, category/pilot shutdown after queuing, changed email, and no effect on password login.
+- History/billing tests: same Laravel user ID before/after; snapshots of sessions, assessments, workouts, Player DNA sources and team memberships; unchanged RevenueCat UUID and existing mappings. No automatic account merges/transfers.
+- Real-device/staging end-to-end coach creation -> authorized test invitation -> native/web claim -> login -> correct dashboard; signed-in wrong account; existing account; placeholder; app restart/keychain failure; web fallback and verified cold/warm deep links.
+- Approved production artifact/migrations, supervised workers, configuration verification and invitation-only allowlisted pilot remain separate approvals. No commit, push, deployment, sending activation or production changes were performed.
