@@ -1,0 +1,833 @@
+FMTRX PSR-4 audit
+==================
+
+Scope: supplied production Composer log; local application, routes, tests, config and bootstrap.
+87 production warnings, 82 distinct class names. All 87 warned paths are absent locally.
+81 of 82 names resolve locally from their canonical paths. All 735 local application declarations match PSR-4; no duplicate application declarations found.
+Production file contents and direct/manual includes have NOT been inspected remotely. Matching class names do not prove identical implementations.
+
+Findings and safest corrections
+------------------------------
+Keep existing App namespaces, canonical files, imports and route URLs. Do not rename the legacy classes to match their wrong folders: that can create competing implementations.
+The four statistics services each occur in two warned server locations. GetTeamById also occurs in two warned locations. These share declared class names with canonical local implementations.
+GetTeamsPlayers has a canonical local file but no references found; the current teams route uses GetTeamsPlayersV2 (see routes/api.php). Keep the older class until external/manual use is ruled out.
+FilterTrainings_player has neither a canonical local file nor local references. Treat it as a server-only legacy candidate, not as safe to delete. The current filter route uses FilterTrainings.
+
+Before any server cleanup: inventory git-tracked/untracked files, compare every warned file with its canonical counterpart, search server routes/config/scripts for direct includes and string-based references, and confirm reflection resolves each active class to the canonical file.
+Back up and quarantine only verified redundant files outside all autoload roots in a reviewed deployment. Preserve or port any server-only behavior before removal. Do not use blanket rm or git clean.
+No application file was deleted, moved or renamed during this audit. No production changes were made.
+
+Local correction: rename the two LiveAB test class declarations to match their existing filenames; no references to the old names were found outside their declarations.
+Regression contract freezes affected route methods/URIs/actions and verifies canonical class loading. Separate service tests exercise statistics with empty and nonempty data.
+
+Complete production warning inventory and local references
+---------------------------------------------------------
+
+1. App\Services\Statistics\CageStatisticsService
+   Warned server path: app/Http/Controllers/Api/Coach/CageStatisticsService.php
+   Canonical local path: app/Services/Statistics/CageStatisticsService.php
+   Local resolution: app/Services/Statistics/CageStatisticsService.php
+   Reference: app/Services/Statistics/LeaderboardService.php:51: private readonly CageStatisticsService $cageStatistics,
+   Reference: app/Services/Intelligence/IntelligenceDataAssembler.php:27: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Services/Intelligence/IntelligenceDataAssembler.php:39: private readonly CageStatisticsService $cageStatistics,
+   Reference: app/Services/Cage/CageDistanceValidationService.php:17: * CageStatisticsService, and never writes to production cage results — it
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:23: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:199: $cageSvc    = new CageStatisticsService();
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:12: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:97: $cageSvc  = new CageStatisticsService();
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentDashboard.php:20: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentDashboard.php:254: ? (new CageStatisticsService())->fcs($cageCurrentWindow)['fcs'] ?? null
+   Reference: app/Utils/Filters/CageFilters.php:9: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Utils/Filters/CageFilters.php:16: $stat = new CageStatisticsService();
+
+2. App\Services\Statistics\WeightBallStatisticsService
+   Warned server path: app/Http/Controllers/Api/Coach/WeightBallStatisticsService.php
+   Canonical local path: app/Services/Statistics/WeightBallStatisticsService.php
+   Local resolution: app/Services/Statistics/WeightBallStatisticsService.php
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:15: use App\Services\Statistics\WeightBallStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:156: $wbSvc  = new WeightBallStatisticsService();
+   Reference: app/Utils/Filters/WeightBallFilters.php:9: use App\Services\Statistics\WeightBallStatisticsService;
+   Reference: app/Utils/Filters/WeightBallFilters.php:16: $stat = new WeightBallStatisticsService();
+
+3. App\Services\Statistics\LongTossStatisticsService
+   Warned server path: app/Http/Controllers/Api/Coach/LongTossStatisticsService.php
+   Canonical local path: app/Services/Statistics/LongTossStatisticsService.php
+   Local resolution: app/Services/Statistics/LongTossStatisticsService.php
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:14: use App\Services\Statistics\LongTossStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:135: $ltSvc        = new LongTossStatisticsService();
+   Reference: app/Utils/Filters/LongTossFilters.php:9: use App\Services\Statistics\LongTossStatisticsService;
+   Reference: app/Utils/Filters/LongTossFilters.php:16: $stat = new LongTossStatisticsService();
+
+4. App\Http\Resources\LastSession
+   Warned server path: app/Http/Controllers/Api/Coach/LastSession.php
+   Canonical local path: app/Http/Resources/LastSession.php
+   Local resolution: app/Http/Resources/LastSession.php
+   Reference: app/Http/Controllers/Api/Coach/GetLastSessions.php:9: use App\Http\Resources\LastSession;
+   Reference: app/Http/Controllers/Api/Coach/GetLastSessions.php:98: 'bullpen'        => LastSession::collection($bullpen)->resolve(),
+   Reference: app/Http/Controllers/Api/Coach/GetLastSessions.php:99: 'batting'        => LastSession::collection($batting)->resolve(),
+   Reference: app/Http/Controllers/Api/Coach/GetLastSessions.php:100: 'live'           => LastSession::collection($practiceslive)->resolve(),
+   Reference: app/Http/Controllers/Api/Coach/GetLastSessions.php:101: 'cage'           => LastSession::collection($cage)->resolve(),
+   Reference: app/Http/Controllers/Api/Coach/GetLastSessions.php:102: 'weight_ball'    => LastSession::collection($wb)->resolve(),
+   Reference: app/Http/Controllers/Api/Coach/GetLastSessions.php:103: 'long_toss'      => LastSession::collection($lt)->resolve(),
+   Reference: app/Http/Controllers/Api/Coach/GetLastSessions.php:104: 'exit_velocity'  => LastSession::collection($ev)->resolve(),
+
+5. App\Services\Statistics\ExitVelocityStatisticsService
+   Warned server path: app/Http/Controllers/Api/Coach/ExitVelocityStatisticsService.php
+   Canonical local path: app/Services/Statistics/ExitVelocityStatisticsService.php
+   Local resolution: app/Services/Statistics/ExitVelocityStatisticsService.php
+   Reference: app/Services/Intelligence/IntelligenceDataAssembler.php:28: use App\Services\Statistics\ExitVelocityStatisticsService;
+   Reference: app/Services/Intelligence/IntelligenceDataAssembler.php:40: private readonly ExitVelocityStatisticsService $exitVelocityStatistics,
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:24: use App\Services\Statistics\ExitVelocityStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:200: $evSvc      = new ExitVelocityStatisticsService();
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:13: use App\Services\Statistics\ExitVelocityStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:118: $evSvc  = new ExitVelocityStatisticsService();
+   Reference: app/Utils/Filters/ExitVelocityFilters.php:9: use App\Services\Statistics\ExitVelocityStatisticsService;
+   Reference: app/Utils/Filters/ExitVelocityFilters.php:16: $stat = new ExitVelocityStatisticsService();
+
+6. App\Services\ResultTrainingService
+   Warned server path: app/Http/Controllers/Api/Coach/ResultTrainingService.php
+   Canonical local path: app/Services/ResultTrainingService.php
+   Local resolution: app/Services/ResultTrainingService.php
+   Reference: app/Services/Statistics/TeamStatisticsService.php:19: use App\Services\ResultTrainingService;
+   Reference: app/Services/Statistics/TeamStatisticsService.php:50: $this->longToss = ResultTrainingService::getLongTossResultsLastSessions((string) $this->id, $playerIds, 10);
+   Reference: app/Services/Statistics/TeamStatisticsService.php:51: $this->weightBall = ResultTrainingService::getWeightBallResultsLastSessions((string) $this->id, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:20: use App\Services\ResultTrainingService;
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:202: $allBatting = ResultTrainingService::getBattingResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:203: $allBullpen = ResultTrainingService::getBullpenResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:204: $allCage    = ResultTrainingService::getCageResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:205: $allEV      = ResultTrainingService::getExitVelocityResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:9: use App\Services\ResultTrainingService;
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:65: $battingData = ResultTrainingService::getBattingResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:77: $bullpenData = ResultTrainingService::getBullpenResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:96: $cageData = ResultTrainingService::getCageResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:117: $evData = ResultTrainingService::getExitVelocityResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:134: $longTossData = ResultTrainingService::getLongTossResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:155: $wbData = ResultTrainingService::getWeightBallResultsLastSessions($teamId, $playerIds, 10);
+   Reference: app/Utils/Filters/ExitVelocityFilters.php:8: use App\Services\ResultTrainingService;
+   Reference: app/Utils/Filters/ExitVelocityFilters.php:17: $dataProcess = ResultTrainingService::getExitVelocityResults(
+   Reference: app/Utils/Filters/BattingFilters.php:9: use App\Services\ResultTrainingService;
+   Reference: app/Utils/Filters/BattingFilters.php:22: $dataProcess = ResultTrainingService::getBattingResults(
+   Reference: app/Utils/Filters/BullpenFilters.php:10: use App\Services\ResultTrainingService;
+   Reference: app/Utils/Filters/BullpenFilters.php:19: $dataProcess = ResultTrainingService::getBullpenResults(
+   Reference: app/Utils/Filters/LongTossFilters.php:8: use App\Services\ResultTrainingService;
+   Reference: app/Utils/Filters/LongTossFilters.php:17: $dataProcess = ResultTrainingService::getLongTossResults(
+   Reference: app/Utils/Filters/CageFilters.php:8: use App\Services\ResultTrainingService;
+   Reference: app/Utils/Filters/CageFilters.php:17: $dataProcess = ResultTrainingService::getCageResults(
+   Reference: app/Utils/Filters/WeightBallFilters.php:8: use App\Services\ResultTrainingService;
+   Reference: app/Utils/Filters/WeightBallFilters.php:17: $dataProcess = ResultTrainingService::getWeightBallResults(
+   Reference: app/Utils/Filters/LiveABFilters.php:8: use App\Services\ResultTrainingService;
+   Reference: app/Utils/Filters/LiveABFilters.php:17: $dataProcess = ResultTrainingService::getLiveABResults(
+
+7. App\Http\Controllers\Api\Coach\GetTeamById
+   Warned server path: app/Http/Controllers/Api/DashBoard/GetTeamById.php
+   Canonical local path: app/Http/Controllers/Api/Coach/GetTeamById.php
+   Local resolution: app/Http/Controllers/Api/Coach/GetTeamById.php
+   Active route: GET,HEAD api/coach/teams/{id} -> App\Http\Controllers\Api\Coach\GetTeamById
+   Reference: routes/api.php:96: use App\Http\Controllers\Api\Coach\GetTeamById;
+   Reference: routes/api.php:328: Route::get('/teams/{id}', GetTeamById::class);
+   Reference: config/entitlement_coverage.php:429: [$route('GET', 'api/coach/teams/{id}', 'Coach\\GetTeamById', false)],
+
+8. App\Http\Controllers\Api\Training\Result\GetBullpenResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetBullpenResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/GetBullpenResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/GetBullpenResultPractice.php
+   Active route: GET,HEAD api/result/bullpen/{uuid} -> App\Http\Controllers\Api\Training\Result\GetBullpenResultPractice
+   Reference: routes/api.php:168: use App\Http\Controllers\Api\Training\Result\GetBullpenResultPractice;
+   Reference: routes/api.php:520: Route::middleware('session.entitlement')->get('/bullpen/{uuid}', GetBullpenResultPractice::class);
+
+9. App\Http\Controllers\Api\Sessions\GetPracticeSessionByMode
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetPracticeSessionByMode.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/GetPracticeSessionByMode.php
+   Local resolution: app/Http/Controllers/Api/Sessions/GetPracticeSessionByMode.php
+   Active route: GET,HEAD api/sessions/mode -> App\Http\Controllers\Api\Sessions\GetPracticeSessionByMode
+   Reference: routes/api.php:141: use App\Http\Controllers\Api\Sessions\GetPracticeSessionByMode;
+   Reference: routes/api.php:569: Route::get('/mode', GetPracticeSessionByMode::class);
+
+10. App\Http\Controllers\Api\Training\AddNewSession
+   Warned server path: app/Http/Controllers/Api/fungo_app/AddNewSession.php
+   Canonical local path: app/Http/Controllers/Api/Training/AddNewSession.php
+   Local resolution: app/Http/Controllers/Api/Training/AddNewSession.php
+   Active route: POST api/training -> App\Http\Controllers\Api\Training\AddNewSession
+   Reference: routes/api.php:153: use App\Http\Controllers\Api\Training\AddNewSession;
+   Reference: routes/api.php:507: Route::middleware(['session.entitlement', 'throttle:session-write'])->post('/', AddNewSession::class);
+   Reference: config/entitlement_coverage.php:60: [$route('POST', 'api/training', 'Training\\AddNewSession', false)],
+   Reference: config/entitlement_coverage.php:105: $route('POST', 'api/training', 'Training\\AddNewSession', true),
+   Reference: config/entitlement_coverage.php:119: $route('POST', 'api/training', 'Training\\AddNewSession', false),
+   Reference: config/entitlement_coverage.php:132: $route('POST', 'api/training', 'Training\\AddNewSession', false),
+   Reference: config/entitlement_coverage.php:144: $route('POST', 'api/training', 'Training\\AddNewSession', false),
+   Reference: config/entitlement_coverage.php:156: $route('POST', 'api/training', 'Training\\AddNewSession', false),
+
+11. App\Http\Controllers\Api\Training\Result\EditBullpenResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/EditBullpenResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/EditBullpenResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/EditBullpenResultPractice.php
+   Active route: PUT api/result/bullpen/{uuid} -> App\Http\Controllers\Api\Training\Result\EditBullpenResultPractice
+   Reference: routes/api.php:160: use App\Http\Controllers\Api\Training\Result\EditBullpenResultPractice;
+   Reference: routes/api.php:522: Route::middleware('session.entitlement')->put('/bullpen/{uuid}', EditBullpenResultPractice::class);
+
+12. App\Http\Controllers\Api\Training\Result\SaveCageResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/SaveCageResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/SaveCageResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/SaveCageResultPractice.php
+   Active route: POST api/result/cage -> App\Http\Controllers\Api\Training\Result\SaveCageResultPractice
+   Reference: routes/api.php:176: use App\Http\Controllers\Api\Training\Result\SaveCageResultPractice;
+   Reference: routes/api.php:525: Route::middleware(['session.entitlement', 'throttle:session-write'])->post('/cage', SaveCageResultPractice::class);
+   Reference: config/entitlement_coverage.php:72: $route('POST', 'api/result/cage', 'Training\\Result\\SaveCageResultPractice', false),
+
+13. App\Http\Controllers\Api\Auth\LoginController
+   Warned server path: app/Http/Controllers/Api/fungo_app/LoginController.php
+   Canonical local path: app/Http/Controllers/Api/Auth/LoginController.php
+   Local resolution: app/Http/Controllers/Api/Auth/LoginController.php
+   Active route: POST api/login -> App\Http\Controllers\Api\Auth\LoginController
+   Reference: app/Http/Controllers/Auth/LoginController.php:11: class LoginController extends Controller
+   Reference: routes/api.php:8: use App\Http\Controllers\Api\Auth\LoginController;
+   Reference: routes/api.php:196: Route::post('login', LoginController::class);
+
+14. App\Http\Controllers\Api\Coach\EditPlayers
+   Warned server path: app/Http/Controllers/Api/fungo_app/EditPlayers.php
+   Canonical local path: app/Http/Controllers/Api/Coach/EditPlayers.php
+   Local resolution: app/Http/Controllers/Api/Coach/EditPlayers.php
+   Active route: POST api/edit/players/{id} -> App\Http\Controllers\Api\Coach\EditPlayers
+   Reference: routes/api.php:19: use App\Http\Controllers\Api\Coach\EditPlayers;
+   Reference: routes/api.php:243: Route::post('/edit/players/{id}', EditPlayers::class);
+   Reference: config/entitlement_coverage.php:481: [$route('POST', 'api/edit/players/{id}', 'Coach\\EditPlayers', false)],
+
+15. App\Http\Controllers\Api\Training\Result\EditExitVelocityResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/EditExitVelocityResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/EditExitVelocityResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/EditExitVelocityResultPractice.php
+   Active route: PUT api/result/exitvelocity/{uuid} -> App\Http\Controllers\Api\Training\Result\EditExitVelocityResultPractice
+   Reference: routes/api.php:163: use App\Http\Controllers\Api\Training\Result\EditExitVelocityResultPractice;
+   Reference: routes/api.php:540: Route::middleware('plan:exit_velocity_sessions')->put('/exitvelocity/{uuid}', EditExitVelocityResultPractice::class);
+
+16. App\Http\Controllers\Api\Sessions\GetTeamsPracticesSessionsByType
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetTeamsPracticesSessionsByType.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/GetTeamsPracticesSessionsByType.php
+   Local resolution: app/Http/Controllers/Api/Sessions/GetTeamsPracticesSessionsByType.php
+   Active route: GET,HEAD api/sessions/all/type -> App\Http\Controllers\Api\Sessions\GetTeamsPracticesSessionsByType
+   Reference: routes/api.php:144: use App\Http\Controllers\Api\Sessions\GetTeamsPracticesSessionsByType;
+   Reference: routes/api.php:565: Route::get('/all/type', GetTeamsPracticesSessionsByType::class);
+
+17. App\Http\Controllers\Api\Sessions\Results\GetCagePracticeResults
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetCagePracticeResults.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/Results/GetCagePracticeResults.php
+   Local resolution: app/Http/Controllers/Api/Sessions/Results/GetCagePracticeResults.php
+   Active route: GET,HEAD api/statistics/{practice}/cage -> App\Http\Controllers\Api\Sessions\Results\GetCagePracticeResults
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:10: use App\Http\Controllers\Api\Sessions\Results\GetCagePracticeResults;
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:44: 'cage'         => [GetCagePracticeResults::class, 'cage'],
+   Reference: routes/api.php:148: use App\Http\Controllers\Api\Sessions\Results\GetCagePracticeResults;
+   Reference: routes/api.php:578: Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/cage', GetCagePracticeResults::class);
+
+18. App\Http\Controllers\Api\Training\Result\SaveBullpenResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/SaveBullpenResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/SaveBullpenResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/SaveBullpenResultPractice.php
+   Active route: POST api/result/bullpen -> App\Http\Controllers\Api\Training\Result\SaveBullpenResultPractice
+   Reference: routes/api.php:175: use App\Http\Controllers\Api\Training\Result\SaveBullpenResultPractice;
+   Reference: routes/api.php:521: Route::middleware('session.entitlement')->post('/bullpen', SaveBullpenResultPractice::class);
+   Reference: config/entitlement_coverage.php:71: $route('POST', 'api/result/bullpen', 'Training\\Result\\SaveBullpenResultPractice', false),
+
+19. App\Http\Controllers\Api\Sessions\GetTeamsPracticesSessionByMode
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetTeamsPracticesSessionByMode.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/GetTeamsPracticesSessionByMode.php
+   Local resolution: app/Http/Controllers/Api/Sessions/GetTeamsPracticesSessionByMode.php
+   Active route: GET,HEAD api/sessions/all/mode -> App\Http\Controllers\Api\Sessions\GetTeamsPracticesSessionByMode
+   Reference: routes/api.php:143: use App\Http\Controllers\Api\Sessions\GetTeamsPracticesSessionByMode;
+   Reference: routes/api.php:566: Route::get('/all/mode', GetTeamsPracticesSessionByMode::class);
+
+20. App\Http\Controllers\Api\Training\Result\SaveBattingResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/SaveBattingResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/SaveBattingResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/SaveBattingResultPractice.php
+   Active route: POST api/result/batting -> App\Http\Controllers\Api\Training\Result\SaveBattingResultPractice
+   Reference: routes/api.php:174: use App\Http\Controllers\Api\Training\Result\SaveBattingResultPractice;
+   Reference: routes/api.php:516: Route::middleware('session.entitlement')->post('/batting', SaveBattingResultPractice::class);
+   Reference: config/entitlement_coverage.php:70: $route('POST', 'api/result/batting', 'Training\\Result\\SaveBattingResultPractice', false),
+
+21. App\Http\Controllers\Api\Training\Result\EditLongTossResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/EditLongTossResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/EditLongTossResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/EditLongTossResultPractice.php
+   Active route: PUT api/result/longtoss/{uuid} -> App\Http\Controllers\Api\Training\Result\EditLongTossResultPractice
+   Reference: routes/api.php:165: use App\Http\Controllers\Api\Training\Result\EditLongTossResultPractice;
+   Reference: routes/api.php:535: Route::middleware('plan:long_toss_sessions')->put('/longtoss/{uuid}', EditLongTossResultPractice::class);
+
+22. App\Http\Controllers\Api\Coach\GetTeamById
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetTeamById.php
+   Canonical local path: app/Http/Controllers/Api/Coach/GetTeamById.php
+   Local resolution: app/Http/Controllers/Api/Coach/GetTeamById.php
+   Active route: GET,HEAD api/coach/teams/{id} -> App\Http\Controllers\Api\Coach\GetTeamById
+   Reference: routes/api.php:96: use App\Http\Controllers\Api\Coach\GetTeamById;
+   Reference: routes/api.php:328: Route::get('/teams/{id}', GetTeamById::class);
+   Reference: config/entitlement_coverage.php:429: [$route('GET', 'api/coach/teams/{id}', 'Coach\\GetTeamById', false)],
+
+23. App\Http\Controllers\Api\Player\GetCagePractices
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetCagePractices.php
+   Canonical local path: app/Http/Controllers/Api/Player/GetCagePractices.php
+   Local resolution: app/Http/Controllers/Api/Player/GetCagePractices.php
+   Active route: GET,HEAD api/player/sessions/cage -> App\Http\Controllers\Api\Player\GetCagePractices
+   Reference: routes/api.php:115: use App\Http\Controllers\Api\Player\GetCagePractices;
+   Reference: routes/api.php:274: Route::get('sessions/cage', GetCagePractices::class);
+
+24. App\Http\Controllers\Api\Training\Result\SaveLiveABResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/SaveLiveABResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/SaveLiveABResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/SaveLiveABResultPractice.php
+   Active route: POST api/result/liveab -> App\Http\Controllers\Api\Training\Result\SaveLiveABResultPractice
+   Reference: routes/api.php:178: use App\Http\Controllers\Api\Training\Result\SaveLiveABResultPractice;
+   Reference: routes/api.php:529: Route::middleware(['ability:coach', 'plan:liveab_sessions'])->post('/liveab', SaveLiveABResultPractice::class);
+   Reference: config/entitlement_coverage.php:120: $route('POST', 'api/result/liveab', 'Training\\Result\\SaveLiveABResultPractice', true),
+
+25. App\Http\Controllers\Api\Coach\GetPlayersList
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetPlayersList.php
+   Canonical local path: app/Http/Controllers/Api/Coach/GetPlayersList.php
+   Local resolution: app/Http/Controllers/Api/Coach/GetPlayersList.php
+   Active route: GET,HEAD api/coach/roster/players -> App\Http\Controllers\Api\Coach\GetPlayersList
+   Reference: routes/api.php:26: use App\Http\Controllers\Api\Coach\GetPlayersList;
+   Reference: routes/api.php:326: Route::get('/roster/players', GetPlayersList::class);
+
+26. App\Http\Controllers\Api\Auth\PasswordChange
+   Warned server path: app/Http/Controllers/Api/fungo_app/PasswordChange.php
+   Canonical local path: app/Http/Controllers/Api/Auth/PasswordChange.php
+   Local resolution: app/Http/Controllers/Api/Auth/PasswordChange.php
+   Active route: POST api/password -> App\Http\Controllers\Api\Auth\PasswordChange
+   Reference: routes/api.php:10: use App\Http\Controllers\Api\Auth\PasswordChange;
+   Reference: routes/api.php:260: Route::post('password', PasswordChange::class);
+
+27. App\Http\Controllers\Api\Sessions\GetLongTossPracticeResult
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetLongTossPracticeResult.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/GetLongTossPracticeResult.php
+   Local resolution: app/Http/Controllers/Api/Sessions/GetLongTossPracticeResult.php
+   Active route: GET,HEAD api/statistics/{practice}/longtoss -> App\Http\Controllers\Api\Sessions\GetLongTossPracticeResult
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:13: use App\Http\Controllers\Api\Sessions\GetLongTossPracticeResult;
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:47: 'longtoss'     => [GetLongTossPracticeResult::class, 'longToss'],
+   Reference: routes/api.php:140: use App\Http\Controllers\Api\Sessions\GetLongTossPracticeResult;
+   Reference: routes/api.php:575: Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/longtoss', GetLongTossPracticeResult::class);
+
+28. App\Http\Controllers\Api\Player\GetTrainingPractices
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetTrainingPractices.php
+   Canonical local path: app/Http/Controllers/Api/Player/GetTrainingPractices.php
+   Local resolution: app/Http/Controllers/Api/Player/GetTrainingPractices.php
+   Active route: GET,HEAD api/player/sessions/training -> App\Http\Controllers\Api\Player\GetTrainingPractices
+   Reference: routes/api.php:120: use App\Http\Controllers\Api\Player\GetTrainingPractices;
+   Reference: routes/api.php:275: Route::get('sessions/training', GetTrainingPractices::class);
+
+29. App\Http\Controllers\Api\Training\Result\GetWeightBallResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetWeightBallResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/GetWeightBallResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/GetWeightBallResultPractice.php
+   Active route: GET,HEAD api/result/weightball/{uuid} -> App\Http\Controllers\Api\Training\Result\GetWeightBallResultPractice
+   Reference: routes/api.php:173: use App\Http\Controllers\Api\Training\Result\GetWeightBallResultPractice;
+   Reference: routes/api.php:543: Route::middleware('plan:weighted_ball_sessions')->get('/weightball/{uuid}', GetWeightBallResultPractice::class);
+
+30. App\Http\Controllers\Api\Auth\CompleteCoachController
+   Warned server path: app/Http/Controllers/Api/fungo_app/CompleteCoachController.php
+   Canonical local path: app/Http/Controllers/Api/Auth/CompleteCoachController.php
+   Local resolution: app/Http/Controllers/Api/Auth/CompleteCoachController.php
+   Active route: POST api/complete/{claim}/coach -> App\Http\Controllers\Api\Auth\CompleteCoachController
+   Reference: routes/api.php:5: use App\Http\Controllers\Api\Auth\CompleteCoachController;
+   Reference: routes/api.php:204: Route::post('/complete/{claim}/coach', CompleteCoachController::class)
+
+31. App\Http\Controllers\Api\Training\DeletePractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/DeletePractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/DeletePractice.php
+   Local resolution: app/Http/Controllers/Api/Training/DeletePractice.php
+   Active route: DELETE api/training/{uuid} -> App\Http\Controllers\Api\Training\DeletePractice
+   Reference: routes/api.php:155: use App\Http\Controllers\Api\Training\DeletePractice;
+   Reference: routes/api.php:510: Route::middleware('session.entitlement')->delete('/{uuid}', DeletePractice::class);
+
+32. App\Http\Controllers\Api\DashBoard\GetDataGraphics
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetDataGraphics.php
+   Canonical local path: app/Http/Controllers/Api/DashBoard/GetDataGraphics.php
+   Local resolution: app/Http/Controllers/Api/DashBoard/GetDataGraphics.php
+   Active route: GET,HEAD api/dashboard/{team} -> App\Http\Controllers\Api\DashBoard\GetDataGraphics
+   Reference: routes/api.php:106: use App\Http\Controllers\Api\DashBoard\GetDataGraphics;
+   Reference: routes/api.php:252: Route::get('dashboard/{team}', GetDataGraphics::class);
+
+33. App\Http\Controllers\Api\SearchCoaches
+   Warned server path: app/Http/Controllers/Api/fungo_app/SearchCoaches.php
+   Canonical local path: app/Http/Controllers/Api/SearchCoaches.php
+   Local resolution: app/Http/Controllers/Api/SearchCoaches.php
+   Active route: GET,HEAD api/coach/search/coaches -> App\Http\Controllers\Api\SearchCoaches
+   Reference: routes/api.php:135: use App\Http\Controllers\Api\SearchCoaches;
+   Reference: routes/api.php:346: Route::middleware('throttle:30,1')->get('/search/coaches', SearchCoaches::class);
+
+34. App\Http\Controllers\Api\ScoresStatisticPlayers
+   Warned server path: app/Http/Controllers/Api/fungo_app/ScoresStatisticPlayers.php
+   Canonical local path: app/Http/Controllers/Api/ScoresStatisticPlayers.php
+   Local resolution: app/Http/Controllers/Api/ScoresStatisticPlayers.php
+   Active route: GET,HEAD api/player/statistics/{player} -> App\Http\Controllers\Api\ScoresStatisticPlayers
+   Active route: GET,HEAD api/coach/statistics/{player} -> App\Http\Controllers\Api\ScoresStatisticPlayers
+   Reference: routes/api.php:131: use App\Http\Controllers\Api\ScoresStatisticPlayers;
+   Reference: routes/api.php:279: Route::get('statistics/{player}', ScoresStatisticPlayers::class);
+   Reference: routes/api.php:347: Route::get('/statistics/{player}', ScoresStatisticPlayers::class);
+   Reference: config/entitlement_coverage.php:210: [$route('GET', 'api/player/statistics/{player}', 'ScoresStatisticPlayers', false)],
+
+35. App\Http\Controllers\Api\Sessions\Results\GetBullpenPracticeResults
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetBullpenPracticeResults.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/Results/GetBullpenPracticeResults.php
+   Local resolution: app/Http/Controllers/Api/Sessions/Results/GetBullpenPracticeResults.php
+   Active route: GET,HEAD api/statistics/{practice}/bullpen -> App\Http\Controllers\Api\Sessions\Results\GetBullpenPracticeResults
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:9: use App\Http\Controllers\Api\Sessions\Results\GetBullpenPracticeResults;
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:43: 'bullpen'      => [GetBullpenPracticeResults::class, 'bullpen'],
+   Reference: routes/api.php:147: use App\Http\Controllers\Api\Sessions\Results\GetBullpenPracticeResults;
+   Reference: routes/api.php:574: Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/bullpen', GetBullpenPracticeResults::class);
+   Reference: config/entitlement_coverage.php:108: $route('GET', 'api/statistics/{practice}/bullpen', 'Sessions\\Results\\GetBullpenPracticeResults', true),
+
+36. App\Http\Controllers\Api\Coach\GetTeamsPlayers
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetTeamsPlayers.php
+   Canonical local path: app/Http/Controllers/Api/Coach/GetTeamsPlayers.php
+   Local resolution: app/Http/Controllers/Api/Coach/GetTeamsPlayers.php
+   No local references found (not proof of no production use).
+
+37. App\Http\Controllers\Api\Coach\AddCoaches
+   Warned server path: app/Http/Controllers/Api/fungo_app/AddCoaches.php
+   Canonical local path: app/Http/Controllers/Api/Coach/AddCoaches.php
+   Local resolution: app/Http/Controllers/Api/Coach/AddCoaches.php
+   Active route: POST api/coach/add/coaches -> App\Http\Controllers\Api\Coach\AddCoaches
+   Reference: routes/api.php:15: use App\Http\Controllers\Api\Coach\AddCoaches;
+   Reference: routes/api.php:324: Route::post('/add/coaches', AddCoaches::class);
+   Reference: config/entitlement_coverage.php:451: [$route('POST', 'api/coach/add/coaches', 'Coach\\AddCoaches', false)],
+   Reference: config/entitlement_coverage.php:622: 'backend' => ['Coach\\AddCoaches', 'Coach\\CoachUtils'],
+
+38. App\Http\Controllers\Api\Auth\CompletePlayerController
+   Warned server path: app/Http/Controllers/Api/fungo_app/CompletePlayerController.php
+   Canonical local path: app/Http/Controllers/Api/Auth/CompletePlayerController.php
+   Local resolution: app/Http/Controllers/Api/Auth/CompletePlayerController.php
+   Active route: POST api/complete/{claim}/player -> App\Http\Controllers\Api\Auth\CompletePlayerController
+   Reference: routes/api.php:6: use App\Http\Controllers\Api\Auth\CompletePlayerController;
+   Reference: routes/api.php:206: Route::post('/complete/{claim}/player', CompletePlayerController::class)
+
+39. App\Http\Controllers\Api\Sessions\Results\ListSmsResults
+   Warned server path: app/Http/Controllers/Api/fungo_app/ListSmsResults.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/Results/ListSmsResults.php
+   Local resolution: app/Http/Controllers/Api/Sessions/Results/ListSmsResults.php
+   Active route: GET,HEAD api/coach/list/results/{practice} -> App\Http\Controllers\Api\Sessions\Results\ListSmsResults
+   Reference: routes/api.php:150: use App\Http\Controllers\Api\Sessions\Results\ListSmsResults;
+   Reference: routes/api.php:322: Route::middleware('plan:sms_results')->get('/list/results/{practice}', ListSmsResults::class);
+
+40. App\Http\Controllers\Api\Training\GetSession
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetSession.php
+   Canonical local path: app/Http/Controllers/Api/Training/GetSession.php
+   Local resolution: app/Http/Controllers/Api/Training/GetSession.php
+   Active route: GET,HEAD api/training/{uuid} -> App\Http\Controllers\Api\Training\GetSession
+   Reference: routes/api.php:158: use App\Http\Controllers\Api\Training\GetSession;
+   Reference: routes/api.php:508: Route::middleware('session.entitlement')->get('/{uuid}', GetSession::class);
+
+41. App\Http\Controllers\Api\Sessions\GetPracticesSessionByType
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetPracticesSessionByType.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/GetPracticesSessionByType.php
+   Local resolution: app/Http/Controllers/Api/Sessions/GetPracticesSessionByType.php
+   Active route: GET,HEAD api/sessions/type -> App\Http\Controllers\Api\Sessions\GetPracticesSessionByType
+   Reference: routes/api.php:142: use App\Http\Controllers\Api\Sessions\GetPracticesSessionByType;
+   Reference: routes/api.php:564: Route::get('/type', GetPracticesSessionByType::class);
+
+42. App\Http\Controllers\Api\Coach\GetCoachesList
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetCoachesList.php
+   Canonical local path: app/Http/Controllers/Api/Coach/GetCoachesList.php
+   Local resolution: app/Http/Controllers/Api/Coach/GetCoachesList.php
+   Active route: GET,HEAD api/coach/roster/coaches -> App\Http\Controllers\Api\Coach\GetCoachesList
+   Reference: routes/api.php:22: use App\Http\Controllers\Api\Coach\GetCoachesList;
+   Reference: routes/api.php:325: Route::get('/roster/coaches', GetCoachesList::class);
+
+43. App\Http\Controllers\Api\Sessions\GetWeightBallPracticeResult
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetWeightBallPracticeResult.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/GetWeightBallPracticeResult.php
+   Local resolution: app/Http/Controllers/Api/Sessions/GetWeightBallPracticeResult.php
+   Active route: GET,HEAD api/statistics/{practice}/weightball -> App\Http\Controllers\Api\Sessions\GetWeightBallPracticeResult
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:14: use App\Http\Controllers\Api\Sessions\GetWeightBallPracticeResult;
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:48: 'weightball'   => [GetWeightBallPracticeResult::class, 'weightBall'],
+   Reference: routes/api.php:145: use App\Http\Controllers\Api\Sessions\GetWeightBallPracticeResult;
+   Reference: routes/api.php:576: Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/weightball', GetWeightBallPracticeResult::class);
+
+44. App\Http\Controllers\Api\Training\Result\GetBattingResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetBattingResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/GetBattingResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/GetBattingResultPractice.php
+   Active route: GET,HEAD api/result/batting/{uuid} -> App\Http\Controllers\Api\Training\Result\GetBattingResultPractice
+   Reference: routes/api.php:167: use App\Http\Controllers\Api\Training\Result\GetBattingResultPractice;
+   Reference: routes/api.php:515: Route::middleware('session.entitlement')->get('/batting/{uuid}', GetBattingResultPractice::class);
+
+45. App\Http\Controllers\Api\Training\Result\GetLongTossResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetLongTossResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/GetLongTossResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/GetLongTossResultPractice.php
+   Active route: GET,HEAD api/result/longtoss/{uuid} -> App\Http\Controllers\Api\Training\Result\GetLongTossResultPractice
+   Reference: routes/api.php:172: use App\Http\Controllers\Api\Training\Result\GetLongTossResultPractice;
+   Reference: routes/api.php:533: Route::middleware('plan:long_toss_sessions')->get('/longtoss/{uuid}', GetLongTossResultPractice::class);
+
+46. App\Http\Controllers\Api\Player\GetFitness
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetFitness.php
+   Canonical local path: app/Http/Controllers/Api/Player/GetFitness.php
+   Local resolution: app/Http/Controllers/Api/Player/GetFitness.php
+   Active route: GET,HEAD api/player/fitness/{id} -> App\Http\Controllers\Api\Player\GetFitness
+   Reference: routes/api.php:118: use App\Http\Controllers\Api\Player\GetFitness;
+   Reference: routes/api.php:246: Route::get('player/fitness/{id}', GetFitness::class);
+   Reference: config/entitlement_coverage.php:220: [$route('GET', 'api/player/fitness/{id}', 'Player\\GetFitness', false)],
+
+47. App\Http\Controllers\Api\DashBoard\GetTopTenResults
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetTopTenResults.php
+   Canonical local path: app/Http/Controllers/Api/DashBoard/GetTopTenResults.php
+   Local resolution: app/Http/Controllers/Api/DashBoard/GetTopTenResults.php
+   Active route: POST api/table/{team} -> App\Http\Controllers\Api\DashBoard\GetTopTenResults
+   Reference: routes/api.php:112: use App\Http\Controllers\Api\DashBoard\GetTopTenResults;
+   Reference: routes/api.php:259: Route::post('table/{team}', GetTopTenResults::class);
+
+48. App\Http\Controllers\Api\Training\Result\GetExitVelocityResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetExitVelocityResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/GetExitVelocityResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/GetExitVelocityResultPractice.php
+   Active route: GET,HEAD api/result/exitvelocity/{uuid} -> App\Http\Controllers\Api\Training\Result\GetExitVelocityResultPractice
+   Reference: routes/api.php:170: use App\Http\Controllers\Api\Training\Result\GetExitVelocityResultPractice;
+   Reference: routes/api.php:538: Route::middleware('plan:exit_velocity_sessions')->get('/exitvelocity/{uuid}', GetExitVelocityResultPractice::class);
+
+49. App\Http\Controllers\Api\Player\GetBattingPractices
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetBattingPractices.php
+   Canonical local path: app/Http/Controllers/Api/Player/GetBattingPractices.php
+   Local resolution: app/Http/Controllers/Api/Player/GetBattingPractices.php
+   Active route: GET,HEAD api/player/sessions/batting -> App\Http\Controllers\Api\Player\GetBattingPractices
+   Reference: routes/api.php:113: use App\Http\Controllers\Api\Player\GetBattingPractices;
+   Reference: routes/api.php:272: Route::get('sessions/batting', GetBattingPractices::class);
+
+50. App\Http\Controllers\Api\Coach\RemoveTeam
+   Warned server path: app/Http/Controllers/Api/fungo_app/RemoveTeam.php
+   Canonical local path: app/Http/Controllers/Api/Coach/RemoveTeam.php
+   Local resolution: app/Http/Controllers/Api/Coach/RemoveTeam.php
+   Active route: DELETE api/coach/remove/team/{id} -> App\Http\Controllers\Api\Coach\RemoveTeam
+   Reference: routes/api.php:104: use App\Http\Controllers\Api\Coach\RemoveTeam;
+   Reference: routes/api.php:323: Route::delete('/remove/team/{id}', RemoveTeam::class);
+
+51. App\Http\Controllers\Api\Training\Result\GetCageResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetCageResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/GetCageResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/GetCageResultPractice.php
+   Active route: GET,HEAD api/result/cage/{uuid} -> App\Http\Controllers\Api\Training\Result\GetCageResultPractice
+   Reference: routes/api.php:169: use App\Http\Controllers\Api\Training\Result\GetCageResultPractice;
+   Reference: routes/api.php:524: Route::middleware('session.entitlement')->get('/cage/{uuid}', GetCageResultPractice::class);
+
+52. App\Http\Controllers\Api\Sessions\GetExitVelocityPracticeResult
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetExitVelocityPracticeResult.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/GetExitVelocityPracticeResult.php
+   Local resolution: app/Http/Controllers/Api/Sessions/GetExitVelocityPracticeResult.php
+   Active route: GET,HEAD api/statistics/{practice}/exitvelocity -> App\Http\Controllers\Api\Sessions\GetExitVelocityPracticeResult
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:12: use App\Http\Controllers\Api\Sessions\GetExitVelocityPracticeResult;
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:46: 'exitvelocity' => [GetExitVelocityPracticeResult::class, 'exitVelocity'],
+   Reference: routes/api.php:138: use App\Http\Controllers\Api\Sessions\GetExitVelocityPracticeResult;
+   Reference: routes/api.php:577: Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/exitvelocity', GetExitVelocityPracticeResult::class);
+
+53. App\Http\Controllers\Api\Training\Result\EditCageResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/EditCageResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/EditCageResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/EditCageResultPractice.php
+   Active route: PUT api/result/cage/{uuid} -> App\Http\Controllers\Api\Training\Result\EditCageResultPractice
+   Reference: routes/api.php:161: use App\Http\Controllers\Api\Training\Result\EditCageResultPractice;
+   Reference: routes/api.php:526: Route::middleware('session.entitlement')->put('/cage/{uuid}', EditCageResultPractice::class);
+
+54. App\Http\Controllers\Api\Sessions\GetAllPracticesByModes
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetAllPracticesByModes.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/GetAllPracticesByModes.php
+   Local resolution: app/Http/Controllers/Api/Sessions/GetAllPracticesByModes.php
+   Active route: GET,HEAD api/sessions/all/modes -> App\Http\Controllers\Api\Sessions\GetAllPracticesByModes
+   Reference: routes/api.php:137: use App\Http\Controllers\Api\Sessions\GetAllPracticesByModes;
+   Reference: routes/api.php:567: Route::get('/all/modes', GetAllPracticesByModes::class);
+
+55. App\Http\Controllers\Api\Coach\EditTeams
+   Warned server path: app/Http/Controllers/Api/fungo_app/EditTeams.php
+   Canonical local path: app/Http/Controllers/Api/Coach/EditTeams.php
+   Local resolution: app/Http/Controllers/Api/Coach/EditTeams.php
+   Active route: POST api/coach/edit/teams/{team} -> App\Http\Controllers\Api\Coach\EditTeams
+   Reference: routes/api.php:21: use App\Http\Controllers\Api\Coach\EditTeams;
+   Reference: routes/api.php:318: Route::middleware('plan:edit_team')->post('/edit/teams/{team}', EditTeams::class);
+   Reference: config/entitlement_coverage.php:472: [$route('POST', 'api/coach/edit/teams/{id}', 'Coach\\EditTeams', false)],
+
+56. App\Http\Controllers\Api\Coach\AddPlayers
+   Warned server path: app/Http/Controllers/Api/fungo_app/AddPlayers.php
+   Canonical local path: app/Http/Controllers/Api/Coach/AddPlayers.php
+   Local resolution: app/Http/Controllers/Api/Coach/AddPlayers.php
+   Active route: POST api/coach/add/players -> App\Http\Controllers\Api\Coach\AddPlayers
+   Reference: routes/api.php:16: use App\Http\Controllers\Api\Coach\AddPlayers;
+   Reference: routes/api.php:319: Route::post('/add/players', AddPlayers::class);
+   Reference: config/entitlement_coverage.php:439: [$route('POST', 'api/coach/add/players', 'Coach\\AddPlayers', false)],
+   Reference: config/entitlement_coverage.php:617: 'backend' => ['Coach\\AddPlayers', 'Coach\\CoachUtils'],
+
+57. App\Http\Controllers\Api\Training\AddPlayerToTraining
+   Warned server path: app/Http/Controllers/Api/fungo_app/AddPlayerToTraining.php
+   Canonical local path: app/Http/Controllers/Api/Training/AddPlayerToTraining.php
+   Local resolution: app/Http/Controllers/Api/Training/AddPlayerToTraining.php
+   Active route: POST api/coach/lineup/{training} -> App\Http\Controllers\Api\Training\AddPlayerToTraining
+   Reference: routes/api.php:154: use App\Http\Controllers\Api\Training\AddPlayerToTraining;
+   Reference: routes/api.php:350: Route::post('/lineup/{training}', AddPlayerToTraining::class);
+
+58. App\Http\Controllers\Api\Training\FinishPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/FinishPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/FinishPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/FinishPractice.php
+   Active route: PUT api/training/{uuid} -> App\Http\Controllers\Api\Training\FinishPractice
+   Reference: routes/api.php:157: use App\Http\Controllers\Api\Training\FinishPractice;
+   Reference: routes/api.php:509: Route::middleware('session.entitlement')->put('/{uuid}', FinishPractice::class);
+
+59. App\Http\Controllers\Api\Training\Result\SaveLongTossResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/SaveLongTossResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/SaveLongTossResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/SaveLongTossResultPractice.php
+   Active route: POST api/result/longtoss -> App\Http\Controllers\Api\Training\Result\SaveLongTossResultPractice
+   Reference: routes/api.php:179: use App\Http\Controllers\Api\Training\Result\SaveLongTossResultPractice;
+   Reference: routes/api.php:534: Route::middleware('plan:long_toss_sessions')->post('/longtoss', SaveLongTossResultPractice::class);
+   Reference: config/entitlement_coverage.php:145: $route('POST', 'api/result/longtoss', 'Training\\Result\\SaveLongTossResultPractice', true),
+
+60. App\Http\Controllers\Api\Training\Result\EditBattingResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/EditBattingResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/EditBattingResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/EditBattingResultPractice.php
+   Active route: PUT api/result/batting/{uuid} -> App\Http\Controllers\Api\Training\Result\EditBattingResultPractice
+   Reference: routes/api.php:159: use App\Http\Controllers\Api\Training\Result\EditBattingResultPractice;
+   Reference: routes/api.php:517: Route::middleware('session.entitlement')->put('/batting/{uuid}', EditBattingResultPractice::class);
+
+61. App\Http\Controllers\Api\Sessions\GetListLiveABSessions
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetListLiveABSessions.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/GetListLiveABSessions.php
+   Local resolution: app/Http/Controllers/Api/Sessions/GetListLiveABSessions.php
+   Active route: GET,HEAD api/sessions/all/liveab -> App\Http\Controllers\Api\Sessions\GetListLiveABSessions
+   Reference: routes/api.php:139: use App\Http\Controllers\Api\Sessions\GetListLiveABSessions;
+   Reference: routes/api.php:568: Route::middleware(['ability:coach', 'plan:liveab_sessions'])->get('/all/liveab', GetListLiveABSessions::class);
+
+62. App\Http\Controllers\Api\Sessions\Results\GetBattingPracticeResults
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetBattingPracticeResults.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/Results/GetBattingPracticeResults.php
+   Local resolution: app/Http/Controllers/Api/Sessions/Results/GetBattingPracticeResults.php
+   Active route: GET,HEAD api/statistics/{practice}/batting -> App\Http\Controllers\Api\Sessions\Results\GetBattingPracticeResults
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:8: use App\Http\Controllers\Api\Sessions\Results\GetBattingPracticeResults;
+   Reference: app/Http/Controllers/Api/Coach/GetStatsBundle.php:42: 'batting'      => [GetBattingPracticeResults::class, 'batting'],
+   Reference: routes/api.php:146: use App\Http\Controllers\Api\Sessions\Results\GetBattingPracticeResults;
+   Reference: routes/api.php:573: Route::middleware(['session.entitlement', 'plan:view_session_report'])->get('/{practice}/batting', GetBattingPracticeResults::class);
+
+63. App\Http\Controllers\Api\Auth\RegisterCoachController
+   Warned server path: app/Http/Controllers/Api/fungo_app/RegisterCoachController.php
+   Canonical local path: app/Http/Controllers/Api/Auth/RegisterCoachController.php
+   Local resolution: app/Http/Controllers/Api/Auth/RegisterCoachController.php
+   Active route: POST api/coach/register -> App\Http\Controllers\Api\Auth\RegisterCoachController
+   Reference: routes/api.php:12: use App\Http\Controllers\Api\Auth\RegisterCoachController;
+   Reference: routes/api.php:310: Route::post('register', RegisterCoachController::class);
+
+64. App\Http\Controllers\Api\Coach\AddTeams
+   Warned server path: app/Http/Controllers/Api/fungo_app/AddTeams.php
+   Canonical local path: app/Http/Controllers/Api/Coach/AddTeams.php
+   Local resolution: app/Http/Controllers/Api/Coach/AddTeams.php
+   Active route: POST api/coach/add/teams -> App\Http\Controllers\Api\Coach\AddTeams
+   Reference: routes/api.php:17: use App\Http\Controllers\Api\Coach\AddTeams;
+   Reference: routes/api.php:316: Route::middleware('plan:add_team')->post('/add/teams', AddTeams::class);
+   Reference: config/entitlement_coverage.php:490: [$route('POST', 'api/coach/add/teams', 'Coach\\AddTeams', true)],
+   Reference: config/entitlement_coverage.php:627: 'backend' => ['Coach\\AddTeams'],
+
+65. App\Http\Controllers\Api\Player\GetBullpenPractices
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetBullpenPractices.php
+   Canonical local path: app/Http/Controllers/Api/Player/GetBullpenPractices.php
+   Local resolution: app/Http/Controllers/Api/Player/GetBullpenPractices.php
+   Active route: GET,HEAD api/player/sessions/bullpen -> App\Http\Controllers\Api\Player\GetBullpenPractices
+   Reference: routes/api.php:114: use App\Http\Controllers\Api\Player\GetBullpenPractices;
+   Reference: routes/api.php:273: Route::get('sessions/bullpen', GetBullpenPractices::class);
+
+66. App\Http\Controllers\Api\Coach\RemoveCoachFromTeam
+   Warned server path: app/Http/Controllers/Api/fungo_app/RemoveCoachFromTeam.php
+   Canonical local path: app/Http/Controllers/Api/Coach/RemoveCoachFromTeam.php
+   Local resolution: app/Http/Controllers/Api/Coach/RemoveCoachFromTeam.php
+   Active route: DELETE api/coach/remove/coach/{id} -> App\Http\Controllers\Api\Coach\RemoveCoachFromTeam
+   Reference: routes/api.php:102: use App\Http\Controllers\Api\Coach\RemoveCoachFromTeam;
+   Reference: routes/api.php:321: Route::delete('/remove/coach/{id}', RemoveCoachFromTeam::class);
+
+67. App\Http\Controllers\Api\SearchPlayers
+   Warned server path: app/Http/Controllers/Api/fungo_app/SearchPlayers.php
+   Canonical local path: app/Http/Controllers/Api/SearchPlayers.php
+   Local resolution: app/Http/Controllers/Api/SearchPlayers.php
+   Active route: GET,HEAD api/coach/search/players -> App\Http\Controllers\Api\SearchPlayers
+   Reference: routes/api.php:136: use App\Http\Controllers\Api\SearchPlayers;
+   Reference: routes/api.php:345: Route::middleware('throttle:30,1')->get('/search/players', SearchPlayers::class);
+
+68. App\Http\Controllers\Api\Coach\RemovePlayers
+   Warned server path: app/Http/Controllers/Api/fungo_app/RemovePlayers.php
+   Canonical local path: app/Http/Controllers/Api/Coach/RemovePlayers.php
+   Local resolution: app/Http/Controllers/Api/Coach/RemovePlayers.php
+   Active route: POST api/coach/remove/players -> App\Http\Controllers\Api\Coach\RemovePlayers
+   Reference: routes/api.php:103: use App\Http\Controllers\Api\Coach\RemovePlayers;
+   Reference: routes/api.php:320: Route::post('/remove/players', RemovePlayers::class);
+
+69. App\Http\Controllers\Api\Training\AddNewLiveABSession
+   Warned server path: app/Http/Controllers/Api/fungo_app/AddNewLiveABSession.php
+   Canonical local path: app/Http/Controllers/Api/Training/AddNewLiveABSession.php
+   Local resolution: app/Http/Controllers/Api/Training/AddNewLiveABSession.php
+   Active route: POST api/coach/trainingab -> App\Http\Controllers\Api\Training\AddNewLiveABSession
+   Reference: routes/api.php:152: use App\Http\Controllers\Api\Training\AddNewLiveABSession;
+   Reference: routes/api.php:343: Route::middleware('plan:liveab_sessions')->post('/trainingab', AddNewLiveABSession::class);
+
+70. App\Http\Controllers\Api\Auth\RecoverPasswordController
+   Warned server path: app/Http/Controllers/Api/fungo_app/RecoverPasswordController.php
+   Canonical local path: app/Http/Controllers/Api/Auth/RecoverPasswordController.php
+   Local resolution: app/Http/Controllers/Api/Auth/RecoverPasswordController.php
+   Active route: POST api/recover-password -> App\Http\Controllers\Api\Auth\RecoverPasswordController
+   Reference: routes/api.php:11: use App\Http\Controllers\Api\Auth\RecoverPasswordController;
+   Reference: routes/api.php:201: Route::post('/recover-password', RecoverPasswordController::class)->middleware(['guest']);
+
+71. App\Http\Controllers\Api\Training\Result\SaveWeightBallResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/SaveWeightBallResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/SaveWeightBallResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/SaveWeightBallResultPractice.php
+   Active route: POST api/result/weightball -> App\Http\Controllers\Api\Training\Result\SaveWeightBallResultPractice
+   Reference: routes/api.php:180: use App\Http\Controllers\Api\Training\Result\SaveWeightBallResultPractice;
+   Reference: routes/api.php:544: Route::middleware('plan:weighted_ball_sessions')->post('/weightball', SaveWeightBallResultPractice::class);
+   Reference: config/entitlement_coverage.php:157: $route('POST', 'api/result/weightball', 'Training\\Result\\SaveWeightBallResultPractice', true),
+
+72. App\Http\Controllers\Api\Sessions\Results\SendSmsResults
+   Warned server path: app/Http/Controllers/Api/fungo_app/SendSmsResults.php
+   Canonical local path: app/Http/Controllers/Api/Sessions/Results/SendSmsResults.php
+   Local resolution: app/Http/Controllers/Api/Sessions/Results/SendSmsResults.php
+   Active route: POST api/coach/send/results/{practice} -> App\Http\Controllers\Api\Sessions\Results\SendSmsResults
+   Reference: routes/api.php:151: use App\Http\Controllers\Api\Sessions\Results\SendSmsResults;
+   Reference: routes/api.php:351: Route::middleware('plan:sms_results')->post('/send/results/{practice}', SendSmsResults::class);
+   Reference: config/entitlement_coverage.php:586: [$route('POST', 'api/coach/send/results/{practice}', 'Coach\\SendSmsResults', true)],
+
+73. App\Http\Controllers\Api\Player\SaveFitness
+   Warned server path: app/Http/Controllers/Api/fungo_app/SaveFitness.php
+   Canonical local path: app/Http/Controllers/Api/Player/SaveFitness.php
+   Local resolution: app/Http/Controllers/Api/Player/SaveFitness.php
+   Active route: POST api/player/fitness -> App\Http\Controllers\Api\Player\SaveFitness
+   Reference: routes/api.php:125: use App\Http\Controllers\Api\Player\SaveFitness;
+   Reference: routes/api.php:245: Route::post('player/fitness', SaveFitness::class);
+
+74. App\Http\Controllers\Api\Coach\GetLastSessions
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetLastSessions.php
+   Canonical local path: app/Http/Controllers/Api/Coach/GetLastSessions.php
+   Local resolution: app/Http/Controllers/Api/Coach/GetLastSessions.php
+   Active route: GET,HEAD api/coach/sessions/lasts/{team} -> App\Http\Controllers\Api\Coach\GetLastSessions
+   Reference: app/Http/Controllers/Api/Training/AddNewLiveABSession.php:135: // Bust the GetLastSessions server cache for both teams so the
+   Reference: routes/api.php:23: use App\Http\Controllers\Api\Coach\GetLastSessions;
+   Reference: routes/api.php:337: Route::get('/sessions/lasts/{team}', GetLastSessions::class);
+   Reference: config/entitlement_coverage.php:605: [$route('GET', 'api/coach/sessions/lasts/{team}', 'Coach\\GetLastSessions', false)],
+
+75. App\Http\Controllers\Api\DashBoard\GetDataCharts
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetDataCharts.php
+   Canonical local path: app/Http/Controllers/Api/DashBoard/GetDataCharts.php
+   Local resolution: app/Http/Controllers/Api/DashBoard/GetDataCharts.php
+   Active route: POST api/charts -> App\Http\Controllers\Api\DashBoard\GetDataCharts
+   Reference: routes/api.php:105: use App\Http\Controllers\Api\DashBoard\GetDataCharts;
+   Reference: routes/api.php:258: Route::post('charts', GetDataCharts::class);
+
+76. App\Http\Controllers\Api\Auth\RegisterPlayerController
+   Warned server path: app/Http/Controllers/Api/fungo_app/RegisterPlayerController.php
+   Canonical local path: app/Http/Controllers/Api/Auth/RegisterPlayerController.php
+   Local resolution: app/Http/Controllers/Api/Auth/RegisterPlayerController.php
+   Active route: POST api/player/register -> App\Http\Controllers\Api\Auth\RegisterPlayerController
+   Reference: routes/api.php:13: use App\Http\Controllers\Api\Auth\RegisterPlayerController;
+   Reference: routes/api.php:265: Route::post('register', RegisterPlayerController::class);
+
+77. App\Http\Controllers\Api\Coach\EditCoach
+   Warned server path: app/Http/Controllers/Api/fungo_app/EditCoach.php
+   Canonical local path: app/Http/Controllers/Api/Coach/EditCoach.php
+   Local resolution: app/Http/Controllers/Api/Coach/EditCoach.php
+   Active route: POST api/coach/edit -> App\Http\Controllers\Api\Coach\EditCoach
+   Reference: routes/api.php:18: use App\Http\Controllers\Api\Coach\EditCoach;
+   Reference: routes/api.php:317: Route::post('/edit', EditCoach::class);
+
+78. App\Http\Controllers\Api\Training\FilterTrainings
+   Warned server path: app/Http/Controllers/Api/fungo_app/FilterTrainings.php
+   Canonical local path: app/Http/Controllers/Api/Training/FilterTrainings.php
+   Local resolution: app/Http/Controllers/Api/Training/FilterTrainings.php
+   Active route: GET,HEAD api/result/statistics/{team} -> App\Http\Controllers\Api\Training\FilterTrainings
+   Reference: routes/api.php:156: use App\Http\Controllers\Api\Training\FilterTrainings;
+   Reference: routes/api.php:558: FilterTrainings::class
+   Reference: config/entitlement_coverage.php:190: [$route('GET', 'api/result/statistics/{team}', 'Training\\Result\\FilterTrainings', true)],
+
+79. App\Http\Controllers\Api\Training\FilterTrainings_player
+   Warned server path: app/Http/Controllers/Api/fungo_app/FilterTrainings_player.php
+   Canonical local path: app/Http/Controllers/Api/Training/FilterTrainings_player.php
+   Local resolution: NOT FOUND
+   No local references found (not proof of no production use).
+
+80. App\Http\Controllers\Api\Auth\GetUserCompleteController
+   Warned server path: app/Http/Controllers/Api/fungo_app/GetUserCompleteController.php
+   Canonical local path: app/Http/Controllers/Api/Auth/GetUserCompleteController.php
+   Local resolution: app/Http/Controllers/Api/Auth/GetUserCompleteController.php
+   Active route: GET,HEAD api/complete/{claim} -> App\Http\Controllers\Api\Auth\GetUserCompleteController
+   Reference: routes/api.php:7: use App\Http\Controllers\Api\Auth\GetUserCompleteController;
+   Reference: routes/api.php:202: Route::get('/complete/{claim}', GetUserCompleteController::class)
+
+81. App\Http\Controllers\Api\Training\Result\EditLiveABResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/EditLiveABResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/EditLiveABResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/EditLiveABResultPractice.php
+   Active route: PUT api/result/liveab/{uuid} -> App\Http\Controllers\Api\Training\Result\EditLiveABResultPractice
+   Reference: routes/api.php:164: use App\Http\Controllers\Api\Training\Result\EditLiveABResultPractice;
+   Reference: routes/api.php:530: Route::middleware(['ability:coach', 'plan:liveab_sessions'])->put('/liveab/{uuid}', EditLiveABResultPractice::class);
+
+82. App\Http\Controllers\Api\Training\Result\SaveExitVelocityResultPractice
+   Warned server path: app/Http/Controllers/Api/fungo_app/SaveExitVelocityResultPractice.php
+   Canonical local path: app/Http/Controllers/Api/Training/Result/SaveExitVelocityResultPractice.php
+   Local resolution: app/Http/Controllers/Api/Training/Result/SaveExitVelocityResultPractice.php
+   Active route: POST api/result/exitvelocity -> App\Http\Controllers\Api\Training\Result\SaveExitVelocityResultPractice
+   Reference: routes/api.php:177: use App\Http\Controllers\Api\Training\Result\SaveExitVelocityResultPractice;
+   Reference: routes/api.php:539: Route::middleware('plan:exit_velocity_sessions')->post('/exitvelocity', SaveExitVelocityResultPractice::class);
+   Reference: config/entitlement_coverage.php:133: $route('POST', 'api/result/exitvelocity', 'Training\\Result\\SaveExitVelocityResultPractice', true),
+
+83. App\Http\Controllers\Api\Auth\SendEmailRecoverController
+   Warned server path: app/Http/Controllers/Api/fungo_app/SendEmailRecoverController.php
+   Canonical local path: app/Http/Controllers/Api/Auth/SendEmailRecoverController.php
+   Local resolution: app/Http/Controllers/Api/Auth/SendEmailRecoverController.php
+   Active route: POST api/forgot-password -> App\Http\Controllers\Api\Auth\SendEmailRecoverController
+   Reference: routes/api.php:14: use App\Http\Controllers\Api\Auth\SendEmailRecoverController;
+   Reference: routes/api.php:199: Route::post('/forgot-password', SendEmailRecoverController::class)->middleware(['guest']);
+
+84. App\Services\Statistics\CageStatisticsService
+   Warned server path: app/Services/CageStatisticsService.php
+   Canonical local path: app/Services/Statistics/CageStatisticsService.php
+   Local resolution: app/Services/Statistics/CageStatisticsService.php
+   Reference: app/Services/Statistics/LeaderboardService.php:51: private readonly CageStatisticsService $cageStatistics,
+   Reference: app/Services/Intelligence/IntelligenceDataAssembler.php:27: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Services/Intelligence/IntelligenceDataAssembler.php:39: private readonly CageStatisticsService $cageStatistics,
+   Reference: app/Services/Cage/CageDistanceValidationService.php:17: * CageStatisticsService, and never writes to production cage results — it
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:23: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:199: $cageSvc    = new CageStatisticsService();
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:12: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:97: $cageSvc  = new CageStatisticsService();
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentDashboard.php:20: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentDashboard.php:254: ? (new CageStatisticsService())->fcs($cageCurrentWindow)['fcs'] ?? null
+   Reference: app/Utils/Filters/CageFilters.php:9: use App\Services\Statistics\CageStatisticsService;
+   Reference: app/Utils/Filters/CageFilters.php:16: $stat = new CageStatisticsService();
+
+85. App\Services\Statistics\WeightBallStatisticsService
+   Warned server path: app/Services/WeightBallStatisticsService.php
+   Canonical local path: app/Services/Statistics/WeightBallStatisticsService.php
+   Local resolution: app/Services/Statistics/WeightBallStatisticsService.php
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:15: use App\Services\Statistics\WeightBallStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:156: $wbSvc  = new WeightBallStatisticsService();
+   Reference: app/Utils/Filters/WeightBallFilters.php:9: use App\Services\Statistics\WeightBallStatisticsService;
+   Reference: app/Utils/Filters/WeightBallFilters.php:16: $stat = new WeightBallStatisticsService();
+
+86. App\Services\Statistics\LongTossStatisticsService
+   Warned server path: app/Services/LongTossStatisticsService.php
+   Canonical local path: app/Services/Statistics/LongTossStatisticsService.php
+   Local resolution: app/Services/Statistics/LongTossStatisticsService.php
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:14: use App\Services\Statistics\LongTossStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:135: $ltSvc        = new LongTossStatisticsService();
+   Reference: app/Utils/Filters/LongTossFilters.php:9: use App\Services\Statistics\LongTossStatisticsService;
+   Reference: app/Utils/Filters/LongTossFilters.php:16: $stat = new LongTossStatisticsService();
+
+87. App\Services\Statistics\ExitVelocityStatisticsService
+   Warned server path: app/Services/ExitVelocityStatisticsService.php
+   Canonical local path: app/Services/Statistics/ExitVelocityStatisticsService.php
+   Local resolution: app/Services/Statistics/ExitVelocityStatisticsService.php
+   Reference: app/Services/Intelligence/IntelligenceDataAssembler.php:28: use App\Services\Statistics\ExitVelocityStatisticsService;
+   Reference: app/Services/Intelligence/IntelligenceDataAssembler.php:40: private readonly ExitVelocityStatisticsService $exitVelocityStatistics,
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:24: use App\Services\Statistics\ExitVelocityStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPlayerDevelopmentBoard.php:200: $evSvc      = new ExitVelocityStatisticsService();
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:13: use App\Services\Statistics\ExitVelocityStatisticsService;
+   Reference: app/Http/Controllers/Api/Coach/GetPerformanceOverview.php:118: $evSvc  = new ExitVelocityStatisticsService();
+   Reference: app/Utils/Filters/ExitVelocityFilters.php:9: use App\Services\Statistics\ExitVelocityStatisticsService;
+   Reference: app/Utils/Filters/ExitVelocityFilters.php:16: $stat = new ExitVelocityStatisticsService();
+
+Local validation
+----------------
+composer dump-autoload -o: passed, zero PSR-4 warnings.
+735 application class/interface/trait/enum declarations scanned with PHP token_get_all: zero mismatches or duplicate declarations.
+28 Laravel tests passed: production autoload/route contract, statistics services, existing route contracts, LiveAB read/edit, cage/batting/bullpen/LiveAB statistics and last-session endpoints.
+81 canonical class resolutions and 75 route bindings across 74 controllers verified.
+git diff --check: passed.
+No application routes, namespaces, imports or production files changed.

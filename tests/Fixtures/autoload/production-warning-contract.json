@@ -1,0 +1,961 @@
+{
+  "App\\Services\\Statistics\\CageStatisticsService": {
+    "path": "app/Services/Statistics/CageStatisticsService.php",
+    "routes": []
+  },
+  "App\\Services\\Statistics\\WeightBallStatisticsService": {
+    "path": "app/Services/Statistics/WeightBallStatisticsService.php",
+    "routes": []
+  },
+  "App\\Services\\Statistics\\LongTossStatisticsService": {
+    "path": "app/Services/Statistics/LongTossStatisticsService.php",
+    "routes": []
+  },
+  "App\\Http\\Resources\\LastSession": {
+    "path": "app/Http/Resources/LastSession.php",
+    "routes": []
+  },
+  "App\\Services\\Statistics\\ExitVelocityStatisticsService": {
+    "path": "app/Services/Statistics/ExitVelocityStatisticsService.php",
+    "routes": []
+  },
+  "App\\Services\\ResultTrainingService": {
+    "path": "app/Services/ResultTrainingService.php",
+    "routes": []
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\GetTeamById": {
+    "path": "app/Http/Controllers/Api/Coach/GetTeamById.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/coach/teams/{id}",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\GetTeamById"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\GetBullpenResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/GetBullpenResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/result/bullpen/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\GetBullpenResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\GetPracticeSessionByMode": {
+    "path": "app/Http/Controllers/Api/Sessions/GetPracticeSessionByMode.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/sessions/mode",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\GetPracticeSessionByMode"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\AddNewSession": {
+    "path": "app/Http/Controllers/Api/Training/AddNewSession.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/training",
+        "action": "App\\Http\\Controllers\\Api\\Training\\AddNewSession"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\EditBullpenResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/EditBullpenResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "PUT"
+        ],
+        "uri": "api/result/bullpen/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\EditBullpenResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\SaveCageResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/SaveCageResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/result/cage",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\SaveCageResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Auth\\LoginController": {
+    "path": "app/Http/Controllers/Api/Auth/LoginController.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/login",
+        "action": "App\\Http\\Controllers\\Api\\Auth\\LoginController"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\EditPlayers": {
+    "path": "app/Http/Controllers/Api/Coach/EditPlayers.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/edit/players/{id}",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\EditPlayers"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\EditExitVelocityResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/EditExitVelocityResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "PUT"
+        ],
+        "uri": "api/result/exitvelocity/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\EditExitVelocityResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\GetTeamsPracticesSessionsByType": {
+    "path": "app/Http/Controllers/Api/Sessions/GetTeamsPracticesSessionsByType.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/sessions/all/type",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\GetTeamsPracticesSessionsByType"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\Results\\GetCagePracticeResults": {
+    "path": "app/Http/Controllers/Api/Sessions/Results/GetCagePracticeResults.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/statistics/{practice}/cage",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\Results\\GetCagePracticeResults"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\SaveBullpenResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/SaveBullpenResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/result/bullpen",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\SaveBullpenResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\GetTeamsPracticesSessionByMode": {
+    "path": "app/Http/Controllers/Api/Sessions/GetTeamsPracticesSessionByMode.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/sessions/all/mode",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\GetTeamsPracticesSessionByMode"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\SaveBattingResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/SaveBattingResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/result/batting",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\SaveBattingResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\EditLongTossResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/EditLongTossResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "PUT"
+        ],
+        "uri": "api/result/longtoss/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\EditLongTossResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Player\\GetCagePractices": {
+    "path": "app/Http/Controllers/Api/Player/GetCagePractices.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/player/sessions/cage",
+        "action": "App\\Http\\Controllers\\Api\\Player\\GetCagePractices"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\SaveLiveABResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/SaveLiveABResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/result/liveab",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\SaveLiveABResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\GetPlayersList": {
+    "path": "app/Http/Controllers/Api/Coach/GetPlayersList.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/coach/roster/players",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\GetPlayersList"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Auth\\PasswordChange": {
+    "path": "app/Http/Controllers/Api/Auth/PasswordChange.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/password",
+        "action": "App\\Http\\Controllers\\Api\\Auth\\PasswordChange"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\GetLongTossPracticeResult": {
+    "path": "app/Http/Controllers/Api/Sessions/GetLongTossPracticeResult.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/statistics/{practice}/longtoss",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\GetLongTossPracticeResult"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Player\\GetTrainingPractices": {
+    "path": "app/Http/Controllers/Api/Player/GetTrainingPractices.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/player/sessions/training",
+        "action": "App\\Http\\Controllers\\Api\\Player\\GetTrainingPractices"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\GetWeightBallResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/GetWeightBallResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/result/weightball/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\GetWeightBallResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Auth\\CompleteCoachController": {
+    "path": "app/Http/Controllers/Api/Auth/CompleteCoachController.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/complete/{claim}/coach",
+        "action": "App\\Http\\Controllers\\Api\\Auth\\CompleteCoachController"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\DeletePractice": {
+    "path": "app/Http/Controllers/Api/Training/DeletePractice.php",
+    "routes": [
+      {
+        "methods": [
+          "DELETE"
+        ],
+        "uri": "api/training/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\DeletePractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\DashBoard\\GetDataGraphics": {
+    "path": "app/Http/Controllers/Api/DashBoard/GetDataGraphics.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/dashboard/{team}",
+        "action": "App\\Http\\Controllers\\Api\\DashBoard\\GetDataGraphics"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\SearchCoaches": {
+    "path": "app/Http/Controllers/Api/SearchCoaches.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/coach/search/coaches",
+        "action": "App\\Http\\Controllers\\Api\\SearchCoaches"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\ScoresStatisticPlayers": {
+    "path": "app/Http/Controllers/Api/ScoresStatisticPlayers.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/player/statistics/{player}",
+        "action": "App\\Http\\Controllers\\Api\\ScoresStatisticPlayers"
+      },
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/coach/statistics/{player}",
+        "action": "App\\Http\\Controllers\\Api\\ScoresStatisticPlayers"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\Results\\GetBullpenPracticeResults": {
+    "path": "app/Http/Controllers/Api/Sessions/Results/GetBullpenPracticeResults.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/statistics/{practice}/bullpen",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\Results\\GetBullpenPracticeResults"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\GetTeamsPlayers": {
+    "path": "app/Http/Controllers/Api/Coach/GetTeamsPlayers.php",
+    "routes": []
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\AddCoaches": {
+    "path": "app/Http/Controllers/Api/Coach/AddCoaches.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/add/coaches",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\AddCoaches"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Auth\\CompletePlayerController": {
+    "path": "app/Http/Controllers/Api/Auth/CompletePlayerController.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/complete/{claim}/player",
+        "action": "App\\Http\\Controllers\\Api\\Auth\\CompletePlayerController"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\Results\\ListSmsResults": {
+    "path": "app/Http/Controllers/Api/Sessions/Results/ListSmsResults.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/coach/list/results/{practice}",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\Results\\ListSmsResults"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\GetSession": {
+    "path": "app/Http/Controllers/Api/Training/GetSession.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/training/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\GetSession"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\GetPracticesSessionByType": {
+    "path": "app/Http/Controllers/Api/Sessions/GetPracticesSessionByType.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/sessions/type",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\GetPracticesSessionByType"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\GetCoachesList": {
+    "path": "app/Http/Controllers/Api/Coach/GetCoachesList.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/coach/roster/coaches",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\GetCoachesList"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\GetWeightBallPracticeResult": {
+    "path": "app/Http/Controllers/Api/Sessions/GetWeightBallPracticeResult.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/statistics/{practice}/weightball",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\GetWeightBallPracticeResult"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\GetBattingResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/GetBattingResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/result/batting/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\GetBattingResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\GetLongTossResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/GetLongTossResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/result/longtoss/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\GetLongTossResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Player\\GetFitness": {
+    "path": "app/Http/Controllers/Api/Player/GetFitness.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/player/fitness/{id}",
+        "action": "App\\Http\\Controllers\\Api\\Player\\GetFitness"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\DashBoard\\GetTopTenResults": {
+    "path": "app/Http/Controllers/Api/DashBoard/GetTopTenResults.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/table/{team}",
+        "action": "App\\Http\\Controllers\\Api\\DashBoard\\GetTopTenResults"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\GetExitVelocityResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/GetExitVelocityResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/result/exitvelocity/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\GetExitVelocityResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Player\\GetBattingPractices": {
+    "path": "app/Http/Controllers/Api/Player/GetBattingPractices.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/player/sessions/batting",
+        "action": "App\\Http\\Controllers\\Api\\Player\\GetBattingPractices"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\RemoveTeam": {
+    "path": "app/Http/Controllers/Api/Coach/RemoveTeam.php",
+    "routes": [
+      {
+        "methods": [
+          "DELETE"
+        ],
+        "uri": "api/coach/remove/team/{id}",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\RemoveTeam"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\GetCageResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/GetCageResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/result/cage/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\GetCageResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\GetExitVelocityPracticeResult": {
+    "path": "app/Http/Controllers/Api/Sessions/GetExitVelocityPracticeResult.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/statistics/{practice}/exitvelocity",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\GetExitVelocityPracticeResult"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\EditCageResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/EditCageResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "PUT"
+        ],
+        "uri": "api/result/cage/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\EditCageResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\GetAllPracticesByModes": {
+    "path": "app/Http/Controllers/Api/Sessions/GetAllPracticesByModes.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/sessions/all/modes",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\GetAllPracticesByModes"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\EditTeams": {
+    "path": "app/Http/Controllers/Api/Coach/EditTeams.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/edit/teams/{team}",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\EditTeams"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\AddPlayers": {
+    "path": "app/Http/Controllers/Api/Coach/AddPlayers.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/add/players",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\AddPlayers"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\AddPlayerToTraining": {
+    "path": "app/Http/Controllers/Api/Training/AddPlayerToTraining.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/lineup/{training}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\AddPlayerToTraining"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\FinishPractice": {
+    "path": "app/Http/Controllers/Api/Training/FinishPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "PUT"
+        ],
+        "uri": "api/training/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\FinishPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\SaveLongTossResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/SaveLongTossResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/result/longtoss",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\SaveLongTossResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\EditBattingResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/EditBattingResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "PUT"
+        ],
+        "uri": "api/result/batting/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\EditBattingResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\GetListLiveABSessions": {
+    "path": "app/Http/Controllers/Api/Sessions/GetListLiveABSessions.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/sessions/all/liveab",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\GetListLiveABSessions"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\Results\\GetBattingPracticeResults": {
+    "path": "app/Http/Controllers/Api/Sessions/Results/GetBattingPracticeResults.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/statistics/{practice}/batting",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\Results\\GetBattingPracticeResults"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Auth\\RegisterCoachController": {
+    "path": "app/Http/Controllers/Api/Auth/RegisterCoachController.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/register",
+        "action": "App\\Http\\Controllers\\Api\\Auth\\RegisterCoachController"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\AddTeams": {
+    "path": "app/Http/Controllers/Api/Coach/AddTeams.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/add/teams",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\AddTeams"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Player\\GetBullpenPractices": {
+    "path": "app/Http/Controllers/Api/Player/GetBullpenPractices.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/player/sessions/bullpen",
+        "action": "App\\Http\\Controllers\\Api\\Player\\GetBullpenPractices"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\RemoveCoachFromTeam": {
+    "path": "app/Http/Controllers/Api/Coach/RemoveCoachFromTeam.php",
+    "routes": [
+      {
+        "methods": [
+          "DELETE"
+        ],
+        "uri": "api/coach/remove/coach/{id}",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\RemoveCoachFromTeam"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\SearchPlayers": {
+    "path": "app/Http/Controllers/Api/SearchPlayers.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/coach/search/players",
+        "action": "App\\Http\\Controllers\\Api\\SearchPlayers"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\RemovePlayers": {
+    "path": "app/Http/Controllers/Api/Coach/RemovePlayers.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/remove/players",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\RemovePlayers"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\AddNewLiveABSession": {
+    "path": "app/Http/Controllers/Api/Training/AddNewLiveABSession.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/trainingab",
+        "action": "App\\Http\\Controllers\\Api\\Training\\AddNewLiveABSession"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Auth\\RecoverPasswordController": {
+    "path": "app/Http/Controllers/Api/Auth/RecoverPasswordController.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/recover-password",
+        "action": "App\\Http\\Controllers\\Api\\Auth\\RecoverPasswordController"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\SaveWeightBallResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/SaveWeightBallResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/result/weightball",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\SaveWeightBallResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Sessions\\Results\\SendSmsResults": {
+    "path": "app/Http/Controllers/Api/Sessions/Results/SendSmsResults.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/send/results/{practice}",
+        "action": "App\\Http\\Controllers\\Api\\Sessions\\Results\\SendSmsResults"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Player\\SaveFitness": {
+    "path": "app/Http/Controllers/Api/Player/SaveFitness.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/player/fitness",
+        "action": "App\\Http\\Controllers\\Api\\Player\\SaveFitness"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\GetLastSessions": {
+    "path": "app/Http/Controllers/Api/Coach/GetLastSessions.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/coach/sessions/lasts/{team}",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\GetLastSessions"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\DashBoard\\GetDataCharts": {
+    "path": "app/Http/Controllers/Api/DashBoard/GetDataCharts.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/charts",
+        "action": "App\\Http\\Controllers\\Api\\DashBoard\\GetDataCharts"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Auth\\RegisterPlayerController": {
+    "path": "app/Http/Controllers/Api/Auth/RegisterPlayerController.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/player/register",
+        "action": "App\\Http\\Controllers\\Api\\Auth\\RegisterPlayerController"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Coach\\EditCoach": {
+    "path": "app/Http/Controllers/Api/Coach/EditCoach.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/coach/edit",
+        "action": "App\\Http\\Controllers\\Api\\Coach\\EditCoach"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\FilterTrainings": {
+    "path": "app/Http/Controllers/Api/Training/FilterTrainings.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/result/statistics/{team}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\FilterTrainings"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Auth\\GetUserCompleteController": {
+    "path": "app/Http/Controllers/Api/Auth/GetUserCompleteController.php",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "uri": "api/complete/{claim}",
+        "action": "App\\Http\\Controllers\\Api\\Auth\\GetUserCompleteController"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\EditLiveABResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/EditLiveABResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "PUT"
+        ],
+        "uri": "api/result/liveab/{uuid}",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\EditLiveABResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Training\\Result\\SaveExitVelocityResultPractice": {
+    "path": "app/Http/Controllers/Api/Training/Result/SaveExitVelocityResultPractice.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/result/exitvelocity",
+        "action": "App\\Http\\Controllers\\Api\\Training\\Result\\SaveExitVelocityResultPractice"
+      }
+    ]
+  },
+  "App\\Http\\Controllers\\Api\\Auth\\SendEmailRecoverController": {
+    "path": "app/Http/Controllers/Api/Auth/SendEmailRecoverController.php",
+    "routes": [
+      {
+        "methods": [
+          "POST"
+        ],
+        "uri": "api/forgot-password",
+        "action": "App\\Http\\Controllers\\Api\\Auth\\SendEmailRecoverController"
+      }
+    ]
+  }
+}

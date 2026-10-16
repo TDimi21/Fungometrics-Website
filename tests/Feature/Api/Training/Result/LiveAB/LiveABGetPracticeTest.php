@@ -19,7 +19,7 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 use Tests\Concerns\OwnsCreatedPracticeFixtures;
 
-class LiveABGetResultPracticeTest extends TestCase
+class LiveABGetPracticeTest extends TestCase
 {
     use OwnsCreatedPracticeFixtures;
 
