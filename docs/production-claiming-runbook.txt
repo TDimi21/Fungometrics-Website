@@ -1,0 +1,486 @@
+FMTRX — final production deployment preparation
+2026-10-16 | fungoweb/main | mobile TomsScreeens
+
+STATUS AND EXECUTION RULES
+This is an operator runbook, not authorization to execute it. Nothing below was
+run against production. No deployment, migration, email, commit/push or Apple
+operation performed. Password login stays enabled. No six-digit login changes.
+Run commands ONE AT A TIME; stop on any nonzero exit or unexpected output.
+Do not paste this whole document into a shell. Never paste secrets into chat.
+
+Known context: IONOS/Plesk, historical application owner develop, application
+~/app.fmtrx.com, reported MariaDB 10.1.48. Actual PHP handler, Composer path,
+DB name/credentials, supervisor availability and restore environment still need
+read-only verification. Do not treat example paths as verified server facts.
+This runbook supersedes older THREE/FOUR migration counts; there are FIVE.
+
+0. RELEASE RECORD AND READ-ONLY PREFLIGHT
+In Plesk record domain PHP handler, backup destination and last successful restore.
+SSH as the existing application owner. Each line is a separate command:
+  cd ~/app.fmtrx.com
+  pwd -P
+  id -un
+  git branch --show-current
+  git status --short
+  git rev-parse HEAD
+  command -v php
+  php -v
+  ls -d /opt/plesk/php/*/bin/php
+  command -v composer
+  command -v mysqldump
+  mysqldump --version
+  command -v mysql
+  mysql --version
+  command -v supervisorctl
+  crontab -l
+  df -h . "$HOME"
+Administrator, if Supervisor exists:
+  sudo supervisorctl status
+  systemctl is-active supervisor
+Review Plesk Laravel Toolkit workers and scheduled tasks too. A missing crontab
+is acceptable if confirmed; a permissions error is not proof nothing runs.
+STOP: branch not main, unreviewed working-tree changes, insufficient disk,
+unknown PHP handler, existing worker ownership unknown, unsupported dependencies.
+Do not reset/stash/discard work or automatically pull a different revision.
+
+Set only after confirming real paths/runtime (8.2 is an example):
+  export FMTRX_ROOT="$(pwd -P)"
+  export FMTRX_APP_USER="$(id -un)"
+  export FMTRX_PHP=/opt/plesk/php/8.2/bin/php
+  test -x "$FMTRX_PHP"
+  "$FMTRX_PHP" -v
+  "$FMTRX_PHP" --ini
+  "$FMTRX_PHP" artisan migrate:status
+  "$FMTRX_PHP" artisan schedule:list
+Do not run schedule:run or queue:work as a diagnostic; they execute existing jobs.
+
+Use Plesk DB console for the application's database, without exposing passwords:
+  SELECT VERSION(), DATABASE(), @@explicit_defaults_for_timestamp;
+  SELECT TABLE_NAME, ENGINE, TABLE_COLLATION FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME;
+  SELECT migration,batch FROM migrations ORDER BY migration;
+  SHOW TABLES LIKE 'jobs';
+  SHOW TABLES LIKE 'team_invitations';
+If present:
+  SHOW CREATE TABLE jobs;
+  SHOW CREATE TABLE team_invitations;
+  SELECT delivery_status,COUNT(*) FROM team_invitations GROUP BY delivery_status;
+  SELECT queue,COUNT(*),MIN(created_at) FROM jobs GROUP BY queue;
+Record table/schema inventory and aggregate counts privately, not row payloads.
+STOP: jobs exists without its migration history, unexpected DB/version/schema,
+missing prerequisites, unexplained pending migrations or old unreviewed backlog.
+An old TIMESTAMP expiry requires the reviewed corrective migration below, not an
+ad hoc production ALTER. Never fake migration rows to bypass inconsistencies.
+
+1. FIVE MIGRATIONS AND MARIADB COMPATIBILITY
+Execution order:
+1 2026_10_16_180000_create_team_invitations_table.php
+2 2026_10_16_180100_create_jobs_table.php
+3 2026_10_16_190000_create_communication_outbox.php
+4 2026_10_16_200000_fix_team_invitation_expiry.php
+5 2026_10_16_210000_add_claim_code_to_team_invitations.php
+
+Three base migrations create five tables: invitations/jobs/preferences/events/
+deliveries. Fourth changes expires_at to DATETIME NOT NULL, preserving values.
+Fifth adds nullable unique VARCHAR(64) claim_code_hash; old links remain valid
+without gaining invented codes. Existing auth/account_claims/failed_jobs and
+roster migrations are prerequisites. Every pending migration needs review.
+LONGTEXT payloads avoid native JSON requirements. DATETIME avoids MariaDB 10.1
+implicit TIMESTAMP ON UPDATE expiry mutation. Existing shortened expiries are
+NOT revived; expired invitations need a deliberate resend after pilot approval.
+
+Source reviewed again against the prior 10.1.48 rehearsal. Earlier recorded
+12-check rehearsal passed fresh/upgrade/state preservation and claim-code column
+checks. Docker is unavailable in this session, so no new executable 10.1.48
+rehearsal was performed. Production compatibility remains a preflight/restore
+clone gate. tests/compatibility/communications_mariadb.php is ONLY for its guarded
+empty local rehearsal database, never production or a restored full database.
+Review all pending migrations on a network-isolated restore clone before release.
+Do not run migrations now simply because this document exists.
+
+2. BACKUP AND RESTORE VERIFICATION — BEFORE MIGRATION APPROVAL
+Use Plesk Backup Manager for a full subscription backup including database,
+configuration, uploaded files and application data. Use encrypted/private backup
+storage outside the web root and an access-controlled off-host copy. Preserve
+.env, APP_KEY, previous release artifact, public/build, worker/cron configuration.
+Do not put the backup in Git. Record backup ID, timestamp and retention owner.
+
+Also prepare a database-specific logical dump with a compatible MariaDB client.
+Have the DBA create a private client defaults file through an editor (NOT shell
+arguments/history), e.g. ~/.config/fmtrx/production-backup.cnf with [client], host,
+port/socket, user and password. Give only required backup permissions. Retain
+existing connection/TLS settings. Do not source .env as shell code.
+  umask 077
+  export FMTRX_DB_CNF="$HOME/.config/fmtrx/production-backup.cnf"
+  chmod 600 "$FMTRX_DB_CNF"
+Set the VERIFIED database name, not a guess:
+  export FMTRX_DB='REPLACE_WITH_VERIFIED_DATABASE_NAME'
+  export FMTRX_BACKUP_DIR="$HOME/fmtrx-private-backups/$(date -u +%Y%m%dT%H%M%SZ)"
+  mkdir -p "$FMTRX_BACKUP_DIR"
+  chmod 700 "$FMTRX_BACKUP_DIR"
+  mysql --defaults-extra-file="$FMTRX_DB_CNF" --database="$FMTRX_DB" -e 'SELECT VERSION(),DATABASE();'
+STOP if this does not identify exactly the intended database/server.
+
+For InnoDB-only base tables, with NO concurrent schema changes, use:
+  mysqldump --defaults-extra-file="$FMTRX_DB_CNF" --single-transaction --quick --routines --events --triggers --hex-blob --default-character-set=utf8mb4 "$FMTRX_DB" > "$FMTRX_BACKUP_DIR/database.sql"
+Immediately check success (before running another command):
+  echo $?
+Then:
+  test -s "$FMTRX_BACKUP_DIR/database.sql"
+  gzip -k "$FMTRX_BACKUP_DIR/database.sql"
+  gzip -t "$FMTRX_BACKUP_DIR/database.sql.gz"
+  sha256sum "$FMTRX_BACKUP_DIR/database.sql.gz" > "$FMTRX_BACKUP_DIR/database.sql.gz.sha256"
+  cd "$FMTRX_BACKUP_DIR"
+  sha256sum -c database.sql.gz.sha256
+  cd "$FMTRX_ROOT"
+STOP on any dump error/privilege warning. A nonempty file/checksum alone does NOT
+prove recoverability. Avoid --force. Do not omit routines/events to hide errors.
+If any base tables are nontransactional, STOP this backup recipe: DBA must
+coordinate a consistent locked/physical backup with an approved write outage.
+Single-transaction does not make MyISAM consistent and does not protect against
+concurrent DDL. For exact before/after count comparison, quiesce writes from all
+web/API/worker/import sources during the snapshot; otherwise counts can drift.
+
+Restore rehearsal must run on an ISOLATED MariaDB 10.1.48 server with event
+scheduler OFF, no app workers, no production mail keys, and no network path to
+production services. Never import this dump into a different schema on the live
+server: views/routines/events may contain schema-qualified references/definers.
+Have DBA provision a blank same-name schema and compatible definers on isolated
+server, and a separate restore.cnf pointing ONLY there. Verify identity first:
+  mysql --defaults-extra-file=/private/restore.cnf -e 'SELECT @@hostname,VERSION(),@@event_scheduler;'
+STOP unless operator confirms isolation and event_scheduler=OFF.
+After copying the protected dump and checking its SHA256 on that host:
+  mysql --defaults-extra-file=/private/restore.cnf --database="$FMTRX_DB" < /private/verified/database.sql
+  echo $?
+  mysqlcheck --defaults-extra-file=/private/restore.cnf --check "$FMTRX_DB"
+Verify full table/view/routine/trigger/event inventory, migration rows, exact row
+counts at snapshot, and sampled original player UUID/foreign-key relationships.
+Examples (read only, on restore and matching frozen source snapshot):
+  SELECT COUNT(*) FROM users;
+  SELECT COUNT(*) FROM players;
+  SELECT COUNT(*) FROM player_teams;
+Use actual table names from inventory; do not assume a guessed name exists.
+Verify sessions/results, assessments, plans/progress and subscription rows with
+the application owner. Rehearse the approved pending migrations on the isolated
+clone under separate approval and compare these snapshots. No mail/worker starts.
+Record restore duration and who verified it. Retain protected dump plus verified
+off-host copy. STOP deployment until restore evidence and rollback owner exist.
+
+3. BUILD/RELEASE ARTIFACT AND ENVIRONMENT (APPROVAL REQUIRED)
+Prepare approved fungoweb/main revision and matching frontend artifact locally/CI.
+Do not commit/push/install automatically. Record previous and approved revisions.
+Production Composer uses verified PHP and actual PHP Composer entrypoint, not a
+shell wrapper. Set FMTRX_COMPOSER to its verified path first:
+  "$FMTRX_PHP" "$FMTRX_COMPOSER" install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+  "$FMTRX_PHP" "$FMTRX_COMPOSER" validate --no-check-publish
+  "$FMTRX_PHP" "$FMTRX_COMPOSER" check-platform-reqs --no-dev
+STOP on errors. Never composer update. Build on CI with Node >=24 <25/npm >=11:
+  npm ci
+  npm run build
+Do not upgrade server Node/OS as a side effect. Prefer verified CI assets when
+production toolchain differs. Mobile Node requirement remains >=18 <23.
+
+Edit production .env securely; do not replace the whole file or print it:
+  APP_ENV=production
+  APP_DEBUG=false
+  TELESCOPE_ENABLED=false
+  CLOCKWORK_ENABLE=false
+  QUEUE_CONNECTION=database
+  MAIL_MAILER=resend
+  MAIL_FROM_ADDRESS=notifications@mail.fmtrx.com
+  MAIL_FROM_NAME=FMTRX
+  FMTRX_FRONTEND_URL=https://app.fmtrx.com
+  FMTRX_COMMUNICATIONS_ENABLED=false
+  FMTRX_COMMUNICATIONS_SEND_ENABLED=false
+  FMTRX_INVITATIONS_ENABLED=false
+  FMTRX_WEEKLY_REPORTS_ENABLED=false
+  FMTRX_EMAIL_PILOT_MODE=true
+  FMTRX_EMAIL_PILOT_ALLOWLIST=
+  FMTRX_INVITATION_EMAILS_ENABLED=false
+  FMTRX_WORKOUT_EMAILS_ENABLED=false
+  FMTRX_ASSESSMENT_EMAILS_ENABLED=false
+  FMTRX_DEVELOPMENT_EMAILS_ENABLED=false
+  FMTRX_WEEKLY_EMAILS_ENABLED=false
+  FMTRX_ANNOUNCEMENT_EMAILS_ENABLED=false
+  FMTRX_BILLING_EMAILS_ENABLED=false
+  FMTRX_WELCOME_EMAILS_ENABLED=false
+Retain the existing RESEND_API_KEY securely; do not insert a placeholder over a
+real key. Retain APP_KEY/database/API/RevenueCat credentials and password login.
+All new enable/send/category switches default FALSE in code and .env.example.
+Pilot mode defaults TRUE with empty list (permits no recipients). Existing user
+preferences may default on, but cannot override send gates. .env.example still
+uses sync queue; production needs the explicit database override above.
+Use a persistent working cache; never array. Verify permissions and cross-worker
+shared cache if multiple hosts. These controls do not disable preexisting
+password-reset/security mail or SMS. No global no-email claim is made.
+
+4. APPROVED CHANGE WINDOW / SCHEMA / WEB PUBLISH
+After approved backup/restore and artifact review, pause scheduling and affected
+workers under the existing manager; record their prior state. Coordinate an
+application write-maintenance window, including API clients/imports. Do not
+blindly kill unrelated processes. Existing manager may need administrator action:
+  sudo supervisorctl stop 'fmtrx-communications:*'
+  sudo supervisorctl stop 'fmtrx-default:*'
+Only run these if those groups exist; inventory other managers first.
+Install approved backend artifact via the established deployment mechanism. Then:
+  cd "$FMTRX_ROOT"
+  "$FMTRX_PHP" artisan config:clear
+  "$FMTRX_PHP" artisan migrate:status
+STOP for unreviewed pending migrations or changed DB target. Only after explicit
+migration approval and successful backup restore verification:
+  "$FMTRX_PHP" artisan migrate --force
+  "$FMTRX_PHP" artisan migrate:status
+  "$FMTRX_PHP" artisan config:cache
+STOP on any error. MariaDB DDL may partially commit; inspect actual tables and
+migration rows, never blindly retry/fresh/rollback. Confirm all five entries,
+expires_at DATETIME with no ON UPDATE, nullable unique claim_code_hash, jobs
+schema, and unchanged historical IDs/counts. Publish matching public/build and
+manifest together through approved artifact procedure; do not mix old/new assets.
+
+5. SUPERVISED QUEUE — USE ONE MANAGER
+Supervisor is the supplied baseline, NOT confirmed installed on live server.
+If absent, STOP and have IONOS/Plesk administrator provision supported service
+management; do not install/upgrade OS packages blindly. Plesk Toolkit is an
+alternative only if operator verifies persistent supervision, queue selection,
+restart behavior and equivalent settings. Never enable both for the same queues.
+Template: deploy/communications/supervisor.conf.example, two programs:
+- communications: database, --queue=communications --sleep=3 --tries=1
+  --timeout=60 --memory=256
+- default: same settings with --queue=default
+Both have numprocs=1, autorestart=true, stopasgroup/killasgroup=true,
+stopwaitsecs=90, application owner, rotated 10MB logs (five backups).
+retry_after=90 in config/queue.php exceeds worker timeout60. Review existing
+default jobs needing longer timeouts before using this exact default worker.
+Uncertain mail transport results must NOT be automatically retried.
+
+Render template locally on server with verified FMTRX_ROOT/APP_USER/PHP exports:
+  python3 - <<'PY'
+import os, pathlib
+s = pathlib.Path('deploy/communications/supervisor.conf.example').read_text()
+for key, value in {'__PHP_BINARY__':os.environ['FMTRX_PHP'], '__APP_ROOT__':os.environ['FMTRX_ROOT'], '__APP_USER__':os.environ['FMTRX_APP_USER']}.items():
+    s = s.replace(key, value)
+# Do not start workers merely by installing/reloading the configuration.
+s = s.replace('autostart=true', 'autostart=false')
+pathlib.Path('/tmp/fmtrx-workers.conf').write_text(s)
+PY
+  cat /tmp/fmtrx-workers.conf
+STOP if placeholders remain, paths/users are wrong or a duplicate manager exists.
+Administrator (only if /etc/supervisor/conf.d is confirmed include directory):
+  sudo install -m 0644 /tmp/fmtrx-workers.conf /etc/supervisor/conf.d/fmtrx-workers.conf
+  sudo supervisorctl reread
+  sudo supervisorctl update
+Confirm flags OFF via step6 before explicit starts. Starting workers may process
+old DEFAULT jobs, including unrelated notifications; backlog must be approved.
+  sudo supervisorctl start 'fmtrx-communications:*'
+  sudo supervisorctl start 'fmtrx-default:*'
+  sudo supervisorctl status 'fmtrx-communications:*' 'fmtrx-default:*'
+After health checks administrator sets autostart=true in both installed stanzas,
+rereads/updates under the same approved window and verifies RUNNING again. This
+ensures reboot recovery; do not leave the final worker config autostart=false.
+  "$FMTRX_PHP" artisan queue:restart
+Check process IDs/status after restart, queue counts and failed-job count. No
+synthetic email job is needed. STOP on restart loops, failed jobs or wrong owner.
+Enable ONE scheduler (existing Plesk task OR cron), application owner, every minute:
+  * * * * * cd VERIFIED_ABSOLUTE_APP_ROOT && VERIFIED_ABSOLUTE_PHP artisan schedule:run >> VERIFIED_ABSOLUTE_APP_ROOT/storage/logs/scheduler.log 2>&1
+Use deploy/communications/scheduler.cron.example; replace placeholders and arrange
+log rotation. Preserve unrelated cron tasks. Resume paused tasks intentionally.
+
+6. NO-SEND VALIDATION
+  "$FMTRX_PHP" artisan route:list --path=invitations
+  "$FMTRX_PHP" artisan schedule:list
+  "$FMTRX_PHP" artisan fmtrx:communications-dispatch --dry-run
+  "$FMTRX_PHP" artisan fmtrx:weekly-progress --dry-run
+Both dry runs should report disabled. Route review: POST api/invitations/accept
+with throttle; inspect and authorized coach invitation routes also present.
+Do NOT run fmtrx email test command, queue:retry, schedule:run, or provider-send
+calls for diagnostics. Do not dump queue payloads/failed-job exception bodies.
+Safe SELECTs in private DB console (only tables confirmed present):
+  SELECT queue,COUNT(*),MIN(created_at) FROM jobs GROUP BY queue;
+  SELECT COUNT(*) FROM failed_jobs;
+  SELECT delivery_status,COUNT(*) FROM team_invitations GROUP BY delivery_status;
+  SELECT status,COUNT(*) FROM communication_deliveries GROUP BY status;
+For cached mail/config validation, use the safe PHP snippet in step7 below.
+Verify Resend domain verification and DNS status in provider dashboard without
+sending. Config validity does not prove transport authentication/deliverability.
+STOP if any new send gate is true, pilot off, allowlist unexpected, route missing,
+retry_after <= timeout, queue driver sync, or mail sender differs.
+
+7. SAFE CACHED-CONFIG CHECK (READ ONLY, NO TINKER DEPENDENCY)
+From application root, using verified PHP. This bootstraps existing application
+config, prints only allowlisted nonsecret values and key-presence boolean, and
+fails if the pre-pilot OFF configuration is not loaded. Never dump all config.
+  "$FMTRX_PHP" <<'PHP'
+<?php
+require 'vendor/autoload.php';
+$app = require 'bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$c = config('communications', []);
+$gates = array_merge(array_intersect_key($c, array_flip(['enabled','send_enabled','weekly_enabled','invitations_enabled'])), $c['categories'] ?? []);
+$off = count($gates) === 12 && !array_filter($gates);
+$queue = config('queue.default');
+$summary = [
+  'communications_off' => $off,
+  'pilot_mode' => $c['pilot_mode'] ?? null,
+  'allowlist_count' => count($c['pilot_allowlist'] ?? []),
+  'frontend_url' => $c['frontend_url'] ?? null,
+  'queue' => $queue,
+  'queue_driver' => config("queue.connections.$queue.driver"),
+  'retry_after' => config("queue.connections.$queue.retry_after"),
+  'cache' => config('cache.default'),
+  'mail_default' => config('mail.default'),
+  'sender' => config('mail.from.address'),
+  'sender_name' => config('mail.from.name'),
+  'resend_key_present' => filled(config('resend.api_key')),
+  'app_debug' => config('app.debug'),
+];
+echo json_encode($summary, JSON_PRETTY_PRINT).PHP_EOL;
+$ok = $off && ($c['pilot_mode'] ?? false) && empty($c['pilot_allowlist'])
+  && ($c['frontend_url'] ?? '') === 'https://app.fmtrx.com'
+  && $summary['queue_driver'] === 'database' && $summary['retry_after'] > 60
+  && !in_array($summary['cache'], ['array', null], true)
+  && $summary['mail_default'] === 'resend'
+  && $summary['sender'] === 'notifications@mail.fmtrx.com'
+  && $summary['sender_name'] === 'FMTRX' && $summary['resend_key_present']
+  && !$summary['app_debug'];
+exit($ok ? 0 : 1);
+PHP
+STOP on nonzero, missing key or unexpected config. This does not send or connect
+to Resend. Check PHP-FPM/web requests load same release/config as CLI. Reopen
+normal password login and roster/history with communications disabled; do not
+trigger password reset as a no-send test. Invitation endpoint is intentionally
+unavailable while INVITATIONS_ENABLED=false.
+
+8. CONTROLLED INVITATION PILOT — SEPARATE EXPLICIT APPROVAL
+Deployment may finish with ALL flags OFF. This section is not authorized yet.
+Record named operator, approved exact recipient email(s), coach/team, player UUID,
+expected DOB eligibility, test window, and stop owner. Use controlled profiles,
+never real players as disposable fixtures. No approved recipient was supplied
+in this task; keep allowlist EMPTY until one is approved. No wildcard/domain rule.
+Review queued invitations/outbox/default jobs before changing flags. Pilot limits
+DELIVERY recipients, not which coaches can open invitation UI or issue records.
+Existing invitation acceptance is not restricted by delivery allowlist; it uses
+its own valid secret/account protections. Do not describe pilot as team isolation.
+
+Only for approved invitation-only pilot:
+  FMTRX_EMAIL_PILOT_MODE=true
+  FMTRX_EMAIL_PILOT_ALLOWLIST=<approved exact comma-separated email addresses>
+  FMTRX_COMMUNICATIONS_ENABLED=true
+  FMTRX_COMMUNICATIONS_SEND_ENABLED=true
+  FMTRX_INVITATIONS_ENABLED=true
+  FMTRX_INVITATION_EMAILS_ENABLED=true
+All other category flags and weekly flag remain false. This is not a config
+snippet to execute with placeholders. After secure edit:
+  "$FMTRX_PHP" artisan config:cache
+  "$FMTRX_PHP" artisan queue:restart
+Verify worker restart and sanitized active gates/allowlist count; step7's OFF
+assertion will intentionally fail in pilot mode, so do not use it as pilot test.
+Approve ONE invitation via coach UI. Confirm queue processing and provider result
+before requesting resend. No provider acceptance means proven inbox delivery.
+Paused invitation jobs can be consumed while disabled; use reviewed explicit
+resend, not queue:retry. Delivery_unconfirmed/stuck sending requires provider
+reconciliation. Record IDs/status only; never copy code/token into logs/screenshots.
+Do not test allowlist safety by sending to an unapproved real email: existing
+fake-based policy tests cover suppression; live config can be inspected safely.
+
+Kill-switch drill: pause dedicated worker, set SEND_ENABLED=false, config:cache,
+queue:restart and verify no subsequent eligible delivery starts. Keep workflow
+flag true if already-issued invitations should still be accepted; set it false
+if acceptance must stop too. In-flight messages cannot be recalled.
+
+9. BROWSER AND PHYSICAL IPHONE ACCEPTANCE — RECORD PASS/FAIL
+Browser (desktop and iPhone Safari):
+[ ] Correct coach creates eligible controlled player; original UUID and team
+    membership recorded. Profile saved without invitation when sending is OFF.
+[ ] Approved email has link + code, correct sender/domain and no stored hash.
+[ ] Logged-out placeholder completes same account with chosen password; existing
+    user supplies current password; no separate registration/duplicate profile.
+[ ] Signed-in wrong user, wrong recipient/password and removed team member reject.
+[ ] Expired/revoked/rotated credentials reject; accepted link/code cannot be reused.
+[ ] Under-13/unknown/invalid DOB blocked; no guardian access invented.
+[ ] Web claim invalidates code for mobile and mobile claim invalidates web link.
+[ ] Coach sees Claimed; player sees original history and memberships.
+
+Physical iPhone on approved test build (not just JavaScript bundling):
+[ ] Login/Register -> Have a Claim Code? and signed-in More -> Claim My Profile.
+[ ] New placeholder and existing account both use correct email/code/password.
+[ ] Dashboard opens with original player ID; compare sessions/results, stats,
+    assessments, workout assignments/completions and development data to baseline.
+[ ] Existing dashboard may cache recent data for three minutes; test refresh.
+[ ] Invalid/expired/revoked/used codes show safe errors without account change.
+[ ] Offline/double-tap/network-drop and failed-login recovery do not create a
+    second player or replay a consumed claim. Password login still works.
+[ ] Six-character team code rejected by invitation screen; legacy team joining
+    works with its existing required identity proof for eligible controlled user.
+[ ] Force-close/reopen restores normal session; no invitation secret persisted.
+[ ] VoiceOver, text scaling, keyboard, scrolling and back navigation usable.
+[ ] HTTPS email link opens existing web experience; native universal links are
+    not configured/activated. Do not add an invented scheme for this release.
+
+RevenueCat continuity (no new purchase/restore/transfer required):
+[ ] Before claim record Laravel user UUID and provider customer/alias mapping,
+    active entitlement/product/expiry and backend subscription linkage privately.
+[ ] After claim/native sign-in, RevenueCat identifyUser/logIn uses the SAME
+    Laravel UUID. No new anonymous-to-wrong-player association or unexpected alias.
+[ ] Compare provider mapping and underlying entitlement state before/after,
+    including app relaunch. Free-access UI alone is NOT evidence of subscription
+    preservation. Verify signed-in identity before inspecting entitlements.
+[ ] Existing RevenueCat webhook retry/deduplication tests passed previously;
+    do not replay production webhooks to test claiming. Use approved sandbox
+    lifecycle tests separately if further billing validation is needed.
+STOP release if any original ID/history/subscription link changes unexpectedly.
+Do not merge/transfer users to work around it. Native code reuses original UUID;
+actual provider/device continuity has NOT yet been verified in this session.
+
+10. RELEASE SIGN-OFF AND ROLLBACK
+Record production artifact ID, verified backup/restore evidence, migration result,
+worker/scheduler status, sanitized flags and browser/device results. Resolve the
+three existing red mobile tests (stale mask assertion, startup mock, line budget)
+before mobile release sign-off. Prior results: 124 backend/12 web tests passed,
+288 mobile passed/3 failed, iOS JS bundle passed. They were not rerun for this
+runbook-only task and do not substitute for device/production verification.
+Only then separately approve native archive/TestFlight and later App Store review.
+No six-digit email login dependency; password login remains unchanged.
+
+Emergency containment (operator after incident approval):
+  sudo supervisorctl stop 'fmtrx-communications:*'
+Set send/engine/category flags OFF and recache; pause acceptance only if required:
+  "$FMTRX_PHP" artisan config:cache
+  "$FMTRX_PHP" artisan queue:restart
+Preserve queued jobs and ledger. Do not queue:flush or blind retry uncertain mail.
+
+Code/web rollback: restore approved previous artifact + matching build manifest
+through release tooling; preserve current .env secrets/APP_KEY and OFF gates.
+Check old code compatibility with current schema and queued job class names;
+keep communications workers stopped if old artifact lacks those classes. Rebuild
+config with matching PHP and resume compatible default jobs/scheduler deliberately.
+Existing account/password login should remain usable. Do not undo accepted claims.
+
+Database rollback: no routine migrate:rollback/reset/fresh. Creation down methods
+DROP invitation/jobs/outbox tables; last down drops claim-code hashes. Keep these
+additive tables/columns and safe DATETIME when rolling back code. Partial DDL
+failure requires inspected repair plan, not batch rollback. Full restore is a
+separate disaster-recovery decision: freeze ALL writes/workers/scheduler, capture
+current state, calculate data-loss interval, obtain explicit approval, restore
+verified backup through DBA/Plesk procedure and reconcile writes since snapshot
+before reopening. Never overwrite a live database with the rehearsal command.
+Messages already sent cannot be recalled; hashes/ownership and provider events
+need reconciliation if recovery returns to an earlier point in time.
+
+REMAINING STOP CONDITIONS
+- Unverified production PHP/DB/schema/worker/cron/cache and backup restore.
+- No fresh MariaDB rehearsal this session (Docker unavailable); prior evidence
+  reviewed, production clone rehearsal and pending migration review still gated.
+- No approved recipient list or live pilot/device evidence yet.
+- Mobile CI still has three pre-existing failures; no native release build tested.
+Nonblocking future scope: universal links, six-digit login, provider webhook
+observability. Under-13 claiming intentionally remains disabled.
+
+References reviewed
+- docs/communications-release-repairs.txt (read with later five-migration update)
+- docs/communications-player-onboarding.txt
+- Mobile docs/native-claim-release-verification.txt
+- deploy/communications/supervisor.conf.example and scheduler.cron.example
+- MariaDB dump options/consistency restrictions:
+  https://mariadb.com/docs/server/clients-and-utilities/backup-restore-and-import-clients/mariadb-dump
+- MariaDB backup/restore overview:
+  https://mariadb.com/docs/server/server-usage/backup-and-restore/backup-and-restore-overview
