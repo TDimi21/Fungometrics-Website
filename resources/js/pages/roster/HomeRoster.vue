@@ -62,6 +62,7 @@ let dataCoach = reactive({
 })
 
 let dataPlayer = reactive({
+  email: '',
   firstName: '',
   lastName: '',
   mobileNumber: '',
@@ -206,7 +207,7 @@ const searchPlayerByName = async () =>{
 
 const submitAddPlayer = async () => {
   isLoading.status =!isLoading.status;
-  if(dataPlayer.mobileNumber == "" || dataPlayer.firstName == "" || dataPlayer.lastName == ""){
+  if((!dataPlayer.mobileNumber.trim() && !dataPlayer.email.trim()) || dataPlayer.firstName == "" || dataPlayer.lastName == ""){
     toast.fire({
       icon: 'warning',
       title: 'Validation !!!',
@@ -215,7 +216,8 @@ const submitAddPlayer = async () => {
     isLoading.status =!isLoading.status;
   }else{
     let dataForm = new FormData();
-    dataForm.append('phone', dataPlayer.mobileNumber)
+    if (dataPlayer.mobileNumber.trim()) dataForm.append('phone', dataPlayer.mobileNumber.trim())
+    if (dataPlayer.email.trim()) dataForm.append('email', dataPlayer.email.trim())
     dataForm.append('team', team.id)
     dataForm.append('name[first]', dataPlayer.firstName)
     dataForm.append('name[last]', dataPlayer.lastName)
@@ -257,6 +259,7 @@ const submitAddPlayer = async () => {
         text: response.data.message,
       })
 
+      if (response.data.team_code) teamJoinCode.value = response.data.team_code
       if (!teamJoinCode.value) {
         await fetchTeamJoinCode()
       }
@@ -273,6 +276,7 @@ const submitAddPlayer = async () => {
       dataPlayer.firstName = '',
       dataPlayer.lastName = '',
       dataPlayer.mobileNumber = '',
+      dataPlayer.email = '',
       isLoading.status =!isLoading.status;
       isAddPlayer.value = false
       router.go(router.currentRoute)
@@ -481,7 +485,7 @@ const buildPlayerClaimMessage = ({ playerName, coachName, teamName, teamCode }) 
     `Hi ${playerName}!`,
     `Coach ${coachName} has added you to ${teamName} on Fungometrics.`,
     'Download the Fungometrics app, then tap "CLAIM PROFILE" on the login screen.',
-    `Use your cell number and team code${code ? ` (${code})` : ''} to claim your profile.`,
+    `Use the email or phone number your coach saved and team code${code ? ` (${code})` : ''} to claim your profile.`,
   ].join('\n')
 }
 
@@ -696,14 +700,18 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
             <InputBase v-model="dataPlayer.lastName" />
           </div>
           <div>
-            <label class="field-label">Mobile Number *</label>
+            <label class="field-label">Mobile Number (or email)</label>
             <InutTel v-model="dataPlayer.mobileNumber" />
+          </div>
+          <div>
+            <label class="field-label">Email (or mobile number)</label>
+            <InputBase v-model="dataPlayer.email" inputType="email" />
           </div>
 
           <div class="rounded-xl border border-app-blue/30 bg-app-blue/10 px-3 py-2">
             <p class="text-app-blue text-xs font-bold uppercase tracking-wider">Team Code</p>
             <p class="text-white text-sm mt-1">
-              Players claim from the app with their mobile number + team code
+              Players claim from the app with their email or phone number + team code
               <span class="font-bold text-app-blue">{{ teamJoinCode ? ` ${teamJoinCode}` : ' (not available)' }}</span>.
             </p>
           </div>

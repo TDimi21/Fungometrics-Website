@@ -36,6 +36,29 @@ class AddPlayersTest extends TestCase
         $this->assertSame(1, PlayerTeam::where('team_id', $team->id)->count());
     }
 
+    public function test_web_email_only_add_can_be_claimed_using_returned_team_code(): void
+    {
+        $coach = User::factory()->create(['type' => 'coach']);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
+        Sanctum::actingAs($coach, ['coach']);
+        $added = $this->postJson('/api/coach/add/players', [
+            'email' => 'email@fungo.com', 'team' => $team->id,
+            'name' => ['first' => 'Email', 'last' => 'Player'],
+        ])->assertOk();
+        $this->artisan('player:claim-status', ['email' => 'email@fungo.com'])
+            ->expectsOutputToContain('Read-only check complete')
+            ->assertExitCode(0);
+        $this->assertNull(User::findOrFail($added->json('data.id'))->password);
+        $this->app['auth']->forgetGuards();
+        $claim = $this->postJson('/api/player/join', [
+            'contact' => 'email@fungo.com', 'team_code' => $added->json('team_code'),
+        ])->assertOk();
+        $token = \Laravel\Sanctum\PersonalAccessToken::findToken($claim->json('data.token'));
+        $this->assertSame($added->json('data.id'), $token->tokenable_id);
+        $this->assertSame(['profile-claim'], $token->abilities);
+    }
+
     public function test_conflicting_contact_details_do_not_link_accounts(): void
     {
         $coach = User::factory()->create(['type' => 'coach']);

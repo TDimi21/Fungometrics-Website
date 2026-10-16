@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'default' => env('MAIL_MAILER', 'smtp'),
+    'default' => env('MAIL_MAILER', 'resend'),
 
     /*
     |--------------------------------------------------------------------------
@@ -36,6 +36,8 @@ return [
     */
 
     'mailers' => [
+        'resend' => ['transport' => 'resend'],
+
         'smtp' => [
             'transport' => 'smtp',
             'host' => env('MAIL_HOST', 'smtp.mailgun.org'),
@@ -94,8 +96,8 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', 'Example'),
+        'address' => env('MAIL_FROM_ADDRESS', 'notifications@mail.fmtrx.com'),
+        'name' => env('MAIL_FROM_NAME', 'FMTRX'),
     ],
 
     /*
@@ -110,7 +112,7 @@ return [
     */
 
     'markdown' => [
-        'theme' => 'default',
+        'theme' => 'fmtrx',
 
         'paths' => [
             resource_path('views/vendor/mail'),

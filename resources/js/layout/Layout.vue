@@ -103,7 +103,6 @@ let player = reactive({
   password: "",
   confirmPassword: "",
   mobileNumber: "",
-  email: "",
 });
 import { getUiTheme, applyUiTheme } from "@/composables/useUiTheme";
 let hasSidebar = reactive({ active: false });
