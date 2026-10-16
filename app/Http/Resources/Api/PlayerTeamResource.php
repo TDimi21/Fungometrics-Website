@@ -24,6 +24,7 @@ class PlayerTeamResource extends JsonResource
         return [
             'id' => $this->id,
             'email' => $this->email,
+            'profile_claim_status' => filled($this->password) ? 'claimed' : 'unclaimed',
             'phone' => $this->phone,
             'name' => [
                 'first' => $this->profile->first_name,

@@ -20,6 +20,9 @@ class ResolveAccountClaim
     {
         try {
             $claim = $this->claims->resolve((string) $request->route('claim'), $intendedType);
+            if ($intendedType === 'player') {
+                app(\App\Services\Communications\InvitationEligibility::class)->assertPlayerAge($claim->user);
+            }
         } catch (ValidationException $exception) {
             return response()->json([
                 'status' => 'error',

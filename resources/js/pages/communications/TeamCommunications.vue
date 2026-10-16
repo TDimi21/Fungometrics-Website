@@ -1,5 +1,7 @@
 <script setup>
 import CoachCommunicationTools from '@/components/communications/CoachCommunicationTools.vue'
+import { useRoute } from 'vue-router'
+const route = useRoute()
 import { ref, onMounted, watch, computed } from 'vue'
 import Layout from '@/layout/Layout.vue'
 import { useTeamStore } from '@/store/team'
@@ -8,12 +10,12 @@ const teamStore = useTeamStore()
 const teamId = computed(() => teamStore.team?.id_team || teamStore.team?.id)
 const { axiosGet, axiosPost } = useAxiosAuth()
 const state = ref(null), error = ref(''), message = ref(''), busy = ref(false)
-const selected = ref(''), email = ref(''), role = ref('player')
+const selected = ref(String(route.query.player || '')), email = ref(''), role = ref('player')
 const playerPage = ref(1), invitationPage = ref(1)
 const errorText = e => Object.values(e?.response?.data?.errors || {}).flat().join(' ') || e?.response?.data?.message || 'Unable to load invitations.'
 async function load() {
   if (!teamId.value) { state.value = null; return }
-  try { state.value = (await axiosGet(`coach/teams/${teamId.value}/invitations`, { players_page: playerPage.value, page: invitationPage.value })).data }
+  try { state.value = (await axiosGet(`coach/teams/${teamId.value}/invitations`, { players_page: playerPage.value, page: invitationPage.value, ...(selected.value ? { focus_player: selected.value } : {}) })).data; if (state.value.focused_player && !state.value.players.data.some(p => p.id === state.value.focused_player.id)) state.value.players.data.push(state.value.focused_player); if (selected.value) email.value = state.value.players.data.find(p => p.id === selected.value)?.email || '' }
   catch (e) { error.value = errorText(e) }
 }
 watch(teamId, () => { playerPage.value = 1; invitationPage.value = 1; selected.value = ''; email.value = ''; state.value = null; load() })
@@ -40,7 +42,7 @@ async function page(kind, delta) { if (kind === 'players') playerPage.value += d
       <p>Player invitations require a confirmed birth date and age 13 or older. Coaches can continue managing younger players’ profiles.</p>
       <form @submit.prevent="send">
         <label>Invite<select v-model="role"><option value="player">Player</option><option v-if="state.can_invite_coaches" value="coach">Assistant coach</option></select></label>
-        <label v-if="role === 'player'">Existing player<select v-model="selected" required><option value="">Choose a player</option><option v-for="p in state.players.data" :key="p.id" :value="p.id">{{ p.name || 'Unnamed player' }} · {{ p.connected ? 'Connected' : 'Not connected' }}</option></select></label>
+        <label v-if="role === 'player'">Existing player<select v-model="selected" required><option value="">Choose a player</option><option v-for="p in state.players.data" :key="p.id" :value="p.id">{{ p.name || 'Unnamed player' }} · {{ p.connected ? 'Claimed' : 'Unclaimed' }}</option></select></label>
         <div v-if="role === 'player' && state.players.last_page > 1"><button type="button" :disabled="playerPage === 1" @click="page('players',-1)">Previous players</button><span> {{ playerPage }} / {{ state.players.last_page }} </span><button type="button" :disabled="playerPage === state.players.last_page" @click="page('players',1)">More players</button></div>
         <label>Email<input v-model="email" type="email" required maxlength="191"></label>
         <p v-if="role === 'coach'">Assistant coaches receive the existing team coach permissions. This invitation does not grant head-coach or administrator access.</p>

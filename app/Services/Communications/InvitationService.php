@@ -112,10 +112,10 @@ class InvitationService
                 if ($invite->updated_at->gt(now()->subMinute())) {
                     $this->invalid('Wait one minute before resending.');
                 }
-                $invite->fill(['generation' => $invite->generation + 1,'token_hash' => null,'sent_at' => null,'delivery_status' => 'queued','failure_code' => null,'expires_at' => now()->addDays(config('communications.invitation_days'))])->save();
+                $invite->fill(['generation' => $invite->generation + 1,'token_hash' => null, 'claim_code_hash' => null,'sent_at' => null,'delivery_status' => 'queued','failure_code' => null,'expires_at' => now()->addDays(config('communications.invitation_days'))])->save();
                 SendTeamInvitation::dispatch($invite->id, $invite->generation)->afterCommit();
             } else {
-                $invite->update(['revoked_at' => now(),'token_hash' => null]);
+                $invite->update(['revoked_at' => now(),'token_hash' => null, 'claim_code_hash' => null]);
             }
             app(SecurityAuditLogger::class)->record($resend ? 'team_invitation.resent' : 'team_invitation.revoked', $actor->id, $invite->team_id, metadata: ['invitation_id' => $invite->id]);
             return $invite;
@@ -132,13 +132,24 @@ class InvitationService
         return $invite;
     }
 
+    private function credential(array $data): array
+    {
+        if (!empty($data['token'])) return ['token_hash', hash('sha256', $data['token'])];
+        $code = strtoupper(str_replace(['-', ' '], '', $data['claim_code'] ?? ''));
+        if (!preg_match('/^[A-F0-9]{20}$/', $code)) $this->invalid('This invitation is invalid or no longer available.');
+        return ['claim_code_hash', hash('sha256', $code)];
+    }
+
     public function accept(array $data, ?User $actor): string
     {
-        $snapshot = $this->resolve($data['token']);
-        return DB::transaction(function () use ($snapshot, $data, $actor) {
+        $this->enabled();
+        [$column, $digest] = $this->credential($data);
+        $snapshot = TeamInvitation::where($column, $digest)->first();
+        if (!$snapshot || $snapshot->state() !== 'pending') $this->invalid('This invitation is invalid or no longer available.');
+        return DB::transaction(function () use ($snapshot, $data, $actor, $column, $digest) {
             Team::query()->lockForUpdate()->findOrFail($snapshot->team_id);
             $invite = TeamInvitation::lockForUpdate()->findOrFail($snapshot->id);
-            if ('pending' !== $invite->state() || ! hash_equals((string)$invite->token_hash, hash('sha256', $data['token']))) {
+            if ('pending' !== $invite->state() || ! hash_equals((string)$invite->{$column}, $digest)) {
                 $this->invalid('This invitation is invalid or no longer available.');
             }
             $inviter = User::find($invite->invited_by);
@@ -207,8 +218,11 @@ class InvitationService
                 }
             }
             // Possession of the single-use token delivered to this email verifies it for this acceptance.
-            $invite->update(['user_id' => $user->id,'accepted_at' => now(),'email_verified_at' => now(),'token_hash' => null]);
+            $invite->update(['user_id' => $user->id,'accepted_at' => now(),'email_verified_at' => now(),'token_hash' => null, 'claim_code_hash' => null]);
             app(SecurityAuditLogger::class)->record('team_invitation.accepted', $user->id, $invite->team_id, metadata: ['invitation_id' => $invite->id]);
+            foreach (PlayerTeam::where('user_id', $user->id)->pluck('team_id') as $rosterTeam) {
+                \Illuminate\Support\Facades\Cache::forget("roster_team_{$rosterTeam}");
+            }
             return $user->type;
         });
     }

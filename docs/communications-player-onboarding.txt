@@ -1,0 +1,92 @@
+FMTRX — New-player onboarding and invitation claim codes
+2026-10-16 | fungoweb/main | local implementation, no deployment
+
+Previously implemented
+----------------------
+Phase 2 already provided authorized coach invitations, hashed email-link tokens, asynchronous sending, global/category/recipient pilot gates, expiry/resend/revoke, in-place placeholder completion, password checks for existing accounts, historical-record preservation, and under-13/unknown-DOB invitation protection.
+Adding a player did not request an invitation. Invitation mail had no separate manual code. The native app currently has an older six-character TEAM-code claim screen, distinct from Phase 2 email invitations.
+
+Added in this change
+--------------------
+- Both web Add Player forms now collect optional DOB and position and offer Send email invitation after saving. Team is the current selected team. A valid name can be saved without email or phone. Existing contact matching reuses the current player; it never deliberately merges two different accounts.
+- POST /api/coach/add/players accepts send_invitation (boolean), player.born_date (Y-m-d), and player.position. Creation/roster membership commits BEFORE requesting the invitation. The successful response always distinguishes invitation.status: not_requested, queued, or not_queued plus a safe explanation. A disabled workflow, missing email, unknown/under-13 DOB, or queue problem cannot roll back the saved player. Invitation generation reuses InvitationService. A failed invitation should be retried from Team Communications, not by creating another player.
+- Optional sending is selected by default only when the UI sees enabled invitation/delivery flags and an email plus eligible DOB. Coach can uncheck it. Sender allowlist and all gates remain authoritative on the server at delivery; checking the UI is not a promise that mail will send. Native API clients must opt in with send_invitation; it is not silently enabled for old clients.
+- New player DOB/position is persisted. Re-adding an existing contact does not overwrite their DOB/position with new form values. Creation explicitly checks the coach's active account/team authority. Email validation is limited to the existing 191-character storage. Forms disable repeat submission and scroll on small screens.
+- Invitation emails now show a Claim Profile link and a manual code. The manual code consists of 20 randomly generated hexadecimal characters (80 random bits), displayed in five groups of four. It is not the shared six-character team code, a user ID, or a token hash.
+- Code is generated only inside the authorized delivery job. Only SHA-256(code) is stored, in a nullable unique claim_code_hash column on the EXISTING team_invitations table. No second invitation table or separate acceptance system was added. Raw code/link tokens are not queue payloads, API responses, roster values, or browser storage.
+- Manual entry at https://app.fmtrx.com/invitations/accept uses the SAME POST /api/invitations/accept endpoint and InvitationService transaction. Submit claim_code OR token, email, and password where required. Both credentials cannot be supplied together. Existing passwords/identity checks still apply. A placeholder gets its password set on the same user; a different independently registered account is not automatically merged into that profile.
+- Code shares the invitation expiry (currently seven days), membership checks, age checks and single-use state. Resend rotates both credentials, revoke clears both, and acceptance clears both atomically. Public acceptance remains limited to five requests/minute by the existing route throttle. Existing secure links issued before this migration remain valid, but cannot retrospectively gain a code; use an explicit resend when desired.
+- Roster response adds profile_claim_status, and the roster displays Claimed/Unclaimed with an invitation-management link. This reflects whether the existing account has login credentials; legacy coach-set credentials are not proof of mailbox verification. Acceptance invalidates cached team rosters; coaches see the new status on refresh. Existing unrelated roster claimed/membership semantics were not changed. Team Communications supports focusing a roster player, including beyond its first page, within the authorized team only.
+- The older team-code, individual-code and restricted-session credential setup paths now check the same age restriction. This prevents those claim routes bypassing the new invitation restriction. Known DOB 13+ is eligible; under-13, missing/invalid/future DOB is rejected. Coach profile creation/management stays available. No guardian or superficial consent checkbox was added, and existing general login/coach password-management policy was not redesigned.
+- Code/token inputs are excluded from validation-session flashing. The existing branded mail template is reused.
+
+Current mobile scope
+--------------------
+Backend acceptance works with the existing Sanctum web/mobile authentication contract. The new manual-entry page is mobile-friendly and can be used in a phone browser; afterward the player can sign in to the native app with the same account.
+The separate native app's ClaimProfileScreen.js still accepts only the legacy team code. Do NOT tell users to enter the new 20-character invitation code there yet. No native repository files were modified: the requested work location was fungoweb/main, and the question asking whether to include that separate repository remains pending.
+Next native change, if authorized: add an invitation-code mode calling invitations/accept with email, claim_code and password; on accepted=true reuse standard app login/session setup. Keep team-joining distinct. Never place the code/token in persistent app storage, navigation URLs or logs. Test existing-account, placeholder, wrong-account, revoked/expired code, and reopened-email paths on devices.
+
+Security / operational boundaries
+----------------------------------
+All sending flags and allowlist defaults remain unchanged/OFF. No .env or secret changes. Existing legacy team-code claiming still exists as a separately established entry path; this change does not make a shared team code proof of email ownership. The new invitation-code route does require possession of the emailed secret and matching recipient email.
+No guardian workflow is implemented. Under-13/unknown-age users cannot use these profile-claim routes; coach-managed records remain intact. This is a technical access restriction, not a statement of global privacy-law compliance.
+There is no automatic account merge. If someone registered a different account separately, support must review the conflict rather than move historical rows automatically. For a coach-created placeholder, use Claim Profile to complete that same account instead of ordinary independent registration.
+Names alone are not deduplication keys. Two intentionally created contact-free players may have the same name. Repeated contact-based creation reuses one record; duplicate-click UI guards reduce accidental submissions.
+Do not enable live communications simply because local tests pass. Production queue/cache/schema checks, approved pilot recipients, device journeys and provider verification remain gates from the earlier release report.
+
+Validation (local, fakes; no real email)
+---------------------------------------
+Full PHP: 1,110 tests / 9,668 assertions pass (php -d memory_limit=768M vendor/bin/phpunit).
+Frontend: npm test, 328 passing tests across 56 files.
+Production frontend build: passes; existing approximately 501 KiB ApexCharts warning remains.
+Composer validate --no-check-publish and dump-autoload -o: passes.
+MariaDB 10.1.48: 87 communications/creation/legacy-claim tests passed (431 assertions), plus the two additional email-render/authorization tests passed (11 assertions). Repository migrations ran on a disposable database. No production connection was used.
+MariaDB upgrade rehearsal: 12 checks pass, including all prior expiry/state preservation checks and proof that adding claim_code_hash preserves every existing invitation attribute and creates no invented credentials for old links.
+Coverage includes creation without contact, disabled invitations, ineligible DOB, duplicate contact creation, wrong email/password, existing account, code/link shared single use, expiry, rotation, revocation, age change before acceptance, unauthorized coach creation, hidden hashes, email rendering, and historical sessions/stats/assessments/workouts/profile preservation through BOTH link and code acceptance.
+Older successful claim fixtures now explicitly have valid DOB; coach creation fixtures explicitly have active status instead of random status. No production records were altered to satisfy tests.
+Browser/native device acceptance is NOT claimed by these automated results.
+
+Migration and rollout — instructions only
+-----------------------------------------
+New migration: 2026_10_16_210000_add_claim_code_to_team_invitations.php.
+There are now FIVE Phase 2 communications migration files (the original three, expiry correction, and this nullable column addition); still five communications tables. No dependencies changed.
+After separate release approval, backup and verified PHP/worker preflight, stop the dedicated communications worker during the code/schema transition. Keep all communications sending switches OFF. Install the approved artifact with the existing deployment procedure. As application owner, using the verified production PHP binary:
+  cd ~/app.fmtrx.com
+  export FMTRX_PHP=/opt/plesk/php/8.2/bin/php
+  "$FMTRX_PHP" artisan migrate:status
+  "$FMTRX_PHP" artisan migrate --force
+  "$FMTRX_PHP" artisan config:cache
+  "$FMTRX_PHP" artisan queue:restart
+The PHP path is an example ONLY if preflight confirms that domain/runtime. Review every pending migration before migrate --force; do not create queue tables or use migrate:fresh. Existing rollout/worker commands remain in communications-release-repairs.txt, with the migration count updated to five by this report.
+With mail OFF, verify creation, roster identity/DOB/position, and existing login/history. Then separately approve an invitation-only allowlisted pilot. Newly delivered/resend emails include the code. Paused invitations still need deliberate resend if their queue job was consumed while sending was disabled.
+Rollback: disable sending, stop dedicated workers, restore the reviewed previous code artifact if compatible, preserve the additive column and existing records, rebuild config and restart compatible workers. Do not delete players, undo accepted ownership, blindly resend uncertain deliveries, or roll back invitation tables. Previously sent emails cannot be recalled. Rolling back to code without manual entry makes their secure link the fallback.
+
+Files changed
+-------------
+- app/Exceptions/Handler.php
+- app/Http/Controllers/Api/Coach/AddPlayers.php
+- app/Http/Controllers/Api/Coach/CoachUtils.php
+- app/Http/Controllers/Api/Communications/InvitationController.php
+- app/Http/Controllers/Api/Player/SetPlayerCredentials.php
+- app/Http/Controllers/Api/RoasterUtils.php
+- app/Http/Middleware/ResolveAccountClaim.php
+- app/Http/Requests/Api/Coach/AddUserRequest.php
+- app/Http/Resources/Api/PlayerTeamResource.php
+- app/Jobs/SendTeamInvitation.php
+- app/Models/TeamInvitation.php
+- app/Notifications/TeamInvitationNotification.php
+- app/Services/Communications/InvitationService.php
+- app/Services/Security/PlayerProfileClaimService.php
+- database/migrations/2026_10_16_210000_add_claim_code_to_team_invitations.php
+- resources/js/components/communications/PlayerOnboardingFields.vue
+- resources/js/components/login/LoginTemplate.vue
+- resources/js/layout/Layout.vue
+- resources/js/pages/communications/AcceptInvitation.vue
+- resources/js/pages/communications/TeamCommunications.vue
+- resources/js/pages/roster/HomeRoster.vue
+- tests/Feature/Api/Auth/AccountClaimSecurityTest.php
+- tests/Feature/Api/Coach/AddPlayersTest.php
+- tests/Feature/Communications/TeamInvitationsTest.php
+- tests/compatibility/communications_mariadb.php
+- docs/communications-player-onboarding.txt (this report)
+- docs/communications-release-repairs.txt (pointer to this follow-up)

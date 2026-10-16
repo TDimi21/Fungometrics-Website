@@ -29,11 +29,14 @@ class AddUserRequest extends FormRequest
     public function rules()
     {
         return [
-            'phone' => $this->is('api/coach/add/players') ? ['nullable', 'required_without:email', 'string', 'max:32'] : ['required'],
-            'email' => ['nullable', 'required_without:phone', 'email', 'max:255'],
+            'phone' => $this->is('api/coach/add/players') ? ['nullable', 'string', 'max:32'] : ['required'],
+            'email' => ['nullable', 'email', 'max:191'],
             'team' => ['required'],
             'name.first' => ['required'],
             'name.last' => ['required'],
+            'send_invitation' => ['sometimes', 'boolean'],
+            'player.born_date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'player.position' => ['nullable', 'string', 'in:P,C,1B,2B,3B,SS,LF,CF,RF,DH,OF,IF'],
             'player.grad_year' => ['nullable', 'integer', 'min:1900', 'max:2200'],
         ];
     }

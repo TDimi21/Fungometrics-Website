@@ -23,7 +23,7 @@ class AddPlayersTest extends TestCase
 {
     public function test_coach_can_add_and_reuse_email_only_player(): void
     {
-        $coach = User::factory()->create(['type' => 'coach']);
+        $coach = User::factory()->create(['type' => 'coach', 'status' => true]);
         $team = Team::factory()->create();
         CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
         Sanctum::actingAs($coach, ['coach']);
@@ -38,12 +38,12 @@ class AddPlayersTest extends TestCase
 
     public function test_web_email_only_add_can_be_claimed_using_returned_team_code(): void
     {
-        $coach = User::factory()->create(['type' => 'coach']);
+        $coach = User::factory()->create(['type' => 'coach', 'status' => true]);
         $team = Team::factory()->create();
         CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
         Sanctum::actingAs($coach, ['coach']);
         $added = $this->postJson('/api/coach/add/players', [
-            'email' => 'email@fungo.com', 'team' => $team->id,
+            'email' => 'email@fungo.com', 'team' => $team->id, 'player' => ['born_date' => '2000-01-01'],
             'name' => ['first' => 'Email', 'last' => 'Player'],
         ])->assertOk();
         $this->artisan('player:claim-status', ['email' => 'email@fungo.com'])
@@ -61,7 +61,7 @@ class AddPlayersTest extends TestCase
 
     public function test_conflicting_contact_details_do_not_link_accounts(): void
     {
-        $coach = User::factory()->create(['type' => 'coach']);
+        $coach = User::factory()->create(['type' => 'coach', 'status' => true]);
         $team = Team::factory()->create();
         CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
         Sanctum::actingAs($coach, ['coach']);
@@ -76,6 +76,7 @@ class AddPlayersTest extends TestCase
     {
         $coach = User::factory()->create([
             'type' => UserTypes::COACH->value,
+            'status' => true,
             'subscription_plan' => 'free',
         ]);
         $team = Team::factory()->create();
@@ -96,6 +97,7 @@ class AddPlayersTest extends TestCase
     {
         $coach = User::factory()->create([
             'type' => UserTypes::COACH->value,
+            'status' => true,
             'subscription_plan' => 'free',
         ]);
         $team = Team::factory()->create();
@@ -120,6 +122,7 @@ class AddPlayersTest extends TestCase
     {
         $coach = User::factory()->create([
             'type' => UserTypes::COACH->value,
+            'status' => true,
             'subscription_plan' => 'coach_pro',
         ]);
         $team = Team::factory()->create();
@@ -138,7 +141,7 @@ class AddPlayersTest extends TestCase
 
     public function test_add_new_player_to_team_ok(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'status' => true]);
         $team_coach = Team::factory()->create();
         CoachTeam::factory()->create([
             'coach_id' => $user->id,
@@ -164,7 +167,7 @@ class AddPlayersTest extends TestCase
 
     public function test_add_exist_player_with_team_ok(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'status' => true]);
         $team_coach = Team::factory()->create();
         CoachTeam::factory()->create([
             'coach_id' => $user->id,
@@ -198,7 +201,7 @@ class AddPlayersTest extends TestCase
 
     public function test_add_exist_player_without_team_ok(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'status' => true]);
         $team_coach = Team::factory()->create();
         CoachTeam::factory()->create([
             'coach_id' => $user->id,
@@ -231,7 +234,7 @@ class AddPlayersTest extends TestCase
             $mock->shouldReceive('passes')->andReturn(true);
         });
 
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'status' => true]);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
         $response = $this->json('POST', 'api/coach/add/players', []);
         $response->assertStatus(Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -239,7 +242,7 @@ class AddPlayersTest extends TestCase
 
     public function test_add_exist_player_validations(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'status' => true]);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
         $response = $this->json('POST', 'api/coach/add/players', []);
         $response->assertUnprocessable();
@@ -247,7 +250,7 @@ class AddPlayersTest extends TestCase
 
     public function test_add_exist_player_unauthorized(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'status' => true]);
         $team_coach = Team::factory()->create();
         CoachTeam::factory()->create([
             'coach_id' => $user->id,
@@ -272,7 +275,7 @@ class AddPlayersTest extends TestCase
 
     public function test_add_exist_player_forbidden(): void
     {
-        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $user = User::factory()->create(['type' => UserTypes::COACH->value, 'status' => true]);
         $team_coach = Team::factory()->create();
         CoachTeam::factory()->create([
             'coach_id' => $user->id,

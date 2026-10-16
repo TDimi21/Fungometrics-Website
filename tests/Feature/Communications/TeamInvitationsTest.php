@@ -70,7 +70,8 @@ class TeamInvitationsTest extends TestCase
         }
     }
 
-    public function test_new_player_claim_preserves_identity_profile_membership_and_history(): void
+    /** @dataProvider claimMethods */
+    public function test_new_player_claim_preserves_identity_profile_membership_and_history(bool $manual): void
     {
         $profile = $this->player->profile->getAttributes();
         $detail = $this->player->player->getAttributes();
@@ -88,7 +89,7 @@ class TeamInvitationsTest extends TestCase
         $users = User::count();
         $invite = $this->issue();
         $token = $this->deliver($invite);
-        $this->assertSame('player', $this->accept($invite, $token));
+        $this->assertSame('player', $manual ? app(InvitationService::class)->accept(['claim_code' => $this->codeFor($invite), 'email' => $invite->email, 'password' => 'Password123'], null) : $this->accept($invite, $token));
         $this->assertSame($users, User::count());
         foreach ($records as $index => $record) {
             $this->assertSame($snapshots[$index], $record->fresh()->getAttributes(), get_class($record).' changed during acceptance');
@@ -352,4 +353,136 @@ class TeamInvitationsTest extends TestCase
         Notification::assertNothingSent();
     }
 
+
+    public static function claimMethods(): array { return [[false], [true]]; }
+
+    private function codeFor(TeamInvitation $invite): string
+    {
+        $code = '';
+        Notification::assertSentOnDemand(TeamInvitationNotification::class, function ($notice, $channels, $recipient) use ($invite, &$code) {
+            if ($recipient->routes['mail'] !== $invite->email) return false;
+            $code = $notice->claimCode;
+            return true;
+        });
+        return $code;
+    }
+
+    public function test_manual_code_uses_same_invitation_and_rejects_wrong_recipient_and_duplicate_claims(): void
+    {
+        $invite = $this->issue();
+        $token = $this->deliver($invite);
+        $code = $this->codeFor($invite);
+        $this->assertMatchesRegularExpression('/^[A-F0-9]{4}(-[A-F0-9]{4}){4}$/', $code);
+        $this->assertSame(hash('sha256', str_replace('-', '', $code)), $invite->fresh()->claim_code_hash);
+        $this->assertArrayNotHasKey('claim_code_hash', $invite->fresh()->toArray());
+        $data = ['claim_code' => strtolower($code), 'email' => $invite->email, 'password' => 'Password123'];
+        $this->postJson('/api/invitations/accept', array_replace($data, ['email' => 'wrong@example.com']))->assertUnprocessable();
+        $this->postJson('/api/invitations/accept', $data + ['token' => $token])->assertUnprocessable();
+        $this->postJson('/api/invitations/accept', $data)->assertOk()->assertJsonPath('accepted', true);
+        $this->assertNull($invite->fresh()->claim_code_hash);
+        $this->assertNull($invite->fresh()->token_hash);
+        $this->postJson('/api/invitations/accept', $data)->assertUnprocessable();
+        $this->rejects(fn () => $this->accept($invite, $token));
+    }
+
+    public function test_manual_codes_expire_rotate_and_revoke_with_the_link(): void
+    {
+        $invite = $this->issue();
+        $token = $this->deliver($invite);
+        $code = $this->codeFor($invite);
+        $data = ['claim_code' => $code, 'email' => $invite->email, 'password' => 'Password123'];
+        $invite->update(['expires_at' => now()->subMinute()]);
+        $this->postJson('/api/invitations/accept', $data)->assertUnprocessable();
+        $this->travel(2)->minutes();
+        $renewed = app(InvitationService::class)->manage($this->coach, $invite->id, true);
+        $this->assertNull($renewed->claim_code_hash);
+        $this->postJson('/api/invitations/accept', $data)->assertUnprocessable();
+        $this->rejects(fn () => $this->accept($invite, $token));
+        Notification::fake();
+        $this->deliver($renewed);
+        $newCode = $this->codeFor($renewed);
+        $this->assertNotSame($code, $newCode);
+        app(InvitationService::class)->manage($this->coach, $invite->id, false);
+        $this->postJson('/api/invitations/accept', array_replace($data, ['claim_code' => $newCode]))->assertUnprocessable();
+        $this->assertNull($this->player->fresh()->password);
+    }
+
+    public function test_manual_code_requires_existing_account_password_and_updates_roster_status(): void
+    {
+        $this->player->update(['password' => Hash::make('Password123')]);
+        $invite = $this->issue(); $this->deliver($invite);
+        $data = ['claim_code' => $this->codeFor($invite), 'email' => $invite->email, 'password' => 'WrongPassword'];
+        $this->postJson('/api/invitations/accept', $data)->assertUnprocessable();
+        $this->postJson('/api/invitations/accept', array_replace($data, ['password' => 'Password123']))->assertOk();
+        Sanctum::actingAs($this->coach, ['coach']);
+        $this->getJson('/api/coach/teams/'.$this->team->id)->assertOk()->assertJsonPath('data.0.profile_claim_status', 'claimed');
+    }
+
+    public function test_creation_saves_profile_and_queues_optional_invitation_without_duplicate_player(): void
+    {
+        \Illuminate\Support\Facades\Event::fake([\App\Events\UserCreated::class, \App\Events\UserChanged::class]);
+        Sanctum::actingAs($this->coach, ['coach']);
+        $payload = ['team' => $this->team->id, 'name' => ['first' => 'New', 'last' => 'Athlete'], 'email' => 'new.athlete@example.com', 'player' => ['born_date' => '2010-01-01', 'position' => 'SS'], 'send_invitation' => true];
+        $response = $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('invitation.status', 'queued');
+        $id = $response->json('data.id');
+        $this->assertDatabaseHas('players', ['user_id' => $id, 'born_date' => '2010-01-01']);
+        $this->assertDatabaseHas('player_positions', ['player_id' => $id, 'position' => 'SS']);
+        $this->assertDatabaseHas('team_invitations', ['user_id' => $id, 'team_id' => $this->team->id]);
+        $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('data.id', $id);
+        $this->assertSame(1, User::where('email', $payload['email'])->count());
+        Queue::assertPushed(SendTeamInvitation::class, 1);
+        Notification::assertNothingSent();
+    }
+
+    public function test_creation_survives_missing_contact_disabled_delivery_and_ineligible_age(): void
+    {
+        \Illuminate\Support\Facades\Event::fake([\App\Events\UserCreated::class, \App\Events\UserChanged::class]);
+        Sanctum::actingAs($this->coach, ['coach']);
+        $payload = ['team' => $this->team->id, 'name' => ['first' => 'Saved', 'last' => 'Athlete'], 'send_invitation' => true];
+        $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('invitation.status', 'not_queued');
+        foreach ([null, now()->subYears(12)->toDateString()] as $dob) {
+            $this->postJson('/api/coach/add/players', $payload + ['email' => uniqid().'@example.com', 'player' => ['born_date' => $dob]])->assertOk()->assertJsonPath('invitation.status', 'not_queued');
+        }
+        config(['communications.invitations_enabled' => false]);
+        $this->postJson('/api/coach/add/players', $payload + ['email' => 'disabled@example.com', 'player' => ['born_date' => '2010-01-01']])->assertOk()->assertJsonPath('invitation.status', 'not_queued');
+        $this->assertDatabaseHas('users', ['email' => 'disabled@example.com']);
+        Queue::assertNothingPushed(); Notification::assertNothingSent();
+    }
+
+    public function test_legacy_claim_paths_cannot_bypass_age_restrictions(): void
+    {
+        $this->team->update(['join_code' => 'SAFE23']);
+        foreach ([null, now()->subYears(12)->toDateString()] as $dob) {
+            $this->player->player->update(['born_date' => $dob]);
+            $this->postJson('/api/player/join', ['contact' => $this->player->email, 'team_code' => 'SAFE23'])->assertUnprocessable();
+            $code = app(\App\Services\Security\AccountClaimService::class)->issue($this->player);
+            $this->postJson('/api/player/join', ['contact' => $this->player->email, 'claim_code' => $code])->assertUnprocessable();
+            $this->assertNull($this->player->fresh()->password);
+        }
+    }
+
+    public function test_invitation_email_contains_link_and_manual_code_but_no_stored_hash(): void
+    {
+        $invite = $this->issue(); $token = $this->deliver($invite);
+        $code = $this->codeFor($invite);
+        $notice = new TeamInvitationNotification('https://app.fmtrx.com/invitations/accept#token='.$token, 'Coach', 'Team', 'Oct 23', 'player', $code);
+        $html = (string) $notice->toMail(null)->render();
+        $this->assertStringContainsString('Claim Profile', $html);
+        $this->assertStringContainsString($code, $html);
+        $this->assertStringNotContainsString($invite->fresh()->claim_code_hash, $html);
+        $this->assertStringNotContainsString($invite->fresh()->token_hash, $html);
+        $this->player->player->update(['born_date' => now()->subYears(12)->toDateString()]);
+        $this->postJson('/api/invitations/accept', ['claim_code' => $code, 'email' => $invite->email, 'password' => 'Password123'])->assertUnprocessable();
+        $this->assertNull($invite->fresh()->accepted_at);
+    }
+
+    public function test_player_creation_cannot_write_another_coachs_roster(): void
+    {
+        Sanctum::actingAs($this->coach, ['coach']);
+        $other = Team::factory()->create();
+        $before = User::count();
+        $this->postJson('/api/coach/add/players', ['team' => $other->id, 'name' => ['first' => 'Unauthorized', 'last' => 'Player'], 'send_invitation' => true])->assertForbidden();
+        $this->assertSame($before, User::count());
+        Queue::assertNothingPushed();
+    }
 }

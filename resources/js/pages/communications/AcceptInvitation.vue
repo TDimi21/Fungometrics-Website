@@ -20,9 +20,11 @@ if (token) rememberCommunicationDestination('/invitations/accept')
 window.history.replaceState(null, '', window.location.pathname)
 const valid = ref(false), busy = ref(false), error = ref(''), accepted = ref(false)
 const email = ref(''), password = ref(''), firstName = ref(''), lastName = ref('')
+const claimCode = ref('')
 const expiry = ref(''), loginPath = ref('/login/player')
 const errorText = e => Object.values(e?.response?.data?.errors || {}).flat().join(' ') || e?.response?.data?.message || 'Unable to complete this request. Please try again.'
 onMounted(async () => {
+  if (!token) { valid.value = true; return }
   try {
     const { data } = await axios.post(api + 'invitations/inspect', { token })
     valid.value = data.valid
@@ -32,7 +34,7 @@ onMounted(async () => {
 async function accept() {
   busy.value = true; error.value = ''
   try {
-    const { data } = await axios.post(api + 'invitations/accept', { token, email: email.value, password: password.value || null, first_name: firstName.value, last_name: lastName.value }, { withCredentials: true })
+    const { data } = await axios.post(api + 'invitations/accept', { ...(token ? { token } : { claim_code: claimCode.value }), email: email.value, password: password.value || null, first_name: firstName.value, last_name: lastName.value }, { withCredentials: true })
     accepted.value = true; clearInvitationToken(); consumeCommunicationDestination(data.dashboard_path); rememberCommunicationDestination(data.dashboard_path); loginPath.value = data.login_path
     if (auth.isLogged.status && !password.value) { await router.replace(consumeCommunicationDestination(data.dashboard_path)); return }
     // Reuse the standard login endpoint and its cookie/session policy.
@@ -56,7 +58,9 @@ async function accept() {
     <p role="alert" v-if="error">{{ error }}</p>
     <RouterLink v-if="accepted" :to="loginPath">Sign in to your dashboard</RouterLink>
     <form v-else-if="valid" @submit.prevent="accept">
-      <p>Expires {{ expiry }}. Enter the email that received this invitation.</p>
+      <p v-if="expiry">Expires {{ expiry }}.</p>
+      <p>Enter the email that received this invitation.</p>
+      <label v-if="!token">Invitation claim code<input v-model="claimCode" required maxlength="24" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" spellcheck="false"></label>
       <label>Email<input v-model="email" type="email" autocomplete="email" required maxlength="191"></label>
       <label>Password<input v-model="password" type="password" autocomplete="current-password" minlength="8" maxlength="20" :required="!auth.isLogged.status"></label>
       <RouterLink v-if="!auth.isLogged.status" to="/login/player">Sign in to an existing player account, then return here</RouterLink>

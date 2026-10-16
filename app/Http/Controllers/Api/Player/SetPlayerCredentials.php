@@ -50,6 +50,7 @@ class SetPlayerCredentials extends Controller
             $result = DB::transaction(function () use ($authenticatedUser, $claimTeamId, $request, $audit): array {
                 /** @var User $user */
                 $user = User::query()->lockForUpdate()->findOrFail($authenticatedUser->id);
+                app(\App\Services\Communications\InvitationEligibility::class)->assertPlayerAge($user);
                 if (filled($user->password)) {
                     throw ValidationException::withMessages([
                         'claim' => 'This player profile has already been claimed.',

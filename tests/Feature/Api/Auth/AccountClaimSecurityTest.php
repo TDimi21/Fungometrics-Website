@@ -26,6 +26,7 @@ class AccountClaimSecurityTest extends TestCase
     public function test_team_code_claim_accepts_email_and_keeps_the_existing_player(): void
     {
         $player = User::factory()->create(['type' => 'player', 'email' => 'roster@example.com', 'phone' => null, 'password' => null, 'status' => true]);
+        \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         $team = Team::factory()->create(['join_code' => 'TEAM23']);
         PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
         $otherTeam = Team::factory()->create(['join_code' => 'OTHER2']);
@@ -43,6 +44,7 @@ class AccountClaimSecurityTest extends TestCase
     public function test_team_code_claim_accepts_phone_for_email_invited_player_but_not_removed_members(): void
     {
         $player = User::factory()->create(['type' => 'player', 'email' => 'roster@example.com', 'phone' => '(555) 123-4567', 'password' => null, 'status' => true]);
+        \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         $team = Team::factory()->create(['join_code' => 'TEAM23']);
         $membership = PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
         $this->postJson('/api/player/join', ['contact' => '5551234567', 'team_code' => $team->join_code])->assertOk();
@@ -54,6 +56,7 @@ class AccountClaimSecurityTest extends TestCase
     public function test_individual_code_accepts_email_and_preserves_player_identity(): void
     {
         $player = User::factory()->create(['type' => 'player', 'email' => 'invite@example.com', 'phone' => null, 'password' => null, 'status' => true]);
+        \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         $code = app(AccountClaimService::class)->issue($player);
         $this->postJson('/api/player/join', ['contact' => 'wrong@example.com', 'claim_code' => $code])->assertUnprocessable();
         $response = $this->postJson('/api/player/join', ['contact' => 'INVITE@example.com', 'claim_code' => $code])->assertOk();
@@ -68,6 +71,7 @@ class AccountClaimSecurityTest extends TestCase
     public function test_individual_code_matches_formatted_phone_and_rejects_expiry(): void
     {
         $player = User::factory()->create(['type' => 'player', 'phone' => '(555) 123-4567', 'email' => null, 'password' => null, 'status' => true]);
+        \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         $code = app(AccountClaimService::class)->issue($player);
         $this->postJson('/api/player/join', ['contact' => '5551234567', 'claim_code' => $code])->assertOk();
         $code = app(AccountClaimService::class)->issue($player);
@@ -158,6 +162,7 @@ class AccountClaimSecurityTest extends TestCase
             'password' => null,
             'status' => true,
         ]);
+        \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
 
         $response = $this->postJson('/api/player/join', [
@@ -224,6 +229,7 @@ class AccountClaimSecurityTest extends TestCase
             'password' => Hash::make('password123'),
             'status' => true,
         ]);
+        \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
 
         $this->postJson('/api/player/join', [
@@ -243,6 +249,7 @@ class AccountClaimSecurityTest extends TestCase
             'password' => null,
             'status' => true,
         ]);
+        \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
 
         $claim = $this->postJson('/api/player/join', [
@@ -276,6 +283,7 @@ class AccountClaimSecurityTest extends TestCase
     public function test_new_players_do_not_receive_sms_claim_tokens(): void
     {
         $player = User::factory()->create(['type' => 'player']);
+        \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         $claims = $this->mock(AccountClaimService::class, function ($mock): void {
             $mock->shouldNotReceive('issue');
         });
@@ -293,6 +301,7 @@ class AccountClaimSecurityTest extends TestCase
     {
         $team = Team::factory()->create(['join_code' => 'ZXCV12']);
         $player = User::factory()->create(['type' => 'player']);
+        \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         Sanctum::actingAs($player, ['player']);
 
         $this->postJson('/api/player/teams/join', ['team_code' => 'ZXCV12'])->assertOk();

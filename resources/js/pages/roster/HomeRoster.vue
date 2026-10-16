@@ -1,4 +1,5 @@
 <script setup>
+import PlayerOnboardingFields from "@/components/communications/PlayerOnboardingFields.vue";
 import Layout from '@/layout/Layout.vue'
 import { InputBase, BigButtonField, InutTel, LabelField } from '@/components/form'
 import { SearchIcon, ArrowHeadRightIcon, ArrowRightIcon } from '@/components/icons'
@@ -205,9 +206,11 @@ const searchPlayerByName = async () =>{
   }
 }
 
+const savingPlayer = ref(false);
 const submitAddPlayer = async () => {
+  if (savingPlayer.value) return;
   isLoading.status =!isLoading.status;
-  if((!dataPlayer.mobileNumber.trim() && !dataPlayer.email.trim()) || dataPlayer.firstName == "" || dataPlayer.lastName == ""){
+  if(dataPlayer.firstName == "" || dataPlayer.lastName == ""){
     toast.fire({
       icon: 'warning',
       title: 'Validation !!!',
@@ -215,12 +218,16 @@ const submitAddPlayer = async () => {
     })
     isLoading.status =!isLoading.status;
   }else{
+    savingPlayer.value = true;
     let dataForm = new FormData();
     if (dataPlayer.mobileNumber.trim()) dataForm.append('phone', dataPlayer.mobileNumber.trim())
     if (dataPlayer.email.trim()) dataForm.append('email', dataPlayer.email.trim())
     dataForm.append('team', team.id)
     dataForm.append('name[first]', dataPlayer.firstName)
     dataForm.append('name[last]', dataPlayer.lastName)
+    if (dataPlayer.born) dataForm.append('player[born_date]', dataPlayer.born)
+    if (dataPlayer.position) dataForm.append('player[position]', dataPlayer.position)
+    dataForm.append('send_invitation', dataPlayer.sendInvitation && dataPlayer.email ? '1' : '0')
     const config = {
       headers: { Authorization: `Bearer ${token}` }
     };
@@ -256,7 +263,7 @@ const submitAddPlayer = async () => {
       toast.fire({
         icon: 'success',
         title: 'Player Register',
-        text: response.data.message,
+        text: response.data.message + (response.data.invitation?.message ? '. ' + response.data.invitation.message : ''),
       })
 
       if (response.data.team_code) teamJoinCode.value = response.data.team_code
@@ -264,7 +271,7 @@ const submitAddPlayer = async () => {
         await fetchTeamJoinCode()
       }
 
-      openClaimInviteForPlayer({
+      if (!dataPlayer.sendInvitation && (dataPlayer.email || dataPlayer.mobileNumber)) openClaimInviteForPlayer({
         firstName: dataPlayer.firstName,
         lastName: dataPlayer.lastName,
         phone: dataPlayer.mobileNumber,
@@ -308,7 +315,7 @@ const submitAddPlayer = async () => {
         })
       }
       isLoading.status =!isLoading.status;
-    })
+    }).finally(() => { savingPlayer.value = false })
   }
 }
 
@@ -335,7 +342,7 @@ const submitAddCoach = async () => {
       await toast.fire({
         icon: 'success',
         title: 'Coach Register',
-        text: response.data.message,
+        text: response.data.message + (response.data.invitation?.message ? '. ' + response.data.invitation.message : ''),
       })
       if (invite.next_action === 'claim_coach_invitation') {
         const choice = await toast.fire({
@@ -656,15 +663,17 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
         <div v-if="isLoadingPlayer" class="text-white/25 text-center py-10">Loading players…</div>
         <div v-else-if="!tableDataPlayers.length" class="text-white/25 text-center py-10">No players found</div>
         <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div v-for="item in tableDataPlayers" :key="item.id">
+          <p class="text-sm text-white">{{ item.profile_claim_status === 'claimed' ? 'Claimed' : item.profile_claim_status === 'unclaimed' ? 'Unclaimed' : 'Account status unavailable' }}</p>
+          <RouterLink :to="{ path: '/team-communications', query: { player: item.id } }" class="text-sm text-sky-300">Invite / resend / revoke</RouterLink>
           <RosterCard
-            v-for="item in tableDataPlayers"
-            :key="item.id"
             :item="item"
             type="player"
             :idTeam="team.id"
             :auto-open-metrics="String(item.id) === autoOpenPlayerId"
             @remove-item="updateTable(true)"
           />
+          </div>
         </div>
       </section>
       </div>
@@ -682,7 +691,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
 
     <!-- ══ Create Player modal ═════════════════════════════════════════ -->
     <div v-if="isAddPlayer" class="fixed inset-0 z-50 flex justify-center items-center px-4">
-      <div class="modal-dark w-full max-w-md">
+      <div class="modal-dark w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-white text-lg font-bold">Create Player</h2>
           <button @click="isAddPlayer = false" class="text-app-muted hover:text-white transition">
@@ -709,6 +718,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
             <InputBase v-model="dataPlayer.email" inputType="email" />
           </div>
 
+          <PlayerOnboardingFields :model="dataPlayer" :team-id="team.id" />
           <div class="rounded-xl border border-app-blue/30 bg-app-blue/10 px-3 py-2">
             <p class="text-app-blue text-xs font-bold uppercase tracking-wider">Team Code</p>
             <p class="text-white text-sm mt-1">
@@ -719,7 +729,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
         </form>
         <div class="flex justify-end gap-3 mt-6">
           <button @click="isAddPlayer = false" class="btn-ghost">Cancel</button>
-          <button @click="submitAddPlayer" class="btn-primary">Add Player</button>
+          <button @click="submitAddPlayer" class="btn-primary" :disabled="savingPlayer">Add Player</button>
         </div>
       </div>
       <div class="opacity-70 fixed inset-0 z-40 bg-[#060b14]" />

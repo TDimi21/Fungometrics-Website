@@ -35,7 +35,8 @@ class SendTeamInvitation implements ShouldQueue
             return;
         }
         $raw = bin2hex(random_bytes(32));
-        $invite = DB::transaction(function () use ($raw, $service) {
+        $code = strtoupper(bin2hex(random_bytes(10))); // 80 random bits, never a team code.
+        $invite = DB::transaction(function () use ($raw, $code, $service) {
             $invite = TeamInvitation::lockForUpdate()->find($this->invitationId);
             if ( ! $invite || $invite->generation !== $this->generation || 'pending' !== $invite->state() || 'queued' !== $invite->delivery_status) {
                 return null;
@@ -54,7 +55,7 @@ class SendTeamInvitation implements ShouldQueue
                 $invite->update(['delivery_status' => 'failed','failure_code' => 'invitation_unavailable']);
                 return null;
             }
-            $invite->update(['token_hash' => hash('sha256', $raw),'delivery_status' => 'sending']);
+            $invite->update(['token_hash' => hash('sha256', $raw), 'claim_code_hash' => hash('sha256', $code),'delivery_status' => 'sending']);
             return $invite;
         });
         if ( ! $invite) {
@@ -68,7 +69,8 @@ class SendTeamInvitation implements ShouldQueue
                 trim(($coach?->profile?->first_name ?? '').' '.($coach?->profile?->last_name ?? '')) ?: 'Your coach',
                 $team?->name ?? 'your team',
                 $invite->expires_at->toFormattedDateString(),
-                $invite->role
+                $invite->role,
+                implode('-', str_split($code, 4))
             ));
             TeamInvitation::whereKey($invite->id)->where('generation', $this->generation)->update(['delivery_status' => 'sent','sent_at' => now()]);
         } catch (Throwable) {

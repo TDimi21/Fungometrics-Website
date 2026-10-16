@@ -16,9 +16,12 @@ class InvitationController extends Controller
     public function index(Request $request, string $teamId, InvitationService $service)
     {
         $service->authorize($request->user(), $teamId);
+        $request->validate(['focus_player' => 'sometimes|uuid']);
         $players = User::with('profile')->where('type', 'player')->where('status', true)
             ->whereHas('team_players', fn ($q) => $q->where('team_id', $teamId)->where('actual', true))->orderBy('id')->paginate(50, ['*'], 'players_page');
+        $focused = $request->filled('focus_player') ? User::with('profile')->where('type', 'player')->where('status', true)->whereHas('team_players', fn ($q) => $q->where('team_id', $teamId)->where('actual', true))->find($request->input('focus_player')) : null;
         return response()->json([
+            'focused_player' => $focused ? ['id' => $focused->id, 'name' => trim(($focused->profile?->first_name ?? '').' '.($focused->profile?->last_name ?? '')), 'email' => $focused->email, 'connected' => filled($focused->password)] : null,
             'enabled' => (bool)config('communications.invitations_enabled'),
             'delivery_enabled' => (bool)(config('communications.enabled') && config('communications.send_enabled') && config('communications.categories.invitations')),
             'pilot_mode' => (bool)config('communications.pilot_mode', true),
@@ -49,7 +52,7 @@ class InvitationController extends Controller
     }
     public function accept(Request $request, InvitationService $service)
     {
-        $data = $request->validate(['token' => 'required|string|size:64','email' => 'required|email:rfc|max:191','password' => 'nullable|string|min:8|max:20','first_name' => 'nullable|string|max:100','last_name' => 'nullable|string|max:100']);
+        $data = $request->validate(['token' => 'required_without:claim_code|prohibits:claim_code|nullable|string|size:64','claim_code' => 'required_without:token|prohibits:token|nullable|string|max:24|regex:/^[a-fA-F0-9 -]+$/','email' => 'required|email:rfc|max:191','password' => 'nullable|string|min:8|max:20','first_name' => 'nullable|string|max:100','last_name' => 'nullable|string|max:100']);
         $role = $service->accept($data, Auth::guard('sanctum')->user());
         return response()->json(['accepted' => true,'login_path' => '/login/'.$role,'dashboard_path' => 'player' === $role ? '/player-dashboard' : '/dashboard'])->header('Cache-Control', 'no-store');
     }

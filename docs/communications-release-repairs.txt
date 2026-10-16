@@ -1,3 +1,5 @@
+FOLLOW-UP 2026-10-16: See communications-player-onboarding.txt for optional invitation during player creation and manual codes. The new nullable claim-code column makes FIVE communications migration files in total. Native app screen changes remain separately scoped. Earlier repair evidence below is retained.
+
 FMTRX Communications — Phase 2 Release Blocker Repairs
 2026-10-16 | fungoweb, existing main | local changes only
 

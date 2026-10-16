@@ -55,6 +55,11 @@ foreach ($ids as $state=>$id) {
 }
 $fixed->up();$fixed->down();
 $check(DB::selectOne("SHOW COLUMNS FROM team_invitations LIKE 'expires_at'")->Type === 'datetime', 'rerun and down do not restore unsafe timestamp behavior');
+$beforeCode = DB::table('team_invitations')->orderBy('id')->get()->toJson();
+(require database_path('migrations/2026_10_16_210000_add_claim_code_to_team_invitations.php'))->up();
+$afterCode = DB::table('team_invitations')->orderBy('id')->get()->map(function ($row) { unset($row->claim_code_hash); return $row; })->toJson();
+$check($beforeCode === $afterCode, 'manual claim-code migration preserves all existing invitation attributes');
+$check(DB::table('team_invitations')->whereNotNull('claim_code_hash')->count() === 0, 'existing links gain no invented manual credentials');
 Mail::assertNothingSent();Notification::assertNothingSent();
 echo "MariaDB 10.1.48 migration/expiry rehearsal complete; no email sent.\n";
 

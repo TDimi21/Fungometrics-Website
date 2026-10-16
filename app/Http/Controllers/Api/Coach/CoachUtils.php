@@ -143,6 +143,7 @@ class CoachUtils
                 $playerData = array_filter([
                     'user_id' => $response_user->id,
                     'grad_year' => $data['player']['grad_year'] ?? null,
+                    'born_date' => $data['player']['born_date'] ?? null,
                 ], fn ($value) => null !== $value && '' !== $value);
 
                 if (count($playerData) > 1) {

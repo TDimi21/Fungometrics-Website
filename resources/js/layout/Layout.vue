@@ -1,4 +1,5 @@
 <script setup>
+import PlayerOnboardingFields from "@/components/communications/PlayerOnboardingFields.vue";
 import CoachHeader from "./CoachHeader.vue";
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from "vue";
 import { useUserStore } from "../store/user";
@@ -168,10 +169,11 @@ const getTeamsWithPalyers = async () => {
   }
 };
 
+const savingPlayer = ref(false);
 const submitAddPlayer = async () => {
+  if (savingPlayer.value) return;
   isLoading.status = !isLoading.status;
   if (
-    (!player.mobileNumber && !player.email) ||
     player.firstName == "" ||
     player.lastName == ""
   ) {
@@ -182,12 +184,16 @@ const submitAddPlayer = async () => {
     });
     isLoading.status = !isLoading.status;
   } else {
+    savingPlayer.value = true;
     let dataForm = new FormData();
     if (player.mobileNumber) dataForm.append("phone", player.mobileNumber);
     if (player.email) dataForm.append("email", player.email.trim());
     dataForm.append("team", activeTeamId.value ?? '');
     dataForm.append("name[first]", player.firstName);
     dataForm.append("name[last]", player.lastName);
+    if (player.born) dataForm.append("player[born_date]", player.born);
+    if (player.position) dataForm.append("player[position]", player.position);
+    dataForm.append("send_invitation", player.sendInvitation && player.email ? "1" : "0");
     const config = {
       headers: { Authorization: `Bearer ${token}` },
     };
@@ -195,7 +201,7 @@ const submitAddPlayer = async () => {
     await axios
       .post(api_url + "coach/add/players", dataForm, config)
       .then(async function (response) {
-        if (response.data.team_code) window.alert(`Player added. Team code: ${response.data.team_code}. The player can claim using this code and the email or phone on their profile.`);
+        if (response.data.invitation?.message) window.alert(`Player saved. ${response.data.invitation.message}`);
         let tempResponse = response.data.data;
         let playerToSetInStore = {
           id: tempResponse.id,
@@ -264,7 +270,7 @@ const submitAddPlayer = async () => {
         }
         console.log("paso x4");
         isLoading.status = !isLoading.status;
-      });
+      }).finally(() => { savingPlayer.value = false });
   }
 };
 const changeTeam = async (info) => {
@@ -595,11 +601,12 @@ watch(
             </div>
           </div>
 
+          <PlayerOnboardingFields :model="player" :team-id="activeTeamId" />
           <div class="add-player-actions">
             <button type="button" class="add-player-cancel" @click="isOpen = false">
               Cancel
             </button>
-            <button type="submit" class="add-player-submit">
+            <button type="submit" class="add-player-submit" :disabled="savingPlayer">
               <img
                 alt=""
                 src="../assets/img/login/assteslogin/ballbutton.svg"
@@ -821,7 +828,8 @@ watch(
 .add-player-panel {
   position: relative;
   width: min(100%, 900px);
-  overflow: hidden;
+  max-height: 90vh;
+  overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, .14);
   border-radius: 22px;
   background:

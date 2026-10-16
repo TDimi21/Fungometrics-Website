@@ -365,7 +365,8 @@ const submitClaimCredentials = async () => {
 </div>
       </FormKit>
 
-      <form v-else-if="!isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
+      <RouterLink v-if="isPlayerLogin" to="/invitations/accept" class="block my-3 text-white underline">Have an invitation email? Enter your claim code</RouterLink>
+      <form v-if="isClaimMode && !isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
         <div class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-sm font-bold text-white mb-2">Email or Phone Number</label>
@@ -398,7 +399,7 @@ const submitClaimCredentials = async () => {
         </div>
       </form>
 
-      <form v-else class="w-full max-w-xl" @submit.prevent="submitClaimCredentials">
+      <form v-if="isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimCredentials">
         <div class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-sm font-bold text-white mb-2">Email Address</label>

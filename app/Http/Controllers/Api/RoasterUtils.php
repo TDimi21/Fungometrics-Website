@@ -17,7 +17,7 @@ class RoasterUtils
     public function getDataPlayers(array $ids): Collection
     {
         return User::query()
-            ->select(['id', 'email', 'phone'])
+            ->select(['id', 'email', 'phone', 'password'])
             ->with([
                 'profile:user_id,first_name,last_name,picture',
                 'player:user_id,height_in_ft,height_in_inch,born_date,number_in_shirt,throw_side,hit_side',

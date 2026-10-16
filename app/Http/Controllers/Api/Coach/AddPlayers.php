@@ -27,9 +27,10 @@ class AddPlayers extends Controller
      */
     public function __invoke(AddUserRequest $request): JsonResponse
     {
+        $data = $request->validated();
+        app(\App\Services\Communications\InvitationService::class)->authorize($request->user(), $data['team']);
         try {
             DB::beginTransaction();
-            $data = $request->validated();
 
             // ── Player limit enforcement ──
             $teamId = $data['team'] ?? null;
@@ -67,6 +68,7 @@ class AddPlayers extends Controller
             if ( ! isset($player)) {
                 $savePlayer = CoachUtils::saveNewUser($data);
                 event(new UserCreated($savePlayer['user']));
+                if (!empty($data['player']['position'])) $savePlayer['user']->positions()->create(['position' => $data['player']['position']]);
                 $message = 'the player is added to team';
             } else {
                 $data_team = CoachUtils::addPlayerToRoaster($player, $data['team']);
@@ -102,10 +104,23 @@ class AddPlayers extends Controller
                 $response['team_code'] = $claimTeam->join_code;
             }
             DB::commit();
+            \Illuminate\Support\Facades\Cache::forget("roster_team_{$data['team']}");
             if (null !== $changedEventData) {
                 event(new UserChanged($changedEventData));
             }
 
+            $response['invitation'] = ['status' => 'not_requested'];
+            if ($request->boolean('send_invitation')) {
+                // Profile transaction has committed. Invitation failure must never prompt duplicate creation.
+                try {
+                    if (!$claimUser->email) throw new \RuntimeException('missing_email');
+                    $invite = app(\App\Services\Communications\InvitationService::class)->send($request->user(), $data['team'], ['role' => 'player', 'user_id' => $userId, 'email' => $claimUser->email]);
+                    $response['invitation'] = ['status' => 'queued', 'id' => $invite->id, 'message' => 'Invitation queued; delivery remains subject to communications settings.'];
+                } catch (\Throwable $e) {
+                    $message = $e instanceof \Illuminate\Validation\ValidationException ? implode(' ', \Illuminate\Support\Arr::flatten($e->errors())) : 'Invitation was not queued. Check email, eligibility and communications settings, then send it from Team Communications.';
+                    $response['invitation'] = ['status' => 'not_queued', 'message' => $message];
+                }
+            }
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (\Illuminate\Validation\ValidationException $exception) {
             DB::rollBack();

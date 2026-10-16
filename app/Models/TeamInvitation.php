@@ -14,7 +14,7 @@ class TeamInvitation extends Model
     protected $keyType = 'string';
     protected $guarded = [];
     protected $attributes = ['generation' => 1,'delivery_status' => 'queued'];
-    protected $hidden = ['token_hash'];
+    protected $hidden = ['token_hash', 'claim_code_hash'];
     protected $casts = ['generation' => 'integer', 'expires_at' => 'datetime', 'sent_at' => 'datetime', 'accepted_at' => 'datetime', 'revoked_at' => 'datetime', 'email_verified_at' => 'datetime'];
 
     public function state(): string
