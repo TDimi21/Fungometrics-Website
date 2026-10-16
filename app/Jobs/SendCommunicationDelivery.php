@@ -14,12 +14,14 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Throwable;
 
-class SendCommunicationDelivery implements ShouldQueue
+class SendCommunicationDelivery implements ShouldQueue, \Illuminate\Contracts\Queue\ShouldBeUnique
 {
     use Dispatchable;
     use Queueable;
     public $tries = 1;
     public $timeout = 60;
+    public $uniqueFor = 3600;
+    public function uniqueId(): string { return $this->deliveryId; }
     public function __construct(public string $deliveryId)
     {
         $this->onQueue('communications');
@@ -47,6 +49,9 @@ class SendCommunicationDelivery implements ShouldQueue
                 $d->update(['status' => 'suppressed','failure_code' => $reason]);
                 return null;
             }
+            $policy = app(\App\Services\Communications\CommunicationDeliveryPolicy::class);
+            $category = $policy->category($d->event_type);
+            if (!$category || !$policy->allows($category, $u->email)) return null;
             // Validate the stored destination again before any external side effect.
             $url = $d->payload['action_url'] ?? '';
             if ( ! str_starts_with($url, 'https://app.fmtrx.com/') || $content->url(mb_substr($url, mb_strlen('https://app.fmtrx.com'))) !== $url) {

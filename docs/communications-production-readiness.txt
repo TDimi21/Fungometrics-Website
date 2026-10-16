@@ -1,3 +1,5 @@
+UPDATE 2026-10-16: Read communications-release-repairs.txt for the completed blocker repairs, FOUR-migration release sequence, new pilot/category defaults and under-13 invitation restriction. The content below is historical; conflicting deployment/activation instructions are superseded. Live activation remains gated on production and device verification.
+
 FMTRX Communications — Production Readiness Audit
 2026-10-16 | existing fungoweb main
 

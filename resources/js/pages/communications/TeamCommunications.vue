@@ -35,12 +35,14 @@ async function page(kind, delta) { if (kind === 'players') playerPage.value += d
     <p v-if="!teamId">Select a team first.</p>
     <p v-if="error" role="alert">{{ error }}</p><p v-if="message" role="status">{{ message }}</p>
     <template v-if="state">
-      <p v-if="!state.enabled">Invitations are awaiting activation. Email delivery is disabled.</p>
+      <p v-if="!state.enabled || !state.delivery_enabled">Invitation email delivery is disabled. Recorded invitations will not be sent until enabled.</p>
+      <p v-if="state.pilot_mode">Pilot delivery is limited to approved email addresses.</p>
+      <p>Player invitations require a confirmed birth date and age 13 or older. Coaches can continue managing younger players’ profiles.</p>
       <form @submit.prevent="send">
         <label>Invite<select v-model="role"><option value="player">Player</option><option v-if="state.can_invite_coaches" value="coach">Assistant coach</option></select></label>
         <label v-if="role === 'player'">Existing player<select v-model="selected" required><option value="">Choose a player</option><option v-for="p in state.players.data" :key="p.id" :value="p.id">{{ p.name || 'Unnamed player' }} · {{ p.connected ? 'Connected' : 'Not connected' }}</option></select></label>
         <div v-if="role === 'player' && state.players.last_page > 1"><button type="button" :disabled="playerPage === 1" @click="page('players',-1)">Previous players</button><span> {{ playerPage }} / {{ state.players.last_page }} </span><button type="button" :disabled="playerPage === state.players.last_page" @click="page('players',1)">More players</button></div>
-        <label>Email<input v-model="email" type="email" required maxlength="254"></label>
+        <label>Email<input v-model="email" type="email" required maxlength="191"></label>
         <p v-if="role === 'coach'">Assistant coaches receive the existing team coach permissions. This invitation does not grant head-coach or administrator access.</p>
         <button :disabled="busy || !state.enabled">Send invitation</button>
       </form>

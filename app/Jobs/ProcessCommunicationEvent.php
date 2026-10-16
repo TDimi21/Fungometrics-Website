@@ -11,12 +11,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Throwable;
 
-class ProcessCommunicationEvent implements ShouldQueue
+class ProcessCommunicationEvent implements ShouldQueue, \Illuminate\Contracts\Queue\ShouldBeUnique
 {
     use Dispatchable;
     use Queueable;
     public $tries = 1;
     public $timeout = 60;
+    public $uniqueFor = 3600;
+    public function uniqueId(): string { return $this->eventId; }
     public function __construct(public string $eventId)
     {
         $this->onQueue('communications');

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { retainInvitationToken, clearInvitationToken, rememberCommunicationDestination, consumeCommunicationDestination } from '@/utils/communicationDestination.js'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
@@ -13,7 +14,8 @@ const user = useUserStore()
 const teams = useTeamStore()
 const players = usePlayerStore()
 const api = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '/api/'
-const token = new URLSearchParams(window.location.hash.slice(1)).get('token') || ''
+const token = retainInvitationToken(new URLSearchParams(window.location.hash.slice(1)).get('token'))
+if (token) rememberCommunicationDestination('/invitations/accept')
 // Keep the secret out of history, referrers, storage and server access logs.
 window.history.replaceState(null, '', window.location.pathname)
 const valid = ref(false), busy = ref(false), error = ref(''), accepted = ref(false)
@@ -25,14 +27,14 @@ onMounted(async () => {
     const { data } = await axios.post(api + 'invitations/inspect', { token })
     valid.value = data.valid
     expiry.value = new Date(data.expires_at).toLocaleDateString()
-  } catch (e) { error.value = errorText(e) }
+  } catch (e) { if ([403,404,410,422].includes(e?.response?.status)) { clearInvitationToken(); consumeCommunicationDestination('/'); } error.value = errorText(e) }
 })
 async function accept() {
   busy.value = true; error.value = ''
   try {
     const { data } = await axios.post(api + 'invitations/accept', { token, email: email.value, password: password.value || null, first_name: firstName.value, last_name: lastName.value }, { withCredentials: true })
-    accepted.value = true; loginPath.value = data.login_path
-    if (auth.isLogged.status && !password.value) { await router.replace(data.dashboard_path); return }
+    accepted.value = true; clearInvitationToken(); consumeCommunicationDestination(data.dashboard_path); rememberCommunicationDestination(data.dashboard_path); loginPath.value = data.login_path
+    if (auth.isLogged.status && !password.value) { await router.replace(consumeCommunicationDestination(data.dashboard_path)); return }
     // Reuse the standard login endpoint and its cookie/session policy.
     const login = await axios.post(api + 'login', { email: email.value, password: password.value }, { withCredentials: true, headers: { 'X-FMTRX-Client': 'web' } })
     const account = login.data.data
@@ -42,7 +44,7 @@ async function accept() {
     teams.setTeams(account.teams || []); teams.setTeam(account.teams?.[0] || {})
     players.setPlayers(account.players || [])
     password.value = ''
-    await router.replace(data.dashboard_path)
+    await router.replace(consumeCommunicationDestination(data.dashboard_path))
   } catch (e) { error.value = accepted.value ? 'Invitation accepted. Sign in to open your dashboard.' : errorText(e) }
   finally { busy.value = false }
 }
@@ -55,8 +57,10 @@ async function accept() {
     <RouterLink v-if="accepted" :to="loginPath">Sign in to your dashboard</RouterLink>
     <form v-else-if="valid" @submit.prevent="accept">
       <p>Expires {{ expiry }}. Enter the email that received this invitation.</p>
-      <label>Email<input v-model="email" type="email" autocomplete="email" required maxlength="254"></label>
+      <label>Email<input v-model="email" type="email" autocomplete="email" required maxlength="191"></label>
       <label>Password<input v-model="password" type="password" autocomplete="current-password" minlength="8" maxlength="20" :required="!auth.isLogged.status"></label>
+      <RouterLink v-if="!auth.isLogged.status" to="/login/player">Sign in to an existing player account, then return here</RouterLink>
+      <RouterLink v-if="!auth.isLogged.status" to="/login/coach">Sign in to an existing coach account, then return here</RouterLink>
       <p>Already have an account? Use its password. Otherwise choose an 8–20 character password to complete your account. If you are signed in to the invited account, leave this blank.</p>
       <details><summary>Creating a new coach account?</summary>
         <label>First name<input v-model="firstName" autocomplete="given-name" maxlength="100"></label>

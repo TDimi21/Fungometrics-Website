@@ -1,4 +1,5 @@
 <script setup>
+import { consumeCommunicationDestination } from '@/utils/communicationDestination.js'
 import { reactive,ref } from 'vue'
 import {useRouter} from "vue-router"
 
@@ -98,7 +99,7 @@ const submitPlayer = async () => {
           text: response.data.message,
         })
         isLoading.status = !isLoading.status
-        await router.push('/player-dashboard')
+        await router.push(consumeCommunicationDestination('/player-dashboard'))
         return
       }
 

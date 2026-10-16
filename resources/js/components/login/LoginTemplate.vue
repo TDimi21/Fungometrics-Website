@@ -1,4 +1,5 @@
 <script setup>
+import { consumeCommunicationDestination } from '@/utils/communicationDestination.js'
 import { reactive, ref, computed } from 'vue'
 import {BigButtonField, InputBase, LabelField, PasswordField, SwitchField} from '../../components/form'
 import axios from "axios";
@@ -109,7 +110,7 @@ const applyAuthSession = async ({ payload, apiUrl }) => {
   if ((user?.type || '').toLowerCase() === 'player') {
     await teamStore.setTeam(team || {})
     await teamStore.setTeams(team ? [team] : [])
-    await router.push('/player-dashboard')
+    await router.push(consumeCommunicationDestination('/player-dashboard'))
     return
   }
 
@@ -118,7 +119,7 @@ const applyAuthSession = async ({ payload, apiUrl }) => {
   await teamStore.setTeam(selectedTeam ?? rosterTeams[0] ?? team ?? {})
   await teamStore.setTeams(rosterTeams)
   await playerStore.setPlayers(user?.players || [])
-  await router.push('/dashboard')
+  await router.push(consumeCommunicationDestination('/dashboard'))
 }
 
 const submitForm = async () => {
@@ -133,7 +134,7 @@ const submitForm = async () => {
   }
   ).then(async function (response) {
     isLoading.status =!isLoading.status;
-    console.log('login', response.data.data);
+
     if(props.title === response.data.data.type){
       console.log("Paso 2");
       isLogged.status = true;
@@ -146,7 +147,7 @@ const submitForm = async () => {
       prepareSessionForUser(response.data.data.id)
       await userStore.setData(response.data.data);
       if(response.data.data.type == 'player'){
-        await router.push('/player-dashboard')
+        await router.push(consumeCommunicationDestination('/player-dashboard'))
       }else{
         const teams = response?.data?.data?.teams ?? [];
         const selectedTeam = await pickBestTeamForCoach(api_url, null, teams);
@@ -157,7 +158,7 @@ const submitForm = async () => {
         if (response.data.data?.capabilities?.subscription_admin === true) {
           await router.push('/admin')
         } else {
-          await router.push('/dashboard')
+          await router.push(consumeCommunicationDestination('/dashboard'))
         }
       }
     }else{

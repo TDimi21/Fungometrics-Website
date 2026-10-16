@@ -24,7 +24,7 @@ class TeamInvitationsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['communications.invitations_enabled' => true,'queue.default' => 'database']);
+        config(['communications.enabled' => true, 'communications.send_enabled' => true, 'communications.pilot_mode' => false, 'communications.categories.invitations' => true, 'communications.invitations_enabled' => true,'queue.default' => 'database']);
         Mail::fake();
         Notification::fake();
         Queue::fake();
@@ -34,7 +34,7 @@ class TeamInvitationsTest extends TestCase
         CoachTeam::factory()->create(['coach_id' => $this->coach->id,'team_id' => $this->team->id,'is_main' => true]);
         $this->player = User::factory()->create(['type' => 'player','status' => true,'password' => null]);
         Profile::factory()->create(['user_id' => $this->player->id]);
-        Player::factory()->create(['user_id' => $this->player->id,'born_date' => '2014-01-01']);
+        Player::factory()->create(['user_id' => $this->player->id,'born_date' => '2010-01-01']);
         PlayerTeam::factory()->create(['user_id' => $this->player->id,'team_id' => $this->team->id,'actual' => true]);
     }
 
@@ -205,7 +205,7 @@ class TeamInvitationsTest extends TestCase
         $data = ['role' => 'player','user_id' => $this->player->id,'email' => $this->player->email];
         config(['communications.invitations_enabled' => false]);
         $this->postJson($url, $data)->assertStatus(503);
-        config(['communications.invitations_enabled' => true,'queue.default' => 'sync']);
+        config(['communications.enabled' => true, 'communications.send_enabled' => true, 'communications.pilot_mode' => false, 'communications.categories.invitations' => true, 'communications.invitations_enabled' => true,'queue.default' => 'sync']);
         $this->postJson($url, $data)->assertStatus(503);
         config(['queue.default' => 'database','communications.frontend_url' => 'https://attacker.example/api']);
         $this->postJson($url, $data)->assertStatus(503);
@@ -223,7 +223,6 @@ class TeamInvitationsTest extends TestCase
     public function test_player_without_email_can_verify_invited_email_without_new_user(): void
     {
         $this->player->update(['email' => null]);
-        $this->player->player->update(['born_date' => null]);
         $invite = $this->issue(['role' => 'player','user_id' => $this->player->id,'email' => 'claimed@example.com']);
         $this->accept($invite, $this->deliver($invite));
         $this->assertSame('claimed@example.com', $this->player->fresh()->email);
@@ -286,4 +285,71 @@ class TeamInvitationsTest extends TestCase
         $this->assertStringNotContainsString('secret-value', $invite->fresh()->toJson());
         (new SendTeamInvitation($invite->id, 1))->handle(app(InvitationService::class));
     }
+    public function test_under_13_and_unknown_age_cannot_accept_or_complete_existing_identity(): void
+    {
+        $invite = $this->issue(); $token = $this->deliver($invite);
+        foreach ([now()->subYears(12)->toDateString(), null, now()->addDay()->toDateString()] as $born) {
+            $this->player->player->update(['born_date' => $born]);
+            $this->rejects(fn () => $this->accept($invite, $token));
+            $this->assertNull($this->player->fresh()->password);
+            $this->assertNull($invite->fresh()->accepted_at);
+        }
+        $this->player->player->update(['born_date' => now()->subYears(13)->toDateString()]);
+        $this->assertSame('player', $this->accept($invite, $token));
+    }
+
+    public function test_queued_invitation_respects_pilot_global_and_category_controls(): void
+    {
+        $invite = $this->issue();
+        foreach (['enabled','send_enabled','categories.invitations'] as $gate) {
+            config(['communications.'.$gate => false]);
+            (new SendTeamInvitation($invite->id, 1))->handle(app(InvitationService::class));
+            Notification::assertNothingSent();
+            $this->assertSame('queued', $invite->fresh()->delivery_status);
+            config(['communications.'.$gate => true]);
+        }
+        config(['communications.pilot_mode' => true, 'communications.pilot_allowlist' => []]);
+        (new SendTeamInvitation($invite->id, 1))->handle(app(InvitationService::class));
+        Notification::assertNothingSent();
+        config(['communications.pilot_allowlist' => [strtolower($invite->email)]]);
+        $this->deliver($invite);
+        Notification::assertCount(1);
+    }
+
+    public function test_worker_suppresses_removed_or_now_underage_player(): void
+    {
+        $invite = $this->issue();
+        PlayerTeam::where('user_id', $this->player->id)->update(['actual' => false]);
+        (new SendTeamInvitation($invite->id, 1))->handle(app(InvitationService::class));
+        Notification::assertNothingSent();
+        $this->assertSame('invitation_unavailable', $invite->fresh()->failure_code);
+        PlayerTeam::where('user_id', $this->player->id)->update(['actual' => true]);
+        $this->travel(2)->minutes();
+        $this->player->player->update(['born_date' => now()->subYears(12)->toDateString()]);
+        $this->rejects(fn () => app(InvitationService::class)->manage($this->coach, $invite->id, true));
+    }
+
+    public function test_expiry_does_not_change_on_delivery_or_acceptance_and_resend_renews_it(): void
+    {
+        $invite = $this->issue(); $original = $invite->expires_at->toDateTimeString();
+        $this->travel(2)->minutes(); $this->deliver($invite);
+        $this->assertSame($original, $invite->fresh()->expires_at->toDateTimeString());
+        $this->travel(2)->minutes();
+        $resent = app(InvitationService::class)->manage($this->coach, $invite->id, true);
+        $renewed = $resent->expires_at->toDateTimeString();
+        $this->assertNotSame($original, $renewed);
+        Notification::fake(); $token = $this->deliver($resent);
+        $this->assertSame($renewed, $resent->fresh()->expires_at->toDateTimeString());
+        $this->accept($resent, $token);
+        $this->assertSame($renewed, $resent->fresh()->expires_at->toDateTimeString());
+    }
+
+    public function test_email_over_storage_limit_returns_validation_error(): void
+    {
+        Sanctum::actingAs($this->coach, ['coach']);
+        $email = str_repeat('a', 60).'@'.str_repeat('b',60).'.'.str_repeat('c',60).'.example.com';
+        $this->postJson('/api/coach/teams/'.$this->team->id.'/invitations', ['role'=>'coach','email'=>$email])->assertUnprocessable();
+        Notification::assertNothingSent();
+    }
+
 }

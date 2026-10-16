@@ -20,7 +20,7 @@ return new class () extends Migration {
             $table->unsignedInteger('generation')->default(1);
             $table->string('delivery_status', 30)->default('queued');
             $table->string('failure_code')->nullable();
-            $table->timestamp('expires_at');
+            $table->dateTime('expires_at');
             $table->timestamp('sent_at')->nullable();
             $table->timestamp('accepted_at')->nullable();
             $table->timestamp('email_verified_at')->nullable();

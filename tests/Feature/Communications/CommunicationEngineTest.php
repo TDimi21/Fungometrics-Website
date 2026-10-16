@@ -24,6 +24,7 @@ class CommunicationEngineTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['communications.pilot_mode' => false, 'communications.categories' => array_fill_keys(['invitations','workouts','assessments','development_plans','weekly_reports','team_announcements','billing','welcome'], true)]);
         Mail::fake();
         Notification::fake();
         Queue::fake();
@@ -357,6 +358,29 @@ class CommunicationEngineTest extends TestCase
         $lines = app(\App\Services\Communications\WeeklyProgressContent::class)->build($this->player->id, $this->team->id, '2026-10-12');
         $this->assertStringContainsString('80 mph across 1 readings', implode(' ', $lines));
         $this->assertStringContainsString('change +10.0 mph', implode(' ', $lines));
+    }
+
+    public function test_queued_delivery_rechecks_pilot_and_category_then_can_be_released(): void
+    {
+        $this->assign($this->plan()); $this->process();
+        config(['communications.categories.workouts'=>false]); $this->send(); Notification::assertNothingSent();
+        $this->assertSame('pending', CommunicationDelivery::first()->status);
+        config(['communications.categories.workouts'=>true,'communications.pilot_mode'=>true,'communications.pilot_allowlist'=>[]]);
+        $this->send(); Notification::assertNothingSent();
+        config(['communications.pilot_allowlist'=>[strtolower($this->player->email)]]);
+        $this->send(); $this->send(); Notification::assertCount(1);
+    }
+
+    public function test_dispatch_skips_disallowed_backlog_before_applying_limit(): void
+    {
+        $this->assign($this->plan()); $this->process();
+        $blocked=CommunicationDelivery::first();
+        $blocked->update(['event_type'=>'CoachRegistered']);
+        $allowed=$blocked->replicate(['id','dedupe_key']);
+        $allowed->dedupe_key=hash('sha256','allowed');$allowed->event_type='WorkoutAssigned';$allowed->save();
+        config(['communications.categories.welcome'=>false]);
+        $this->artisan('fmtrx:communications-dispatch',['--limit'=>1])->assertSuccessful();
+        Queue::assertPushed(SendCommunicationDelivery::class, fn($job)=>$job->deliveryId===$allowed->id);
     }
 
 }

@@ -1,0 +1,171 @@
+FMTRX Communications — Phase 2 Release Blocker Repairs
+2026-10-16 | fungoweb, existing main | local changes only
+
+Status
+------
+The confirmed code blockers have been repaired and tested locally. This is NOT approval for live activation. Production worker/config/schema verification and browser/device acceptance remain outstanding. No commit, push, deployment, production migration, real email or secret change was performed.
+This document supersedes conflicting repair/migration/activation instructions in communications-production-readiness.txt and the two implementation documents. The earlier audit is retained as historical evidence. Its production preflight, Supervisor rendering/install instructions and device checklist remain applicable with the changes below.
+
+Exact database defect and repair
+--------------------------------
+MariaDB 10.1.48 with explicit_defaults_for_timestamp=OFF implicitly converted the original expires_at TIMESTAMP into DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP. Updating delivery_status shortened an invitation's expiry to send time.
+The original creation migration now uses DATETIME. A NEW additive migration, 2026_10_16_200000_fix_team_invitation_expiry.php, changes already-installed expires_at columns to DATETIME NOT NULL. It preserves all stored values, including already-shortened expiry; it does not revive tokens. Affected expired invitations need an authorized explicit resend after review. down() intentionally retains the safe type.
+There are now FOUR communications migration files, not three. The three base migrations still create five tables; the fourth corrects expiry. On previously migrated databases only the pending correction is required. Never fake migration history or regenerate queue tables.
+
+Pilot controls and queue behavior
+---------------------------------
+Both SendTeamInvitation and SendCommunicationDelivery check the global engine, global send flag, category, and current normalized recipient allowlist immediately before dispatching a notification. Invitation workflow and weekly-generation flags are additional gates. Disabled jobs leave their pending ledger state intact and send nothing. Existing authentication/password-reset emails are outside these controls and remain unchanged.
+The outbox dispatcher filters disabled categories and recipients BEFORE applying its batch limit, preventing disabled backlog from starving the pilot. ProcessCommunicationEvent and SendCommunicationDelivery now use unique queue locks (one-hour lease); existing database unique keys and transactional checks remain the final deduplication protections. Use a persistent cache shared by the relevant workers. A provider call is not an exactly-once transaction: sending/unconfirmed records require provider review rather than blind retry.
+Paused outbox deliveries can be picked up by polling after reactivation. A paused invitation job has been consumed and requires a deliberate reviewed resend; it is not automatically replayed. Review all pending records before activating a category. An in-flight transport request cannot be recalled. Long-running workers must be restarted after configuration changes; flags are not a remote live cancellation service.
+
+Environment defaults (no secret values)
+---------------------------------------
+FMTRX_FRONTEND_URL=https://app.fmtrx.com
+FMTRX_COMMUNICATIONS_ENABLED=false
+FMTRX_COMMUNICATIONS_SEND_ENABLED=false
+FMTRX_INVITATIONS_ENABLED=false
+FMTRX_WEEKLY_REPORTS_ENABLED=false
+FMTRX_EMAIL_PILOT_MODE=true
+FMTRX_EMAIL_PILOT_ALLOWLIST=
+FMTRX_INVITATION_EMAILS_ENABLED=false
+FMTRX_WORKOUT_EMAILS_ENABLED=false
+FMTRX_ASSESSMENT_EMAILS_ENABLED=false
+FMTRX_DEVELOPMENT_EMAILS_ENABLED=false
+FMTRX_WEEKLY_EMAILS_ENABLED=false
+FMTRX_ANNOUNCEMENT_EMAILS_ENABLED=false
+FMTRX_BILLING_EMAILS_ENABLED=false
+FMTRX_WELCOME_EMAILS_ENABLED=false
+
+Allowlist is comma-separated exact email addresses, case/whitespace normalized. No wildcard matching; an empty list in pilot mode permits nobody. It is a delivery restriction, not a prohibition on storing events or coach-managed profiles.
+After SEPARATE pilot approval: set only engine, send, invitation workflow and invitation-email flags true, retain pilot mode true and populate approved test addresses. Leave every other category and weekly flag false. Weekly later requires both weekly flags plus each recipient's existing opt-in. Welcome is separately off. Do not enable all categories as a shortcut.
+
+Authentication and account continuity
+--------------------------------------
+An allowlisted relative destination, including permitted date/plan/assessment parameters, survives SPA sign-in in sessionStorage for up to 30 minutes. External/protocol-relative paths, unapproved pages/parameters, fragments, whitespace and token parameters are rejected. Existing role/resource authorization still applies after navigation.
+Invitation token stays in module memory only through SPA sign-in; the fragment is stripped from history. It is never persisted in sessionStorage/localStorage. A hard refresh or a different browser requires reopening the email. Player and coach login links return to acceptance. Pending invitations divert ordinary registration links back to acceptance so a placeholder athlete is completed in place instead of being independently registered again. New coaches use existing inline invitation creation. Existing/new player registration login destinations use the same helper.
+The current invitation flow has no separate mandatory email-verification route to bridge; possession of the invitation is checked by existing acceptance. This repair does not bypass or add authentication verification rules. Any future full-page verification flow needs its own safe continuation design.
+Twelve frontend tests cover safe destination retention/consumption, rejection of unsafe inputs, expiration, storage failures, and in-memory token continuity. PHP tests cover expired/revoked/rotated invitations, identity safeguards and preservation of historical player records. These are automated checks, NOT a completed browser/device journey.
+
+Youth restrictions
+------------------
+The existing Player.born_date is the source of age. Under-13 players cannot be invited, resent, sent a queued invitation, or accept an invitation until an approved guardian workflow exists. Missing/invalid/future DOB also blocks invitation eligibility pending coach review. A player exactly 13 is eligible under this technical gate; 13–17 is not treated as under 13. Coach profile creation/management is unchanged.
+No guardian account/link/verified-consent policy was found or added. No checkbox was added. Before under-13 invitation activation, define guardian identity verification, relationship/access permissions, consent evidence/revocation, parent access/deletion, and applicable regional policy with the responsible owners. The age gate is not a claim that the entire application meets all youth privacy obligations. Existing general registration and historical accounts were not reworked by this focused repair.
+
+Other corrections
+-----------------
+Invitation API/UI email limits now match existing VARCHAR(191) storage; overlong addresses fail validation. Send-time eligibility rechecks player account status, email, active roster membership and age; coach invitations recheck known target accounts. Stale invitations are suppressed and explicit resend revalidates eligibility. Coach UI explains disabled/pilot sending and DOB requirements. One account-data console log was removed from login.
+
+Validation
+----------
+Laravel 9.52.21; Composer PHP constraint ^8.1; local PHP 8.2.30. No Laravel/Symfony/Composer dependency change.
+PASS: full PHP suite, 1,101 tests / 9,582 assertions.
+PASS: frontend suite, 328 tests / 56 files.
+PASS: Composer validate --no-check-publish and dump-autoload -o; no PSR-4 skipped classes.
+PASS: production frontend build; existing approximately 501 KiB ApexCharts chunk warning remains nonblocking.
+PASS: actual MariaDB 10.1.48 communications feature suite, 53 tests / 243 assertions. RefreshDatabase ran repository migrations against a disposable local database.
+PASS: dedicated MariaDB 10.1.48 migration rehearsal, 10 checks, explicit_defaults_for_timestamp=OFF. Three base migrations create all five tables; fresh DATETIME; delivery/resend/acceptance preserve expiry; legacy-schema corrective migration preserves every stored attribute; active/expired/revoked/accepted states remain stable; rerun/down never restores the unsafe type.
+Mail/notification/queue fakes prevent real delivery. Local test containers are disposable; no production database clone or live server was used. An initial test attempt before the container was ready failed to connect; the completed run after readiness passed. Production's exact PHP/DB configuration is still unverified.
+
+Reproduce (local only)
+----------------------
+php -d memory_limit=768M vendor/bin/phpunit
+npm test
+composer validate --no-check-publish
+composer dump-autoload -o
+npm run build
+
+Use an isolated local MariaDB 10.1.48 server with legacy defaults OFF and disposable databases, never a production connection:
+DB_HOST=127.0.0.1 DB_PORT=33318 DB_DATABASE=fmtrx_mariadb_101_test DB_USERNAME=root DB_PASSWORD='' DB_SOCKET='' DATABASE_URL='' php -d memory_limit=768M vendor/bin/phpunit --filter=Communications
+APP_ENV=testing DB_HOST=127.0.0.1 DB_PORT=33318 DB_DATABASE=fmtrx_communications_rehearsal DB_USERNAME=root DB_PASSWORD='' DB_SOCKET='' DATABASE_URL='' php tests/compatibility/communications_mariadb.php
+The standalone harness requires an EMPTY database with that exact name and checks engine/version. It is intentionally unsuitable for production. Recreate only this disposable database between runs. It exits nonzero on failure.
+
+Approved-release deployment sequence — instructions only, NOT executed
+-----------------------------------------------------------------------
+1. Complete the read-only production preflight in communications-production-readiness.txt. Record database VERSION(), timestamp defaults, SHOW CREATE TABLE team_invitations if present, migration status, jobs table state, PHP handler, existing worker/cron ownership and persistent cache. Review all pending migrations. Back up database, code and configuration using Plesk; verify restore access. Obtain approval for the reviewed release artifact.
+2. Install that approved artifact through the normal release process. As the application owner:
+   cd ~/app.fmtrx.com
+   export FMTRX_ROOT="$(pwd -P)"
+   export FMTRX_APP_USER="$(id -un)"
+   export FMTRX_PHP=/opt/plesk/php/8.2/bin/php
+   test -x "$FMTRX_PHP"
+   "$FMTRX_PHP" -v
+Only use that PHP path if preflight confirms it exists and is the correct domain runtime. Resolve the actual Composer PHP entrypoint if command -v composer is a wrapper:
+   "$FMTRX_PHP" "$(command -v composer)" install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+   "$FMTRX_PHP" "$(command -v composer)" validate --no-check-publish
+   "$FMTRX_PHP" "$(command -v composer)" check-platform-reqs --no-dev
+   npm ci
+   npm run build
+Use a reviewed prebuilt frontend artifact if the host lacks the compatible Node toolchain. Do not run composer update.
+3. Securely set all communications flags to the OFF defaults above; pilot mode true/allowlist empty. Retain the existing Resend secret and sender configuration. Set QUEUE_CONNECTION=database, APP_DEBUG=false, TELESCOPE_ENABLED=false and CLOCKWORK_ENABLE=false; retain a persistent working cache. Do not print secrets or replace the full .env.
+4. Stop any existing dedicated communications worker during the approved migration window:
+   sudo supervisorctl stop 'fmtrx-communications:*'
+Skip this stop command only if preflight confirms no such worker exists. Do not kill unrelated workers blindly. Apply reviewed migrations and cached configuration:
+   "$FMTRX_PHP" artisan migrate:status
+   "$FMTRX_PHP" artisan config:clear
+   "$FMTRX_PHP" artisan migrate --force
+   "$FMTRX_PHP" artisan config:cache
+   "$FMTRX_PHP" artisan migrate:status
+   "$FMTRX_PHP" artisan queue:restart
+Verify expires_at is DATETIME without ON UPDATE, invitation counts/states match preflight, and all FOUR migration rows are present. Do not use migrate:fresh or arbitrary rollback.
+5. Render/install deploy/communications/supervisor.conf.example using the exact commands in the prior audit with the verified FMTRX_ROOT/APP_USER/PHP values above. It provides separate communications/default workers, timeout 60 < retry_after 90. Have the IONOS/Plesk administrator install Supervisor if absent. Keep only ONE worker manager; review pre-existing default-queue jobs because changing sync affects them too.
+   sudo supervisorctl reread
+   sudo supervisorctl update
+   sudo supervisorctl start 'fmtrx-communications:*'
+   sudo supervisorctl status 'fmtrx-communications:*' 'fmtrx-default:*'
+   "$FMTRX_PHP" artisan queue:restart
+Use ONE every-minute scheduler via the existing Plesk scheduled task or deploy/communications/scheduler.cron.example, with verified absolute PHP/application paths and application user. Do not duplicate Toolkit scheduling or overwrite unrelated cron tasks.
+   "$FMTRX_PHP" artisan schedule:list
+   "$FMTRX_PHP" artisan fmtrx:communications-dispatch --dry-run
+   "$FMTRX_PHP" artisan fmtrx:weekly-progress --dry-run
+These should report disabled. Do not run schedule:run as an email-only test: it also runs other application tasks.
+6. Smoke-test existing login, roster/history, assessments and RevenueCat behavior with automated mail OFF. Complete browser/device checks below before separately approved pilot activation. After every approved flag change:
+   "$FMTRX_PHP" artisan config:cache
+   "$FMTRX_PHP" artisan queue:restart
+Verify supervised processes restart and load the new configuration. Review ledger backlog before enabling each category.
+
+Rollback / emergency stop
+-------------------------
+Stop dedicated communications workers first for immediate containment:
+   sudo supervisorctl stop 'fmtrx-communications:*'
+Set global send/engine and all category flags false. Disable invitation workflow too if acceptance itself needs pausing; otherwise a send-only stop can leave already-issued valid acceptance available.
+   "$FMTRX_PHP" artisan config:cache
+   "$FMTRX_PHP" artisan queue:restart
+An in-flight email cannot be recalled. Preserve queue payloads and delivery records; do not queue:flush or blind-retry unknown provider outcomes. Restore the prior approved code artifact only after checking queued class compatibility; keep communications workers stopped if it lacks these classes. Keep additive tables and the DATETIME correction. Do not run migrate:rollback: it can delete invitations/preferences/outbox history. Do not undo accepted account links or delete player records. Full database restore is a separately approved recovery decision because it loses intervening data. Review paused invitations for explicit resend and pending outbox for eligibility before reactivation.
+
+Remaining activation gates
+--------------------------
+- Production schema/config/PHP/worker/scheduler/cache verification, backups and migration approval.
+- Browser/device acceptance on iPhone Safari, Android Chrome, desktop and email in-app browser: logged-out/signed-in destinations, wrong identity, new placeholder completion, new/existing assistant, expired/revoked/rotated links, hard-refresh recovery, under-13/unknown DOB rejection, history IDs unchanged, role/permission denial.
+- Approved pilot: exact-recipient restrictions; each category OFF; disable-after-queue drill; real asynchronous processing/restarts; duplicate scheduler/webhook retry and preference opt-out; verify provider outcome before any retry. No live email tests have been performed.
+- Guardian/verified-consent workflow before enabling under-13 invitations; broader youth policy review remains separate.
+Nonblocking: provider delivery/bounce observability, UI pagination, supported database/OS upgrade planning, production database CI matrix, existing ApexCharts chunk warning. No new dashboard or billing feature scope was added.
+
+Files changed by this repair
+---------------------------
+- .env.example
+- app/Console/Commands/DispatchCommunications.php
+- app/Http/Controllers/Api/Communications/InvitationController.php
+- app/Jobs/ProcessCommunicationEvent.php
+- app/Jobs/SendCommunicationDelivery.php
+- app/Jobs/SendTeamInvitation.php
+- app/Services/Communications/CommunicationDeliveryPolicy.php
+- app/Services/Communications/InvitationEligibility.php
+- app/Services/Communications/InvitationService.php
+- config/communications.php
+- database/migrations/2026_10_16_180000_create_team_invitations_table.php
+- database/migrations/2026_10_16_200000_fix_team_invitation_expiry.php
+- resources/js/components/login/LoginTemplate.vue
+- resources/js/pages/communications/AcceptInvitation.vue
+- resources/js/pages/communications/TeamCommunications.vue
+- resources/js/pages/register/Player.vue
+- resources/js/utils/communicationDestination.js
+- resources/router/index.js
+- tests/Feature/Communications/CommunicationDeliveryPolicyTest.php
+- tests/Feature/Communications/CommunicationEngineTest.php
+- tests/Feature/Communications/TeamInvitationsTest.php
+- tests/compatibility/communications_mariadb.php
+- tests/frontend/communicationDestination.spec.js
+- docs/communications-release-repairs.txt (this report)
+- docs/communications-production-readiness.txt (supersession notice)
+- docs/communications-phase-2.txt (supersession notice)
+- docs/communications-phase-2c-2j.txt (supersession notice)

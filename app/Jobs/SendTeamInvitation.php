@@ -40,6 +40,7 @@ class SendTeamInvitation implements ShouldQueue
             if ( ! $invite || $invite->generation !== $this->generation || 'pending' !== $invite->state() || 'queued' !== $invite->delivery_status) {
                 return null;
             }
+            if (!app(\App\Services\Communications\CommunicationDeliveryPolicy::class)->allows('invitations', $invite->email)) return null;
             $actor = User::find($invite->invited_by);
             $team = Team::find($invite->team_id);
             try {
@@ -48,6 +49,7 @@ class SendTeamInvitation implements ShouldQueue
                 }
                 $service->authorize($actor, $team->id, 'coach' === $invite->role);
                 $service->frontendUrl();
+                app(\App\Services\Communications\InvitationEligibility::class)->assertAvailable($invite);
             } catch (Throwable) {
                 $invite->update(['delivery_status' => 'failed','failure_code' => 'invitation_unavailable']);
                 return null;

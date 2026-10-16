@@ -44,10 +44,12 @@ class InvitationService
             Team::query()->lockForUpdate()->findOrFail($teamId);
             $this->authorize($actor, $teamId, 'coach' === $data['role']);
             $email = mb_strtolower(trim($data['email']));
+            if (strlen($email) > 191) $this->invalid('Email must not exceed 191 characters.');
             $user = null;
             if ('player' === $data['role']) {
                 $user = User::query()->lockForUpdate()->findOrFail($data['user_id'] ?? '');
                 abort_unless('player' === $user->type && $user->status && PlayerTeam::where('team_id', $teamId)->where('user_id', $user->id)->where('actual', true)->exists(), 404);
+                app(InvitationEligibility::class)->assertPlayerAge($user);
                 // A coach cannot redirect an existing account's invitation to another mailbox.
                 if (filled($user->email) && mb_strtolower($user->email) !== $email) {
                     $this->invalid('Use the email already recorded on this player account.');
@@ -101,6 +103,7 @@ class InvitationService
                 $this->invalid('Accepted invitations cannot be changed.');
             }
             if ($resend) {
+                app(InvitationEligibility::class)->assertAvailable($invite);
                 $this->frontendUrl();
                 abort_unless(in_array(config('queue.connections.'.config('queue.default').'.driver'), ['database','redis','sqs','beanstalkd'], true), 503, 'An asynchronous queue is required.');
                 if ('revoked' === $invite->state()) {
@@ -151,6 +154,7 @@ class InvitationService
                 $this->invalid('This account is no longer available.');
             }
             if ($user) {
+                if ($invite->role === 'player') app(InvitationEligibility::class)->assertPlayerAge($user);
                 if ( ! $user->status || $user->type !== $invite->role || (filled($user->email) && mb_strtolower($user->email) !== $invite->email)) {
                     $this->invalid('This account needs review.');
                 }

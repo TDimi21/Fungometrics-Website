@@ -1,3 +1,4 @@
+import { rememberCommunicationDestination, consumeCommunicationDestination, pendingCommunicationDestination } from '../js/utils/communicationDestination.js';
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../js/store/auth";
 import { useUserStore } from "../js/store/user";
@@ -516,10 +517,12 @@ router.beforeEach(async (to) => {
 	const isAuthenticated = syncAuthFromToken();
 	const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
 	const isGuestRoute = to.matched.some((record) => record.meta.guest);
+    if (to.path.startsWith('/register') && pendingCommunicationDestination() === '/invitations/accept') return '/invitations/accept';
 	const { userData } = useUserStore();
 	const isAdmin = canManageSubscriptions(userData);
 
 	if (requiresAuth && !isAuthenticated) {
+        rememberCommunicationDestination(to.fullPath);
 		return "/";
 	}
 
@@ -528,6 +531,7 @@ router.beforeEach(async (to) => {
 	}
 
 	if (isGuestRoute && isAuthenticated) {
+        if (!isAdmin && pendingCommunicationDestination()) return consumeCommunicationDestination('/player-dashboard');
 		if (isAdmin) return '/admin';
 		return userData.type === "coach" ? "/dashboard" : "/player-dashboard";
 	}

@@ -1,3 +1,5 @@
+UPDATE 2026-10-16: Read communications-release-repairs.txt for the completed blocker repairs, FOUR-migration release sequence, new pilot/category defaults and under-13 invitation restriction. The content below is historical; conflicting deployment/activation instructions are superseded. Live activation remains gated on production and device verification.
+
 CURRENT RELEASE STATUS (2026-10-16): See communications-production-readiness.txt for the reconciled audit, release blockers and deployment procedure. The implementation/testing history below is retained; it is not production approval. Phase 2 has THREE migrations across 2B and 2C–2J. Keep all delivery flags disabled pending the readiness checklist.
 
 FMTRX Communications Phase 2A / 2B — review package

@@ -20,7 +20,15 @@ class DispatchCommunications extends Command
         }
         $limit = max(1, min(1000, (int)$this->option('limit')));
         $events = CommunicationEvent::whereNull('processed_at')->where('attempts', '<', 5)->orderBy('created_at')->limit($limit)->pluck('id');
-        $deliveries = CommunicationDelivery::where('status', 'pending')->orderBy('created_at')->limit($limit)->pluck('id');
+        $policy = app(\App\Services\Communications\CommunicationDeliveryPolicy::class);
+        $types = array_filter(array_merge(array_keys(\App\Services\Communications\CommunicationContent::CATEGORIES), ['CoachRegistered','SubscriptionStatusChanged']),
+            fn ($event) => config('communications.categories.'.$policy->category($event), false)
+                && ($event !== 'WeeklyProgressReady' || config('communications.weekly_enabled')));
+        $query = CommunicationDelivery::where('status', 'pending')->whereIn('event_type', $types);
+        if (config('communications.pilot_mode', true)) {
+            $query->whereIn('recipient_id', \App\Models\User::whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(TRIM(email))'), config('communications.pilot_allowlist', []))->select('id'));
+        }
+        $deliveries = $query->orderBy('created_at')->limit($limit)->pluck('id');
         $this->info($events->count().' events; '.$deliveries->count().' pending deliveries.');
         if($this->option('dry-run')) {
             return self::SUCCESS;
