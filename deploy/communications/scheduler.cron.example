@@ -1,0 +1,3 @@
+# Install as the application user, once only. Do not duplicate Plesk Toolkit scheduling.
+# Use real absolute paths, not ~. Arrange rotation of scheduler.log.
+* * * * * cd __APP_ROOT__ && __PHP_BINARY__ artisan schedule:run >> __APP_ROOT__/storage/logs/scheduler.log 2>&1

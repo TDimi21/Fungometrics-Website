@@ -1,3 +1,5 @@
+CURRENT RELEASE STATUS (2026-10-16): See communications-production-readiness.txt for the reconciled audit, release blockers and deployment procedure. The implementation/testing history below is retained; it is not production approval. Phase 2 has THREE migrations across 2B and 2C–2J. Keep all delivery flags disabled pending the readiness checklist.
+
 FMTRX Communications Phase 2A / 2B — review package
 ==================================================
 Work performed directly on existing main. No new branch/worktree, commit, push, deployment or live email.

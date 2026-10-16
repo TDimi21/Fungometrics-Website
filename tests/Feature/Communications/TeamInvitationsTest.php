@@ -76,11 +76,23 @@ class TeamInvitationsTest extends TestCase
         $detail = $this->player->player->getAttributes();
         $history = \App\Models\PlayerFitness::factory()->create(['user_id' => $this->player->id]);
         $before = $history->fresh()->getAttributes();
+        // Acceptance must preserve actual training and assessment foreign keys, not just the roster.
+        $practice = \App\Models\Practice::factory()->create(['team_id' => $this->team->id, 'user_id' => $this->player->id]);
+        $result = \App\Models\BullpenPracticeResult::factory()->create(['practice_id' => $practice->id, 'team_id' => $this->team->id, 'pitcher_id' => $this->player->id]);
+        $assessment = \App\Models\PlayerAssessment::create(['team_id' => $this->team->id, 'user_id' => $this->player->id, 'assessed_by' => $this->coach->id, 'type' => 'strength', 'assessment_date' => now()->toDateString(), 'bench_lbs' => 100]);
+        $plan = \App\Models\DailyPlan::create(['id' => (string) \Illuminate\Support\Str::uuid(), 'team_id' => $this->team->id, 'created_by' => $this->coach->id, 'name' => 'Historical plan', 'date' => now()->toDateString(), 'status' => 'published', 'version' => 1, 'buckets' => []]);
+        $assignment = \App\Models\DailyPlanAssignment::create(['plan_id' => $plan->id, 'user_id' => $this->player->id]);
+        $progress = \App\Models\DailyPlanProgress::create(['plan_id' => $plan->id, 'user_id' => $this->player->id, 'readiness' => ['energy' => 4], 'items' => [], 'reflection' => ['comments' => 'Recorded before invitation'], 'completed_at' => now()]);
+        $records = [$practice, $result, $assessment, $plan, $assignment, $progress, PlayerTeam::where('user_id', $this->player->id)->firstOrFail()];
+        $snapshots = array_map(fn ($row) => $row->fresh()->getAttributes(), $records);
         $users = User::count();
         $invite = $this->issue();
         $token = $this->deliver($invite);
         $this->assertSame('player', $this->accept($invite, $token));
         $this->assertSame($users, User::count());
+        foreach ($records as $index => $record) {
+            $this->assertSame($snapshots[$index], $record->fresh()->getAttributes(), get_class($record).' changed during acceptance');
+        }
         $this->assertSame($profile, $this->player->profile->fresh()->getAttributes());
         $this->assertSame($detail, $this->player->player->fresh()->getAttributes());
         $this->assertSame($before, $history->fresh()->getAttributes());
