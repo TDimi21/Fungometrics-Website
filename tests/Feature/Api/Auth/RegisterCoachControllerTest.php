@@ -43,6 +43,8 @@ class RegisterCoachControllerTest extends TestCase
         $this->assertEquals($data_response->data->profile->first_name, $data['profile']['name']['first']);
         $this->assertEquals($data_response->data->profile->last_name, $data['profile']['name']['last']);
         $this->assertNotNull($data_response->data->token);
+        // Legacy self-registration authenticates a coach with the default status=0.
+        $this->assertFalse(User::findOrFail($data_response->data->user->id)->status);
     }
 
     public function test_register_coach_validation_fail(): void

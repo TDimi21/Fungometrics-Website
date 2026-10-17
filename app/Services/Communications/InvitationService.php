@@ -20,7 +20,16 @@ class InvitationService
 
     public function authorize(User $actor, string $teamId, bool $coachInvite = false): void
     {
-        abort_unless($actor->status && 'coach' === $actor->type && CoachUtils::isCoachOnTeam($actor->id, $teamId), 403, 'An active coach account with access to the selected team is required.');
+        // Self-registration leaves status=0 and still authenticates the coach.
+        // Status is not a suspension flag. Require a current, non-deleted coach
+        // record and live team membership, including for queued invitation jobs.
+        abort_unless(
+            !$actor->trashed() && 'coach' === $actor->type
+            && User::query()->whereKey($actor->id)->where('type', 'coach')->exists()
+            && CoachUtils::isCoachOnTeam($actor->id, $teamId),
+            403,
+            'A coach account with access to the selected team is required.'
+        );
         if ($coachInvite) {
             abort_unless(CoachUtils::isHeadCoach($actor->id, $teamId), 403, 'Only the head coach can invite coaches.');
         }

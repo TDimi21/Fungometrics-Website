@@ -1,0 +1,106 @@
+FMTRX coach status authorization audit — 2026-10-16
+Existing fungoweb/main. No branch/worktree, commit/push, deployment, migration,
+production access, bulk update, account activation or live emails performed.
+
+ROOT CAUSE
+users.status is not a reliable active/inactive or verified/unverified flag for
+legacy COACH accounts. The original users migration defaults it to false.
+AuthUtils::saveUser, called by RegisterCoachController, never sets it, yet creates
+a password, team membership and coach token. The same behavior exists in initial
+commit 34bb6a6. AuthUtils::authCredentials uses email/password (or phone fallback)
+without a status condition. A status-0 coach can log in normally and use team
+endpoints. CompleteCoachController also does not set status when finishing a
+coach profile. No mandatory email-verification step sets it to true.
+
+Other creation paths (CoachUtils::saveNewUser, newer invitation-created coaches)
+explicitly set true. Thus 0 versus 1 partly reflects creation path, not a single
+documented permission/verification state. Status false is ALSO written during
+account deletion, but deletion additionally revokes tokens, removes memberships,
+anonymizes credentials and soft-deletes the user. Soft deletion, not status alone,
+is the durable deleted-account distinction.
+
+The new InvitationService::authorize imposed actor.status=true on top of coach
+role/team membership. AddPlayers calls that service before saving even when no
+invitation is requested. This newly excluded valid self-registered coaches,
+producing the production 403 for the reported status-0 head coach. Prior generic
+403 investigation could not distinguish the predicates; the supplied production
+status evidence now identifies the mismatch. Production counts (145 total, 101
+zero, 44 one) are user-supplied findings, not independently queried in this audit.
+The earlier description of all status-0 coaches as 'inactive' was incorrect.
+
+Verification, authentication, membership are separate:
+- Authentication: valid password/session/token and existing non-deleted user.
+- Authorization: coach role, live coach_teams relationship; is_main for operations
+  requiring head coach. Player capacity limits are separately enforced.
+- Invitation mailbox proof: matching email and one-time secret, recorded on the
+  invitation. Does not globally reinterpret users.status or establish guardian
+  consent. Status alone is not verified email evidence.
+
+SMALLEST CORRECTION
+InvitationService::authorize now requires:
+- actor is not soft-deleted and is a coach;
+- fresh default-scoped User query still finds that coach record;
+- existing non-deleted coach-team membership;
+- existing head-coach requirement when inviting another coach.
+The fresh query rejects stale actor objects after deletion or role changes,
+including queued invitation work. It does not rely on changing users.status.
+Existing auth:sanctum and ability:coach route checks, team scope, player limits,
+recipient eligibility, guardian/DOB gates and email switches remain in force.
+Authorization denial wording no longer falsely asks for an 'active' status flag.
+The scoped audit middleware no longer mislabels status-0 accounts as inactive.
+
+This fixes acting-coach authorization for player creation and the shared
+invitation operations. It does NOT broaden player eligibility or alter separate
+invitation-recipient status checks. Existing coach recipients with status=0 may
+still require a separately reviewed recipient-policy correction; no broad change
+to claim acceptance or automated delivery was bundled into this creation fix.
+
+SAFE HANDLING OF LEGACY ACCOUNTS
+Do not bulk-flip the 101 status-0 accounts or change registration defaults to mask
+the regression. Both would leave historical access semantics inconsistent.
+Allow authenticated, non-deleted coaches with valid team membership to perform
+existing authorized work regardless of this legacy flag. Unclaimed/passwordless
+accounts gain no session or team rights from this change. Deleted users and
+removed relationships remain denied. No player history is moved or recreated.
+If an administrator previously intended status=0 as a suspension marker, review
+that specific account and its audit evidence: existing login already ignores the
+flag, so it never consistently suspended access. A real suspension feature needs
+explicit semantics and uniform login/session/authorization enforcement in a
+separate approved change. Do not infer suspension or email verification from
+status alone, and do not activate accounts to work around permissions.
+
+TEST EVIDENCE
+Command:
+php -d memory_limit=768M vendor/bin/phpunit --filter='CoachStatusAuthorizationTest|PlayerCreationAuthorizationTest|AddPlayersTest|TeamInvitationsTest|AccountDeletionTest|RegisterCoachControllerTest|LoginControllerTest'
+Final result: PASS — 82 tests, 397 assertions.
+Coverage:
+- Real registration returns a token while persisted coach status remains false.
+- Status 0/1 x head/assistant: actual password login, team GET, own-team creation
+  with invitations disabled, unchanged status, other-team denial, no notification.
+- Cookie-only and empty-Bearer compatibility retained in creation regressions.
+- Removed membership, deleted user with retained old token, and stale in-memory
+  actor after deletion denied. Existing full account-deletion suite also passes.
+- Assistant still cannot invite coaches; player role and capacity limits retained.
+No frontend code changed in this task, so no frontend rebuild/test rerun required.
+No local test result is presented as production verification.
+
+FILES CHANGED
+app/Services/Communications/InvitationService.php
+app/Http/Middleware/AuditPlayerCreationAuthorization.php
+tests/Feature/Api/Coach/CoachStatusAuthorizationTest.php (new)
+tests/Feature/Api/Coach/PlayerCreationAuthorizationTest.php
+tests/Feature/Api/Auth/RegisterCoachControllerTest.php
+docs/coach-status-authorization-audit.txt (new)
+docs/player-creation-403-fix.txt (supersession note only)
+
+RELEASE GUIDANCE (AFTER APPROVAL ONLY)
+Deploy reviewed backend revision through existing process; no schema migration,
+status update, registration change or frontend rebuild needed for this correction.
+Preserve all production communication switches OFF. Restart relevant long-lived
+PHP/queue processes through existing deployment procedure so new authorization
+code is loaded; do not change queue policy or enable sending.
+Verify status-0 Testing Data head coach can add an approved test player with
+send_invitation=false, and actor status remains 0. Confirm wrong-team, removed
+membership and deleted-account requests still reject. No production test player
+was created here. If a denial remains, review the credential-free audit reason
+and actual authenticated role/membership; never disable permission checks.

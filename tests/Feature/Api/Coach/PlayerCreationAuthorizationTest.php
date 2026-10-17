@@ -42,7 +42,7 @@ class PlayerCreationAuthorizationTest extends TestCase
         $this->getJson('/api/coach/teams')->assertOk()->assertJsonPath('data.0.id', $team->id)->assertJsonPath('data.0.id_team', $team->id);
         $count = User::count();
         $this->postJson('/api/coach/add/players', $this->payload($membership->id))
-            ->assertForbidden()->assertJsonPath('message', 'An active coach account with access to the selected team is required.');
+            ->assertForbidden()->assertJsonPath('message', 'A coach account with access to the selected team is required.');
         $this->assertSame($count, User::count());
         Log::shouldHaveReceived('notice')->once()->with('player_creation.authorization_denied', [
             'endpoint' => 'coach/add/players', 'http_status' => 403, 'authenticated' => true, 'actor_role' => 'coach', 'reason' => 'team_membership_required',
@@ -77,11 +77,13 @@ class PlayerCreationAuthorizationTest extends TestCase
         $this->postJson('/api/coach/add/players', $this->payload(Team::factory()->create()->id))->assertForbidden();
     }
 
-    public function test_inactive_member_remains_forbidden(): void
+    public function test_legacy_status_zero_member_can_create_without_activating_account(): void
     {
-        [$team] = $this->coachCookie(false);
+        [$team, $membership] = $this->coachCookie(false);
         $this->getJson('/api/coach/teams')->assertOk();
-        $this->postJson('/api/coach/add/players', $this->payload($team->id))->assertForbidden();
+        $this->postJson('/api/coach/add/players', $this->payload($team->id))->assertOk();
+        $this->assertFalse(User::findOrFail($membership->coach_id)->status);
+        Notification::assertNothingSent();
     }
 
     public function test_invalid_team_input_is_validation_error_not_blank_authorization_error(): void

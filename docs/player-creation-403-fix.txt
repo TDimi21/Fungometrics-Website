@@ -1,3 +1,5 @@
+FOLLOW-UP: Read coach-status-authorization-audit.txt. Legacy coach status=0 is not an inactivity marker; the acting-coach status guard has been corrected without updating any account. Earlier findings below are retained as investigation history.
+
 FMTRX player creation 403 — local correction, 2026-10-16
 fungoweb/main. No branch/worktree, production access, migration, deployment,
 commit/push, configuration change or real email performed.

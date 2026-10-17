@@ -23,7 +23,7 @@ class AuditPlayerCreationAuthorization
                 $response->getStatusCode() === 401 => 'authentication_required',
                 ($body['code'] ?? null) === '016-LIMIT' => 'player_limit',
                 $role !== 'coach' => 'coach_role_required',
-                !$request->user()?->status => 'active_account_required',
+                $request->user()?->trashed() => 'account_deleted',
                 !is_string($request->input('team')) || !\App\Http\Controllers\Api\Coach\CoachUtils::isCoachOnTeam($request->user()->id, $request->input('team')) => 'team_membership_required',
                 default => 'token_ability_or_policy_denied',
             };
