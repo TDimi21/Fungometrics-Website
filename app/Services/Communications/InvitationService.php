@@ -72,8 +72,9 @@ class InvitationService
                 if ($matches->count() > 1) {
                     $this->invalid('This contact needs account review.');
                 }
+                // Legacy coach registration leaves status=0; deletion and role determine availability.
                 $user = $matches->first();
-                if ($user && ($user->trashed() || ! $user->status || 'coach' !== $user->type)) {
+                if ($user && ($user->trashed() || 'coach' !== $user->type)) {
                     $this->invalid('This email cannot be invited as a coach.');
                 }
             }
@@ -176,7 +177,7 @@ class InvitationService
             }
             if ($user) {
                 if ($invite->role === 'player') app(InvitationEligibility::class)->assertPlayerAge($user);
-                if (($invite->role === 'coach' && ! $user->status) || $user->type !== $invite->role || (filled($user->email) && mb_strtolower($user->email) !== $invite->email)) {
+                if ($user->type !== $invite->role || (filled($user->email) && mb_strtolower($user->email) !== $invite->email)) {
                     $this->invalid('This account needs review.');
                 }
                 if ($actor && $actor->id !== $user->id) {

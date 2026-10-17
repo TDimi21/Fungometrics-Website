@@ -1,0 +1,48 @@
+FMTRX legacy coach invitation compatibility fix — 2026-10-16
+
+Confirmed existing main branch, initially clean working tree. No branches or
+worktrees created. No production access or configuration changes.
+
+Cause and correction
+Legacy self-registered coaches authenticate with users.status=0. The existing
+acting-coach authorization already accommodates this, but recipient checks
+still rejected them during issuance, acceptance, and shared delivery/resend
+eligibility. Removed those three recipient-status predicates only.
+
+Changed implementation
+app/Services/Communications/InvitationService.php
+app/Services/Communications/InvitationEligibility.php
+
+Protections retained
+Soft-deleted recipients remain rejected; default User queries exclude them at
+acceptance. Recipient must remain a coach with the matching invitation email.
+Only an authorized team head coach can invite another coach; authorization is
+rechecked during delivery and acceptance. Duplicate email-account detection,
+existing-account password/authenticated ownership, expiring single-use tokens,
+verified-email recording, coach seat limits and assistant-only membership
+creation remain unchanged. No existing account status or password is rewritten
+when an existing password-bearing coach accepts. Player invitation behavior
+and age restrictions are unchanged. No sending switches were changed.
+
+Validation
+Updated tests/Feature/Communications/TeamInvitationsTest.php to exercise both
+coach status values for issuance, fake delivery, resend, acceptance, wrong
+password/account, email/role changes and deletion. Checks preserve original
+user ID/password/status/user count, assistant-only membership, verified-email
+recording and consumed tokens. Existing player, deletion, legacy claim and
+coach authorization tests were also run.
+
+php -d memory_limit=768M vendor/bin/phpunit --filter='TeamInvitationsTest|CoachStatusAuthorizationTest|AccountDeletionTest|PlayerCreationAuthorizationTest|AccountClaimSecurityTest'
+Result: 85 tests, 556 assertions passed. git diff --check passed.
+Mail, notifications and queues were faked. No real emails sent.
+
+Release / pilot
+No migration or production account update is needed. Following an approved
+backend deployment, restart long-lived queue workers to load the correction.
+The player pilot remains separate: verify supervised automatic queue processing
+and configure only the approved fungometrics@gmail.com recipient before any
+approved activation. This audit did not enable sending or change the allowlist.
+No commit, push, deploy or migration was performed.
+
+This supersedes the coach-recipient status checks intentionally left unchanged
+in docs/player-invitation-status-compatibility-audit.txt.

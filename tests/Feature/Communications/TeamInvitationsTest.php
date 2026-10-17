@@ -180,17 +180,69 @@ class TeamInvitationsTest extends TestCase
         $this->rejects(fn () => app(InvitationService::class)->accept(['token' => $token,'email' => $invite->email,'password' => 'WrongPassword'], null));
         $this->assertSame('player', $this->accept($invite, $token));
     }
-    public function test_existing_coach_acceptance_adds_only_assistant_membership(): void
+    /** @dataProvider coachStatuses */
+    public function test_existing_coach_acceptance_adds_only_assistant_membership(bool $status): void
     {
-        $target = User::factory()->create(['type' => 'coach','status' => true,'password' => Hash::make('Password123')]);
+        $target = User::factory()->create(['type' => 'coach','status' => $status,'password' => Hash::make('Password123')]);
+        $users = User::count();
+        $password = $target->password;
         $invite = $this->issue(['role' => 'coach','email' => $target->email]);
         $token = $this->deliver($invite);
+        $this->rejects(fn () => app(InvitationService::class)->accept(['token' => $token, 'email' => $invite->email, 'password' => 'WrongPassword'], null));
+        $this->rejects(fn () => $this->accept($invite, $token, $this->coach));
+        $this->travel(2)->minutes();
+        $invite = app(InvitationService::class)->manage($this->coach, $invite->id, true);
+        $token = $this->deliver($invite);
         $this->accept($invite, $token);
+        $this->assertSame($users, User::count());
+        $this->assertSame($target->id, $invite->fresh()->user_id);
+        $this->assertSame($status, $target->fresh()->status);
+        $this->assertSame($password, $target->fresh()->password);
+        $this->assertNotNull($invite->fresh()->email_verified_at);
+        $this->assertNull($invite->fresh()->token_hash);
+        $this->assertNull($invite->fresh()->claim_code_hash);
         $this->assertTrue(CoachUtils::isCoachOnTeam($target->id, $this->team->id));
         $this->assertFalse(CoachUtils::isHeadCoach($target->id, $this->team->id));
         $this->rejects(fn () => $this->accept($invite, $token));
         $this->assertSame(1, CoachTeam::where('coach_id', $target->id)->count());
     }
+    public static function coachStatuses(): array { return [[false], [true]]; }
+
+    /** @dataProvider coachStatuses */
+    public function test_deleted_coach_recipients_cannot_be_invited_delivered_resent_or_accepted(bool $status): void
+    {
+        $target = User::factory()->create(['type' => 'coach', 'status' => $status, 'password' => Hash::make('Password123')]);
+        $invite = $this->issue(['role' => 'coach', 'email' => $target->email]);
+        $token = $this->deliver($invite);
+        $target->delete();
+        $this->rejects(fn () => $this->issue(['role' => 'coach', 'email' => $target->email]));
+        $this->rejects(fn () => $this->accept($invite, $token));
+        $this->rejects(fn () => app(InvitationService::class)->manage($this->coach, $invite->id, true));
+        Notification::fake();
+        $invite->refresh()->update(['delivery_status' => 'queued']);
+        (new SendTeamInvitation($invite->id, $invite->generation))->handle(app(InvitationService::class));
+        Notification::assertNothingSent();
+        $this->assertSame('invitation_unavailable', $invite->fresh()->failure_code);
+        $this->assertNull($invite->fresh()->accepted_at);
+        $this->assertFalse(CoachTeam::where('coach_id', $target->id)->exists());
+    }
+
+    /** @dataProvider coachStatuses */
+    public function test_coach_recipient_email_and_role_are_revalidated(bool $status): void
+    {
+        $target = User::factory()->create(['type' => 'coach', 'status' => $status, 'password' => Hash::make('Password123')]);
+        $invite = $this->issue(['role' => 'coach', 'email' => $target->email]);
+        $token = $this->deliver($invite);
+        $email = $target->email;
+        foreach ([['email' => 'changed@example.com'], ['email' => $email, 'type' => 'player']] as $changes) {
+            $target->update($changes);
+            $this->rejects(fn () => $this->accept($invite, $token));
+            $this->rejects(fn () => app(InvitationService::class)->manage($this->coach, $invite->id, true));
+        }
+        $this->assertNull($invite->fresh()->accepted_at);
+        $this->assertFalse(CoachTeam::where('coach_id', $target->id)->exists());
+    }
+
     public function test_new_coach_is_created_only_at_acceptance(): void
     {
         $invite = $this->issue(['role' => 'coach','email' => 'new.coach@example.com']);

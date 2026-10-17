@@ -28,7 +28,7 @@ class InvitationEligibility
     {
         if ($invite->role !== 'player') {
             $coach = $invite->user_id ? User::withTrashed()->find($invite->user_id) : User::withTrashed()->whereRaw('LOWER(email) = ?', [$invite->email])->first();
-            if (($invite->user_id && !$coach) || ($coach && ($coach->trashed() || !$coach->status || $coach->type !== 'coach' || strtolower((string) $coach->email) !== $invite->email))) {
+            if (($invite->user_id && !$coach) || ($coach && ($coach->trashed() || $coach->type !== 'coach' || strtolower((string) $coach->email) !== $invite->email))) {
                 throw ValidationException::withMessages(['invitation' => 'This invitation is no longer available.']);
             }
             return;
