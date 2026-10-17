@@ -1,0 +1,84 @@
+FMTRX player-opening 403 investigation — 2026-10-16
+Branch: fungoweb/main. No production access, changes, deployment or commit.
+
+Conclusion
+The reported production root cause is NOT yet established. Current local code
+allows both head and assistant coaches to read claimed and unclaimed players
+on their active roster. New real-bearer-token regression tests confirm both
+fitness and statistics requests succeed with invitations disabled. Do not relax
+authorization or require players to claim their profiles to repair coach access.
+No speculative runtime fix was applied. Exact production failing URL/response
+and deployed artifact evidence are needed to choose the smallest safe fix.
+
+Request trace
+Dashboard Index.vue openPlayerMetricsModal and components/PlayerCard.vue load:
+GET /api/player/fitness/{player-user-uuid}
+GET /api/coach/statistics/{player-user-uuid}
+The user UUID is required, not a profile record ID or invitation ID.
+The Player Development page additionally loads coach team intelligence,
+coach development and fitness endpoints; those include plan-entitlement checks.
+The currently checked-in metrics modal does not show the exact reported generic
+Player Error toast when these reads fail (it catches them). This makes the
+specific screen and deployed frontend revision important; it does not by itself
+prove stale deployment. Similar toast titles exist for save/create flows.
+
+Authorization trace
+Fitness: auth:sanctum + route.scope -> GetFitness -> PlayerMetricsAccess.
+Returns 403 code 040-AUTH if actor is neither target self nor a coach sharing a
+team membership with target. No invitation, password or DOB check on coach read.
+Statistics: auth:sanctum + ability:coach + route.scope -> ScoresStatisticPlayers.
+Coach token ability is required; active shared roster membership is checked.
+Unrelated player scope returns 404 rather than disclosing existence. Neither
+endpoint invokes account.claim middleware or InvitationService.
+Claim-only tokens intentionally cannot access the coach-statistics route.
+Development plan middleware can return 403 with required_entitlement; this is
+separate from invitations and requires correct team/entitlement configuration.
+Do not remove ability checks, broaden self access, or grant shared-team access
+merely from a client-provided team/player ID.
+
+Smallest safe fix depends on observed response
+- 040-AUTH: confirm requested ID is original user UUID; verify authenticated
+  actor and legitimate coach/team membership. Correct wrong client ID selection
+  or verified roster inconsistency; do not grant unrelated coaches access.
+- Ability denial on coach/statistics: confirm normal coach login/session, not a
+  player/restricted claim token. Correct role-aware frontend endpoint/session
+  handling; do not give claim tokens coach abilities.
+- required_entitlement present: inspect intended team context and production
+  access configuration. Preserve server policy; do not remove plan middleware.
+- HTML/non-Laravel 403: inspect proxy/WAF logs with request ID; do not disable WAF
+  globally. This is not evidence of a player policy failure.
+- Frontend calls player/statistics with a coach token while current source uses
+  coach/statistics: rebuild/publish matching approved frontend artifact. Do not
+  widen player-only routes to accommodate a stale client.
+
+Read-only production evidence needed (operator; no secrets)
+1. Browser DevTools Network: reproduce opening player; record exact failing
+   request path, method, HTTP status, response JSON/body and Initiator asset name.
+   Do not share Authorization, cookies, token/code or full sensitive payloads.
+2. Identify page/navigation action (roster edit vs metrics vs development).
+3. On production application root, record separately:
+   git rev-parse HEAD
+   git status --short
+   <verified-php> artisan route:list --path=player/fitness
+   <verified-php> artisan route:list --path=coach/statistics
+   sha256sum public/build/manifest.json
+   Compare actual browser asset filename to deployed manifest and approved build.
+   Check API origin in browser matches intended backend. Repository HEAD alone
+   does not prove deployed compiled JS, route cache or PHP workers are current.
+4. Privately verify normal authenticated coach ID/type/token ability, active
+   coach-team and player-team relationships and target original UUID. Do not
+   print bearer tokens or password hashes. Check cached Laravel route/config and
+   web/PHP deployment version before proposing reloads/deployment changes.
+No frontend/backend mismatch has been established without this live evidence.
+
+Changes / validation
+Added tests/Feature/Api/Security/CoachPlayerOpeningTest.php:
+- claimed/unclaimed x head/assistant access, invitations OFF, real bearer token;
+- original player attributes and user count unchanged by reads;
+- unrelated coach denied fitness and statistics;
+- player and restricted claim tokens denied coach statistics.
+Command:
+php -d memory_limit=768M vendor/bin/phpunit --filter='CoachPlayerOpeningTest|GetFitnessTest|RouteScopeAuthorizationTest|TeamInvitationsTest'
+Result: 49 tests, 261 assertions PASS. Local test database, no real email.
+Existing invitation tests cover history preservation and security separately.
+No production account/history or application authorization logic changed.
