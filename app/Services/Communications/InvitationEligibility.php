@@ -34,7 +34,8 @@ class InvitationEligibility
             return;
         }
         $user = User::find($invite->user_id);
-        if (!$user || !$user->status || $user->type !== 'player'
+        // Default User scope excludes deleted accounts; legacy status is not player eligibility.
+        if (!$user || $user->type !== 'player'
             || (filled($user->email) && strtolower($user->email) !== $invite->email)
             || !PlayerTeam::where('team_id', $invite->team_id)->where('user_id', $user->id)->where('actual', true)->exists()) {
             throw ValidationException::withMessages(['invitation' => 'This invitation is no longer available.']);

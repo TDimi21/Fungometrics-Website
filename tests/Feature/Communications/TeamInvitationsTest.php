@@ -38,6 +38,71 @@ class TeamInvitationsTest extends TestCase
         PlayerTeam::factory()->create(['user_id' => $this->player->id,'team_id' => $this->team->id,'actual' => true]);
     }
 
+    /** @dataProvider playerStatuses */
+    public function test_player_listing_issuance_resend_and_claim_keep_existing_identity(bool $status): void
+    {
+        $this->player->update(['status' => $status]);
+        Sanctum::actingAs($this->coach, ['coach']);
+        $base = '/api/coach/teams/'.$this->team->id.'/invitations';
+        $this->getJson($base.'?focus_player='.$this->player->id)->assertOk()
+            ->assertJsonPath('players.data.0.id', $this->player->id)
+            ->assertJsonPath('focused_player.id', $this->player->id);
+        $response = $this->postJson($base, ['role' => 'player', 'user_id' => $this->player->id, 'email' => $this->player->email])->assertStatus(202);
+        $invite = TeamInvitation::findOrFail($response->json('id'));
+        $this->deliver($invite);
+        $this->travel(2)->minutes();
+        $this->postJson('/api/coach/invitations/'.$invite->id.'/resend')->assertStatus(202);
+        $invite->refresh();
+        $token = $this->deliver($invite);
+        $count = User::count();
+        $this->assertSame('player', $this->accept($invite, $token));
+        $this->assertSame($this->player->id, $invite->fresh()->user_id);
+        $this->assertSame($count, User::count());
+        $this->assertSame($status, $this->player->fresh()->status);
+    }
+
+    /** @dataProvider playerStatuses */
+    public function test_deleted_players_cannot_be_listed_invited_delivered_or_claimed(bool $status): void
+    {
+        $this->player->update(['status' => $status]);
+        $invite = $this->issue();
+        $token = $this->deliver($invite);
+        $this->player->delete();
+        $this->rejects(fn () => $this->accept($invite, $token));
+        $this->rejects(fn () => app(InvitationService::class)->manage($this->coach, $invite->id, true));
+        Sanctum::actingAs($this->coach, ['coach']);
+        $base = '/api/coach/teams/'.$this->team->id.'/invitations';
+        $this->getJson($base.'?focus_player='.$this->player->id)->assertOk()
+            ->assertJsonCount(0, 'players.data')->assertJsonPath('focused_player', null);
+        $this->postJson($base, ['role' => 'player', 'user_id' => $this->player->id, 'email' => $this->player->email])->assertNotFound();
+        Notification::fake();
+        $invite->refresh()->update(['delivery_status' => 'queued']);
+        (new SendTeamInvitation($invite->id, $invite->generation))->handle(app(InvitationService::class));
+        Notification::assertNothingSent();
+        $this->assertSame('invitation_unavailable', $invite->fresh()->failure_code);
+        $this->assertNull($invite->fresh()->accepted_at);
+    }
+
+    /** @dataProvider playerStatuses */
+    public function test_invitation_eligibility_still_requires_team_membership_and_age(bool $status): void
+    {
+        $this->player->update(['status' => $status]);
+        Sanctum::actingAs($this->coach, ['coach']);
+        $base = '/api/coach/teams/'.$this->team->id.'/invitations';
+        $payload = ['role' => 'player', 'user_id' => $this->player->id, 'email' => $this->player->email];
+        foreach ([null, now()->subYears(12)->toDateString()] as $born) {
+            $this->player->player->update(['born_date' => $born]);
+            $this->postJson($base, $payload)->assertUnprocessable();
+        }
+        $this->player->player->update(['born_date' => '2010-01-01']);
+        PlayerTeam::where('user_id', $this->player->id)->update(['actual' => false]);
+        $this->postJson($base, $payload)->assertNotFound();
+        $this->getJson($base.'?focus_player='.$this->player->id)->assertOk()
+            ->assertJsonCount(0, 'players.data')->assertJsonPath('focused_player', null);
+        $this->assertSame(0, TeamInvitation::count());
+        Notification::assertNothingSent();
+    }
+
     private function issue(?array $data = null): TeamInvitation
     {
         return app(InvitationService::class)->send($this->coach, $this->team->id, $data ?? ['role' => 'player','user_id' => $this->player->id,'email' => $this->player->email]);
@@ -70,9 +135,10 @@ class TeamInvitationsTest extends TestCase
         }
     }
 
-    /** @dataProvider claimMethods */
-    public function test_new_player_claim_preserves_identity_profile_membership_and_history(bool $manual): void
+    /** @dataProvider claimMethodsAndStatuses */
+    public function test_new_player_claim_preserves_identity_profile_membership_and_history(bool $manual, bool $status): void
     {
+        $this->player->update(['status' => $status]);
         $profile = $this->player->profile->getAttributes();
         $detail = $this->player->player->getAttributes();
         $history = \App\Models\PlayerFitness::factory()->create(['user_id' => $this->player->id]);
@@ -91,6 +157,8 @@ class TeamInvitationsTest extends TestCase
         $token = $this->deliver($invite);
         $this->assertSame('player', $manual ? app(InvitationService::class)->accept(['claim_code' => $this->codeFor($invite), 'email' => $invite->email, 'password' => 'Password123'], null) : $this->accept($invite, $token));
         $this->assertSame($users, User::count());
+        $this->assertSame($this->player->id, $invite->fresh()->user_id);
+        $this->assertSame($status, $this->player->fresh()->status);
         foreach ($records as $index => $record) {
             $this->assertSame($snapshots[$index], $record->fresh()->getAttributes(), get_class($record).' changed during acceptance');
         }
@@ -102,8 +170,10 @@ class TeamInvitationsTest extends TestCase
         $this->assertNotNull($invite->fresh()->email_verified_at);
         $this->assertNull($invite->fresh()->token_hash);
     }
-    public function test_existing_player_must_prove_account_ownership(): void
+    /** @dataProvider playerStatuses */
+    public function test_existing_player_must_prove_account_ownership(bool $status): void
     {
+        $this->player->update(['status' => $status]);
         $this->player->update(['password' => Hash::make('Password123')]);
         $invite = $this->issue();
         $token = $this->deliver($invite);
@@ -286,8 +356,10 @@ class TeamInvitationsTest extends TestCase
         $this->assertStringNotContainsString('secret-value', $invite->fresh()->toJson());
         (new SendTeamInvitation($invite->id, 1))->handle(app(InvitationService::class));
     }
-    public function test_under_13_and_unknown_age_cannot_accept_or_complete_existing_identity(): void
+    /** @dataProvider playerStatuses */
+    public function test_under_13_and_unknown_age_cannot_accept_or_complete_existing_identity(bool $status): void
     {
+        $this->player->update(['status' => $status]);
         $invite = $this->issue(); $token = $this->deliver($invite);
         foreach ([now()->subYears(12)->toDateString(), null, now()->addDay()->toDateString()] as $born) {
             $this->player->player->update(['born_date' => $born]);
@@ -317,8 +389,10 @@ class TeamInvitationsTest extends TestCase
         Notification::assertCount(1);
     }
 
-    public function test_worker_suppresses_removed_or_now_underage_player(): void
+    /** @dataProvider playerStatuses */
+    public function test_worker_suppresses_removed_or_now_underage_player(bool $status): void
     {
+        $this->player->update(['status' => $status]);
         $invite = $this->issue();
         PlayerTeam::where('user_id', $this->player->id)->update(['actual' => false]);
         (new SendTeamInvitation($invite->id, 1))->handle(app(InvitationService::class));
@@ -354,7 +428,9 @@ class TeamInvitationsTest extends TestCase
     }
 
 
-    public static function claimMethods(): array { return [[false], [true]]; }
+    public static function claimMethodsAndStatuses(): array { return [[false, false], [true, false], [false, true], [true, true]]; }
+
+    public static function playerStatuses(): array { return [[false], [true]]; }
 
     private function codeFor(TeamInvitation $invite): string
     {

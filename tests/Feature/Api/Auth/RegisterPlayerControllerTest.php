@@ -49,6 +49,7 @@ class RegisterPlayerControllerTest extends TestCase
         $this->assertEquals($data_response->data->profile->first_name, $data['profile']['name']['first']);
         $this->assertEquals($data_response->data->profile->last_name, $data['profile']['name']['last']);
         $this->assertNotNull($data_response->data->token);
+        $this->assertFalse(User::findOrFail($data_response->data->user->id)->status);
     }
 
     public function test_register_player_validation_fail(): void

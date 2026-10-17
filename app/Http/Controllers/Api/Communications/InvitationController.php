@@ -17,9 +17,9 @@ class InvitationController extends Controller
     {
         $service->authorize($request->user(), $teamId);
         $request->validate(['focus_player' => 'sometimes|uuid']);
-        $players = User::with('profile')->where('type', 'player')->where('status', true)
+        $players = User::with('profile')->where('type', 'player')
             ->whereHas('team_players', fn ($q) => $q->where('team_id', $teamId)->where('actual', true))->orderBy('id')->paginate(50, ['*'], 'players_page');
-        $focused = $request->filled('focus_player') ? User::with('profile')->where('type', 'player')->where('status', true)->whereHas('team_players', fn ($q) => $q->where('team_id', $teamId)->where('actual', true))->find($request->input('focus_player')) : null;
+        $focused = $request->filled('focus_player') ? User::with('profile')->where('type', 'player')->whereHas('team_players', fn ($q) => $q->where('team_id', $teamId)->where('actual', true))->find($request->input('focus_player')) : null;
         return response()->json([
             'focused_player' => $focused ? ['id' => $focused->id, 'name' => trim(($focused->profile?->first_name ?? '').' '.($focused->profile?->last_name ?? '')), 'email' => $focused->email, 'connected' => filled($focused->password)] : null,
             'enabled' => (bool)config('communications.invitations_enabled'),

@@ -1,0 +1,75 @@
+FMTRX player invitation status compatibility audit — 2026-10-16
+
+Scope
+Existing fungoweb/main; branch confirmed and working tree initially clean.
+Production counts (2,206 players; 2,176 status=1; 30 status=0) were supplied
+by the user, not independently queried. No production access or changes.
+
+Findings
+1. The original users migration defaults status to false. AuthUtils::saveUser
+   does not set it, including in the initial repository commit 34bb6a6.
+   RegisterPlayerController saves the profile and issues an authentication
+   token without activation. AuthUtils::authCredentials does not filter status.
+   Thus status=0 is compatible with a legitimate registered player account.
+2. CoachUtils::saveNewUser explicitly writes status=true for coach-created
+   players without passwords. The normal new unclaimed roster-player path
+   produces status=1, not 0. There is no evidence here that production's 30
+   status=0 accounts are all unclaimed or all inactive. Their origin cannot be
+   determined from aggregate counts alone.
+3. CompletePlayerController sets email/password/type without changing status.
+   Status=1 therefore does not prove claimed identity or verified email, and
+   status=0 is not a reliable account-suspension marker.
+4. AccountDeletionService sets status=false AND anonymizes the account,
+   revokes credentials/removes relationships and soft-deletes User. The
+   default User query scope excludes deleted records. This remains enforced.
+5. The invitation system introduced player-status predicates in its list,
+   issuance, queued delivery/resend eligibility and acceptance. These could
+   reject legitimate status=0 players independently of actual eligibility.
+
+Smallest correction
+Removed only player-recipient status predicates from InvitationController,
+InvitationService and InvitationEligibility. No account status is written.
+Coach-recipient checks and the prior acting-coach authorization are unchanged.
+Invitation listings retain authorized coach and active team relationship
+filters. They list candidates; issuance separately enforces age eligibility.
+
+Security preserved
+Nondeleted existing User, player role, authorized coach, active player-team
+membership, confirmed age >=13, matching recipient email, single-use expiring
+link/code, and existing-account ownership proof remain required. Unknown,
+invalid/future and under-13 ages remain blocked. Acceptance cannot create a
+new player or resurrect a removed relationship. Email verification remains
+recorded on the accepted invitation. Delivery switches and allowlists remain
+unchanged; tests use mail, notification and queue fakes.
+
+Scope boundary
+Legacy PlayerProfileClaimService team/individual-code flows still require
+status=1. Those separate claim paths were not relaxed. Their normal unclaimed
+coach-created records already have status=1. A future compatibility audit may
+consider exceptional status=0 placeholders there; this change is limited to
+secure email invitations. No general notification status filters were changed.
+
+Changed files
+app/Http/Controllers/Api/Communications/InvitationController.php
+app/Services/Communications/InvitationService.php
+app/Services/Communications/InvitationEligibility.php
+tests/Feature/Communications/TeamInvitationsTest.php
+tests/Feature/Api/Auth/RegisterPlayerControllerTest.php
+This report.
+
+Validation
+php -d memory_limit=768M vendor/bin/phpunit --filter='TeamInvitationsTest|RegisterPlayerControllerTest|AccountClaimSecurityTest|AccountDeletionTest|CoachStatusAuthorizationTest|PlayerCreationAuthorizationTest'
+Passed: 85 tests, 523 assertions.
+Both status values cover invitation listing/focus, issuance, resend, delivery,
+password proof, manual code/link acceptance, unchanged player IDs/status and
+user counts, historical sessions/results/assessments/workouts/memberships,
+age rejection, removed membership and deleted-account rejection. Original
+self-registration now asserts persisted status=false. Existing revocation,
+expiry, duplicate-claim, unauthorized coach and delivery-switch tests passed.
+
+Release
+Backend-only correction; no schema changes or data remediation required.
+After an approved normal deployment, restart long-lived queue workers so they
+load the updated eligibility code. Preserve all current sending switches and
+recipient restrictions. No commits, pushes, migrations, deployments or live
+emails were performed for this audit.

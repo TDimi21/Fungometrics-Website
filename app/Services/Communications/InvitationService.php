@@ -57,7 +57,8 @@ class InvitationService
             $user = null;
             if ('player' === $data['role']) {
                 $user = User::query()->lockForUpdate()->findOrFail($data['user_id'] ?? '');
-                abort_unless('player' === $user->type && $user->status && PlayerTeam::where('team_id', $teamId)->where('user_id', $user->id)->where('actual', true)->exists(), 404);
+                // Legacy player registration leaves status=0; eligibility is not activation status.
+                abort_unless('player' === $user->type && PlayerTeam::where('team_id', $teamId)->where('user_id', $user->id)->where('actual', true)->exists(), 404);
                 app(InvitationEligibility::class)->assertPlayerAge($user);
                 // A coach cannot redirect an existing account's invitation to another mailbox.
                 if (filled($user->email) && mb_strtolower($user->email) !== $email) {
@@ -175,7 +176,7 @@ class InvitationService
             }
             if ($user) {
                 if ($invite->role === 'player') app(InvitationEligibility::class)->assertPlayerAge($user);
-                if ( ! $user->status || $user->type !== $invite->role || (filled($user->email) && mb_strtolower($user->email) !== $invite->email)) {
+                if (($invite->role === 'coach' && ! $user->status) || $user->type !== $invite->role || (filled($user->email) && mb_strtolower($user->email) !== $invite->email)) {
                     $this->invalid('This account needs review.');
                 }
                 if ($actor && $actor->id !== $user->id) {
