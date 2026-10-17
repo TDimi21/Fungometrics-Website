@@ -124,6 +124,36 @@ class TeamInvitationsTest extends TestCase
         $this->postJson('/api/invitations/accept', $credential + ['email' => $invite->email, 'password' => 'Password123'])->assertUnprocessable();
     }
 
+    public function test_player_link_prefills_only_valid_invitation_context_and_detects_wrong_session(): void
+    {
+        $this->team->update(['join_code' => 'TEAM42']);
+        $invite = $this->issue();
+        $token = $this->deliver($invite);
+        $this->postJson('/api/invitations/player-context', ['token' => $token])->assertOk()
+            ->assertJsonPath('email', $this->player->email)->assertJsonPath('team_code', 'TEAM42')
+            ->assertJsonPath('has_password', false)->assertJsonPath('signed_in', false)
+            ->assertJsonMissingPath('user_id')->assertJsonMissingPath('token')->assertHeader('Cache-Control', 'no-store, private');
+        Sanctum::actingAs($this->coach, ['coach']);
+        $this->postJson('/api/invitations/player-context', ['token' => $token])->assertOk()
+            ->assertJsonPath('signed_in', true)->assertJsonPath('matching_account', false);
+        $this->postJson('/api/invitations/accept', ['token' => $token, 'email' => $invite->email, 'password' => 'Password123'])->assertUnprocessable();
+        $this->assertNull($this->player->fresh()->password);
+        $this->postJson('/api/invitations/player-context', ['token' => str_repeat('0', 64)])->assertUnprocessable()->assertJsonMissingPath('email');
+        $invite->update(['expires_at' => now()->subMinute()]);
+        $this->postJson('/api/invitations/player-context', ['token' => $token])->assertUnprocessable()->assertJsonMissingPath('email');
+    }
+
+    public function test_context_rejects_removed_membership_and_revoked_invitation(): void
+    {
+        $invite = $this->issue();
+        $token = $this->deliver($invite);
+        PlayerTeam::where('team_id', $this->team->id)->where('user_id', $this->player->id)->update(['actual' => false]);
+        $this->postJson('/api/invitations/player-context', ['token' => $token])->assertUnprocessable()->assertJsonMissingPath('email');
+        PlayerTeam::where('team_id', $this->team->id)->where('user_id', $this->player->id)->update(['actual' => true]);
+        app(InvitationService::class)->manage($this->coach, $invite->id, false);
+        $this->postJson('/api/invitations/player-context', ['token' => $token])->assertUnprocessable()->assertJsonMissingPath('email');
+    }
+
     private function issue(?array $data = null): TeamInvitation
     {
         return app(InvitationService::class)->send($this->coach, $this->team->id, $data ?? ['role' => 'player','user_id' => $this->player->id,'email' => $this->player->email]);
@@ -138,7 +168,7 @@ class TeamInvitationsTest extends TestCase
             }
             parse_str(parse_url($notice->acceptUrl, PHP_URL_FRAGMENT), $fragment);
             $token = $fragment['token'];
-            return str_starts_with($notice->acceptUrl, 'https://app.fmtrx.com/invitations/accept#token=');
+            return str_starts_with($notice->acceptUrl, 'https://app.fmtrx.com'.($invite->role === 'player' ? '/login/player?mode=team#token=' : '/invitations/accept#token='));
         });
         return $token;
     }
@@ -610,16 +640,16 @@ class TeamInvitationsTest extends TestCase
         }
     }
 
-    public function test_invitation_email_contains_link_and_manual_code_but_no_stored_hash(): void
+    public function test_player_invitation_email_uses_link_without_backup_code_or_stored_hash(): void
     {
         $invite = $this->issue(); $token = $this->deliver($invite);
         $code = $this->codeFor($invite);
         $notice = new TeamInvitationNotification('https://app.fmtrx.com/invitations/accept#token='.$token, 'Coach', 'Team', 'Oct 23', 'player', $code);
         $html = (string) $notice->toMail(null)->render();
         $this->assertStringContainsString('Claim Profile', $html);
-        $this->assertStringContainsString('No separate team code is needed', $html);
-        $this->assertStringContainsString('Backup manual claim code', $html);
-        $this->assertStringContainsString($code, $html);
+        $this->assertStringContainsString('Your invited email and team code will be filled in', $html);
+        $this->assertStringNotContainsString('Backup manual claim code', $html);
+        $this->assertStringNotContainsString($code, $html);
         $this->assertStringNotContainsString($invite->fresh()->claim_code_hash, $html);
         $this->assertStringNotContainsString($invite->fresh()->token_hash, $html);
         $this->player->player->update(['born_date' => now()->subYears(12)->toDateString()]);

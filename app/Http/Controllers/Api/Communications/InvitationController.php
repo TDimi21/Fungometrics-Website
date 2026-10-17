@@ -50,6 +50,29 @@ class InvitationController extends Controller
         // No player, team, email, account-existence or historical data on this public endpoint.
         return response()->json(['valid' => true,'expires_at' => $invite->expires_at->toIso8601String()])->header('Cache-Control', 'no-store');
     }
+    public function playerContext(Request $request, InvitationService $service)
+    {
+        $data = $request->validate(['token' => 'required|string|size:64']);
+        $invite = $service->resolve($data['token']);
+        abort_unless($invite->role === 'player', 422, 'Use the coach invitation screen for this invitation.');
+        app(\App\Services\Communications\InvitationEligibility::class)->assertAvailable($invite);
+        $actor = User::findOrFail($invite->invited_by);
+        $service->authorize($actor, $invite->team_id);
+        $player = User::findOrFail($invite->user_id);
+        $team = \App\Models\Team::findOrFail($invite->team_id);
+        // Only the bearer of a valid invitation gets the minimum form context.
+        // No player history, account IDs or general email lookup is exposed.
+        return response()->json([
+            'email' => $invite->email,
+            'team_name' => $team->name,
+            'team_code' => $team->join_code,
+            'has_password' => filled($player->password),
+            'signed_in' => Auth::guard('sanctum')->check(),
+            'matching_account' => Auth::guard('sanctum')->id() === $player->id,
+            'expires_at' => $invite->expires_at->toIso8601String(),
+        ])->header('Cache-Control', 'no-store');
+    }
+
     public function accept(Request $request, InvitationService $service)
     {
         $data = $request->validate(['token' => 'required_without:claim_code|prohibits:claim_code|nullable|string|size:64','claim_code' => 'required_without:token|prohibits:token|nullable|string|max:24|regex:/^[a-fA-F0-9 -]+$/','email' => 'required|email:rfc|max:191','password' => 'nullable|string|min:8|max:20','first_name' => 'nullable|string|max:100','last_name' => 'nullable|string|max:100']);

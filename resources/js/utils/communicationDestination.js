@@ -45,3 +45,8 @@ export function retainInvitationDraft(draft) {
   return { ...invitationDraft }
 }
 export function clearInvitationToken() { invitationToken = ''; invitationDraft = { email: '', claimCode: '' } }
+
+export function isPlayerInvitationRoute(route) {
+  return route.path === '/login/player' && route.query?.mode === 'team'
+    && (new URLSearchParams((route.hash || '').replace(/^#/, '')).has('token') || !!retainInvitationToken(null))
+}

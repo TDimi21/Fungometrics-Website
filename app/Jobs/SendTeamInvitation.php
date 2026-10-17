@@ -65,12 +65,13 @@ class SendTeamInvitation implements ShouldQueue
             $coach = User::with('profile')->find($invite->invited_by);
             $team = Team::find($invite->team_id);
             Notification::route('mail', $invite->email)->notify(new TeamInvitationNotification(
-                $service->frontendUrl().'/invitations/accept#token='.$raw,
+                $service->frontendUrl().($invite->role === 'player' ? '/login/player?mode=team#token=' : '/invitations/accept#token=').$raw,
                 trim(($coach?->profile?->first_name ?? '').' '.($coach?->profile?->last_name ?? '')) ?: 'Your coach',
                 $team?->name ?? 'your team',
                 $invite->expires_at->toFormattedDateString(),
                 $invite->role,
-                implode('-', str_split($code, 4))
+                implode('-', str_split($code, 4)),
+                $team?->join_code
             ));
             TeamInvitation::whereKey($invite->id)->where('generation', $this->generation)->update(['delivery_status' => 'sent','sent_at' => now()]);
         } catch (Throwable) {

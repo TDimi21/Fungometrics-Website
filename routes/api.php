@@ -640,6 +640,7 @@ Route::middleware(['auth:sanctum', 'ability:player,coach,admin,super_admin'])->p
 });
 
 // Phase 2B: invitations reuse Sanctum and existing team authorization.
+Route::post('invitations/player-context', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'playerContext'])->middleware('throttle:20,1');
 Route::post('invitations/inspect', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'inspect'])->middleware('throttle:20,1');
 Route::post('invitations/accept', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'accept'])->middleware('throttle:5,1');
 Route::middleware(['auth:sanctum', 'ability:coach', 'route.scope'])->group(function () {

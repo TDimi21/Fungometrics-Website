@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { safeCommunicationDestination, rememberCommunicationDestination, pendingCommunicationDestination, consumeCommunicationDestination, retainInvitationToken, retainInvitationDraft, clearInvitationToken } from '../../resources/js/utils/communicationDestination.js'
+import { safeCommunicationDestination, rememberCommunicationDestination, pendingCommunicationDestination, consumeCommunicationDestination, isPlayerInvitationRoute, retainInvitationToken, retainInvitationDraft, clearInvitationToken } from '../../resources/js/utils/communicationDestination.js'
 const values = new Map()
 const storage = { getItem: k => values.get(k), setItem: (k,v) => values.set(k,v), removeItem: k => values.delete(k) }
 beforeEach(() => { values.clear(); clearInvitationToken() })
@@ -41,4 +41,13 @@ it('preserves manual invitation entry through sign-in without persisting secrets
 it('never reuses a previous token when a different malformed link is opened', () => {
   retainInvitationToken('a'.repeat(64))
   expect(retainInvitationToken('invalid')).toBe('')
+})
+
+it('allows the token-bearing player landing without changing ordinary login routing', () => {
+  expect(isPlayerInvitationRoute({ path: '/login/player', query: { mode: 'team' }, hash: '#token=' + 'a'.repeat(64) })).toBe(true)
+  expect(isPlayerInvitationRoute({ path: '/login/player', query: { mode: 'team' } })).toBe(false)
+  retainInvitationToken('a'.repeat(64))
+  expect(isPlayerInvitationRoute({ path: '/login/player', query: { mode: 'team' } })).toBe(true)
+  expect(isPlayerInvitationRoute({ path: '/login/coach', query: { mode: 'team' } })).toBe(false)
+  expect(isPlayerInvitationRoute({ path: '/login/player', query: {} })).toBe(false)
 })

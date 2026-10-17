@@ -1,0 +1,51 @@
+Player invitation landing on the team claim screen
+
+Implemented on existing fungoweb/main. No production changes.
+
+New player invitation buttons target:
+https://app.fmtrx.com/login/player?mode=team#token=<secret>
+The token remains in the URL fragment, is removed from browser history on
+entry and retained only in memory. Neither email nor team code is put in URL
+query parameters. Player login routes with an invitation remain accessible
+when the browser is already authenticated, without bypassing API protections.
+
+The player claim screen validates the invitation through a rate-limited POST
+invitations/player-context endpoint. Only a valid, unexpired player invitation
+with a current eligible player/team and authorized inviter returns the minimum
+form context: invited email, team name/code, password-exists boolean and
+session-match booleans. No IDs, training history or arbitrary email lookup.
+The original public inspect endpoint remains unchanged for existing clients.
+
+Email and team code are prefilled/read-only. Claim Profile advances to password
+setup (new-password autocomplete) or existing-player password. The same secure
+acceptance service consumes the invitation and preserves the original player.
+The visible team code is not treated as proof of ownership; the email link
+continues to supply the invitation proof behind the scenes. Existing accounts
+still require ownership proof. Age checks, revocation, expiry and one-time use
+are unchanged. Standard login then opens the player dashboard.
+
+When another account (including a coach) is authenticated, the screen blocks
+acceptance and offers an explicit Sign out and continue as player action. It
+uses the existing logout endpoint; no automatic sign-out or account merge.
+Browser autofill is discouraged with read-only invited email and a separate
+password step. Existing coach details are never used to prefill the form.
+
+New player emails show the team code and Claim Profile button, without the
+long backup invitation code. Coach emails retain their existing code fallback.
+Backend manual invitation codes remain supported for native/older clients.
+Ordinary /login/player?mode=team still offers legacy team-code claiming when
+there is no invitation token. Previously delivered emails retain their old
+URL and wording; issue a fresh invitation after deployment to test the new flow.
+
+Validation
+PHP: TeamInvitationsTest, AccountClaimSecurityTest, LoginControllerTest.
+80 tests / 578 assertions passed.
+Frontend: 340 tests in 57 files passed. Production build passed, with existing
+large-chunk warning. No browser/device or live email acceptance test was run.
+
+Deployment
+Deploy backend and frontend together, rebuild assets/refresh route cache using
+the normal release process, and restart queue workers for the changed email job.
+No migration or dependency changes. Keep pilot allowlist restricted. Revoke
+the invitation exposed in the latest screenshot before issuing a fresh one.
+No commits, pushes, production writes, live sending or deployment performed.

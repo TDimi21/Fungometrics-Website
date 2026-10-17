@@ -1,4 +1,4 @@
-import { rememberCommunicationDestination, consumeCommunicationDestination, pendingCommunicationDestination } from '../js/utils/communicationDestination.js';
+import { isPlayerInvitationRoute, rememberCommunicationDestination, consumeCommunicationDestination, pendingCommunicationDestination } from '../js/utils/communicationDestination.js';
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../js/store/auth";
 import { useUserStore } from "../js/store/user";
@@ -514,6 +514,8 @@ const syncAuthFromToken = () => {
 };
 
 router.beforeEach(async (to) => {
+    // Invitation landing must remain reachable even when this browser is signed in as a coach.
+    if (isPlayerInvitationRoute(to)) return true;
 	const isAuthenticated = syncAuthFromToken();
 	const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
 	const isGuestRoute = to.matched.some((record) => record.meta.guest);
