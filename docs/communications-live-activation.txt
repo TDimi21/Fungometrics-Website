@@ -1,0 +1,126 @@
+FMTRX communications activation — 2026-10-16
+
+STATUS
+Local integration prepared; production is NOT newly activated by this work.
+User authorized going live, but SSH authentication is unavailable here. Server
+operator must execute the production steps. Reported: PHP 8.2.29, systemctl,
+no supervisorctl path. Absolute app/PHP paths and existing scheduler inventory
+are still needed. Never claim automatic health from a manually invoked handler.
+
+INTEGRATION
+Web/mobile API writes use the same Laravel models. CommunicationObserver,
+registered in AppServiceProvider, records welcome, workout assignment,
+assessment, program publication and verified subscription-audit events.
+Authorized announcements use CommunicationOutbox; Monday weekly-progress
+generates opt-in summaries. The every-minute dispatcher processes the outbox.
+Delivery rechecks preferences and resource membership. No provider key belongs
+in the mobile app. Existing password-reset/security mail is separate.
+
+CORRECTIONS
+General recipient selection, queued delivery and weekly selection now accept
+legitimate legacy status=0 users. Deleted accounts, unclaimed/passwordless
+accounts, dummy users, invalid contacts, removed access and disabled preferences
+remain excluded. Regression tests cover both statuses and deleted recipients.
+Native Claim My Profile now accepts the new and old emailed link formats,
+loads invited email/team from the existing secure API, and claims the same ID.
+No credentials are persisted; legacy team joining/manual codes still work.
+Links open web by default; no unconfigured universal links/schemes were enabled.
+
+DIAGNOSTICS
+php artisan fmtrx:communications-status
+Read-only flags/counts/health; no API keys, recipient addresses or raw payloads.
+php artisan fmtrx:communications-status --probe-worker
+Queues one harmless no-email job. Record printed ID, then run status without
+--probe-worker. Matching completed ID proves that job was processed. Do not
+manually run a worker for this check. A recent scheduler_last_run timestamp
+proves the scheduled dispatcher was invoked; monitor queue/service health too.
+Configuration alone does not prove provider delivery or inbox placement.
+
+SERVER DISCOVERY (READ ONLY)
+command -v php
+pwd
+whoami
+crontab -l
+systemctl list-unit-files --type=service --no-pager | grep -Ei 'fmtrx|queue|supervisor'
+Also inspect Plesk scheduled tasks. Choose ONE manager/scheduler; do not replace
+existing crontab entries or duplicate services.
+
+SYSTEMD SETUP AFTER CODE DEPLOYMENT
+No new migrations or dependencies. Keep pilot restriction while installing.
+QUEUE_CONNECTION=database; MAIL_MAILER=resend; preserve Resend key and sender.
+Use persistent cache; database retry_after=90 exceeds worker timeout=60.
+Render the templates under deploy/communications by replacing __PHP_BINARY__,
+__APP_ROOT__, __APP_USER__ with verified absolute paths and app owner:
+fmtrx-worker@.service.example -> /tmp/fmtrx-worker@.service
+fmtrx-scheduler.service.example -> /tmp/fmtrx-scheduler.service
+fmtrx-scheduler.timer.example -> /tmp/fmtrx-scheduler.timer
+Never install unrendered templates. Review files, then administrator commands:
+sudo systemd-analyze verify /tmp/fmtrx-worker@.service /tmp/fmtrx-scheduler.service /tmp/fmtrx-scheduler.timer
+sudo install -m 0644 /tmp/fmtrx-worker@.service /etc/systemd/system/fmtrx-worker@.service
+sudo install -m 0644 /tmp/fmtrx-scheduler.service /etc/systemd/system/fmtrx-scheduler.service
+sudo install -m 0644 /tmp/fmtrx-scheduler.timer /etc/systemd/system/fmtrx-scheduler.timer
+sudo systemctl daemon-reload
+php artisan config:cache
+sudo systemctl enable --now fmtrx-worker@communications.service
+sudo systemctl status fmtrx-worker@communications.service --no-pager
+Only if NO existing cron/Plesk scheduler:
+sudo systemctl enable --now fmtrx-scheduler.timer
+sudo systemctl list-timers fmtrx-scheduler.timer --no-pager
+If default queue has no existing worker, review its jobs/timeouts, then:
+sudo systemctl enable --now fmtrx-worker@default.service
+Stop for errors, missing permission, wrong paths or duplicate service managers.
+Do not substitute an unsupervised nohup process or blindly install OS packages.
+
+LIVE ACTIVATION AFTER HEALTH/BACKLOG REVIEW
+Run status with a probe, then status without it after several seconds. After
+a minute, verify recent scheduler timestamp. Review:
+php artisan fmtrx:communications-dispatch --dry-run
+php artisan schedule:list
+Review pending deliveries and unprocessed event counts before enabling their
+categories. Old pending emails can send when restrictions are lifted. Never
+queue:retry all or blindly retry sending/unconfirmed provider records. Skipped
+invitation jobs require deliberate resend; queued ledger state alone does not
+prove a corresponding queue job still exists.
+
+Edit existing .env entries, preserving all secrets (no duplicate entries):
+FMTRX_COMMUNICATIONS_ENABLED=true
+FMTRX_COMMUNICATIONS_SEND_ENABLED=true
+FMTRX_INVITATIONS_ENABLED=true
+FMTRX_INVITATION_EMAILS_ENABLED=true
+FMTRX_WORKOUT_EMAILS_ENABLED=true
+FMTRX_ASSESSMENT_EMAILS_ENABLED=true
+FMTRX_DEVELOPMENT_EMAILS_ENABLED=true
+FMTRX_ANNOUNCEMENT_EMAILS_ENABLED=true
+FMTRX_WELCOME_EMAILS_ENABLED=true
+FMTRX_WEEKLY_REPORTS_ENABLED=true
+FMTRX_WEEKLY_EMAILS_ENABLED=true
+FMTRX_BILLING_EMAILS_ENABLED=true
+FMTRX_EMAIL_PILOT_MODE=false
+The stored allowlist is ignored with pilot mode off. Weekly still requires
+individual opt-in. Billing mail reflects verified provider state; it does not
+enable charging or change free app access. Under-13/unknown-age invitation
+restrictions remain. Then:
+php artisan config:cache
+sudo systemctl restart fmtrx-worker@communications.service
+Restart the existing default worker using its manager if applicable.
+php artisan fmtrx:communications-status
+
+ACCEPTANCE / ROLLBACK
+Verify one web invitation and one mobile-created workout send automatically,
+with no terminal delivery command. Confirm correct original player/history,
+one email per assignment, no draft email, preferences suppression and weekly
+opt-out. Repeat for assessments/program publication; check Resend delivery.
+Native changes require a normal app release; physical device testing remains.
+Pause: set FMTRX_COMMUNICATIONS_SEND_ENABLED=false, config:cache and restart
+workers. In-flight mail cannot be recalled. Preserve ledgers; no DB rollback.
+Restore previous flags/artifacts if needed. Disable only newly added services
+when replacing them, never unrelated services.
+
+VALIDATION
+Communications: 92 tests / 611 assertions. Additional account, membership and
+authorization tests: 30 / 183. Web frontend: 340 passed. Native claiming: 20
+passed. Full native: 290 passed, 3 failures in previously reported areas:
+App rendering (offline-store mock returns undefined), homePlayer line budget,
+input-mask compatibility. Their source files were not modified; whole-app
+release is not green. iOS JavaScript bundle succeeded to /tmp.
+No commits, pushes, production changes, live mail, archive or App Store upload.

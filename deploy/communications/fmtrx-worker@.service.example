@@ -1,0 +1,21 @@
+# Render __APP_ROOT__, __APP_USER__, __PHP_BINARY__ before installation.
+# Use instances fmtrx-worker@communications and (after backlog review) @default.
+[Unit]
+Description=FMTRX Laravel queue worker (%i)
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=__APP_ROOT__
+ExecStart=__PHP_BINARY__ __APP_ROOT__/artisan queue:work database --queue=%i --sleep=3 --tries=1 --timeout=60 --memory=256
+Restart=always
+RestartSec=5
+TimeoutStopSec=90
+KillSignal=SIGTERM
+KillMode=control-group
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

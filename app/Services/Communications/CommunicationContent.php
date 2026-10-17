@@ -102,7 +102,7 @@ class CommunicationContent
     }
     public function recipients(CommunicationEvent $e): iterable
     {
-        $query = User::with('profile')->whereIn('id', $this->recipientIds($e))->where('status', true)->where('is_dummy', false)->whereNotNull('password');
+        $query = User::with('profile')->whereIn('id', $this->recipientIds($e))->where('is_dummy', false)->whereNotNull('password');
         if ($e->team_id) {
             $query->where(fn ($q) => $q->whereHas('team_players', fn ($m) => $m->where('team_id', $e->team_id)->where('actual', true))->orWhereHas('teamsCoach', fn ($m) => $m->where('team_id', $e->team_id)));
         }

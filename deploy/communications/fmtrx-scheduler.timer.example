@@ -1,0 +1,10 @@
+[Unit]
+Description=Run FMTRX Laravel scheduler every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Unit=fmtrx-scheduler.service
+
+[Install]
+WantedBy=timers.target

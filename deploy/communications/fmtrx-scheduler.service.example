@@ -1,0 +1,12 @@
+# Use only if there is no existing Plesk or cron scheduler.
+[Unit]
+Description=FMTRX Laravel scheduler
+After=network.target
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+WorkingDirectory=__APP_ROOT__
+ExecStart=__PHP_BINARY__ __APP_ROOT__/artisan schedule:run
+StandardOutput=journal
+StandardError=journal

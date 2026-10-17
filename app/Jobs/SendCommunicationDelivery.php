@@ -38,7 +38,7 @@ class SendCommunicationDelivery implements ShouldQueue, \Illuminate\Contracts\Qu
             }
             $u = User::find($d->recipient_id);
             $reason = null;
-            if ( ! $u || ! $u->status || $u->is_dummy || blank($u->password) || ! filter_var($u->email, FILTER_VALIDATE_EMAIL)) {
+            if ( ! $u || $u->is_dummy || blank($u->password) || ! filter_var($u->email, FILTER_VALIDATE_EMAIL)) {
                 $reason = 'recipient_unavailable';
             } elseif ( ! $content->allowed($d)) {
                 $reason = 'access_removed';

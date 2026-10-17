@@ -32,7 +32,7 @@ class WeeklyProgressEmails extends Command
             return self::FAILURE;
         }
         $ids = CommunicationPreference::where('weekly_reports', true)->select('user_id');
-        $members = PlayerTeam::where('actual', true)->whereIn('user_id', $ids)->whereHas('team')->whereHas('user', fn ($q) => $q->where('type', 'player')->where('status', true)->where('is_dummy', false)->whereNotNull('email')->whereNotNull('password'));
+        $members = PlayerTeam::where('actual', true)->whereIn('user_id', $ids)->whereHas('team')->whereHas('user', fn ($q) => $q->where('type', 'player')->where('is_dummy', false)->whereNotNull('email')->whereNotNull('password'));
         $count = 0;
         foreach($members->lazyById(100) as $m) {
             $count++;
@@ -40,7 +40,7 @@ class WeeklyProgressEmails extends Command
                 $out->record('WeeklyProgressReady', 'team', $m->team_id, $week->toDateString(), $m->team_id, $m->user_id, ['week_start' => $week->toDateString()]);
             }
         }
-        $coachIds = User::whereIn('id', CommunicationPreference::where('weekly_reports', true)->select('user_id'))->where('type', 'coach')->where('status', true)->where('is_dummy', false)->whereNotNull('email')->whereNotNull('password')->select('id');
+        $coachIds = User::whereIn('id', CommunicationPreference::where('weekly_reports', true)->select('user_id'))->where('type', 'coach')->where('is_dummy', false)->whereNotNull('email')->whereNotNull('password')->select('id');
         foreach(CoachTeam::whereIn('coach_id', $coachIds)->whereHas('team')->lazyById(100) as $m) {
             $count++;
             if( ! $this->option('dry-run')) {

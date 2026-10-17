@@ -58,8 +58,12 @@ class CommunicationEngineTest extends TestCase
             (new SendCommunicationDelivery($id))->handle(app(CommunicationContent::class));
         }
     }
-    public function test_workout_publication_and_assignment_dedupe_and_edits_stay_silent(): void
+    public static function legacyStatuses(): array { return [[false], [true]]; }
+
+    /** @dataProvider legacyStatuses */
+    public function test_workout_publication_and_assignment_dedupe_and_edits_stay_silent(bool $status): void
     {
+        $this->player->update(['status' => $status]);
         $p = $this->plan();
         $this->assign($p);
         $this->process();
@@ -74,6 +78,18 @@ class CommunicationEngineTest extends TestCase
         Notification::assertCount(1);
         $this->assertStringContainsString('?tab=workout&date=', CommunicationDelivery::first()->payload['action_url']);
     }
+    /** @dataProvider legacyStatuses */
+    public function test_deleted_recipients_are_never_sent_mail(bool $status): void
+    {
+        $this->player->update(['status' => $status]);
+        $this->assign($this->plan());
+        $this->process();
+        $this->player->delete();
+        $this->send();
+        Notification::assertNothingSent();
+        $this->assertSame('recipient_unavailable', CommunicationDelivery::firstOrFail()->failure_code);
+    }
+
     public function test_draft_assignments_notify_only_after_publication(): void
     {
         $p = $this->plan('draft');
@@ -184,8 +200,13 @@ class CommunicationEngineTest extends TestCase
         $this->process();
         $this->assertSame(1, CommunicationDelivery::where('event_type', 'DevelopmentPlanPublished')->count());
     }
-    public function test_weekly_report_is_opt_in_deduped_and_skips_no_data(): void
+    /** @dataProvider legacyStatuses */
+    public function test_weekly_report_is_opt_in_deduped_and_skips_no_data(bool $status): void
     {
+        config(['communications.enabled' => false]);
+        $this->player->update(['status' => $status]);
+        $this->coach->update(['status' => $status]);
+        config(['communications.enabled' => true]);
         $this->travelTo(\Carbon\Carbon::parse('2026-10-19 08:00:00'));
         $this->mock(PlayerIntelligenceService::class, fn ($m) => $m->shouldReceive('build')->andReturn(['daily_velocity_averages' => [],'benchmark_profile' => ['metrics' => []]]));
         $this->artisan('fmtrx:weekly-progress')->assertSuccessful();
@@ -214,9 +235,14 @@ class CommunicationEngineTest extends TestCase
         $this->assertStringNotContainsString('Pitching velocity:', $body);
         $this->assertStringNotContainsString('150 mph', $body);
     }
-    public function test_coach_welcome_uses_same_notification_template(): void
+    /** @dataProvider legacyStatuses */
+    public function test_coach_welcome_uses_same_notification_template(bool $status): void
     {
-        $u = User::factory()->create(['type' => 'coach','status' => true,'is_dummy' => false,'password' => Hash::make('Password123')]);
+        config(['communications.enabled' => false]);
+        $this->player->update(['status' => $status]);
+        $this->coach->update(['status' => $status]);
+        config(['communications.enabled' => true]);
+        $u = User::factory()->create(['type' => 'coach','status' => $status,'is_dummy' => false,'password' => Hash::make('Password123')]);
         $this->process();
         $this->send();
         Notification::assertSentTo($u, FmtrxActivityNotification::class);
@@ -299,8 +325,13 @@ class CommunicationEngineTest extends TestCase
         Notification::assertNotSentTo($this->player, FmtrxActivityNotification::class);
         Notification::assertSentToTimes($this->coach, FmtrxActivityNotification::class, 1);
     }
-    public function test_coach_weekly_summary_uses_only_their_team(): void
+    /** @dataProvider legacyStatuses */
+    public function test_coach_weekly_summary_uses_only_their_team(bool $status): void
     {
+        config(['communications.enabled' => false]);
+        $this->player->update(['status' => $status]);
+        $this->coach->update(['status' => $status]);
+        config(['communications.enabled' => true]);
         $this->travelTo(\Carbon\Carbon::parse('2026-10-19 08:00:00'));
         CommunicationPreference::create(['user_id' => $this->coach->id,'weekly_reports' => true]);
         PlayerAssessment::create(['user_id' => $this->player->id,'team_id' => $this->team->id,'assessed_by' => $this->coach->id,'assessment_date' => '2026-10-13','type' => 'strength','bench_lbs' => 100]);
