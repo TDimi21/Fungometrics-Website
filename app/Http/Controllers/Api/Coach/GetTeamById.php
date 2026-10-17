@@ -40,6 +40,7 @@ class GetTeamById extends Controller
             $result = Cache::remember("roster_team_{$teamId}", 60, function () use ($teamId) {
                 $playersId = PlayerTeam::query()
                     ->where('team_id', $teamId)
+                    ->where('actual', true)
                     ->whereNotNull('user_id')
                     ->pluck('user_id')
                     ->unique()

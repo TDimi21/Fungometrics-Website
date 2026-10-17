@@ -11,6 +11,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
 class RemovePlayers extends Controller
@@ -38,6 +39,7 @@ class RemovePlayers extends Controller
                 'user_id' => $request->player
             ])->firstOrFail();
             $delete = (new DeleteServiceData(new PlayerTeam()))->handle($playerTeam->id);
+            Cache::forget('roster_team_'.$request->team);
             $response = [
                 'code' => '034',
                 'message' => 'remove player for team',
