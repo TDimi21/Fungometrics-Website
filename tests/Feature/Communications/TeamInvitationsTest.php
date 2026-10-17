@@ -103,6 +103,27 @@ class TeamInvitationsTest extends TestCase
         Notification::assertNothingSent();
     }
 
+    /** @dataProvider claimMethodsAndStatuses */
+    public function test_invitation_claim_to_login_uses_original_player_without_team_code(bool $manual, bool $status): void
+    {
+        $this->player->update(['status' => $status]);
+        $users = User::count();
+        $invite = $this->issue();
+        $token = $this->deliver($invite);
+        $this->postJson('/api/invitations/inspect', ['token' => $token])->assertOk()->assertJsonPath('valid', true);
+        $credential = $manual ? ['claim_code' => $this->codeFor($invite)] : ['token' => $token];
+        $this->postJson('/api/invitations/accept', $credential + ['email' => $invite->email, 'password' => 'Password123'])
+            ->assertOk()->assertJsonPath('dashboard_path', '/player-dashboard');
+        $login = $this->postJson('/api/login', ['email' => $invite->email, 'password' => 'Password123'])->assertOk();
+        $this->assertSame($this->player->id, $login->json('data.id'));
+        $this->withToken($login->json('data.token'))->getJson('/api/player/me')->assertOk()->assertJsonPath('data.id', $this->player->id);
+        $this->flushHeaders();
+        $this->assertSame($users, User::count());
+        $this->assertSame($this->player->id, $invite->fresh()->user_id);
+        $this->assertSame(1, PlayerTeam::where('user_id', $this->player->id)->where('team_id', $this->team->id)->count());
+        $this->postJson('/api/invitations/accept', $credential + ['email' => $invite->email, 'password' => 'Password123'])->assertUnprocessable();
+    }
+
     private function issue(?array $data = null): TeamInvitation
     {
         return app(InvitationService::class)->send($this->coach, $this->team->id, $data ?? ['role' => 'player','user_id' => $this->player->id,'email' => $this->player->email]);
@@ -596,6 +617,8 @@ class TeamInvitationsTest extends TestCase
         $notice = new TeamInvitationNotification('https://app.fmtrx.com/invitations/accept#token='.$token, 'Coach', 'Team', 'Oct 23', 'player', $code);
         $html = (string) $notice->toMail(null)->render();
         $this->assertStringContainsString('Claim Profile', $html);
+        $this->assertStringContainsString('No separate team code is needed', $html);
+        $this->assertStringContainsString('Backup manual claim code', $html);
         $this->assertStringContainsString($code, $html);
         $this->assertStringNotContainsString($invite->fresh()->claim_code_hash, $html);
         $this->assertStringNotContainsString($invite->fresh()->token_hash, $html);

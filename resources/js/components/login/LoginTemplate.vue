@@ -1,5 +1,5 @@
 <script setup>
-import { consumeCommunicationDestination } from '@/utils/communicationDestination.js'
+import { consumeCommunicationDestination, pendingCommunicationDestination } from '@/utils/communicationDestination.js'
 import { reactive, ref, computed } from 'vue'
 import {BigButtonField, InputBase, LabelField, PasswordField, SwitchField} from '../../components/form'
 import axios from "axios";
@@ -32,7 +32,8 @@ const teamStore = useTeamStore();
 const playerStore = usePlayerStore();
 const isLoading = reactive({status: true})
 const formData = reactive({user: '', password: '', remember: false})
-const loginMode = ref(props.title === 'player' ? 'claim' : 'email')
+const invitationPending = pendingCommunicationDestination() === '/invitations/accept'
+const loginMode = ref(props.title === 'player' && route.query.mode === 'team' && !invitationPending ? 'claim' : 'email')
 const claimForm = reactive({
   phone: String(route.query.phone || ''),
   teamCode: String(route.query.team_code || '').toUpperCase(),
@@ -332,11 +333,12 @@ const submitClaimCredentials = async () => {
             :class="loginMode === 'claim' ? 'bg-[#C00000] text-white' : 'text-white/75 hover:text-white'"
             @click="loginMode = 'claim'"
           >
-            Claim Profile
+            Use a team code
           </button>
         </div>
       </div>
 
+      <p v-if="invitationPending" class="text-white">Sign in to continue your invitation. <RouterLink to="/invitations/accept" class="underline">New account? Set up your invited profile here.</RouterLink></p>
       <!-- form section -->
       <FormKit v-if="!isClaimMode" type="form" :actions="false" @submit="submitForm" >
 <div class="grid grid-rows-2 lg:grid-cols-2 lg:gap-x-12">
@@ -365,7 +367,7 @@ const submitClaimCredentials = async () => {
 </div>
       </FormKit>
 
-      <RouterLink v-if="isPlayerLogin" to="/invitations/accept" class="block my-3 text-white underline">Have an invitation email? Enter your claim code</RouterLink>
+      <RouterLink v-if="isPlayerLogin" to="/invitations/accept" class="block my-3 text-white underline">Claim your invited profile — no team code needed</RouterLink>
       <form v-if="isClaimMode && !isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
         <div class="grid grid-cols-1 gap-4">
           <div>

@@ -1,6 +1,7 @@
 // Store only a validated frontend destination, never an invitation token or account data.
 const key = 'fmtrx.communication.destination'
 let invitationToken = ''
+let invitationDraft = { email: '', claimCode: '' }
 const paths = new Set(['/dashboard', '/player-dashboard', '/assessment-reports', '/development/player', '/settings', '/invitations/accept'])
 export function safeCommunicationDestination(value) {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || /[\\\\\x00-\x20#]/.test(value)) return null
@@ -33,7 +34,14 @@ export function consumeCommunicationDestination(fallback, storage = globalThis.s
 }
 // The invitation secret lives only in memory through SPA sign-in. Reopen the email after a full reload.
 export function retainInvitationToken(raw) {
-  if (/^[a-f0-9]{64}$/.test(raw || '')) invitationToken = raw
+  if (raw !== null && raw !== undefined) {
+    invitationToken = /^[a-f0-9]{64}$/.test(raw) ? raw : ''
+    invitationDraft = { email: '', claimCode: '' }
+  }
   return invitationToken
 }
-export function clearInvitationToken() { invitationToken = '' }
+export function retainInvitationDraft(draft) {
+  if (draft) invitationDraft = { email: String(draft.email || ''), claimCode: String(draft.claimCode || '') }
+  return { ...invitationDraft }
+}
+export function clearInvitationToken() { invitationToken = ''; invitationDraft = { email: '', claimCode: '' } }

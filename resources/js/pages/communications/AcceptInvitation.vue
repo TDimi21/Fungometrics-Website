@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { retainInvitationToken, clearInvitationToken, rememberCommunicationDestination, consumeCommunicationDestination } from '@/utils/communicationDestination.js'
+import { retainInvitationToken, retainInvitationDraft, clearInvitationToken, rememberCommunicationDestination, consumeCommunicationDestination } from '@/utils/communicationDestination.js'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
@@ -15,12 +15,21 @@ const teams = useTeamStore()
 const players = usePlayerStore()
 const api = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '/api/'
 const token = retainInvitationToken(new URLSearchParams(window.location.hash.slice(1)).get('token'))
-if (token) rememberCommunicationDestination('/invitations/accept')
+rememberCommunicationDestination('/invitations/accept')
 // Keep the secret out of history, referrers, storage and server access logs.
 window.history.replaceState(null, '', window.location.pathname)
 const valid = ref(false), busy = ref(false), error = ref(''), accepted = ref(false)
-const email = ref(''), password = ref(''), firstName = ref(''), lastName = ref('')
-const claimCode = ref('')
+const draft = retainInvitationDraft()
+const email = ref(draft.email), password = ref(''), firstName = ref(''), lastName = ref('')
+const claimCode = ref(draft.claimCode)
+function useTeamCode() {
+  clearInvitationToken()
+  consumeCommunicationDestination('/')
+}
+function continueToLogin() {
+  retainInvitationDraft({ email: email.value, claimCode: claimCode.value })
+  rememberCommunicationDestination('/invitations/accept')
+}
 const expiry = ref(''), loginPath = ref('/login/player')
 const errorText = e => Object.values(e?.response?.data?.errors || {}).flat().join(' ') || e?.response?.data?.message || 'Unable to complete this request. Please try again.'
 onMounted(async () => {
@@ -54,7 +63,7 @@ async function accept() {
 <template>
   <main class="invite-page">
     <h1>Welcome to FMTRX</h1>
-    <p>Accept your team invitation to open your existing profile and training history.</p>
+    <p>Claim the profile your coach created, including your existing training history. No team code is needed.</p>
     <p role="alert" v-if="error">{{ error }}</p>
     <RouterLink v-if="accepted" :to="loginPath">Sign in to your dashboard</RouterLink>
     <form v-else-if="valid" @submit.prevent="accept">
@@ -63,16 +72,18 @@ async function accept() {
       <label v-if="!token">Invitation claim code<input v-model="claimCode" required maxlength="24" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" spellcheck="false"></label>
       <label>Email<input v-model="email" type="email" autocomplete="email" required maxlength="191"></label>
       <label>Password<input v-model="password" type="password" autocomplete="current-password" minlength="8" maxlength="20" :required="!auth.isLogged.status"></label>
-      <RouterLink v-if="!auth.isLogged.status" to="/login/player">Sign in to an existing player account, then return here</RouterLink>
-      <RouterLink v-if="!auth.isLogged.status" to="/login/coach">Sign in to an existing coach account, then return here</RouterLink>
-      <p>Already have an account? Use its password. Otherwise choose an 8–20 character password to complete your account. If you are signed in to the invited account, leave this blank.</p>
+      <RouterLink v-if="!auth.isLogged.status" @click="continueToLogin" to="/login/player">Sign in to an existing player account, then return here</RouterLink>
+      <RouterLink v-if="!auth.isLogged.status" @click="continueToLogin" to="/login/coach">Sign in to an existing coach account, then return here</RouterLink>
+      <p>Already have an account? Use its password. New to FMTRX? Choose an 8–20 character password here to finish setting up this existing profile; do not register a second profile. If you are signed in to the invited account, leave this blank.</p>
       <details><summary>Creating a new coach account?</summary>
         <label>First name<input v-model="firstName" autocomplete="given-name" maxlength="100"></label>
         <label>Last name<input v-model="lastName" autocomplete="family-name" maxlength="100"></label>
       </details>
-      <button :disabled="busy">{{ busy ? 'Connecting…' : 'Accept invitation' }}</button>
+      <button :disabled="busy">{{ busy ? 'Connecting…' : 'Claim profile / accept invitation' }}</button>
     </form>
     <p v-else-if="!error">Checking invitation…</p>
+    <p v-if="error && !accepted">If this invitation expired, was revoked, or was already used, ask your coach for a new invitation or sign in if you already claimed your profile.</p>
+    <RouterLink @click="useTeamCode" to="/login/player?mode=team">No email invitation? Use a team code instead</RouterLink>
   </main>
 </template>
 <style scoped>

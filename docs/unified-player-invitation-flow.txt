@@ -1,0 +1,70 @@
+FMTRX unified player invitation flow
+
+Audit
+Worked on existing fungoweb/main, initially clean. The public
+/invitations/accept route already uses the existing Laravel invitation ledger,
+identifies the existing player/team from a hashed token or code, and accepts
+without a team code. The acceptance service never creates a player. Password
+setup updates the invited record; existing accounts require password or a
+matching authenticated account. Acceptance returns /player-dashboard. The
+frontend reuses standard login and its HttpOnly web cookie. Pending invitation
+registration routes already return to acceptance instead of creating a new
+player. No backend authorization changes were needed.
+
+Gaps fixed
+Player login defaulted to legacy team-code claiming, causing confusion during
+invitation sign-in. It now defaults to email login; Use a team code remains an
+explicit option. The invitation screen saves email/manual code only in module
+memory during SPA sign-in, just as the secure link token was already retained.
+The continuation path (without secrets) is saved in sessionStorage. New links
+clear old drafts, and malformed new tokens cannot reuse a previous token.
+Explicit team-code fallback clears the invitation continuation. Completion
+clears the in-memory credentials. Reloading requires reopening the invitation
+email or entering the backup code; tokens are not persisted to support reload.
+
+Copy now recommends Claim Profile, explains no team code is needed, and directs
+new invitees to choose a password on the existing-profile setup screen instead
+of registering again. Error guidance covers invalid, expired, revoked and
+already-used invitations without exposing private invitation details. Accepted
+and revoked hashes remain erased; we do not weaken that protection to reveal
+which unavailable state a submitted secret previously represented.
+
+Changed files
+app/Notifications/TeamInvitationNotification.php
+resources/js/pages/communications/AcceptInvitation.vue
+resources/js/components/login/LoginTemplate.vue
+resources/js/utils/communicationDestination.js
+tests/Feature/Communications/TeamInvitationsTest.php
+tests/frontend/communicationDestination.spec.js
+This report.
+
+Validation
+PHP endpoint flow tests cover inspection -> manual/link acceptance -> login ->
+authenticated player/me with the original ID and no team code, both status
+values, unchanged user/membership counts and rejected repeat acceptance.
+Existing history, age, authorization, expiry, revocation and ownership tests
+remain in the suite. Frontend tests cover secret-free continuation storage,
+in-memory manual entry and invalid-link isolation. Email tests verify guidance.
+Commands:
+php -d memory_limit=768M vendor/bin/phpunit --filter='TeamInvitationsTest|AccountClaimSecurityTest|LoginControllerTest'
+npm test -- --threads=false
+npm run build
+Frontend: 339 tests passed. Production build passed with the existing >500 KiB
+chunk warning. No live email or browser/device end-to-end session was run.
+
+Acceptance checklist for approved pilot
+Revoke the exposed invitation using existing coach controls before testing;
+this work did not access or revoke production invitations.
+With a new approved test invitation, verify the email button opens acceptance,
+no team-code field appears, and password setup claims the original profile.
+Verify existing account sign-in returns to acceptance; verify manual entry
+survives SPA sign-in; verify register links return to existing-profile setup.
+Verify dashboard history and subscription identity, expired/revoked/used-code
+guidance, and independent team-code fallback. Test full reload by reopening
+the email or re-entering the backup code. Never share replacement credentials.
+
+Deployment requirements
+Deploy PHP and rebuilt web assets together through the approved normal process.
+Restart long-lived queue workers so new emails use the updated wording. No
+migrations, new dependencies, API credentials or sending-flag changes required.
+No commits, pushes, deployment, production data changes or live emails performed.

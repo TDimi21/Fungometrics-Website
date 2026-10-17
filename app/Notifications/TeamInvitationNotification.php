@@ -21,7 +21,7 @@ class TeamInvitationNotification extends Notification
     {
         return (new MailMessage())->subject('Your FMTRX team invitation')->markdown('mail.fmtrx-notification', [
             'heading' => 'You are invited to FMTRX',
-            'lines' => ["{$this->coach} invited you to join {$this->team} as a {$this->role}.", 'Your existing training history stays with your profile.', "This invitation expires {$this->expiry}.", 'If you did not expect this invitation, you can ignore it.', ...($this->claimCode ? ["Manual claim code: {$this->claimCode}", 'Enter this code and the email that received it at https://app.fmtrx.com/invitations/accept. Use your existing password or choose one to finish your coach-created profile. Never share this code.'] : [])],
+            'lines' => ["{$this->coach} invited you to join {$this->team} as a {$this->role}.", 'Click the button below to open your invitation. No separate team code is needed. Your existing training history stays with your profile.', 'Use the email that received this invitation and your existing password. New to FMTRX? Choose a password on the invitation screen to finish setting up your existing profile; do not register a second profile.', "This invitation expires {$this->expiry}.", 'If you did not expect this invitation, you can ignore it.', ...($this->claimCode ? ["Backup manual claim code: {$this->claimCode}", 'Only if you cannot use the button, enter this code and the email that received it at https://app.fmtrx.com/invitations/accept. Use your existing password or choose one to finish your coach-created profile. Never share this code.'] : [])],
             'actionText' => $this->role === 'player' ? 'Claim Profile' : 'Accept invitation', 'actionUrl' => $this->acceptUrl,
         ]);
     }
