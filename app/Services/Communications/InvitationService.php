@@ -20,7 +20,7 @@ class InvitationService
 
     public function authorize(User $actor, string $teamId, bool $coachInvite = false): void
     {
-        abort_unless($actor->status && 'coach' === $actor->type && CoachUtils::isCoachOnTeam($actor->id, $teamId), 403);
+        abort_unless($actor->status && 'coach' === $actor->type && CoachUtils::isCoachOnTeam($actor->id, $teamId), 403, 'An active coach account with access to the selected team is required.');
         if ($coachInvite) {
             abort_unless(CoachUtils::isHeadCoach($actor->id, $teamId), 403, 'Only the head coach can invite coaches.');
         }

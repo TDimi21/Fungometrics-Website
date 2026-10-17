@@ -1,4 +1,5 @@
 <script setup>
+import { useCreatePlayer, playerCreationError } from "@/composables/create-player.js"
 import PlayerOnboardingFields from "@/components/communications/PlayerOnboardingFields.vue";
 import Layout from '@/layout/Layout.vue'
 import { InputBase, BigButtonField, InutTel, LabelField } from '@/components/form'
@@ -16,9 +17,11 @@ import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { getAuthToken } from '@/utils/authToken.js'
 
+const createPlayer = useCreatePlayer()
+
 const { axiosGet, axiosDelete } = useAxiosAuth()
 const {userData} = useUserStore();
-const {team } = useTeamStore();
+const {team } = storeToRefs(useTeamStore());
 const playerStore = usePlayerStore()
 
 const { players } = storeToRefs(playerStore)
@@ -116,7 +119,7 @@ const getPlayerByTeam = async(page = 1) => {
   const data = {}
   try {
     isLoadingPlayer.value = true
-    const teamId = team?.id ?? team?.id_team
+    const teamId = team.value?.id ?? team.value?.id_team
     if (!teamId) {
       tableDataPlayers.value = []
       playersDataDefault.value = []
@@ -222,18 +225,12 @@ const submitAddPlayer = async () => {
     let dataForm = new FormData();
     if (dataPlayer.mobileNumber.trim()) dataForm.append('phone', dataPlayer.mobileNumber.trim())
     if (dataPlayer.email.trim()) dataForm.append('email', dataPlayer.email.trim())
-    dataForm.append('team', team.id)
     dataForm.append('name[first]', dataPlayer.firstName)
     dataForm.append('name[last]', dataPlayer.lastName)
     if (dataPlayer.born) dataForm.append('player[born_date]', dataPlayer.born)
     if (dataPlayer.position) dataForm.append('player[position]', dataPlayer.position)
     dataForm.append('send_invitation', dataPlayer.sendInvitation && dataPlayer.email ? '1' : '0')
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-    await axios.post(api_url+'coach/add/players', dataForm, config).then(async function (response) {
-      console.log(response.data);
-
+    await createPlayer(team.value, dataForm).then(async function (response) {
       let tempResponse = response.data.data
       let playerToSetInStore = {
         "id": tempResponse.id,
@@ -307,11 +304,11 @@ const submitAddPlayer = async () => {
           text: errorMessage,
         })
       } else {
-        const message = error?.response?.data?.message || error?.message || 'Unknown error'
+        const message = playerCreationError(error)
         await toast.fire({
           icon: 'error',
           title: 'Player Error !!!',
-          text: 'strike 3 is out, have a internal problem, ' + message,
+          text: message,
         })
       }
       isLoading.status =!isLoading.status;
@@ -331,7 +328,7 @@ const submitAddCoach = async () => {
   }else{
     let dataForm = new FormData();
     dataForm.append('phone', dataCoach.mobileNumber)
-    dataForm.append('team', team.id)
+    dataForm.append('team', team.value.id)
     dataForm.append('name[first]', dataCoach.firstName)
     dataForm.append('name[last]', dataCoach.lastName)
     const config = {
@@ -477,9 +474,9 @@ const copyToClipboard = async (value, successTitle = 'Copied') => {
 }
 
 const fetchTeamJoinCode = async () => {
-  if (!team?.id) return
+  if (!team.value?.id) return
   try {
-    const response = await axiosGet(`coach/teams/${team.id}/code`)
+    const response = await axiosGet(`coach/teams/${team.value.id}/code`)
     teamJoinCode.value = response?.data?.data?.join_code || response?.data?.join_code || ''
   } catch (_) {
     teamJoinCode.value = ''
@@ -507,7 +504,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
   claimInviteModal.message = buildPlayerClaimMessage({
     playerName,
     coachName,
-    teamName: team?.name || 'the team',
+    teamName: team.value?.name || 'the team',
     teamCode: teamJoinCode.value,
   })
   claimInviteModal.open = true

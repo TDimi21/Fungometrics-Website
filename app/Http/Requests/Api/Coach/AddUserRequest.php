@@ -31,7 +31,7 @@ class AddUserRequest extends FormRequest
         return [
             'phone' => $this->is('api/coach/add/players') ? ['nullable', 'string', 'max:32'] : ['required'],
             'email' => ['nullable', 'email', 'max:191'],
-            'team' => ['required'],
+            'team' => $this->is('api/coach/add/players') ? ['required', 'uuid'] : ['required'],
             'name.first' => ['required'],
             'name.last' => ['required'],
             'send_invitation' => ['sometimes', 'boolean'],

@@ -1,4 +1,5 @@
 <script setup>
+import { useCreatePlayer, playerCreationError } from "@/composables/create-player.js"
 import PlayerOnboardingFields from "@/components/communications/PlayerOnboardingFields.vue";
 import CoachHeader from "./CoachHeader.vue";
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from "vue";
@@ -38,6 +39,8 @@ import { getAuthToken } from "@/utils/authToken.js";
 import { useAccessStore } from "@/store/access.js";
 import { useAuthStore } from "@/store/auth.js";
 import { endWebSession } from '@/utils/webSession.js';
+
+const createPlayer = useCreatePlayer()
 
 const { axiosGet } = useAxiosAuth();
 const userStore = useUserStore();
@@ -188,18 +191,12 @@ const submitAddPlayer = async () => {
     let dataForm = new FormData();
     if (player.mobileNumber) dataForm.append("phone", player.mobileNumber);
     if (player.email) dataForm.append("email", player.email.trim());
-    dataForm.append("team", activeTeamId.value ?? '');
     dataForm.append("name[first]", player.firstName);
     dataForm.append("name[last]", player.lastName);
     if (player.born) dataForm.append("player[born_date]", player.born);
     if (player.position) dataForm.append("player[position]", player.position);
     dataForm.append("send_invitation", player.sendInvitation && player.email ? "1" : "0");
-    const config = {
-      headers: { Authorization: `Bearer ${token}` },
-    };
-    console.log("paso");
-    await axios
-      .post(api_url + "coach/add/players", dataForm, config)
+    await createPlayer(team.value, dataForm)
       .then(async function (response) {
         if (response.data.invitation?.message) window.alert(`Player saved. ${response.data.invitation.message}`);
         let tempResponse = response.data.data;
@@ -242,8 +239,8 @@ const submitAddPlayer = async () => {
       })
       .catch(async function (error) {
         if (
-          error.response.data.code === "001V" ||
-          error.response.status === 422
+          error?.response?.data?.code === "001V" ||
+          error?.response?.status === 422
         ) {
           const errorsObject = error.response.data.data.errors;
           let errorMessage = "";
@@ -264,8 +261,7 @@ const submitAddPlayer = async () => {
             icon: "error",
             title: "Team Error !!!",
             text:
-              "strike 3 is out, have a internal problem, " +
-              error.response.data.message,
+              playerCreationError(error),
           });
         }
         console.log("paso x4");

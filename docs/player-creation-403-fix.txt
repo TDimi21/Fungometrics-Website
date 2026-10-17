@@ -1,0 +1,118 @@
+FMTRX player creation 403 — local correction, 2026-10-16
+fungoweb/main. No branch/worktree, production access, migration, deployment,
+commit/push, configuration change or real email performed.
+
+Root cause findings and limits
+The exact route is POST /api/coach/add/players -> AddPlayers, under auth:sanctum,
+ability:coach and route.scope. AddUserRequest.authorize returns true. No Gate or
+player policy is called here. route.scope checks route parameters, not this body
+team field. AddPlayers explicitly calls InvitationService.authorize BEFORE its
+transaction/catch block. That method previously used message-less abort_unless
+(active status AND role=coach AND CoachUtils::isCoachOnTeam, 403). Laravel renders
+that HttpException as {"message":""}. This matches the reported denial shape.
+The check was introduced/reused with invitation work, but it does NOT check
+invitation/communications enable flags. Do not disable it to restore creation.
+
+A separate capacity branch returns 403 code 016-LIMIT with a nonempty plan-limit
+message. Ability failures use the existing 001-F response; unauthenticated uses
+401/001-E. Those are distinct from the reported blank authorization exception.
+
+Reproduced locally with real encrypted web cookie and Authorization: Bearer:
+- active coach: GET /coach/teams 200; POST with membership UUID 403;
+- inactive coach: GET /coach/teams 200; POST with real team UUID 403;
+- active coach + correct team + cookie: POST 200, including with empty Bearer;
+- empty Bearer without cookie: 401, NOT the reported blank 403.
+Therefore empty Bearer alone is NOT the demonstrated root cause of the 403.
+Production actor status and submitted team UUID were not provided/inspected;
+which authorization predicate failed in production remains unverified. No
+inactive account was reactivated and no missing relationship was invented.
+
+Why the header was empty
+Web login deliberately issues HttpOnly fmtrx_api_token and no JS bearer token.
+getAuthToken consequently returns empty on normal cookie login. Three creation
+forms built `Authorization: Bearer ${token}` unconditionally from a setup-time
+snapshot. Other team reads use useAxiosAuth, which resolves a current legacy
+token only when available, otherwise omits the header and uses credentials.
+UseApiTokenCookie supplies the valid cookie token when bearerToken() is empty.
+Cookie authentication is intended. Existing cookie flags/middleware and CSRF
+configuration are unchanged; no authentication exception/bypass was added.
+
+Team ID finding
+Current /coach/teams route uses GetTeamsPlayersV2: id and id_team are BOTH team
+UUIDs, with coach_team_id separate. The old GetTeamsPlayers controller returns
+id=membership UUID and id_team=team UUID. Persisted older state can retain that
+shape. HomeRoster used a destructured team snapshot plus team.id; Layout already
+preferred id_team. New shared submission always resolves the current ref and
+prefers id_team, falling back to a valid UUID id for direct team objects. It does
+not translate unauthorized IDs on the server or weaken membership checks.
+No stale production artifact is proven solely by this finding. Compare production
+HEAD, current /coach/teams shape, submitted team value, loaded asset/manifest and
+API origin privately before claiming a deployed mismatch is confirmed.
+
+Smallest safe changes applied
+- Shared create-player composable uses existing useAxiosAuth. All three creation
+  entry points now omit empty Bearer, include cookie credentials, obtain current
+  team ID, preserve multipart fields and avoid stale setup-time auth snapshots.
+- Invalid/missing client team UUID blocks submission; server validates team UUID
+  before authorization. Membership, role, active status and capacity stay intact.
+- Generic permission message replaces blank service denial; UI preserves real
+  capacity/policy messages, explains expired login, and handles no-response errors.
+- Request-specific audit middleware records 401/403 after existing pipeline:
+  endpoint, status, authenticated boolean, coarse actor role, reason enum only.
+  No tokens, cookies, headers, contact/name/DOB, submitted team/player IDs or request
+  bodies. Reasons: authentication_required, coach_role_required,
+  active_account_required, team_membership_required, player_limit,
+  token_ability_or_policy_denied. It never authorizes requests or changes responses.
+- Removed player-payload console logging in touched creation paths.
+
+Files changed
+app/Http/Kernel.php
+app/Http/Middleware/AuditPlayerCreationAuthorization.php (new)
+app/Http/Requests/Api/Coach/AddUserRequest.php
+app/Services/Communications/InvitationService.php
+resources/js/composables/create-player.js (new)
+resources/js/pages/roster/HomeRoster.vue
+resources/js/layout/Layout.vue
+resources/js/components/roster/PlayerCard.vue
+tests/Feature/Api/Coach/PlayerCreationAuthorizationTest.php (new)
+tests/frontend/createPlayer.spec.js (new)
+docs/player-creation-403-fix.txt (this report)
+
+Validation
+PHP: PlayerCreationAuthorizationTest, AddPlayersTest, TeamInvitationsTest,
+LoginControllerTest, CoachPlayerOpeningTest, RouteScopeAuthorizationTest.
+76 tests pass, 337 assertions.
+Includes real cookie+empty Bearer, cookie-only, absent cookie, wrong UUID/other
+team, inactive coach, player role, malformed team, invitations disabled, existing
+capacity limit, invitation/account preservation and original coach access tests.
+Frontend: all 337 tests pass across 57 files; nine new request/error tests verify
+legacy/current team shapes, cookie/no-Bearer multipart, current bearer support,
+invalid team prevention, UI restriction messages and all three entry points.
+Production frontend build succeeds; pre-existing ~501 KiB ApexCharts warning.
+No physical-browser or production smoke test was performed.
+
+Safe deployment instructions — only after approval
+1. Review/approve this diff on main and current production artifact. No migrations
+   or new package dependencies are required. Preserve OFF communications settings.
+2. Through approved release process deploy backend and matching built frontend.
+   Build with repository Node24/npm11 requirements (or verified CI artifact):
+     npm ci
+     npm run build
+   Use verified production PHP/Composer path; refresh optimized class map:
+     <verified-php> <verified-composer-php-entrypoint> dump-autoload -o --no-dev
+   Preserve existing .env and authenticated cookie/CSRF configuration. Refresh
+   PHP/opcache with the established release procedure; do not change account roles.
+3. Read-only verify route list and artifact consistency:
+     <verified-php> artisan route:list --path=coach/add/players
+     git rev-parse HEAD
+     sha256sum public/build/manifest.json
+   Confirm browser loads the matching asset and normal web cookie. Do not paste
+   auth/cookie data or raw request payloads in support logs.
+4. With approved controlled test player and send_invitation=false, active roster
+   coach submits valid team UUID: expect 200 and invitation not_requested. Keep
+   communications OFF. Verify no duplicate profile/team membership and no email.
+5. If 403 persists, inspect ONLY player_creation.authorization_denied entries
+   privately. Resolve actual account-status/team/access issue through authorized
+   administration, not by changing permissions or enabling invitations.
+   Inactive status can explain why team GET worked while creation did not.
+6. Roll back code and matching frontend artifact if needed; no database rollback.

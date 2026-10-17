@@ -1,18 +1,17 @@
 <script setup>
+import { useCreatePlayer, playerCreationError } from "@/composables/create-player.js"
 import {defineProps} from 'vue'
 import { toast } from "@/utils/AlertPlugin"
-import axios from "axios";
 import { storeToRefs } from 'pinia'
 import {useTeamStore} from "@/store/team";
 import { usePlayerStore } from '@/store/players.js'
 import {useRouter} from "vue-router"
-import { getAuthToken } from '@/utils/authToken.js'
 
-const {team} = useTeamStore();
+const createPlayer = useCreatePlayer()
+
+const {team} = storeToRefs(useTeamStore());
 const playerStore = usePlayerStore()
 const { players } = storeToRefs(playerStore)
-const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
-const token = getAuthToken()
 const router = useRouter()
 const props = defineProps({
   data: {
@@ -30,27 +29,17 @@ const props = defineProps({
 const submitAddPlayer = async (player) => {
   if(player.name.first == "" || player.name.last == "" || player.phone == "" ||
       player.name.first == undefined || player.name.last == undefined || player.phone == undefined ){
-    console.log(player);
-    console.log(team.id);
     toast.fire({
       icon: 'warning',
       title: 'Validation !!!',
       text: 'You must complete all the fields',
     })
   }else{
-    console.log(player);
-    console.log(team.id);
-    console.log(player.phone);
     let dataForm = new FormData();
     dataForm.append('phone', player.phone)
-    dataForm.append('team', team.id)
     dataForm.append('name[first]', player.name.first)
     dataForm.append('name[last]', player.name.last)
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-    await axios.post(api_url+'coach/add/players', dataForm, config).then(async function (response) {
-      console.log(response.data);
+    await createPlayer(team.value, dataForm).then(async function (response) {
       let tempResponse = response.data.data
       let playerToSetInStore = {
         "id": tempResponse.id,
@@ -86,7 +75,7 @@ const submitAddPlayer = async (player) => {
       await router.replace("/dashboard")
 
   }).catch(async function (error){
-    if (error.response.data.code === '001V' || error.response.status === 422 ) {
+    if (error?.response?.data?.code === '001V' || error?.response?.status === 422 ) {
       const errorsObject = error.response.data.data.errors
       let errorMessage = ''
       let isAllow = false
@@ -105,7 +94,7 @@ const submitAddPlayer = async (player) => {
       await toast.fire({
         icon: 'error',
         title: 'Player Error !!!',
-        text: "strike 3 is out, have a internal problem, " +error.response.data.message,
+        text: playerCreationError(error),
       })
     }})
   }
