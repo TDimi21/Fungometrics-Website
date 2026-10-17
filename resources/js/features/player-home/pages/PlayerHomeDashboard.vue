@@ -11,6 +11,7 @@ import { useUserStore } from '@/store/user'
 import { useAxiosAuth } from '@/composables/axios-auth'
 import { resolvePlayerId, resolveTeamId } from '@/utils/identity.js'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
+import ConnectedTeamsCard from '../components/ConnectedTeamsCard.vue'
 import ProfileCard from '../components/ProfileCard.vue'
 import BenchmarkTasksPanel from '../components/BenchmarkTasksPanel.vue'
 import SessionCountsCard from '../components/SessionCountsCard.vue'
@@ -235,6 +236,7 @@ const openRecapReport = (session) => {
             />
             <StatePanel v-if="rapsodoState.error" state="error" :message="rapsodoState.error" @retry="loadRapsodo" />
 
+            <ConnectedTeamsCard />
             <BenchmarkTasksPanel />
 
             <StatePanel v-if="statsState.loading" state="loading" message="Loading session counts…" />

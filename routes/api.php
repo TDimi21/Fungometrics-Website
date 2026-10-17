@@ -241,6 +241,8 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
     Route::post('me/billing/revenuecat/sync', RevenueCatSyncController::class)->middleware('throttle:10,1');
     Route::get('me/billing/revenuecat/products', RevenueCatProductsController::class);
     Route::post('/edit/players/{id}', EditPlayers::class);
+    Route::get('player/me/teams', [\App\Http\Controllers\Api\Player\MyTeamsController::class, 'index'])->middleware('ability:player');
+    Route::delete('player/me/teams/{teamId}', [\App\Http\Controllers\Api\Player\MyTeamsController::class, 'destroy'])->whereUuid('teamId')->middleware(['ability:player', 'throttle:10,1']);
     Route::get('player/me', \App\Http\Controllers\Api\Player\GetMe::class);
     Route::post('player/fitness', SaveFitness::class);
     Route::get('player/fitness/{id}', GetFitness::class);
