@@ -9,6 +9,7 @@ use App\Models\CoachTeam;
 use App\Models\DailyPlan;
 use App\Models\DailyPlanAssignment;
 use Auth;
+use Illuminate\Support\Facades\DB;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,10 +30,14 @@ class DeleteDailyPlan extends Controller
                 ->whereIn('team_id', $teamIds)
                 ->first();
 
-            if ($plan) {
+            if (! $plan) {
+                return response()->json(['status' => 'error', 'message' => 'Workout not found or unavailable.'], 404);
+            }
+
+            DB::transaction(function () use ($plan) {
                 DailyPlanAssignment::where('plan_id', $plan->id)->delete();
                 $plan->delete();
-            }
+            });
 
             return response()->json([
                 'code'    => '092',

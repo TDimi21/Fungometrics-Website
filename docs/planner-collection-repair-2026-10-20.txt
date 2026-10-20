@@ -1,0 +1,45 @@
+FMTRX R02 — Coach planner collection and deletion integration
+Implemented locally, 2026-10-20. Web/backend main; mobile TomsScreeens.
+
+Mobile advanced planner now requests GET /api/coach/daily-plans?team_id=...
+on entry, focus and pull-to-refresh. Only a validated network collection can
+replace confirmed cache rows. Pending edits and local drafts remain; other
+teams are unaffected. Failed refresh shows an explicit device-copy message.
+Account changes and superseded screen loads do not apply late responses.
+The broader owner-scoped coach cache repair remains R04.
+
+Delete calls DELETE /api/coach/daily-plans/{id}, with offline queueing disabled.
+The device card is removed only after a confirmed success. Offline, denied,
+missing and malformed responses retain it and explain refresh/retry. Drafts
+with no version, pending submission or server marker may be discarded locally.
+Cloning a server plan clears its version/sync metadata for the new draft.
+
+Backend retains existing coach membership and entitlement middleware. Missing
+or inaccessible plans now return 404 instead of a misleading success. Authorized
+soft deletion and assignment removal run in one transaction; historical progress
+is preserved. No schema or authentication changes.
+
+Validation:
+- Mobile full suite: 325 passed, 3 existing failures (328 total).
+- Existing failures: App-test SQLite mock, inputMaskCompatibility claim-field
+  assertion, maintainabilityBudgets homePlayer line limit.
+- New tests cover canonical list loading, stale/offline rejection, reconciliation,
+  preservation of drafts, team separation, deletion confirmation, screen refresh,
+  late account switch, and local draft discard.
+- Relevant Laravel tests: 39 passed / 535 assertions, including authorized delete,
+  repeat/missing delete, unrelated coach/player rejection, player list removal,
+  and history preservation.
+- iOS production JavaScript bundle and git diff whitespace checks passed.
+
+Release steps, when approved:
+Deploy the backend controller through the normal release process; no migrations
+or configuration changes. Build the mobile release with the changes. Verify on a
+physical device: web create/edit -> phone advanced list refresh -> phone edit ->
+web refresh -> phone delete -> web/player lists no longer show the plan. Test
+web deletion then phone refresh, offline refresh/delete, and pending edit retention.
+Templates remain device-local in this advanced screen; shared library UI is
+separate. Pending edits to a server-deleted plan remain for deliberate recovery;
+this repair does not automatically resubmit them.
+
+No commit, push, production change, email, archive or App Store submission made.
+Device acceptance and the remaining integration work order still gate release.
