@@ -1,0 +1,1080 @@
+{
+  "date": "2026-10-20",
+  "backend_commit": "0fa855f",
+  "mobile_commit": "7aebe15",
+  "dependency_scans": {
+    "mobile": {
+      "scope": "npm audit --omit=dev",
+      "package_counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 9,
+        "high": 37,
+        "critical": 1,
+        "total": 47
+      },
+      "high_critical_packages": [
+        {
+          "name": "@jest/environment",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": []
+        },
+        {
+          "name": "@jest/fake-timers",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@jest/transform",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "babel-jest",
+            "version": "30.5.2",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@react-native-community/cli",
+          "severity": "high",
+          "direct": true,
+          "fix_available": {
+            "name": "@react-native-community/cli",
+            "version": "20.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@react-native-community/cli-clean",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": []
+        },
+        {
+          "name": "@react-native-community/cli-config",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "@react-native-community/cli",
+            "version": "20.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@react-native-community/cli-config-android",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "@react-native-community/cli-platform-android",
+            "version": "20.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@react-native-community/cli-config-apple",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "@react-native-community/cli-platform-ios",
+            "version": "20.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@react-native-community/cli-doctor",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "@react-native-community/cli",
+            "version": "20.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@react-native-community/cli-platform-apple",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "@react-native-community/cli-platform-ios",
+            "version": "20.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@react-native/community-cli-plugin",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@react-native/dev-middleware",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "@react-native/metro-config",
+          "severity": "high",
+          "direct": true,
+          "fix_available": false,
+          "advisories": []
+        },
+        {
+          "name": "axios",
+          "severity": "high",
+          "direct": true,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "Axios: Prototype pollution gadget in fetch adapter can alter outbound requests",
+              "url": "https://github.com/advisories/GHSA-vh66-26gq-q6x8",
+              "range": ">=1.7.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Prototype-Pollution Gadget in the Default Instance Allows Inherited Object.prototype.method to Override HTTP Method",
+              "url": "https://github.com/advisories/GHSA-9fr6-4gfg-395g",
+              "range": ">=1.0.0 <1.20.0"
+            },
+            {
+              "title": "Axios: ReDoS in fromDataURI data: URL parser freezes the Node event loop (DoS)",
+              "url": "https://github.com/advisories/GHSA-c29m-xwm3-cm6r",
+              "range": ">=1.16.1 <1.20.0"
+            },
+            {
+              "title": "Axios: ReDoS (O(N\u00b2)) in shouldBypassProxy host normalization, reachable via untrusted redirect Location",
+              "url": "https://github.com/advisories/GHSA-mghh-pgcx-3jjj",
+              "range": ">=1.15.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Prototype Pollution Gadget in axios toFormData Options",
+              "url": "https://github.com/advisories/GHSA-x97p-jq2g-jp4f",
+              "range": ">=1.15.1 <1.20.0"
+            },
+            {
+              "title": "Axios: HTTP/2 adapter bypasses configured DNS lookup and proxy controls",
+              "url": "https://github.com/advisories/GHSA-3pq3-5fj3-cg6v",
+              "range": ">=1.13.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Denial of Service via Unhandled 'error' Event in HTTP/2 ClientHttp2Session Initialization",
+              "url": "https://github.com/advisories/GHSA-542g-h47m-68v8",
+              "range": ">=1.13.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Header Injection via Inherited headers After Minimal Interceptor",
+              "url": "https://github.com/advisories/GHSA-j8rh-479h-cp32",
+              "range": ">=1.0.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Fetch Adapter Header Injection via Inherited FormData getHeaders",
+              "url": "https://github.com/advisories/GHSA-4hqw-qxg8-jxx2",
+              "range": ">=1.12.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Node HTTP adapter prototype-pollution gadget allows request socket hijack via inherited createConnection",
+              "url": "https://github.com/advisories/GHSA-m8m8-qj5v-23w3",
+              "range": ">=1.15.2 <1.20.0"
+            },
+            {
+              "title": "Axios: CIDR-form NO_PROXY entries are ignored, causing proxy exclusion bypass for internal IP ranges",
+              "url": "https://github.com/advisories/GHSA-44g4-m2mj-wpvx",
+              "range": ">=1.15.0 <1.20.0"
+            },
+            {
+              "title": "Axios: maxRedirects: 0 is not enforced by the fetch adapter, allowing redirect-based SSRF",
+              "url": "https://github.com/advisories/GHSA-r4gj-5m52-g5wh",
+              "range": ">=1.17.0 <1.20.0"
+            }
+          ]
+        },
+        {
+          "name": "babel-jest",
+          "severity": "high",
+          "direct": true,
+          "fix_available": {
+            "name": "babel-jest",
+            "version": "30.5.2",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "brace-expansion",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+              "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+              "range": "<1.1.21"
+            },
+            {
+              "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+              "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+              "range": "<1.1.20"
+            },
+            {
+              "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+              "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p",
+              "range": "<1.1.19"
+            }
+          ]
+        },
+        {
+          "name": "braces",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+              "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+              "range": "<=3.0.3"
+            }
+          ]
+        },
+        {
+          "name": "browserslist",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "Browserslist: Unbounded memory growth (no cache eviction) via distinct query results, leading to eventual OOM",
+              "url": "https://github.com/advisories/GHSA-c83g-rgw3-j3cx",
+              "range": "<=4.28.6"
+            },
+            {
+              "title": "Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats)",
+              "url": "https://github.com/advisories/GHSA-73wf-gq98-2v4g",
+              "range": "<=4.28.6"
+            }
+          ]
+        },
+        {
+          "name": "compression",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "compression vulnerable to Denial of Service via memory leak on premature response close",
+              "url": "https://github.com/advisories/GHSA-vc2v-76pw-4v95",
+              "range": "<1.8.2"
+            }
+          ]
+        },
+        {
+          "name": "fast-glob",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "@react-native-community/cli-platform-android",
+            "version": "20.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "follow-redirects",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "follow-redirects array-form headers bypass cross-origin credential stripping",
+              "url": "https://github.com/advisories/GHSA-q3jh-wrc6-jgq8",
+              "range": ">=1.16.0 <1.16.1"
+            },
+            {
+              "title": "follow-redirects sensitiveHeaders regex escaping can expose credential headers",
+              "url": "https://github.com/advisories/GHSA-8r9p-f939-6h3c",
+              "range": ">=1.16.0 <1.16.1"
+            }
+          ]
+        },
+        {
+          "name": "image-size",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "image-size: JXL and HEIF parsers allow denial of service through infinite loops",
+              "url": "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
+              "range": ">=1.2.0 <=2.0.2"
+            },
+            {
+              "title": "image-size: ICNS parser allows denial of service through an infinite loop",
+              "url": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+              "range": ">=0.6.3 <=2.0.2"
+            }
+          ]
+        },
+        {
+          "name": "jest-environment-node",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "jest-haste-map",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": []
+        },
+        {
+          "name": "jest-message-util",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "joi",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "joi: Prototype pollution via a `__proto__` language key in custom messages",
+              "url": "https://github.com/advisories/GHSA-6w3j-5fw6-r9vr",
+              "range": ">=17.2.0 <17.13.6"
+            },
+            {
+              "title": "joi: object().rename() with a template target can set the validated object's prototype",
+              "url": "https://github.com/advisories/GHSA-gg4h-3hg2-grpc",
+              "range": ">=16.0.0 <17.13.5"
+            },
+            {
+              "title": "joi messages compilation allows prototype replacement through __proto__ error codes",
+              "url": "https://github.com/advisories/GHSA-wr44-6hxh-3jwq",
+              "range": "<17.13.8"
+            },
+            {
+              "title": "joi: Quadratic regular-expression backtracking in `Joi.string().isoDate()`",
+              "url": "https://github.com/advisories/GHSA-6h2x-m376-mqjq",
+              "range": ">=17.2.0 <17.13.7"
+            }
+          ]
+        },
+        {
+          "name": "js-yaml",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) \u2014 CVE-2026-59870 fix not backported",
+              "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj",
+              "range": ">=3.0.0 <3.15.1"
+            },
+            {
+              "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) \u2014 CVE-2026-59870 fix not backported",
+              "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj",
+              "range": ">=4.0.0 <4.3.1"
+            },
+            {
+              "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+              "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+              "range": ">=3.0.0 <3.15.2"
+            },
+            {
+              "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+              "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+              "range": ">=4.0.0 <4.3.2"
+            }
+          ]
+        },
+        {
+          "name": "jscodeshift",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": []
+        },
+        {
+          "name": "metro",
+          "severity": "high",
+          "direct": true,
+          "fix_available": false,
+          "advisories": []
+        },
+        {
+          "name": "metro-config",
+          "severity": "high",
+          "direct": false,
+          "fix_available": false,
+          "advisories": []
+        },
+        {
+          "name": "metro-file-map",
+          "severity": "high",
+          "direct": false,
+          "fix_available": false,
+          "advisories": []
+        },
+        {
+          "name": "metro-transform-worker",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": []
+        },
+        {
+          "name": "micromatch",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "nanoid",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "nanoid: non-secure generators can loop indefinitely with negative size",
+              "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv",
+              "range": "<3.3.16"
+            },
+            {
+              "title": "nanoid: custom generators can loop indefinitely when size is zero",
+              "url": "https://github.com/advisories/GHSA-2v37-7h3g-55p8",
+              "range": "<3.3.18"
+            },
+            {
+              "title": "nanoid: Integer Overflow or Wraparound",
+              "url": "https://github.com/advisories/GHSA-xwg4-73v4-xw9w",
+              "range": "<3.3.12"
+            }
+          ]
+        },
+        {
+          "name": "node-forge",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "node-forge RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements",
+              "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+              "range": "<=1.4.0"
+            }
+          ]
+        },
+        {
+          "name": "react-native",
+          "severity": "high",
+          "direct": true,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "selfsigned",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "react-native",
+            "version": "0.88.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "shell-quote",
+          "severity": "critical",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "shell-quote: `quote()` command injection via a line terminator in a token after a `{ comment }` token",
+              "url": "https://github.com/advisories/GHSA-pqg4-j6r4-53mv",
+              "range": ">=1.8.4 <1.11.0"
+            }
+          ]
+        }
+      ]
+    },
+    "web": {
+      "scope": "npm audit (all dependencies)",
+      "package_counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 10,
+        "high": 15,
+        "critical": 2,
+        "total": 27
+      },
+      "high_critical_packages": [
+        {
+          "name": "@vue/server-renderer",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "@vue/server-renderer: XSS via missing CR in attribute-name blacklist",
+              "url": "https://github.com/advisories/GHSA-g2v6-rqmx-r4w6",
+              "range": "<3.5.42"
+            }
+          ]
+        },
+        {
+          "name": "axios",
+          "severity": "high",
+          "direct": true,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "Axios: Prototype pollution gadget in fetch adapter can alter outbound requests",
+              "url": "https://github.com/advisories/GHSA-vh66-26gq-q6x8",
+              "range": ">=1.7.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Prototype-Pollution Gadget in the Default Instance Allows Inherited Object.prototype.method to Override HTTP Method",
+              "url": "https://github.com/advisories/GHSA-9fr6-4gfg-395g",
+              "range": ">=1.0.0 <1.20.0"
+            },
+            {
+              "title": "Axios: ReDoS in fromDataURI data: URL parser freezes the Node event loop (DoS)",
+              "url": "https://github.com/advisories/GHSA-c29m-xwm3-cm6r",
+              "range": ">=1.16.1 <1.20.0"
+            },
+            {
+              "title": "Axios: ReDoS (O(N\u00b2)) in shouldBypassProxy host normalization, reachable via untrusted redirect Location",
+              "url": "https://github.com/advisories/GHSA-mghh-pgcx-3jjj",
+              "range": ">=1.15.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Prototype Pollution Gadget in axios toFormData Options",
+              "url": "https://github.com/advisories/GHSA-x97p-jq2g-jp4f",
+              "range": ">=1.15.1 <1.20.0"
+            },
+            {
+              "title": "Axios: HTTP/2 adapter bypasses configured DNS lookup and proxy controls",
+              "url": "https://github.com/advisories/GHSA-3pq3-5fj3-cg6v",
+              "range": ">=1.13.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Denial of Service via Unhandled 'error' Event in HTTP/2 ClientHttp2Session Initialization",
+              "url": "https://github.com/advisories/GHSA-542g-h47m-68v8",
+              "range": ">=1.13.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Header Injection via Inherited headers After Minimal Interceptor",
+              "url": "https://github.com/advisories/GHSA-j8rh-479h-cp32",
+              "range": ">=1.0.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Fetch Adapter Header Injection via Inherited FormData getHeaders",
+              "url": "https://github.com/advisories/GHSA-4hqw-qxg8-jxx2",
+              "range": ">=1.12.0 <1.20.0"
+            },
+            {
+              "title": "Axios: Node HTTP adapter prototype-pollution gadget allows request socket hijack via inherited createConnection",
+              "url": "https://github.com/advisories/GHSA-m8m8-qj5v-23w3",
+              "range": ">=1.15.2 <1.20.0"
+            },
+            {
+              "title": "Axios: CIDR-form NO_PROXY entries are ignored, causing proxy exclusion bypass for internal IP ranges",
+              "url": "https://github.com/advisories/GHSA-44g4-m2mj-wpvx",
+              "range": ">=1.15.0 <1.20.0"
+            },
+            {
+              "title": "Axios: maxRedirects: 0 is not enforced by the fetch adapter, allowing redirect-based SSRF",
+              "url": "https://github.com/advisories/GHSA-r4gj-5m52-g5wh",
+              "range": ">=1.17.0 <1.20.0"
+            }
+          ]
+        },
+        {
+          "name": "braces",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "tailwindcss",
+            "version": "4.3.3",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+              "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+              "range": "<=3.0.3"
+            }
+          ]
+        },
+        {
+          "name": "browserslist",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "Browserslist: Unbounded memory growth (no cache eviction) via distinct query results, leading to eventual OOM",
+              "url": "https://github.com/advisories/GHSA-c83g-rgw3-j3cx",
+              "range": "<=4.28.6"
+            },
+            {
+              "title": "Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats)",
+              "url": "https://github.com/advisories/GHSA-73wf-gq98-2v4g",
+              "range": "<=4.28.6"
+            }
+          ]
+        },
+        {
+          "name": "chokidar",
+          "severity": "high",
+          "direct": false,
+          "fix_available": {
+            "name": "tailwindcss",
+            "version": "4.3.3",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "fast-glob",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": []
+        },
+        {
+          "name": "fast-uri",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "fast-uri vulnerable to host confusion via backslash authority introducer",
+              "url": "https://github.com/advisories/GHSA-7p8r-x3mc-p8w7",
+              "range": ">=3.0.0 <3.1.5"
+            },
+            {
+              "title": "fast-uri vulnerable to host confusion via skipped IDN canonicalization on scheme-relative references",
+              "url": "https://github.com/advisories/GHSA-5jgf-p345-68v8",
+              "range": ">=3.1.3 <3.1.6"
+            },
+            {
+              "title": "fast-uri vulnerable to server-side request forgery via malformed IPv6 normalization",
+              "url": "https://github.com/advisories/GHSA-f65p-4m7j-42xc",
+              "range": ">=3.0.0 <3.1.6"
+            },
+            {
+              "title": "fast-uri vulnerable to server-side request forgery via repeated hostname percent-decoding",
+              "url": "https://github.com/advisories/GHSA-fph4-wmhf-6fwf",
+              "range": ">=3.1.2 <3.1.6"
+            },
+            {
+              "title": "fast-uri vulnerable to host confusion via percent-encoded scheme normalization",
+              "url": "https://github.com/advisories/GHSA-jqff-g426-hqxp",
+              "range": ">=3.0.0 <3.1.6"
+            },
+            {
+              "title": "fast-uri vulnerable to authority injection via an unvalidated port in serialize",
+              "url": "https://github.com/advisories/GHSA-qw65-cvwx-89v3",
+              "range": ">=3.0.0 <3.1.7"
+            },
+            {
+              "title": "fast-uri vulnerable to inconsistent host case normalization via percent-encoded octets",
+              "url": "https://github.com/advisories/GHSA-hrr3-gc8f-f4qj",
+              "range": ">=3.0.0 <3.1.8"
+            }
+          ]
+        },
+        {
+          "name": "follow-redirects",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "follow-redirects array-form headers bypass cross-origin credential stripping",
+              "url": "https://github.com/advisories/GHSA-q3jh-wrc6-jgq8",
+              "range": ">=1.16.0 <1.16.1"
+            },
+            {
+              "title": "follow-redirects sensitiveHeaders regex escaping can expose credential headers",
+              "url": "https://github.com/advisories/GHSA-8r9p-f939-6h3c",
+              "range": ">=1.16.0 <1.16.1"
+            }
+          ]
+        },
+        {
+          "name": "micromatch",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": []
+        },
+        {
+          "name": "nanoid",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "nanoid: custom generators can loop indefinitely when size is zero",
+              "url": "https://github.com/advisories/GHSA-2v37-7h3g-55p8",
+              "range": "<3.3.18"
+            }
+          ]
+        },
+        {
+          "name": "sass",
+          "severity": "high",
+          "direct": true,
+          "fix_available": true,
+          "advisories": []
+        },
+        {
+          "name": "source-map-js",
+          "severity": "high",
+          "direct": false,
+          "fix_available": true,
+          "advisories": [
+            {
+              "title": "source-map-js allows event-loop denial of service through indexed source-map section offsets",
+              "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q",
+              "range": ">=1.0.0 <1.2.2"
+            }
+          ]
+        },
+        {
+          "name": "tailwindcss",
+          "severity": "high",
+          "direct": true,
+          "fix_available": {
+            "name": "tailwindcss",
+            "version": "4.3.3",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "name": "tinypool",
+          "severity": "critical",
+          "direct": false,
+          "fix_available": {
+            "name": "vitest",
+            "version": "5.0.5",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "Tinypool: Prototype Pollution gadget in worker options leads to Remote Code Execution",
+              "url": "https://github.com/advisories/GHSA-5gmw-xhrv-c9v3",
+              "range": "<=2.1.0"
+            },
+            {
+              "title": "Tinypool: Prototype Pollution Gadget to RCE in run() options",
+              "url": "https://github.com/advisories/GHSA-85c8-ppgw-ccpr",
+              "range": "<2.1.2"
+            }
+          ]
+        },
+        {
+          "name": "vite",
+          "severity": "high",
+          "direct": true,
+          "fix_available": {
+            "name": "vite",
+            "version": "8.3.4",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "Websites were able to send any requests to the development server and read the response in vite",
+              "url": "https://github.com/advisories/GHSA-vg6x-rcgg-rjx6",
+              "range": "<=4.5.5"
+            },
+            {
+              "title": "Vite bypasses server.fs.deny when using ?raw??",
+              "url": "https://github.com/advisories/GHSA-x574-m823-4x7w",
+              "range": "<4.5.10"
+            },
+            {
+              "title": "Vite has an `server.fs.deny` bypass with an invalid `request-target`",
+              "url": "https://github.com/advisories/GHSA-356w-63v5-8wf4",
+              "range": "<4.5.13"
+            },
+            {
+              "title": "Vite's server.fs.deny bypassed with /. for files under project root",
+              "url": "https://github.com/advisories/GHSA-859w-5945-r5v3",
+              "range": "<=4.5.13"
+            },
+            {
+              "title": "Vite allows server.fs.deny to be bypassed with .svg or relative paths",
+              "url": "https://github.com/advisories/GHSA-xcj6-pq6g-qj4x",
+              "range": "<4.5.12"
+            },
+            {
+              "title": "Vite middleware may serve files starting with the same name with the public directory",
+              "url": "https://github.com/advisories/GHSA-g4jq-h2w9-997c",
+              "range": "<=5.4.19"
+            },
+            {
+              "title": "Vite's `server.fs` settings were not applied to HTML files",
+              "url": "https://github.com/advisories/GHSA-jqfw-vq24-v9c3",
+              "range": "<=5.4.19"
+            },
+            {
+              "title": "vite allows server.fs.deny bypass via backslash on Windows",
+              "url": "https://github.com/advisories/GHSA-93m4-6634-74q7",
+              "range": ">=3.2.9 <4.0.0"
+            },
+            {
+              "title": "Vite has a `server.fs.deny` bypassed for `inline` and `raw` with `?import` query",
+              "url": "https://github.com/advisories/GHSA-4r4m-qw57-chr8",
+              "range": "<4.5.11"
+            },
+            {
+              "title": "Vite Vulnerable to Path Traversal in Optimized Deps `.map` Handling",
+              "url": "https://github.com/advisories/GHSA-4w7w-66w2-5vf9",
+              "range": "<=6.4.1"
+            },
+            {
+              "title": "launch-editor vulnerable to command injection via the crafted request on Windows",
+              "url": "https://github.com/advisories/GHSA-c27g-q93r-2cwf",
+              "range": "<=5.4.8"
+            },
+            {
+              "title": "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
+              "url": "https://github.com/advisories/GHSA-v6wh-96g9-6wx3",
+              "range": "<=6.4.2"
+            },
+            {
+              "title": "vite: `server.fs.deny` bypass on Windows alternate paths",
+              "url": "https://github.com/advisories/GHSA-fx2h-pf6j-xcff",
+              "range": "<=6.4.2"
+            },
+            {
+              "title": "launch-editor: escapeCmdArgs() omits % escaping on Windows",
+              "url": "https://github.com/advisories/GHSA-698v-4r3x-3vcv",
+              "range": "<=6.4.3"
+            }
+          ]
+        },
+        {
+          "name": "vitest",
+          "severity": "critical",
+          "direct": true,
+          "fix_available": {
+            "name": "vitest",
+            "version": "5.0.5",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "When Vitest UI server is listening, arbitrary file can be read and executed",
+              "url": "https://github.com/advisories/GHSA-5xrq-8626-4rwp",
+              "range": "<3.2.6"
+            }
+          ]
+        },
+        {
+          "name": "vue",
+          "severity": "high",
+          "direct": true,
+          "fix_available": true,
+          "advisories": []
+        }
+      ]
+    },
+    "php_production": {
+      "guzzlehttp/guzzle": [
+        {
+          "title": "Guzzle: Noncanonical host can bypass host-based checks",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-v5mv-p594-2x33",
+          "affected_versions": ">=8.0.0,<8.0.1|<7.15.2"
+        },
+        {
+          "title": "Guzzle: Noncanonical cookie domain keeps subdomain scope",
+          "severity": "medium",
+          "link": "https://github.com/advisories/GHSA-f7vp-7xgx-4w4r",
+          "affected_versions": ">=8.0.0,<8.0.1|<7.15.2"
+        }
+      ],
+      "laravel/framework": [
+        {
+          "title": "Laravel: XSS in Debug Page Information",
+          "severity": "low",
+          "link": "https://github.com/advisories/GHSA-jh5r-qr3c-85q8",
+          "affected_versions": ">=13.0.0,<13.30.0|<12.69.0"
+        },
+        {
+          "title": "Laravel Framework: Temporary Signed URL Path Confusion",
+          "severity": "medium",
+          "link": "https://github.com/advisories/GHSA-crmm-hgp2-wgrp",
+          "affected_versions": "<12.61.1|>=13.0.0,<13.12.0"
+        },
+        {
+          "title": "Laravel Framework: CRLF injection in default email rule ",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-5vg9-5847-vvmq",
+          "affected_versions": "<12.60.0|>=13.0.0,<=13.9.0"
+        },
+        {
+          "title": "Laravel CRLF injection in default email rule",
+          "severity": null,
+          "link": "https://github.com/laravel/framework/security/advisories/GHSA-5vg9-5847-vvmq",
+          "affected_versions": ">=9.0.0,<10.0.0|>=10.0.0,<11.0.0|>=11.0.0,<12.0.0|>=12.0.0,<12.60.0|>=13.0.0,<13.10.0"
+        },
+        {
+          "title": "Laravel has a File Validation Bypass",
+          "severity": "medium",
+          "link": "https://github.com/advisories/GHSA-78fx-h6xr-vch4",
+          "affected_versions": "<10.48.29|>=11.0.0,<11.44.1|>=12.0.0,<12.1.1"
+        }
+      ],
+      "league/commonmark": [
+        {
+          "title": "league/commonmark: DisallowedRawHtml bypassed when a disallowed tag name ends the raw-HTML literal",
+          "severity": "medium",
+          "link": "https://github.com/advisories/GHSA-97jj-33gv-5xf9",
+          "affected_versions": ">=1.3.0,<=2.10.1"
+        },
+        {
+          "title": "league/commonmark: Quadratic-time denial of service in the GitHub Flavored Markdown Table extension block-start scan",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-3q6v-r5mr-hxv8",
+          "affected_versions": ">=2.0.0,<=2.10.1"
+        },
+        {
+          "title": "league/commonmark: Denial of service via distinctly-named attributes in the Attributes extension",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-8rr7-cvq3-gmfh",
+          "affected_versions": ">=1.5.0,<2.10.0"
+        },
+        {
+          "title": "league/commonmark: Denial of service in the SmartPunct and Attributes extensions",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-jjv6-8j6v-6j52",
+          "affected_versions": ">=1.5.0,<2.9.1"
+        },
+        {
+          "title": "league/commonmark XSS: `on*` event-handler filter in `AttributesExtension` bypassed with a U+000C form feed",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-f8fg-pg57-v4j8",
+          "affected_versions": ">=2.7.0,<2.9.1"
+        },
+        {
+          "title": "league/commonmark: Denial of service via crafted code fences, reference links, and emphasis delimiters",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-j8pm-gj4c-rq4x",
+          "affected_versions": ">=0.6.0,<2.9.1"
+        },
+        {
+          "title": "league/commonmark: Denial of service via deeply nested XML output",
+          "severity": "medium",
+          "link": "https://github.com/advisories/GHSA-mj63-m3rc-8ppr",
+          "affected_versions": ">=2.0.0,<2.9.0"
+        },
+        {
+          "title": "league/commonmark: Denial of service via colliding heading slugs",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-mh25-x5hq-wrqp",
+          "affected_versions": ">=2.0.0,<2.9.0"
+        },
+        {
+          "title": "league/commonmark:  Denial of service via duplicate footnote definitions",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-jfm3-95jq-q3rf",
+          "affected_versions": ">=1.5.0,<2.9.0"
+        },
+        {
+          "title": "league/commonmark: Denial of service via adjacent inline attribute blocks",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-g2gp-3wwq-f4ph",
+          "affected_versions": ">=1.5.0,<2.9.0"
+        },
+        {
+          "title": "league/commonmark: Quadratic-time denial of service when parsing crafted Markdown",
+          "severity": "high",
+          "link": "https://github.com/advisories/GHSA-2q4p-g7hv-5rgv",
+          "affected_versions": ">=0.6.0,<2.9.0"
+        },
+        {
+          "title": "league/commonmark: AttributesExtension href/src unsafe-link filter bypass via embedded control bytes",
+          "severity": "medium",
+          "link": "https://github.com/advisories/GHSA-29pj-957v-52mc",
+          "affected_versions": ">=1.5.0,<=2.8.3"
+        }
+      ],
+      "league/flysystem": [
+        {
+          "title": "Flysystem: WhitespacePathNormalizer's control-character (CorruptedPathDetected) check is bypassed by malformed UTF-8 in the path, affecting every adapter",
+          "severity": "low",
+          "link": "https://github.com/advisories/GHSA-cxf4-7mrp-vvpr",
+          "affected_versions": "<=3.35.2"
+        }
+      ],
+      "symfony/http-foundation": [
+        {
+          "title": "CVE-2026-108082: ReDoS in HeaderUtils::split() Reachable Through the Cache-Control Request Header",
+          "severity": null,
+          "link": "https://symfony.com/cve-2026-108082",
+          "affected_versions": ">=5.4.1,<5.4.54|>=6.0.1,<6.1.0|>=6.1.0,<6.2.0|>=6.2.0,<6.3.0|>=6.3.0,<6.4.0|>=6.4.0,<6.4.46|>=7.0.0,<7.1.0|>=7.1.0,<7.2.0|>=7.2.0,<7.3.0|>=7.3.0,<7.4.0|>=7.4.0,<7.4.19|>=8.0.0,<8.1.0|>=8.1.0,<8.1.7"
+        }
+      ]
+    }
+  },
+  "caveat": "Affected package entries are not proven exploitable app vulnerabilities. Classify runtime versus build tooling and advisory preconditions before upgrading."
+}

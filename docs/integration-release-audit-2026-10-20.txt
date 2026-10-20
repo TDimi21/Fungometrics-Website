@@ -1,0 +1,367 @@
+FMTRX WEB + IPHONE INTEGRATION RELEASE AUDIT
+Date: 2026-10-20
+Decision: NO-GO for declaring full integration or submitting this build as release-ready.
+
+SCOPE AND BASELINE
+Backend/web: fungoweb, main, commit 0fa855f.
+Mobile: MODERN_FungoMetrics-TomsScreeens 2, TomsScreeens, commit 7aebe15.
+Both working trees were clean at start. No application source, dependencies,
+production configuration or data were changed. No branch/worktree, commit, push,
+archive, App Store submission, invitation or real email was created.
+This is a source/contract/test/build audit, not a certification that every flow
+works on a physical device. All defects below are tied to current source or
+reproduction. Historical reports are not treated as proof of current defects.
+Production access was limited to unauthenticated read-only public HTTP checks.
+Production cron evidence is the user's October 17 transcript, not a fresh SSH
+inspection; remediation since then has not been confirmed.
+
+VALIDATION RESULTS
+Backend full suite: 1,165 executed; 1,164 passed, 1 failed; 10,074 assertions.
+Command: php -d memory_limit=768M vendor/bin/phpunit
+Duration: 6m56.937s. Failure is ReleaseLoggingSafeguardTest; see R13 below.
+Web: 340 tests passed across 57 files (npm test, Node 24.19.0).
+Web production Vite build: PASSED (npm run build); chunk warning only.
+Mobile: 290 passed, 3 failed; 46 suites passed, 3 failed (npm test -- --runInBand,
+Node 22.23.1). Failure classifications in R13.
+Composer validate --no-check-publish: PASSED.
+Mobile ESLint: FAILED TO COMPLETE (parser/rule TypeError), not a clean lint result.
+iOS release configuration validator: PASSED (npm run validate:release:ios).
+iOS production JS bundle: PASSED, 77 assets copied to temporary output.
+iOS native Release SIMULATOR build: PASSED with Xcode 26.2, code signing disabled.
+Command: xcodebuild -workspace ios/furgometrics.xcworkspace -scheme furgometrics
+-configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+-derivedDataPath /tmp/fmtrx-integration-derived CODE_SIGNING_ALLOWED=NO build
+Built Info.plist verified: com.tomdimitroff.fungometrics; version 5/build 149;
+minimum iOS 15.6; production; apple_release; https://app.fmtrx.com/api/.
+Built app includes PrivacyInfo.xcprivacy. Podfile.lock matches Pods/Manifest.lock.
+This is NOT a signed device archive, physical-device launch or TestFlight test.
+Route inventory: 432 Laravel routes loaded; selected literal mobile calls compared.
+Fresh dependency audit summaries/details: integration-dependency-evidence-2026-10-20.json.
+MariaDB 10.1.48 rehearsal: NOT RUN; Docker daemon unavailable.
+No browser-driven E2E, Maestro, Android build, physical-device or live email tests run.
+Logs: /tmp/fmtrx-audit-{php,web,build,mobile,ios,bundle,native-build,lint}.log.
+Both git diff --check commands passed; source working trees remained unchanged.
+
+PRIORITIZED FINDINGS
+
+R01 HIGH — Offline planner writes can falsely report server success.
+Evidence: mobile src/services/httpService.js:447-480 returns success=true,
+source=queued with data={offline:true,offlineID}. plannerApi.js:108-121 passes
+payload(res), which is undefined, into planFromApi's default object. pushPlan
+therefore returns a truthy, EMPTY published plan. PlanBuilderScreen.js:276-289
+merges that object over the real plan, clears pendingSync, and announces that
+players and the web received it. Name, buckets and assigned IDs can be replaced
+with blank/default values locally; server acceptance has not happened.
+Player progress (plannerApi.js:147-160) and coach review (:201+) also reduce queued
+success to true. PlayerWorkoutScreen.js:150-159 clears pendingSync and exits.
+Executed actual plannerApi code with the transport's exact queued response:
+  queuedRequestTreatedAsSaved=true
+  returnedPlan.name="", buckets=[], assignedPlayerIds=[], no id
+  queuedProgressTreatedAsSubmitted=true
+No server/network writes were used for this reproduction.
+Fix: distinguish queued/local/confirmed/failed results; never map an absent server
+payload as a saved plan. Persist owner-bound pending edits until acknowledgement;
+reconcile server version and canonical progress after replay. Apply to coach review
+and unifiedPlannerApi.plannerRequest as well. Do not merely change the toast.
+Acceptance: airplane-mode publish/finish/review must remain pending; reconnect
+must create exactly one correct record and update both web and app.
+
+R02 HIGH — Coach planner list and deletion are not server-integrated.
+Evidence: DailyPlannerScreen.js:64-68 calls only listPlans/listTemplates.
+plannerStore.js:101-124 reads/writes AsyncStorage; deletePlan never calls server.
+The screen is registered in navigations/Stacks/MoreStack.js. Backend routes/api.php
+has GET coach/daily-plans and DELETE coach/daily-plans/{id} (:379-381).
+Impact: web-created/updated workouts need not appear in the mobile coach list;
+Delete can remove only the phone's copy while players still have the assignment.
+Fix: fetch and reconcile server collections, use authorized server deletion, retain
+pending deletion offline, and enforce version/conflict handling. Templates/custom
+drills are also local in this store; define shared-library parity explicitly.
+Acceptance: create/edit/delete each direction with two devices and a web browser;
+refresh and cold start must converge without silently overwriting newer edits.
+
+R03 HIGH — Generic offline queue can discard or overwrite unsent work.
+Evidence: httpService.js:281-329 prunes by age/capacity and uses unguarded
+read/modify/write enqueue; :831-886 reads then replaces the queue on replay.
+Non-429 failures are removed after three attempts. Authentication failures,
+server outages and concurrent enqueue/replay can lose pending requests. An event
+notification is not durable recovery. These are current static findings; a new
+concurrency stress test was not run in this audit.
+Fix: serialize owner/endpoint queue mutation and replay, stable operation IDs,
+server idempotency, retained recoverable failures and an explicit sync-status UI.
+Pause on authentication failure; do not silently expire unsent user data.
+Note: the separate bullpen SQLite path HAS been substantially repaired (see below).
+
+R04 HIGH — Coach planner cache remains shared across accounts.
+Evidence: plannerStore.js:12-14 uses global plan/template/custom-drill keys;
+listPlans(null) returns all rows. Player progress and player cache access now have
+owner checks, but coach plans/templates lack owner namespacing. sessionTermination.js
+clears auth/session keys only, and sessions.removeSession does not purge this cache.
+Impact: shared-device coaches can see stale/shared drafts or templates, particularly
+before team context resolves or for another coach on the same team. This is local
+cache isolation, not proof of a server authorization bypass.
+Fix: namespace coach caches by authenticated owner and team, quarantine legacy
+unowned records, and test account switching offline.
+
+R05 HIGH — Mobile Live AB edit calls the wrong route.
+Evidence: screens/Statics/editPractice/EditLiveABScreen.js:439 sends
+PUT /liveab/{resultUuid}; registered route is PUT /api/result/liveab/{uuid}
+(routes/api.php:532). httpService uses the /api/ base and does not add result/.
+Fix: use the existing authorized result endpoint; verify payload, reload edited
+stats, and retain cross-team rejection tests. Do not add an unprotected alias.
+Acceptance: edit a saved Live AB result on iPhone; web statistics reflect it.
+
+R06 HIGH — Mobile password reset route and password policies disagree.
+Evidence: More/RosterScreen/EditPlayer.js:305 posts players/{id}/set-password;
+server registers coach/players/{id}/set-password (routes/api.php:317).
+The screen's length check is 6 despite its label saying 8.
+RegisterCoachRequest accepts 6+, RegisterPlayerRequest only requires password;
+SetPlayerPassword accepts 6+, whereas LoginRequest requires 8-20 and
+AccountDeletionController requires 8-128. AccountDeletionScreen disables verification
+for passwords below 8. Accounts can be created/reset with passwords that later fail
+login or deletion validation. The native invitation flow also enforces 8-20.
+Fix: unify NEW-password policy across web/mobile/backend. Existing-password proof
+must validate the credential rather than reject a legitimately stored password by
+new length policy. Cover 6/7/8/20/21-character boundary cases. A fresh isolated run of the actual request password rules confirmed
+lengths 6 and 7 pass both registration validators but fail login; length 21 also
+passes both registrations and fails login. Lengths 8 and 20 pass all three.
+No users were created in this reproduction.
+Do not blindly fix the mobile route before reviewing R07.
+
+R07 HIGH — Coach password override conflicts with player-owned claimed accounts.
+Evidence: Api/Coach/SetPlayerPassword.php:36-59 permits a shared-team coach to
+replace a player's password and revoke tokens without recipient proof, claimed-state
+restriction or head-coach-only requirement. Shared membership is checked, so this
+is NOT an unrelated-account takeover. The query also lacks actual=true on PlayerTeam.
+Existing SetPlayerPasswordTest explicitly allows a coach to reset an existing user.
+Risk: assistant/shared-team access can become full player account access, including
+information beyond that team, once a player owns the claimed account.
+Fix: define the intended ownership policy. Prefer recipient-controlled reset for
+claimed accounts, and invitation setup for unclaimed profiles. Preserve strict
+role/active membership checks and add claimed/assistant/former-member regression tests.
+
+R08 HIGH — Automated production communications remain unverified.
+Last supplied production evidence: enabled Plesk heartbeat remained at 01:00 UTC
+when server time was 03:37 UTC on October 17. Direct develop cron heartbeat also
+failed; Run Now worked. This is evidence of a scheduling problem at that time,
+not proof it is still broken today. No administrator repair evidence was supplied.
+Local Kernel schedules communications-dispatch every minute and weekly-progress
+Monday 08:00 in app timezone. Workers and Laravel schedule:run are separate needs.
+A heartbeat alone does not generate scheduled reports; a worker alone does not
+schedule outbox dispatch. Current communications-status/probe command exists locally;
+its production installation was previously absent and has not been reverified.
+Release gate: automatic harmless worker probe and scheduler heartbeat succeed without
+Run Now; approved-recipient invitation, assignment and opted-in weekly report deliver
+once. Keep pilot/category switches restricted until this passes. Review queued backlog
+before expanding recipients. Do not recreate player profiles to test cron.
+
+R09 HIGH — Dependency/security maintenance needs explicit release triage.
+composer.json still requires Laravel 9; official security support ended 2024-02-06.
+Composer production audit reports advisories for Laravel, Guzzle, CommonMark,
+Flysystem and Symfony HTTP Foundation. Full audit additionally includes dev tools.
+Mobile npm audit --omit=dev reports 47 affected package entries (1 critical,
+37 high, 9 moderate). Some build tooling remains in the production dependency tree;
+this DOES NOT mean all advisories execute in the shipped app. Web full npm audit
+reports 27 affected package entries (2 critical, 15 high, 10 moderate), including
+Vitest/dev-server tooling. Axios is flagged in both trees. Counts are package entries,
+not confirmed exploitable application vulnerabilities.
+Existing RejectEmailHeaderInjection is a compensating control, not a supported
+framework replacement. Distinguish Node adapters/dev servers from browser/RN paths.
+Fix: record advisory reachability and safe lockfile updates; upgrade unsupported
+framework/tooling with dedicated regression coverage. No npm audit fix --force or
+unplanned Laravel major upgrade was performed. Do not blindly follow the old upgrade
+document's feature-branch instruction; current user requires the existing main branch.
+
+R10 HIGH / POLICY GATE — Age eligibility differs between invitation and registration.
+InvitationEligibility blocks under-13 and unknown/invalid DOB, and no guardian
+relationship/consent implementation is present. However public player/register uses
+RegisterPlayerRequest (born is merely required/date) and RegisterPlayerController
+creates the account and token without invoking InvitationEligibility.
+Fix: have product/privacy owners define one approved policy for self-registration,
+coach-created profiles and claiming; enforce it consistently with backend tests.
+Do not advertise all-age self-service onboarding based solely on invitation safeguards.
+This finding is a technical inconsistency, not a legal-compliance determination.
+
+R11 MEDIUM — Other endpoint and native feature parity gaps.
+TeamStatsPanel/index.js:249 requests player/sessions/pitching, absent from the
+432-route local inventory; failures are folded into empty results. Determine whether
+bullpen is the canonical substitute or a separate endpoint is required.
+optionSessions.js:67 contains deleteTestmode GET with no backend route; no call to
+that handler was found in the same file, so classify as legacy/dead-code cleanup
+until reachability is demonstrated, not an active launch blocker.
+No native consumers were found for me/communication-preferences, me/communications,
+or player/me/teams. Backend/web support these features. Document web fallback or
+implement native inbox/preferences and connected-team management if promising parity.
+A static literal-route inventory is not exhaustive; computed paths need scenario tests.
+
+R12 MEDIUM — Invitation links do not automatically open the native app.
+invitationClaim.js supports manual pasted secure links/codes, including the current
+/login/player?mode=team#token form. Entitlements contain no Associated Domains and
+no universal-link integration was verified. Link-to-browser claiming is supported;
+email button to native navigation is NOT established. Do not invent a URL scheme.
+If browser claiming plus app login is acceptable, document it and test that path.
+If native opening is promised, configure associated domains/AASA and test physical
+Mail/Safari entry, logged-out continuation, wrong-account handling and expiry.
+
+R13 MEDIUM — Backend/mobile test gates are not green; mobile lint cannot finish.
+Backend: ReleaseLoggingSafeguardTest flags AuditPlayerCreationAuthorization.php.
+Its broad regex matches "authorization" in the fixed event label
+player_creation.authorization_denied. The inspected Log::notice call uses a fixed
+endpoint, status, authenticated boolean, allowlisted role and reason; it does not
+log raw Authorization, token, email or player body fields. Classify as a scanner
+false positive for this call, not evidence of an actual token disclosure. Tighten
+the test to inspect values while retaining real secret-leak coverage; do not remove
+authorization audit logging. PlayerCreationAuthorizationTest checks the log payload.
+Mobile: three failures remain: App-test mocks initBullpenOfflineStore as undefined rather
+than a promise and omits reconnect behavior; inputMaskCompatibility expects a mask
+import in the now-plain-email/phone claim input; maintainabilityBudgets reports
+homePlayer.js 3509 lines versus 3500. These do not by themselves prove runtime crashes,
+but App smoke coverage is unavailable until the mock is repaired.
+ESLint crashes with TypeError: node.params is not iterable in
+@typescript-eslint/no-unused-vars while reading BandReferenceModal.tsx.
+Fix the logging scanner and harness/parser compatibility; refactor the hotspot or review the budget
+explicitly. Do not disable checks merely to obtain green status.
+
+R14 RELEASE VERIFICATION GATE — Native artifact, device and store metadata.
+iOS Release simulator compilation and configuration validator pass; privacy manifest is included in the
+Xcode resources, arbitrary transport loads are false, and legal/deletion UI exists.
+These checks do not validate an archived device artifact, store privacy answers,
+actual SDK privacy behavior, signing, App Store Connect configuration or review access.
+Current project identifies version 5 / build 149; whether that build number is unused
+in App Store Connect is unknown. Free access does not cancel existing subscriptions.
+Verify RevenueCat identity/restore and subscription-management continuity on device.
+App account deletion retains anonymized numeric history per the repository policy;
+confirm the actual retained data and public disclosures match the approved policy.
+
+R15 NONBLOCKING — Performance and documentation debt.
+Web build passes with a 501.06 KiB ApexCharts chunk warning (131.15 KiB gzip).
+Measure real load time before spending effort splitting it. A chunk warning is not
+a failed build. plannerApi comments say some endpoints are not built even though
+current Laravel routes implement them. Old integration reports contain now-fixed
+bullpen/security findings; mark them historical to avoid wrong release decisions.
+Web requires Node 24/npm 11; mobile declares Node >=18 <23. Use separate pinned build
+environments rather than one global Node upgrade for both projects.
+
+R16 HIGH / CI GATE — CI does not exercise the full backend/mobile integration.
+Backend .github/workflows/ci.yml runs migrations on MariaDB 10.6, but contains no
+PHPUnit test step. The last reported production database was MariaDB 10.1.48;
+passing migrations on 10.6 does not establish 10.1 compatibility. No native
+.github/workflows directory exists. The Maestro file is a small UI smoke script,
+not the full cross-client acceptance matrix; it was not executed in this audit.
+Fix: add actual backend regression execution with an explicitly safe test database,
+production-version migration rehearsal, and mobile test/lint/bundle gates. A green
+current GitHub workflow does not mean the PHP or mobile test suites are green.
+Docker is installed locally but its daemon is unavailable, so an exact-version
+MariaDB rehearsal could not be run in this audit. Do not treat older reports as
+proof that the current deployed schema matches.
+
+R17 HIGH / PRIVACY GATE — Account deletion misses current schema and communications data.
+AccountDeletionService.php:111-113 attempts to clear players.born, but the actual
+column is players.born_date (Player.php and 2022_08_15_174112_create_players_table.php).
+The helper silently filters out nonexistent columns, so DOB is not cleared by that
+operation. The service does not address team_invitations or communications tables,
+and CommunicationObserver has no deletion hook. Invitation email addresses and
+historical delivery payloads therefore require explicit retention/anonymization review.
+Pending acceptance is still rejected for a deleted user by eligibility checks; this
+is not a claim that a deleted account can be accepted. However invitation hashes/
+state are not explicitly revoked here, and InvitationService.send (:83-92) can reject
+a replacement invitation because an old accepted invite still matches the same email
+and team. This explains why prior test cleanup needed extra invitation handling.
+Fix: expand the deletion inventory to actual field names and new tables; revoke
+credentials, cancel pending deliveries, and anonymize/delete retained personal content
+according to an approved retention policy. Preserve only justified minimized history.
+Acceptance: create DOB, accepted/pending invitations and delivery payloads, delete
+through the REAL API, then inspect retained fields, reject old tokens, and test a
+fresh authorized account invitation without old-ledger interference. No production
+records were inspected or deleted in this audit.
+
+POSITIVE CONTROLS VERIFIED IN SOURCE / CURRENT TEST COVERAGE
+- Both clients target https://app.fmtrx.com/api/ in iOS Release/web configuration.
+- Invitation link and manual code reuse the same Laravel invitation service and
+  existing user identity, with token expiry/revocation, recipient proof and role checks.
+- Claimed-player native session completion uses the existing login and secure session
+  helper rather than creating another player. Offline claiming is not queued.
+- Existing coach/player legacy status fixes retain role/deletion/membership controls.
+- Result authorization now resolves practice/result IDs and applies membership checks.
+- Bullpen SQLite sync now binds owner IDs, uses explicit acknowledgement/retry states;
+  backend SaveBullpenResultPractice persists stable request IDs with deduplication
+  and detects conflicting payload reuse. Old report items asserting these are absent
+  are superseded by current code and regression suites.
+- Player workout cache/progress ownership and online failed-submit messaging improved;
+  R01 concerns the remaining queued-success edge, not absence of all recovery handling.
+- Backend has coach review, completion summary, assignment, workout session linkage,
+  assessment/report, access control, account deletion and notification APIs.
+- Web connected-team management and roster cache invalidation exist. Their production
+  deployment and multi-device behavior still require acceptance testing.
+
+PRODUCTION READ-ONLY CHECKS
+On this audit, unauthenticated GET /privacy, /terms, /support, /account-deletion,
+and /login/player returned HTTP 200. GET /api/me/access with JSON Accept and no
+credentials returned HTTP 401. No privileged data or production writes were attempted.
+HTTP availability does not prove authenticated integration, legal adequacy or cron health.
+
+RELEASE WORK ORDER AND PASS CRITERIA
+1. R01/R03: make queue states truthful and durable, including canonical server response
+   validation. Test offline publish, finish, review, dropped responses, duplicates,
+   token expiry and reconnect. Keep unresolved edits visible.
+2. R02/R04: finish owner-scoped server-backed coach planner CRUD and conflict handling.
+   Test web->mobile and mobile->web cold starts, deletes, assignment and team switching.
+3. R05/R06/R07/R17: repair endpoint mismatches and account ownership/password rules together.
+   Add route contract tests that compare mobile calls to registered Laravel routes.
+4. R09/R10: review dependency reachability/updates and consistent age/guardian policy.
+5. R13: restore green mobile tests and lint; rerun complete suites after fixes.
+6. Verify production schema against required migrations with a verified backup; rehearse
+   on the exact deployed MariaDB version. This audit did not run production migrations.
+7. R08: prove unattended worker AND scheduler execution, then allowlisted delivery with
+   idempotency, opt-out and retry checks. Do not enable every category at once.
+8. Run the acceptance checklist below on the same approved backend and native artifact.
+9. Only after those gates: approved signed archive/TestFlight, store metadata review,
+   controlled deployment and go/no-go signoff. No submission performed by this audit.
+
+BROWSER + PHYSICAL IPHONE ACCEPTANCE CHECKLIST
+Use synthetic test data, two unrelated teams, coach/head+assistant roles, two players,
+and separate browser/device sessions. Record build, backend commit, original player ID,
+resource IDs and expected result; never record raw passwords, invitation tokens or codes.
+[ ] Coach creates profile without invitation while sending disabled; profile persists.
+[ ] Approved invitation delivers automatically; secure link and pasted native link work.
+[ ] Existing/new account accepts once; expired/revoked/wrong-email/wrong-account fail.
+[ ] Original profile ID, historical sessions, assessments, workouts and subscriptions
+    remain attached; repeated acceptance creates no duplicate player.
+[ ] Under-age/missing-age behavior is consistent with approved policy on every entry path.
+[ ] Coach cannot access another team's player, reports, results or files.
+[ ] Claimed-player password recovery/deletion works for legacy credential lengths.
+[ ] Publish web workout -> phone sees exact drills, prescriptions, readiness/reflection.
+[ ] Start/partial/finish phone workout -> web coach sees correct percent and actuals.
+[ ] Coach review/feedback -> correct player sees latest feedback after refresh/cold start.
+[ ] Offline publish/finish/review remains pending; reconnect sends once without data loss.
+[ ] Web edit followed by stale phone save returns a visible conflict, not lost updates.
+[ ] Delete/unassign/leave team updates both clients; other memberships/history stay intact.
+[ ] Switch accounts offline; no previous user's drafts, results or media are visible.
+[ ] Record batting/bullpen/cage/Live AB/long toss/weighted ball; web stats agree;
+    edit and replay cannot create duplicate events or silently lose measurements.
+[ ] Assessment creation/report and development plan are visible only to intended users.
+[ ] Free-access behavior agrees across app and web; existing subscription identity,
+    restore and Apple management links remain correct; no unexpected purchase gate.
+[ ] Communications preference/opt-out, weekly opt-in and webhook retry dedupe work.
+[ ] Camera/photo permission deny/grant, uploads, background/foreground, network changes,
+    small screens, keyboard, VoiceOver and large text tested on a physical iPhone.
+[ ] Account deletion revokes sessions and team access, removes personal media, and
+    accurately describes retained anonymized records and subscription cancellation.
+[ ] Privacy/terms/support links, support contact and App Review demo credentials work.
+[ ] Signed device artifact validated; TestFlight install/cold launch passes;
+    App Store screenshots, age rating, privacy declarations and version are accurate.
+
+OFFICIAL REFERENCE CHECKS
+Apple App Review Guidelines (account deletion, complete review access, privacy):
+https://developer.apple.com/app-store/review/guidelines/
+Apple review preparation:
+https://developer.apple.com/app-store/review/
+Laravel official support table (Laravel 9 security support ended February 6, 2024):
+https://laravel.com/framework/docs/10.x/releases
+Dependency advisory details are in integration-dependency-evidence-2026-10-20.json; affected-package
+presence alone is not a proof of application exploitability.
+
+LIMITATIONS
+No exhaustive endpoint fuzzing, penetration test, device UI walkthrough, real purchase,
+email send, live authenticated coach/player flow or production database verification.
+A passing unit/feature suite does not substitute for the two-client acceptance matrix.
+This report is a release work order, not an assertion that every possible defect was found.

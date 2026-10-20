@@ -1,0 +1,137 @@
+FMTRX RELEASE WORK ORDER — 2026-10-20
+
+ID: R01
+Priority: High
+Area: Mobile
+Finding: Queued planner writes reported as confirmed
+Evidence status: Reproduced
+Required action: Preserve pending state; require canonical server acknowledgement
+Acceptance criterion: Airplane mode publish/finish/review then reconnect exactly once
+
+ID: R02
+Priority: High
+Area: Both
+Finding: Coach planner list/delete local only
+Evidence status: Source confirmed
+Required action: Implement server collection refresh and authorized deletion
+Acceptance criterion: Web/mobile CRUD convergence
+
+ID: R03
+Priority: High
+Area: Mobile
+Finding: Offline queue retention/concurrency risks
+Evidence status: Source confirmed; stress test pending
+Required action: Serialize queue changes; retain recoverable failures
+Acceptance criterion: Concurrent enqueue/replay and repeated transient failures
+
+ID: R04
+Priority: High
+Area: Mobile
+Finding: Coach planner caches not owner scoped
+Evidence status: Source confirmed
+Required action: Namespace cache by user and team
+Acceptance criterion: Two-account offline switch without leaked drafts
+
+ID: R05
+Priority: High
+Area: Mobile
+Finding: Live AB edit route missing result prefix
+Evidence status: Route inventory confirmed
+Required action: Use registered authorized endpoint
+Acceptance criterion: Edit mobile Live AB and verify web stats
+
+ID: R06
+Priority: High
+Area: Both
+Finding: Password route and policy mismatches
+Evidence status: Source/route confirmed
+Required action: Align new-password and existing-password proof rules
+Acceptance criterion: Boundary lengths and legacy login/deletion
+
+ID: R07
+Priority: High
+Area: Backend
+Finding: Coach override of claimed player password
+Evidence status: Source confirmed; ownership policy decision needed
+Required action: Recipient-controlled reset for claimed profiles
+Acceptance criterion: Head/assistant/unrelated/former-member security tests
+
+ID: R08
+Priority: Release gate
+Area: Operations
+Finding: Automatic scheduler/worker not verified
+Evidence status: Last production evidence October 17
+Required action: Admin repair and automatic probes; controlled pilot
+Acceptance criterion: No Run Now; scheduler+worker+allowlisted email proof
+
+ID: R09
+Priority: High
+Area: Both
+Finding: Dependency advisories and unsupported Laravel
+Evidence status: Fresh dependency scans
+Required action: Triage reachability and safe dependency updates
+Acceptance criterion: Security review plus complete regression suite
+
+ID: R10
+Priority: High / policy gate
+Area: Backend
+Finding: Age restrictions differ by onboarding route
+Evidence status: Source confirmed
+Required action: Approve and enforce consistent guardian/age policy
+Acceptance criterion: Self-registration/invitation/legacy claim age boundaries
+
+ID: R11
+Priority: Medium
+Area: Both
+Finding: Remaining endpoint and feature parity gaps
+Evidence status: Static inventory
+Required action: Resolve pitching endpoint and define native preferences/inbox/team scope
+Acceptance criterion: Actual native feature route tests
+
+ID: R12
+Priority: Medium
+Area: Mobile
+Finding: Native automatic invitation deep link absent
+Evidence status: Entitlements/source confirmed
+Required action: Document browser fallback or configure associated domains
+Acceptance criterion: Physical Mail/Safari/app login test
+
+ID: R13
+Priority: Medium / CI gate
+Area: Mobile
+Finding: Mobile three tests fail; PHP logging scanner false positive; ESLint crashes
+Evidence status: Fresh execution
+Required action: Repair logging scanner, mocks/assertions/parser compatibility
+Acceptance criterion: All tests and lint pass
+
+ID: R14
+Priority: Release gate
+Area: Both / Operations
+Finding: Device/store metadata acceptance incomplete
+Evidence status: Not executed
+Required action: Signed artifact/device/browser acceptance and metadata review
+Acceptance criterion: Completed checklist with original identity preserved
+
+ID: R15
+Priority: Low
+Area: Both
+Finding: Bundle size, stale docs and build environment separation
+Evidence status: Build/source confirmed
+Required action: Measure load; update docs; pin Node versions
+Acceptance criterion: Repeatable clean builds
+
+ID: R16
+Priority: High / CI gate
+Area: Both / CI
+Finding: Backend CI skips PHP tests; MariaDB target differs; native CI absent
+Evidence status: Workflow inspection
+Required action: Add backend/native tests and exact-engine rehearsal
+Acceptance criterion: CI executes and passes actual integration suites
+
+ID: R17
+Priority: High / privacy gate
+Area: Backend
+Finding: Deletion misses born_date and new communication/invitation records
+Evidence status: Service/schema/observer inspection
+Required action: Correct field mapping and apply approved retention/revocation policy
+Acceptance criterion: API deletion removes intended personal data and prevents old invitation interference
