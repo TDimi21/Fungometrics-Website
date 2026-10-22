@@ -31,7 +31,7 @@ class SetPlayerPasswordTest extends TestCase
         ]);
     }
 
-    public function test_coach_can_set_player_password(): void
+    public function test_head_coach_must_invite_passwordless_player(): void
     {
         $coach = User::factory()->create(['type' => UserTypes::COACH->value]);
         $player = User::factory()->create(['type' => UserTypes::PLAYER->value, 'password' => null]);
@@ -44,10 +44,10 @@ class SetPlayerPasswordTest extends TestCase
             'password_confirmation' => 'NewSecure123',
         ]);
 
-        $response->assertOk();
+        $response->assertForbidden()->assertJsonPath('next_action', 'invite_player');
 
         $player->refresh();
-        $this->assertTrue(Hash::check('NewSecure123', $player->password));
+        $this->assertNull($player->password);
     }
 
     public function test_coach_cannot_set_unrelated_player_password(): void
@@ -68,7 +68,7 @@ class SetPlayerPasswordTest extends TestCase
         $this->assertTrue(Hash::check('OriginalPass1', $player->fresh()->password));
     }
 
-    public function test_setting_player_password_revokes_existing_player_tokens(): void
+    public function test_denied_password_change_preserves_existing_player_tokens(): void
     {
         $coach = User::factory()->create(['type' => UserTypes::COACH->value]);
         $player = User::factory()->create(['type' => UserTypes::PLAYER->value, 'password' => null]);
@@ -80,9 +80,9 @@ class SetPlayerPasswordTest extends TestCase
         $this->postJson("/api/coach/players/{$player->id}/set-password", [
             'password' => 'NewSecure123',
             'password_confirmation' => 'NewSecure123',
-        ])->assertOk();
+        ])->assertForbidden();
 
-        $this->assertSame(0, $player->tokens()->count());
+        $this->assertSame(1, $player->tokens()->count());
     }
 
     public function test_player_cannot_set_another_players_password(): void
@@ -128,7 +128,7 @@ class SetPlayerPasswordTest extends TestCase
             'password_confirmation' => '123',
         ]);
 
-        $response->assertStatus(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $response->assertStatus(Response::HTTP_FORBIDDEN);
     }
     public function test_existing_password_cannot_be_overridden_even_by_head_coach(): void
     {
@@ -148,5 +148,49 @@ class SetPlayerPasswordTest extends TestCase
         Sanctum::actingAs($coach, ['coach']);
         $this->postJson("/api/coach/players/{$player->id}/set-password", ['password'=>'NewSecure123','password_confirmation'=>'NewSecure123'])->assertForbidden();
         $this->assertNull($player->fresh()->password);
+    }
+
+    public function test_former_members_and_deleted_memberships_cannot_access_password_route(): void
+    {
+        $coach = User::factory()->create(['type' => 'coach']);
+        $player = User::factory()->create(['type' => 'player', 'password' => null]);
+        $this->attachToSameTeam($coach, $player);
+        Sanctum::actingAs($coach, ['coach']);
+        PlayerTeam::where('user_id', $player->id)->update(['actual' => false]);
+        $this->postJson("/api/coach/players/{$player->id}/set-password", [])->assertNotFound();
+        PlayerTeam::where('user_id', $player->id)->update(['actual' => true]);
+        CoachTeam::where('coach_id', $coach->id)->delete();
+        $this->postJson("/api/coach/players/{$player->id}/set-password", [])->assertNotFound();
+        $this->assertNull($player->fresh()->password);
+    }
+
+    public function test_all_coach_roles_and_legacy_statuses_preserve_claimed_credentials(): void
+    {
+        foreach ([0, 1] as $status) {
+            foreach ([false, true] as $head) {
+                $coach = User::factory()->create(['type' => 'coach', 'status' => $status]);
+                $player = User::factory()->create(['type' => 'player']);
+                $original = $player->password;
+                $this->attachToSameTeam($coach, $player);
+                CoachTeam::where('coach_id', $coach->id)->update(['is_main' => $head]);
+                Sanctum::actingAs($coach, ['coach']);
+                $this->postJson("/api/coach/players/{$player->id}/set-password", ['password' => 'NewSecure123'])
+                    ->assertForbidden()->assertJsonPath('next_action', 'player_password_recovery');
+                $this->assertSame($original, $player->fresh()->password);
+                $this->assertTrue(PlayerTeam::where('user_id', $player->id)->where('actual', true)->exists());
+            }
+        }
+    }
+
+    public function test_deleted_player_cannot_be_targeted(): void
+    {
+        $coach = User::factory()->create(['type' => 'coach']);
+        $player = User::factory()->create(['type' => 'player']);
+        $this->attachToSameTeam($coach, $player);
+        $original = $player->password;
+        $player->delete();
+        Sanctum::actingAs($coach, ['coach']);
+        $this->postJson("/api/coach/players/{$player->id}/set-password", ['password' => 'NewSecure123'])->assertNotFound();
+        $this->assertSame($original, User::withTrashed()->findOrFail($player->id)->password);
     }
 }

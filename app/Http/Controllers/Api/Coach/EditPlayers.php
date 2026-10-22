@@ -67,12 +67,23 @@ class EditPlayers extends Controller
 
         try {
             DB::beginTransaction();
-            $player = User::findOrFail($playerId);
+            $player = User::whereKey($playerId)->lockForUpdate()->firstOrFail();
             $dataEdit = [
                 'email' => $request->email,
                 'phone' => $request->phone,
             ];
 
+            // Login/recovery contacts belong to the account holder once claimed.
+            // Locking the user also serializes this check against invitation claiming.
+            if (! $isSelfEdit && filled($player->password)) {
+                $emailChanged = mb_strtolower((string) $request->email) !== mb_strtolower((string) $player->email);
+                $phoneChanged = preg_replace('/\D/', '', (string) $request->phone) !== preg_replace('/\D/', '', (string) $player->phone);
+                if ($emailChanged || $phoneChanged) {
+                    DB::rollBack();
+                    return response()->json(['status' => false, 'message' => 'Only the player can change their claimed account email or phone.'], 403);
+                }
+                $dataEdit = [];
+            }
             $player->update($dataEdit);
             $playerProfile = [
                 'first_name' => $request->get('profile')['name']['first'],

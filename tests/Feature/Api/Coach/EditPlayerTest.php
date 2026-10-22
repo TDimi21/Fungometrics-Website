@@ -112,6 +112,30 @@ class EditPlayerTest extends TestCase
         $this->postJson('api/edit/players/'.$player->id, [])->assertNotFound();
     }
 
+
+    public function test_coach_cannot_redirect_claimed_account_recovery_but_can_edit_sports_profile(): void
+    {
+        $coach = User::factory()->create(['type' => 'coach', 'subscription_plan' => 'coach_pro']);
+        $player = User::factory()->create(['type' => 'player']);
+        Profile::factory()->create(['user_id' => $player->id]);
+        Player::factory()->create(['user_id' => $player->id]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id]);
+        PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
+        Sanctum::actingAs($coach, ['coach']);
+        $original = $player->only(['email', 'phone', 'password']);
+        foreach (['email' => 'redirect@example.test', 'phone' => '2025550199'] as $field => $value) {
+            $payload = $this->validPlayerPayload($player);
+            $payload[$field] = $value;
+            $this->postJson('api/edit/players/'.$player->id, $payload)->assertForbidden();
+            $this->assertSame($original, $player->fresh()->only(['email', 'phone', 'password']));
+        }
+        $payload = $this->validPlayerPayload($player);
+        $payload['password'] = 'InjectedPassword123';
+        $this->postJson('api/edit/players/'.$player->id, $payload)->assertOk();
+        $this->assertSame($original, $player->fresh()->only(['email', 'phone', 'password']));
+    }
+
     public function test_edit_player_ok(): void
     {
         $user = User::factory()->create(['type' => UserTypes::COACH->value, 'subscription_plan' => 'coach_pro']);
@@ -119,7 +143,7 @@ class EditPlayerTest extends TestCase
 
         $player = Player::factory()->create([
             'user_id' => Profile::factory()->create([
-                'user_id' => User::factory()->create()->id
+                'user_id' => User::factory()->create(['type' => 'player', 'password' => null])->id
             ])->user_id
         ]);
         $team = Team::factory()->create();

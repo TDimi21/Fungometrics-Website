@@ -27,6 +27,7 @@ const token = getAuthToken()
 const id = route.params.id
 let player = ref({
   id: '',
+  contactEditable: false,
   type: [],
   heightFt: 0,
   heightInch: 0,
@@ -49,6 +50,7 @@ let player = ref({
 for (let index = 0; index < players.length; index++) {
   if(id === players[index].id){
     const item = players[index]
+      player.value.contactEditable = item.profile_claim_status === 'unclaimed'
       player.value.heightFt = item.body.ft,
       player.value.heightInch = item.body.inch,
       player.value.firstName = item.name.first,
@@ -132,7 +134,7 @@ const submitUpdate = async () => {
     await router.replace("/roster")
 
   }).catch(async function (error){
-    console.log(error.response);
+
     isLoading.status =!isLoading.status;
     if (error.response.data.code === '001V' || error.response.status === 422 ) {
       const errorsObject = error.response.data.data.errors
@@ -153,7 +155,7 @@ const submitUpdate = async () => {
       toast.fire({
         icon: 'error',
         title: 'Player Error !!!',
-        text: "strike 3 is out, have a internal problem, " +error.response.data.message,
+        text: error.response?.data?.message || 'Unable to update player. Please try again.',
       })
     }
   })
@@ -227,11 +229,14 @@ const submitUpdate = async () => {
 
               <div>
                 <LabelField text="E-Mail address" :required="true"/>
-                <InputBase v-model="player.email" inputType="email"/>
+                <InputBase v-if="player.contactEditable" v-model="player.email" inputType="email"/>
+                <p v-else class="text-white">{{ player.email }}</p>
               </div>
               <div>
                 <LabelField text="Mobile number" :required="true"/>
-                <InutTel v-model="player.mobileNumber" />
+                <InutTel v-if="player.contactEditable" v-model="player.mobileNumber" />
+                <p v-else class="text-white">{{ player.mobileNumber }}</p>
+                <p class="text-sm text-white">Players control their claimed account contacts and password. Use roster invitations for unclaimed profiles; players can use Password Recovery from login.</p>
               </div>
               <div>
                 <LabelField :required="true" text="Current team"/>

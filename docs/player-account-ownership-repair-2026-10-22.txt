@@ -1,0 +1,60 @@
+FMTRX integration repair R07 — Player account ownership
+2026-10-22
+
+Local branches: fungoweb/main; mobile/TomsScreeens. No new branches/worktrees.
+
+Root cause and correction
+The legacy coach password endpoint let a coach supply a player's credential.
+R06 restricted this to head coaches initializing passwordless players. R07 now
+retires that capability entirely: unclaimed players use the existing invitation
+and claim setup; existing accounts use recipient-controlled Password Recovery.
+The compatibility route remains authenticated and checks coach role plus current
+shared-team membership. It returns 403 and next_action for authorized coaches,
+404 for unrelated/former/deleted targets, and never changes hashes or tokens.
+Legacy coach status 0/1 does not change these rules.
+
+Profile editing also allowed coaches to replace claimed account recovery email
+and phone. Those fields are now owner-only for claimed accounts. A user row lock
+serializes the check with claiming. Sports/profile editing and unclaimed contact
+editing remain available through existing permissions and entitlements. Self-edit
+remains available. No changes to age restrictions, invitation delivery switches,
+claim tokens, IDs, history, subscriptions or team relationships.
+
+Native roster editor removes coach password inputs/submission and explains the
+invitation/recovery paths. Claimed contacts are read-only for coaches. Web roster
+editor also presents claimed contacts as read-only and displays backend errors.
+The server remains authoritative, including for older clients.
+
+Files changed
+Backend: app/Http/Controllers/Api/Coach/SetPlayerPassword.php
+Backend: app/Http/Controllers/Api/Coach/EditPlayers.php
+Web: resources/js/pages/roster/EditPlayer.vue
+Tests: tests/Feature/Api/Coach/SetPlayerPasswordTest.php
+Tests: tests/Feature/Api/Coach/EditPlayerTest.php
+Mobile: src/screens/More/RosterScreen/EditPlayer.js
+This report is stored in both repositories.
+
+Validation
+98 relevant PHP tests passed: SetPlayerPasswordTest, EditPlayerTest,
+TeamInvitationsTest, AccountClaimSecurityTest, PasswordCompatibilityTest,
+PasswordChangeTest. Includes head/assistant coaches, both legacy statuses,
+claimed/passwordless targets, former/deleted memberships, unrelated accounts,
+deleted players, authentication, recovery-contact injection, credential/token
+preservation and permitted sports edits.
+340 frontend tests passed; production Vite build passed (large-chunk warning).
+Mobile suite: 367 passed, three pre-existing failures: App-test SQLite mock,
+inputMaskCompatibility claim field expectation, maintainabilityBudgets homePlayer
+line budget. iOS production JavaScript bundle passed, output under /tmp.
+Both repositories pass git diff --check.
+
+Release requirements
+Deploy approved backend before distributing mobile changes; rebuild web assets.
+No migrations, account/status updates or mass resets required.
+On a physical device/browser verify head and assistant coach roster editing,
+read-only claimed contacts, legacy-client password denial, player recovery,
+unclaimed invitation setup, and login with the unchanged original credentials.
+The three existing mobile failures and wider release gates remain open.
+This supersedes R06's preliminary head-coach password initialization behavior.
+
+No commit, push, deployment, real email, production migration or App Store
+submission was performed.
