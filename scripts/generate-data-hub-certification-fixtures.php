@@ -6,7 +6,7 @@ use App\Services\DataHub\Support\CertificationVersions;
 
 require_once dirname(__DIR__).'/vendor/autoload.php';
 
-$root = dirname(__DIR__).'/tests/Fixtures/DataHub';
+$root = $argv[1] ?? dirname(__DIR__).'/tests/Fixtures/DataHub';
 $players = ['Thomas Dimitroff', 'Carter Moon', 'Brayden Jones', 'Jake Smith'];
 $fixedDate = '2026-07-01';
 

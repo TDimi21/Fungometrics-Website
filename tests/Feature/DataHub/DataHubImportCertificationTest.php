@@ -66,12 +66,22 @@ final class DataHubImportCertificationTest extends TestCase
 
     public function test_fixture_generator_is_byte_for_byte_repeatable(): void
     {
-        $before = $this->fixtureHashes();
-        exec('php '.escapeshellarg(base_path('scripts/generate-data-hub-certification-fixtures.php')), $output, $exit);
-        $after = $this->fixtureHashes();
-
-        $this->assertSame(0, $exit, implode("\n", $output));
-        $this->assertSame($before, $after, 'Rerunning fixture generation changed deterministic fixture bytes.');
+        $root = sys_get_temp_dir().'/fmtrx-fixtures-'.bin2hex(random_bytes(8));
+        $command = escapeshellarg(PHP_BINARY).' '.escapeshellarg(base_path('scripts/generate-data-hub-certification-fixtures.php')).' '.escapeshellarg($root);
+        try {
+            exec($command, $output, $exit);
+            $this->assertSame(0, $exit, implode("\n", $output));
+            // ZIP compression/metadata can differ across libzip versions and OSes.
+            // Compare workbook contents to the checked-in fixtures, then verify
+            // byte-for-byte repeatability within the current runtime.
+            $this->assertSame($this->fixtureHashes(null, true), $this->fixtureHashes($root, true));
+            $before = $this->fixtureHashes($root);
+            exec($command, $output, $exit);
+            $this->assertSame(0, $exit, implode("\n", $output));
+            $this->assertSame($before, $this->fixtureHashes($root), 'Rerunning fixture generation changed deterministic fixture bytes.');
+        } finally {
+            (new \Illuminate\Filesystem\Filesystem())->deleteDirectory($root);
+        }
     }
 
     public function test_generic_success_fixtures_match_their_structure_contract(): void
@@ -217,16 +227,29 @@ final class DataHubImportCertificationTest extends TestCase
     }
 
     /** @return array<string, string> */
-    private function fixtureHashes(): array
+    private function fixtureHashes(?string $root = null, bool $contentsOnly = false): array
     {
+        $root ??= base_path('tests/Fixtures/DataHub');
         $files = [];
         foreach ($this->manifest()['fixtures'] as $fixture) {
-            $files[$fixture['filename']] = hash_file('sha256', $this->fixturePath($fixture));
+            $path = $root.'/'.$fixture['filename'];
+            $zip = new \ZipArchive();
+            if ($contentsOnly && 'xlsx' === $fixture['format'] && true === $zip->open($path)) {
+                $entries = [];
+                for ($index = 0; $index < $zip->numFiles; ++$index) {
+                    $entries[$zip->getNameIndex($index)] = $zip->getFromIndex($index);
+                }
+                $zip->close();
+                ksort($entries);
+                $files[$fixture['filename']] = hash('sha256', serialize($entries));
+            } else {
+                $files[$fixture['filename']] = hash_file('sha256', $path);
+            }
         }
         foreach (['import-certification.json', 'import-certification.md'] as $manifest) {
             $files["manifests/{$manifest}"] = hash_file(
                 'sha256',
-                base_path("tests/Fixtures/DataHub/manifests/{$manifest}")
+                $root."/manifests/{$manifest}"
             );
         }
         ksort($files);

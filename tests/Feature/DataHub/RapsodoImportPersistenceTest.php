@@ -109,8 +109,8 @@ final class RapsodoImportPersistenceTest extends TestCase
         $otherPlayer = User::factory()->create(['type' => 'player']);
         $payload = $this->payload();
         $payload['player_id'] = $otherPlayer->id;
-        $this->post('/api/data-hub/imports/rapsodo', $payload)
-            ->assertUnprocessable()->assertSeeText('Choose a current player from this team.');
+        $this->withHeader('Accept', 'application/json')->post('/api/data-hub/imports/rapsodo', $payload)
+            ->assertUnprocessable()->assertJsonPath('message', 'Choose a current player from this team.');
 
         $payload = $this->payload();
         $payload['template_fingerprint'] = str_repeat('a', 64);
