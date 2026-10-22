@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 const root = path.resolve(__dirname, '../..')
 const report = fs.readFileSync(path.join(root, 'resources/js/pages/training/SessionReport.vue'), 'utf8')
 const battingReport = fs.readFileSync(path.join(root, 'resources/js/components/statistics/BattingReportCard.vue'), 'utf8')
-const viteConfig = fs.readFileSync(path.join(root, 'vite.config.js'), 'utf8')
+const viteConfig = fs.readFileSync(path.join(root, 'vite.config.mjs'), 'utf8')
 const allSessions = fs.readFileSync(path.join(root, 'resources/js/pages/training/AllSessions.vue'), 'utf8')
 const playerConstants = fs.readFileSync(path.join(root, 'resources/js/features/player-home/lib/constants.js'), 'utf8')
 

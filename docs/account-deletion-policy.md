@@ -2,6 +2,8 @@
 
 Policy version: 2026-07-23
 
+Implementation inventory corrected 2026-10-22; retained-data policy still requires owner review.
+
 Deletion requires current-password verification followed by a short-lived,
 single-use destructive confirmation token and the exact phrase `DELETE`.
 
@@ -11,6 +13,10 @@ single-use destructive confirmation token and the exact phrase `DELETE`.
 | Coach/player team memberships and lineups | Deleted |
 | Name, email, phone, password and profile photo | Anonymized or removed |
 | Player demographic/contact fields and photos | Anonymized |
+| Player date of birth (`players.born_date`) | Cleared |
+| Invitations | Recipient email anonymized; token/code hashes cleared; invitations revoked. Pending invitations authored by a deleted coach are revoked. |
+| Communications preferences | Deleted |
+| Communications event/delivery snapshots tied to the account | Personal payload cleared; queued pending deliveries suppressed; events marked processed. Minimal UUID/deduplication and delivery audit history retained. Email already handed to a provider cannot be recalled. |
 | Assessment notes and coach insights | Removed |
 | Fitness/assessment numeric measurements | Retained only against the anonymized user UUID for aggregate/statistical integrity |
 | Practice/session participation | Membership links removed; team/session aggregates may remain without personal identity |

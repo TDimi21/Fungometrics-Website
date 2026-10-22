@@ -38,6 +38,65 @@ class AccountDeletionTest extends TestCase
         $this->assertDatabaseHas('security_audits', ['action' => 'account_deletion.completed']);
     }
 
+    public function test_real_deletion_scrubs_dob_and_communications_and_revokes_invitations(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+        $user = User::factory()->create(['type' => 'player', 'password' => Hash::make('CorrectPassword1!')]);
+        \App\Models\Player::factory()->create(['user_id' => $user->id, 'born_date' => '2000-01-01']);
+        $team = \App\Models\Team::factory()->create();
+        $coach = User::factory()->create(['type' => 'coach']);
+        $oldEmail = $user->email;
+        \Illuminate\Support\Facades\DB::table('password_resets')->insert(['email' => $oldEmail, 'token' => Hash::make('old-reset'), 'created_at' => now()]);
+        foreach ([null, now()] as $accepted) {
+            \App\Models\TeamInvitation::create(['team_id' => $team->id, 'invited_by' => $coach->id,
+                'user_id' => $user->id, 'email' => $oldEmail, 'role' => 'player',
+                'token_hash' => hash('sha256', uniqid()), 'claim_code_hash' => hash('sha256', uniqid()),
+                'accepted_at' => $accepted, 'expires_at' => now()->addDay()]);
+        }
+        $event = \App\Models\CommunicationEvent::create(['dedupe_key' => hash('sha256', 'deletion-event'),
+            'event_type' => 'WeeklyProgressReady', 'resource_type' => 'user', 'resource_id' => $user->id,
+            'occurrence' => 'test', 'recipient_id' => $user->id, 'payload' => ['email' => $oldEmail]]);
+        $delivery = \App\Models\CommunicationDelivery::create(['event_id' => $event->id,
+            'dedupe_key' => hash('sha256', 'deletion-delivery'), 'recipient_id' => $user->id, 'player_id' => $user->id,
+            'event_type' => 'WeeklyProgressReady', 'resource_type' => 'user', 'resource_id' => $user->id,
+            'payload' => ['heading' => 'Private player report'], 'status' => 'pending']);
+        \App\Models\CommunicationPreference::create(['user_id' => $user->id]);
+        $authorized = $this->actingAs($user)->postJson('/api/me/account-deletion/authorize', ['password' => 'CorrectPassword1!'])->assertOk();
+        $this->actingAs($user)->deleteJson('/api/me/account', [
+            'confirmation_token' => $authorized->json('data.confirmation_token'), 'confirmation' => 'DELETE',
+        ])->assertOk();
+        $this->assertDatabaseHas('players', ['user_id' => $user->id, 'born_date' => null]);
+        $this->assertDatabaseMissing('team_invitations', ['email' => $oldEmail]);
+        $this->assertDatabaseMissing('password_resets', ['email' => $oldEmail]);
+        foreach (\App\Models\TeamInvitation::where('user_id', $user->id)->get() as $invite) {
+            $this->assertNotNull($invite->revoked_at);
+            $this->assertNull($invite->token_hash);
+            $this->assertNull($invite->claim_code_hash);
+        }
+        $this->assertSame([], $event->fresh()->payload);
+        $this->assertNotNull($event->fresh()->processed_at);
+        $this->assertSame([], $delivery->fresh()->payload);
+        $this->assertSame('suppressed', $delivery->fresh()->status);
+        $this->assertDatabaseMissing('communication_preferences', ['user_id' => $user->id]);
+        config(['communications.enabled' => true, 'communications.send_enabled' => true]);
+        (new \App\Jobs\SendCommunicationDelivery($delivery->id))->handle(app(\App\Services\Communications\CommunicationContent::class));
+        \Illuminate\Support\Facades\Notification::assertNothingSent();
+        $this->assertSame(1, \App\Models\Player::where('user_id', $user->id)->count());
+        // Reusing the deleted person's address for a new authorized profile must
+        // not collide with a historical accepted invitation.
+        \Illuminate\Support\Facades\Queue::fake();
+        config(['communications.invitations_enabled' => true, 'queue.default' => 'database']);
+        CoachTeam::create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
+        $replacement = User::factory()->create(['type' => 'player', 'email' => $oldEmail, 'password' => null]);
+        \App\Models\Player::factory()->create(['user_id' => $replacement->id, 'born_date' => '2000-01-01']);
+        \App\Models\PlayerTeam::create(['user_id' => $replacement->id, 'team_id' => $team->id, 'actual' => true]);
+        $fresh = app(\App\Services\Communications\InvitationService::class)->send($coach, $team->id,
+            ['role' => 'player', 'user_id' => $replacement->id, 'email' => $oldEmail]);
+        $this->assertSame($replacement->id, $fresh->user_id);
+        $this->assertNull($fresh->accepted_at);
+
+    }
+
     public function test_wrong_password_is_rejected_and_audited(): void
     {
         $user = User::factory()->create(['password' => Hash::make('CorrectPassword1!')]);

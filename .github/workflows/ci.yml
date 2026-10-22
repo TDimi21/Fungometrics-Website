@@ -25,16 +25,21 @@ jobs:
         run: npm test
 
   backend:
-    name: Backend (migrations on MariaDB)
+    timeout-minutes: 20
+    name: Backend (PHP tests, MariaDB ${{ matrix.database }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        database: ['10.1.48', '10.6']
     services:
       mariadb:
         # Pin this to your production MariaDB version to catch engine-specific
         # DDL issues (e.g. the json column that failed on prod) before deploy.
-        image: mariadb:10.6
+        image: mariadb:${{ matrix.database }}
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: fmtrx_test
+          MYSQL_DATABASE: fungo_test
         ports:
           - 3306:3306
         options: >-
@@ -46,15 +51,20 @@ jobs:
       DB_CONNECTION: mysql
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
-      DB_DATABASE: fmtrx_test
+      DB_DATABASE: fungo_test
+      APP_ENV: testing
+      TEST_DATABASE_ALLOWLIST: fungo_test
+      MAIL_MAILER: array
+      FMTRX_COMMUNICATIONS_ENABLED: 'false'
+      FMTRX_COMMUNICATIONS_SEND_ENABLED: 'false'
       DB_USERNAME: root
       DB_PASSWORD: root
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.1'
-          extensions: mbstring, dom, pdo, pdo_mysql, bcmath, fileinfo
+          php-version: '8.2'
+          extensions: mbstring, dom, pdo, pdo_mysql, bcmath, fileinfo, gd, zip, intl, sqlite3, pdo_sqlite
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
       - name: Prepare app
@@ -63,3 +73,5 @@ jobs:
           php artisan key:generate
       - name: Run migrations against MariaDB
         run: php artisan migrate --force
+      - name: Full PHP regression suite (isolated test database)
+        run: php -d memory_limit=512M vendor/bin/phpunit

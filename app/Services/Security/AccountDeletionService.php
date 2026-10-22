@@ -97,7 +97,16 @@ class AccountDeletionService
                 'policy_version' => '2026-07-23',
             ]);
 
+            $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $this->clearCommunications($user);
             $user->tokens()->delete();
+            $this->deleteWhere('password_resets', 'email', (string) $user->email);
+            $this->deleteWhere('sessions', 'user_id', $user->id);
+            $teamIds = DB::table('player_teams')->where('user_id', $user->id)->pluck('team_id')
+                ->merge(DB::table('coach_teams')->where('coach_id', $user->id)->pluck('team_id'))->unique();
+            DB::afterCommit(function () use ($teamIds): void {
+                foreach ($teamIds as $teamId) \Illuminate\Support\Facades\Cache::forget('roster_team_'.$teamId);
+            });
             $this->deleteReferencedPhotos($user->id);
             $this->deleteWhere('coach_teams', 'coach_id', $user->id);
             $this->deleteWhere('player_teams', 'user_id', $user->id);
@@ -109,7 +118,7 @@ class AccountDeletionService
                 'first_name' => 'Deleted', 'last_name' => 'User', 'picture' => null,
             ]);
             $this->anonymizeWhere('players', 'user_id', $user->id, [
-                'picture' => null, 'born' => null, 'mobile_number' => null, 'email' => null,
+                'picture' => null, 'born_date' => null, 'mobile_number' => null, 'email' => null,
             ]);
             $this->anonymizeWhere('player_assessments', 'user_id', $user->id, [
                 'notes' => null, 'coach_insights' => null,
@@ -140,6 +149,44 @@ class AccountDeletionService
                 'subscription_management_url' => config('legal.apple_subscriptions_url'),
             ];
         });
+    }
+
+    private function clearCommunications(User $user): void
+    {
+        $anonymous = 'deleted+'.hash('sha256', $user->id).'@deleted.fmtrx.invalid';
+        if (Schema::hasTable('team_invitations')) {
+            // Preserve minimal audit history, never a reusable credential or old address.
+            $values = ['email' => $anonymous, 'revoked_at' => now(), 'token_hash' => null,
+                'delivery_status' => 'suppressed', 'failure_code' => 'account_deleted', 'updated_at' => now()];
+            if (Schema::hasColumn('team_invitations', 'claim_code_hash')) $values['claim_code_hash'] = null;
+            DB::table('team_invitations')->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)->orWhere(function ($q) use ($user) {
+                    $q->whereNull('user_id')->where('email', $user->email);
+                });
+            })->update($values);
+            unset($values['email']);
+            DB::table('team_invitations')->where('invited_by', $user->id)->whereNull('accepted_at')->update($values);
+        }
+        $this->deleteWhere('communication_preferences', 'user_id', $user->id);
+        if (Schema::hasTable('communication_events')) {
+            // UUIDs in event payloads are explicit actor/subject references. Scrub the
+            // whole personal snapshot rather than attempt partial JSON redaction.
+            $events = DB::table('communication_events')->where(function ($q) use ($user) {
+                $q->where('recipient_id', $user->id)
+                    ->orWhere(function ($q) use ($user) { $q->where('resource_type', 'user')->where('resource_id', $user->id); })
+                    ->orWhere('payload', 'like', '%'.$user->id.'%');
+            })->pluck('id');
+            DB::table('communication_events')->whereIn('id', $events)->update([
+                'payload' => '{}', 'processed_at' => now(), 'failure_code' => 'account_deleted', 'updated_at' => now(),
+            ]);
+            if (Schema::hasTable('communication_deliveries')) {
+                $deliveries = DB::table('communication_deliveries')->where(function ($q) use ($user, $events) {
+                    $q->where('recipient_id', $user->id)->orWhere('player_id', $user->id)->orWhereIn('event_id', $events);
+                });
+                (clone $deliveries)->update(['payload' => '{}', 'failure_code' => 'account_deleted', 'updated_at' => now()]);
+                (clone $deliveries)->where('status', 'pending')->update(['status' => 'suppressed']);
+            }
+        }
     }
 
     private function deleteReferencedPhotos(string $userId): void

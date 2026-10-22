@@ -12,7 +12,7 @@ class AuthPageAssetsTest extends TestCase
 {
     public function test_login_uses_the_configured_production_asset_entries(): void
     {
-        // The legacy Sass entry is not built by vite.config.js. Requesting it
+        // The legacy Sass entry is not built by vite.config.mjs. Requesting it
         // throws a manifest exception when an auth page is refreshed in production.
         Vite::shouldReceive('__invoke')
             ->once()

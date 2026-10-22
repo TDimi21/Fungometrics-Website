@@ -1,3 +1,5 @@
+Historical baseline: consult integration-items-09-17-2026-10-22.txt for current repairs and remaining gates. R08 remains deferred.
+
 FMTRX WEB + IPHONE INTEGRATION RELEASE AUDIT
 Date: 2026-10-20
 Decision: NO-GO for declaring full integration or submitting this build as release-ready.

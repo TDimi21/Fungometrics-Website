@@ -1,3 +1,5 @@
+Historical work order. See integration-items-09-17-2026-10-22.txt for the current repair status and remaining external gates.
+
 FMTRX RELEASE WORK ORDER — 2026-10-20
 
 ID: R01

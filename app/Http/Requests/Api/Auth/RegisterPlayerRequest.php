@@ -51,7 +51,13 @@ class RegisterPlayerRequest extends FormRequest
             'profile.name.first' => ['required'],
             'profile.name.last' => ['required'],
             'picture' => ['required', 'file'],
-            'player.born' => ['required', 'date'],
+            'player.born' => ['required', 'date_format:Y-m-d', function ($attribute, $value, $fail) {
+                try {
+                    app(\App\Services\Communications\InvitationEligibility::class)->assertBirthDate($value, $attribute);
+                } catch (\Illuminate\Validation\ValidationException $e) {
+                    $fail(collect($e->errors())->flatten()->first());
+                }
+            }],
             'player.ft' => ['required', 'integer'],
             'player.inch' => ['required', 'integer'],
             'player.shirt' => ['required', 'integer'],

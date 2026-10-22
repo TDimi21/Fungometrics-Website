@@ -1,0 +1,179 @@
+FMTRX integration repairs — R09 through R17
+2026-10-22
+
+Branches: fungoweb/main; mobile/TomsScreeens. No new branch or worktree.
+R08 remains deferred at the user's request: production cron is still a blocker.
+No commit, push, deployment, production migration, live mail, archive or upload.
+
+R09 — Dependency/security maintenance: PARTIALLY REPAIRED, release gate remains
+Compatible PHP updates: Guzzle 7.16.0, CommonMark 2.10.4, Flysystem 3.36.0,
+Symfony HttpFoundation 6.4.48 and required transitive dependencies. Composer
+production advisories now concern Laravel itself rather than those four libraries.
+No vendor files were edited by hand. composer validate passes.
+The installed lockfile effectively needs PHP 8.2 (nette/utils); production was
+reported as 8.2.29 and CI now uses 8.2. Do not install on a PHP 8.1 CLI.
+
+Web: Vite 7.3.7, Vitest 4.1.12, Vue plugin 6.0.10, Laravel Vite plugin 2.1.0,
+Axios 1.20.0, Vue 3.5.44; dependency locks updated. Vite config is now .mjs for
+ESM-only plugins. Dev server binds loopback by default. The ApexCharts wrapper is
+pinned at its compatible 1.4.1 instead of silently resolving a newer wrapper that
+requires ApexCharts 5. Environment plugin pinned at 1.1.3 for Vite 7 compatibility.
+Both npm and existing Yarn locks reflect the update; CI uses npm ci.
+Web audit: 27 affected entries originally -> 7 (5 high, 2 moderate, zero critical).
+Remaining entries are Tailwind/PostCSS/glob build-tool dependencies. These process
+project sources at build time; do not expose dev servers or compile untrusted
+customer-supplied Tailwind/glob configuration. This is reachability triage, not a
+waiver or a claim that dependency advisories are harmless. A Tailwind 4 migration
+requires CSS/visual regression work; no incompatible overrides were forced.
+
+Mobile: Axios 1.20.0 plus compatible updates to shell-quote, baseline browser data,
+brace expansion, browserslist, compression, follow-redirects, Joi, YAML, nanoid
+and node-forge dependency paths. Production-tree audit: 45 at this fresh baseline
+-> 35 affected entries (29 high, 6 moderate, zero critical). Many are inherited
+from RN CLI/Metro/image/XML tooling; the graph also lists React Native itself.
+An npm production dependency is not proof of shipped native exploitability.
+Remaining RN/Metro upgrade work and build-input reachability review remain open;
+do not upgrade the native framework blindly without pods/Gradle/device validation.
+Raw advisory IDs, titles, ranges and fix information: security-triage-2026-10-22.json.
+
+Laravel 9.52.21 remains unsupported and flagged for email validation, file
+validation, debug-page and signed-URL issues. Existing header-injection protection
+is retained, not presented as a complete framework remediation. Keep production
+debug disabled and review upload/signed-URL paths during the framework upgrade.
+Laravel 12 supports PHP 8.2 but requires MariaDB 10.3+, above the reported 10.1.48
+production engine. First approve/rehearse a supported database upgrade, then
+upgrade framework and package constraints with full regression coverage.
+Composer's refreshed advisory resolver also flagged the local PHP 8.2.30 patch
+level; production PHP patch currency must be reviewed. No advisory enforcement
+was disabled to force a platform-lock refresh. Production patching is not done.
+Sources reviewed:
+https://laravel.com/docs/12.x/releases
+https://laravel.com/docs/12.x/database
+https://github.com/laravel/framework/security/advisories/GHSA-5vg9-5847-vvmq
+
+R10 — Onboarding age inconsistency: LOCAL REPAIR COMPLETE
+Registration now reuses InvitationEligibility's existing 13+ self-service rule.
+Invalid/missing/future DOB and under-13 registration fail validation before account
+creation. Exact thirteenth birthday passes age validation. Invitation and legacy
+claim safeguards remain. Coaches can still manage younger players' unclaimed
+profiles. No guardian implementation or legal-compliance claim was invented.
+Product/privacy owner approval of policy and future guardian flow remains separate.
+
+R11 — Endpoint/parity gaps: LOCAL REPAIR COMPLETE WITH EXPLICIT WEB FALLBACK
+TeamStatsPanel uses the registered bullpen endpoint for pitching; removed the
+nonexistent player/sessions/pitching request. Six canonical requests are extracted
+and tested for successful collection and isolated request failure. Removed the
+unreferenced deleteTestmode GET handler; active authorized deletion remains.
+More screen links to Email Preferences & Inbox (Web) and, for players, Connected
+Teams (Web). These open fixed HTTPS URLs without passing tokens or player data.
+Browser sign-in is explicitly required. No native inbox/team-management screen is
+claimed to exist; shared backend permissions still govern web fallback actions.
+
+R12 — Invitation native-opening expectations: LOCAL SCOPE RESOLVED
+Supported release behavior: email button opens browser, claim original profile,
+then sign in to the app with the same email/password. Native secure-link paste
+and manual claiming remain. The native screen explains this workflow.
+No new URL scheme, Associated Domains entitlement or AASA file was invented.
+Physical Mail/Safari/app acceptance remains required under R14.
+
+R13 — Tests/lint: LOCAL REPAIR COMPLETE
+Fixed offline SQLite/reconnect mocks and Safe Area test setup. App smoke test now
+checks navigation rendering and cleanup of both offline listeners.
+Mask test no longer demands a numeric mask on an email-or-phone claim field.
+Extracted daily sleep-check-in helpers into a separately tested module, bringing
+homePlayer below its existing budget without weakening the budget.
+TypeScript files now use the TypeScript ESLint parser; lint completes normally.
+Logging scanner excludes only fixed literal event labels, continues inspecting
+context values, and has positive/negative sensitive-value regression examples.
+Authorization audit logging remains intact.
+
+R14 — Artifact/device/store verification: PREPARED, NOT COMPLETE
+Release configuration validator passed. iOS JavaScript bundle passed. Neither is
+a signed device archive or an App Store submission. Current app target is
+com.tomdimitroff.fungometrics, marketing version 5, build 149; availability of that
+build number in App Store Connect is not known. No build number was guessed.
+
+Owner/device checklist (record date, device/iOS, build, expected/actual result):
+[ ] Confirm build number, signing team and distribution configuration in App Store Connect.
+[ ] Review app and SDK privacy manifests against actual data collection and store answers.
+[ ] Review retention policy: stable internal UUID/numeric history is retained; do not
+    describe all retained data as erased. Public deletion copy now states this clearly.
+[ ] Use an approved test coach/player; preserve the existing player ID before/after claim.
+[ ] Mail -> Safari claim -> app login, logged-out/wrong-account/expired/revoked cases.
+[ ] Web assignment -> app readiness/workout/reflection -> web coach review; same history.
+[ ] Offline/reconnect and account switch do not leak or falsely confirm another user's work.
+[ ] Open web preferences/inbox/team links from app; sign in to the same account;
+    toggle weekly opt-in, leave test team, verify roster convergence.
+[ ] RevenueCat App User ID remains the original FMTRX identity; restore and Apple
+    subscription-management links work. Free access does not cancel existing subscriptions.
+[ ] Delete only an authorized disposable test account through the real UI; old tokens,
+    resets and invitations fail; memberships disappear; no pending emails are sent.
+[ ] Review public support/privacy/terms/deletion pages and provide reviewer access.
+[ ] Only after approval: archive, inspect the signed artifact, TestFlight physical-device
+    acceptance, then App Store submission. None of these was performed here.
+
+R15 — Documentation/performance/build environment: LOCAL CLEANUP COMPLETE
+Marked the old mobile integration review historical; updated stale planner API
+comments to describe confirmed versus queued writes and current backend fields.
+Web .nvmrc pins Node 24.22.1 with npm 11; mobile .nvmrc now pins supported Node 22.23.1. Keep these
+build environments separate. Do not change a global Node version for both repos.
+Measured final production chart chunk is about 544 kB / 144 kB gzip; app chunk
+about 487 kB / 172 kB gzip. The warning remains visible, not suppressed. These are
+artifact sizes, not measured browser load times. Real device/network profiling
+remains a nonblocking follow-up before changing chart behavior.
+
+R16 — CI: LOCAL IMPLEMENTATION COMPLETE; REMOTE/ENGINE VERIFICATION RECORDED BELOW
+Backend CI now runs full PHPUnit with 512 MB and a safe isolated test database,
+after migration, against a MariaDB 10.1.48/10.6 matrix. PHP 8.2, required extensions,
+mail array transport and communications disabled. No production database is used.
+Mobile CI added on TomsScreeens/PRs: npm ci, lint, all Jest tests, iOS production
+JavaScript bundle. It does not claim to sign/compile an App Store archive on Linux.
+Actual GitHub Actions execution requires a separately approved push.
+
+R17 — Account deletion: LOCAL REPAIR COMPLETE
+Clears actual players.born_date. Revokes invitation token/code hashes and replaces
+the deleted recipient address, including accepted-invitation history; suppresses
+pending invitations issued by a deleted coach. Removes communication preferences,
+clears associated event/delivery personal snapshots, prevents pending dispatch,
+and retains minimal UUID/deduplication/audit history. Sent delivery audit state is
+not rewritten as if the message had never been sent.
+Clears password-reset records and database sessions if present, revokes API tokens,
+and invalidates affected roster caches after commit. Existing numeric history is
+preserved. Already handed-off/provider-delivered email cannot be recalled.
+API tests include DOB, pending/accepted invites, payloads/preferences, old reset
+records, pending worker suppression, and a fresh authorized replacement invitation.
+No production records were changed and no migration is required for these repairs.
+
+Deployment requirements (not executed)
+Review/approve changes first. Preserve repository branches and existing work.
+Deploy backend security changes before distributing mobile changes. Production
+Composer install must use PHP 8.2; use the updated composer.lock, not composer update.
+Web build must use Node 24/npm 11 and npm ci, then npm run build with the normal
+production API endpoint. Vite manifest remains in public/build/manifest.json.
+Mobile uses Node 22.23.1, npm ci, tests/lint/bundle before normal native validation.
+No new database migration is introduced by R09–R17. Do not enable email switches,
+remove pilot allowlists, run queue retries, or delete real accounts as part of deploy.
+R08 production cron and the remaining R09/R14 gates still prevent a full-go claim.
+
+Final local validation
+- Normal local database: full PHPUnit suite passed, 1,179 tests / 10,218 assertions.
+- Latest focused deletion/registration/invitation/logging checks: 71 tests / 563
+  assertions passed after final security edits (including one new scanner test).
+- Web: 340 tests passed on upgraded Vitest; production Vite build passed.
+- Mobile: all 375 tests passed; lint passed; iOS production JS bundle passed.
+- iOS RevenueCat/API Release configuration validator passed.
+- Composer validate and both workflow YAML parse checks passed; diff checks clean.
+- Exact engine rehearsal: started local Colima and an isolated amd64 MariaDB
+  10.1.48 container at loopback port 33316, test database fmtrx_mariadb_101_test.
+  Fresh migrations and 127 targeted tests / 786 assertions passed.
+- Full 1,180-test MariaDB 10.1.48 attempt was INTERRUPTED after mysqld crashed
+  with signal 11. Root cause is unconfirmed; do not attribute it to emulation or
+  claim this engine passed full validation. Raw local diagnostic log:
+  /tmp/r16-mariadb101-server.log. The waiting PHP process was terminated.
+- The test container/volume was removed and the runtime stopped afterward.
+  Production was never connected. R16's full exact-engine acceptance remains open;
+  run the new x86 GitHub CI matrix and investigate any matching database crash.
+- The first broad PHP attempt exceeded 128 MB. A later accidental overlapping
+  test run conflicted on the local test DB; it was discarded and rerun in isolation.
+  CI now uses 512 MB and each matrix job has its own database. Only the isolated
+  successful run is counted above.

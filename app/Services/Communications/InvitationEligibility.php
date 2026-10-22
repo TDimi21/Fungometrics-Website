@@ -12,15 +12,19 @@ class InvitationEligibility
 {
     public function assertPlayerAge(User $user): void
     {
-        // No guardian/verified consent relationship exists. Missing/invalid age needs review.
-        $raw = $user->player?->born_date;
+        $this->assertBirthDate($user->player?->born_date);
+    }
+
+    public function assertBirthDate($raw, string $field = 'invitation'): void
+    {
+        // Same existing 13+ self-service policy for registration and claiming.
         try {
             $born = Carbon::createFromFormat('!Y-m-d', (string) $raw);
             $valid = $born && $born->format('Y-m-d') === $raw && !$born->isFuture();
         } catch (\Throwable) { $valid = false; }
-        if (!$valid) throw ValidationException::withMessages(['invitation' => 'A valid player birth date must be confirmed by the coach before accepting an invitation.']);
+        if (!$valid) throw ValidationException::withMessages([$field => 'A valid birth date is required for player account setup.']);
         if ($born->greaterThan(now()->startOfDay()->subYears(13))) {
-            throw ValidationException::withMessages(['invitation' => 'Players under 13 cannot accept invitations until an approved guardian consent process is available. Your coach can continue managing your profile.']);
+            throw ValidationException::withMessages([$field => 'Players under 13 cannot set up their own account until an approved guardian consent process is available. Your coach can continue managing your profile.']);
         }
     }
 

@@ -1,0 +1,1006 @@
+{
+  "date": "2026-10-22",
+  "scope": "Local lockfiles; counts are affected dependency entries, not proven runtime exploits.",
+  "composer_production": {
+    "advisories": {
+      "laravel/framework": [
+        {
+          "advisoryId": "PKSA-d5tc-s1qs-h781",
+          "packageName": "laravel/framework",
+          "affectedVersions": ">=13.0.0,<13.30.0|<12.69.0",
+          "title": "Laravel: XSS in Debug Page Information",
+          "cve": "CVE-2026-102279",
+          "link": "https://github.com/advisories/GHSA-jh5r-qr3c-85q8",
+          "reportedAt": "2026-09-29T18:24:25+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-jh5r-qr3c-85q8"
+            }
+          ],
+          "severity": "low"
+        },
+        {
+          "advisoryId": "PKSA-m5cs-t1y6-qpcs",
+          "packageName": "laravel/framework",
+          "affectedVersions": "<12.61.1|>=13.0.0,<13.12.0",
+          "title": "Laravel Framework: Temporary Signed URL Path Confusion",
+          "cve": null,
+          "link": "https://github.com/advisories/GHSA-crmm-hgp2-wgrp",
+          "reportedAt": "2026-06-17T13:54:13+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-crmm-hgp2-wgrp"
+            }
+          ],
+          "severity": "medium"
+        },
+        {
+          "advisoryId": "PKSA-3r5d-mb8f-1qw9",
+          "packageName": "laravel/framework",
+          "affectedVersions": "<12.60.0|>=13.0.0,<=13.9.0",
+          "title": "Laravel Framework: CRLF injection in default email rule ",
+          "cve": null,
+          "link": "https://github.com/advisories/GHSA-5vg9-5847-vvmq",
+          "reportedAt": "2026-06-17T13:53:44+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-5vg9-5847-vvmq"
+            }
+          ],
+          "severity": "high"
+        },
+        {
+          "advisoryId": "PKSA-mdq4-51ck-6kdq",
+          "packageName": "laravel/framework",
+          "affectedVersions": ">=9.0.0,<10.0.0|>=10.0.0,<11.0.0|>=11.0.0,<12.0.0|>=12.0.0,<12.60.0|>=13.0.0,<13.10.0",
+          "title": "Laravel CRLF injection in default email rule",
+          "cve": "CVE-2026-48019",
+          "link": "https://github.com/laravel/framework/security/advisories/GHSA-5vg9-5847-vvmq",
+          "reportedAt": "2026-05-19T18:13:00+00:00",
+          "sources": [
+            {
+              "name": "FriendsOfPHP/security-advisories",
+              "remoteId": "laravel/framework/CVE-2026-48019.yaml"
+            }
+          ],
+          "severity": null
+        },
+        {
+          "advisoryId": "PKSA-8qx3-n5y5-vvnd",
+          "packageName": "laravel/framework",
+          "affectedVersions": "<10.48.29|>=11.0.0,<11.44.1|>=12.0.0,<12.1.1",
+          "title": "Laravel has a File Validation Bypass",
+          "cve": "CVE-2025-27515",
+          "link": "https://github.com/advisories/GHSA-78fx-h6xr-vch4",
+          "reportedAt": "2025-03-05T19:09:39+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-78fx-h6xr-vch4"
+            }
+          ],
+          "severity": "medium"
+        }
+      ]
+    },
+    "abandoned": []
+  },
+  "web": {
+    "counts": {
+      "info": 0,
+      "low": 0,
+      "moderate": 2,
+      "high": 5,
+      "critical": 0,
+      "total": 7
+    },
+    "advisories": {
+      "braces": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          {
+            "source": 1240992,
+            "name": "braces",
+            "dependency": "braces",
+            "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+            "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+            "severity": "high",
+            "cwe": [
+              "CWE-674"
+            ],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": "<=3.0.3"
+          }
+        ],
+        "fix": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      },
+      "chokidar": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "braces"
+        ],
+        "fix": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      },
+      "fast-glob": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "micromatch"
+        ],
+        "fix": true
+      },
+      "micromatch": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "braces"
+        ],
+        "fix": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      },
+      "postcss-nested": {
+        "severity": "moderate",
+        "direct": false,
+        "via": [
+          "postcss-selector-parser"
+        ],
+        "fix": true
+      },
+      "postcss-selector-parser": {
+        "severity": "moderate",
+        "direct": false,
+        "via": [
+          {
+            "source": 1241232,
+            "name": "postcss-selector-parser",
+            "dependency": "postcss-selector-parser",
+            "title": "PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion",
+            "url": "https://github.com/advisories/GHSA-rj75-hqrm-r3gf",
+            "severity": "moderate",
+            "cwe": [
+              "CWE-400",
+              "CWE-407"
+            ],
+            "cvss": {
+              "score": 5.9,
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": "<7.1.6"
+          }
+        ],
+        "fix": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      },
+      "tailwindcss": {
+        "severity": "high",
+        "direct": true,
+        "via": [
+          "chokidar",
+          "fast-glob",
+          "micromatch",
+          "postcss-nested",
+          "postcss-selector-parser"
+        ],
+        "fix": {
+          "name": "tailwindcss",
+          "version": "4.3.3",
+          "isSemVerMajor": true
+        }
+      }
+    }
+  },
+  "mobile": {
+    "counts": {
+      "info": 0,
+      "low": 0,
+      "moderate": 6,
+      "high": 29,
+      "critical": 0,
+      "total": 35
+    },
+    "advisories": {
+      "@jest/environment": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "@jest/fake-timers"
+        ],
+        "fix": true
+      },
+      "@jest/fake-timers": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "jest-message-util"
+        ],
+        "fix": {
+          "name": "react-native",
+          "version": "0.88.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@jest/transform": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "jest-haste-map",
+          "micromatch"
+        ],
+        "fix": {
+          "name": "babel-jest",
+          "version": "30.5.2",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native-community/cli": {
+        "severity": "high",
+        "direct": true,
+        "via": [
+          "@react-native-community/cli-clean",
+          "@react-native-community/cli-config",
+          "@react-native-community/cli-doctor"
+        ],
+        "fix": {
+          "name": "@react-native-community/cli",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native-community/cli-clean": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "fast-glob"
+        ],
+        "fix": true
+      },
+      "@react-native-community/cli-config": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "fast-glob"
+        ],
+        "fix": {
+          "name": "@react-native-community/cli",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native-community/cli-config-android": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "fast-glob",
+          "fast-xml-parser"
+        ],
+        "fix": {
+          "name": "@react-native-community/cli-platform-android",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native-community/cli-config-apple": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "fast-glob"
+        ],
+        "fix": {
+          "name": "@react-native-community/cli-platform-ios",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native-community/cli-doctor": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "@react-native-community/cli-config",
+          "@react-native-community/cli-platform-android",
+          "@react-native-community/cli-platform-apple",
+          "@react-native-community/cli-platform-ios"
+        ],
+        "fix": {
+          "name": "@react-native-community/cli",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native-community/cli-platform-android": {
+        "severity": "moderate",
+        "direct": true,
+        "via": [
+          "@react-native-community/cli-config-android"
+        ],
+        "fix": {
+          "name": "@react-native-community/cli-platform-android",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native-community/cli-platform-apple": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "@react-native-community/cli-config-apple",
+          "fast-xml-parser"
+        ],
+        "fix": {
+          "name": "@react-native-community/cli-platform-ios",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native-community/cli-platform-ios": {
+        "severity": "moderate",
+        "direct": true,
+        "via": [
+          "@react-native-community/cli-platform-apple"
+        ],
+        "fix": {
+          "name": "@react-native-community/cli-platform-ios",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native/community-cli-plugin": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "@react-native/dev-middleware",
+          "metro",
+          "metro-config"
+        ],
+        "fix": {
+          "name": "react-native",
+          "version": "0.88.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native/dev-middleware": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "selfsigned"
+        ],
+        "fix": {
+          "name": "react-native",
+          "version": "0.88.0",
+          "isSemVerMajor": true
+        }
+      },
+      "@react-native/metro-config": {
+        "severity": "high",
+        "direct": true,
+        "via": [
+          "metro-config"
+        ],
+        "fix": false
+      },
+      "@react-navigation/core": {
+        "severity": "moderate",
+        "direct": false,
+        "via": [
+          "query-string"
+        ],
+        "fix": true
+      },
+      "babel-jest": {
+        "severity": "high",
+        "direct": true,
+        "via": [
+          "@jest/transform"
+        ],
+        "fix": {
+          "name": "babel-jest",
+          "version": "30.5.2",
+          "isSemVerMajor": true
+        }
+      },
+      "braces": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          {
+            "source": 1240992,
+            "name": "braces",
+            "dependency": "braces",
+            "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+            "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+            "severity": "high",
+            "cwe": [
+              "CWE-674"
+            ],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": "<=3.0.3"
+          }
+        ],
+        "fix": false
+      },
+      "decode-uri-component": {
+        "severity": "moderate",
+        "direct": false,
+        "via": [
+          {
+            "source": 1147955,
+            "name": "decode-uri-component",
+            "dependency": "decode-uri-component",
+            "title": "decode-uri-component: Denial of service via exponential decoding of malformed percent-encoded input",
+            "url": "https://github.com/advisories/GHSA-vcc3-ghjq-m6fr",
+            "severity": "moderate",
+            "cwe": [
+              "CWE-400",
+              "CWE-405",
+              "CWE-407",
+              "CWE-1176"
+            ],
+            "cvss": {
+              "score": 0,
+              "vectorString": null
+            },
+            "range": "<=0.4.2"
+          }
+        ],
+        "fix": true
+      },
+      "fast-glob": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "micromatch"
+        ],
+        "fix": {
+          "name": "@react-native-community/cli-platform-android",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "fast-xml-parser": {
+        "severity": "moderate",
+        "direct": false,
+        "via": [
+          {
+            "source": 1117911,
+            "name": "fast-xml-parser",
+            "dependency": "fast-xml-parser",
+            "title": "fast-xml-parser XMLBuilder: XML Comment and CDATA Injection via Unescaped Delimiters",
+            "url": "https://github.com/advisories/GHSA-gh4j-gqv2-49f6",
+            "severity": "moderate",
+            "cwe": [
+              "CWE-91"
+            ],
+            "cvss": {
+              "score": 6.1,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+            },
+            "range": "<5.7.0"
+          }
+        ],
+        "fix": {
+          "name": "@react-native-community/cli-platform-ios",
+          "version": "20.2.0",
+          "isSemVerMajor": true
+        }
+      },
+      "image-size": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          {
+            "source": 1239765,
+            "name": "image-size",
+            "dependency": "image-size",
+            "title": "image-size: JXL and HEIF parsers allow denial of service through infinite loops",
+            "url": "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
+            "severity": "high",
+            "cwe": [
+              "CWE-835"
+            ],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": ">=1.2.0 <=2.0.2"
+          },
+          {
+            "source": 1239766,
+            "name": "image-size",
+            "dependency": "image-size",
+            "title": "image-size: ICNS parser allows denial of service through an infinite loop",
+            "url": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+            "severity": "high",
+            "cwe": [
+              "CWE-835"
+            ],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": ">=0.6.3 <=2.0.2"
+          }
+        ],
+        "fix": true
+      },
+      "jest-environment-node": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "@jest/environment",
+          "@jest/fake-timers"
+        ],
+        "fix": {
+          "name": "react-native",
+          "version": "0.88.0",
+          "isSemVerMajor": true
+        }
+      },
+      "jest-haste-map": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "micromatch"
+        ],
+        "fix": true
+      },
+      "jest-message-util": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "micromatch"
+        ],
+        "fix": {
+          "name": "react-native",
+          "version": "0.88.0",
+          "isSemVerMajor": true
+        }
+      },
+      "jscodeshift": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "micromatch"
+        ],
+        "fix": true
+      },
+      "metro": {
+        "severity": "high",
+        "direct": true,
+        "via": [
+          "metro-config",
+          "metro-file-map",
+          "metro-transform-worker"
+        ],
+        "fix": false
+      },
+      "metro-config": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "metro"
+        ],
+        "fix": false
+      },
+      "metro-file-map": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "micromatch"
+        ],
+        "fix": false
+      },
+      "metro-transform-worker": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "metro"
+        ],
+        "fix": true
+      },
+      "micromatch": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "braces"
+        ],
+        "fix": false
+      },
+      "node-forge": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          {
+            "source": 1240912,
+            "name": "node-forge",
+            "dependency": "node-forge",
+            "title": "node-forge RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements",
+            "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+            "severity": "high",
+            "cwe": [
+              "CWE-347"
+            ],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "range": "<=1.4.0"
+          }
+        ],
+        "fix": {
+          "name": "react-native",
+          "version": "0.88.0",
+          "isSemVerMajor": true
+        }
+      },
+      "query-string": {
+        "severity": "moderate",
+        "direct": false,
+        "via": [
+          "decode-uri-component"
+        ],
+        "fix": true
+      },
+      "react-native": {
+        "severity": "high",
+        "direct": true,
+        "via": [
+          "@react-native/community-cli-plugin",
+          "babel-jest",
+          "jest-environment-node"
+        ],
+        "fix": {
+          "name": "react-native",
+          "version": "0.88.0",
+          "isSemVerMajor": true
+        }
+      },
+      "selfsigned": {
+        "severity": "high",
+        "direct": false,
+        "via": [
+          "node-forge"
+        ],
+        "fix": {
+          "name": "react-native",
+          "version": "0.88.0",
+          "isSemVerMajor": true
+        }
+      }
+    }
+  },
+  "composer_including_development": {
+    "advisories": {
+      "composer/composer": [
+        {
+          "advisoryId": "PKSA-ddsx-fjz2-sbs3",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=1.0,<2.2.30|>=2.3.0,<2.10.3",
+          "title": "Composer: GHSA-gjfg-22fp-rrxx fix bypass via symlinked package bin path",
+          "cve": "CVE-2026-59944",
+          "link": "https://github.com/advisories/GHSA-96h3-5x6v-m776",
+          "reportedAt": "2026-10-02T19:14:34+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-96h3-5x6v-m776"
+            }
+          ],
+          "severity": "medium"
+        },
+        {
+          "advisoryId": "PKSA-ym19-cy3j-z6df",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=1.0,<2.2.30|>=2.3.0,<2.10.3",
+          "title": "Composer arbitrary command execution via a malicious package's Perforce source URL",
+          "cve": "CVE-2026-84361",
+          "link": "https://github.com/advisories/GHSA-rvx4-ffvw-m9q3",
+          "reportedAt": "2026-09-08T21:25:41+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-rvx4-ffvw-m9q3"
+            }
+          ],
+          "severity": "high"
+        },
+        {
+          "advisoryId": "PKSA-q3ht-3g42-rg8f",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=1.0.0,<2.2.29|>=2.3.0,<2.10.2",
+          "title": "Composer: Path traversal in package bin field lets dependencies chmod arbitrary host files",
+          "cve": "CVE-2026-59946",
+          "link": "https://github.com/advisories/GHSA-gjfg-22fp-rrxx",
+          "reportedAt": "2026-07-20T21:57:40+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-gjfg-22fp-rrxx"
+            }
+          ],
+          "severity": "medium"
+        },
+        {
+          "advisoryId": "PKSA-4pm6-g63v-5rkr",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=1.0.0,<2.2.29|>=2.3.0,<2.10.2",
+          "title": "Composer: URL-embedded HTTP-Basic username leaks to verbose logs (GitHub PAT exposure)",
+          "cve": "CVE-2026-59947",
+          "link": "https://github.com/advisories/GHSA-g6xq-892h-64w3",
+          "reportedAt": "2026-07-20T21:55:05+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-g6xq-892h-64w3"
+            }
+          ],
+          "severity": "medium"
+        },
+        {
+          "advisoryId": "PKSA-zcdk-qnhk-hq2g",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=1.0.0,<2.2.29|>=2.3.0,<2.10.2",
+          "title": "Composer: Arbitrary file write outside vendor via malicious transitive package name",
+          "cve": "CVE-2026-59948",
+          "link": "https://github.com/advisories/GHSA-499r-g7pc-vmp9",
+          "reportedAt": "2026-07-20T19:15:29+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-499r-g7pc-vmp9"
+            }
+          ],
+          "severity": "high"
+        },
+        {
+          "advisoryId": "PKSA-pwvr-3754-v57r",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=2.3,<2.9.8|>=2.0.0,<2.2.28|>=1.0,<1.10.28",
+          "title": "Github Actions issued GITHUB_TOKEN disclosure in GitHub Actions logs",
+          "cve": "CVE-2026-45793",
+          "link": "https://github.com/composer/composer/security/advisories/GHSA-f9f8-rm49-7jv2",
+          "reportedAt": "2026-05-13T07:00:00+00:00",
+          "sources": [
+            {
+              "name": "FriendsOfPHP/security-advisories",
+              "remoteId": "composer/composer/CVE-2026-45793.yaml"
+            },
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-f9f8-rm49-7jv2"
+            }
+          ],
+          "severity": "high"
+        },
+        {
+          "advisoryId": "PKSA-t5r2-p5q9-mtpn",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=2.3,<2.9.6|>=1.0,<2.2.27",
+          "title": "Command injection via malicious Perforce source reference/url",
+          "cve": "CVE-2026-40261",
+          "link": "https://github.com/composer/composer/security/advisories/GHSA-gqw4-4w2p-838q",
+          "reportedAt": "2026-04-14T09:42:00+00:00",
+          "sources": [
+            {
+              "name": "FriendsOfPHP/security-advisories",
+              "remoteId": "composer/composer/CVE-2026-40261.yaml"
+            },
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-gqw4-4w2p-838q"
+            }
+          ],
+          "severity": "high"
+        },
+        {
+          "advisoryId": "PKSA-6bp1-9hfj-2cgv",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=2.3,<2.9.6|>=1.0,<2.2.27",
+          "title": "Command injection via malicious Perforce repository definition",
+          "cve": "CVE-2026-40176",
+          "link": "https://github.com/composer/composer/security/advisories/GHSA-wg36-wvj6-r67p",
+          "reportedAt": "2026-04-14T09:42:00+00:00",
+          "sources": [
+            {
+              "name": "FriendsOfPHP/security-advisories",
+              "remoteId": "composer/composer/CVE-2026-40176.yaml"
+            },
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-wg36-wvj6-r67p"
+            }
+          ],
+          "severity": "high"
+        },
+        {
+          "advisoryId": "PKSA-1gck-s111-yq7g",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=2.3.0,<2.9.3|>=2.0.0,<2.2.26",
+          "title": "Composer is vulnerable to ANSI sequence injection",
+          "cve": "CVE-2025-67746",
+          "link": "https://github.com/advisories/GHSA-59pp-r3rg-353g",
+          "reportedAt": "2025-12-30T17:44:10+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-59pp-r3rg-353g"
+            }
+          ],
+          "severity": "low"
+        },
+        {
+          "advisoryId": "PKSA-s25b-vbmp-jvhh",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=2.3,<2.7.7|>=2.0,<2.2.24",
+          "title": "Composer has a command injection via malicious git branch name",
+          "cve": "CVE-2024-35241",
+          "link": "https://github.com/advisories/GHSA-47f6-5gq3-vx9c",
+          "reportedAt": "2024-06-10T21:36:32+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-47f6-5gq3-vx9c"
+            }
+          ],
+          "severity": "high"
+        },
+        {
+          "advisoryId": "PKSA-b8f7-zn44-r4gz",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=2.3,<2.7.7|>=2.0,<2.2.24",
+          "title": "Composer has multiple command injections via malicious git/hg branch names",
+          "cve": "CVE-2024-35242",
+          "link": "https://github.com/advisories/GHSA-v9qv-c7wm-wgmf",
+          "reportedAt": "2024-06-10T21:36:25+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-v9qv-c7wm-wgmf"
+            }
+          ],
+          "severity": "high"
+        },
+        {
+          "advisoryId": "PKSA-jn72-4kr8-gj3h",
+          "packageName": "composer/composer",
+          "affectedVersions": ">=2.3.0-rc1,<2.7.0|>=2.0.0-alpha1,<2.2.23",
+          "title": "Composer code execution and possible privilege escalation via compromised InstalledVersions.php or installed.php",
+          "cve": "CVE-2024-24821",
+          "link": "https://github.com/advisories/GHSA-7c6p-848j-wh5h",
+          "reportedAt": "2024-02-08T15:06:38+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-7c6p-848j-wh5h"
+            }
+          ],
+          "severity": "high"
+        }
+      ],
+      "laravel/framework": [
+        {
+          "advisoryId": "PKSA-d5tc-s1qs-h781",
+          "packageName": "laravel/framework",
+          "affectedVersions": ">=13.0.0,<13.30.0|<12.69.0",
+          "title": "Laravel: XSS in Debug Page Information",
+          "cve": "CVE-2026-102279",
+          "link": "https://github.com/advisories/GHSA-jh5r-qr3c-85q8",
+          "reportedAt": "2026-09-29T18:24:25+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-jh5r-qr3c-85q8"
+            }
+          ],
+          "severity": "low"
+        },
+        {
+          "advisoryId": "PKSA-m5cs-t1y6-qpcs",
+          "packageName": "laravel/framework",
+          "affectedVersions": "<12.61.1|>=13.0.0,<13.12.0",
+          "title": "Laravel Framework: Temporary Signed URL Path Confusion",
+          "cve": null,
+          "link": "https://github.com/advisories/GHSA-crmm-hgp2-wgrp",
+          "reportedAt": "2026-06-17T13:54:13+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-crmm-hgp2-wgrp"
+            }
+          ],
+          "severity": "medium"
+        },
+        {
+          "advisoryId": "PKSA-3r5d-mb8f-1qw9",
+          "packageName": "laravel/framework",
+          "affectedVersions": "<12.60.0|>=13.0.0,<=13.9.0",
+          "title": "Laravel Framework: CRLF injection in default email rule ",
+          "cve": null,
+          "link": "https://github.com/advisories/GHSA-5vg9-5847-vvmq",
+          "reportedAt": "2026-06-17T13:53:44+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-5vg9-5847-vvmq"
+            }
+          ],
+          "severity": "high"
+        },
+        {
+          "advisoryId": "PKSA-mdq4-51ck-6kdq",
+          "packageName": "laravel/framework",
+          "affectedVersions": ">=9.0.0,<10.0.0|>=10.0.0,<11.0.0|>=11.0.0,<12.0.0|>=12.0.0,<12.60.0|>=13.0.0,<13.10.0",
+          "title": "Laravel CRLF injection in default email rule",
+          "cve": "CVE-2026-48019",
+          "link": "https://github.com/laravel/framework/security/advisories/GHSA-5vg9-5847-vvmq",
+          "reportedAt": "2026-05-19T18:13:00+00:00",
+          "sources": [
+            {
+              "name": "FriendsOfPHP/security-advisories",
+              "remoteId": "laravel/framework/CVE-2026-48019.yaml"
+            }
+          ],
+          "severity": null
+        },
+        {
+          "advisoryId": "PKSA-8qx3-n5y5-vvnd",
+          "packageName": "laravel/framework",
+          "affectedVersions": "<10.48.29|>=11.0.0,<11.44.1|>=12.0.0,<12.1.1",
+          "title": "Laravel has a File Validation Bypass",
+          "cve": "CVE-2025-27515",
+          "link": "https://github.com/advisories/GHSA-78fx-h6xr-vch4",
+          "reportedAt": "2025-03-05T19:09:39+00:00",
+          "sources": [
+            {
+              "name": "GitHub",
+              "remoteId": "GHSA-78fx-h6xr-vch4"
+            }
+          ],
+          "severity": "medium"
+        }
+      ],
+      "symfony/yaml": [
+        {
+          "advisoryId": "PKSA-xz3r-9gp4-4m1z",
+          "packageName": "symfony/yaml",
+          "affectedVersions": ">=2.0.0,<3.0.0|>=3.0.0,<4.0.0|>=4.0.0,<5.0.0|>=5.0.0,<5.1.0|>=5.1.0,<5.2.0|>=5.2.0,<5.3.0|>=5.3.0,<5.4.0|>=5.4.0,<5.4.54|>=6.0.0,<6.1.0|>=6.1.0,<6.2.0|>=6.2.0,<6.3.0|>=6.3.0,<6.4.0|>=6.4.0,<6.4.45|>=7.0.0,<7.1.0|>=7.1.0,<7.2.0|>=7.2.0,<7.3.0|>=7.3.0,<7.4.0|>=7.4.0,<7.4.18|>=8.0.0,<8.1.0|>=8.1.0,<8.1.6",
+          "title": "CVE-2026-109413: Unbounded Recursion in the YAML Inline Lexer Lets a Single Document Crash the Process",
+          "cve": "CVE-2026-109413",
+          "link": "https://symfony.com/cve-2026-109413",
+          "reportedAt": "2026-08-30T08:00:00+00:00",
+          "sources": [
+            {
+              "name": "FriendsOfPHP/security-advisories",
+              "remoteId": "symfony/yaml/CVE-2026-109413.yaml"
+            }
+          ],
+          "severity": null
+        }
+      ]
+    },
+    "abandoned": []
+  }
+}
