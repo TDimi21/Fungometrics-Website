@@ -17,6 +17,24 @@ use Tests\TestCase;
 
 class GetFullListAllTrainingModeTest extends TestCase
 {
+    public function test_selected_mode_is_filtered_before_pagination(): void
+    {
+        $coach = User::factory()->create(['type' => 'coach']);
+        Sanctum::actingAs($coach);
+        $team = Team::factory()->create();
+        $this->grantTeamAccess($coach, $team);
+        foreach (['WB', 'EV', 'LT'] as $mode) {
+            Practice::factory(11)->create(['team_id' => $team->id, 'modes' => $mode]);
+        }
+        foreach (['WB', 'EV', 'LT'] as $mode) {
+            $response = $this->getJson('/api/sessions/all/modes?team='.$team->id.'&mode='.$mode);
+            $response->assertOk()->assertJsonPath('meta.total', 11)->assertJsonCount(10, 'data');
+            foreach ($response->json('data') as $session) {
+                $this->assertSame($mode, $session['mode']);
+            }
+        }
+    }
+
     public function test_get_all_training_modes_ok_with_team(): void
     {
         $user = User::factory()->create(['type' => UserTypes::COACH->value]);

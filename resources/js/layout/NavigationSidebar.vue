@@ -58,8 +58,16 @@ const sidebarItems = ref([
         url: '/training/cage'
       },
       {
-        title: 'Training mode',
-        url: '/training/training-mode'
+        title: 'Weighted Balls',
+        url: '/training/training-mode?mode=WB'
+      },
+      {
+        title: 'Exit Velocity',
+        url: '/training/training-mode?mode=EV'
+      },
+      {
+        title: 'Long Toss',
+        url: '/training/training-mode?mode=LT'
       },
       {
         title: 'LiveAB mode',
@@ -133,6 +141,9 @@ const isItemActive = (item) => {
     return route.path === '/dashboard' && (!route.query?.tab || route.query?.tab === 'overview')
   }
 
+  if (typeof item.url === 'string' && item.url.includes('?mode=')) {
+    return route.path === item.url.split('?')[0] && route.query.mode === item.url.split('?mode=')[1]
+  }
   return route.path === item.url
 }
 
@@ -261,6 +272,9 @@ onMounted(() => {
             <li v-for="child in item.child" class="leading-8">
               <RouterLink
                 :to="child.url"
+                active-class=""
+                exact-active-class=""
+                :class="{ 'router-link-active router-link-exact-active': isItemActive(child) }"
                 class="flex flex-row flex-nowrap items-center"
               >
                 {{ child.title }}

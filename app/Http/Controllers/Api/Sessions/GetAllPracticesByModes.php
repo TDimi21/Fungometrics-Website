@@ -30,6 +30,9 @@ class GetAllPracticesByModes extends Controller
             // for training modes — so training sessions vanished once newer batting/cage
             // sessions pushed them off page 1. Filtering server-side keeps pagination correct.
             $trainingModes = ['EV', 'WB', 'LT'];
+            if (in_array($request->query('mode'), $trainingModes, true)) {
+                $trainingModes = [$request->query('mode')];
+            }
             if ($request->team) {
                 $practices = Practice::where('team_id', $request->team)->whereIn('modes', $trainingModes)->orderBy('updated_at', 'desc')->paginate(10);
             } else {

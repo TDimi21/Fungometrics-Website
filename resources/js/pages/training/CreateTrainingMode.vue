@@ -5,8 +5,9 @@ import {usePlayerStore} from "../../store/players";
 import {useTeamStore} from "../../store/team";
 import {useTrainingStore} from "../../store/training";
 import CardTeam from "../../components/CardTeam.vue";
-import {defineProps, reactive, ref, onMounted, onUpdated} from "vue";
+import {defineProps, reactive, ref, onMounted, onUpdated, watch} from "vue";
 import router from "../../../router";
+import { useRoute } from "vue-router";
 import {Dialog, DialogPanel, DialogTitle} from '@headlessui/vue'
 import { toast } from "@/utils/AlertPlugin"
 import { useAxiosAuth } from '@/composables/axios-auth.js'
@@ -29,6 +30,11 @@ const training = reactive({
   modes: '',
   note: '',
 });
+
+const route = useRoute();
+watch(() => route.query.mode, (selected) => {
+  training.modes = { WB: 'Weighted Ball', EV: 'Exit Velocity', LT: 'Long Toss' }[selected] || '';
+}, { immediate: true });
 
 const registerAndRedirect = async () => {
     if(training.note === "" || listOrderPlayer.value.length === 0 && training.modes == ''){

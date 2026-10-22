@@ -1,7 +1,7 @@
 <script setup>
 import { storeToRefs } from 'pinia'
-import {ref, onMounted, defineProps, onUpdated, reactive, computed} from 'vue'
-import { useRouter } from 'vue-router'
+import {ref, onMounted, defineProps, watch, reactive, computed} from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { toast } from "@/utils/AlertPlugin"
 import { useTeamStore } from '@/store/team.js'
@@ -18,6 +18,9 @@ import {Dialog, DialogPanel, DialogTitle} from '@headlessui/vue'
 const useTeam = useTeamStore()
 const { axiosGet, axiosPost } = useAxiosAuth()
 const router = useRouter()
+const route = useRoute()
+const modeLabels = { WB: 'Weighted Ball', EV: 'Exit Velocity', LT: 'Long Toss' }
+const selectedMode = computed(() => Object.hasOwn(modeLabels, route.query.mode) ? route.query.mode : '')
 const { userData } = useUserStore();
 const activeTraining = useTrainingStore();
 
@@ -91,7 +94,8 @@ const getTrainigsByType = async(page = 1) => {
     if(props.slug == "training-mode"){
       let defineEndpointmode = userData.type == 'player' ? `player/sessions/training` : `sessions/all/modes?page=${page}`
       await axiosGet(defineEndpointmode, {
-        team: team.value.id
+        team: team.value.id,
+        ...(selectedMode.value ? { mode: selectedMode.value } : {})
       }).then((response)=> {
         if (response) {
           console.log(response.data.data);
@@ -172,7 +176,7 @@ const gotoCreateTraining = ()=>{
           break;
         case 'training-mode':
           router.replace({ name: 'create.trainingMode', params: { 'slug':
-              props.slug } })
+              props.slug }, query: selectedMode.value ? { mode: selectedMode.value } : {} })
           break;
         case "cage":
           router.replace({ name: 'create.trainingCage'})
@@ -320,10 +324,14 @@ function openModal() {
 }
 
 onMounted(() => {
+  training.modes = modeLabels[selectedMode.value] || ''
   getTrainigsByType()
 })
 
-onUpdated(()=>{
+watch(() => [props.slug, selectedMode.value, team.value?.id], () => {
+  tableData.value = []
+  pages.value = []
+  training.modes = modeLabels[selectedMode.value] || ''
   getTrainigsByType()
 })
 </script>
