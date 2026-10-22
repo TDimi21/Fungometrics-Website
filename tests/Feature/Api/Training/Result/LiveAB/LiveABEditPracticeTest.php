@@ -67,6 +67,7 @@ class LiveABEditPracticeTest extends TestCase
         $response = $this->json('POST', 'api/result/liveab', $dataCreate);
 
         $liveab = LiveABPracticeResult::first();
+        $liveab->update(['play_result' => 'single', 'runs_scored' => 1, 'rbi' => 1]);
         $data =[
             'sort' => fake()->numberBetween(1, 9),
             'bases' => fake()->numberBetween(0, 3),
@@ -104,6 +105,20 @@ class LiveABEditPracticeTest extends TestCase
             'status',
             'data'
         ]);
+        $this->assertEquals($data['batting']['velocity'], $liveab->fresh()->batting->velocity);
+        $this->assertEquals($data['pitching']['miles_per_hour'], $liveab->fresh()->pitching->miles_per_hour);
+        $this->assertSame('single', $liveab->fresh()->play_result);
+        $this->assertEquals(1, $liveab->fresh()->runs_scored);
+        $this->getJson("/api/result/liveab/{$liveab->id}")->assertOk()
+            ->assertJsonPath('data.id', $liveab->id);
+        $count = LiveABPracticeResult::count();
+        Sanctum::actingAs(User::factory()->create(['type' => UserTypes::COACH->value]), [UserTypes::COACH->value]);
+        $deniedData = $data;
+        $deniedData['batting']['velocity'] = 123;
+        $this->putJson("/api/result/liveab/{$liveab->id}", $deniedData)->assertNotFound();
+        $this->assertSame($count, LiveABPracticeResult::count());
+        $this->assertEquals($data['batting']['velocity'], $liveab->fresh()->batting->velocity);
+
     }
     public function test_liveab_edit_practice_result_validated(): void
     {
