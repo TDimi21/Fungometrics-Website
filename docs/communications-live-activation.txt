@@ -1,5 +1,10 @@
 FMTRX communications activation — 2026-10-16
 
+2026-10-22 UPDATE: Before activation, follow communications-r08-repair-2026-10-22.txt.
+Production unattended execution is still unverified. The new --check/--expect-probe
+gate detects stale/missing evidence; keep pilot restrictions until unattended
+checks and controlled delivery acceptance pass.
+
 STATUS
 Local integration prepared; production is NOT newly activated by this work.
 User authorized going live, but SSH authentication is unavailable here. Server

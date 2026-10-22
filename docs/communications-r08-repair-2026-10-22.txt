@@ -1,0 +1,112 @@
+FMTRX R08 — Automatic communications execution
+2026-10-22
+
+STATUS: Local diagnostics repaired. Production execution remains UNVERIFIED.
+No server access was used, no messages sent, no production configuration changed.
+Backend main and mobile TomsScreeens confirmed; no mobile changes required.
+
+Evidence and local correction
+Earlier production cron heartbeats stopped advancing while Run Now worked.
+An active cron daemon does not prove it loads or executes the user's tasks.
+A working mail provider does not prove unattended queue or scheduler execution.
+Root cause of the production cron failure cannot be determined from local code.
+
+fmtrx:communications-status previously returned success even with missing or old
+execution evidence. It now supports --check and --expect-probe=UUID, returning
+failure for missing, malformed, future, stale (>180 seconds), mismatched evidence,
+or unsupported queue/cache configuration. Probe enqueue and check are separate.
+The command does not print keys, recipients, payloads or invitation tokens.
+Default inspection remains read-only; --probe-worker queues only a harmless job.
+Neither a passing check nor a timestamp proves unattended execution if an operator
+has manually run the worker/scheduler. Never use Run Now during verification.
+
+Production operator sequence (after approved deployment of these changes)
+Run each command separately. Stop on error. Do not paste credentials.
+
+cd /var/www/vhosts/fmtrx.com/app.fmtrx.com
+/opt/plesk/php/8.2/bin/php artisan list --raw
+/opt/plesk/php/8.2/bin/php artisan fmtrx:communications-status
+/opt/plesk/php/8.2/bin/php artisan schedule:list
+crontab -l
+
+STOP if the status command is missing: approved backend code must be deployed
+before continuing. No Composer packages or migrations are added for this repair.
+Confirm database queue and persistent cache. Keep pilot_mode=true and the approved
+recipient allowlist restricted. Keep non-pilot categories disabled. Review queue,
+failed-job and ledger counts. Do not retry/delete the backlog blindly.
+
+/opt/plesk/php/8.2/bin/php artisan fmtrx:communications-dispatch --dry-run
+
+If engine disabled, dry-run reports disabled: use read-only status backlog counts;
+do not enable communications simply to inspect the backlog.
+
+Plesk configuration inventory
+Verify task owner is develop. The confirmed PHP path is /opt/plesk/php/8.2/bin/php.
+Use ONE scheduling/worker manager. Do not duplicate existing services or crontabs.
+Existing deploy/communications systemd and Supervisor templates remain alternatives
+for an administrator; do not install them alongside Plesk workers.
+In Plesk, active Run a command tasks use Cron style: * * * * *
+A scheduler and worker are BOTH required. A date heartbeat is not a scheduler.
+After approved backlog review, these are the task commands:
+
+Scheduler:
+cd /var/www/vhosts/fmtrx.com/app.fmtrx.com && /usr/bin/flock -n /tmp/fmtrx-scheduler.lock /opt/plesk/php/8.2/bin/php artisan schedule:run >> storage/logs/scheduler.log 2>&1
+
+Communications worker:
+cd /var/www/vhosts/fmtrx.com/app.fmtrx.com && /usr/bin/flock -n /tmp/fmtrx-communications.lock /opt/plesk/php/8.2/bin/php artisan queue:work database --queue=communications --stop-when-empty --tries=1 --timeout=60 --sleep=3 >> storage/logs/communications-worker.log 2>&1
+
+Retain/review the existing default-queue worker separately; this command only
+handles communications. Arrange log rotation. Verify queue retry_after exceeds
+60 seconds. Do not remove existing locks or kill processes to force execution.
+Save active tasks; do not click Run Now to prove automation.
+If scheduled heartbeats still fail, an administrator must inspect cron/PAM logs,
+crontab ownership/loading, and Plesk subscription restrictions for develop. Do not
+infer suspension, restart cron blindly, or reset application accounts.
+
+Unattended verification
+/opt/plesk/php/8.2/bin/php artisan fmtrx:communications-status --probe-worker
+
+Record the returned non-secret UUID. Wait 60–120 seconds without running workers,
+schedule:run, handlers, or Plesk Run Now. Substitute the recorded UUID below:
+
+/opt/plesk/php/8.2/bin/php artisan fmtrx:communications-status --check --expect-probe=RECORDED_UUID
+
+STOP on nonzero exit. Inspect missing/stale scheduler or worker evidence; do not
+lift the pilot restriction. If successful, wait another minute and rerun --check:
+scheduler_last_run must advance without manual execution. Queue a fresh probe and
+repeat to establish continued processing. Cached evidence expires after an hour;
+health freshness is intentionally stricter, three minutes. Monitoring must submit
+fresh probes, not expect a single old probe to stay healthy forever.
+
+Controlled delivery acceptance (separate approved live-mail step)
+Use the existing approved test account; do not delete/recreate player profiles.
+1. Send one invitation for an eligible unclaimed test profile using the web UI.
+2. Assign one published workout to an approved claimed test player using normal UI.
+3. Opt that player into weekly reports; ensure recorded activity and observe the
+   scheduled Monday 08:00 app-timezone run. Manual weekly command is not proof of
+   weekly scheduler execution. Check schedule:list for the actual next occurrence.
+4. Verify ledger sent state plus provider delivery/inbox; worker DONE alone is not
+   evidence of delivery. Confirm one message per event after later scheduled runs.
+5. Check opted-out weekly users and non-allowlisted recipients remain suppressed.
+6. Verify native and web clients show the same assignment and original player ID.
+Record timestamps and non-secret event/delivery IDs, never tokens or claim codes.
+Only expand categories/recipients after these checks and backlog review pass.
+
+Rollback
+Revert only approved diagnostic code if needed; no database rollback required.
+For delivery issues, disable sending via the existing master sending switch and
+refresh configuration/restart managed long-running workers using the approved
+runbook. Preserve ledgers and pending work. In-flight email cannot be recalled.
+Do not disable unrelated cron tasks or purge queues.
+
+Remaining release gate
+Production cron/worker repair and unattended checks, then controlled real delivery
+and device acceptance. Local tests cannot close this gate.
+
+Local validation
+php artisan test tests/Feature/Communications: 94 tests passed.
+Includes diagnostics, delivery policy, pilot allowlist, disabled sending,
+invitation retry protection, assignment deduplication and weekly opt-in coverage.
+git diff --check passed. No frontend/native code changed or builds required.
+Changed: CommunicationsStatus.php, CommunicationsStatusTest.php, this runbook,
+and the activation-document cross-reference. No commits/pushes/deployments.
