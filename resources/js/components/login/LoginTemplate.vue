@@ -258,8 +258,8 @@ const submitClaimCredentials = async () => {
     return
   }
 
-  if (password.length < 8) {
-    await toast.fire({ icon: 'warning', title: 'Password Too Short', text: 'Password must be at least 8 characters.' })
+  if (password.length < 8 || password.length > 20) {
+    await toast.fire({ icon: 'warning', title: 'Password Too Short', text: 'New passwords must be 8–20 characters.' })
     return
   }
 

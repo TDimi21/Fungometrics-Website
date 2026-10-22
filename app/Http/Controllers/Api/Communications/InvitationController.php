@@ -75,7 +75,7 @@ class InvitationController extends Controller
 
     public function accept(Request $request, InvitationService $service)
     {
-        $data = $request->validate(['token' => 'required_without:claim_code|prohibits:claim_code|nullable|string|size:64','claim_code' => 'required_without:token|prohibits:token|nullable|string|max:24|regex:/^[a-fA-F0-9 -]+$/','email' => 'required|email:rfc|max:191','password' => 'nullable|string|min:8|max:20','first_name' => 'nullable|string|max:100','last_name' => 'nullable|string|max:100']);
+        $data = $request->validate(['token' => 'required_without:claim_code|prohibits:claim_code|nullable|string|size:64','claim_code' => 'required_without:token|prohibits:token|nullable|string|max:24|regex:/^[a-fA-F0-9 -]+$/','email' => 'required|email:rfc|max:191','password' => 'nullable|string','first_name' => 'nullable|string|max:100','last_name' => 'nullable|string|max:100']);
         $role = $service->accept($data, Auth::guard('sanctum')->user());
         return response()->json(['accepted' => true,'login_path' => '/login/'.$role,'dashboard_path' => 'player' === $role ? '/player-dashboard' : '/dashboard'])->header('Cache-Control', 'no-store');
     }

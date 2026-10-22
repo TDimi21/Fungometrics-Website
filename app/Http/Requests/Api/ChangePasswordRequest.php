@@ -26,7 +26,7 @@ class ChangePasswordRequest extends FormRequest
     {
         return [
             'old'=>['required','string'],
-            'password'=>['required','string','confirmed'],
+            'password'=>['required','string','min:8','max:20','confirmed'],
         ];
     }
 

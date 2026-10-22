@@ -191,6 +191,7 @@ class InvitationService
                     if (empty($data['password'])) {
                         $this->invalid('Choose a password to complete your account.');
                     }
+                    validator($data, ['password' => 'required|string|min:8|max:20'])->validate();
                     $user->update(['password' => Hash::make($data['password']), 'email' => $invite->email]);
                     $user->tokens()->where('name', 'like', 'profile_claim%')->delete();
                     DB::table('account_claims')->where('user_id', $user->id)->whereNull('used_at')->update(['used_at' => now()]);
@@ -205,6 +206,7 @@ class InvitationService
                 if (User::withTrashed()->whereRaw('LOWER(email) = ?', [$invite->email])->exists()) {
                     $this->invalid('This account needs review.');
                 }
+                validator($data, ['password' => 'required|string|min:8|max:20'])->validate();
                 $user = User::create(['email' => $invite->email,'password' => Hash::make($data['password']),'type' => 'coach','status' => true]);
                 Profile::create(['user_id' => $user->id,'first_name' => $data['first_name'],'last_name' => $data['last_name']]);
             }

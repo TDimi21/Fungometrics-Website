@@ -18,7 +18,7 @@ class AccountDeletionController extends Controller
 
     public function authorizeDeletion(Request $request, AccountDeletionService $service): JsonResponse
     {
-        $validated = $request->validate(['password' => ['required', 'string', 'min:8', 'max:128']]);
+        $validated = $request->validate(['password' => ['required', 'string']]);
         return response()->json(['status' => 'success', 'data' => $service->authorize(
             $request->user(),
             $validated['password'],

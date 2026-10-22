@@ -22,7 +22,7 @@ class RegisterCoachControllerTest extends TestCase
         $data = [
             'email' => fake()->safeEmail,
             'phone' => fake()->phoneNumber,
-            'password' => bcrypt('password'),
+            'password' => 'Password123',
             'zip' => fake()->postcode,
             'city' => fake()->city,
             'state' => Address::state(),
@@ -66,7 +66,7 @@ class RegisterCoachControllerTest extends TestCase
         $data = [
             'email' => $user->email,
             'phone' => fake()->phoneNumber,
-            'password' => bcrypt('password'),
+            'password' => 'Password123',
             'zip' => fake()->postcode,
             'city' => fake()->city,
             'state' => Address::state(),
@@ -102,7 +102,7 @@ class RegisterCoachControllerTest extends TestCase
         $data = [
             'email' => fake()->safeEmail,
             'phone' => $user->phone,
-            'password' => bcrypt('password'),
+            'password' => 'Password123',
             'zip' => fake()->postcode,
             'city' => fake()->city,
             'state' => Address::state(),

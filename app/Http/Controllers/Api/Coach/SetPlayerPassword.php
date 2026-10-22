@@ -10,11 +10,11 @@ use App\Models\Concerns\UserTypes;
 use App\Models\PlayerTeam;
 use App\Models\User;
 use Exception;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rules\Password;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
 class SetPlayerPassword extends Controller
@@ -22,8 +22,8 @@ class SetPlayerPassword extends Controller
     /**
      * POST /coach/players/{id}/set-password
      *
-     * Allows an authenticated coach to set a new password directly on a player account.
-     * No old/current password is required — coach override.
+     * Allows a shared-team head coach to initialize a passwordless player account.
+     * Existing credentials require recipient-controlled recovery and cannot be overridden.
      *
      * Body: { password: "newpass123", password_confirmation: "newpass123" }
      *
@@ -32,7 +32,7 @@ class SetPlayerPassword extends Controller
     public function __invoke(Request $request, string $id): JsonResponse
     {
         $request->validate([
-            'password' => ['required', 'confirmed', Password::min(6)],
+            'password' => ['required', 'string', 'min:8', 'max:20', 'confirmed'],
         ]);
 
         $player = User::findOrFail($id);
@@ -50,10 +50,20 @@ class SetPlayerPassword extends Controller
         // takeover of an unrelated player.
         abort_unless($sharesTeam, HttpCodes::HTTP_NOT_FOUND);
 
+        abort_if(filled($player->password), 403, 'Players with an existing password must use Password Recovery themselves.');
+        abort_unless(CoachTeam::where('coach_id', $coach->id)->where('is_main', true)
+            ->whereIn('team_id', PlayerTeam::where('user_id', $player->id)->select('team_id'))->exists(), 403, 'Only a head coach can initialize an unclaimed player password.');
+
         try {
-            $player->password = Hash::make($request->input('password'));
-            $player->save();
-            $player->tokens()->delete();
+            $initialized = DB::transaction(function () use ($player, $request) {
+                $locked = User::whereKey($player->id)->lockForUpdate()->firstOrFail();
+                if (filled($locked->password)) return false;
+                $locked->password = Hash::make($request->input('password'));
+                $locked->save();
+                $locked->tokens()->delete();
+                return true;
+            });
+            if (! $initialized) return response()->json(['status' => 'error', 'message' => 'This player must use Password Recovery.'], 403);
 
             return response()->json([
                 'code'    => '034',

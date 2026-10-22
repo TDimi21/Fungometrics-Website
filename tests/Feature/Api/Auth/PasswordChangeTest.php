@@ -19,8 +19,8 @@ class PasswordChangeTest extends TestCase
 
         $data = [
             'old'=>'test5676',
-            'password'=>'test567',
-            'password_confirmation'=>'test567',
+            'password'=>'NewTest567',
+            'password_confirmation'=>'NewTest567',
         ];
         $response = $this->json('POST', 'api/password', $data);
         $response->assertOk()->assertJsonStructure([
@@ -59,8 +59,8 @@ class PasswordChangeTest extends TestCase
 
          $data = [
              'old'=>'test5677776',
-             'password'=>'test567',
-             'password_confirmation'=>'test567',
+             'password'=>'NewTest567',
+             'password_confirmation'=>'NewTest567',
          ];
          $response = $this->json('POST', 'api/password', $data);
          $response->assertUnprocessable()->assertJsonStructure([

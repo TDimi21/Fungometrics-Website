@@ -20,7 +20,7 @@ class RegisterPlayerControllerTest extends TestCase
         $data = [
             'email' => fake()->safeEmail,
             'phone' => fake()->phoneNumber,
-            'password' => bcrypt('password'),
+            'password' => 'Password123',
             'picture' => UploadedFile::fake()->image('avatar.jpg'),
             'profile' => [
                 'name' => [
@@ -71,7 +71,7 @@ class RegisterPlayerControllerTest extends TestCase
         $data = [
             'email' => $user->email,
             'phone' => fake()->phoneNumber,
-            'password' => bcrypt('password'),
+            'password' => 'Password123',
             'picture' => UploadedFile::fake()->image('avatar.jpg'),
             'profile' => [
                 'name' => [
@@ -113,7 +113,7 @@ class RegisterPlayerControllerTest extends TestCase
         $data = [
             'email' => fake()->safeEmail,
             'phone' => $user->phone,
-            'password' => bcrypt('password'),
+            'password' => 'Password123',
             'picture' => UploadedFile::fake()->image('avatar.jpg'),
             'profile' => [
                 'name' => [

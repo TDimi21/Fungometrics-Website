@@ -32,13 +32,13 @@ const passwords = reactive({
 
 const changePassword = async () => {
   isLoading.status =!isLoading.status;
-  if (passwords.oldPassword.length >= 8 && passwords.newPassword.length >= 8 && passwords.confirmPassword.length >= 8) {
-    if (passwords.newPassword.trim() === passwords.confirmPassword.trim()) {
+  if (passwords.oldPassword.length > 0 && passwords.newPassword.length >= 8 && passwords.newPassword.length <= 20 && passwords.confirmPassword.length >= 8) {
+    if (passwords.newPassword === passwords.confirmPassword) {
       try {
         let dataForm = new FormData();
-        dataForm.append('old', passwords.oldPassword.trim())
-        dataForm.append('password', passwords.newPassword.trim())
-        dataForm.append('password_confirmation', passwords.confirmPassword.trim())
+        dataForm.append('old', passwords.oldPassword)
+        dataForm.append('password', passwords.newPassword)
+        dataForm.append('password_confirmation', passwords.confirmPassword)
 
         await axiosPost('password', dataForm).then(async(response) => {
           if (response.data.status == "success") {
@@ -109,7 +109,7 @@ const changePassword = async () => {
       toast.fire({
         icon: 'warning',
         title: 'Passwords length',
-        text: 'Please, passwords must have at least 8 characters.',
+        text: 'Choose a new password with 8–20 characters. Enter your current password exactly as it is.',
       })
     }
   }

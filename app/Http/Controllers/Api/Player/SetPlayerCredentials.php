@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Validation\Rules\Password;
 use Symfony\Component\HttpFoundation\Response as HttpCodes;
 
 class SetPlayerCredentials extends Controller
@@ -35,7 +34,7 @@ class SetPlayerCredentials extends Controller
     {
         $request->validate([
             'email'    => ['required', 'email', 'unique:users,email,'.auth()->id()],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'string', 'min:8', 'max:20', 'confirmed'],
         ]);
 
         try {

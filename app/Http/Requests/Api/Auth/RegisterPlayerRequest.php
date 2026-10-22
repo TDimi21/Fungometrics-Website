@@ -47,7 +47,7 @@ class RegisterPlayerRequest extends FormRequest
 
         return [
             ...$optionalRules,
-            'password' => ['required'],
+            'password' => ['required','string','min:8','max:20'],
             'profile.name.first' => ['required'],
             'profile.name.last' => ['required'],
             'picture' => ['required', 'file'],

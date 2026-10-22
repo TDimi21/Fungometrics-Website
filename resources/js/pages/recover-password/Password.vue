@@ -66,7 +66,7 @@ const submitForm = async () => {
             <FormKit
               type="password"
               label="Password"
-              validation="required|length:8"
+              validation="required|length:8,20"
               name="password"
               v-model="formData.password"
               validation-visibility="blur"

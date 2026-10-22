@@ -49,7 +49,7 @@ class RegisterCoachRequest extends FormRequest
 
         return [
             ...$optionalRules,
-            'password' => ['required','min:6'],
+            'password' => ['required','string','min:8','max:20'],
             'city' => ['required'],
             'state' => ['required'],
             'zip' => ['required'],
