@@ -1,0 +1,121 @@
+FMTRX — one-command SSH deployment
+
+Purpose
+GitHub builds the Vue frontend with Node 24. Production downloads the exact
+artifact for origin/main after the entire CI workflow succeeds, then deploys
+Laravel and that frontend together. Production needs Python 3.6+, Git, PHP 8.2+,
+Composer, tar, gzip, HTTPS access, and writable application/backup directories.
+No production npm, Node upgrade, sudo, GitHub CLI, or manual ZIP upload is needed.
+
+Current status
+Implemented locally. Nothing has been committed, pushed, or deployed by this
+change. The first usable artifact must come from CI AFTER these files are pushed.
+Older frontend-build artifacts do not have release.json and will be rejected.
+This does not configure automatic server-side deployment on every push. The
+operator explicitly starts each deployment with the command below.
+
+One-time setup AFTER the approved commit is pushed and CI passes
+1. Create a GitHub fine-grained personal access token for this repository only:
+   TDimi21/Fungometrics-Website. Grant Actions: Read-only (and implicit Metadata:
+   Read-only). Set an expiry and follow any repository-owner approval requirements.
+   Do not paste the token into chat, a shell command, .env, or a public directory.
+   Git fetch continues using the server's existing Git credentials independently.
+
+2. In SSH, run these commands separately. This copies the deploy helper outside
+   the checkout so its FIRST deployment can happen without pulling live code first:
+
+   cd /var/www/vhosts/fmtrx.com/app.fmtrx.com
+   git fetch origin main
+   (umask 077; git show origin/main:scripts/deploy.py > "$HOME/fmtrx-deploy.py.next")
+   python3 -m py_compile "$HOME/fmtrx-deploy.py.next"
+   mv "$HOME/fmtrx-deploy.py.next" "$HOME/fmtrx-deploy.py"
+   python3 "$HOME/fmtrx-deploy.py" --configure-token
+
+   Stop on errors. Enter the read-only token at the hidden prompt. It is verified
+   against GitHub and saved at ~/.config/fmtrx/deploy-token with permissions 600.
+   For noninteractive use, FMTRX_GITHUB_TOKEN may be provided through a secure
+   environment mechanism. The script does not print tokens or signed download URLs.
+
+3. Preview the first release (downloads/checks only; no maintenance or deployment):
+
+   python3 "$HOME/fmtrx-deploy.py" --check
+
+4. Deploy that initial release:
+
+   python3 "$HOME/fmtrx-deploy.py"
+
+Routine deployments after initial setup
+Run from the application directory. Do NOT run git pull first:
+
+   cd /var/www/vhosts/fmtrx.com/app.fmtrx.com && python3 scripts/deploy.py
+
+Optional preview:
+
+   python3 scripts/deploy.py --check
+
+The script fetches origin/main itself, waits for no jobs (it stops clearly if CI
+is pending/failed), and never silently falls back to an older successful release.
+If CI is still running, wait for it to finish and run the same command again.
+Do not run the previous npm/migration/opcache deployment block.
+
+Sequence and guarantees
+- Requires existing main branch, expected GitHub origin, clean tracked files,
+  fast-forward ancestry, no conflicting untracked files, no public/hot marker,
+  and no pre-existing maintenance mode. Does not reset/stash/delete server work.
+- Acquires a deployment lock to prevent overlapping invocations.
+- Requires successful full ci.yml run for the exact commit and main push event.
+- Downloads frontend-build through the GitHub API. Checks GitHub's ZIP digest,
+  commit/repository/API metadata, each file checksum, safe ZIP paths, no symlinks,
+  size limits, and all manifest asset references.
+- Preflights the target Composer lock with the server's PHP before maintenance.
+- Backs up application files (including .env, current public/build, and untracked
+  files) outside the app in a private timestamped ~/fmtrx-deploy-backups folder.
+  Excludes vendor, node_modules, .git, and volatile Laravel logs/cache/sessions/views.
+  Saves old/target commit IDs and the frontend ZIP. Verifies gzip integrity.
+- Enters maintenance; fast-forwards to the pinned commit; installs Composer
+  no-dev dependencies; checks installed platform requirements.
+- Copies new assets without deleting old hashed assets; atomically switches the
+  manifest; clears routes, caches config/views, signals queue restart, goes online.
+- Checks live player login HTML includes the new entry asset, then checks that
+  asset is served as JavaScript over HTTPS. On verification failure it requests
+  maintenance mode again and reports backup/old commit. It does not claim success.
+- Does NOT change communications switches, credentials, database data, or schedules.
+  queue:restart only signals existing workers; it does not start missing workers.
+- Does NOT send mail, run migrations, commit/push, or reset/clean Git files.
+
+Database migrations
+Any changed database/migrations file between deployed HEAD and target stops this
+simple deployment before maintenance. Such a release needs a reviewed migration
+plan and verified database backup, then an explicitly coordinated deployment.
+Do not bypass this by pulling code first. The application tarball is NOT a database
+backup. This tool is intentionally for releases without database schema changes.
+
+Failure and recovery
+Before maintenance: live application files are unchanged. Fix the reported CI,
+Git, artifact, token, platform, disk, or backup issue and retry. --check may write
+only temporary download/check files, Composer cache, and Git remote refs.
+After maintenance: keep the error output and the printed backup directory. Do
+not issue git reset --hard, git clean, or blindly rerun artisan up. Check current
+HEAD against deployed-commit.txt/target-commit.txt and inspect the failed stage.
+A repair can complete Composer installation and publish the matching verified
+artifact while maintenance remains active, then cache config/views and verify.
+For rollback, review and restore ONLY the affected tracked source files from the
+private application backup, restore its composer.lock, run composer install
+--no-dev, and restore the old build manifest/assets together. Preserve unrelated
+untracked files/uploads. No database rollback is part of this script. This is a
+manual recovery, not an automatic reset: get the exact commands reviewed against
+the failure and current server state before running them.
+Do not extract the entire archive over a live application or expose it publicly.
+If OPcache timestamp validation is disabled, arrange a PHP-FPM reload through
+Plesk/admin access; a CLI opcache_reset does not clear web-worker caches. The live
+HTML check detects a stale entry asset but cannot prove all PHP workers refreshed.
+
+After successful deployment
+Test coach and player login, roster, each sidebar session mode, and a test session
+save/read. The HTTP checks do not replace authenticated browser/mobile testing.
+Keep backups until acceptance completes; do not automatically prune old assets.
+Check token expiry when GitHub returns 401/403; rerun --configure-token to rotate.
+
+References
+https://docs.github.com/en/rest/actions/artifacts
+https://docs.github.com/en/rest/actions/workflow-runs

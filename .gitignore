@@ -25,3 +25,6 @@ yarn-error.log
 /coverage-report
 .fleet
 !/test-report.xml
+
+# Local Python deployment-tool bytecode
+__pycache__/

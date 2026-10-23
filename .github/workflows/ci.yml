@@ -5,12 +5,22 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
+  deployment-tool:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deployment safety regression tests (no network or production access)
+        run: python3 -m unittest discover -s tests/deployment -v
+
   frontend:
     name: Frontend (build + unit tests)
     runs-on: ubuntu-latest
     env:
-      # Required by EnvironmentPlugin in vite.config; value is irrelevant for a build check.
+      # This build is deployed to production; the API address must match production.
       API_ENDPOINT: https://app.fmtrx.com/api/
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +31,8 @@ jobs:
       - run: npm ci
       - name: Build (catches compile errors)
         run: npm run build
+      - name: Stamp deployable frontend with commit and file checksums
+        run: python3 scripts/deploy.py --prepare-artifact public/build
       - uses: actions/upload-artifact@v4
         with:
           name: frontend-build
