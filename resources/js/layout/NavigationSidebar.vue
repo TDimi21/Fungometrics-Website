@@ -19,9 +19,8 @@ const userStore = useUserStore();
 const { userData } = storeToRefs(userStore);
 
 const sidebarItems = ref([
-  { title: 'Free Assessment', iconPath: iconStartPractice, url: '/free-assessment' },
   {
-    title: 'Player Directory',
+    title: 'Home',
     iconPath: iconDashboard,
     url: '/dashboard'
   },
@@ -29,16 +28,6 @@ const sidebarItems = ref([
     title: 'Roster',
     iconPath: iconRoster,
     url: '/roster'
-  },
-  {
-    title: 'Practice',
-    iconPath: iconStartPractice,
-    url: '/practice'
-  },
-  {
-    title: 'Workout',
-    iconPath: iconStartPractice,
-    url: '/workouts'
   },
   {
     title: 'Practice Sessions',
@@ -76,6 +65,16 @@ const sidebarItems = ref([
     ]
   },
   {
+    title: 'Practice Planner',
+    iconPath: iconStartPractice,
+    url: '/practice'
+  },
+  {
+    title: 'Workout Planner',
+    iconPath: iconStartPractice,
+    url: '/workouts'
+  },
+  {
     title: 'Statistics',
     iconPath: iconStartPractice,
     startWith: ['/statistic', '/new-statistic'],
@@ -91,10 +90,14 @@ const sidebarItems = ref([
     ]
   },
   {
-    title: 'Assessment',
+    title: 'Free Assessment',
     iconPath: iconDashboard,
-    startWith: '/dashboard',
+    startWith: ['/free-assessment', '/assessment-reports'],
     child: [
+      {
+        title: 'Free Assessment',
+        url: '/free-assessment'
+      },
       {
         title: 'Mobility',
         url: { path: '/dashboard', query: { tab: 'quickstats' } }
@@ -133,6 +136,10 @@ const showDropdown = (index) => {
 const isItemActive = (item) => {
   if (!item?.url) return false
 
+  if (typeof item.url === 'object') {
+    return route.path === item.url.path && Object.entries(item.url.query || {}).every(([key, value]) => route.query[key] === value)
+  }
+
   if (item.url === '/dashboard?tab=quickstats') {
     return route.path === '/dashboard' && route.query?.tab === 'quickstats'
   }
@@ -153,7 +160,7 @@ const isParentActive = (item) => {
     ? item.startWith
     : (item.startWith ? [item.startWith] : [])
 
-  return starts.some((prefix) => route.path.startsWith(prefix))
+  return item.child.some(isItemActive) || starts.some((prefix) => route.path.startsWith(prefix))
 }
 
 const isAdminUser = computed(() =>
