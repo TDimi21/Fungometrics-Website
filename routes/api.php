@@ -507,9 +507,9 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'plan:view_advanced_stats'])
 
 Route::middleware(['auth:sanctum'])->prefix('training')->group(function (): void {
     Route::middleware(['session.entitlement', 'throttle:session-write'])->post('/', AddNewSession::class);
-    Route::middleware('session.entitlement')->get('/{uuid}', GetSession::class);
-    Route::middleware('session.entitlement')->put('/{uuid}', FinishPractice::class);
-    Route::middleware('session.entitlement')->delete('/{uuid}', DeletePractice::class);
+    Route::middleware(['session.entitlement', 'route.scope'])->get('/{uuid}', GetSession::class);
+    Route::middleware(['session.entitlement', 'route.scope'])->put('/{uuid}', FinishPractice::class);
+    Route::middleware(['session.entitlement', 'route.scope'])->delete('/{uuid}', DeletePractice::class);
 });
 
 Route::middleware(['auth:sanctum', 'route.scope'])->prefix('result')->group(function (): void {

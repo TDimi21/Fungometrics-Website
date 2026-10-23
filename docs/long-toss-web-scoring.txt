@@ -1,0 +1,45 @@
+Long Toss web scoring — 2026-10-23
+
+Entry: Practice Sessions > Long Toss > New practice, or Resume on an existing
+Long Toss session. Create/mode?mode=LT and track/training-mode/LT are enabled;
+other standalone scoring modes keep their existing restrictions.
+
+The new screen matches the native ResumeLongToss workflow: player selection,
+0–3 hops, distance keypad, per-player sets and throw counts, session team/player
+maximum and average distance, average distance by hops with team comparisons,
+add player, leave/resume, and finish with notes/report. Distances are whole feet
+because Laravel's existing result contract accepts integers. Missing data shows
+an em dash. Statistics describe this session, not lifetime benchmarks.
+
+Uses existing authenticated endpoints:
+GET training/{id}; GET statistics/{id}/longtoss;
+POST result/longtoss; POST coach/lineup/{id}; PUT training/{id}.
+PracticeSessionResource now includes authoritative team_id. Existing result
+editing remains on the legacy editor. No schema change or new email behavior.
+
+Safety: server session/throws are loaded before recording; failed/uncertain
+saves preserve the entry and require reload before retry; concurrent clicks are
+blocked; completed sessions are read-only. Unsaved entries/new empty sets are
+not persisted; saved throws remain available across web and app. Add-player
+options are offered only when the loaded roster matches the session team.
+
+Regression testing exposed training/{uuid} routes lacking ownership checks.
+GET/PUT/DELETE now use existing route.scope middleware, resolving uuid as the
+practice ID. Existing entitlement checks remain. Legacy happy-path test
+fixtures now assign an owner using the existing fixture helper.
+
+Release: deploy backend and frontend together after review. No migrations.
+Before release, browser/device acceptance: create a two-player LT session,
+save no-hop and hopped throws, switch players and sets, refresh/resume,
+verify same session results in native app, finish and inspect the report,
+check light/dark themes and narrow screens. Live/browser visual acceptance
+has not been performed in this environment.
+
+Validation:
+- 347 frontend tests passed, including six new scoring/route regression tests.
+- Production frontend build passed (existing >500 kB chunk warning remains).
+- Full PHP run: 1,182 tests; six legacy ownership-fixture failures, corrected
+  using the existing opt-in owner fixture helper. All other tests passed.
+- After those fixture corrections, all 46 relevant PHP tests passed (219
+  assertions), covering Long Toss, session access, finish, load, and deletion.
+- No commits, pushes, production changes, or mobile repository changes.

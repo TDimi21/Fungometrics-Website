@@ -37,7 +37,7 @@ watch(() => route.query.mode, (selected) => {
 }, { immediate: true });
 
 const registerAndRedirect = async () => {
-    if(training.note === "" || listOrderPlayer.value.length === 0 && training.modes == ''){
+    if(!training.note.trim() || listOrderPlayer.value.length === 0 || training.modes === ''){
       toast.fire({
         icon: 'warning',
         title: 'Validation !!!',
@@ -90,6 +90,7 @@ const registerAndRedirect = async () => {
             isLoading.status = !isLoading.status;
             router.push({
               path: '/track/' + slug.value + "/" +mode.value,
+              query: { session: response.data.data.id },
             });
           }
         })
@@ -210,7 +211,7 @@ const clearPlayersData = ()=>{
         </div>
         <div class="mt-3 w-[200px]  md:w-full">
           Select mode
-          <FormKit type="select" v-model="training.modes" :options="['Long Toss', 'Exit Velocity', 'Weighted Ball']"/>
+          <FormKit type="select" v-model="training.modes" :options="route.query.mode === 'LT' ? ['Long Toss'] : ['Long Toss', 'Exit Velocity', 'Weighted Ball']"/>
         </div>
         <div class="mt-2">
           Notes

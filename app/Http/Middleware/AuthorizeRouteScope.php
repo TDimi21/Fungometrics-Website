@@ -56,6 +56,9 @@ class AuthorizeRouteScope
         }
 
         $practiceValue = $request->route('practice');
+        if ((string) $request->route()?->uri() === 'api/training/{uuid}') {
+            $practiceValue = $request->route('uuid');
+        }
         if ($practiceValue) {
             $practice = $practiceValue instanceof Practice
                 ? $practiceValue

@@ -1,3 +1,4 @@
+import { isLongTossScoringRoute } from '@/utils/longTossScoring'
 import { isPlayerInvitationRoute, rememberCommunicationDestination, consumeCommunicationDestination, pendingCommunicationDestination } from '../js/utils/communicationDestination.js';
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../js/store/auth";
@@ -546,6 +547,7 @@ router.beforeEach(async (to) => {
 	if (
 		requiresAuth
 		&& !WEB_START_PRACTICE_ENABLED
+		&& !isLongTossScoringRoute(to)
 		&& !hasPlannerSessionContext(to, userData)
 		&& START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))
 	) {

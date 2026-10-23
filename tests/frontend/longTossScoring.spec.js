@@ -1,0 +1,81 @@
+import { describe, it, expect, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { parse, compileScript } from '@vue/compiler-sfc'
+import * as Vue from 'vue'
+import { isLongTossScoringRoute, summarizeThrows, playerThrows, validDistance } from '@/utils/longTossScoring'
+import { extractSessionRows } from '@/utils/sessionReportRows'
+
+const source = compileScript(parse(readFileSync('resources/js/pages/training/LongTossScoring.vue', 'utf8')).descriptor, { id: 'lt-test' }).content
+const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
+async function screen({ completed = false, fails = false, noSession = false } = {}) {
+  const session = { id: 'session-1', team_id: 'team-1', modes: 'LT', is_completed: completed, players: [{ id: 'p1', sort: 0 }, { id: 'p2', sort: 1 }] }
+  const rows = [{ id: 'r1', user_id: 'p1', set: 2, hop: 0, distance: 120 }, { id: 'r2', user_id: 'p2', set: 1, hop: 1, distance: 180 }]
+  const api = {
+    axiosGet: vi.fn(async path => ({ data: { data: path.startsWith('training/') ? session : { ball_x_ball: rows } } })),
+    axiosPost: vi.fn(async (path, body) => { if (fails) throw Error('network'); return { data: { data: { result: { ...body, id: 'saved' } } } } }),
+    axiosPut: vi.fn(async () => ({})),
+  }
+  const router = { push: vi.fn(async () => {}) }
+  const training = { trainingActive: noSession ? {} : { id: session.id }, setDataTraining: vi.fn() }
+  const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: {} }), useRouter: () => router,
+    useTrainingStore: () => training, useUserStore: () => ({ userData: { id: 'coach1', type: 'coach' } }),
+    useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {},
+    extractSessionRows, playerThrows, summarizeThrows, validDistance,
+    plannerSessionReturn: (storage, id, user, fallback) => fallback, sessionStorage: {},
+  }
+  const component = new Function(...Object.keys(mocks), script)(...Object.values(mocks))
+  let state
+  const renderer = Vue.createRenderer({ createComment: () => ({}), remove: () => {}, insert: () => {}, parentNode: () => null, nextSibling: () => null })
+  const app = renderer.createApp({ setup() { state = component.setup({}, { expose: () => {} }); return () => null } })
+  app.mount({})
+  await new Promise(resolve => setTimeout(resolve, 0))
+  return { state, api, router, app }
+}
+
+describe('Long Toss web scoring', () => {
+  it('opens only Long Toss standalone scoring and setup', () => {
+    expect(isLongTossScoringRoute({ path: '/track/training-mode/LT' })).toBe(true)
+    expect(isLongTossScoringRoute({ path: '/create/mode', query: { mode: 'LT' } })).toBe(true)
+    for (const path of ['/track/batting', '/track/training-mode/EV', '/create/mode']) expect(isLongTossScoringRoute({ path })).toBe(false)
+  })
+  it('shows missing measurements as missing, and compares only the selected player', () => {
+    expect(summarizeThrows([])).toEqual({ count: 0, top: null, average: null })
+    expect(summarizeThrows(playerThrows([{ user_id: 'p1', distance: 100 }, { user_id: 'p2', distance: 200 }], 'p1')).average).toBe(100)
+    for (const value of ['', '0', '-1', '1.5', 'abc', '999999999999']) expect(validDistance(value)).toBe(false)
+    expect(validDistance('150')).toBe(true)
+  })
+  it('loads server counters, changes players, saves to the app endpoint, and clears entry only on success', async () => {
+    const { state: s, api, app } = await screen()
+    expect(s.currentSet.value).toBe(2); expect(s.inSet.value).toBe(1)
+    s.selected.value = 'p2'; await Vue.nextTick()
+    expect(s.currentSet.value).toBe(1)
+    s.sets.value.p2 = 2
+    expect(s.inSet.value).toBe(0)
+    expect(s.sets.value.p1).toBe(2)
+    s.distance.value = '210'; s.hop.value = 2
+    await Promise.all([s.save(), s.save()])
+    expect(api.axiosPost).toHaveBeenCalledTimes(1)
+    expect(api.axiosPost).toHaveBeenCalledWith('result/longtoss', { practice_id: 'session-1', team_id: 'team-1', user_id: 'p2', set: 2, distance: 210, hop: 2 })
+    expect(s.stats.value.count).toBe(2); expect(s.distance.value).toBe(''); expect(s.hop.value).toBe(0)
+    app.unmount()
+  })
+  it('preserves an uncertain throw and requires reconciliation before retry', async () => {
+    const { state: s, api, app } = await screen({ fails: true })
+    s.distance.value = '160'; await s.save(); await s.save()
+    expect(s.distance.value).toBe('160'); expect(s.ready.value).toBe(false)
+    expect(api.axiosPost).toHaveBeenCalledTimes(1); expect(s.stats.value.count).toBe(1)
+    app.unmount()
+  })
+  it('does not save into completed or absent sessions', async () => {
+    for (const options of [{ completed: true }, { noSession: true }]) {
+      const { state: s, api, app } = await screen(options)
+      s.distance.value = '150'; await s.save(); expect(api.axiosPost).not.toHaveBeenCalled(); app.unmount()
+    }
+  })
+  it('completes the original session and opens its report', async () => {
+    const { state: s, api, router, app } = await screen()
+    s.note.value = ' Good session '; await s.finish()
+    expect(api.axiosPut).toHaveBeenCalledWith('training/session-1', { end_note: 'Good session', is_completed: true })
+    expect(router.push).toHaveBeenCalledWith('/session/report/session-1/long_toss'); app.unmount()
+  })
+})
