@@ -20,7 +20,7 @@ export default defineConfig({
                 },
             },
         }),
-      EnvironmentPlugin(['API_ENDPOINT'])
+      EnvironmentPlugin(['API_ENDPOINT'], { defineOn: 'import.meta.env' })
     ],
   server: {
     host: '127.0.0.1',
