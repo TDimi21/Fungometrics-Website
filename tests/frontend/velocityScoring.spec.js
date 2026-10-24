@@ -7,7 +7,7 @@ import { extractSessionRows } from '@/utils/sessionReportRows'
 
 const source = compileScript(parse(readFileSync('resources/js/pages/training/VelocityScoring.vue', 'utf8')).descriptor, { id: 'lt-test' }).content
 const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
-async function screen({ mode = 'EV', wrongMode = false, completed = false, fails = false, noSession = false } = {}) {
+async function screen({ role = 'coach', mode = 'EV', wrongMode = false, completed = false, fails = false, noSession = false } = {}) {
   const session = { id: 'session-1', team_id: 'team-1', modes: wrongMode ? 'LT' : mode, is_completed: completed, players: [{ id: 'p1', sort: 0 }, { id: 'p2', sort: 1 }] }
   const rows = [{ id: 'r1', user_id: 'p1', set: 2, trajectory: 'GB', weight: 5, velocity: 60 }, { id: 'r2', user_id: 'p2', set: 1, trajectory: 'GB', weight: 5, velocity: 80 }]
   const api = {
@@ -18,7 +18,7 @@ async function screen({ mode = 'EV', wrongMode = false, completed = false, fails
   const router = { push: vi.fn(async () => {}) }
   const training = { trainingActive: noSession ? {} : { id: session.id }, setDataTraining: vi.fn() }
   const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: {} }), useRouter: () => router,
-    useTrainingStore: () => training, useUserStore: () => ({ userData: { id: 'coach1', type: 'coach' } }),
+    useTrainingStore: () => training, useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
     useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {},
     extractSessionRows, playerThrows, validDistance,
     plannerSessionReturn: (storage, id, user, fallback) => fallback, sessionStorage: {},
@@ -72,6 +72,17 @@ describe.each(['EV', 'WB'])('%s app-compatible web scoring', mode => {
       s.velocity.value = '80'; s.trajectory.value = 'GB'; await s.save()
       expect(api.axiosPost).not.toHaveBeenCalled(); app.unmount()
     }
+  })
+  it.each(['coach', 'player'])('opens session stats for %s without ending the session', async role => {
+    const { state: s, api, router, app } = await screen({ mode, role })
+    await s.report()
+    expect(router.push).toHaveBeenCalledWith(`/session/report/session-1/${mode === 'EV' ? 'exit_velocity' : 'weight_ball'}${role === 'player' ? '?scope=player' : ''}`)
+    expect(api.axiosPut).not.toHaveBeenCalled()
+    router.push.mockClear()
+    s.busy.value = true
+    await s.report()
+    expect(router.push).not.toHaveBeenCalled()
+    app.unmount()
   })
   it('finishes the original session and opens the correct report', async () => {
     const { state: s, api, router, app } = await screen({ mode })

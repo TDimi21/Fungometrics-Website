@@ -84,7 +84,10 @@ async function addPlayer() {
   } catch { error.value = 'Unable to add this player. Reload to check the lineup before retrying.' }
   finally { busy.value = false }
 }
-const report = () => router.push(`/session/report/${session.value.id}/long_toss`)
+const report = () => {
+  if (!ready.value || busy.value) return
+  return router.push(`/session/report/${session.value.id}/long_toss${user.userData.type === 'player' ? '?scope=player' : ''}`)
+}
 async function finish() {
   if (!note.value.trim() || busy.value) return
   busy.value = true; error.value = ''
@@ -105,7 +108,7 @@ onMounted(load)
         <div><p class="eyebrow">Training mode · Live scoring</p><h1>Long Toss</h1><p>Record each throw in feet, just like the app.</p></div>
         <nav aria-label="Session actions">
           <button :disabled="busy" @click="router.push('/training/training-mode?mode=LT')">Leave session</button>
-          <button :disabled="!ready || busy" @click="report">Session report</button>
+          <button :disabled="!ready || busy" @click="report" title="View statistics for this session">Stats</button>
           <button class="primary" :disabled="!writable" @click="finishing = true">End session</button>
         </nav>
       </header>
