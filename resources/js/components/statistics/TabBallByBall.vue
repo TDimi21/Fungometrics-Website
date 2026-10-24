@@ -15,6 +15,7 @@ import stadiumBg from '@/assets/img/fungometrics-stadium.webp'
 const training = useTrainingStore()
 
 const props = defineProps({
+  editable: { type: Boolean, default: true },
   tableData: { type: Object, required: false, default: () => ({}) },
   isLoading: { type: Boolean, required: true },
 })
@@ -81,7 +82,7 @@ const getPlayerDisplayName = (item) => `${getPlayerFirstName(item)} ${getPlayerL
           <thead>
             <tr>
               <th
-                v-for="(heading, index) in tableHeadings"
+                v-for="(heading, index) in tableHeadings.filter(h => editable || h.filter)"
                 :key="index"
                 :class="{ 'sbb-th--player': heading.title === 'PLAYER' }"
                 @click="heading.is_sort && $emit('sortData', heading.filter)"
@@ -115,7 +116,7 @@ const getPlayerDisplayName = (item) => `${getPlayerFirstName(item)} ${getPlayerL
               <td>{{ item.zone }}</td>
               <td>{{ item.field_direction }}</td>
               <td class="sbb-velo">{{ item.velocity == 0 ? '0.0' : item.velocity }}</td>
-              <td>
+              <td v-if="editable">
                 <button class="sbb-edit" @click="editData(item)">
                   <TableEdit />
                 </button>

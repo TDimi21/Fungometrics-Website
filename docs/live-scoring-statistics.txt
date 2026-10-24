@@ -1,0 +1,21 @@
+Live statistics for bullpen and batting
+
+Show Statistics now renders LivePracticeStats.vue, reusing the same statistics
+components as PracticeStats.vue. Bullpen: Ball by Ball, Pitch Breakdown, Contact,
+Velocity. Batting also includes Trajectory. Session Report remains separate.
+
+Inputs are the scorer's authorized visibleRows and original session roster.
+New POST result responses update the shared reactive rows after confirmation;
+all tab aggregates and player groups recompute from those rows. Roster metadata
+fills names/photos omitted from save responses without modifying stored rows or
+adding players without results. Player scope is preserved in the parent scorer.
+
+Ball-by-ball sorting works without mutating saved order. Embedded tables are
+read-only to avoid switching the active scorer into the legacy result editor.
+Existing statistics pages retain their Edit controls (editable defaults true).
+Bullpen table accepts numeric-string velocities returned by the API.
+
+Validation: 403 frontend tests pass; production Vite build passes with the
+existing chunk-size warning. Browser visual acceptance remains outstanding.
+No backend, API, schema, mobile, migration, or production configuration changes.
+No commit, push or deployment performed.

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import LivePracticeStats from '@/components/statistics/LivePracticeStats.vue'
 import Layout from '@/layout/Layout.vue'
 import { useTrainingStore } from '@/store/training'
 import { useUserStore } from '@/store/user'
@@ -9,7 +10,6 @@ import { useAxiosAuth } from '@/composables/axios-auth'
 import { extractSessionRows } from '@/utils/sessionReportRows'
 import { battingPayload } from '@/utils/battingScoring'
 import BattingScoringField from '@/components/practice/BattingScoringField.vue'
-import BattingReportCard from '@/components/statistics/BattingReportCard.vue'
 import { getPitchInfoFromCoordinate } from '@/utils/bullpenCoordinates'
 import { plannerSessionReturn } from '@/features/planner/lib/sessionReturn'
 
@@ -168,7 +168,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
         </template>
         <footer class="stage-footer"><button :disabled="busy || !!pending" @click="router.push('/training/batting')">← Leave session</button></footer>
       </div>
-      <section v-if="showStats && ready" id="batting-stats" class="panel finish"><h2>Live batting statistics</h2><p>Saved results for this session. Updates after each confirmed save.</p><BattingReportCard :balls="ownRows" :subject="name(current)" /><div class="table-scroll"><table><thead><tr><th>Hitter</th><th>Contact</th><th>Trajectory</th><th>Field</th><th>EV</th></tr></thead><tbody><tr v-for="row in visibleRows" :key="row.id"><td>{{ name(session.players.find(p => p.id === row.batter_id)) }}</td><td>{{ qualities[row.quality_of_contact] || row.quality_of_contact }}</td><td>{{ row.type_of_hit }}</td><td>{{ row.field_direction || '—' }}</td><td>{{ Number(row.velocity) > 0 ? row.velocity : '—' }}</td></tr></tbody></table><p v-if="!visibleRows.length">No swings recorded yet.</p></div></section>
+      <section v-if="showStats && ready" id="batting-stats" class="panel finish"><h2>Batting Statistics</h2><p>Current session only. All tabs update after each confirmed save.</p><LivePracticeStats mode="B" :rows="visibleRows" :players="session.players" /></section>
       <section v-if="finishing && ready" class="panel finish"><h2>Finish batting practice</h2><form @submit.prevent="finish"><label>Session notes<textarea v-model="note" required :disabled="busy" /></label><button type="button" :disabled="busy" @click="finishing = false">Keep scoring</button><button class="primary" :disabled="!writable || !note.trim()">Complete session</button></form></section>
     </main>
   </Layout>

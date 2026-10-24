@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import LivePracticeStats from '@/components/statistics/LivePracticeStats.vue'
 import Layout from '@/layout/Layout.vue'
 import { useTrainingStore } from '@/store/training'
 import { useUserStore } from '@/store/user'
@@ -182,7 +183,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
         <footer class="stage-footer"><button :disabled="busy || !!pending" @click="router.push('/training/bullpen')">← Leave session</button><span>Top {{ stats.top ?? '—' }} mph · Average {{ stats.average ?? '—' }} mph</span></footer>
       </div>
       <template v-if="ready">
-        <section v-if="showStats" id="bullpen-stats" class="panel finish"><h2>Live bullpen statistics</h2><p>Saved pitches for this session. Updates after every confirmed save.</p><div class="table-scroll"><table><thead><tr><th>Pitcher</th><th>Pitch</th><th>Contact</th><th>Location</th><th>mph</th></tr></thead><tbody><tr v-for="row in visibleRows" :key="row.id"><td>{{ name(session.players.find(p => p.id === row.pitcher_id)) }}</td><td>{{ row.type_throw }}</td><td>{{ contacts[row.trajectory] || row.trajectory }}</td><td>{{ row.zone }} · {{ row.pitch_side }}</td><td>{{ Number(row.miles_per_hour) > 0 ? row.miles_per_hour : '—' }}</td></tr></tbody></table><p v-if="!visibleRows.length">No pitches recorded yet.</p></div></section>
+        <section v-if="showStats && ready" id="bullpen-stats" class="panel finish"><h2>Bullpen Statistics</h2><p>Current session only. All tabs update after each confirmed save.</p><LivePracticeStats mode="P" :rows="visibleRows" :players="session.players" /></section>
         <section v-if="finishing" class="panel finish"><h2>Finish bullpen</h2><form @submit.prevent="finish"><label>Session notes<textarea v-model="note" required :disabled="busy" /></label><button type="button" :disabled="busy" @click="finishing = false">Keep scoring</button><button class="primary" :disabled="!writable || !note.trim()">Complete session</button></form></section>
       </template>
     </main>

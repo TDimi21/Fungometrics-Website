@@ -29,7 +29,7 @@ async function screen({ role = 'coach', completed = false, scripted = false, typ
   const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, onUnmounted: Vue.onUnmounted, window: { addEventListener: vi.fn(), removeEventListener: vi.fn() }, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: { session: session.id } }), useRouter: () => router,
     onBeforeRouteLeave: fn => { leave = fn },
     useTrainingStore: () => ({ trainingActive: {}, setDataTraining: vi.fn() }), useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
-    usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {},
+    usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, LivePracticeStats: {},
     extractSessionRows, getPitchInfoFromCoordinate, battingPayload, BattingScoringField: {}, BattingReportCard: {},
     plannerSessionReturn: (storage, id, user, fallback) => fallback, sessionStorage: {},
   }

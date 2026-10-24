@@ -11,6 +11,7 @@ const training = useTrainingStore();
 const { axiosGet } = useAxiosAuth()
 
 defineProps({
+  editable: { type: Boolean, default: true },
   tableData: {
     type: Object,
     required: false,
@@ -100,7 +101,7 @@ const getPlayerDisplayName = (item) => {
       <thead>
         <tr>
           <th
-            v-for="(heading, index) in tableHeadings"
+            v-for="(heading, index) in tableHeadings.filter(h => editable || h.filter)"
             :key="index"
             class="py-3 px-2 md:px-0 uppercase w-min"
             @click="$emit('sortData', heading.filter)"
@@ -146,9 +147,9 @@ const getPlayerDisplayName = (item) => {
             {{ item.zone }}
           </td>
           <td>
-            {{ (item.miles_per_hour).toFixed(2) }}
+            {{ Number(item.miles_per_hour || 0).toFixed(2) }}
           </td>
-          <td>
+          <td v-if="editable">
             <button
               class="rounded-full hover:bg-white/15 p-2 transition-[background-color] ease-in duration-200"
             v-on:click="editData(item)">
