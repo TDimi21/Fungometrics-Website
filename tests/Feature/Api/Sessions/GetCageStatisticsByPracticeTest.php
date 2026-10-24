@@ -6,6 +6,7 @@ namespace Tests\Feature\Api\Sessions;
 
 use App\Models\CagePracticeResult;
 use App\Models\Concerns\PracticeTypes;
+use App\Models\Concerns\UserTypes;
 use App\Models\Practice;
 use App\Models\PracticeLineUp;
 use App\Models\Profile;
@@ -20,7 +21,7 @@ class GetCageStatisticsByPracticeTest extends TestCase
     use GrantsCreatedTeamAccess;
     public function test_get_result_cage_practice_ok(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => UserTypes::COACH->value]);
         Sanctum::actingAs($user);
         $team = Team::factory()->create();
         $practice = Practice::factory()->create(['type' => PracticeTypes::CAGE->value, 'team_id' => $team->id]);
@@ -53,7 +54,7 @@ class GetCageStatisticsByPracticeTest extends TestCase
 
 
         $response = $this->json('GET', 'api/statistics/'.$practice->id.'/cage');
-        $response->assertOk()->assertJsonStructure([
+        $response->assertOk()->assertJsonPath('data.count', 15)->assertJsonStructure([
             'code',
             'message',
             'status',
@@ -71,7 +72,7 @@ class GetCageStatisticsByPracticeTest extends TestCase
 
   public function test_get_result_cage_practice_not_found(): void
   {
-      $user = User::factory()->create();
+      $user = User::factory()->create(['type' => UserTypes::COACH->value]);
       Sanctum::actingAs($user);
 
       $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/cage');
