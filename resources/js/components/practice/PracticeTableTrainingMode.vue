@@ -112,7 +112,7 @@ const playerAvatars = (item) => {
 }
 
 const resumePractice = async (players) => {
-  if (props.typeUser == 'p') return resumenModePlayer(players)
+  if (props.typeUser == 'p') return router.push({ path: `/track/training-mode/${players.modes || players.mode}`, query: { session: players.id } })
   
   let data = {
     id: players.id,

@@ -26,7 +26,8 @@ const currentSet = computed(() => sets.value[selected.value] || 1)
 const inSet = computed(() => ownRows.value.filter(row => Number(row.set || 1) === currentSet.value).length)
 const teamStats = computed(() => summarizeThrows(rows.value)), stats = computed(() => summarizeThrows(ownRows.value))
 const available = computed(() => (roster.players || []).filter(p => !(session.value?.players || []).some(member => member.id === p.id)))
-const writable = computed(() => ready.value && current.value && !session.value?.is_completed && !busy.value)
+const personalOnly = computed(() => user.userData.type !== 'player' || (session.value?.team_id == null && session.value?.user_id === user.userData.id))
+const writable = computed(() => personalOnly.value && ready.value && current.value && !session.value?.is_completed && !busy.value)
 const name = p => p?.name?.full || [p?.name?.first, p?.name?.last].filter(Boolean).join(' ') || 'Player'
 const feet = value => value == null ? '—' : `${value} ft`
 const difference = (value, baseline) => value == null || baseline == null ? '—' : `${value - baseline >= 0 ? '+' : ''}${Math.round((value - baseline) * 10) / 10} ft`
@@ -95,12 +96,12 @@ const report = () => {
   return router.push(`/session/report/${session.value.id}/long_toss${user.userData.type === 'player' ? '?scope=player' : ''}`)
 }
 async function finish() {
-  if (!note.value.trim() || busy.value) return
+  if (!writable.value || !note.value.trim()) return
   busy.value = true; error.value = ''
   try {
     await axiosPut(`training/${session.value.id}`, { end_note: note.value.trim(), is_completed: true })
     session.value.is_completed = true; training.setDataTraining(session.value)
-    await router.push(plannerSessionReturn(sessionStorage, session.value.id, user.userData.id, `/session/report/${session.value.id}/long_toss`))
+    await router.push(plannerSessionReturn(sessionStorage, session.value.id, user.userData.id, `/session/report/${session.value.id}/long_toss${user.userData.type === 'player' ? '?scope=player' : ''}`))
   } catch { error.value = 'Unable to confirm completion. Reload the session before trying again.' }
   finally { busy.value = false }
 }
@@ -109,11 +110,12 @@ onMounted(load)
 
 <template>
   <Layout>
+    <p v-if="session && !personalOnly" role="status" class="error">Team sessions are read-only here. Start a personal session from My Sessions to record your own results.</p>
     <main class="lt-scoring" :aria-busy="loading || busy">
       <header class="lt-header">
         <div><p class="eyebrow">Training mode · Live scoring</p><h1>Long Toss</h1><p>Record each throw in feet, just like the app.</p></div>
         <nav aria-label="Session actions">
-          <button :disabled="busy" @click="router.push('/training/training-mode?mode=LT')">Leave session</button>
+          <button :disabled="busy" @click="router.push(user.userData.type === 'player' ? '/training-player/training-mode?mode=LT' : '/training/training-mode?mode=LT')">Leave session</button>
           <button :disabled="!ready || busy" :aria-expanded="showStats" aria-controls="live-session-stats" @click="showStats = !showStats">{{ showStats ? 'Hide stats' : 'Stats' }}</button>
           <button :disabled="!ready || busy" @click="report">Session report</button>
           <button class="primary" :disabled="!writable" @click="finishing = true">End session</button>

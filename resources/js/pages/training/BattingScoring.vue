@@ -47,7 +47,8 @@ const stats = computed(() => {
     top: speeds.length ? Math.max(...speeds) : null,
     average: speeds.length ? Math.round(speeds.reduce((a,b) => a+b,0) / speeds.length * 10) / 10 : null }
 })
-const writable = computed(() => ready.value && current.value && !session.value?.is_completed && !busy.value && !pending.value)
+const personalOnly = computed(() => user.userData.type !== 'player' || (session.value?.team_id == null && session.value?.user_id === user.userData.id))
+const writable = computed(() => personalOnly.value && ready.value && current.value && !session.value?.is_completed && !busy.value && !pending.value)
 const validPitch = computed(() => (!session.value?.is_scripted || (!!step.value && step.value.playerId === selected.value && ['R','H','A','W','M'].includes(quality.value) && Number(velocity.value || 0) <= 130)) && (!['W', 'A', 'H', 'R'].includes(quality.value) || trajectories.includes(trajectory.value)) && (velocity.value === '' || (/^\d+$/.test(String(velocity.value)) && Number(velocity.value) <= 2147483647)))
 const pointStyle = computed(() => ({ left: `${(((location.value - 1) % 60) + .5) / 60 * 100}%`, top: `${(Math.floor((location.value - 1) / 60) + .5) / 60 * 100}%` }))
 const pitchInfo = computed(() => getPitchInfoFromCoordinate(location.value))
@@ -154,7 +155,7 @@ async function finish() {
     await axiosPut(`training/${session.value.id}`, { end_note: note.value.trim(), is_completed: true })
     session.value.is_completed = true; training.setDataTraining(session.value)
     busy.value = false
-    await router.push(plannerSessionReturn(sessionStorage, session.value.id, user.userData.id, `/session/report/${session.value.id}/batting`))
+    await router.push(plannerSessionReturn(sessionStorage, session.value.id, user.userData.id, `/session/report/${session.value.id}/batting${user.userData.type === 'player' ? '?scope=player' : ''}`))
   } catch { error.value = 'Unable to confirm completion. Reload before trying again.' }
   finally { busy.value = false }
 }
@@ -168,6 +169,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
 </script>
 <template>
   <Layout>
+    <p v-if="session && !personalOnly" role="status" class="error">Team sessions are read-only here. Start a personal session from My Sessions to record your own results.</p>
     <main class="bullpen-screen" :aria-busy="loading || busy">
       <h1 class="sr-only">Batting practice live scoring</h1>
       <div class="scoring-stage batting-stage">
@@ -196,7 +198,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
           </div>
           <div class="batting-totals"><span>{{ user.userData.type === 'player' ? 'My session' : 'Team' }}: {{ teamStats.count }} pitches · {{ teamStats.percent ?? '—' }}% contact</span><span>Player: {{ stats.count }} pitches · {{ stats.percent ?? '—' }}% contact</span><span>Top EV {{ stats.top ?? '—' }} · Avg EV {{ stats.average ?? '—' }} mph</span></div>
         </template>
-        <footer class="stage-footer"><button :disabled="busy || !!pending" @click="router.push('/training/batting')">← Leave session</button></footer>
+        <footer class="stage-footer"><button :disabled="busy || !!pending" @click="router.push(user.userData.type === 'player' ? '/training-player/batting' : '/training/batting')">← Leave session</button></footer>
       </div>
       <section v-if="showStats && ready" id="batting-stats" class="panel finish"><h2>Batting Statistics</h2><p>Current session only. All tabs update after each confirmed save.</p><LivePracticeStats mode="B" :rows="visibleRows" :players="session.players" /></section>
       <section v-if="finishing && ready" class="panel finish"><h2>Finish batting practice</h2><form @submit.prevent="finish"><label>Session notes<textarea v-model="note" required :disabled="busy" /></label><button type="button" :disabled="busy" @click="finishing = false">Keep scoring</button><button class="primary" :disabled="!writable || !note.trim()">Complete session</button></form></section>

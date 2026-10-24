@@ -92,7 +92,7 @@ const getTrainigsByType = async(page = 1) => {
   try {
     isLoading.value = true
     if(props.slug == "training-mode"){
-      let defineEndpointmode = userData.type == 'player' ? `player/sessions/training` : `sessions/all/modes?page=${page}`
+      let defineEndpointmode = userData.type == 'player' ? `player/sessions/training?page=${page}` : `sessions/all/modes?page=${page}`
       await axiosGet(defineEndpointmode, {
         team: team.value.id,
         ...(selectedMode.value ? { mode: selectedMode.value } : {})
@@ -100,8 +100,8 @@ const getTrainigsByType = async(page = 1) => {
         if (response) {
           console.log(response.data.data);
           if (userData.type == 'player') {
-            tableData.value = sortNewestFirst(response.data.data.data.filter(item => item.modes == 'WB' || item.modes == 'LT' || item.modes == 'EV' ))
-            pages.value = response.data.links
+            tableData.value = sortNewestFirst(response.data.data.data.filter(item => ['WB', 'LT', 'EV'].includes(item.modes) && (!selectedMode.value || item.modes === selectedMode.value) ))
+            pages.value = response.data.data.links
           } else {
             tableData.value = sortNewestFirst(response.data.data.filter(item => item.mode == 'WB' || item.mode == 'LT' || item.mode == 'EV' ))
             pages.value = response.data.meta.links
@@ -109,13 +109,13 @@ const getTrainigsByType = async(page = 1) => {
         }
       })
     }else if(props.slug == 'cage'){
-      let defineEndpointCage = userData.type == 'player' ? `player/sessions/cage` : `sessions/all/type?page=${page}`
+      let defineEndpointCage = userData.type == 'player' ? `player/sessions/cage?page=${page}` : `sessions/all/type?page=${page}`
       await axiosGet(defineEndpointCage, data)
       .then((response) => {
         if (response) {
           if (userData.type == 'player') {
             tableData.value = sortNewestFirst(response.data.data.data.filter(item => item.type == type))
-            pages.value = response.data.links
+            pages.value = response.data.data.links
           } else {
             tableData.value = sortNewestFirst(response.data.data)
             pages.value = response.data.meta.links
@@ -123,13 +123,13 @@ const getTrainigsByType = async(page = 1) => {
         }
       })
     } else {
-      let defineEndpoint = userData.type == 'player' ? `player/sessions/${type == 'B' ? 'batting' : 'bullpen'}` : `sessions/all/type?page=${page}`
+      let defineEndpoint = userData.type == 'player' ? `player/sessions/${type == 'B' ? 'batting' : 'bullpen'}?page=${page}` : `sessions/all/type?page=${page}`
       await axiosGet(defineEndpoint, data)
       .then(async(response) => {
         if (response) {
           if (userData.type == 'player') {
             tableData.value = sortNewestFirst(response.data.data.data.filter(item => item.type == type))
-            pages.value = response.data.links
+            pages.value = response.data.data.links
           } else {
             tableData.value = sortNewestFirst(response.data.data)
             pages.value = response.data.meta.links
@@ -154,6 +154,10 @@ const getPaginate = (pageNumber) => {
 }
 
 const gotoCreateTraining = ()=>{
+  if (userData.type === 'player') {
+    router.push({ name: 'player.session.create', params: { mode: props.slug === 'training-mode' ? selectedMode.value || 'LT' : props.slug } })
+    return
+  }
   if (props.slug === 'cage') { router.push({ name: 'create.trainingCage' }); return }
   if (!passFunction.value) {
     if(userData.type == 'player'){
@@ -358,8 +362,8 @@ watch(() => [props.slug, selectedMode.value, team.value?.id], () => {
             </button>
           </form>
         </div>
-        <div class="w-[100%] lg:w-[50%] flex justify-end" v-if="userData.type !== 'player'">
-          <BigButtonField color="dark" label="New practice" @click="gotoCreateTraining" />
+        <div class="w-[100%] lg:w-[50%] flex justify-end">
+          <BigButtonField color="dark" :label="userData.type === 'player' ? 'New session' : 'New practice'" @click="gotoCreateTraining" />
         </div>
       </div>
       <component

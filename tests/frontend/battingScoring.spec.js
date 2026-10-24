@@ -12,7 +12,7 @@ import { getPitchInfoFromCoordinate } from '@/utils/bullpenCoordinates'
 const source = compileScript(parse(readFileSync('resources/js/pages/training/BattingScoring.vue', 'utf8')).descriptor, { id: 'bp-test' }).content
 const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
 async function screen({ role = 'coach', completed = false, scripted = false, type = 'B', fails = false, empty = false, plan = null } = {}) {
-  const session = { id: 'session-1', team_id: 'team-1', type, is_completed: completed, is_scripted: scripted, players: [{ id: 'p1', name: { full: 'One' } }, { id: 'p2', name: { full: 'Two' } }] }
+  const session = { id: 'session-1', user_id: role === 'player' ? 'p1' : 'coach1', team_id: role === 'player' ? null : 'team-1', type, is_completed: completed, is_scripted: scripted, players: [{ id: 'p1', name: { full: 'One' } }, { id: 'p2', name: { full: 'Two' } }] }
   const rows = [{ id: 'r1', batter_id: 'p1', is_contact: true, velocity: 80 }, { id: 'r2', batter_id: 'p2', is_contact: false, velocity: 0 }]
   let attempts = 0, leave
   const api = {
@@ -102,4 +102,16 @@ it('advances scripted rounds only after atomic confirmation and keeps session st
  expect(api.axiosPost).toHaveBeenCalledWith('result/scripted-bp/swing',expect.objectContaining({batter_id:'p1',round_type:'BARREL',round_swing_index:1,contact_type:'Hard',web_result:expect.any(Object)}))
  expect(s.rows.value).toHaveLength(1);expect(s.scriptSwings.value).toHaveLength(1);expect(s.selected.value).toBe('p2')
  expect(s.step.value.playerId).toBe('p2'); app.unmount()
+})
+
+it('makes team and other-owned sessions read-only for players', async () => {
+  const {s, api, app} = await screen({role:'player'})
+  expect(s.writable.value).toBeTruthy()
+  s.session.value.team_id = 'team-1'
+  expect(s.writable.value).toBeFalsy()
+  s.note.value = 'Done'; await s.finish()
+  expect(api.axiosPut).not.toHaveBeenCalled()
+  s.session.value.team_id = null; s.session.value.user_id = 'other'
+  expect(s.writable.value).toBeFalsy()
+  app.unmount()
 })

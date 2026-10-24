@@ -46,7 +46,8 @@ const stats = computed(() => {
     top: speeds.length ? Math.max(...speeds) : null,
     average: speeds.length ? Math.round(speeds.reduce((a,b) => a+b,0) / speeds.length * 10) / 10 : null }
 })
-const writable = computed(() => ready.value && current.value && !session.value?.is_completed && !busy.value && !pending.value)
+const personalOnly = computed(() => user.userData.type !== 'player' || (session.value?.team_id == null && session.value?.user_id === user.userData.id))
+const writable = computed(() => personalOnly.value && ready.value && current.value && !session.value?.is_completed && !busy.value && !pending.value)
 const validPitch = computed(() => !scriptDone.value && location.value > 0 && pitchTypes.includes(pitchType.value) && (velocity.value === '' || (/^\d+$/.test(String(velocity.value)) && Number(velocity.value) >= 10 && Number(velocity.value) <= 2147483647)))
 const pointStyle = computed(() => ({ left: `${(((location.value - 1) % 60) + .5) / 60 * 100}%`, top: `${(Math.floor((location.value - 1) / 60) + .5) / 60 * 100}%` }))
 const pitchInfo = computed(() => getPitchInfoFromCoordinate(location.value))
@@ -126,7 +127,7 @@ async function finish() {
     await axiosPut(`training/${session.value.id}`, { end_note: note.value.trim(), is_completed: true })
     session.value.is_completed = true; training.setDataTraining(session.value)
     busy.value = false
-    await router.push(plannerSessionReturn(sessionStorage, session.value.id, user.userData.id, `/session/report/${session.value.id}/bullpen`))
+    await router.push(plannerSessionReturn(sessionStorage, session.value.id, user.userData.id, `/session/report/${session.value.id}/bullpen${user.userData.type === 'player' ? '?scope=player' : ''}`))
   } catch { error.value = 'Unable to confirm completion. Reload before trying again.' }
   finally { busy.value = false }
 }
@@ -140,6 +141,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
 </script>
 <template>
   <Layout>
+    <p v-if="session && !personalOnly" role="status" class="error">Team sessions are read-only here. Start a personal session from My Sessions to record your own results.</p>
     <main class="bullpen-screen" :aria-busy="loading || busy">
       <h1 class="sr-only">Bullpen live scoring</h1>
       <div class="scoring-stage">
@@ -187,7 +189,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
             <p class="velocity-help">Whole mph · Leave blank if not measured</p>
           </form>
         </div>
-        <footer class="stage-footer"><button :disabled="busy || !!pending" @click="router.push('/training/bullpen')">← Leave session</button><span>Top {{ stats.top ?? '—' }} mph · Average {{ stats.average ?? '—' }} mph</span></footer>
+        <footer class="stage-footer"><button :disabled="busy || !!pending" @click="router.push(user.userData.type === 'player' ? '/training-player/bullpen' : '/training/bullpen')">← Leave session</button><span>Top {{ stats.top ?? '—' }} mph · Average {{ stats.average ?? '—' }} mph</span></footer>
       </div>
       <template v-if="ready">
         <section v-if="showStats && ready" id="bullpen-stats" class="panel finish"><h2>Bullpen Statistics</h2><p>Current session only. All tabs update after each confirmed save.</p><LivePracticeStats mode="P" :rows="visibleRows" :players="session.players" /></section>

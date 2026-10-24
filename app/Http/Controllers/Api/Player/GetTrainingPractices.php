@@ -29,6 +29,7 @@ class GetTrainingPractices extends Controller
      */
     public function __invoke(Request $request): JsonResponse
     {
+        $request->validate(['mode' => ['nullable', 'in:WB,LT,EV']]);
         try {
             $practicesIdLong = LongTossPractice::where('user_id', '=', auth()->id())
                 ->pluck('practice_id')
@@ -58,6 +59,7 @@ class GetTrainingPractices extends Controller
                 }
             ])
                 ->where('type', '=', PracticeTypes::TRAINING->value)
+                ->when($request->filled('mode'), fn ($query) => $query->where('modes', $request->input('mode')))
                 ->where(function ($query) use ($practicesId, $lineupPracticeIds): void {
                     $query->where('user_id', '=', auth()->id())
                         ->orWhereIn('id', $practicesId)

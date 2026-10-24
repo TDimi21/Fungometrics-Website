@@ -15,7 +15,7 @@ import { getPitchInfoFromCoordinate } from '@/utils/bullpenCoordinates'
 const source = compileScript(parse(readFileSync('resources/js/pages/training/CageScoring.vue', 'utf8')).descriptor, { id: 'bp-test' }).content
 const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
 async function screen({ role = 'coach', completed = false, scripted = false, type = 'C', fails = false, empty = false, plan = null, game = null } = {}) {
-  const session = { id: 'session-1', team_id: 'team-1', type, cage_data: { width: { ft: 14, inch: 6 }, height: { ft: 12, inch: 0 }, length: { ft: 70, inch: 0 } }, is_completed: completed, is_scripted: scripted, script_plan:plan, game_field:game, players: [{ id: 'p1', name: { full: 'One' } }, { id: 'p2', name: { full: 'Two' } }] }
+  const session = { id: 'session-1', user_id: role === 'player' ? 'p1' : 'coach1', team_id: role === 'player' ? null : 'team-1', type, cage_data: { width: { ft: 14, inch: 6 }, height: { ft: 12, inch: 0 }, length: { ft: 70, inch: 0 } }, is_completed: completed, is_scripted: scripted, script_plan:plan, game_field:game, players: [{ id: 'p1', name: { full: 'One' } }, { id: 'p2', name: { full: 'Two' } }] }
   const rows = [{ id: 'r1', user_id: 'p1', is_contact: true, launch_angle_velocity: 80 }, { id: 'r2', user_id: 'p2', is_contact: false, launch_angle_velocity: 0 }]
   let attempts = 0, leave
   const api = {
@@ -104,4 +104,16 @@ it('opens game review only after a confirmed save and retains player scoping',as
  const {s,api,app}=await screen({role:'player',game:fieldPayload(gameConfig('hs'))});await hit(s);await s.save()
  expect(s.showGame.value).toBe(true);expect(s.visibleRows.value.every(r=>r.user_id==='p1')).toBe(true)
  expect(api.axiosPost.mock.calls.find(([path])=>path==='result/cage')[1]).toMatchObject({practice_id:'session-1',user_id:'p1'});app.unmount()
+})
+
+it('makes team and other-owned sessions read-only for players', async () => {
+  const {s, api, app} = await screen({role:'player'})
+  expect(s.writable.value).toBeTruthy()
+  s.session.value.team_id = 'team-1'
+  expect(s.writable.value).toBeFalsy()
+  s.note.value = 'Done'; await s.finish()
+  expect(api.axiosPut).not.toHaveBeenCalled()
+  s.session.value.team_id = null; s.session.value.user_id = 'other'
+  expect(s.writable.value).toBeFalsy()
+  app.unmount()
 })

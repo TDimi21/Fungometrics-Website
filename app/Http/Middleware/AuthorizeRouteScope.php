@@ -45,6 +45,7 @@ class AuthorizeRouteScope
                 abort_unless(is_string($id), 422);
                 $practice = Practice::find($id);
                 abort_unless($practice && $this->canAccessPractice($user, $practice), 404);
+                $this->authorizePersonalWrite($request, $user, $practice);
                 if ($request->is('api/result/scripted-bp/swing') && $request->filled('batter_id')) {
                     $batter = $request->input('batter_id');
                     abort_unless(is_string($batter) && $practice->lineup()->where('user_id', $batter)->exists(), 422);
@@ -80,6 +81,7 @@ class AuthorizeRouteScope
             $practice = $practiceValue instanceof Practice
                 ? $practiceValue
                 : Practice::query()->find($this->modelId($practiceValue));
+            if ($practice) $this->authorizePersonalWrite($request, $user, $practice);
             if ($practice && ! $this->canAccessPractice($user, $practice)) {
                 abort(404);
             }
@@ -137,8 +139,24 @@ class AuthorizeRouteScope
                 }
             }
 
+            $this->authorizePersonalWrite($request, $user, $practice);
+            if ((string) $user->type === 'player' && !$request->isMethod('GET')) {
+                $field = match ($type) { 'batting' => 'batter_id', 'bullpen' => 'pitcher_id', default => 'user_id' };
+                if (isset($result)) abort_unless((string) $result->{$field} === (string) $user->id, 403);
+                foreach (['user_id', 'pitcher_id', 'batter_id'] as $identity) {
+                    if ($request->exists($identity)) abort_unless($request->input($identity) === (string) $user->id, 403);
+                }
+                $request->merge([$field => (string) $user->id]);
+            }
             return;
         }
+    }
+
+    private function authorizePersonalWrite(Request $request, User $user, Practice $practice): void
+    {
+        if ((string) $user->type !== 'player' || $request->isMethod('GET')) return;
+        abort_unless($practice->team_id === null && (string) $practice->user_id === (string) $user->id, 403, 'Players can score only their own personal sessions.');
+        abort_if($request->filled('team') || $request->filled('team_id'), 403, 'Personal sessions cannot be connected to a team.');
     }
 
     private function canAccessTeam(User $user, string $teamId): bool

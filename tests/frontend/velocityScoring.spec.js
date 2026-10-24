@@ -8,7 +8,7 @@ import { extractSessionRows } from '@/utils/sessionReportRows'
 const source = compileScript(parse(readFileSync('resources/js/pages/training/VelocityScoring.vue', 'utf8')).descriptor, { id: 'lt-test' }).content
 const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
 async function screen({ role = 'coach', mode = 'EV', wrongMode = false, completed = false, fails = false, noSession = false } = {}) {
-  const session = { id: 'session-1', team_id: 'team-1', modes: wrongMode ? 'LT' : mode, is_completed: completed, players: [{ id: 'p1', sort: 0 }, { id: 'p2', sort: 1 }] }
+  const session = { id: 'session-1', user_id: role === 'player' ? 'p1' : 'coach1', team_id: role === 'player' ? null : 'team-1', modes: wrongMode ? 'LT' : mode, is_completed: completed, players: [{ id: 'p1', sort: 0 }, { id: 'p2', sort: 1 }] }
   const rows = [{ id: 'r1', user_id: 'p1', set: 2, trajectory: 'GB', weight: 5, velocity: 60 }, { id: 'r2', user_id: 'p2', set: 1, trajectory: 'GB', weight: 5, velocity: 80 }]
   const api = {
     axiosGet: vi.fn(async path => ({ data: { data: path.startsWith('training/') ? session : { ball_x_ball: rows } } })),
@@ -92,4 +92,16 @@ describe.each(['EV', 'WB'])('%s app-compatible web scoring', mode => {
     expect(router.push).toHaveBeenCalledWith(`/session/report/session-1/${mode === 'EV' ? 'exit_velocity' : 'weight_ball'}`)
     app.unmount()
   })
+})
+
+it('makes team and other-owned sessions read-only for players', async () => {
+  const {state: s, api, app} = await screen({role:'player',mode:'EV'})
+  expect(s.writable.value).toBeTruthy()
+  s.session.value.team_id = 'team-1'
+  expect(s.writable.value).toBeFalsy()
+  s.note.value = 'Done'; await s.finish()
+  expect(api.axiosPut).not.toHaveBeenCalled()
+  s.session.value.team_id = null; s.session.value.user_id = 'other'
+  expect(s.writable.value).toBeFalsy()
+  app.unmount()
 })

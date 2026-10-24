@@ -211,8 +211,13 @@ onMounted(() => {
             url: '/training-player/cage'
           },
           {
-            title: 'Training sessions',
-            url: '/training-player/training-mode'
+            title: 'Long Toss',
+            url: '/training-player/training-mode?mode=LT'
+          },
+          { title: 'Exit Velocity', url: '/training-player/training-mode?mode=EV' },
+          {
+            title: 'Weighted Balls',
+            url: '/training-player/training-mode?mode=WB'
           },
         ]
       },

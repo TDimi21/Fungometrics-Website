@@ -470,6 +470,7 @@ const routes = [
   { name: 'admin.dev.cage-distance-validation', path: '/admin/dev/cage-distance-validation', component: CageDistanceValidationLab, meta: { requiresAuth: true } },
 
   /* only for redundant player options */
+  { name: 'player.session.create', path: '/player-sessions/new/:mode', component: () => import('@/pages/training/CreatePlayerSession.vue'), meta: { requiresAuth: true } },
   {
     name: "training-player",
 		path: "/training-player/:slug",

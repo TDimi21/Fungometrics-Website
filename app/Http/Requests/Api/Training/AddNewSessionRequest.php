@@ -21,7 +21,15 @@ class AddNewSessionRequest extends FormRequest
      */
     public function authorize()
     {
-        return true;
+        $type = $this->user()?->type;
+        if (($type instanceof \BackedEnum ? $type->value : $type) !== 'player') return true;
+        $players = $this->input('players');
+        // Missing/empty lineups cannot create a session; let required validation report them.
+        if (!$this->filled('players')) return true;
+        return !$this->filled('team') && !$this->filled('team_id')
+            && !$this->filled('planner_plan_id') && !$this->filled('planner_item_id')
+            && is_array($players) && count($players) === 1
+            && ($players[0]['id'] ?? null) === (string) $this->user()->id;
     }
 
     /**
