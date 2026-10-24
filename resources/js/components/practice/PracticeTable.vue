@@ -151,7 +151,7 @@ const cardLogoBySlug = () => {
 }
 
 const resumenTraining = (training) => {
-  if (route.params.slug === 'bullpen') return router.push({ path: '/track/bullpen', query: { session: training.id } })
+  if (['bullpen', 'batting'].includes(route.params.slug)) return router.push({ path: `/track/${route.params.slug}`, query: { session: training.id } })
   if (props.typeUser == 'p'){
     if (route.params.slug == 'batting') return resumenBattingPlayer(training)
     if (route.params.slug == 'bullpen') return resumenBullpenPlayer(training)

@@ -19,14 +19,14 @@ const RegisterPlayer = () => import("@/pages/register/Player.vue");
 const RegisterComplete = () => import('@/pages/register/Complete.vue');
 const DashBoard = () => import("@/pages/dashboard/Index.vue");
 const AssessmentReports = () => import("@/pages/dashboard/AssessmentReports.vue");
-const IndexTrainingPage = () => import("@/pages/training/CreateTraining.vue");
+const IndexTrainingPage = () => import("@/pages/training/CreatePracticeEntry.vue");
 const IndexTrainingMode = () =>
 	import("@/pages/training/CreateTrainingMode.vue");
 const IndexTrainingCage = () =>
 	import("@/pages/training/CreateTrainingCage.vue");
 const IndexTrainingABPage = () =>
 	import("@/pages/training/CreateLiveABTraining.vue");
-const TrackBatting = () => import("@/pages/training/Batting.vue");
+const TrackBatting = () => import("@/pages/training/BattingSession.vue");
 const TrackBullpen = () => import("@/pages/training/BullpenSession.vue");
 const TrackTrainingMode = () => import("@/pages/training/TrainingMode.vue");
 const TrackTrainingCage = () => import("@/pages/training/TrainingCage.vue");
@@ -549,7 +549,7 @@ router.beforeEach(async (to) => {
 		&& !WEB_START_PRACTICE_ENABLED
 		&& !isLongTossScoringRoute(to)
 		&& !isVelocityScoringRoute(to)
-		&& !['/track/bullpen', '/create/bullpen'].includes(to.path)
+		&& !['/track/bullpen', '/create/bullpen', '/track/batting', '/create/batting'].includes(to.path)
 		&& !hasPlannerSessionContext(to, userData)
 		&& START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))
 	) {

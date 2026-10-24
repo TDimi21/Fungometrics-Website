@@ -1,0 +1,41 @@
+Batting web scoring
+
+BattingSession.vue selects the new BattingScoring.vue for session scoring while
+preserving Batting.vue for legacy single-result editing. Session resume includes
+an explicit session query so reload fetches the original session from Laravel.
+Only /track/batting and /create/batting are added to the existing standalone
+scoring gate exceptions. Authentication and entitlement checks are unchanged.
+
+The layout follows mobile ResumeBattingModern: original batting background,
+hitter strip, contact and trajectory pills, catcher strike zone, vector field,
+exit velocity keypad, Show Statistics, Session Report, and End Practice.
+The field mapper uses the same 80x80 inversion and field direction dataset as
+mobile. Catcher coordinates use the existing 60x60 mobile port. Tap and arrow-key
+entry are supported. Standard high-school field dimensions are explicit in UI;
+custom dimensions and scripted batting remain mobile-only for this release.
+
+Contact W/A/H requires a trajectory. MISS/F clears/disables field, trajectory,
+and exit velocity and submits M/SM without contact. No swing controls selected
+records N/TK. Field or velocity selected without a trajectory records N instead
+of falsely counting it as a take. Velocity is optional whole mph; unmeasured
+zero is excluded from averages. App-supplied field/pitch encodings and original
+session/hitter IDs are preserved through existing result/batting API.
+
+Confirmed saves update the live table and selected-player batting report card.
+Player views request player-scoped results and restrict displayed hitters.
+Completed sessions cannot record; scripted sessions explicitly direct the user
+to the app. Existing finish and planner return behavior is retained.
+
+Batting API has no idempotency receipt. Prevent double clicks; after ambiguous
+failure, retain inputs and block resubmission and navigation until user checks
+saved results. Check saved results reloads session results, opens Stats and
+clears the draft. No automatic retries or offline queue. Reloading is not proof
+that an in-flight request cannot complete later; review before re-entering.
+
+Validation: 387 frontend tests; 15 relevant backend tests (105 assertions);
+production Vite build. Browser/device visual acceptance remains outstanding.
+Test contact with/without trajectory, take, MISS/F, unmapped trajectory, measured
+and missing EV, catcher and field tap/keyboard, hitter switching, save failure,
+resume, reports, finish, player scope, and legacy result editing in browser.
+No mobile, API or schema changes. No new migrations. No commit/push/deploy by
+agent; normal CI-gated artifact deployment applies after approval.
