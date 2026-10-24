@@ -1,6 +1,7 @@
 <script setup>
 import {defineProps} from 'vue';
 import LongToss from "./LongToss.vue";
+import VelocityScoring from "./VelocityScoring.vue";
 import LongTossScoring from "./LongTossScoring.vue";
 import { useTrainingStore } from "@/store/training";
 import { useRoute } from "vue-router";
@@ -18,10 +19,12 @@ defineProps({
 </script>
 <template>
   <div v-if="mode == 'WB'">
-    <WeigthBall></WeigthBall>
+    <WeigthBall v-if="!route.query.session && training.trainingActive.set != null" />
+    <VelocityScoring v-else mode="WB" key="WB" />
   </div>
   <div v-else-if="mode == 'EV'">
-    <ExitVelocity></ExitVelocity>
+    <ExitVelocity v-if="!route.query.session && training.trainingActive.set != null" />
+    <VelocityScoring v-else mode="EV" key="EV" />
   </div>
   <div v-else>
     <LongToss v-if="!route.query.session && training.trainingActive.set != null" />

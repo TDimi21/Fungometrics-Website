@@ -12,3 +12,7 @@ export function playerThrows(rows, id) {
 export function validDistance(value) {
   return /^\d+$/.test(String(value)) && Number.isSafeInteger(Number(value)) && Number(value) > 0 && Number(value) <= 2147483647
 }
+
+export const isVelocityScoringRoute = to =>
+  ['/track/training-mode/EV', '/track/training-mode/WB'].includes(to.path)
+  || (to.path === '/create/mode' && ['EV', 'WB'].includes(to.query?.mode))

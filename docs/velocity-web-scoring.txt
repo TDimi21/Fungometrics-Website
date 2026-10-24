@@ -1,0 +1,27 @@
+Exit Velocity and Weighted Balls web scoring
+
+Entry: Practice Sessions > Exit Velocity / Weighted Balls > New practice or
+Resume. Both modes reuse the app-style Players / Notes / Cancel / Create setup
+and now open the modern scoring screen instead of redirecting Home.
+
+Exit Velocity: whole-mph keypad, GB/LD/FB selection (click again to deselect),
+Save swing, player/team top and average velocity, and averages by trajectory.
+Weighted Balls: whole-ounce ball weight (default 5, app range 1–1500), +/- and
+numeric entry, whole-mph keypad, Save throw, and averages by recorded weight.
+The weight stays selected after a successful save.
+Both: server-loaded session/rows, per-player sets and counts, player switching,
+add-player lineup flags appropriate to the mode, leave/resume, finish notes,
+planner return, and the corresponding session report. Missing readings are
+shown as missing. Completed sessions are read-only. Uncertain saves preserve
+input and require reload before retry. Existing record editors remain intact.
+
+Endpoints reused: GET training/{id}, GET statistics/{id}/exitvelocity or
+weightball, POST result/exitvelocity or weightball, POST coach/lineup/{id},
+PUT training/{id}. No backend contracts, authentication, database, or mobile
+files changed. Deploy the frontend through the normal verified artifact flow.
+
+Validation: 364 frontend tests passed, including 12 new mode-scoring tests;
+66 relevant PHP tests passed (302 assertions). Production frontend build passed.
+Browser/device visual acceptance remains: create, score both modes, switch
+players/sets, resume, finish, inspect reports, and verify results in the app.
+No commit, push, or deployment performed.

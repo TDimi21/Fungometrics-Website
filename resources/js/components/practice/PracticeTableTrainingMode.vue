@@ -156,7 +156,7 @@ const resumePractice = async (players) => {
     })
     router.push({
       path: '/track/training-mode/' + data.mode,
-      query: data.mode === 'LT' ? { session: data.id } : {},
+      query: { session: data.id },
     });
   }).catch((error)=>{
     activeTraining.cleanListPlayer()
@@ -170,7 +170,7 @@ const resumePractice = async (players) => {
     })
     router.push({
       path: '/track/training-mode/' + data.mode,
-      query: data.mode === 'LT' ? { session: data.id } : {},
+      query: { session: data.id },
     });
   })
 }
