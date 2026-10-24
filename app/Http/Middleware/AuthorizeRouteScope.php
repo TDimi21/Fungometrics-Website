@@ -39,6 +39,23 @@ class AuthorizeRouteScope
         }
 
         $this->authorizeResult($request, $user);
+        if (in_array((string) $request->route()?->uri(), ['api/result/scripted-bp/plan', 'api/result/scripted-bp/swing'], true)) {
+            $id = $request->input('practice_id');
+            if ($id !== null) {
+                abort_unless(is_string($id), 422);
+                $practice = Practice::find($id);
+                abort_unless($practice && $this->canAccessPractice($user, $practice), 404);
+                if ($request->is('api/result/scripted-bp/swing') && $request->filled('batter_id')) {
+                    $batter = $request->input('batter_id');
+                    abort_unless(is_string($batter) && $practice->lineup()->where('user_id', $batter)->exists(), 422);
+                    abort_if((string) $user->type === 'player' && $batter !== (string) $user->id, 403);
+                }
+                if ($request->is('api/result/scripted-bp/plan')) {
+                    abort_if($practice->is_completed || $practice->script_plan || $practice->scriptedBpSwings()->exists(), 409, 'An active plan with recorded results cannot be replaced.');
+                    abort_if((string) $user->type === 'player' && $practice->user_id !== $user->id, 403);
+                }
+            }
+        }
 
         $team = $this->firstRouteValue($request, ['team', 'teamId']);
         $teamId = $team ? $this->modelId($team) : null;

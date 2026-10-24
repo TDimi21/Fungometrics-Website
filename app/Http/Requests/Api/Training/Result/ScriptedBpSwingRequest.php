@@ -19,6 +19,12 @@ class ScriptedBpSwingRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'web_result' => ['sometimes', 'array:pitch_mark,field_mark,pitch_location,zone,field_direction'],
+            'web_result.pitch_mark' => ['nullable', 'integer', 'between:1,3600'],
+            'web_result.field_mark' => ['nullable', 'integer', 'between:1,6400'],
+            'web_result.pitch_location' => ['nullable', 'string', 'max:30'],
+            'web_result.zone' => ['nullable', 'string', 'max:30'],
+            'web_result.field_direction' => ['nullable', 'string', 'max:30'],
             'practice_id'       => ['required', 'string'],
             'batter_id'         => ['required', 'string'],
             'round_type'        => ['required', 'string'],

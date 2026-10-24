@@ -1,0 +1,48 @@
+Scripted web practices — 2026-10-24
+
+New practice setup now offers Regular / Scripted for bullpen and batting, and
+Regular / Practice Rounds for cage. Existing hitter/pitcher selection is retained.
+
+Bullpen: choose FB/CH/SL/CV/OTHER, tap intended location, add/reorder/remove called
+pitches. Every pitcher has their own progression. Scoring preselects the called
+pitch and shows a cyan target; an actual location is still required. Saves include
+intended_location and intended_pitch_type. Accuracy uses the app's distance bands.
+Existing live stats and the bullpen Session Report remain connected.
+
+Batting: the same 20 objective-based round types as BattingSession.js, ordered
+rounds, 1–20 swings per hitter/round. Progression follows round -> hitter -> swing.
+Scoring includes Barrel, Hard, Average, Weak and Miss/F contact, and uses the
+existing ScriptedBpScoringService. A scorecard shows per-player round counts and
+points. Web scripted saves store the scripted swing AND the normal batting result
+in one transaction, so both the scorecard and normal session stats/report update.
+The locked practice and expected round index prevent a duplicate web submission.
+Unknown save outcomes still require reloading results before another swing.
+
+Cage: the mobile cageDrills library grouped by skill, including difficulty,
+equipment, objectives and coaching cues. Add/reorder/remove drills, including
+repeating the same drill; choose 1–50 swings per round. The active drill and swing
+counter appear over the existing scorer. Saved total session reps drive progress,
+including scoped player views. Cage uses regular session entitlements, matching
+its mobile Practice Mode rather than the separate scripted BP entitlement.
+
+Persistence: practices.script_plan stores plans on the server; batting also
+creates the existing ScriptedBpPlan in the same creation transaction. Session
+metadata returns plans. Browser reloads derive progress from saved results.
+Existing mobile bullpen plans stored only in AsyncStorage cannot be recovered on
+web: the scorer explains that those sessions must continue on the original app.
+Existing mobile BP sessions with an uploaded plan can resume on web. Mobile code
+is unchanged; mobile's local cage/bullpen storage has not been migrated or synced.
+
+Authorization: original session entitlements remain active; scripted BP writes
+now check session access, lineup membership and player identity. Player scorecard
+reads are scoped to that player. Plans cannot be replaced after swings exist or
+when created atomically with a web session. Completed sessions reject BP writes.
+
+Deployment requires database migration:
+2026_10_24_000001_add_script_plan_to_practices.php
+Use the existing CI-artifact deploy helper with --migrate after code is published
+and CI passes. No production deployment, commit or push was performed here.
+
+Validation: frontend suite, production build, and focused backend tests covering
+plan persistence, validation, atomic stats saving, duplicate requests, session
+scope and regular batting/bullpen/cage regressions. No browser visual verification.

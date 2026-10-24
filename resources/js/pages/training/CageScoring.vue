@@ -5,6 +5,7 @@ import LiveCageStats from '@/components/statistics/LiveCageStats.vue'
 import CageTarget from '@/components/practice/CageTarget.vue'
 import { createCageMapper } from '@/utils/cagePerspective'
 import { cageDimensions } from '@/utils/cageScoring'
+import { cageStep, validScript } from '@/utils/scriptedPractice'
 import Layout from '@/layout/Layout.vue'
 import { useTrainingStore } from '@/store/training'
 import { useUserStore } from '@/store/user'
@@ -27,6 +28,8 @@ const players = computed(() => (session.value?.players || []).filter(p => user.u
 const name = p => p?.name?.full || [p?.name?.first, p?.name?.last].filter(Boolean).join(' ') || 'Player'
 const current = computed(() => players.value.find(p => p.id === selected.value))
 const visibleRows = computed(() => user.userData.type === 'player' ? rows.value.filter(r => r.user_id === user.userData.id) : rows.value)
+const script = computed(() => session.value?.script_plan || [])
+const drill = computed(() => cageStep(script.value, session.value?.script_completed_reps ?? rows.value.length))
 const ownRows = computed(() => visibleRows.value.filter(r => r.user_id === selected.value))
 const stats = computed(() => {
   const speeds = ownRows.value.map(r => Number(r.launch_angle_velocity)).filter(n => n > 0)
@@ -40,7 +43,7 @@ const hit = computed(() => tap.value && dimensions.value ? createCageMapper(unde
 const ground = computed(() => groundOverride.value || hit.value?.surface === 'floor')
 const estimateInput = computed(() => hit.value && Number(velocity.value) > 0 && Number(velocity.value) <= 130 && Math.abs(hit.value.sprayDeg) <= 60 ? { exit_velocity_mph: Number(velocity.value), launch_angle_deg: hit.value.launchDeg, spray_angle_deg: hit.value.sprayDeg, ground_ball: ground.value } : null)
 const estimateKey = computed(() => JSON.stringify([selected.value, estimateInput.value]))
-const validPitch = computed(() => !!estimateInput.value && estimate.value?.key === estimateKey.value && !estimating.value)
+const validPitch = computed(() => (!script.value.length || !!drill.value) && !!estimateInput.value && estimate.value?.key === estimateKey.value && !estimating.value)
 watch(estimateKey, () => {
   const seq = ++estimateSequence
   clearTimeout(estimateTimer); estimate.value = null; estimateError.value = ''; estimating.value = false
@@ -82,6 +85,7 @@ async function load() {
     if (session.value.type !== 'C') throw new Error('Choose a cage session from Practice Sessions.')
     if (session.value.is_scripted) throw new Error('Continue this scripted cage in the app to preserve its pitch plan.')
     if (!cageDimensions(session.value.cage_data)) throw new Error('This session has no valid cage dimensions. Open it in the app to configure the cage before scoring.')
+    if (session.value.script_plan && !validScript(session.value.script_plan, 'C')) throw new Error('The cage drill plan is invalid. Please review it before scoring.')
     let results = []
     try { results = extractSessionRows((await axiosGet(`statistics/${practiceId}/cage`, user.userData.type === 'player' ? { player: 1 } : undefined)).data, 'cage') }
     catch (err) { if (err.response?.status !== 404 || err.response?.data?.code !== '038-E') throw err }
@@ -110,7 +114,7 @@ async function save() {
     const response = await axiosPost('result/cage', payload)
     const saved = response.data?.data
     if (response.data?.status !== 'success' || !saved?.id) throw new Error('No receipt')
-    rows.value.push(saved); clearPitch(); notice.value = 'Hit saved.'
+    rows.value.push(saved); if (session.value.script_completed_reps != null) session.value.script_completed_reps++; clearPitch(); notice.value = 'Hit saved.'
   } catch (err) {
     if (err.response?.status === 422) error.value = 'Hit rejected. Check the details and try again.'
     else { pending.value = true; error.value = 'Save could not be confirmed. Check saved session results before recording another hit. Do not resubmit this hit blindly.' }
@@ -151,7 +155,7 @@ onUnmounted(() => { ++estimateSequence; clearTimeout(estimateTimer); window.remo
     <div class="scoring-stage"><header class="scorebar"><div class="hitters"><button v-if="user.userData.type === 'coach'" class="primary" :disabled="!writable" aria-label="Add hitter" @click="openAdd">+</button><button v-for="player in players" :key="player.id" :aria-pressed="selected === player.id" :disabled="busy || !!pending" @click="selected = player.id">{{ name(player) }}</button></div><nav aria-label="Session actions"><button :disabled="!ready" :aria-expanded="showStats" @click="showStats = !showStats">{{ showStats ? 'Hide statistics' : 'Show statistics' }} →</button><button :disabled="!ready || busy || !!pending" @click="report">Session report</button><button class="primary" :disabled="!writable" @click="finishing = true">End practice →</button></nav></header>
     <h1>Cage practice</h1><p v-if="loading" role="status">Loading session…</p><p v-if="error" role="alert" class="error">{{ error }} <button :disabled="loading || busy" @click="load">{{ pending ? 'Check saved results' : 'Reload session' }}</button></p><p v-if="notice" role="status">{{ notice }}</p><p v-if="session?.is_completed">This session is complete. Results are read-only.</p>
     <form v-if="adding" class="panel" @submit.prevent="addPlayer"><label>Hitter<select v-model="addId"><option value="">Select hitter</option><option v-for="p in available" :key="p.id" :value="p.id">{{ name(p) }}</option></select></label><button :disabled="!writable || !addId">Add to session</button><button type="button" @click="adding = false">Cancel</button></form>
-    <div v-if="ready" class="scoring-columns"><section class="panel cage-panel"><h2>Tap where the ball hits the cage</h2><CageTarget v-model="tap" :disabled="!writable" /><p class="help">Arrow keys also move the marker. Floor contact records a ground ball.</p><p class="help">{{ dimensions.widthFt.toFixed(1) }} ft wide · {{ dimensions.heightFt.toFixed(1) }} ft high · {{ dimensions.lengthFt.toFixed(1) }} ft long</p><p class="help">Contact height: {{ dimensions.contactHeightFt.toFixed(2) }} ft{{ !current?.body?.ft ? ' (default player height: 6 ft)' : '' }}</p></section>
+    <section v-if="ready && script.length" class="panel statistics"><h2>{{ drill ? `Round ${drill.round} of ${script.length} · ${drill.drillLabel}` : 'Cage practice rounds complete' }}</h2><template v-if="drill"><p>Swing {{ drill.index }} of {{ drill.swing_count }} · {{ drill.skill }}</p><p>{{ drill.objective }}</p><p>{{ drill.coachingCues }}</p></template><p v-else>Review your session statistics or end practice.</p><details><summary>Practice rounds</summary><ol><li v-for="(step,i) in script" :key="i">{{ i+1 }}. {{ step.drillLabel }} · {{ step.swing_count }} swings</li></ol></details></section><div v-if="ready" class="scoring-columns"><section class="panel cage-panel"><h2>Tap where the ball hits the cage</h2><CageTarget v-model="tap" :disabled="!writable" /><p class="help">Arrow keys also move the marker. Floor contact records a ground ball.</p><p class="help">{{ dimensions.widthFt.toFixed(1) }} ft wide · {{ dimensions.heightFt.toFixed(1) }} ft high · {{ dimensions.lengthFt.toFixed(1) }} ft long</p><p class="help">Contact height: {{ dimensions.contactHeightFt.toFixed(2) }} ft{{ !current?.body?.ft ? ' (default player height: 6 ft)' : '' }}</p></section>
     <section class="panel measurements"><h2>Hit measurements</h2><dl><div><dt>Estimated distance</dt><dd>{{ estimating ? '…' : estimate?.distance != null ? Math.round(estimate.distance) : '—' }} <small>ft</small></dd></div><div><dt>Launch angle</dt><dd>{{ hit?.launchDeg ?? '—' }}°</dd></div><div><dt>Spray angle</dt><dd>{{ hit?.sprayDeg ?? '—' }}°</dd></div></dl><label class="ground"><input v-model="groundOverride" type="checkbox" :disabled="!writable || hit?.surface === 'floor'" /> Ground ball: {{ ground ? 'Yes' : 'No' }}</label><p class="help">Distance is an estimate from exit velocity and cage contact location.</p><hr /><p>Session hits: <strong>{{ visibleRows.length }}</strong></p><p>Player hits: <strong>{{ stats.count }}</strong></p><p>Top EV: <strong>{{ stats.top ?? '—' }} mph</strong></p><p>Average EV: <strong>{{ stats.average ?? '—' }} mph</strong></p></section>
     <form class="panel velocity-panel" @submit.prevent="save"><label for="cage-velocity">Exit velocity · MPH</label><input id="cage-velocity" v-model="velocity" class="velocity" inputmode="decimal" placeholder="—" :disabled="!writable" /><div class="keypad"><button v-for="value in ['1','2','3','4','5','6','7','8','9','0','.','⌫']" :key="value" type="button" :disabled="!writable" :aria-label="value === '⌫' ? 'Delete last digit' : value" @click="key(value)">{{ value }}</button></div><p class="help">Enter a velocity greater than 0 and up to 130 mph, then mark contact.</p><p v-if="hit && Math.abs(hit.sprayDeg) > 60" role="alert">Select contact within a spray angle of −60° to 60°.</p><p v-if="estimateError" role="alert">{{ estimateError }}</p><div class="save-actions"><button type="button" :disabled="!writable" @click="clearPitch">Clear</button><button class="primary" :disabled="!writable || !validPitch">{{ busy ? 'Saving…' : 'Save' }}</button></div></form></div>
     <footer><button :disabled="busy || !!pending" @click="router.push('/training/cage')">← Leave session</button></footer></div>

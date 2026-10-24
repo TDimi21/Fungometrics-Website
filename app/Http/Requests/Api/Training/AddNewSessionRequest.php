@@ -40,7 +40,36 @@ class AddNewSessionRequest extends FormRequest
             'scripted' => ['nullable', 'boolean'],
             'note' => ['required'],
             'players' => ['required', 'array'],
-            'cage' => ['nullable', 'array']
+            'cage' => ['nullable', 'array'],
+            'script_plan' => ['nullable', 'array', 'min:1', 'max:200'],
+            ...$this->scriptRules(),
+        ];
+    }
+
+    private function scriptRules(): array
+    {
+        if (!$this->filled('script_plan')) return [];
+        $base = ['type' => ['required', 'in:P,B,C']];
+        if ($this->input('type') === 'P') return $base + [
+            'scripted' => ['required', 'accepted'],
+            'script_plan.*' => ['array:pitchType,intendedCoord'],
+            'script_plan.*.pitchType' => ['required', 'in:FB,CH,SL,CV,OTHER'],
+            'script_plan.*.intendedCoord' => ['required', 'integer', 'between:1,3600'],
+        ];
+        if ($this->input('type') === 'B') return $base + [
+            'scripted' => ['required', 'accepted'],
+            'script_plan.*' => ['array:round_type,swing_count'],
+            'script_plan.*.round_type' => ['required', 'string', 'max:40', 'distinct', 'in:BARREL,OPPO_GAP,PULL_DAMAGE,TWO_STRIKE,SAC_FLY,HIT_AND_RUN,LINE_DRIVE,HARD_CONTACT,FASTBALL_HUNT,OFFSPEED_ADJ,GAP_TO_GAP,INSIDE_PITCH,OUTSIDE_PITCH,FIRST_PITCH_ATK,BEHIND_COUNT,ADVANTAGE_COUNT,OPPO_POWER,CONTACT,PRESSURE,CHAMPIONSHIP'],
+            'script_plan.*.swing_count' => ['required', 'integer', 'between:1,20'],
+        ];
+        return $base + [
+            'script_plan.*' => ['array:drillId,drillLabel,skill,objective,coachingCues,swing_count'],
+            'script_plan.*.drillId' => ['required', 'string', 'max:40'],
+            'script_plan.*.drillLabel' => ['required', 'string', 'max:150'],
+            'script_plan.*.skill' => ['required', 'string', 'max:100'],
+            'script_plan.*.objective' => ['required', 'string', 'max:1000'],
+            'script_plan.*.coachingCues' => ['required', 'string', 'max:1000'],
+            'script_plan.*.swing_count' => ['required', 'integer', 'between:1,50'],
         ];
     }
 

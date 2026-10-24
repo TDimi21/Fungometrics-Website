@@ -1,3 +1,4 @@
+import { validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle } from '@/utils/scriptedPractice'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { parse, compileScript } from '@vue/compiler-sfc'
@@ -11,8 +12,8 @@ import { getPitchInfoFromCoordinate } from '@/utils/bullpenCoordinates'
 
 const source = compileScript(parse(readFileSync('resources/js/pages/training/CageScoring.vue', 'utf8')).descriptor, { id: 'bp-test' }).content
 const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
-async function screen({ role = 'coach', completed = false, scripted = false, type = 'C', fails = false, empty = false } = {}) {
-  const session = { id: 'session-1', team_id: 'team-1', type, cage_data: { width: { ft: 14, inch: 6 }, height: { ft: 12, inch: 0 }, length: { ft: 70, inch: 0 } }, is_completed: completed, is_scripted: scripted, players: [{ id: 'p1', name: { full: 'One' } }, { id: 'p2', name: { full: 'Two' } }] }
+async function screen({ role = 'coach', completed = false, scripted = false, type = 'C', fails = false, empty = false, plan = null } = {}) {
+  const session = { id: 'session-1', team_id: 'team-1', type, cage_data: { width: { ft: 14, inch: 6 }, height: { ft: 12, inch: 0 }, length: { ft: 70, inch: 0 } }, is_completed: completed, is_scripted: scripted, script_plan:plan, players: [{ id: 'p1', name: { full: 'One' } }, { id: 'p2', name: { full: 'Two' } }] }
   const rows = [{ id: 'r1', user_id: 'p1', is_contact: true, launch_angle_velocity: 80 }, { id: 'r2', user_id: 'p2', is_contact: false, launch_angle_velocity: 0 }]
   let attempts = 0, leave
   const api = {
@@ -28,7 +29,7 @@ async function screen({ role = 'coach', completed = false, scripted = false, typ
     axiosPut: vi.fn(async () => ({})),
   }
   const router = { push: vi.fn(async () => {}) }
-  const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, onUnmounted: Vue.onUnmounted, window: { addEventListener: vi.fn(), removeEventListener: vi.fn() }, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: { session: session.id } }), useRouter: () => router,
+  const mocks = { validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle, ScriptPlanBuilder: {}, computed: Vue.computed, onMounted: Vue.onMounted, onUnmounted: Vue.onUnmounted, window: { addEventListener: vi.fn(), removeEventListener: vi.fn() }, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: { session: session.id } }), useRouter: () => router,
     onBeforeRouteLeave: fn => { leave = fn },
     useTrainingStore: () => ({ trainingActive: {}, setDataTraining: vi.fn() }), useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
     usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, LiveCageStats: {}, CageTarget: {},
@@ -88,4 +89,11 @@ describe('Cage scoring', () => {
   expect(mapper.mapTap(.8,.5).sprayDeg).toBeGreaterThan(0)
   expect(cageDimensions(null)).toBeNull()
  })
+})
+
+it('resumes cage drill rounds from saved swings and stops at the plan total', async () => {
+ const plan=[{drillId:'cage1',drillLabel:'Short Bat',swing_count:2},{drillId:'cage2',drillLabel:'Top Hand',swing_count:1}]
+ const {s,api,app}=await screen({plan})
+ expect(s.drill.value.drillId).toBe('cage2'); await hit(s);await s.save();expect(s.drill.value).toBeNull()
+ await hit(s);await s.save();expect(api.axiosPost.mock.calls.filter(([path])=>path==='result/cage')).toHaveLength(1);app.unmount()
 })

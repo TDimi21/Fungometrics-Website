@@ -65,6 +65,9 @@ class AddNewSession extends Controller
                 unset($dataRequest['planner_plan_id'],$dataRequest['planner_item_id']);
             }
             $practice = (new CreateServiceData(new Practice()))->handle($dataRequest);
+            if ($practice->type === 'B' && $practice->script_plan) {
+                \App\Models\ScriptedBpPlan::create(['practice_id' => $practice->id, 'rounds' => $practice->script_plan]);
+            }
             $metaCage = null;
             if (isset($dataRequest['cage'])) {
                 $metaCage = (new CreateServiceData(new CagePracticeMeta()))->handle([

@@ -28,9 +28,10 @@ to scoring and reloads saved results. Completed sessions are read-only. Player
 views request player-scoped results and additionally filter locally. Uncertain
 saves block repeat submission until saved results have been reloaded for review.
 
-This implements standard cage sessions. Mobile calibration editing and separate
-cage game/drill builders are not introduced on the web. Default cage calibration
-matches mobile. No database migrations or mobile changes are required.
+Standard cage and guided drill rounds are available. See scripted-web-practices.txt
+for drill setup, persistence and its required migration. Mobile calibration editing
+and the separate cage game builder are not introduced on the web. Default cage
+calibration matches mobile. No mobile changes are included.
 
 Validation: full frontend suite, production build, and existing cage estimation,
 CRUD and distance integration PHP tests. No browser visual verification or live

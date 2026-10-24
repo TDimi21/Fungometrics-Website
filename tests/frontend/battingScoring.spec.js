@@ -1,3 +1,4 @@
+import { validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle } from '@/utils/scriptedPractice'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { parse, compileScript } from '@vue/compiler-sfc'
@@ -10,12 +11,13 @@ import { getPitchInfoFromCoordinate } from '@/utils/bullpenCoordinates'
 
 const source = compileScript(parse(readFileSync('resources/js/pages/training/BattingScoring.vue', 'utf8')).descriptor, { id: 'bp-test' }).content
 const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
-async function screen({ role = 'coach', completed = false, scripted = false, type = 'B', fails = false, empty = false } = {}) {
+async function screen({ role = 'coach', completed = false, scripted = false, type = 'B', fails = false, empty = false, plan = null } = {}) {
   const session = { id: 'session-1', team_id: 'team-1', type, is_completed: completed, is_scripted: scripted, players: [{ id: 'p1', name: { full: 'One' } }, { id: 'p2', name: { full: 'Two' } }] }
   const rows = [{ id: 'r1', batter_id: 'p1', is_contact: true, velocity: 80 }, { id: 'r2', batter_id: 'p2', is_contact: false, velocity: 0 }]
   let attempts = 0, leave
   const api = {
     axiosGet: vi.fn(async path => {
+      if (path.startsWith('result/scripted-bp/')) return {data:{data:{plan:{rounds:plan},batters:[]}}}
       if (!path.startsWith('training/') && empty) throw { response: { status: 404, data: { code: '019-E' } } }
       return { data: { data: path.startsWith('training/') ? session : { ball_x_ball: rows } } }
     }),
@@ -26,7 +28,7 @@ async function screen({ role = 'coach', completed = false, scripted = false, typ
     axiosPut: vi.fn(async () => ({})),
   }
   const router = { push: vi.fn(async () => {}) }
-  const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, onUnmounted: Vue.onUnmounted, window: { addEventListener: vi.fn(), removeEventListener: vi.fn() }, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: { session: session.id } }), useRouter: () => router,
+  const mocks = { validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle, ScriptPlanBuilder: {}, computed: Vue.computed, onMounted: Vue.onMounted, onUnmounted: Vue.onUnmounted, window: { addEventListener: vi.fn(), removeEventListener: vi.fn() }, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: { session: session.id } }), useRouter: () => router,
     onBeforeRouteLeave: fn => { leave = fn },
     useTrainingStore: () => ({ trainingActive: {}, setDataTraining: vi.fn() }), useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
     usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, LivePracticeStats: {},
@@ -90,4 +92,14 @@ describe('Batting web scorer', () => {
       expect(Math.abs(result.distance_travel-200)).toBeLessThan(6)
     }
   })
+})
+
+it('advances scripted rounds only after atomic confirmation and keeps session stats', async () => {
+ const {s,api,app}=await screen({scripted:true,plan:[{round_type:'BARREL',swing_count:1}],empty:true})
+ expect(s.step.value.playerId).toBe('p1');swing(s)
+ api.axiosPost.mockImplementation(async (path,body)=>({data:{status:'success',data:{swing:{...body,id:'swing1',raw_score:8},batting_result:{id:'result1',batter_id:body.batter_id,velocity:88,is_contact:true},score:8}}}))
+ await s.save()
+ expect(api.axiosPost).toHaveBeenCalledWith('result/scripted-bp/swing',expect.objectContaining({batter_id:'p1',round_type:'BARREL',round_swing_index:1,contact_type:'Hard',web_result:expect.any(Object)}))
+ expect(s.rows.value).toHaveLength(1);expect(s.scriptSwings.value).toHaveLength(1);expect(s.selected.value).toBe('p2')
+ expect(s.step.value.playerId).toBe('p2'); app.unmount()
 })

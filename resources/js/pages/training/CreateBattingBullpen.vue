@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
+import ScriptPlanBuilder from '@/components/practice/ScriptPlanBuilder.vue'
+import { validScript } from '@/utils/scriptedPractice'
 import Layout from '@/layout/Layout.vue'
 import { useUserStore } from '@/store/user'
 import { useTeamStore } from '@/store/team'
@@ -21,6 +23,8 @@ const validDimensions = computed(() => Object.values(dimensions.value).every(d =
 const isBullpen = slug === 'bullpen'
 const title = isCage ? 'Cage' : isBullpen ? 'Bullpen' : 'Batting'
 const participants = isBullpen ? 'Pitchers' : 'Hitters'
+const scriptMode = ref(false), scriptPlan = ref([])
+const scriptType = isCage ? 'C' : isBullpen ? 'P' : 'B'
 const creationUncertain = ref(false)
 const teamId = ref(teamStore.team?.id || '')
 const teams = computed(() => [...new Map([teamStore.team, ...teamStore.teams].filter(t => t?.id).map(t => [t.id, t])).values()])
@@ -30,7 +34,7 @@ const loading = ref(false), saving = ref(false), error = ref('')
 const selected = computed(() => selectedIds.value.map(id => roster.value.find(p => p.id === id)).filter(Boolean))
 const playerName = player => player.name?.full || [player.name?.first, player.name?.last].filter(Boolean).join(' ') || 'Player'
 const visiblePlayers = computed(() => roster.value.filter(p => `${playerName(p)} ${p.shirt_number || ''}`.toLowerCase().includes(search.value.trim().toLowerCase())))
-const canCreate = computed(() => Boolean(['bullpen', 'batting', 'cage'].includes(slug) && (!isCage || validDimensions.value) && (selfCage || teamId.value) && selected.value.length && !loading.value && !saving.value && !creationUncertain.value))
+const canCreate = computed(() => Boolean(['bullpen', 'batting', 'cage'].includes(slug) && (!isCage || validDimensions.value) && (!scriptMode.value || validScript(scriptPlan.value, scriptType)) && (selfCage || teamId.value) && selected.value.length && !loading.value && !saving.value && !creationUncertain.value))
 let rosterRequest = 0
 async function loadRoster() {
   const request = ++rosterRequest
@@ -72,6 +76,7 @@ async function createPractice() {
     const response = await axiosPost('training', {
       team: selfCage ? null : teamId.value, type: isCage ? 'C' : isBullpen ? 'P' : 'B',
       ...(isCage ? { cage: Object.fromEntries(Object.entries(dimensions.value).map(([key, value]) => [key, { ft: Number(value.ft), inch: Number(value.inch) }])) } : {}),
+      ...(scriptMode.value ? { script_plan: scriptPlan.value, scripted: !isCage } : {}),
       note: note.value.trim() || `${title} session`,
       players: selected.value.map((player, sort) => ({ id: player.id, sort })),
     })
@@ -82,7 +87,8 @@ async function createPractice() {
     if (!selfCage) teamStore.setTeam(teams.value.find(t => t.id === teamId.value))
     if (!selfCage) playerStore.setPlayers(roster.value)
     await router.push({ path: `/track/${slug}`, query: { session: session.id } })
-  } catch {
+  } catch (err) {
+    if ([403,422].includes(err.response?.status)) { error.value = err.response?.data?.required_entitlement ? `Your plan does not include ${err.response.data.required_entitlement.replaceAll('_',' ')}.` : 'Check your players, dimensions and practice plan, then try again.'; return }
     creationUncertain.value = true
     error.value = 'Unable to confirm creation. Use Cancel to check your session list before creating another practice.'
   } finally { saving.value = false }
@@ -110,11 +116,8 @@ async function createPractice() {
           <button :disabled="saving" :aria-label="`Remove ${playerName(player)}`" @click="removePlayer(player.id)">×</button>
         </li>
       </ol>
-      <div v-if="!isCage" class="practice-kind" aria-label="Practice mode">
-        <button type="button" class="regular" aria-pressed="true">REGULAR</button>
-        <button type="button" disabled aria-describedby="scripted-help">⚡ {{ isBullpen ? 'SCRIPTED' : 'SCRIPTED BP' }}</button>
-      </div>
-      <p v-if="!isCage" id="scripted-help" class="scripted-help">Scripted practice is available in the mobile app. Web scoring currently supports regular practice.</p>
+      <div class="practice-kind" aria-label="Practice mode"><button type="button" :class="{regular:!scriptMode}" :aria-pressed="!scriptMode" :disabled="saving" @click="scriptMode=false">REGULAR</button><button type="button" :class="{regular:scriptMode}" :aria-pressed="scriptMode" :disabled="saving" @click="scriptMode=true">⚡ {{ isCage ? 'PRACTICE ROUNDS' : isBullpen ? 'SCRIPTED' : 'SCRIPTED BP' }}</button></div>
+      <ScriptPlanBuilder v-if="scriptMode" v-model="scriptPlan" :type="scriptType" :disabled="saving" />
       <fieldset v-if="isCage" class="cage-dimensions"><legend>CAGE DIMENSIONS</legend><p>Measure your cage before scoring. Angles use these dimensions and the hitter’s height.</p><div v-for="(dimension, key) in dimensions" :key="key"><strong>{{ key }}</strong><label>Feet<input v-model.number="dimension.ft" type="number" min="1" max="300" step="1" :disabled="saving" /></label><label>Inches<input v-model.number="dimension.inch" type="number" min="0" max="11" step="1" :disabled="saving" /></label></div><p v-if="!validDimensions" role="alert">Enter positive whole feet and inches from 0 to 11.</p></fieldset>
       <button class="setup-row" :disabled="saving" :aria-expanded="notesOpen" aria-controls="practice-notes" @click="notesOpen = !notesOpen">
         <span>NOTES <small>{{ note.trim() ? 'Notes added' : 'Optional' }}</small></span><span class="plus" aria-hidden="true">{{ notesOpen ? '−' : '+' }}</span>

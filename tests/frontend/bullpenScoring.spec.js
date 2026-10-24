@@ -1,3 +1,4 @@
+import { pitchAccuracy, validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle } from '@/utils/scriptedPractice'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { parse, compileScript } from '@vue/compiler-sfc'
@@ -8,8 +9,8 @@ import { getPitchInfoFromCoordinate } from '@/utils/bullpenCoordinates'
 
 const source = compileScript(parse(readFileSync('resources/js/pages/training/BullpenScoring.vue', 'utf8')).descriptor, { id: 'bp-test' }).content
 const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
-async function screen({ role = 'coach', completed = false, scripted = false, type = 'P', fails = false, empty = false } = {}) {
-  const session = { id: 'session-1', team_id: 'team-1', type, is_completed: completed, is_scripted: scripted, players: [{ id: 'p1', name: { full: 'One' } }, { id: 'p2', name: { full: 'Two' } }] }
+async function screen({ role = 'coach', completed = false, scripted = false, type = 'P', fails = false, empty = false, plan = null } = {}) {
+  const session = { id: 'session-1', team_id: 'team-1', type, is_completed: completed, is_scripted: scripted, script_plan:plan, players: [{ id: 'p1', name: { full: 'One' } }, { id: 'p2', name: { full: 'Two' } }] }
   const rows = [{ id: 'r1', pitcher_id: 'p1', is_strike: true, miles_per_hour: 80 }, { id: 'r2', pitcher_id: 'p2', is_strike: false, miles_per_hour: 0 }]
   let attempts = 0, leave
   const api = {
@@ -24,7 +25,7 @@ async function screen({ role = 'coach', completed = false, scripted = false, typ
     axiosPut: vi.fn(async () => ({})),
   }
   const router = { push: vi.fn(async () => {}) }
-  const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, onUnmounted: Vue.onUnmounted, window: { addEventListener: vi.fn(), removeEventListener: vi.fn() }, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: { session: session.id } }), useRouter: () => router,
+  const mocks = { pitchAccuracy, validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle, ScriptPlanBuilder: {}, computed: Vue.computed, onMounted: Vue.onMounted, onUnmounted: Vue.onUnmounted, window: { addEventListener: vi.fn(), removeEventListener: vi.fn() }, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: { session: session.id } }), useRouter: () => router,
     onBeforeRouteLeave: fn => { leave = fn },
     useTrainingStore: () => ({ trainingActive: {}, setDataTraining: vi.fn() }), useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
     usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, LivePracticeStats: {},
@@ -84,4 +85,14 @@ describe('Bullpen web scoring', () => {
     expect(getPitchInfoFromCoordinate((15 - 1) * 60 + 16).is_strike).toBe(true)
     expect(getPitchInfoFromCoordinate((14 - 1) * 60 + 16).is_strike).toBe(false)
   })
+})
+
+it('resumes each pitcher at their saved script position and records intended targets', async () => {
+ const plan=[{pitchType:'FB',intendedCoord:1830},{pitchType:'CH',intendedCoord:1900}]
+ const {s,api,app}=await screen({scripted:true,plan})
+ expect(s.calledPitch.value).toEqual(plan[1]); expect(s.pitchType.value).toBe('CH')
+ s.location.value=1840; s.velocity.value='80'; await s.save()
+ expect(api.axiosPost).toHaveBeenCalledWith('result/bullpen',expect.objectContaining({intended_location:1900,intended_pitch_type:'CH',pitcher_id:'p1'}))
+ expect(s.scriptDone.value).toBe(true); await s.save(); expect(api.axiosPost).toHaveBeenCalledTimes(1)
+ s.selected.value='p2';await Vue.nextTick();expect(s.calledPitch.value).toEqual(plan[1]);app.unmount()
 })

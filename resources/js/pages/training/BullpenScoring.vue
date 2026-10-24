@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import LivePracticeStats from '@/components/statistics/LivePracticeStats.vue'
+import { targetStyle, validScript, pitchAccuracy } from '@/utils/scriptedPractice'
 import Layout from '@/layout/Layout.vue'
 import { useTrainingStore } from '@/store/training'
 import { useUserStore } from '@/store/user'
@@ -33,6 +34,10 @@ const teamStats = computed(() => {
   return { count, percent: count ? Math.round(strikes / count * 100) : null }
 })
 const ownRows = computed(() => visibleRows.value.filter(r => r.pitcher_id === selected.value))
+const script = computed(() => session.value?.is_scripted ? session.value.script_plan || [] : [])
+const calledPitch = computed(() => script.value[ownRows.value.length])
+const scriptDone = computed(() => session.value?.is_scripted && !calledPitch.value)
+watch(calledPitch, value => { if (!pending.value && value) pitchType.value = value.pitchType })
 const stats = computed(() => {
   const speeds = ownRows.value.map(r => Number(r.miles_per_hour)).filter(n => n > 0)
   const strikes = ownRows.value.filter(r => r.is_strike === true || Number(r.is_strike) === 1).length
@@ -42,11 +47,11 @@ const stats = computed(() => {
     average: speeds.length ? Math.round(speeds.reduce((a,b) => a+b,0) / speeds.length * 10) / 10 : null }
 })
 const writable = computed(() => ready.value && current.value && !session.value?.is_completed && !busy.value && !pending.value)
-const validPitch = computed(() => location.value > 0 && pitchTypes.includes(pitchType.value) && (velocity.value === '' || (/^\d+$/.test(String(velocity.value)) && Number(velocity.value) >= 10 && Number(velocity.value) <= 2147483647)))
+const validPitch = computed(() => !scriptDone.value && location.value > 0 && pitchTypes.includes(pitchType.value) && (velocity.value === '' || (/^\d+$/.test(String(velocity.value)) && Number(velocity.value) >= 10 && Number(velocity.value) <= 2147483647)))
 const pointStyle = computed(() => ({ left: `${(((location.value - 1) % 60) + .5) / 60 * 100}%`, top: `${(Math.floor((location.value - 1) / 60) + .5) / 60 * 100}%` }))
 const pitchInfo = computed(() => getPitchInfoFromCoordinate(location.value))
 const available = computed(() => (roster.players || []).filter(p => !(session.value?.players || []).some(member => member.id === p.id)))
-function clearPitch() { location.value = 0; pitchType.value = ''; contact.value = 'TK'; velocity.value = '' }
+function clearPitch() { location.value = 0; pitchType.value = calledPitch.value?.pitchType || ''; contact.value = 'TK'; velocity.value = '' }
 watch(selected, clearPitch)
 onBeforeRouteLeave(() => !pending.value && !busy.value)
 async function load() {
@@ -56,7 +61,7 @@ async function load() {
     if (!practiceId) throw new Error('Choose a bullpen session before scoring.')
     session.value = (await axiosGet(`training/${practiceId}`)).data.data
     if (session.value.type !== 'P') throw new Error('Choose a bullpen session from Practice Sessions.')
-    if (session.value.is_scripted) throw new Error('Continue this scripted bullpen in the app to preserve its pitch plan.')
+    if (session.value.is_scripted && !validScript(session.value.script_plan, 'P')) throw new Error('This app-created bullpen keeps its pitch plan on the original device. Continue there; its plan has not been uploaded.')
     let results = []
     try { results = extractSessionRows((await axiosGet(`statistics/${practiceId}/bullpen`, user.userData.type === 'player' ? { player: 1 } : undefined)).data, 'bullpen') }
     catch (err) { if (err.response?.status !== 404 || err.response?.data?.code !== '020-E') throw err }
@@ -90,13 +95,14 @@ async function save() {
   if (busy.value || (!pending.value && (!writable.value || !validPitch.value))) return
   if (!pending.value) pending.value = { practice_id: session.value.id, team_id: session.value.team_id || null,
     pitcher_id: selected.value, pitch_mark: location.value, ...getPitchInfoFromCoordinate(location.value),
+    ...(calledPitch.value ? { intended_location: calledPitch.value.intendedCoord, intended_pitch_type: calledPitch.value.pitchType } : {}),
     type_throw: pitchType.value, trajectory: contact.value, miles_per_hour: Number(velocity.value || 0), is_in_match: false }
   busy.value = true; error.value = ''; notice.value = ''
   try {
     const response = await submitPitch(pending.value)
     const saved = response.data.data
     if (!rows.value.some(r => r.id === saved.id)) rows.value.push(saved)
-    pending.value = null; clearPitch(); notice.value = 'Pitch saved.'
+    pending.value = null; clearPitch(); notice.value = saved.intended_location ? `Pitch saved · ${pitchAccuracy(saved.intended_location, saved.pitch_mark)?.grade || 'Recorded'} accuracy` : 'Pitch saved.'
   } catch (err) {
     if (err.response?.status === 422) { pending.value = null; error.value = 'Pitch was rejected. Check the details and try again.' }
     else error.value = 'Pitch confirmation is pending. Retry this same pitch before leaving or changing details.'
@@ -148,6 +154,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
             <button class="primary" :disabled="!writable" @click="finishing = true">End practice →</button>
           </nav>
         </header>
+        <section v-if="ready && session.is_scripted" class="panel finish"><h2>{{ scriptDone ? 'Pitch sequence complete for this pitcher' : `Called pitch ${ownRows.length+1} of ${script.length}: ${calledPitch.pitchType}` }}</h2><p v-if="calledPitch">Cyan crosshair: intended location. Tap the actual pitch location before saving.</p><p v-else>Select another pitcher, review statistics, or end practice.</p><details><summary>Pitch sequence</summary><ol><li v-for="(step,i) in script" :key="i">{{ i+1 }}. {{ step.pitchType }} · target {{ step.intendedCoord }}</li></ol></details></section>
         <p v-if="loading" class="notice" role="status">Loading session…</p>
         <div v-if="error" role="alert" class="error">{{ error }} <button v-if="!pending" :disabled="loading || busy" @click="load">Reload session</button></div>
         <p v-if="notice" class="notice" role="status">{{ notice }}</p>
@@ -168,7 +175,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
           <section class="target-panel" aria-label="Catcher target">
             <div class="catcher" role="button" tabindex="0" :aria-disabled="!writable" aria-label="Select pitch location with tap or arrow keys" @click="chooseLocation" @keydown="moveLocation">
               <div class="strike-zone" aria-hidden="true" />
-              <span v-if="location" class="pitch-dot" :style="pointStyle" aria-hidden="true" />
+              <span v-if="calledPitch" class="intended-target" :style="targetStyle(calledPitch.intendedCoord)" aria-hidden="true">+</span><span v-if="location" class="pitch-dot" :style="pointStyle" aria-hidden="true" />
             </div>
             <p class="target-label" aria-live="polite">{{ location ? `${pitchInfo.zone === 'S' ? 'Strike' : 'Ball'} · ${pitchInfo.pitch_side}` : 'Tap pitch location · Arrow keys also supported' }}</p>
           </section>
@@ -194,4 +201,4 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
 @media(min-width:1400px){.scoring-columns{min-height:580px}.options button{height:65px}.keypad button{min-height:75px}.summary dd{font-size:27px}}
 @media(max-width:1000px){.bullpen-screen{padding:8px}.scoring-stage{padding:10px}.scorebar{flex-wrap:wrap}.scorebar nav{margin-left:auto}.scoring-columns{grid-template-columns:minmax(220px,31%) minmax(170px,1fr) minmax(200px,28%);gap:8px}.panel{padding:10px}.options button{font-size:17px;padding:8px}.summary{padding:6px}.summary dt{font-size:9px;letter-spacing:0}.summary dd{font-size:18px}.keypad{gap:8px}}
 @media(max-width:700px) and (orientation:portrait){.scoring-columns{grid-template-columns:1fr 1fr}.target-panel{grid-column:1/-1;grid-row:1;max-width:350px;width:100%;justify-self:center}.catcher{background:url('../../assets/img/training/bullpen-stadium.png') center/cover}.scoring-stage{background-size:auto 100%;background-position:center}.pitch-panel,.velocity-panel{min-width:0}.summary-cards{grid-template-columns:1fr}.options button{font-size:14px}.keypad button{min-height:48px;font-size:20px}.save-actions{gap:5px}.save-actions button{font-size:16px;padding:8px}.scorebar nav button{font-size:12px;padding:8px 10px}.stage-footer{flex-wrap:wrap}}
-</style>
+.intended-target{position:absolute;transform:translate(-50%,-50%);color:#72ffee;font-size:42px;font-weight:900;pointer-events:none;text-shadow:0 0 4px black}</style>

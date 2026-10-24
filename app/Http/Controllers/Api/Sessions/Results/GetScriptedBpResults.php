@@ -20,6 +20,7 @@ class GetScriptedBpResults extends Controller
         try {
             $plan   = ScriptedBpPlan::where('practice_id', $practice)->first();
             $swings = ScriptedBpSwing::where('practice_id', $practice)
+                ->when(request()->user()?->type === 'player', fn ($query) => $query->where('batter_id', request()->user()->id))
                 ->with('batter.profile')
                 ->orderBy('batter_id')
                 ->orderBy('sort')

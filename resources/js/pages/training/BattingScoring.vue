@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import LivePracticeStats from '@/components/statistics/LivePracticeStats.vue'
+import { nextBattingStep, roundLabel, roundGoal, validScript } from '@/utils/scriptedPractice'
 import Layout from '@/layout/Layout.vue'
 import { useTrainingStore } from '@/store/training'
 import { useUserStore } from '@/store/user'
@@ -22,9 +23,11 @@ const location = ref(0), field = ref(0), quality = ref(''), trajectory = ref('')
 const loading = ref(true), busy = ref(false), ready = ref(false), pending = ref(null)
 const error = ref(''), notice = ref(''), showStats = ref(false), finishing = ref(false), note = ref(''), addId = ref(''), adding = ref(false)
 const practiceId = route.query.session || training.trainingActive?.id
+const scriptRounds = ref([]), scriptSwings = ref([])
 const qualities = { W: 'WEAK', A: 'AVG', H: 'HARD', M: 'MISS/F' }
+const qualityOptions = computed(() => session.value?.is_scripted ? { R:'BARREL', ...qualities } : qualities)
 const trajectories = ['GB', 'PF', 'FB', 'LD']
-const players = computed(() => (session.value?.players || []).filter(p => user.userData.type !== 'player' || p.id === user.userData.id))
+const players = computed(() => [...(session.value?.players || [])].sort((a,b) => Number(a.sort || 0)-Number(b.sort || 0)).filter(p => user.userData.type !== 'player' || p.id === user.userData.id))
 const name = p => p?.name?.full || [p?.name?.first, p?.name?.last].filter(Boolean).join(' ') || 'Player'
 const current = computed(() => players.value.find(p => p.id === selected.value))
 const visibleRows = computed(() => user.userData.type === 'player' ? rows.value.filter(r => r.batter_id === user.userData.id) : rows.value)
@@ -33,6 +36,8 @@ const teamStats = computed(() => {
   const strikes = visibleRows.value.filter(r => r.is_contact === true || Number(r.is_contact) === 1).length
   return { count, percent: count ? Math.round(strikes / count * 100) : null }
 })
+const step = computed(() => nextBattingStep(scriptRounds.value, players.value, scriptSwings.value))
+watch(step, value => { if (session.value?.is_scripted && value && !pending.value) selected.value = value.playerId })
 const ownRows = computed(() => visibleRows.value.filter(r => r.batter_id === selected.value))
 const stats = computed(() => {
   const speeds = ownRows.value.map(r => Number(r.velocity)).filter(n => n > 0)
@@ -43,7 +48,7 @@ const stats = computed(() => {
     average: speeds.length ? Math.round(speeds.reduce((a,b) => a+b,0) / speeds.length * 10) / 10 : null }
 })
 const writable = computed(() => ready.value && current.value && !session.value?.is_completed && !busy.value && !pending.value)
-const validPitch = computed(() => (!['W', 'A', 'H'].includes(quality.value) || trajectories.includes(trajectory.value)) && (velocity.value === '' || (/^\d+$/.test(String(velocity.value)) && Number(velocity.value) <= 2147483647)))
+const validPitch = computed(() => (!session.value?.is_scripted || (!!step.value && step.value.playerId === selected.value && ['R','H','A','W','M'].includes(quality.value) && Number(velocity.value || 0) <= 130)) && (!['W', 'A', 'H', 'R'].includes(quality.value) || trajectories.includes(trajectory.value)) && (velocity.value === '' || (/^\d+$/.test(String(velocity.value)) && Number(velocity.value) <= 2147483647)))
 const pointStyle = computed(() => ({ left: `${(((location.value - 1) % 60) + .5) / 60 * 100}%`, top: `${(Math.floor((location.value - 1) / 60) + .5) / 60 * 100}%` }))
 const pitchInfo = computed(() => getPitchInfoFromCoordinate(location.value))
 const available = computed(() => (roster.players || []).filter(p => !(session.value?.players || []).some(member => member.id === p.id)))
@@ -61,12 +66,17 @@ async function load() {
     if (!practiceId) throw new Error('Choose a batting session before scoring.')
     session.value = (await axiosGet(`training/${practiceId}`)).data.data
     if (session.value.type !== 'B') throw new Error('Choose a batting session from Practice Sessions.')
-    if (session.value.is_scripted) throw new Error('Continue this scripted batting in the app to preserve its pitch plan.')
+    if (session.value.is_scripted) {
+      const result = (await axiosGet(`result/scripted-bp/${practiceId}`)).data.data
+      scriptRounds.value = result.plan?.rounds || []
+      if (!validScript(scriptRounds.value, 'B')) throw new Error('This scripted batting session has no valid saved plan. Continue in the app that created it.')
+      scriptSwings.value = (result.batters || []).flatMap(b => b.rounds.flatMap(r => r.swings))
+    }
     let results = []
     try { results = extractSessionRows((await axiosGet(`statistics/${practiceId}/batting`, user.userData.type === 'player' ? { player: 1 } : undefined)).data, 'batting') }
     catch (err) { if (err.response?.status !== 404 || err.response?.data?.code !== '019-E') throw err }
     rows.value = results
-    selected.value = players.value.some(p => p.id === selected.value) ? selected.value : players.value[0]?.id || ''
+    selected.value = session.value.is_scripted && step.value ? step.value.playerId : players.value.some(p => p.id === selected.value) ? selected.value : players.value[0]?.id || ''
     training.setDataTraining(session.value)
     if (pending.value) { showStats.value = true; notice.value = 'Saved results reloaded. Check the last swing before recording another.' }
     pending.value = null; clearPitch(); ready.value = true
@@ -98,10 +108,29 @@ async function save() {
   busy.value = true; error.value = ''; notice.value = ''
   try {
     const payload = battingPayload({ session: session.value, batter: selected.value, pitch: location.value, field: field.value, quality: quality.value, trajectory: trajectory.value, velocity: velocity.value })
-    const response = await axiosPost('result/batting', payload)
-    const saved = response.data?.data
-    if (response.data?.status !== 'success' || !saved?.id) throw new Error('No receipt')
-    rows.value.push(saved); clearPitch(); notice.value = 'Swing saved.'
+    let saved
+    if (session.value.is_scripted) {
+      const direction = String(payload.field_direction || '').toUpperCase()
+      const response = await axiosPost('result/scripted-bp/swing', {
+        practice_id: session.value.id, batter_id: step.value.playerId, round_type: step.value.round_type, round_swing_index: step.value.index,
+        contact_type: {R:'Barrel',H:'Hard',A:'Average',W:'Weak',M:'Miss'}[quality.value],
+        trajectory: {GB:'GroundBall',LD:'LineDrive',FB:'FlyBall',PF:'PopUp'}[trajectory.value] || null,
+        direction: direction === 'LF' ? 'Pull' : direction === 'RF' ? 'Oppo' : direction === 'CF' ? 'Middle' : null,
+        exit_velocity: quality.value === 'M' ? null : velocity.value === '' ? null : Number(velocity.value),
+        web_result: { pitch_mark: payload.pitch_mark, field_mark: payload.field_mark, pitch_location:payload.pitch_location, zone:payload.zone, field_direction:payload.field_direction },
+      })
+      saved = response.data?.data?.batting_result
+      const swing = response.data?.data?.swing
+      if (response.data?.status !== 'success' || !saved?.id || !swing?.id) throw new Error('No receipt')
+      scriptSwings.value.push(swing)
+      notice.value = `Swing saved · ${response.data.data.score} points`
+      if (step.value) selected.value = step.value.playerId
+    } else {
+      const response = await axiosPost('result/batting', payload)
+      saved = response.data?.data
+      if (response.data?.status !== 'success' || !saved?.id) throw new Error('No receipt')
+    }
+    rows.value.push(saved); clearPitch(); if (!session.value.is_scripted) notice.value = 'Swing saved.'
   } catch (err) {
     if (err.response?.status === 422) error.value = 'Swing rejected. Check the details and try again.'
     else { pending.value = true; error.value = 'Save could not be confirmed. Check saved session results before recording another swing. Do not resubmit this swing blindly.' }
@@ -145,10 +174,11 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
         <header class="scorebar">
           <div class="pitcher-tabs" aria-label="Session hitters">
             <button v-if="user.userData.type === 'coach'" class="primary add-pitcher" aria-label="Add hitter" :disabled="!writable" @click="adding = !adding">+</button>
-            <button v-for="player in players" :key="player.id" :class="{ primary: selected === player.id }" :aria-pressed="selected === player.id" :disabled="busy || !!pending" @click="selected = player.id">{{ name(player) }}</button>
+            <button v-for="player in players" :key="player.id" :class="{ primary: selected === player.id }" :aria-pressed="selected === player.id" :disabled="busy || !!pending || session?.is_scripted" @click="selected = player.id">{{ name(player) }}</button>
           </div>
           <nav aria-label="Session actions"><button :disabled="!ready" :aria-expanded="showStats" aria-controls="batting-stats" @click="showStats = !showStats">{{ showStats ? 'Hide statistics' : 'Show statistics' }} →</button><button :disabled="!ready || busy || !!pending" @click="report">Session report</button><button class="primary" :disabled="!writable" @click="finishing = true">End practice →</button></nav>
         </header>
+        <section v-if="ready && session.is_scripted" class="panel finish"><h2>{{ step ? roundLabel(step.round_type) : 'Scripted BP complete' }}</h2><p v-if="step">Round {{ step.round+1 }} of {{ scriptRounds.length }} · {{ name(current) }} · Swing {{ step.index }} of {{ step.swing_count }}</p><p v-if="step">{{ roundGoal(step.round_type) }}</p><p v-else>Review the scorecard and session report, then end practice.</p><details><summary>Scripted scorecard · {{ scriptSwings.length }} swings</summary><table><thead><tr><th>Hitter</th><th>Round</th><th>Swings</th><th>Points</th></tr></thead><tbody><template v-for="player in players" :key="player.id"><tr v-for="round in scriptRounds" :key="round.round_type"><td>{{ name(player) }}</td><td>{{ roundLabel(round.round_type) }}</td><td>{{ scriptSwings.filter(s=>s.batter_id===player.id && s.round_type===round.round_type).length }} / {{ round.swing_count }}</td><td>{{ scriptSwings.filter(s=>s.batter_id===player.id && s.round_type===round.round_type).reduce((total,s)=>total+Number(s.raw_score),0) }}</td></tr></template></tbody></table></details></section>
         <p v-if="loading" class="notice" role="status">Loading session…</p>
         <div v-if="error" role="alert" class="error">{{ error }} <button :disabled="loading || busy" @click="load">{{ pending ? 'Check saved results' : 'Reload session' }}</button></div>
         <p v-if="notice" class="notice" role="status">{{ notice }}</p>
@@ -156,7 +186,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
         <form v-if="adding" class="panel add-form" @submit.prevent="addPlayer"><label>Hitter<select v-model="addId"><option value="">Select hitter</option><option v-for="p in available" :key="p.id" :value="p.id">{{ name(p) }}</option></select></label><button :disabled="!writable || !addId">Add to session</button><button type="button" @click="adding = false">Cancel</button></form>
         <template v-if="ready">
           <div class="batting-selectors">
-            <section class="panel pill-row" aria-label="Contact quality"><button v-for="(label,code) in qualities" :key="code" :disabled="!writable || (quality === 'M' && code !== 'M')" :aria-pressed="quality === code" @click="chooseQuality(code)">{{ label }}</button></section>
+            <section class="panel pill-row" aria-label="Contact quality"><button v-for="(label,code) in qualityOptions" :key="code" :disabled="!writable || (quality === 'M' && code !== 'M')" :aria-pressed="quality === code" @click="chooseQuality(code)">{{ label }}</button></section>
             <section class="panel pill-row" aria-label="Trajectory"><button v-for="code in trajectories" :key="code" :disabled="!writable || quality === 'M'" :aria-pressed="trajectory === code" @click="trajectory = trajectory === code ? '' : code">{{ code }}</button></section>
           </div>
           <div class="scoring-columns batting-columns">

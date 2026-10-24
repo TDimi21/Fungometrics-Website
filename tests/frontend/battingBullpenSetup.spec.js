@@ -1,3 +1,4 @@
+import { validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle } from '@/utils/scriptedPractice'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { parse, compileScript } from '@vue/compiler-sfc'
@@ -14,7 +15,7 @@ async function mountSetup(slug, get, role = 'coach') {
   const api = { axiosGet: get || vi.fn(async path => ({ data: { data: path.endsWith('t1') ? [{ id: 'p1', name: { full: 'Alex' } }, { id: 'p2', name: { full: 'Sam' } }] : [{ id: 'p3', name: { full: 'Lee' } }] } })),
     axiosPost: vi.fn(async () => ({ data: { data: { id: 'session' } } })) }
   const router = { push: vi.fn(async () => {}) }
-  const mocks = { computed: Vue.computed, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ params: { slug } }), useRouter: () => router,
+  const mocks = { validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle, ScriptPlanBuilder: {}, computed: Vue.computed, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ params: { slug } }), useRouter: () => router,
     useUserStore: () => ({ userData: { type: role, id: 'self', first_name: 'Alex' } }), useTeamStore: () => teamStore, usePlayerStore: () => playerStore, useTrainingStore: () => trainingStore, useAxiosAuth: () => api,
     Dialog: {}, DialogPanel: {}, DialogTitle: {}, Layout: {} }
   const component = new Function(...Object.keys(mocks), script)(...Object.values(mocks))
@@ -94,4 +95,12 @@ it('lets a player create a personal cage with dimensions without a coach roster'
  const { state:s, api, app } = await mountSetup('cage', undefined, 'player')
  expect(api.axiosGet).not.toHaveBeenCalled(); expect(s.selectedIds.value).toEqual(['self'])
  await s.createPractice(); expect(api.axiosPost).toHaveBeenCalledWith('training', expect.objectContaining({ team:null, type:'C', players:[{id:'self',sort:0}], cage:expect.any(Object) })); app.unmount()
+})
+
+it.each(['batting','bullpen','cage'])('creates %s with its plan in the same request',async slug=>{
+ const {state:s,api,app}=await mountSetup(slug)
+ s.openPicker();s.togglePlayer('p1');s.applyPlayers();s.scriptMode.value=true
+ expect(s.canCreate.value).toBe(false)
+ s.scriptPlan.value=slug==='bullpen'?[{pitchType:'FB',intendedCoord:1830}]:slug==='batting'?[{round_type:'BARREL',swing_count:5}]:[{drillId:'cage1',drillLabel:'Short Bat',swing_count:10}]
+ await s.createPractice();expect(api.axiosPost).toHaveBeenCalledWith('training',expect.objectContaining({scripted:slug!=='cage',script_plan:s.scriptPlan.value}));app.unmount()
 })
