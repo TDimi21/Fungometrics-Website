@@ -45,13 +45,13 @@ One-time setup AFTER the approved commit is pushed and CI passes
    python3 "$HOME/fmtrx-deploy.py"
 
 Routine deployments after initial setup
-Run from the application directory. Do NOT run git pull first:
+Run from the application directory. Do NOT run git pull first. Use the real Composer PHAR, not its shell shim:
 
-   cd /var/www/vhosts/fmtrx.com/app.fmtrx.com && python3 scripts/deploy.py
+   cd /var/www/vhosts/fmtrx.com/app.fmtrx.com && python3 scripts/deploy.py --composer /usr/local/psa/var/modules/composer/composer.phar
 
 Optional preview:
 
-   python3 scripts/deploy.py --check
+   python3 scripts/deploy.py --check --composer /usr/local/psa/var/modules/composer/composer.phar
 
 The script fetches origin/main itself, waits for no jobs (it stops clearly if CI
 is pending/failed), and never silently falls back to an older successful release.
@@ -81,14 +81,55 @@ Sequence and guarantees
   maintenance mode again and reports backup/old commit. It does not claim success.
 - Does NOT change communications switches, credentials, database data, or schedules.
   queue:restart only signals existing workers; it does not start missing workers.
-- Does NOT send mail, run migrations, commit/push, or reset/clean Git files.
+- Does NOT send mail, commit/push, or reset/clean Git files. Migrations require explicit --migrate.
 
-Database migrations
-Any changed database/migrations file between deployed HEAD and target stops this
-simple deployment before maintenance. Such a release needs a reviewed migration
-plan and verified database backup, then an explicitly coordinated deployment.
-Do not bypass this by pulling code first. The application tarball is NOT a database
-backup. This tool is intentionally for releases without database schema changes.
+Database migrations — explicit opt-in
+Only after the migration changes have been reviewed for MariaDB compatibility,
+impact, and recovery, pause external queue workers/scheduled writers through
+Plesk or their process manager. Maintenance mode alone does not stop every writer.
+Do not run concurrent DDL during the dump or deployment.
+
+Preview (no dump, maintenance, or migration):
+   python3 scripts/deploy.py --migrate --check --composer /usr/local/psa/var/modules/composer/composer.phar
+
+Deploy with backup and pending migrations:
+   python3 scripts/deploy.py --migrate --composer /usr/local/psa/var/modules/composer/composer.phar
+
+The option requires a working mariadb-dump or mysqldump, a MySQL/MariaDB default
+Laravel connection, and InnoDB base tables. Custom TLS/PDO options and read/write
+topologies stop for separate review. The database user needs dump permissions
+including routines, triggers, and events; failure stops before migration.
+Credentials come from Laravel's resolved configuration, remain out of process
+arguments/logs, and use a temporary private client option file that is removed.
+
+After application backup and maintenance, the helper creates a single-transaction
+SQL dump BEFORE the code merge. It checks dump exit status/completion marker,
+compresses to database.sql.gz (0600), decompresses and verifies the SQL checksum,
+and records SQL/archive hashes in database-backup.json. This verifies archive
+integrity, NOT a restore rehearsal or the safety of each migration. Retain an
+independently restore-tested production backup/recovery procedure.
+
+After Composer installation/platform checks, it clears config cache and runs
+php artisan migrate --force --no-interaction, then publishes frontend/caches and
+brings the app online. It never seeds or rolls back automatically. Resume paused
+workers only after deployment and authenticated acceptance checks succeed.
+Migrations already applied are not rerun; edits to old migration files do not
+repair production schemas. Use new corrective migrations instead.
+
+On partial migration failure, MariaDB DDL may already have committed. Keep the
+site in maintenance and workers paused. Inspect the failure/migrate:status with
+an operator before corrective migration or coordinated database/code restoration.
+Do not blindly run migrate:rollback or restore over new production data.
+
+One-time helper upgrade (after this version is pushed and CI passes):
+   cd /var/www/vhosts/fmtrx.com/app.fmtrx.com
+   git fetch origin main
+   (umask 077; git show origin/main:scripts/deploy.py > "$HOME/fmtrx-deploy.py.next")
+   python3 -m py_compile "$HOME/fmtrx-deploy.py.next"
+   mv "$HOME/fmtrx-deploy.py.next" "$HOME/fmtrx-deploy.py"
+Use python3 "$HOME/fmtrx-deploy.py" with the same flags for the first upgraded
+deployment. Do not pull live code to install the helper. --migrate is unavailable
+until the new helper is actually installed. Current EV/WB release needs no migrations.
 
 Failure and recovery
 Before maintenance: live application files are unchanged. Fix the reported CI,

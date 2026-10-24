@@ -4,6 +4,7 @@ import argparse
 import datetime
 import fcntl
 import getpass
+import gzip
 import hashlib
 import json
 import os
@@ -208,7 +209,87 @@ def extract_artifact(archive, destination, commit):
         return manifest
 
 
-def preflight(root):
+def database_settings(root, php):
+    # Capture credentials in memory only. Never forward PHP stderr or this JSON.
+    code = r"""require 'vendor/autoload.php';
+$app = require 'bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$c = Illuminate\Support\Facades\DB::connection();
+$cfg = $c->getConfig();
+if ($cfg['driver'] !== 'mysql') exit(2);
+$tables = $c->select("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'");
+$cfg['_transactional'] = count($tables) > 0 && count(array_filter($tables, fn($t) => strtoupper($t->ENGINE ?? '') !== 'INNODB')) === 0;
+echo json_encode($cfg);"""
+    result = subprocess.run([php, '-r', code], cwd=str(root), stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, universal_newlines=True)
+    try:
+        config = json.loads(result.stdout) if result.returncode == 0 else {}
+    except ValueError:
+        config = {}
+    if config.get('driver') != 'mysql' or not config.get('_transactional'):
+        raise Stop('Automatic backup requires a reachable MySQL/MariaDB database with only InnoDB base tables. No migration was run.')
+    if config.get('read') or config.get('write') or config.get('options'):
+        raise Stop('Custom database topology/TLS options require a separately reviewed backup workflow. No migration was run.')
+    for key in ['host', 'database', 'username', 'password', 'port', 'unix_socket']:
+        if config.get(key) is not None and not isinstance(config[key], (str, int)):
+            raise Stop('Unsupported database connection configuration. No migration was run.')
+    if not config.get('database') or not config.get('username'):
+        raise Stop('Database connection is incomplete. No migration was run.')
+    return config
+
+
+def mysql_option(value):
+    # MySQL option-file quoting; credentials never enter process arguments.
+    return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r') + '"'
+
+
+def backup_database(root, php, backup, dump_binary):
+    config = database_settings(root, php)
+    sql = backup / 'database.sql.partial'
+    with tempfile.TemporaryDirectory(prefix='fmtrx-db-') as temporary:
+        credentials = Path(temporary) / 'client.cnf'
+        options = {'user': config['username'], 'password': config.get('password') or '',
+                   'default-character-set': config.get('charset') or 'utf8mb4'}
+        if config.get('unix_socket'):
+            options['socket'] = config['unix_socket']
+        else:
+            options.update({'host': config.get('host') or '127.0.0.1', 'port': config.get('port') or 3306})
+        with open(str(credentials), 'x') as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write('[client]\n' + ''.join(key + '=' + mysql_option(value) + '\n' for key, value in options.items()))
+        with open(str(sql), 'xb') as output:
+            os.fchmod(output.fileno(), 0o600)
+            result = subprocess.run([dump_binary, '--defaults-extra-file=' + str(credentials),
+                                     '--single-transaction', '--quick', '--skip-lock-tables',
+                                     '--routines', '--events', '--triggers', '--hex-blob',
+                                     '--databases', str(config['database'])], cwd=str(root),
+                                    stdout=output, stderr=subprocess.PIPE)
+        if result.returncode:
+            raise Stop('Database dump failed. Check dump-client compatibility and backup privileges. No migration was run; partial backup retained privately.')
+    # A normal successful mysqldump ends with this marker. Reject empty/truncated output.
+    with open(str(sql), 'rb') as stream:
+        stream.seek(max(0, sql.stat().st_size - 4096))
+        if b'Dump completed on' not in stream.read():
+            raise Stop('Database dump completion marker missing. No migration was run.')
+    expected = sha256(sql)
+    archive = backup / 'database.sql.gz'
+    with open(str(archive), 'xb') as raw:
+        os.fchmod(raw.fileno(), 0o600)
+        with gzip.GzipFile(fileobj=raw, mode='wb') as compressed, open(str(sql), 'rb') as source:
+            shutil.copyfileobj(source, compressed)
+    digest = hashlib.sha256()
+    with gzip.open(str(archive), 'rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    if digest.hexdigest() != expected:
+        raise Stop('Database backup verification failed. No migration was run.')
+    (backup / 'database-backup.json').write_text(json.dumps(dict(
+        sql_sha256=expected, archive_sha256=sha256(archive), verified_at=datetime.datetime.utcnow().isoformat() + 'Z')) + '\n')
+    sql.unlink()
+    print('Database dump completed and compressed checksum verified: ' + str(archive), flush=True)
+
+
+def preflight(root, migrate=False):
     if run(['git', 'symbolic-ref', '--short', 'HEAD'], root, True) != 'main':
         raise Stop('Deployment requires the existing main branch. No branches were switched.')
     remote = run(['git', 'remote', 'get-url', 'origin'], root, True)
@@ -227,7 +308,7 @@ def preflight(root):
     target = run(['git', 'rev-parse', 'origin/main'], root, True)
     run(['git', 'merge-base', '--is-ancestor', current, target], root)
     changes = run(['git', 'diff', '--name-only', current, target, '--', 'database/migrations'], root, True)
-    if changes:
+    if changes and not migrate:
         raise Stop('This release changes migrations. A database backup and reviewed migration deployment are required first:\n' + changes)
     tracked = set(run(['git', 'ls-files'], root, True).splitlines())
     incoming = run(['git', 'ls-tree', '-r', '--name-only', target], root, True).splitlines()
@@ -280,15 +361,25 @@ def deploy(args):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise Stop('Another deployment/check is already running.')
-        current, target = preflight(root)
+        migrate = getattr(args, 'migrate', False)
+        current, target = preflight(root, migrate=migrate)
         php = args.php or ('/opt/plesk/php/8.2/bin/php' if Path('/opt/plesk/php/8.2/bin/php').exists() else shutil.which('php'))
-        composer = args.composer or shutil.which('composer')
+        composer = args.composer or ('/usr/local/psa/var/modules/composer/composer.phar' if Path('/usr/local/psa/var/modules/composer/composer.phar').exists() else shutil.which('composer'))
         if not php or not composer:
             raise Stop('PHP and Composer are required. Node is not required.')
         php = str(Path(php).resolve())
         composer = str(Path(composer).resolve())
         if int(run([php, '-r', 'echo PHP_VERSION_ID;'], root, True)) < 80200:
             raise Stop('This release requires PHP 8.2 or newer.')
+        dump_binary = None
+        if migrate:
+            dump_binary = shutil.which('mariadb-dump') or shutil.which('mysqldump')
+            if not dump_binary:
+                raise Stop('Migration deployment requires mariadb-dump or mysqldump. Nothing changed.')
+            database_settings(root, php)
+        composer_version = run([php, composer, '--version', '--no-plugins'], root, True)
+        if not re.search(r'Composer version 2\.', composer_version):
+            raise Stop('Composer 2 PHP script/PHAR required; a shell shim or Composer 1 cannot be used. Pass --composer with the real PHAR path.')
         token = read_token()
         with tempfile.TemporaryDirectory(prefix='fmtrx-preflight-', dir=str(backups)) as temporary:
             temporary = Path(temporary)
@@ -300,7 +391,7 @@ def deploy(args):
             for name in ['composer.json', 'composer.lock']:
                 (temporary / name).write_text(run(['git', 'show', target + ':' + name], root, True) + '\n')
             run([php, composer, 'install', '--dry-run', '--no-dev', '--no-scripts', '--no-plugins', '--no-interaction'], temporary)
-            print('Preflight passed for {}. No migrations or npm build will run.'.format(target), flush=True)
+            print('Preflight passed for {}. {} No npm build will run.'.format(target, 'Database backup and migrations requested.' if migrate else 'No migrations will run.'), flush=True)
             if args.check:
                 return
             backup = backups / (datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ') + '-' + target[:12])
@@ -323,9 +414,14 @@ def deploy(args):
             try:
                 run([php, 'artisan', 'down'], root)
                 maintenance_started = True
+                if migrate:
+                    backup_database(root, php, backup, dump_binary)
                 run(['git', 'merge', '--ff-only', target], root)
                 run([php, composer, 'install', '--no-dev', '--prefer-dist', '--no-interaction', '--optimize-autoloader'], root)
                 run([php, composer, 'check-platform-reqs', '--no-dev'], root)
+                if migrate:
+                    run([php, 'artisan', 'config:clear'], root)
+                    run([php, 'artisan', 'migrate', '--force', '--no-interaction'], root)
                 copy_assets(stage, root / 'public/build')
                 for command in ['route:clear', 'config:cache', 'view:cache', 'queue:restart', 'up']:
                     run([php, 'artisan', command], root)
@@ -342,6 +438,7 @@ def deploy(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app-dir', default=os.getcwd())
+    parser.add_argument('--migrate', action='store_true', help='Explicit migration release: back up the database and run pending migrations in maintenance mode. Pause external writers/workers first.')
     parser.add_argument('--check', action='store_true', help='Download/validate release and dependencies only; do not deploy.')
     parser.add_argument('--configure-token', action='store_true', help='Save a GitHub Actions read token outside the app (hidden prompt).')
     parser.add_argument('--prepare-artifact', metavar='BUILD_DIR', help='CI only: create release metadata.')

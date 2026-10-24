@@ -219,7 +219,7 @@ class DeploymentFlowTests(unittest.TestCase):
     setUp = ArtifactTests.setUp
     archive = ArtifactTests.archive
     # Inherit real artifact verification; only external services/commands are mocked.
-    def flow(self, check=False, fail=None):
+    def flow(self, check=False, fail=None, migrate=False):
         from types import SimpleNamespace
         root = self.base / 'app'
         root.mkdir()
@@ -234,10 +234,14 @@ class DeploymentFlowTests(unittest.TestCase):
                 return str(root)
             if arguments[:3] == ['git', 'rev-parse', 'HEAD']:
                 return 'b' * 40
+            if '--version' in arguments:
+                return 'Composer version 2.2.25'
             if 'PHP_VERSION_ID' in str(arguments):
                 return '80229'
             if fail == 'dependency' and '--dry-run' in arguments:
                 raise deploy.Stop('incompatible dependency')
+            if fail == 'migration' and 'migrate' in arguments:
+                raise deploy.Stop('migration failed')
             if fail == 'install' and '--optimize-autoloader' in arguments:
                 raise deploy.Stop('install failed')
             return ''
@@ -245,9 +249,12 @@ class DeploymentFlowTests(unittest.TestCase):
             if fail == 'artifact':
                 raise deploy.Stop('bad artifact')
             destination.write_bytes(archive.read_bytes())
-        args = SimpleNamespace(app_dir=str(root), php='/usr/bin/php', composer='/usr/bin/composer', check=check)
+        args = SimpleNamespace(app_dir=str(root), php='/usr/bin/php', composer='/usr/bin/composer', check=check, migrate=migrate)
         with patch.object(Path, 'home', return_value=home), \
              patch.object(deploy, 'preflight', return_value=('b' * 40, COMMIT)), \
+             patch.object(deploy, 'database_settings', return_value={}), \
+             patch.object(deploy.shutil, 'which', return_value='/usr/bin/mysqldump'), \
+             patch.object(deploy, 'backup_database', side_effect=lambda *args: command(['database-backup'], root)), \
              patch.object(deploy, 'read_token', return_value='fake-token'), \
              patch.object(deploy, 'download_artifact', side_effect=download), \
              patch.object(deploy, 'run', side_effect=command), \
@@ -297,6 +304,74 @@ class DeploymentFlowTests(unittest.TestCase):
         self.assertTrue(any(command == ['git', 'merge', '--ff-only', COMMIT] for command in calls))
         self.assertEqual(1, len(list(home.rglob('success.txt'))))
         self.assertFalse(any('migrate' in command or 'npm' in command for command in calls))
+
+    def test_migration_backup_precedes_merge_and_migration(self):
+        _, _, calls, _ = self.flow(migrate=True)
+        backup = next(i for i, c in enumerate(calls) if 'database-backup' in c)
+        down = next(i for i, c in enumerate(calls) if c[-2:] == ['artisan', 'down'])
+        merge = next(i for i, c in enumerate(calls) if 'merge' in c)
+        migration = next(i for i, c in enumerate(calls) if 'migrate' in c)
+        up = next(i for i, c in enumerate(calls) if c[-2:] == ['artisan', 'up'])
+        self.assertLess(down, backup)
+        self.assertLess(backup, merge)
+        self.assertLess(merge, migration)
+        self.assertLess(migration, up)
+
+    def test_migration_failure_keeps_maintenance_and_old_assets(self):
+        root, home, calls, fallback = self.flow(migrate=True, fail='migration')
+        self.assertFalse((root / 'public/build/manifest.json').exists())
+        self.assertFalse(any(c[-2:] == ['artisan', 'up'] for c in calls))
+        self.assertEqual(['artisan', 'down'], fallback[-1][0][0][-2:])
+        self.assertEqual([], list(home.rglob('success.txt')))
+
+    def test_migration_check_never_backs_up_or_migrates(self):
+        _, _, calls, _ = self.flow(migrate=True, check=True)
+        self.assertFalse(any('migrate' in c or 'database-backup' in c for c in calls))
+
+
+class DatabaseBackupTests(unittest.TestCase):
+    def test_dump_is_private_verified_and_credentials_removed(self):
+        import gzip
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cfg = dict(database='test_database', username='test_user', password='secret\"\\value', host='localhost')
+            credentials_seen = []
+            def dump(command, **kwargs):
+                self.assertNotIn(cfg['password'], ' '.join(command))
+                credentials = Path(command[1].split('=', 1)[1])
+                credentials_seen.append(credentials)
+                self.assertEqual(0o600, stat.S_IMODE(credentials.stat().st_mode))
+                self.assertIn('single-transaction', ' '.join(command))
+                kwargs['stdout'].write(b'CREATE TABLE example (id int);\n-- Dump completed on today\n')
+                return SimpleNamespace(returncode=0)
+            with patch.object(deploy, 'database_settings', return_value=cfg), patch.object(deploy.subprocess, 'run', side_effect=dump):
+                deploy.backup_database(root, 'php', root, 'mysqldump')
+            archive = root / 'database.sql.gz'
+            self.assertEqual(0o600, stat.S_IMODE(archive.stat().st_mode))
+            data = gzip.open(str(archive), 'rb').read()
+            metadata = json.loads((root / 'database-backup.json').read_text())
+            self.assertEqual(hashlib.sha256(data).hexdigest(), metadata['sql_sha256'])
+            self.assertFalse(credentials_seen[0].exists())
+            self.assertFalse((root / 'database.sql.partial').exists())
+
+    def test_failed_or_incomplete_dump_does_not_produce_verified_archive(self):
+        from types import SimpleNamespace
+        for returncode in [1, 0]:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                with patch.object(deploy, 'database_settings', return_value=dict(database='test', username='test')), patch.object(deploy.subprocess, 'run', return_value=SimpleNamespace(returncode=returncode)):
+                    with self.assertRaises(deploy.Stop):
+                        deploy.backup_database(root, 'php', root, 'mysqldump')
+                self.assertFalse((root / 'database.sql.gz').exists())
+
+    def test_connection_errors_are_redacted(self):
+        from types import SimpleNamespace
+        for output in ['secret_password', json.dumps(dict(driver='mysql', _transactional=False))]:
+            with patch.object(deploy.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=output)):
+                with self.assertRaises(deploy.Stop) as context:
+                    deploy.database_settings(Path('.'), 'php')
+                self.assertNotIn('secret_password', str(context.exception))
 
 
 if __name__ == '__main__':
