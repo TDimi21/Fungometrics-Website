@@ -557,7 +557,7 @@ router.beforeEach(async (to) => {
 		&& !isLongTossScoringRoute(to)
 		&& !isVelocityScoringRoute(to)
 		&& !['create.trainingCage', 'track.trainingCage', 'track.cage'].includes(to.name)
-		&& !['/track/bullpen', '/create/bullpen', '/track/batting', '/create/batting'].includes(to.path)
+		&& !['/track/bullpen', '/create/bullpen', '/track/batting', '/create/batting', '/create/live', '/track/live', '/track/live/edit'].includes(to.path)
 		&& !hasPlannerSessionContext(to, userData)
 		&& START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))
 	) {
