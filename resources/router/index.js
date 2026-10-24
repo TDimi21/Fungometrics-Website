@@ -27,7 +27,7 @@ const IndexTrainingCage = () =>
 const IndexTrainingABPage = () =>
 	import("@/pages/training/CreateLiveABTraining.vue");
 const TrackBatting = () => import("@/pages/training/Batting.vue");
-const TrackBullpen = () => import("@/pages/training/Bullpen.vue");
+const TrackBullpen = () => import("@/pages/training/BullpenSession.vue");
 const TrackTrainingMode = () => import("@/pages/training/TrainingMode.vue");
 const TrackTrainingCage = () => import("@/pages/training/TrainingCage.vue");
 const Roster = () => import("@/pages/roster/HomeRoster.vue");
@@ -549,6 +549,7 @@ router.beforeEach(async (to) => {
 		&& !WEB_START_PRACTICE_ENABLED
 		&& !isLongTossScoringRoute(to)
 		&& !isVelocityScoringRoute(to)
+		&& !['/track/bullpen', '/create/bullpen'].includes(to.path)
 		&& !hasPlannerSessionContext(to, userData)
 		&& START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))
 	) {

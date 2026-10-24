@@ -1,0 +1,42 @@
+Bullpen web scoring
+
+Normal bullpen sessions use BullpenScoring.vue through BullpenSession.vue.
+Legacy single-result editing remains in Bullpen.vue. Creating or resuming a
+session supplies its ID in the route query; refreshing reloads the original
+session and its pitches from Laravel. Only the exact /track/bullpen and
+/create/bullpen paths are exempted from the standalone-practice feature gate.
+Authentication and entitlement checks remain in place.
+
+Controls match the app's normal bullpen workflow: catcher location, FB/CH/SL/CV/
+OTHER, Take/GB/LD/Fly/Foul/Swing-and-miss, and optional whole-number velocity.
+The coordinate mapping is ported from mobile pitchCoordinateMap.js. Unmeasured
+velocity is sent as zero for API compatibility but excluded from velocity
+averages. Missing location or pitch type prevents saving.
+
+Reuses POST result/bullpen and createBullpenSubmission for request identity and
+retry protection. An ambiguous response locks input and navigation until the
+same payload is retried successfully; browser reload/close prompts while a save
+is pending. There is no web offline queue. Do not force-close during a pending
+save: pending request identity is held in memory, not durable storage.
+
+Live stats show saved pitches and selected-pitcher totals. Player views request
+player-scoped results and restrict displayed players. Session Report opens the
+existing bullpen report. Finishing uses the original session ID and planner
+return helper. Completed sessions are read-only.
+
+Scripted bullpens deliberately remain app-only for scoring. The web displays an
+explicit instruction to continue in the app instead of dropping planned pitch
+locations. No mobile files, backend endpoints, permissions or schema changed.
+
+Validation: frontend regression suite, targeted bullpen API/idempotency/
+statistics/entitlement tests, and production Vite build. Browser/device visual
+acceptance remains to be performed before release.
+
+Acceptance: create normal bullpen, select pitcher, record strike and ball with
+varied pitch/contact types and measured/unmeasured velocity; verify Stats and
+Session Report; resume and refresh the same ID; switch pitchers; simulate lost
+response and retry; verify completed session cannot record; verify player
+report scope; verify old single-pitch editing; verify scripted session refuses
+standard scoring. Commit/push/CI/deploy are separate approved steps. No new
+migration is required for this UI; existing bullpen idempotency infrastructure
+must already be deployed.

@@ -66,7 +66,7 @@ const registerAndRedirect = async () => {
             activeTraining.setCountBallsTraining(0)
             activeTraining.cleanListPlayer()
             await activeTraining.setDataTraining(response.data.data);
-            router.push('/track/' + props.slug)
+            router.push({ path: '/track/' + props.slug, query: { session: response.data.data.id } })
           }
         })
 
