@@ -150,63 +150,7 @@ const liveAvatars = (item) => {
 
 //   await activeTraining.setDataTraining(newActiveLiveAB);
 // }
-const resumenPractice = (training) => {
-  let newActiveTraining = training
-  let playersBatters = []
-  let playersPitchers = []
-  // console.log(livePitches);
-  // console.log('dd', newActiveTraining);
-  axiosGet('statistics/'+training.id+'/liveab').then((response)=>{
-    resetStatusPlayer()
-
-    let playersStats = response.data.data.ball_x_ball
-    livePitches.value = response.data.data.count
-    // return
-    newActiveTraining.players.batters.forEach(player => {
-      playersBatters.push(player.player)
-    });
-    newActiveTraining.players.pitchers.forEach(player => {
-      playersPitchers.push(player.player)
-    });
-
-    activeTraining.cleanListPlayer()
-
-    const idCount = {}
-    const matchingElements = [];
-
-    playersStats.forEach(obj => {
-      const batterId = obj.batting.batter_id;
-      const pitcherId = obj.pitching.pitcher_id;
-      const idPair = `${batterId}-${pitcherId}`;
-
-      if (idCount[idPair]) {
-        idCount[idPair]++;
-      } else {
-        idCount[idPair] = 1;
-      }
-
-      matchingElements.push(obj)
-    });
-
-    matchingElements.forEach(obj => {
-        const batterId = obj.batting.batter_id;
-        const pitcherId = obj.pitching.pitcher_id;
-        const idPair = `${batterId}-${pitcherId}`;
-        const count = idCount[idPair];
-        setStatusPlayers( pitcherId, batterId, count)
-    });
-
-    /* remove posible counter state of ball and strile */
-    localStorage.removeItem('countBall')
-    localStorage.removeItem('countStrike')
-
-    newActiveTraining.players['batters'] = playersBatters
-    newActiveTraining.players['pitchers'] = playersPitchers
-    // delete newActiveTraining.lineup
-    activeTraining.setDataTraining(newActiveTraining);
-    router.push('/track/live')
-  })
-}
+const resumenPractice = training => router.push({ path: '/track/live', query: { session: training.id } })
 
 const statsLiveAB = (practiceId) => {
   let newActiveLiveAB = props.tableData.find(item => item.id == practiceId)

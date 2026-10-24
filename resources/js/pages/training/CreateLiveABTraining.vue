@@ -1,487 +1,341 @@
 <script setup>
-import Layout from "../../layout/Layout.vue"
-import {usePlayerStore} from "../../store/players";
-import {useTeamStore} from "../../store/team";
-import {useTrainingStore} from "../../store/training";
-import CardTeam from "../../components/CardTeam.vue";
-import {defineProps, onMounted, onUpdated, reactive, ref} from "vue";
-import router from "../../../router";
-import {Dialog, DialogPanel, DialogTitle} from '@headlessui/vue'
-import {toast} from "@/utils/AlertPlugin"
-import {useAxiosAuth} from '@/composables/axios-auth.js'
-import Loader from "../../components/Loader.vue";
-import TShirt from '@/components/graphics/TShirt.vue'
-import draggable from 'vuedraggable';
-import { useLiveABStore } from '@/store/liveAB.js'
-
-const isLoading = reactive({status: true})
-
-const props = defineProps({
-  slug: {
-    type: String
-  }
-})
-
-const {axiosPost} = useAxiosAuth()
-
-const {players} = usePlayerStore();
-const manageTeamStore = useTeamStore();
-const activeTraining = useTrainingStore();
-const training = reactive({
-  note: '',
-});
-
-const teamA = ref(manageTeamStore.team);
-const teamB = ref(manageTeamStore.team);
-
-const teams = ref(manageTeamStore.teams)
-const dataHitters = ref([...players])
-const dataPitchers = ref([...players])
-const listOrderPlayerHitters = ref([]);
-const listOrderPlayerPitchers = ref([]);
-const { resetStatusPlayer } = useLiveABStore()
-
-const isOpenHitters = ref(false)
-
-function closeModalHitters() {
-  isOpenHitters.value = false
-}
-
-function openModalHitters() {
-  isOpenHitters.value = true
-}
-
-const isOpenPitchers = ref(false)
-
-function closeModalPitchers() {
-  isOpenPitchers.value = false
-}
-
-function openModalPitchers() {
-  isOpenPitchers.value = true
-}
-
-
-const registerAndRedirect = async () => {
-  let teamsRequest = [];
-  if (training.note === "" || listOrderPlayerHitters.value.length === 0 || listOrderPlayerPitchers.value.length === 0) {
-    toast.fire({
-      icon: 'warning',
-      title: 'Validation !!!',
-      text: 'You add a note for start training or select one player for start the practice',
-    })
-  } else {
-    try {
-      isLoading.status = !isLoading.status;
-
-      let playersA = listOrderPlayerHitters.value.map((item, index) => {
-        return {'sort': index, 'id': item.id}
-      });
-      let playersB = listOrderPlayerPitchers.value.map((item, index) => {
-        return {'sort': index, 'id': item.id}
-      });
-
-      const data = {
-        teams:{'a' : teamA.value.id, 'b': teamB.value.id},
-        type: 'L',
-        note: training.note,
-        players: {'a': playersA, 'b':playersB}
-      };
-
-
-      await axiosPost('coach/trainingab', data).then(async (response) => {
-
-        if (response) {      
-          resetStatusPlayer()
-          
-          localStorage.removeItem('countBall')
-          localStorage.removeItem('countStrike')
-
-          isLoading.status = !isLoading.status;
-          activeTraining.cleanListPlayer()
-          activeTraining.livePitches = 0
-          await activeTraining.setDataTraining(response.data.data);
-          router.push('/track/live')
-        }
-      })
-
-    } catch (error) {
-      isLoading.status = !isLoading.status;
-      console.log(error)
-      toast.fire({
-        icon: 'error',
-        title: 'Error create training',
-        text: 'Sorry it is not possible create a training in this moment',
-      })
+import { computed, ref, watch } from "vue";
+import { useRouter } from "vue-router";
+import Layout from "@/layout/Layout.vue";
+import LiveABLineup from "@/components/practice/LiveABLineup.vue";
+import { useTeamStore } from "@/store/team";
+import { useTrainingStore } from "@/store/training";
+import { useAxiosAuth } from "@/composables/axios-auth";
+const router = useRouter(),
+  teamsStore = useTeamStore(),
+  training = useTrainingStore();
+const { axiosGet, axiosPost } = useAxiosAuth();
+const teams = computed(() => [
+  ...new Map(
+    [teamsStore.team, ...teamsStore.teams]
+      .filter((t) => t?.id)
+      .map((t) => [t.id, t]),
+  ).values(),
+]);
+const mode = ref("practice"),
+  gameName = ref("Live AB"),
+  gameDate = ref(
+    new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 10),
+  ),
+  note = ref(""),
+  notesOpen = ref(false),
+  innings = ref(9),
+  unlimited = ref(false),
+  continuous = ref(false);
+const away = ref({
+    team_id: teamsStore.team?.id || "",
+    hitters: [],
+    pitchers: [],
+  }),
+  home = ref({ team_id: teamsStore.team?.id || "", hitters: [], pitchers: [] });
+const rosters = ref({ away: [], home: [] }),
+  loading = ref({ away: false, home: false }),
+  error = ref(""),
+  busy = ref(false),
+  uncertain = ref(false);
+const sequence = { away: 0, home: 0 };
+async function roster(side, teamId) {
+  const n = ++sequence[side];
+  const team = side === "away" ? away : home;
+  team.value.hitters = [];
+  team.value.pitchers = [];
+  rosters.value[side] = [];
+  loading.value[side] = true;
+  error.value = "";
+  try {
+    if (teamId) {
+      const data = (await axiosGet(`coach/teams/${teamId}`)).data.data;
+      if (!Array.isArray(data)) throw Error();
+      if (n === sequence[side]) rosters.value[side] = data;
     }
+  } catch {
+    if (n === sequence[side])
+      error.value = "Unable to load roster. Reselect the team to retry.";
+  } finally {
+    if (n === sequence[side]) loading.value[side] = false;
   }
-
 }
-
-const clearPitchersData = ()=>{
- dataPitchers.value =[];
- listOrderPlayerPitchers.value =[];
+watch(
+  () => away.value.team_id,
+  (id) => roster("away", id),
+  { immediate: true },
+);
+watch(
+  () => home.value.team_id,
+  (id) => roster("home", id),
+  { immediate: true },
+);
+const valid = computed(
+  () =>
+    !busy.value &&
+    !uncertain.value &&
+    !loading.value.away &&
+    !loading.value.home &&
+    away.value.team_id &&
+    home.value.team_id &&
+    away.value.hitters.length &&
+    home.value.pitchers.length &&
+    (mode.value !== "game" ||
+      (away.value.pitchers.length && home.value.hitters.length)) &&
+    gameName.value.trim() &&
+    Number.isInteger(Number(innings.value)) &&
+    innings.value >= 1 &&
+    innings.value <= 30,
+);
+const prepareSide = value => ({
+  ...value,
+  hitPositions: Object.fromEntries(value.hitters.map(id=>[id,value.hitPositions?.[id]||'DH'])),
+  pitchPositions: Object.fromEntries(value.pitchers.map(id=>[id,value.pitchPositions?.[id]||'P'])),
+});
+async function create() {
+  if (!valid.value) return;
+  busy.value = true;
+  error.value = "";
+  try {
+    const config = {
+      mode: mode.value,
+      name: gameName.value.trim(),
+      date: gameDate.value,
+      innings: Number(innings.value),
+      unlimited: unlimited.value,
+      continuous: continuous.value,
+      away: prepareSide(away.value),
+      home: prepareSide(home.value),
+    };
+    const data = (
+      await axiosPost("coach/trainingab", {
+        type: "L",
+        note: note.value.trim() || gameName.value,
+        teams: { a: away.value.team_id, b: home.value.team_id },
+        players: {
+          a: away.value.hitters.map((id, sort) => ({ id, sort })),
+          b: home.value.pitchers.map((id, sort) => ({ id, sort })),
+        },
+        liveab_config: config,
+      })
+    ).data.data;
+    training.setDataTraining(data);
+    await router.push({ path: "/track/live", query: { session: data.id } });
+  } catch (e) {
+    uncertain.value = ![403, 422].includes(e.response?.status);
+    error.value = uncertain.value
+      ? "Creation could not be confirmed. Check Practice Sessions before creating another game."
+      : "Check your team access and select hitters and pitchers for each side.";
+  } finally {
+    busy.value = false;
+  }
 }
-
-const clearHittersData = ()=>{
-  dataHitters.value =[];
-  listOrderPlayerHitters.value =[];
-}
-
 </script>
 <template>
-  <Loader v-show="!isLoading.status"/>
-  <Layout class="debug">
-    <div class="grid grid-flow-row md:grid-cols-3 font-fungo-poppins md:place-items-center">
-      <div class="text-center text-fungo-red font-fungo-700 text-lg md:grid-cols-3 md:text-3xl mt-2 md:col-span-3">
-        New live AB Practice
+  <Layout
+    ><main class="live-setup">
+      <p class="eyebrow">LIVE AB · NEW SESSION</p>
+      <h1>Hitters meet pitchers.</h1>
+      <p>Select your lineups, then score every pitch together.</p>
+      <div class="mode">
+        <button
+          :class="{ active: mode === 'practice' }"
+          @click="mode = 'practice'"
+        >
+          PRACTICE</button
+        ><button :class="{ active: mode === 'game' }" @click="mode = 'game'">
+          GAME MODE
+        </button>
       </div>
-      <div
-        class="max-h-[150px] min-h-[150px] md:max-h-[250px]
-        md:min-h-[250px]  md:w-[300px] border rounded bg-white grid
-        overflow-y-auto py-2 mt-3 md:ml-12 xl:w-[500px] order-0 md:order-0
-">
-        <div class="text-fungo-red font-fungo-700 ml-5">Select first team</div>
-        <div v-for="(element, index) in teams ">
-          <CardTeam :team-item="element" name-input="teamA" v-model:players="dataHitters" v-model:team="teamA"
-                    @click="clearHittersData"/>
-        </div>
+      <label>Session name<input v-model="gameName" maxlength="100" /></label
+      ><label>Game date<input v-model="gameDate" type="date" /></label>
+      <div class="teams">
+        <section v-for="side in ['away', 'home']" :key="side">
+          <h2>
+            {{
+              mode === "game"
+                ? side === "away"
+                  ? "Away"
+                  : "Home"
+                : side === "away"
+                  ? "Hitting team"
+                  : "Pitching team"
+            }}
+          </h2>
+          <label
+            >Team<select
+              v-model="(side === 'away' ? away : home).team_id"
+              :disabled="busy"
+            >
+              <option value="">Select team</option>
+              <option v-for="team in teams" :key="team.id" :value="team.id">
+                {{ team.name }}
+              </option>
+            </select></label
+          >
+          <p v-if="loading[side]">Loading players…</p>
+          <LiveABLineup
+            v-if="side === 'away' || mode === 'game'"
+            v-model="(side === 'away' ? away : home).hitters"
+            :players="rosters[side]"
+            label="Hitters"
+            :positions="(side === 'away' ? away : home).hitPositions || {}"
+            @update:positions="
+              (side === 'away' ? away : home).hitPositions = $event
+            "
+            :disabled="busy || loading[side]"
+          /><LiveABLineup
+            v-if="side === 'home' || mode === 'game'"
+            v-model="(side === 'away' ? away : home).pitchers"
+            :players="rosters[side]"
+            label="Pitchers"
+            :positions="(side === 'away' ? away : home).pitchPositions || {}"
+            @update:positions="
+              (side === 'away' ? away : home).pitchPositions = $event
+            "
+            :disabled="busy || loading[side]"
+          />
+        </section>
       </div>
-      <div
-        class="max-h-[150px] min-h-[150px] md:max-h-[250px]
-        md:min-h-[250px]  md:w-[300px] border rounded bg-white grid
-        overflow-y-auto py-2 mt-3 md:-ml-12 xl:w-[500px] order-1 md:order-2
-">
-
-        <div class="text-fungo-red font-fungo-700 ml-5">Select second team</div>
-        <div v-for="(element, index) in teams ">
-          <CardTeam :team-item="element" name-input="teamB" v-model:players="dataPitchers" v-model:team="teamB"
-                    @click="clearPitchersData" />
-        </div>
+      <div v-if="mode === 'game'" class="rules">
+        <label
+          >Innings<input
+            v-model.number="innings"
+            type="number"
+            min="1"
+            max="30" /></label
+        ><label
+          ><input v-model="unlimited" type="checkbox" /> Unlimited
+          innings</label
+        ><label
+          ><input v-model="continuous" type="checkbox" /> Continuous inning
+          (coach advances sides)</label
+        >
       </div>
-      <div class="hidden md:block w-[75%] md:w-[50%] grow-0 order-2 md:order-1">
-        <img alt="back batting"
-             src="../../assets/img/training/liveabbglogo.svg">
-      </div>
-      <div class="grid grid-flow-row place-items-center mt-5 md:mr-12 order-3 md:order-3 md:col-span-3">
-        <div>
-          <div class="grid grid-cols-2 mt-5">
-            <div class="col-span-2 my-3">Select players:</div>
-            <button
-              class=" rounded-xl rounded-l-3xl border bg-fungo-red text-white xl:w-[200px] mx-auto xl:w-[300px] xl:mr-2"
-              @click="openModalHitters">
-              <div class="flex min-w-[80px]  order-1">
-                <div class="m-1 p-1 order-0 xl:flex xl:justify-start xl:w-full">
-                  <img
-                    class="w-[20px] h-[20px] xl:w-[35px] xl:h-[35px]"
-                    src="../../assets/img/login/assteslogin/ballbutton.png">
-                </div>
-                <div class="grid content-center items-center mx-8 xl:text-[18px]">Batters</div>
-              </div>
-            </button>
-            <button
-              class=" rounded-xl rounded-r-3xl border bg-fungo-red text-white xl:w-[200px] mx-auto xl:w-[300px] xl:ml-2"
-              @click="openModalPitchers">
-              <div class="flex  min-w-[80px]  order-0">
-                <div class="m-1 p-1 order-1 xl:flex xl:justify-end xl:w-full ">
-                  <img
-                    class="w-[20px] h-[20px] xl:w-[35px] xl:h-[35px] xl:ml-[75px]"
-                    src="../../assets/img/login/assteslogin/ballbutton.png">
-                </div>
-                <div class="grid content-center items-center mx-8 xl:text-[18px]">Pitchers</div>
-              </div>
-            </button>
-          </div>
-        </div>
-        <div class="mt-3">
-          Notes
-          <FormKit v-model="training.note" type="textarea"/>
-        </div>
-        <div class="grid mt-5 ">
-          <button
-            class=" rounded-xl rounded-l-3xl border bg-fungo-darkblue text-white xl:w-[200px] mx-auto xl:w-[300px]"
-            @click="registerAndRedirect">
-            <div
-              class="flex  min-w-[80px] lg:max-w-[250px]">
-              <div class="m-1 p-1"><img
-                class="w-[20px] h-[20px] xl:w-[35px] xl:h-[35px]"
-                src="../../assets/img/login/assteslogin/ballbutton.png"></div>
-              <div class="grid content-center items-center mx-8 xl:text-[18px]">Start Practice</div>
-            </div>
-          </button>
-        </div>
-
-      </div>
-
-
-    </div>
-    <div class="md:col-span-3 mt-8">
-      <section class="px-[10%] md:px-[5%]  lg:mt-[140px] overflow-x-auto grid place-items-center">
-        <table class="w-fit border-separate space-y-6 text-fungo-darkblue">
-
-          <thead class="bg-fungo-lightblue">
-          <tr class="divide-x divide-[#000]">
-            <th>
-              Team A
-            </th>
-            <th>
-              Team B
-            </th>
-            <th>
-              lineup A
-            </th>
-            <th>
-              lineup B
-            </th>
-            <th>
-              Note
-            </th>
-          </tr>
-
-          </thead>
-
-          <tbody>
-
-
-          <tr class="bg-white border-l border-fungo-lightblue ">
-
-            <td class="w-[140px] max-w-[140px] ">
-              <img :src="teamA.logo" alt="" class="w-16 h-full object-center object-cover mx-auto rounded-full">
-              <div class="font-fungo-700">
-              {{ teamA.name }}
-            </div>
-
-            </td>
-
-            <td class="w-[140px] max-w-[140px]">
-              <img :src="teamB.logo" alt="" class="w-16 h-full object-center object-cover mx-auto rounded-full">
-              <div class="font-fungo-700">
-                {{ teamB.name }}
-              </div>
-
-            </td>
-
-            <td class="w-[270px] max-w-[270px] group relative">
-              <p class="truncate">
-              <span v-for="(player, playerIndex) in listOrderPlayerHitters" :key="playerIndex">
-                {{
-                  listOrderPlayerHitters.length === (playerIndex + 1) ? player.name.full : player.name.full + ', '
-                }}
-              </span>
-
-                <!-- tooltip player -->
-                <span class="tooltip">
-                <label v-for="(player, playerIndex) in listOrderPlayerHitters" :key="playerIndex">
-                  {{
-                    listOrderPlayerHitters.length === (playerIndex + 1) ? player.name.full : player.name.full + ',‍‍‍‍‍ㅤ'
-                  }}
-                </label>
-              </span>
-                <!-- end tooltip player -->
-              </p>
-            </td>
-            <td class="w-[270px] max-w-[270px] group relative">
-              <p class="truncate">
-              <span v-for="(player, playerIndex) in listOrderPlayerPitchers" :key="playerIndex">
-                {{
-                  listOrderPlayerPitchers.length === (playerIndex + 1) ? player.name.full : player.name.full + ', '
-                }}
-              </span>
-
-                <!-- tooltip player -->
-                <span class="tooltip">
-                <label v-for="(player, playerIndex) in listOrderPlayerPitchers" :key="playerIndex">
-                  {{
-                    listOrderPlayerPitchers.length === (playerIndex + 1) ? player.name.full : player.name.full + ',‍‍‍‍‍ㅤ'
-                  }}
-                </label>
-              </span>
-                <!-- end tooltip player -->
-              </p>
-            </td>
-            <td class="w-[270px] max-w-[270px] group relative">
-              <p class="truncate">{{ training.note }}</p>
-              <!-- tooltip note -->
-              <span class="tooltip w-[300px] max-w-[300px]">
-              {{ training.note }}
-            </span>
-              <!-- end tooltip note -->
-            </td>
-
-          </tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-    <Dialog :open="isOpenHitters" class="relative z-50" @close="closeModalHitters">
-      <div class="fixed inset-0 grid place-items-center min-h-[70%] max-h-[70%] p-4">
-        <div class="fixed inset-0 overflow-y-auto">
-          <!-- Container to center the panel -->
-          <div class="grid w-[95%]  md:w-[65%] mx-auto mt-10">
-            <DialogPanel class="rounded bg-white border p-2 drop-shadow-xl">
-              <DialogTitle
-                class="text-xl text-fungo-red text-center font-fungo-700 my-5">
-                Set players and order to training
-              </DialogTitle>
-              <div
-                class="absolute right-2 top-2 md:right-6 md:top-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]"
-                @click="closeModalHitters"><img
-                alt="Icon close view"
-                src="../../assets/img/register/cancel.svg">
-              </div>
-              <div class="grid grid-cols-2 p-2 gap-2">
-                <div class="border-r-4 p-2 drop-zone">
-                  <div class="font-fungo-800 text-fungo-blue2">List of players</div>
-
-                  <draggable class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-h-[100px]" :list="dataHitters" group="people">
-                    <template #item="{ element }">
-                      <t-shirt :player="element"/>
-                    </template>
-                  </draggable>
-                </div>
-                <div class="p-2 drop-zone">
-                  <div class="font-fungo-800 text-fungo-blue2">Order training</div>
-                  <draggable class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-h-[100px]" :list="listOrderPlayerHitters" group="people">
-                    <template #item="{ element }">
-                      <t-shirt :player="element"/>
-                    </template>
-                  </draggable>
-                </div>
-              </div>
-            </DialogPanel>
-          </div>
-        </div>
-      </div>
-    </Dialog>
-    <Dialog :open="isOpenPitchers" class="relative z-50" @close="closeModalPitchers">
-      <div class="fixed inset-0 grid place-items-center min-h-[70%] max-h-[70%] p-4">
-        <div class="fixed inset-0 overflow-y-auto">
-          <!-- Container to center the panel -->
-          <div class="grid w-[95%]  md:w-[65%] mx-auto mt-10">
-            <DialogPanel class="rounded bg-white border p-2 drop-shadow-xl">
-              <DialogTitle
-                class="text-xl text-fungo-red text-center font-fungo-700 my-5">
-                Set players and order to training
-              </DialogTitle>
-              <div
-                class="absolute right-2 top-2 md:right-6 md:top-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]"
-                @click="closeModalPitchers"><img
-                alt="Icon close view"
-                src="../../assets/img/register/cancel.svg">
-              </div>
-              <div class="grid grid-cols-2 p-2 gap-2">
-                <div class="border-r-4 p-2 drop-zone">
-                  <div class="font-fungo-800 text-fungo-blue2">List of players</div>
-
-                  <draggable class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-h-[100px]" :list="dataPitchers" group="people">
-                    <template #item="{ element }">
-                      <t-shirt :player="element"/>
-                    </template>
-                  </draggable>
-                </div>
-                <div class="p-2 drop-zone">
-                  <div class="font-fungo-800 text-fungo-blue2">Order training</div>
-                  <draggable class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-h-[100px]" :list="listOrderPlayerPitchers" group="people">
-                    <template #item="{ element }">
-                      <t-shirt :player="element"/>
-                    </template>
-                  </draggable>
-                </div>
-              </div>
-            </DialogPanel>
-          </div>
-        </div>
-      </div>
-    </Dialog>
-  </Layout>
+      <button
+        class="notes"
+        :aria-expanded="notesOpen"
+        @click="notesOpen = !notesOpen"
+      >
+        NOTES ＋</button
+      ><textarea
+        v-if="notesOpen"
+        v-model="note"
+        aria-label="Session notes"
+        maxlength="2000"
+      />
+      <p v-if="error" role="alert">{{ error }}</p>
+      <footer>
+        <button :disabled="busy" @click="router.push('/training/live-ab')">
+          CANCEL</button
+        ><button class="primary" :disabled="!valid" @click="create">
+          {{ busy ? "CREATING…" : "CREATE" }}
+        </button>
+      </footer>
+    </main></Layout
+  >
 </template>
 <style scoped>
-.dash-table-container {
-  position: relative;
-  left: 0;
+.live-setup {
+  max-width: 1100px;
+  margin: 30px auto;
+  padding: 30px;
+  border: 1px solid #596078;
+  border-radius: 24px;
+  background: #0b1020;
+  color: white;
 }
-
-.box-input-col {
-  @apply flex flex-col w-[100%];
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #ff2850;
 }
-
-.dash-body {
-  @apply h-full  w-full  flex flex-col justify-between;
+h1 {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 12px 0;
 }
-
-.capitalize {
-  text-transform: capitalize;
+h2 {
+  font-size: 22px;
+  margin: 16px 0;
 }
-
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+.mode,
+footer {
+  display: flex;
+  gap: 12px;
+  margin: 24px 0;
 }
-
-::-webkit-scrollbar-button {
-  width: 0px;
-  height: 0px;
+.mode button,
+footer button {
+  flex: 1;
+  padding: 18px;
+  border: 1px solid #ff2750;
+  border-radius: 15px;
+  background: #252939;
+  font-weight: 700;
 }
-
-::-webkit-scrollbar-thumb {
-  background: #e41111;
-  border: 0px none #ffffff;
-  border-radius: 5px;
+.mode .active,
+.primary {
+  background: #ff2750 !important;
 }
-
-::-webkit-scrollbar-thumb:hover {
-  background: #ffffff;
+.teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
 }
-
-::-webkit-scrollbar-thumb:active {
-  background: #000000;
+label {
+  display: block;
+  margin: 12px 0;
 }
-
-::-webkit-scrollbar-track {
-  background: #666666;
-  border: 22px solid #918383;
-  border-radius: 4px;
+input:not([type="checkbox"]),
+select,
+textarea {
+  display: block;
+  width: 100%;
+  border: 1px solid #69748e;
+  background: #141c30;
+  color: white;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 8px;
 }
-
-::-webkit-scrollbar-track:hover {
-  background: #e41111;
+textarea {
+  min-height: 100px;
 }
-
-::-webkit-scrollbar-track:active {
-  background: #333333;
+.rules {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
 }
-
-::-webkit-scrollbar-corner {
-  background: transparent;
+.notes {
+  padding: 20px;
+  background: #252939;
+  border-radius: 16px;
+  width: 100%;
+  text-align: left;
+  font-size: 22px;
 }
-
-.drop-zone {
-  @apply bg-white
+button:disabled {
+  opacity: 0.4;
 }
-
-.tooltip {
-  @apply absolute hidden group-hover:flex -left-5 -top-2 -translate-y-[60%] w-max px-2 py-1 bg-fungo-darkblue rounded-lg text-center text-white text-sm after:content-[''] after:absolute after:left-1/2 after:top-[100%] after:-translate-x-1/2 after:border-8 after:border-x-transparent after:border-b-transparent after:border-t-fungo-darkblue
+button:focus-visible {
+  outline: 3px solid #8de6ff;
 }
-
-table {
-  border-spacing: 0 10px;
+[role="alert"] {
+  background: #641832;
+  padding: 15px;
+  border-radius: 10px;
 }
-
-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
-}
-
-table tbody tr::after {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #ADE8F4;
-}
-
-table tbody tr:nth-child(even)::after {
-  background-color: #DADADA;
+@media (max-width: 700px) {
+  .teams {
+    grid-template-columns: 1fr;
+  }
+  .live-setup {
+    margin: 12px;
+    padding: 18px;
+  }
 }
 </style>

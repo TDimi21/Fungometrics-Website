@@ -97,7 +97,7 @@ class GetLiveABPracticeResults extends Controller
                 $request->user(),
                 $practice->team_id ? (string) $practice->team_id : null
             );
-            $responseData = ['count' => $count];
+            $responseData = ['count' => $count, 'game_state' => $practice->liveab_state, 'game_config' => $practice->liveab_config, 'game_adjustments' => $practice->liveab_state ? \Illuminate\Support\Facades\DB::table('liveab_web_events')->where('practice_id',$practice->id)->whereNull('result_id')->where('undone',false)->orderBy('id')->get(['action','before_state','after_state','created_at']) : []];
             if (in_array('box_score', $entitlements, true)) {
                 $responseData += [
                     'ball_x_ball' => $data,

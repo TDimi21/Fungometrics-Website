@@ -343,6 +343,14 @@ Route::prefix('coach')->group(function (): void {
         Route::middleware('plan:performance_overview')->get('/performance-overview/{team}', GetPerformanceOverview::class);
         Route::middleware('plan:performance_overview')->get('/leaderboard/{team}', GetTeamLeaderboard::class);
         Route::middleware('plan:liveab_sessions')->post('/trainingab', AddNewLiveABSession::class);
+        Route::middleware('plan:liveab_sessions')->group(function () {
+            $webLiveAB = \App\Http\Controllers\Api\Training\WebLiveABSession::class;
+            Route::get('/liveab-session/{practice}', [$webLiveAB, 'show']);
+            Route::post('/liveab-session/{practice}/pitch', [$webLiveAB, 'pitch']);
+            Route::post('/liveab-session/{practice}/state', [$webLiveAB, 'update']);
+            Route::post('/liveab-session/{practice}/undo', [$webLiveAB, 'undo']);
+            Route::post('/liveab-session/{practice}/lineup', [$webLiveAB, 'lineup']);
+        });
         Route::middleware('plan:liveab_sessions')->get('/statistics/{practice}/liveab', GetLiveABPracticeResults::class);
         Route::middleware('throttle:30,1')->get('/search/players', SearchPlayers::class);
         Route::middleware('throttle:30,1')->get('/search/coaches', SearchCoaches::class);

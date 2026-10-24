@@ -35,6 +35,12 @@ class EditLiveABResultPractice extends Controller
 
             $liveab = (new ListServiceData(new LiveABPracticeResult()))->findByUuid($request->uuid)->load(['practice', 'batting.profile', 'pitching.profile']);
 
+            if ($liveab->practice->liveab_state) {
+                DB::rollBack();
+                return response()->json(['message'=>'Use Undo in the Live AB scorer to correct a web game without invalidating later counts and runner state.'],409);
+            }
+
+
             $batting = (new UpdateServiceData(new BattingPracticeResult()))->handle($liveab->batting->id, [
                 'is_contact' => $requestData['is_contact'],
                 'batter_id'=>$requestData['batting']['batter_id'],

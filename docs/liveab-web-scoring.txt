@@ -1,0 +1,64 @@
+Live AB web scoring
+
+Entry points
+/create/live: app-style setup with Practice and Game Mode, named/dated sessions,
+notes, Home and Away teams, and separate hitter/pitcher lists. Select and reorder
+up to 20 roster players per list, assign fielding positions, and see stored batting
+and throwing hands. Game mode requires all four lists. Practice requires away
+hitters and home pitchers. Game settings include regulation innings, unlimited
+innings, and continuous innings.
+
+/track/live?session=<id>: authoritative server reload, using the same catcher
+image as mobile ResumeLiveABmodernClean, the 60x60 pitch coordinates, and the
+shared batting-field coordinate conversion. Pitch types, trajectories, pitch
+velocity, balls/strikes, pitcher/hitter selection and lineup additions are available.
+Ball-in-play review records field location, quality, exit velocity, explicit result,
+runner destinations, RBI and inning-ending force-out run cancellation.
+
+Counts hold at two strikes on ordinary fouls. Walks/HBP force only obligated
+runners. Completed plate appearances rotate the batting order. Three outs switch
+sides in regular games; continuous innings wait for the coach's half-inning
+control. Tied games continue to extras, home leads can skip the final bottom,
+and walk-offs mark the game finished. End practice separately confirms completion.
+Runner controls support advancement, outs, stolen bases, wild pitches, passed
+balls, balks and pickoffs. These are saved as adjustments rather than extra pitches.
+
+Persistence and access
+Migration 2026_10_24_000003_add_liveab_web_state.php is required.
+It adds practice config/state, result inning/half, and a web action journal.
+The coach-scoped liveab-session endpoints save a pitch and its linked hitting,
+pitching and game state in one transaction. A per-practice row lock, revision and
+client request ID prevent duplicate submissions and overwriting a newer tab.
+Uncertain responses lock entry until the same action is retried. Undo restores
+the prior state and soft-deletes all three linked result records when applicable.
+Runner-only adjustments can be undone without deleting a pitch.
+
+New writes retain explicit play_result, outs, runs, RBI and runner fields previously
+discarded by LiveABRequest. Legacy base codes remain 1 single, 2 double, 3 triple,
+4 walk, 5 HR, 6 HBP, 7 strikeout, 8 out/error. Corrected pitcher HR aggregates that
+mistook walk code 4 for HR code 5.
+
+Statistics
+Saved pitches immediately feed the hitting/pitching tabs, box score, scorecard and
+existing full Live AB statistics. Session Report receives game config, score by
+inning and saved runner adjustments. Box-score totals include runner-only runs
+and outs without fabricating pitches or RBI. Existing legacy records cannot supply
+details that were never saved, including exact runner identity and fielding errors.
+
+Boundaries
+This is an online web scorer; it does not port mobile SQLite/offline synchronization.
+An app game's device-local innings/runners/four-lineup setup cannot be reconstructed
+from legacy server results. Legacy cloud sessions resume as practice with saved
+counts and current matchup; continue an existing mobile game on its original device.
+If another client adds pitches outside the web journal, web scoring stops rather
+than overwriting its state. Web-game pitch corrections use Undo; arbitrary editing
+of earlier results is blocked to avoid leaving later game state inconsistent.
+Roster handedness is displayed, not changed by session setup.
+No mobile source files were modified and no production migration was run.
+
+Validation
+Full local PHP regression suite: 1,192 tests, 10,397 assertions passed.
+Final focused PHP checks: 16 tests, 80 assertions passed.
+Full frontend suite: 445 tests across 72 files passed. Production Vite build passed.
+Browser visual verification and GitHub's MariaDB-version CI matrix still need
+to run before production release. The build retains its existing chunk-size warning.

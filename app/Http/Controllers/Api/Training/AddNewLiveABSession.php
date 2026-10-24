@@ -36,9 +36,33 @@ class AddNewLiveABSession extends Controller
         try {
             DB::beginTransaction();
             $dataRequest = $request->validated();
+            $config = $dataRequest['liveab_config'] ?? null;
+            if ($config) {
+                abort_unless('L' === $dataRequest['type'], 422, 'Live AB session required.');
+                foreach (['away', 'home'] as $side) {
+                    $teamId = $config[$side]['team_id'];
+                    abort_unless(\App\Models\CoachTeam::where('coach_id', $request->user()->id)->where('team_id', $teamId)->exists(), 403);
+                    foreach (['hitters','pitchers'] as $role) {
+                        $ids = $config[$side][$role] ?? [];
+                        $config[$side][$role] = $ids;
+                        abort_unless(count($ids) === count(array_unique($ids)), 422, 'Do not repeat players in a lineup.');
+                        $required = 'game' === $config['mode'] || ('away' === $side && 'hitters' === $role) || ('home' === $side && 'pitchers' === $role);
+                        abort_if($required && ! $ids, 422, 'Select hitters and pitchers for each side.');
+                        abort_unless(\App\Models\PlayerTeam::where('team_id', $teamId)->whereIn('user_id', $ids)->distinct()->count('user_id') === count(array_unique($ids)), 422, 'Select roster players.');
+                    }
+                }
+                $dataRequest['teams'] = ['a' => $config['away']['team_id'], 'b' => $config['home']['team_id']];
+                $dataRequest['liveab_config'] = $config;
+                $battingIds = array_values(array_unique(array_merge($config['away']['hitters'], $config['home']['hitters'])));
+                $pitchingIds = array_values(array_unique(array_merge($config['home']['pitchers'], $config['away']['pitchers'])));
+                $dataRequest['players'] = [
+                    'a' => array_map(fn ($id, $sort) => ['id' => $id, 'sort' => $sort], $battingIds, array_keys($battingIds)),
+                    'b' => array_map(fn ($id, $sort) => ['id' => $id, 'sort' => $sort], $pitchingIds, array_keys($pitchingIds)),
+                ];
+            }
             $dataRequest['started'] = Carbon::now();
-            $dataRequest['modes'] = $dataRequest['modes']??PracticeModes::HIT_OR_PITCH->value;
-            $dataRequest['type'] = $dataRequest['type']??PracticeTypes::LIVE_AB->value;
+            $dataRequest['modes'] = $dataRequest['modes'] ?? PracticeModes::HIT_OR_PITCH->value;
+            $dataRequest['type'] = $dataRequest['type'] ?? PracticeTypes::LIVE_AB->value;
 
             $teamsInput = $dataRequest['teams'] ?? [];
             $playersInput = $dataRequest['players'] ?? [];
@@ -59,7 +83,7 @@ class AddNewLiveABSession extends Controller
             $batters = $playersInput['a'] ?? $playersInput[0] ?? [];
             $pitchers = $playersInput['b'] ?? $playersInput[1] ?? [];
 
-            if (!is_array($batters) || !is_array($pitchers) || count($batters) === 0 || count($pitchers) === 0) {
+            if ( ! is_array($batters) || ! is_array($pitchers) || 0 === count($batters) || 0 === count($pitchers)) {
                 DB::rollBack();
                 return response()->json([
                     'code' => '022-E',
@@ -80,11 +104,13 @@ class AddNewLiveABSession extends Controller
             $teams = null;
             $seenTeamIds = [];
             foreach (['a' => $teamA, 'b' => $teamB] as $side => $team) {
-                if (in_array($team, $seenTeamIds, true)) continue; // skip duplicates
+                if (in_array($team, $seenTeamIds, true)) {
+                    continue;
+                } // skip duplicates
                 $seenTeamIds[] = $team;
                 $teamPayload = [
-                    'team_id'=>$team,
-                    'practice_id'=>$practice->id
+                    'team_id' => $team,
+                    'practice_id' => $practice->id
                 ];
                 if ($hasTeamsLiveAbBattingColumn) {
                     $teamPayload['batting'] = 'a' === $side;
@@ -102,10 +128,10 @@ class AddNewLiveABSession extends Controller
                     // Mobile payload can carry either users.id or players.id.
                     // practice_line_ups.user_id requires users.id.
                     $resolvedUserId = User::query()->where('id', $incomingId)->value('id');
-                    if (!$resolvedUserId) {
+                    if ( ! $resolvedUserId) {
                         $resolvedUserId = Player::query()->where('id', $incomingId)->value('user_id');
                     }
-                    if (!$resolvedUserId) {
+                    if ( ! $resolvedUserId) {
                         throw new Exception('invalid lineup player id: '.$incomingId);
                     }
 
@@ -114,8 +140,8 @@ class AddNewLiveABSession extends Controller
                             'practice_id' => $practice->id,
                             'user_id' => $resolvedUserId,
                             'sort' => (int) ($player['sort'] ?? 0),
-                            'is_batting'=>'a' === $key,
-                            'is_pitching'=>'b' === $key,
+                            'is_batting' => 'a' === $key,
+                            'is_pitching' => 'b' === $key,
                         ]);
                 }
             }
@@ -125,9 +151,9 @@ class AddNewLiveABSession extends Controller
                 'message' => 'practice live ab create',
                 'status' => 'success',
                 'data' => new PracticeLiveABSessionResource([
-                    'practice'=>$practice,
-                    'teams'=>$teams,
-                    'players'=>$players
+                    'practice' => $practice,
+                    'teams' => $teams,
+                    'players' => $players
                 ]),
             ];
             DB::commit();
@@ -141,6 +167,9 @@ class AddNewLiveABSession extends Controller
             return response()->json($response, HttpCodes::HTTP_CREATED);
         } catch (Exception $exception) {
             DB::rollBack();
+            if ($exception instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                throw $exception;
+            }
             $response = [
                 'code' => '022-E',
                 'message' => 'error to create a session training',

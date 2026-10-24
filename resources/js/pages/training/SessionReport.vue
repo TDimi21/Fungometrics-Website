@@ -1,4 +1,5 @@
 <script setup>
+import LiveABBoxScore from '@/components/practice/LiveABBoxScore.vue'
 /**
  * SessionReport.vue
  *
@@ -15,6 +16,7 @@
  *   :type = batting | bullpen | cage | exit_velocity | long_toss | weight_ball | live_ab
  */
 import CageGameReview from '@/components/practice/CageGameReview.vue'
+import LiveABGameSummary from '@/components/practice/LiveABGameSummary.vue'
 import { validGameField } from '@/utils/cageGame/session'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -1630,6 +1632,8 @@ const displayDate = computed(() => {
 
         <!-- ══════════ LIVE AB sections ══════════ -->
         <template v-if="sessionType === 'live_ab' && breakdown">
+          <LiveABGameSummary v-if="rawData?.game_state" :state="rawData.game_state" :config="rawData.game_config" />
+          <LiveABBoxScore :rows="extractSessionRows(rawData, 'live_ab')" :config="rawData.game_config" :adjustments="rawData.game_adjustments || []" />
           <section class="mx-4 mb-5">
             <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">📊 Score Breakdown</h3>
             <div class="rounded-xl bg-white/5 border border-white/8 p-4 space-y-3">

@@ -25,6 +25,15 @@ class LiveABRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'play_result' => ['nullable', 'string', 'max:50'],
+            'outs_recorded' => ['nullable', 'integer', 'between:0,3'],
+            'runs_scored' => ['nullable', 'integer', 'between:0,4'],
+            'rbi' => ['nullable', 'integer', 'between:0,4'],
+            'is_safe' => ['nullable', 'boolean'],
+            'sac_fly' => ['nullable', 'boolean'],
+            'sac_bunt' => ['nullable', 'boolean'],
+            'runners_before' => ['nullable', 'array', 'size:3'],
+            'runners_after' => ['nullable', 'array', 'size:3'],
             'practice_id' => ['required', 'string'],
             'turn.turn' => ['required', 'integer'],
             'turn.pitches' => ['required', 'integer'],

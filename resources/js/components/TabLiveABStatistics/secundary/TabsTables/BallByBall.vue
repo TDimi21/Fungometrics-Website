@@ -121,7 +121,7 @@ const editData = (data) => {
     localStorage.removeItem('countBall')
     localStorage.removeItem('countStrike')
 
-    router.push('/track/live')
+    router.push('/track/live/edit')
   // })
 }
 
@@ -266,7 +266,8 @@ const showTotalBasesValue = (item) => {
           <td class="min-w-[100px] text-center">
             <button
               class="rounded-full hover:bg-white/10 p-2 transition-[background-color] ease-in duration-200"
-              v-on:click="editData(item)">
+              :title="item.inning ? 'Return to scorer to undo/correct' : 'Edit pitch'"
+              v-on:click="item.inning ? router.push({path:'/track/live',query:{session:item.practice_id}}) : editData(item)">
               <TableEdit />
             </button>
           </td>

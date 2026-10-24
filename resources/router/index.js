@@ -45,7 +45,7 @@ const BlastSessionDevelopmentReportPage = () => import("@/pages/data-hub/BlastSe
 const RapsodoPitchingSessionReportPage = () => import("@/pages/data-hub/RapsodoPitchingSessionReportPage.vue");
 const ChangePassword = () => import("@/pages/profile/ChangePassword.vue");
 const EditPlayer = () => import("@/pages/roster/EditPlayer.vue");
-const TrackLiveAB = () => import("@/pages/training/LiveAB.vue");
+const TrackLiveAB = () => import("@/pages/training/LiveABScoring.vue");
 const NewStatistic = () => import("@/pages/statistics/NewStatistic.vue");
 const NewStatsSessionView = () => import("@/pages/statistics/NewStatsSessionView.vue");
 const PlayerDevelopmentDashboard = () => import('@/features/development/pages/PlayerDevelopmentDashboard.vue');
@@ -263,6 +263,7 @@ const routes = [
 		meta: { requiresAuth: true },
 		props: true,
 	},
+    { path: '/track/live/edit', component: () => import('@/pages/training/LiveAB.vue'), meta: { requiresAuth: true, entitlement: 'liveab_sessions' } },
 	{
 		name: "track.live",
 		path: "/track/live",

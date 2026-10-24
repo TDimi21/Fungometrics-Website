@@ -350,7 +350,7 @@ final class LiveABStatisticsService
             $single = $pitchers->where('livePractice.bases', '=', 1)->count();
             $doubles = $pitchers->where('livePractice.bases', '=', 2)->count();
             $triples = $pitchers->where('livePractice.bases', '=', 3)->count();
-            $homeRuns = $pitchers->where('livePractice.bases', '=', 4)->count();
+            $homeRuns = $pitchers->where('livePractice.bases', '=', 5)->count();
             $totalBases = ($single + $doubles * 2 + $triples * 3 + $homeRuns * 4);
             $countBases = ($single + $doubles  + $triples  + $homeRuns);
             $hits = $singleh + $doubles + $triples + $homeRuns;
@@ -475,7 +475,7 @@ final class LiveABStatisticsService
                 $single = $item->where('livePractice.bases', '=', 1)->count();
                 $doubles = $item->where('livePractice.bases', '=', 2)->count();
                 $triples = $item->where('livePractice.bases', '=', 3)->count();
-                $homeRuns = $item->where('livePractice.bases', '=', 4)->count();
+                $homeRuns = $item->where('livePractice.bases', '=', 5)->count();
                 $totalBases = ($single + $doubles * 2 + $triples * 3 + $homeRuns * 4);
                 $countBases = ($single + $doubles  + $triples  + $homeRuns);
                 $hits = $singleh + $doubles + $triples + $homeRuns;
