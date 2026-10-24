@@ -42,10 +42,12 @@ function pitch(s) { s.location.value = 1830; s.pitchType.value = 'FB'; s.velocit
 describe('Bullpen web scoring', () => {
   it('matches app location, type, contact, and velocity payload and updates live totals', async () => {
     const { s, api, app } = await screen(); pitch(s)
+    expect(s.teamStats.value).toEqual({ count: 2, percent: 50 })
     await Promise.all([s.save(), s.save()])
     expect(api.axiosPost).toHaveBeenCalledTimes(1)
     expect(api.axiosPost).toHaveBeenCalledWith('result/bullpen', expect.objectContaining({ practice_id: 'session-1', team_id: 'team-1', pitcher_id: 'p1', pitch_mark: 1830, type_throw: 'FB', trajectory: 'TK', miles_per_hour: 88, is_strike: true, zone: 'S', client_request_id: 'pitch-key' }))
     expect(s.stats.value).toMatchObject({ count: 2, average: 84, top: 88, strikes: 2 })
+    expect(s.teamStats.value).toEqual({ count: 3, percent: 67 })
     expect(s.pitchType.value).toBe(''); expect(s.location.value).toBe(0)
     s.selected.value = 'p2'; await Vue.nextTick(); expect(s.stats.value.average).toBeNull(); app.unmount()
   })
@@ -70,6 +72,7 @@ describe('Bullpen web scoring', () => {
   it('scopes player stats, preserves original session identity, and links the report', async () => {
     const { s, api, router, app } = await screen({ role: 'player' })
     expect(s.players.value).toHaveLength(1); expect(s.visibleRows.value).toHaveLength(1)
+    expect(s.teamStats.value).toEqual({ count: 1, percent: 100 })
     expect(api.axiosGet).toHaveBeenCalledWith('statistics/session-1/bullpen', { player: 1 })
     await s.report(); expect(router.push).toHaveBeenCalledWith('/session/report/session-1/bullpen?scope=player')
     s.note.value = 'Complete'; await s.finish()

@@ -40,3 +40,11 @@ report scope; verify old single-pitch editing; verify scripted session refuses
 standard scoring. Commit/push/CI/deploy are separate approved steps. No new
 migration is required for this UI; existing bullpen idempotency infrastructure
 must already be deployed.
+
+Landscape app layout update
+Reuses mobile catcher_image.png as bullpen-stadium.png. The top player strip,
+pitch/trajectory columns, team/player strike-rate cards, center catcher target,
+velocity keypad, and translucent red controls follow the supplied app screen.
+Portrait layouts rearrange controls for smaller web screens. Undo remains
+disabled, matching mobile. Clear replaces the decimal key because the existing
+API and app save whole-number mph. Statistics and Session Report remain separate.
