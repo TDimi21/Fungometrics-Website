@@ -1,431 +1,126 @@
 <script setup>
-import Layout from "../../layout/Layout.vue"
-import {useUserStore} from "../../store/user";
-import {usePlayerStore} from "../../store/players";
-import {useTeamStore} from "../../store/team";
-import {useTrainingStore} from "../../store/training";
-import CardTeam from "../../components/CardTeam.vue";
-import {defineProps, reactive, ref, onMounted, onUpdated, watch} from "vue";
-import router from "../../../router";
-import { useRoute } from "vue-router";
-import {Dialog, DialogPanel, DialogTitle} from '@headlessui/vue'
-import { toast } from "@/utils/AlertPlugin"
-import { useAxiosAuth } from '@/composables/axios-auth.js'
-import Loader from "../../components/Loader.vue";
-import TShirt from '@/components/graphics/TShirt.vue'
-import draggable from 'vuedraggable';
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
+import Layout from '@/layout/Layout.vue'
+import { useTeamStore } from '@/store/team'
+import { usePlayerStore } from '@/store/players'
+import { useTrainingStore } from '@/store/training'
+import { useAxiosAuth } from '@/composables/axios-auth'
 
-const isLoading = reactive({status: true})
-
-const slug = ref('training-mode')
-
-let mode = ref('');
-
-const { axiosPost } = useAxiosAuth()
-
-const {players} = usePlayerStore();
-const {team, teams} = useTeamStore();
-const activeTraining = useTrainingStore();
-const training = reactive({
-  modes: '',
-  note: '',
-});
-
-const route = useRoute();
-watch(() => route.query.mode, (selected) => {
-  training.modes = { WB: 'Weighted Ball', EV: 'Exit Velocity', LT: 'Long Toss' }[selected] || '';
-}, { immediate: true });
-
-const registerAndRedirect = async () => {
-    if(!training.note.trim() || listOrderPlayer.value.length === 0 || training.modes === ''){
-      toast.fire({
-        icon: 'warning',
-        title: 'Validation !!!',
-        text: 'You add a note for start training or select one player for start the practice',
-      })
-    }else{
-
-      switch (training.modes) {
-        case "Long Toss":
-            mode.value = "LT";
-          break;
-        case "Exit Velocity":
-            mode.value = "EV";
-          break;
-        case 'Weighted Ball':
-            mode.value = "WB";
-          break;
-        default:
-            mode.value = 'LT';
-          break;
-      }
-
-      try {
-        isLoading.status = !isLoading.status;
-
-        let type = "T";
-        const data = {
-          team: activeTeam.value,
-          type,
-          modes: mode.value,
-          note: training.note,
-          players:listOrderPlayer.value.map((item,index)=>{
-            return {'sort': index, 'id':item.id}
-          })
-        };
-
-        await axiosPost('training',data).then(async (response)=>{
-
-          if(response){
-            activeTraining.setCountBallsTraining(0)
-            listOrderPlayer.value.forEach(item => {
-              let data = {
-                "balls": 0,
-                "bxs": 0,
-                "set": 1
-              }
-              activeTraining.countThrowArray[item.id] = data
-            })
-            await activeTraining.setDataTraining(response.data.data);
-            isLoading.status = !isLoading.status;
-            router.push({
-              path: '/track/' + slug.value + "/" +mode.value,
-              query: { session: response.data.data.id },
-            });
-          }
-        })
-
-      }catch (error){
-        isLoading.status = !isLoading.status;
-         toast.fire({
-          icon: 'error',
-          title: 'Error create training',
-          text: 'Sorry it is not possible create a training in this moment',
-        })
-      }
-
-    }
-
-
-  }
-const listPlayers = ref([...players])
-const listOrderPlayer = ref([]);
-const activeTeam = ref(team.id);
-
-const isOpen = ref(false)
-
-function closeModal() {
-  isOpen.value = false
+const route = useRoute(), router = useRouter()
+const teamStore = useTeamStore(), playerStore = usePlayerStore(), trainingStore = useTrainingStore()
+const { axiosGet, axiosPost } = useAxiosAuth()
+const labels = { LT: 'Long Toss', EV: 'Exit Velocity', WB: 'Weighted Balls' }
+const mode = ref(labels[route.query.mode] ? route.query.mode : '')
+const teamId = ref(teamStore.team?.id || '')
+const teams = computed(() => [...new Map([teamStore.team, ...teamStore.teams].filter(t => t?.id).map(t => [t.id, t])).values()])
+const roster = ref([]), selectedIds = ref([]), draftIds = ref([]), search = ref('')
+const pickerOpen = ref(false), notesOpen = ref(false), note = ref('')
+const loading = ref(false), saving = ref(false), error = ref('')
+const selected = computed(() => selectedIds.value.map(id => roster.value.find(p => p.id === id)).filter(Boolean))
+const playerName = player => player.name?.full || [player.name?.first, player.name?.last].filter(Boolean).join(' ') || 'Player'
+const visiblePlayers = computed(() => roster.value.filter(p => `${playerName(p)} ${p.shirt_number || ''}`.toLowerCase().includes(search.value.trim().toLowerCase())))
+const canCreate = computed(() => Boolean(teamId.value && labels[mode.value] && selected.value.length && !loading.value && !saving.value))
+let rosterRequest = 0
+async function loadRoster() {
+  const request = ++rosterRequest
+  selectedIds.value = []; draftIds.value = []; roster.value = []; error.value = ''; pickerOpen.value = false
+  if (!teamId.value) { loading.value = false; return }
+  loading.value = true
+  try {
+    const response = await axiosGet(`coach/teams/${teamId.value}`)
+    if (request !== rosterRequest) return
+    const players = response.data.data
+    if (!Array.isArray(players)) throw new Error('Unexpected roster response')
+    roster.value = [...new Map(players.filter(p => p?.id).map(p => [p.id, p])).values()]
+  } catch {
+    if (request === rosterRequest) error.value = 'Unable to load this team’s players. Please retry.'
+  } finally { if (request === rosterRequest) loading.value = false }
 }
-
-function openModal() {
-  isOpen.value = true
+watch(teamId, loadRoster, { immediate: true })
+watch(() => route.query.mode, value => { mode.value = labels[value] ? value : '' })
+function openPicker() { draftIds.value = [...selectedIds.value]; search.value = ''; pickerOpen.value = true }
+function togglePlayer(id) {
+  draftIds.value = draftIds.value.includes(id) ? draftIds.value.filter(value => value !== id) : [...draftIds.value, id]
 }
-
-
-
-const startDrag = (event, item, parent = false, list = []) => {
-  event.dataTransfer.dropEffect = 'move'
-  event.dataTransfer.effectAllowed = 'move'
-  event.dataTransfer.setData('itemID', item.id)
-  if (parent) {
-    event.dataTransfer.setData('sort-item', "change")
-  } else {
-    event.dataTransfer.setData('sort-item', "")
-  }
+function applyPlayers() { selectedIds.value = [...draftIds.value]; pickerOpen.value = false }
+function removePlayer(id) { selectedIds.value = selectedIds.value.filter(value => value !== id) }
+function movePlayer(index, direction) {
+  const next = index + direction
+  if (next < 0 || next >= selectedIds.value.length) return
+  const ids = [...selectedIds.value]; [ids[index], ids[next]] = [ids[next], ids[index]]; selectedIds.value = ids
 }
-const onDrop = (event, listA, listB) => {
-  const itemId = event.dataTransfer.getData('itemID')
-  const itemInList = listA.find((item) => item.id === itemId)
-  if (itemInList !== undefined) {
-    addElementList(itemId, listA, listB)
-  }
-}
-
-const onDropOrder = (event, key, list) => {
-  const itemId = event.dataTransfer.getData('itemID')
-  const itemInList = list.find((item) => item.id === itemId)
-  let pos1 = list.indexOf(itemInList);
-  let pos2 = list.indexOf(list[key]);
-  list.splice(pos1, 1, list[key])
-  list.splice(pos2, 1, itemInList)
-}
-
-const addElementList = (element, listA, listB) => {
-  const itemInList = listA.find((item) => item.id === element)
-  const elementExist = listB.includes(itemInList)
-  if (!elementExist) {
-    listB.push(itemInList)
-    const pos = listA.indexOf(itemInList)
-    listA.splice(pos, 1)
-  }
-}
-
-const validateZone = (event, key, list) => {
-  const moveItem = event.dataTransfer.getData('sort-item')
-  if (moveItem === "change") {
-    onDropOrder(event, key, list)
-  }
-
-}
-const clearPlayersData = ()=>{
-  listPlayers.value =[];
-  listOrderPlayer.value =[];
+const cancel = () => router.push({ path: '/training/training-mode', query: mode.value ? { mode: mode.value } : {} })
+async function createPractice() {
+  if (!canCreate.value) return
+  saving.value = true; error.value = ''
+  try {
+    const response = await axiosPost('training', {
+      team: teamId.value, type: 'T', modes: mode.value,
+      note: note.value.trim() || `${labels[mode.value]} session`,
+      players: selected.value.map((player, sort) => ({ id: player.id, sort })),
+    })
+    const session = response.data.data
+    trainingStore.setDataTraining(session)
+    trainingStore.setCountBallsTraining(0)
+    trainingStore.countThrowArray = Object.fromEntries(selected.value.map(p => [p.id, { balls: 0, bxs: 0, set: 1 }]))
+    teamStore.setTeam(teams.value.find(t => t.id === teamId.value))
+    playerStore.setPlayers(roster.value)
+    await router.push({ path: `/track/training-mode/${mode.value}`, query: { session: session.id } })
+  } catch {
+    error.value = 'Unable to confirm creation. Check your session list before trying again.'
+  } finally { saving.value = false }
 }
 </script>
+
 <template>
-  <Loader v-show="!isLoading.status"/>
-  <Layout class="debug">
-    <div class="grid grid-flow-row md:grid-cols-3 font-fungo-poppins md:place-items-center">
-      <div class="capitalize text-center text-fungo-red font-fungo-700 text-lg md:grid-cols-3 md:text-3xl mt-2 md:col-span-3">
-        New {{ slug.replace('-', ' ') }} Practice
+  <Layout>
+    <main class="setup-shell" :aria-busy="saving">
+      <header><p class="setup-eyebrow">New training practice</p><h1>{{ labels[mode] || 'Training mode' }}</h1><p>Choose your players, add notes, and start your session.</p></header>
+      <div class="setup-context">
+        <label>Team<select v-model="teamId" :disabled="saving || pickerOpen"><option value="" disabled>Select team</option><option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option></select></label>
+        <label v-if="!labels[route.query.mode]">Mode<select v-model="mode" :disabled="saving"><option value="" disabled>Select mode</option><option v-for="(label, value) in labels" :key="value" :value="value">{{ label }}</option></select></label>
       </div>
-      <div
-        class="max-h-[150px] min-h-[150px] md:max-h-[300px]
-        md:min-h-[250px]  md:w-[300px] border rounded bg-white grid
-        overflow-y-auto py-2 mt-3 md:ml-8 xl:w-[500px]">
-        <div class="text-fungo-red font-fungo-700 ml-5">Select team</div>
-        <div v-for="(element, index) in teams ">
-          <CardTeam :team-item="element" name-input="teamActive" v-model:players="listPlayers" v-model:team="team"
-                    @click="clearPlayersData"/>
+      <p v-if="error" role="alert" class="setup-error">{{ error }} <button v-if="!roster.length" :disabled="saving || loading" @click="loadRoster">Retry roster</button></p>
+      <button class="setup-row" :disabled="!teamId || loading || saving" aria-haspopup="dialog" @click="openPicker">
+        <span>PLAYERS <small>{{ loading ? 'Loading roster…' : selected.length ? `${selected.length} selected` : 'Choose players' }}</small></span>
+        <svg aria-hidden="true" viewBox="0 0 32 32"><circle cx="12" cy="9" r="5" fill="currentColor"/><path d="M2 28v-5c0-6 20-6 20 0v5z" fill="currentColor"/><path d="M25 9v12m-6-6h12" stroke="currentColor" stroke-width="3"/></svg>
+      </button>
+      <ol v-if="selected.length" class="selected-players" aria-label="Selected players in session order">
+        <li v-for="(player, index) in selected" :key="player.id">
+          <span class="avatar" aria-hidden="true">{{ playerName(player).slice(0,1) }}</span>
+          <span class="player-name"><strong>{{ playerName(player) }}</strong><small>#{{ player.shirt_number || '—' }} · Order {{ index + 1 }}</small></span>
+          <button :disabled="saving || index === 0" :aria-label="`Move ${playerName(player)} earlier`" @click="movePlayer(index, -1)">↑</button>
+          <button :disabled="saving || index === selected.length - 1" :aria-label="`Move ${playerName(player)} later`" @click="movePlayer(index, 1)">↓</button>
+          <button :disabled="saving" :aria-label="`Remove ${playerName(player)}`" @click="removePlayer(player.id)">×</button>
+        </li>
+      </ol>
+      <button class="setup-row" :disabled="saving" :aria-expanded="notesOpen" aria-controls="practice-notes" @click="notesOpen = !notesOpen">
+        <span>NOTES <small>{{ note.trim() ? 'Notes added' : 'Optional' }}</small></span><span class="plus" aria-hidden="true">{{ notesOpen ? '−' : '+' }}</span>
+      </button>
+      <div v-if="notesOpen" id="practice-notes" class="notes-panel"><label for="session-notes">Session notes</label><textarea id="session-notes" v-model="note" :disabled="saving" placeholder="Focus, goals, or reminders for this session" rows="4" /></div>
+      <footer class="setup-actions"><button :disabled="saving" class="cancel" @click="cancel">CANCEL</button><button class="create" :disabled="!canCreate" @click="createPractice">{{ saving ? 'CREATING…' : 'CREATE' }}</button></footer>
+    </main>
+    <Dialog :open="pickerOpen" @close="pickerOpen = false" class="player-picker">
+      <div class="picker-backdrop" aria-hidden="true" />
+      <div class="picker-position"><DialogPanel class="picker-panel">
+        <header><DialogTitle as="h2">Select players</DialogTitle><p>Tap a player to select or deselect them.</p></header>
+        <label for="player-search">Search players</label><input id="player-search" v-model="search" type="search" placeholder="Name or jersey number" />
+        <div class="picker-tools"><span>{{ draftIds.length }} selected</span><button @click="draftIds = roster.map(p => p.id)">Select all</button><button @click="draftIds = []">Clear</button></div>
+        <div class="picker-list">
+          <p v-if="!visiblePlayers.length">{{ roster.length ? 'No matching players.' : 'No players on this team yet.' }}</p>
+          <label v-for="player in visiblePlayers" :key="player.id" class="picker-player" :class="{ chosen: draftIds.includes(player.id) }">
+            <input type="checkbox" :checked="draftIds.includes(player.id)" @change="togglePlayer(player.id)" />
+            <span class="avatar" aria-hidden="true">{{ playerName(player).slice(0,1) }}</span><span class="player-name"><strong>{{ playerName(player) }}</strong><small>Jersey #{{ player.shirt_number || '—' }}</small></span>
+          </label>
         </div>
-      </div>
-      <div class="hidden md:block w-[75%]">
-        <img alt="back batting"
-             src="../../assets/img/training/battingbglogo.svg"></div>
-      <div class="grid grid-flow-row place-items-center mt-5 md:mr-12">
-        <div>
-          <div class="grid mt-5">
-            <button
-              class=" rounded-xl rounded-l-3xl border bg-fungo-red text-white xl:w-[200px] mx-auto xl:w-[300px]"
-              @click="openModal">
-              <div
-                class="flex  min-w-[80px] lg:max-w-[250px]">
-                <div class="m-1 p-1"><img
-                  class="w-[20px] h-[20px] xl:w-[35px] xl:h-[35px]"
-                  src="../../assets/img/login/assteslogin/ballbutton.png"></div>
-                <div class="grid content-center items-center mx-8 xl:text-[18px]">Select Players</div>
-              </div>
-            </button>
-          </div>
-        </div>
-        <div class="mt-3 w-[200px]  md:w-full">
-          Select mode
-          <FormKit type="select" v-model="training.modes" :options="route.query.mode === 'LT' ? ['Long Toss'] : ['Long Toss', 'Exit Velocity', 'Weighted Ball']"/>
-        </div>
-        <div class="mt-2">
-          Notes
-          <FormKit type="textarea" v-model="training.note"/>
-        </div>
-        <div class="grid mt-2">
-          <button
-            class=" rounded-xl rounded-l-3xl border bg-fungo-darkblue text-white xl:w-[200px] mx-auto xl:w-[300px]"
-            @click="registerAndRedirect">
-            <div
-              class="flex  min-w-[80px] lg:max-w-[250px]">
-              <div class="m-1 p-1"><img
-                class="w-[20px] h-[20px] xl:w-[35px] xl:h-[35px]" src="../../assets/img/login/assteslogin/ballbutton.png"></div>
-              <div class="grid content-center items-center mx-8 xl:text-[18px]">Start Practice</div>
-            </div>
-          </button>
-        </div>
-
-      </div>
-
-
-    </div>
-    <div class="md:col-span-3 mt-8">
-      <section class="px-[10%] md:px-[5%]  lg:mt-[140px] overflow-x-auto grid place-items-center">
-        <table class="w-fit border-separate space-y-6 text-fungo-darkblue">
-
-          <thead class="bg-fungo-lightblue">
-          <tr class="divide-x divide-[#000]">
-            <th>
-              logo
-            </th>
-            <th>
-              name
-            </th>
-            <th>
-              lineup
-            </th>
-            <th>
-              mode type
-            </th>
-            <th>
-              note
-            </th>
-          </tr>
-
-          </thead>
-
-          <tbody>
-
-
-          <tr  class="bg-white border-l border-fungo-lightblue ">
-
-            <td class="w-[140px] max-w-[140px]">
-              <img :src="team.logo" alt="" class="w-16 h-full object-center object-cover mx-auto rounded-full">
-            </td>
-
-            <td class="w-[200px] max-w-[200px] font-fungo-700">
-              {{ team.name }}
-            </td>
-
-            <td class="w-[270px] max-w-[270px] group relative">
-              <p class="truncate">
-              <span v-for="(player, playerIndex) in listOrderPlayer" :key="playerIndex">
-                {{
-                  listOrderPlayer.length === (playerIndex + 1) ? player.name.full : player.name.full + ', '
-                }}
-              </span>
-
-                <!-- tooltip player -->
-                <span class="tooltip">
-                <label v-for="(player, playerIndex) in listOrderPlayer" :key="playerIndex">
-                  {{
-                    listOrderPlayer.length === (playerIndex + 1) ? player.name.full : player.name.full + ',‍‍‍‍‍ㅤ'
-                  }}
-                </label>
-              </span>
-                <!-- end tooltip player -->
-              </p>
-            </td>
-
-            <td class="w-[270px] max-w-[270px] group relative">
-              <p class="truncate">{{ training.modes }}</p>
-              <!-- tooltip note -->
-              <span class="tooltip w-[300px] max-w-[300px]">
-              {{ training.modes }}
-            </span>
-              <!-- end tooltip note -->
-            </td>
-            <td class="w-[200px] max-w-[200px] group relative">
-              <p class="truncate">{{ training.note }}</p>
-              <span class="tooltip w-[300px] max-w-[300px]">
-                {{ training.note }}
-              </span>
-            </td>
-          </tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-    <Dialog :open="isOpen" class="relative z-50" @close="closeModal">
-      <div class="fixed inset-0 grid place-items-center min-h-[70%] max-h-[70%] p-4">
-        <div class="fixed inset-0 overflow-y-auto">
-          <!-- Container to center the panel -->
-          <div class="grid w-[95%]  md:w-[65%] mx-auto mt-10">
-            <DialogPanel class="rounded bg-white border p-2 drop-shadow-xl">
-              <DialogTitle
-                class="text-xl text-fungo-red text-center font-fungo-700 my-5">
-                Set players and order to training
-              </DialogTitle>
-              <div
-                class="absolute right-2 top-2 md:right-6 md:top-6 cursor-pointer w-[24px] h-[24px] md:w-[32px] md:h-[32px]"
-                @click="closeModal"><img
-                alt="Icon close view"
-                src="../../assets/img/register/cancel.svg">
-              </div>
-              <div class="grid grid-cols-2 p-2 gap-2">
-                <div class="border-r-4 p-2 drop-zone">
-                  <div class="font-fungo-800 text-fungo-blue2">List of players</div>
-
-                  <draggable class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-h-[100px]" :list="listPlayers" group="people">
-                    <template #item="{ element }">
-                      <t-shirt :player="element"/>
-                    </template>
-                  </draggable>
-
-                </div>
-                <div class="p-2 drop-zone">
-                  <div class="font-fungo-800 text-fungo-blue2">Order training</div>
-
-                  <draggable class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-h-[100px]" :list="listOrderPlayer" group="people">
-                    <template #item="{ element }">
-                      <t-shirt :player="element"/>
-                    </template>
-                  </draggable>
-
-                </div>
-              </div>
-            </DialogPanel>
-          </div>
-        </div>
-      </div>
+        <footer class="setup-actions"><button class="cancel" @click="pickerOpen = false">Cancel</button><button class="create" @click="applyPlayers">Done · {{ draftIds.length }} players</button></footer>
+      </DialogPanel></div>
     </Dialog>
   </Layout>
 </template>
-<style scoped>
-.dash-table-container {
-  position: relative;
-  left: 0;
-}
-.box-input-col {
-  @apply flex flex-col w-[100%];
-}
-.dash-body {
-  @apply h-full  w-full  flex flex-col justify-between;
-}
-.capitalize {
-  text-transform: capitalize;
-}
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-button {
-  width: 0px;
-  height: 0px;
-}
-::-webkit-scrollbar-thumb {
-  background: #e41111;
-  border: 0px none #ffffff;
-  border-radius: 5px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #ffffff;
-}
-::-webkit-scrollbar-thumb:active {
-  background: #000000;
-}
-::-webkit-scrollbar-track {
-  background: #666666;
-  border: 22px solid #918383;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-track:hover {
-  background: #e41111;
-}
-::-webkit-scrollbar-track:active {
-  background: #333333;
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-.drop-zone {
-  @apply bg-white
-}
-.tooltip {
-  @apply absolute hidden group-hover:flex -left-5 -top-2 -translate-y-[60%] w-max px-2 py-1 bg-fungo-darkblue rounded-lg text-center text-white text-sm after:content-[''] after:absolute after:left-1/2 after:top-[100%] after:-translate-x-1/2 after:border-8 after:border-x-transparent after:border-b-transparent after:border-t-fungo-darkblue
-}
-table{
-  border-spacing: 0 10px;
-}
-table tbody tr td {
-  @apply text-center py-4 px-1 2xl:px-5;
-}
 
-table tbody tr::after{
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: #ADE8F4;
-}
-table tbody tr:nth-child(even)::after{
-  background-color: #DADADA;
-}
+<style scoped>
+.setup-shell{max-width:780px;margin:32px auto;padding:28px;color:var(--app-text,#f8fafc)}header{margin-bottom:24px}h1{font-size:30px;font-weight:800}header p{color:var(--app-text-soft,#b8c2d4);margin-top:8px}.setup-eyebrow{text-transform:uppercase;font-size:12px;letter-spacing:2px}.setup-context{display:flex;gap:16px;margin-bottom:24px}.setup-context label{flex:1}label{font-size:14px;font-weight:600}select,textarea,input[type=search]{display:block;width:100%;padding:12px;margin-top:8px;background:var(--app-surface,#111827);color:var(--app-text,#fff);border:1px solid var(--app-border,#68738a);border-radius:10px}button{min-height:44px;border-radius:12px;padding:10px 16px;font-weight:650}button:disabled{opacity:.45;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #35aaff;outline-offset:3px}.setup-row{width:100%;min-height:88px;background:var(--app-surface-soft,#252938);color:var(--app-text,#fff);display:flex;align-items:center;justify-content:space-between;text-align:left;border:1px solid var(--app-border,#49516a);margin:12px 0;padding:20px 24px;font-size:23px;font-weight:500;border-radius:20px}.setup-row small{display:block;font-size:13px;color:var(--app-text-soft,#bac6d8);margin-top:4px}.setup-row svg{width:34px;height:34px}.plus{font-size:32px;font-weight:800}.setup-actions{display:flex;gap:20px;margin-top:20px}.setup-actions button{flex:1;font-size:18px;padding:16px}.cancel{background:var(--app-surface-soft,#343447);color:var(--app-text,#fff);border:1px solid var(--app-border,#68738a)}.create{background:#d61132;color:#fff}.create:disabled{background:#dce1e5;color:#56616e;opacity:1}.selected-players{list-style:none;padding:0;margin:18px 0}.selected-players li{display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--app-border,#49516a)}.selected-players button{padding:8px 12px;background:var(--app-surface-soft,#252938)}.avatar{display:grid;place-items:center;width:38px;height:38px;flex-shrink:0;border-radius:50%;background:#203f66;color:#fff;font-weight:700}.player-name{flex:1;min-width:0;overflow-wrap:anywhere}.player-name small{display:block;font-size:12px;color:var(--app-text-soft,#bac6d8);margin-top:4px}.notes-panel{padding:16px 4px}.setup-error{background:#fff1f2;color:#92152e;padding:12px;border-radius:10px}.player-picker{position:relative;z-index:100}.picker-backdrop{position:fixed;inset:0;background:#000a}.picker-position{position:fixed;inset:0;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:20px}.picker-panel{width:100%;max-width:620px;max-height:90dvh;display:flex;flex-direction:column;border-radius:20px;background:var(--app-surface,#111827);color:var(--app-text,#fff);padding:24px;border:1px solid var(--app-border,#68738a)}h2{font-size:24px;font-weight:750}.picker-tools{display:flex;align-items:center;gap:8px;margin:12px 0;font-size:14px}.picker-tools span{margin-right:auto}.picker-list{overflow-y:auto;min-height:80px}.picker-player{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--app-border,#68738a);border-radius:12px;margin-bottom:8px;cursor:pointer}.picker-player.chosen{border-color:#ef4765;box-shadow:inset 3px 0 #ef4765}.picker-player input{width:20px;height:20px;accent-color:#d61132;flex-shrink:0}@media(max-width:600px){.setup-shell{padding:16px;margin:12px auto}.setup-row{padding:18px;font-size:21px}.setup-actions{gap:12px}.picker-position{padding:10px}.picker-panel{padding:16px}.setup-context{flex-direction:column}.player-name{font-size:14px}.selected-players button{padding:8px}}
 </style>
