@@ -4,6 +4,7 @@ const props = defineProps({
   players: { type: Array, default: () => [] },
   modelValue: { type: Array, default: () => [] },
   label: String,
+  defaultPosition: { type: String, default: "DH" },
   positions: { type: Object, default: () => ({}) },
   disabled: Boolean,
 });
@@ -44,7 +45,22 @@ function move(index, step) {
       :aria-expanded="open"
       @click="open = !open"
     >
-      {{ label }} <span>{{ modelValue.length }} selected · ＋</span>
+      {{ label }}
+      <span class="selection-count" v-if="modelValue.length"
+        >{{ modelValue.length }} / 20</span
+      >
+      <svg
+        aria-hidden="true"
+        width="36"
+        height="36"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
+        <circle cx="9" cy="7" r="4" />
+        <path
+          d="M1 21v-3a8 8 0 0 1 16 0v3H1zM19 7h2v3h3v2h-3v3h-2v-3h-3v-2h3z"
+        />
+      </svg>
     </button>
     <div v-if="open" class="picker">
       <input
@@ -56,7 +72,9 @@ function move(index, step) {
       <label v-for="p in filtered" :key="p.id"
         ><input
           type="checkbox"
-          :disabled="disabled"
+          :disabled="
+            disabled || (modelValue.length >= 20 && !modelValue.includes(p.id))
+          "
           :checked="modelValue.includes(p.id)"
           @change="toggle(p.id)"
         />{{ name(p) }} <small>#{{ p.shirt_number || "—" }}</small></label
@@ -76,7 +94,7 @@ function move(index, step) {
           :aria-label="
             'Fielding position for ' + name(players.find((p) => p.id === id))
           "
-          :value="positions[id] || (label === 'Pitchers' ? 'P' : 'DH')"
+          :value="positions[id] || defaultPosition"
           @change="
             emit('update:positions', {
               ...positions,
@@ -158,6 +176,12 @@ li select {
   text-transform: uppercase;
   text-align: left;
   font-size: 20px;
+}
+.opener svg {
+  flex-shrink: 0;
+}
+.opener .selection-count {
+  margin-left: auto;
 }
 .opener span {
   font-size: 12px;

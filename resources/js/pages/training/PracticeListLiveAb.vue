@@ -1,6 +1,6 @@
 <script setup>
 import { storeToRefs } from 'pinia'
-import {ref, onMounted, defineProps, onUpdated} from 'vue'
+import {ref, onMounted, defineProps} from 'vue'
 import { useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
 import { toast } from "@/utils/AlertPlugin"
@@ -39,7 +39,7 @@ const getTrainigsByType = async(page = 1) => {
     search: searchPractice.value
   }
   try {
-    isLoading.value = !isLoading.value
+    isLoading.value = true
     await axiosGet(`sessions/all/liveab?page=${page}`, data)
       .then(response => {
         tableData.value = response.data.data
@@ -49,7 +49,7 @@ const getTrainigsByType = async(page = 1) => {
   } catch (error) {
     /* no foun data */
   } finally {
-    isLoading.value = !isLoading.value
+    isLoading.value = false
   }
 }
 
@@ -60,7 +60,7 @@ const getPaginate = (pageNumber) => {
 }
 const gotoCreateTraining = ()=>{
 
-  router.replace({ name: 'create.ab'})
+  router.push({ name: 'create.ab'})
 }
 
 const search = () => {
@@ -75,9 +75,7 @@ onMounted(() => {
   getTrainigsByType()
 })
 
-onUpdated(()=>{
-  getTrainigsByType()
-})
+
 </script>
 
 <template>
@@ -108,7 +106,7 @@ onUpdated(()=>{
           </form>
         </div>
         <div class="w-[100%] lg:w-[50%] flex justify-end">
-          <BigButtonField color="dark" label="New practice" @click="gotoCreateTraining" />
+          <BigButtonField color="dark" label="Create Live AB Game" @click="gotoCreateTraining" />
         </div>
       </div>
       <PracticeTableLiveAB :tableData="tableData" :isLoading="isLoading" @updateList="updateList" />

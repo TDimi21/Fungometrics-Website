@@ -17,15 +17,14 @@ const teams = computed(() => [
       .map((t) => [t.id, t]),
   ).values(),
 ]);
-const mode = ref("practice"),
-  gameName = ref("Live AB"),
+const mode = ref("game"),
+  gameName = ref("Live AB Game"),
   gameDate = ref(
     new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
       .toISOString()
       .slice(0, 10),
   ),
   note = ref(""),
-  notesOpen = ref(false),
   innings = ref(9),
   unlimited = ref(false),
   continuous = ref(false);
@@ -89,10 +88,14 @@ const valid = computed(
     innings.value >= 1 &&
     innings.value <= 30,
 );
-const prepareSide = value => ({
+const prepareSide = (value) => ({
   ...value,
-  hitPositions: Object.fromEntries(value.hitters.map(id=>[id,value.hitPositions?.[id]||'DH'])),
-  pitchPositions: Object.fromEntries(value.pitchers.map(id=>[id,value.pitchPositions?.[id]||'P'])),
+  hitPositions: Object.fromEntries(
+    value.hitters.map((id) => [id, value.hitPositions?.[id] || "DH"]),
+  ),
+  pitchPositions: Object.fromEntries(
+    value.pitchers.map((id) => [id, value.pitchPositions?.[id] || "P"]),
+  ),
 });
 async function create() {
   if (!valid.value) return;
@@ -134,156 +137,173 @@ async function create() {
 }
 </script>
 <template>
-  <Layout
-    ><main class="live-setup">
-      <p class="eyebrow">LIVE AB · NEW SESSION</p>
-      <h1>Hitters meet pitchers.</h1>
-      <p>Select your lineups, then score every pitch together.</p>
-      <div class="mode">
-        <button
-          :class="{ active: mode === 'practice' }"
-          @click="mode = 'practice'"
+  <Layout>
+    <main class="live-setup">
+      <header class="game-card">
+        <h1>Create Live AB Game</h1>
+        <label
+          ><span class="sr-only">Game name</span
+          ><input
+            v-model="gameName"
+            :disabled="busy"
+            maxlength="100"
+            placeholder="Live AB Game"
+        /></label>
+        <label
+          ><span class="sr-only">Game date</span
+          ><input v-model="gameDate" :disabled="busy" type="date"
+        /></label>
+      </header>
+      <section
+        v-for="side in ['home', 'away']"
+        :key="side"
+        class="team-section"
+      >
+        <h2>
+          {{
+            side === "home"
+              ? "Home Team (Pitchers / Fielding)"
+              : "Away Team (Batting Lineup)"
+          }}
+        </h2>
+        <label class="team-choice"
+          >{{ side === "home" ? "Home roster" : "Away roster" }}
+          <select
+            v-model="(side === 'home' ? home : away).team_id"
+            :disabled="busy"
+          >
+            <option value="">Select team</option>
+            <option v-for="team in teams" :key="team.id" :value="team.id">
+              {{ team.name }}
+            </option>
+          </select>
+        </label>
+        <p v-if="loading[side]" role="status">Loading players…</p>
+        <template
+          v-for="role in side === 'home'
+            ? ['pitchers', 'hitters']
+            : ['hitters', 'pitchers']"
+          :key="role"
         >
-          PRACTICE</button
-        ><button :class="{ active: mode === 'game' }" @click="mode = 'game'">
-          GAME MODE
-        </button>
-      </div>
-      <label>Session name<input v-model="gameName" maxlength="100" /></label
-      ><label>Game date<input v-model="gameDate" type="date" /></label>
-      <div class="teams">
-        <section v-for="side in ['away', 'home']" :key="side">
-          <h2>
-            {{
-              mode === "game"
-                ? side === "away"
-                  ? "Away"
-                  : "Home"
-                : side === "away"
-                  ? "Hitting team"
-                  : "Pitching team"
-            }}
-          </h2>
+          <LiveABLineup
+            v-if="
+              mode === 'game' ||
+              (side === 'home' ? role === 'pitchers' : role === 'hitters')
+            "
+            v-model="(side === 'home' ? home : away)[role]"
+            :label="`${side} ${role === 'hitters' ? 'lineup' : 'pitchers'}`"
+            :default-position="role === 'pitchers' ? 'P' : 'DH'"
+            :players="rosters[side]"
+            :positions="
+              (side === 'home' ? home : away)[
+                role === 'pitchers' ? 'pitchPositions' : 'hitPositions'
+              ] || {}
+            "
+            @update:positions="
+              (side === 'home' ? home : away)[
+                role === 'pitchers' ? 'pitchPositions' : 'hitPositions'
+              ] = $event
+            "
+            :disabled="
+              busy || loading[side] || !(side === 'home' ? home : away).team_id
+            "
+          />
+        </template>
+      </section>
+      <p class="requirements">
+        {{
+          mode === "game"
+            ? "Each team needs: at least 1 lineup hitter + 1 pitcher (max 20 each list)."
+            : "Select at least 1 away hitter and 1 home pitcher (max 20 each list)."
+        }}
+      </p>
+      <details class="options">
+        <summary>Session options and notes</summary>
+        <fieldset :disabled="busy">
           <label
-            >Team<select
-              v-model="(side === 'away' ? away : home).team_id"
-              :disabled="busy"
-            >
-              <option value="">Select team</option>
-              <option v-for="team in teams" :key="team.id" :value="team.id">
-                {{ team.name }}
-              </option>
+            >Session type<select v-model="mode">
+              <option value="game">Game</option>
+              <option value="practice">Practice (one hitting side)</option>
             </select></label
           >
-          <p v-if="loading[side]">Loading players…</p>
-          <LiveABLineup
-            v-if="side === 'away' || mode === 'game'"
-            v-model="(side === 'away' ? away : home).hitters"
-            :players="rosters[side]"
-            label="Hitters"
-            :positions="(side === 'away' ? away : home).hitPositions || {}"
-            @update:positions="
-              (side === 'away' ? away : home).hitPositions = $event
-            "
-            :disabled="busy || loading[side]"
-          /><LiveABLineup
-            v-if="side === 'home' || mode === 'game'"
-            v-model="(side === 'away' ? away : home).pitchers"
-            :players="rosters[side]"
-            label="Pitchers"
-            :positions="(side === 'away' ? away : home).pitchPositions || {}"
-            @update:positions="
-              (side === 'away' ? away : home).pitchPositions = $event
-            "
-            :disabled="busy || loading[side]"
-          />
-        </section>
-      </div>
-      <div v-if="mode === 'game'" class="rules">
-        <label
-          >Innings<input
-            v-model.number="innings"
-            type="number"
-            min="1"
-            max="30" /></label
-        ><label
-          ><input v-model="unlimited" type="checkbox" /> Unlimited
-          innings</label
-        ><label
-          ><input v-model="continuous" type="checkbox" /> Continuous inning
-          (coach advances sides)</label
-        >
-      </div>
-      <button
-        class="notes"
-        :aria-expanded="notesOpen"
-        @click="notesOpen = !notesOpen"
-      >
-        NOTES ＋</button
-      ><textarea
-        v-if="notesOpen"
-        v-model="note"
-        aria-label="Session notes"
-        maxlength="2000"
-      />
+          <div v-if="mode === 'game'" class="rules">
+            <label
+              >Innings<input
+                v-model.number="innings"
+                type="number"
+                min="1"
+                max="30"
+            /></label>
+            <label
+              ><input v-model="unlimited" type="checkbox" /> Unlimited
+              innings</label
+            >
+            <label
+              ><input v-model="continuous" type="checkbox" /> Continuous inning
+              (coach advances sides)</label
+            >
+          </div>
+          <label>Notes<textarea v-model="note" maxlength="2000" /></label>
+        </fieldset>
+      </details>
       <p v-if="error" role="alert">{{ error }}</p>
       <footer>
         <button :disabled="busy" @click="router.push('/training/live-ab')">
-          CANCEL</button
-        ><button class="primary" :disabled="!valid" @click="create">
+          CANCEL
+        </button>
+        <button class="primary" :disabled="!valid" @click="create">
           {{ busy ? "CREATING…" : "CREATE" }}
         </button>
       </footer>
-    </main></Layout
-  >
+    </main>
+  </Layout>
 </template>
 <style scoped>
 .live-setup {
-  max-width: 1100px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  max-width: 900px;
   margin: 30px auto;
-  padding: 30px;
-  border: 1px solid #596078;
+  padding: 28px;
   border-radius: 24px;
-  background: #0b1020;
-  color: white;
+  background: #0c1020;
+  color: #fff;
 }
-.eyebrow {
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: #ff2850;
+.live-setup::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 45% -15% 10%;
+  background: #461027;
+  opacity: 0.45;
+  clip-path: polygon(
+    0 0,
+    100% 40%,
+    90% 100%,
+    0 65%,
+    0 45%,
+    78% 78%,
+    83% 55%,
+    0 20%
+  );
+  pointer-events: none;
+}
+.game-card {
+  padding: 22px;
+  border: 1px solid #43475b;
+  border-radius: 22px;
+  background: #0a1026;
 }
 h1 {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 800;
-  margin: 12px 0;
+  margin-bottom: 16px;
 }
 h2 {
   font-size: 22px;
-  margin: 16px 0;
-}
-.mode,
-footer {
-  display: flex;
-  gap: 12px;
-  margin: 24px 0;
-}
-.mode button,
-footer button {
-  flex: 1;
-  padding: 18px;
-  border: 1px solid #ff2750;
-  border-radius: 15px;
-  background: #252939;
   font-weight: 700;
-}
-.mode .active,
-.primary {
-  background: #ff2750 !important;
-}
-.teams {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  margin: 24px 0 14px;
 }
 label {
   display: block;
@@ -294,48 +314,98 @@ select,
 textarea {
   display: block;
   width: 100%;
-  border: 1px solid #69748e;
-  background: #141c30;
-  color: white;
-  padding: 12px;
-  border-radius: 10px;
   margin-top: 8px;
+  padding: 14px 18px;
+  border: 1px solid #50566b;
+  border-radius: 14px;
+  background: #202438;
+  color: #fff;
+  color-scheme: dark;
 }
-textarea {
-  min-height: 100px;
+.game-card input {
+  font-size: 21px;
+}
+.team-choice {
+  color: #bec4d3;
+  font-size: 14px;
+}
+.team-choice select {
+  padding: 10px 14px;
+}
+.requirements {
+  color: #b7b5c0;
+  font-size: 16px;
+  margin: 10px 0;
+}
+.options {
+  margin-top: 18px;
+  color: #c5c8d6;
+}
+summary {
+  cursor: pointer;
+  padding: 8px 0;
 }
 .rules {
   display: flex;
-  gap: 20px;
-  align-items: center;
   flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
 }
-.notes {
-  padding: 20px;
-  background: #252939;
-  border-radius: 16px;
-  width: 100%;
-  text-align: left;
-  font-size: 22px;
+textarea {
+  min-height: 90px;
 }
-button:disabled {
-  opacity: 0.4;
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 24px;
 }
-button:focus-visible {
+footer button {
+  width: 44%;
+  padding: 16px;
+  border-radius: 20px;
+  background: #343747;
+  color: white;
+  font-size: 24px;
+}
+footer .primary {
+  background: #ff2750;
+}
+footer .primary:disabled {
+  background: #e4e7e8;
+  color: #959fa7;
+  cursor: not-allowed;
+}
+button:focus-visible,
+summary:focus-visible {
   outline: 3px solid #8de6ff;
+  outline-offset: 3px;
 }
 [role="alert"] {
-  background: #641832;
   padding: 15px;
+  background: #641832;
   border-radius: 10px;
 }
 @media (max-width: 700px) {
-  .teams {
-    grid-template-columns: 1fr;
-  }
   .live-setup {
     margin: 12px;
-    padding: 18px;
+    padding: 16px;
+  }
+  .game-card {
+    padding: 16px;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  h2 {
+    font-size: 19px;
+  }
+  footer {
+    gap: 12px;
+  }
+  footer button {
+    width: 50%;
+    font-size: 20px;
   }
 }
 </style>

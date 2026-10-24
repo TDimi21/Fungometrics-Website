@@ -1,8 +1,82 @@
-import {it,expect,vi} from 'vitest'
-import {readFileSync} from 'node:fs'
-import {parse,compileScript} from '@vue/compiler-sfc'
-import {ref,computed,watch,nextTick} from 'vue'
-const source=compileScript(parse(readFileSync('resources/js/pages/training/CreateLiveABTraining.vue','utf8')).descriptor,{id:'liveab-setup'}).content.replace(/^import[\s\S]*?from ['"][^'"]+['"];?\s*$/gm,'').replace('export default','return')
-async function screen(){const api={axiosGet:vi.fn(async()=>({data:{data:[{id:'p1',name:{full:'Player'}}]}})),axiosPost:vi.fn(async()=>({data:{data:{id:'new-session'}}}))},router={push:vi.fn()};const mocks={ref,computed,watch,Layout:{},LiveABLineup:{},useRouter:()=>router,useTeamStore:()=>({team:{id:'team1',name:'Team'},teams:[]}),useTrainingStore:()=>({setDataTraining:vi.fn()}),useAxiosAuth:()=>api};const c=new Function(...Object.keys(mocks),source)(...Object.values(mocks));const s=c.setup({},{expose:()=>{}});await new Promise(r=>setTimeout(r,0));return{s,api,router}}
-it('requires both teams’ hitting and pitching lineups in game mode and saves optional notes and positions',async()=>{const {s,api,router}=await screen();s.mode.value='game';s.away.value.hitters=['p1'];s.home.value.pitchers=['p1'];expect(s.valid.value).toBeFalsy();s.away.value.pitchers=['p1'];s.home.value.hitters=['p1'];expect(s.valid.value).toBeTruthy();await s.create();expect(api.axiosPost.mock.calls[0][1]).toMatchObject({type:'L',note:'Live AB',liveab_config:{mode:'game',away:{hitPositions:{p1:'DH'},pitchPositions:{p1:'P'}}}});expect(router.push).toHaveBeenCalledWith({path:'/track/live',query:{session:'new-session'}})})
-it('clears selected players when their team changes and prevents duplicate creation after an uncertain response',async()=>{const {s,api}=await screen();s.away.value.hitters=['p1'];s.away.value.team_id='team2';await nextTick();expect(s.away.value.hitters).toEqual([]);await new Promise(r=>setTimeout(r,0));s.away.value.hitters=['p1'];s.home.value.pitchers=['p1'];api.axiosPost.mockRejectedValue(Error('lost'));await s.create();await s.create();expect(api.axiosPost).toHaveBeenCalledTimes(1);expect(s.uncertain.value).toBe(true)})
+import { it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { parse, compileScript } from "@vue/compiler-sfc";
+import { ref, computed, watch, nextTick } from "vue";
+const source = compileScript(
+  parse(
+    readFileSync(
+      "resources/js/pages/training/CreateLiveABTraining.vue",
+      "utf8",
+    ),
+  ).descriptor,
+  { id: "liveab-setup" },
+)
+  .content.replace(/^import[\s\S]*?from ['"][^'"]+['"];?\s*$/gm, "")
+  .replace("export default", "return");
+async function screen() {
+  const api = {
+      axiosGet: vi.fn(async () => ({
+        data: { data: [{ id: "p1", name: { full: "Player" } }] },
+      })),
+      axiosPost: vi.fn(async () => ({ data: { data: { id: "new-session" } } })),
+    },
+    router = { push: vi.fn() };
+  const mocks = {
+    ref,
+    computed,
+    watch,
+    Layout: {},
+    LiveABLineup: {},
+    useRouter: () => router,
+    useTeamStore: () => ({ team: { id: "team1", name: "Team" }, teams: [] }),
+    useTrainingStore: () => ({ setDataTraining: vi.fn() }),
+    useAxiosAuth: () => api,
+  };
+  const c = new Function(...Object.keys(mocks), source)(
+    ...Object.values(mocks),
+  );
+  const s = c.setup({}, { expose: () => {} });
+  await new Promise((r) => setTimeout(r, 0));
+  return { s, api, router };
+}
+it("requires both teams’ hitting and pitching lineups in game mode and saves optional notes and positions", async () => {
+  const { s, api, router } = await screen();
+  expect(s.mode.value).toBe("game");
+  expect(s.gameName.value).toBe("Live AB Game");
+  s.away.value.hitters = ["p1"];
+  s.home.value.pitchers = ["p1"];
+  expect(s.valid.value).toBeFalsy();
+  s.away.value.pitchers = ["p1"];
+  s.home.value.hitters = ["p1"];
+  expect(s.valid.value).toBeTruthy();
+  await s.create();
+  expect(api.axiosPost.mock.calls[0][1]).toMatchObject({
+    type: "L",
+    note: "Live AB Game",
+    liveab_config: {
+      mode: "game",
+      away: { hitPositions: { p1: "DH" }, pitchPositions: { p1: "P" } },
+    },
+  });
+  expect(router.push).toHaveBeenCalledWith({
+    path: "/track/live",
+    query: { session: "new-session" },
+  });
+});
+it("clears selected players when their team changes and prevents duplicate creation after an uncertain response", async () => {
+  const { s, api } = await screen();
+  s.away.value.hitters = ["p1"];
+  s.away.value.team_id = "team2";
+  await nextTick();
+  expect(s.away.value.hitters).toEqual([]);
+  await new Promise((r) => setTimeout(r, 0));
+  s.away.value.hitters = ["p1"];
+  s.home.value.pitchers = ["p1"];
+  s.away.value.pitchers = ["p1"];
+  s.home.value.hitters = ["p1"];
+  api.axiosPost.mockRejectedValue(Error("lost"));
+  await s.create();
+  await s.create();
+  expect(api.axiosPost).toHaveBeenCalledTimes(1);
+  expect(s.uncertain.value).toBe(true);
+});
