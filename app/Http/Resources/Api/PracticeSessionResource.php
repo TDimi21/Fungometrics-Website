@@ -53,6 +53,7 @@ class PracticeSessionResource extends JsonResource
             'type' => $this['practice']->type,
             'modes' => $this['practice']->modes,
             'script_completed_reps' => $this['practice']->type === 'C' && $this['practice']->script_plan ? $this['practice']->cage()->count() : null,
+            'game_field' => $this['practice']->game_field,
             'script_plan' => $this['practice']->script_plan,
             'is_scripted' => (bool) $this['practice']->is_scripted,
             'players' => PracticePlayersResource::collection($this['players']),

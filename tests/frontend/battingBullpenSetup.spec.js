@@ -1,3 +1,5 @@
+import { fieldPayload, validGameField } from '@/utils/cageGame/session'
+import { configFromLevel as gameConfig } from '@/utils/cageGame/ballFlight'
 import { validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle } from '@/utils/scriptedPractice'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -15,7 +17,7 @@ async function mountSetup(slug, get, role = 'coach') {
   const api = { axiosGet: get || vi.fn(async path => ({ data: { data: path.endsWith('t1') ? [{ id: 'p1', name: { full: 'Alex' } }, { id: 'p2', name: { full: 'Sam' } }] : [{ id: 'p3', name: { full: 'Lee' } }] } })),
     axiosPost: vi.fn(async () => ({ data: { data: { id: 'session' } } })) }
   const router = { push: vi.fn(async () => {}) }
-  const mocks = { validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle, ScriptPlanBuilder: {}, computed: Vue.computed, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ params: { slug } }), useRouter: () => router,
+  const mocks = { fieldPayload, validGameField, configFromLevel: gameConfig, CageGameFieldSetup:{}, CageGameReview:{}, validScript, nextBattingStep, cageStep, roundLabel, roundGoal, targetStyle, ScriptPlanBuilder: {}, computed: Vue.computed, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ params: { slug } }), useRouter: () => router,
     useUserStore: () => ({ userData: { type: role, id: 'self', first_name: 'Alex' } }), useTeamStore: () => teamStore, usePlayerStore: () => playerStore, useTrainingStore: () => trainingStore, useAxiosAuth: () => api,
     Dialog: {}, DialogPanel: {}, DialogTitle: {}, Layout: {} }
   const component = new Function(...Object.keys(mocks), script)(...Object.values(mocks))
@@ -103,4 +105,11 @@ it.each(['batting','bullpen','cage'])('creates %s with its plan in the same requ
  expect(s.canCreate.value).toBe(false)
  s.scriptPlan.value=slug==='bullpen'?[{pitchType:'FB',intendedCoord:1830}]:slug==='batting'?[{round_type:'BARREL',swing_count:5}]:[{drillId:'cage1',drillLabel:'Short Bat',swing_count:10}]
  await s.createPractice();expect(api.axiosPost).toHaveBeenCalledWith('training',expect.objectContaining({scripted:slug!=='cage',script_plan:s.scriptPlan.value}));app.unmount()
+})
+it('creates cage game mode with a saved field and without scripted rounds',async()=>{
+ const {state:s,api,app}=await mountSetup('cage');s.openPicker();s.togglePlayer('p1');s.applyPlayers();s.gameMode.value=true
+ s.gameField.value.fences.center=0;expect(s.canCreate.value).toBe(false)
+ s.gameField.value.fences.center=400;await s.createPractice()
+ expect(api.axiosPost).toHaveBeenCalledWith('training',expect.objectContaining({type:'C',game_field:expect.objectContaining({fences:expect.objectContaining({center:400})})}))
+ expect(api.axiosPost.mock.calls[0][1].script_plan).toBeUndefined();app.unmount()
 })

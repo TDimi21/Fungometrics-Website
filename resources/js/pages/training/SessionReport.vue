@@ -14,6 +14,8 @@
  * Route: /session/report/:id/:type
  *   :type = batting | bullpen | cage | exit_velocity | long_toss | weight_ball | live_ab
  */
+import CageGameReview from '@/components/practice/CageGameReview.vue'
+import { validGameField } from '@/utils/cageGame/session'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
@@ -43,6 +45,8 @@ const rawData   = ref(null)
 const breakdown = ref(null)
 const scriptedBp = ref(null)
 const scriptedBullpen = ref(null)
+const cageGameField = ref(null), cageGameRows = ref([]), cageGamePlayer = ref('')
+const cageGamePlayers = computed(() => [...new Map(cageGameRows.value.map(r => [r.user_id, {id:r.user_id,name:[r.profile?.first_name,r.profile?.last_name].filter(Boolean).join(' ') || 'Player'}])).values()])
 const selectedBullpenPitch = ref(null)
 
 // ─── Type config ──────────────────────────────────────────────────────────────
@@ -1110,6 +1114,7 @@ onMounted(async () => {
   else if (sessionType === 'cage') {
     const rows = extractSessionRows(rd, 'cage')
     breakdown.value = computeCageBreakdown(rows)
+    if (validGameField(rd?.game_field)) { cageGameField.value = rd.game_field; cageGameRows.value = rows; cageGamePlayer.value = rows[0]?.user_id || '' }
     if (!breakdown.value) error.value = 'No swing data found for this session.'
   }
   else if (sessionType === 'exit_velocity') {
@@ -1499,6 +1504,7 @@ const displayDate = computed(() => {
 
         <!-- ══════════ CAGE sections ══════════ -->
         <template v-if="sessionType === 'cage' && breakdown">
+          <details v-if="cageGameField" class="mx-4 mb-5"><summary class="cursor-pointer text-white font-bold">Game Mode field and simulated outcomes</summary><label class="text-white">Hitter<select v-model="cageGamePlayer" class="bg-slate-800 text-white p-2 m-2"><option v-for="player in cageGamePlayers" :key="player.id" :value="player.id">{{ player.name }}</option></select></label><CageGameReview :rows="cageGameRows" :field="cageGameField" :player-id="cageGamePlayer" :player-name="cageGamePlayers.find(p=>p.id===cageGamePlayer)?.name || 'Player'" :show-continue="false" /></details>
           <!-- EV stats -->
           <section class="mx-4 mb-5">
             <h3 class="text-[12px] font-black uppercase tracking-widest text-white/85 mb-2">⚡ Exit Velocity</h3>

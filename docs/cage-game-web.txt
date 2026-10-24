@@ -1,0 +1,30 @@
+Cage Game Mode on the web
+
+Choose Game Mode on /create/cage, select hitters, and choose an age/competition
+field preset or customize five fence distances, base paths and pitching distance.
+Game Mode and scripted drill rounds are mutually exclusive. Cage dimensions
+still control measurement; game field dimensions control simulated outcomes.
+
+Each confirmed saved swing opens a field review with a replay, estimated flight,
+simulated Out/Single/Double/Triple/Home Run/Foul Ball, outcome probabilities and
+a hitter-only summary. Continue scoring closes the review. View game field opens
+it again. Earlier swings can be selected and replayed.
+
+The flight, outcome probability and quality models are ported from the mobile
+app. A deterministic draw based on the saved result ID keeps simulated outcomes
+stable across refreshes and replay. Editing saved measurements can change an
+outcome. These are simulations, not observed game results or innings scoring.
+
+Field configuration is stored with the practice and returned on resume and cage
+statistics. Saved swings continue feeding the normal session statistics and
+Session Report; the report also exposes the Game Mode field and hitter review.
+Player statistics responses are restricted to the authenticated player's swings.
+Named saved-field libraries and mobile calibration editing are not included.
+
+Release requires migration:
+2026_10_24_000002_add_game_field_to_practices.php
+This adds nullable game_field; existing cage practices remain regular sessions.
+
+Validation: 427 frontend tests, production Vite build, and 22 targeted PHP tests
+(101 assertions) passed. The build retains the large-chunk advisory. No live
+deployment or browser visual verification was performed.

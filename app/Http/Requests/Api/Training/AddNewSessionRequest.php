@@ -41,9 +41,25 @@ class AddNewSessionRequest extends FormRequest
             'note' => ['required'],
             'players' => ['required', 'array'],
             'cage' => ['nullable', 'array'],
+            'game_field' => ['nullable', 'array:levelId,levelLabel,basePathFt,pitchingFt,fences'],
+            'game_field.levelId' => ['required_with:game_field', 'string', 'max:30'],
+            'game_field.levelLabel' => ['required_with:game_field', 'string', 'max:100'],
+            'game_field.basePathFt' => ['required_with:game_field', 'numeric', 'between:30,100'],
+            'game_field.pitchingFt' => ['required_with:game_field', 'numeric', 'between:20,70'],
+            'game_field.fences' => ['required_with:game_field', 'array:lineL,gapL,center,gapR,lineR', 'size:5'],
+            'game_field.fences.*' => ['required', 'numeric', 'between:50,600'],
             'script_plan' => ['nullable', 'array', 'min:1', 'max:200'],
             ...$this->scriptRules(),
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($this->filled('game_field') && ($this->input('type') !== 'C' || $this->filled('script_plan') || $this->boolean('scripted'))) {
+                $validator->errors()->add('game_field', 'Game mode requires a cage session without scripted rounds.');
+            }
+        });
     }
 
     private function scriptRules(): array

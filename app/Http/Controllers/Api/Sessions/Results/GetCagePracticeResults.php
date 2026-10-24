@@ -27,12 +27,14 @@ class GetCagePracticeResults extends Controller
                 ->where('practice_id', $request->practice)
                 ->orderByDesc('sort')
                 ->get();
-            if ($request->player) {
+            $audience = $request->user()?->type;
+            $isPlayer = ($audience instanceof \BackedEnum ? $audience->value : $audience) === UserTypes::PLAYER->value;
+            if ($request->player || $isPlayer) {
                 // Filter to the requested player. A player may only ever see
                 // their own swings (ignore the param, preventing an IDOR); a
                 // coach may target any player in the session.
                 $authUser = $request->user();
-                $targetPlayerId = ($authUser && (string) $authUser->type === UserTypes::PLAYER->value)
+                $targetPlayerId = ($authUser && $isPlayer)
                     ? (string) $authUser->id
                     : (string) $request->player;
                 $data = $data->filter(fn ($item) => (string) $item->user_id === $targetPlayerId)->values();
@@ -72,6 +74,7 @@ class GetCagePracticeResults extends Controller
                         'low'=>$vLow,
                         'min'=>$vMin
                     ],
+                    'game_field' => $data[0]?->practice->game_field,
                     "cage_meta" => $data[0]?->practice->cageMeta
                 ],
             ];

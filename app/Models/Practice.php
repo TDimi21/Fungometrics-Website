@@ -21,9 +21,9 @@ class Practice extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['is_completed','team_id','user_id', 'started', 'finished', 'note', 'end_note', 'type', 'modes', 'is_scripted', 'script_plan'];
+    protected $fillable = ['is_completed','team_id','user_id', 'started', 'finished', 'note', 'end_note', 'type', 'modes', 'is_scripted', 'script_plan', 'game_field'];
 
-    protected $casts = ['id' => 'string', 'is_completed' => 'boolean', 'is_scripted' => 'boolean', 'script_plan' => 'array'];
+    protected $casts = ['id' => 'string', 'is_completed' => 'boolean', 'is_scripted' => 'boolean', 'script_plan' => 'array', 'game_field' => 'array'];
 
     public function lineup(): HasMany
     {

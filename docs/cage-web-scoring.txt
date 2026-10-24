@@ -30,7 +30,7 @@ saves block repeat submission until saved results have been reloaded for review.
 
 Standard cage and guided drill rounds are available. See scripted-web-practices.txt
 for drill setup, persistence and its required migration. Mobile calibration editing
-and the separate cage game builder are not introduced on the web. Default cage
+is not introduced on the web. Cage Game Mode is documented in cage-game-web.txt. Default cage
 calibration matches mobile. No mobile changes are included.
 
 Validation: full frontend suite, production build, and existing cage estimation,
