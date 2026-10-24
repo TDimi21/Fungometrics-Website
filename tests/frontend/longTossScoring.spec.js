@@ -19,7 +19,7 @@ async function screen({ role = 'coach', completed = false, fails = false, noSess
   const training = { trainingActive: noSession ? {} : { id: session.id }, setDataTraining: vi.fn() }
   const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: {} }), useRouter: () => router,
     useTrainingStore: () => training, useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
-    useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {},
+    useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, TrainingSessionStatsTabs: {},
     extractSessionRows, playerThrows, summarizeThrows, validDistance,
     plannerSessionReturn: (storage, id, user, fallback) => fallback, sessionStorage: {},
   }
@@ -74,6 +74,7 @@ describe('Long Toss web scoring', () => {
   })
   it.each(['coach', 'player'])('opens session stats for %s without ending the session', async role => {
     const { state: s, api, router, app } = await screen({ role })
+    expect(s.statsRows.value).toHaveLength(role === 'player' ? 1 : 2)
     await s.report()
     expect(router.push).toHaveBeenCalledWith(`/session/report/session-1/long_toss${role === 'player' ? '?scope=player' : ''}`)
     expect(api.axiosPut).not.toHaveBeenCalled()

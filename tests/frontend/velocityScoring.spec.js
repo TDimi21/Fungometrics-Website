@@ -19,7 +19,7 @@ async function screen({ role = 'coach', mode = 'EV', wrongMode = false, complete
   const training = { trainingActive: noSession ? {} : { id: session.id }, setDataTraining: vi.fn() }
   const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: {} }), useRouter: () => router,
     useTrainingStore: () => training, useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
-    useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {},
+    useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, TrainingSessionStatsTabs: {},
     extractSessionRows, playerThrows, validDistance,
     plannerSessionReturn: (storage, id, user, fallback) => fallback, sessionStorage: {},
   }
@@ -75,6 +75,7 @@ describe.each(['EV', 'WB'])('%s app-compatible web scoring', mode => {
   })
   it.each(['coach', 'player'])('opens session stats for %s without ending the session', async role => {
     const { state: s, api, router, app } = await screen({ mode, role })
+    expect(s.statsRows.value).toHaveLength(role === 'player' ? 1 : 2)
     await s.report()
     expect(router.push).toHaveBeenCalledWith(`/session/report/session-1/${mode === 'EV' ? 'exit_velocity' : 'weight_ball'}${role === 'player' ? '?scope=player' : ''}`)
     expect(api.axiosPut).not.toHaveBeenCalled()

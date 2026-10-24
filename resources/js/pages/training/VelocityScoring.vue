@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import TrainingSessionStatsTabs from '@/components/statistics/training/TrainingSessionStatsTabs.vue'
 import Layout from '@/layout/Layout.vue'
 import { useTrainingStore } from '@/store/training'
 import { useUserStore } from '@/store/user'
@@ -101,6 +102,11 @@ async function addPlayer() {
   } catch { error.value = 'Unable to add this player. Reload to check the lineup before retrying.' }
   finally { busy.value = false }
 }
+const showStats = ref(false)
+const statsRows = computed(() => (user.userData.type === 'player' ? playerThrows(rows.value, user.userData.id) : rows.value).map(row => ({
+  ...row,
+  player_name: row.player_name || name((session.value?.players || []).find(player => player.id === row.user_id)),
+})))
 const report = () => {
   if (!ready.value || busy.value) return
   return router.push(`/session/report/${session.value.id}/${reportType}${user.userData.type === 'player' ? '?scope=player' : ''}`)
@@ -125,7 +131,8 @@ onMounted(load)
         <div><p class="eyebrow">Training mode · Live scoring</p><h1>{{ label }}</h1><p>Record each {{ action }} in mph, just like the app.</p></div>
         <nav aria-label="Session actions">
           <button :disabled="busy" @click="router.push(`/training/training-mode?mode=${props.mode}`)">Leave session</button>
-          <button :disabled="!ready || busy" @click="report" title="View statistics for this session">Stats</button>
+          <button :disabled="!ready || busy" :aria-expanded="showStats" aria-controls="live-session-stats" @click="showStats = !showStats">{{ showStats ? 'Hide stats' : 'Stats' }}</button>
+          <button :disabled="!ready || busy" @click="report">Session report</button>
           <button class="primary" :disabled="!writable" @click="finishing = true">End session</button>
         </nav>
       </header>
@@ -165,6 +172,11 @@ onMounted(load)
             <button class="primary save" :disabled="!writable || !validDistance(velocity) || !validSelection">{{ busy ? 'Saving…' : `Save ${action}` }}</button>
           </form>
         </div>
+        <section v-if="showStats" id="live-session-stats" class="panel finish" aria-label="Live session statistics">
+          <h2>Session statistics</h2>
+          <p>Updates after each saved throw or swing. Keep scoring above without leaving this session.</p>
+          <TrainingSessionStatsTabs :mode="props.mode" :rows="statsRows" :team-name="teamStore.team?.name || 'Session'" :editable="false" />
+        </section>
         <section v-if="finishing" class="panel finish"><h2>Finish {{ label }}</h2><form @submit.prevent="finish"><label>Session notes<textarea v-model="note" required :disabled="busy" /></label><button type="button" :disabled="busy" @click="finishing = false">Keep scoring</button><button class="primary" :disabled="busy || !note.trim()">Complete session</button></form></section>
       </template>
     </main>
