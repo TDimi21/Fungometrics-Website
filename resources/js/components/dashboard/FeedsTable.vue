@@ -205,6 +205,7 @@ const resumeCage = async (players) => {
   // console.log(params.value);
   router.push({
     name: "track.trainingCage",
+    query: { session: players.id },
     params: params.value
   });
 }

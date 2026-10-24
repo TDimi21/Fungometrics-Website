@@ -6,7 +6,7 @@ import * as Vue from 'vue'
 const source = compileScript(parse(readFileSync('resources/js/pages/training/CreateBattingBullpen.vue', 'utf8')).descriptor, { id: 'setup-test' }).content
 const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
 const settle = async () => { await Vue.nextTick(); await new Promise(resolve => setTimeout(resolve, 0)) }
-async function mountSetup(slug, get) {
+async function mountSetup(slug, get, role = 'coach') {
   const teams = [{ id: 't1', name: 'Team One' }, { id: 't2', name: 'Team Two' }]
   const teamStore = { team: teams[0], teams, setTeam: vi.fn() }
   const playerStore = { setPlayers: vi.fn() }
@@ -15,7 +15,7 @@ async function mountSetup(slug, get) {
     axiosPost: vi.fn(async () => ({ data: { data: { id: 'session' } } })) }
   const router = { push: vi.fn(async () => {}) }
   const mocks = { computed: Vue.computed, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ params: { slug } }), useRouter: () => router,
-    useTeamStore: () => teamStore, usePlayerStore: () => playerStore, useTrainingStore: () => trainingStore, useAxiosAuth: () => api,
+    useUserStore: () => ({ userData: { type: role, id: 'self', first_name: 'Alex' } }), useTeamStore: () => teamStore, usePlayerStore: () => playerStore, useTrainingStore: () => trainingStore, useAxiosAuth: () => api,
     Dialog: {}, DialogPanel: {}, DialogTitle: {}, Layout: {} }
   const component = new Function(...Object.keys(mocks), script)(...Object.values(mocks))
   let state
@@ -77,4 +77,21 @@ describe.each(['batting', 'bullpen'])('%s app-style player selection', slug => {
     app.unmount()
   })
 
+})
+
+describe('Cage setup', () => {
+  it('validates feet/inches and creates the cage with selected hitters', async () => {
+    const { state: s, api, router, app } = await mountSetup('cage')
+    s.openPicker(); s.togglePlayer('p1'); s.applyPlayers()
+    s.dimensions.value.width.inch = 12; await s.createPractice(); expect(api.axiosPost).not.toHaveBeenCalled()
+    s.dimensions.value.width.inch = 6; await s.createPractice()
+    expect(api.axiosPost).toHaveBeenCalledWith('training', expect.objectContaining({ type: 'C', cage: { width: { ft: 14, inch: 6 }, height: { ft: 12, inch: 0 }, length: { ft: 70, inch: 0 } }, players: [{ id: 'p1', sort: 0 }] }))
+    expect(router.push).toHaveBeenCalledWith({ path: '/track/cage', query: { session: 'session' } }); app.unmount()
+  })
+})
+
+it('lets a player create a personal cage with dimensions without a coach roster', async () => {
+ const { state:s, api, app } = await mountSetup('cage', undefined, 'player')
+ expect(api.axiosGet).not.toHaveBeenCalled(); expect(s.selectedIds.value).toEqual(['self'])
+ await s.createPractice(); expect(api.axiosPost).toHaveBeenCalledWith('training', expect.objectContaining({ team:null, type:'C', players:[{id:'self',sort:0}], cage:expect.any(Object) })); app.unmount()
 })

@@ -154,6 +154,7 @@ const getPaginate = (pageNumber) => {
 }
 
 const gotoCreateTraining = ()=>{
+  if (props.slug === 'cage') { router.push({ name: 'create.trainingCage' }); return }
   if (!passFunction.value) {
     if(userData.type == 'player'){
       passFunction.value = true

@@ -54,56 +54,7 @@ const getTrainigs = async(page = 1) => {
 }
 
 const resumePractice = async (players) => {
-  const newData = await axiosGet('training/'+ players.id)
-  let data = {
-    id: players.id,
-    is_completed: players.is_completed,
-    players: newData.data.data.players,
-    mode: players.mode,
-    note: players.note,
-    start: players.start,
-    team: players.team,
-    type: players.type
-  }
-  await activeTraining.setDataTraining(data)
-  const params = ref({})
-  if (newData.data.data.cage_data == "" || newData.data.data.cage_data == undefined) {
-    params.value = {
-      cageHeight: cageHeight.value.ft,
-      lengthCage: cageLength.value.ft,
-      widthCage: cageWidth.value.ft,
-    }
-  } else {
-    params.value = {
-      cageHeight: newData.data.data.cage_data.height.ft,
-      lengthCage: newData.data.data.cage_data.length.ft,
-      widthCage: newData.data.data.cage_data.width.ft,
-    }
-  }
-
-  axiosGet('statistics/'+players.id+'/cage').then((response)=>{
-    let playersStats = response.data.data.by_player
-    activeTraining.cleanListPlayer()
-    for (const key in playersStats) {
-      if (Object.hasOwnProperty.call(playersStats, key)) {
-        const element = playersStats[key];
-        activeTraining.addPLayerInfo(key, {
-          'balls': element.length,
-        })
-      }
-    }
-    router.push({
-      name: "track.trainingCage",
-      params: params.value
-    });
-  }).catch(function(error) {
-    if (error.response.status == 404) {
-      router.push({
-        name: "track.trainingCage",
-        params: params.value
-      });
-    }
-  });
+  await router.push({ path: '/track/cage', query: { session: players.id } })
 }
 
 onMounted(() => {

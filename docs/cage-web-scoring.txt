@@ -1,0 +1,37 @@
+Cage web scoring
+
+/create/cage now uses the app-style hitter selection, optional notes and cage
+feet/inches setup. Coaches choose a team and ordered hitters. Players create
+personal sessions with themselves. Session type C and cage metadata are saved
+through the existing training API. Dimensions default to 14 x 12 x 70 feet;
+users should enter their actual measurements.
+
+/track/cage?session=<id> reloads authoritative session metadata and cage results.
+Legacy dimensional routes also use the new scorer, except individual-result
+editing which retains the existing editor. Resume links carry the session ID.
+
+Scoring uses the mobile fungo-cage image and the same cagePerspective homography.
+Image taps (or keyboard arrows) determine launch/spray angles and floor contact.
+The selected player's height determines the contact point; missing height uses
+the mobile 6-foot fallback. Feet and inches are converted using inches / 12.
+Velocity must be >0 and <=130 mph. The existing server estimator supports spray
+angles from -60 to 60 degrees. Its accepted distance estimate is required before
+saving; stale responses cannot overwrite the current hitter/hit. Distances are
+labelled estimates. Mobile-style cage_mark=0/cage_position='0' accompanies saved
+angles, velocity, ground-ball flag and distance.
+
+Show statistics expands Ball by Ball, Contact, Trajectory and Velocity for this
+session. Contact/Trajectory/Velocity reuse CageFieldStats from the existing cage
+statistics page. Confirmed saves immediately update these views. Session Report
+opens the existing cage report without ending the practice. Browser Back returns
+to scoring and reloads saved results. Completed sessions are read-only. Player
+views request player-scoped results and additionally filter locally. Uncertain
+saves block repeat submission until saved results have been reloaded for review.
+
+This implements standard cage sessions. Mobile calibration editing and separate
+cage game/drill builders are not introduced on the web. Default cage calibration
+matches mobile. No database migrations or mobile changes are required.
+
+Validation: full frontend suite, production build, and existing cage estimation,
+CRUD and distance integration PHP tests. No browser visual verification or live
+production deployment was performed in this task.

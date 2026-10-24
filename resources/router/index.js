@@ -23,13 +23,13 @@ const IndexTrainingPage = () => import("@/pages/training/CreatePracticeEntry.vue
 const IndexTrainingMode = () =>
 	import("@/pages/training/CreateTrainingMode.vue");
 const IndexTrainingCage = () =>
-	import("@/pages/training/CreateTrainingCage.vue");
+	import("@/pages/training/CreateBattingBullpen.vue");
 const IndexTrainingABPage = () =>
 	import("@/pages/training/CreateLiveABTraining.vue");
 const TrackBatting = () => import("@/pages/training/BattingSession.vue");
 const TrackBullpen = () => import("@/pages/training/BullpenSession.vue");
 const TrackTrainingMode = () => import("@/pages/training/TrainingMode.vue");
-const TrackTrainingCage = () => import("@/pages/training/TrainingCage.vue");
+const TrackTrainingCage = () => import("@/pages/training/CageSession.vue");
 const Roster = () => import("@/pages/roster/HomeRoster.vue");
 const PracticePlanner = () => import("@/pages/practice/PracticePlanner.vue");
 const Manage = () => import("@/pages/manage/HomeManage.vue");
@@ -249,6 +249,12 @@ const routes = [
 		component: TrackTrainingMode,
 		meta: { requiresAuth: true },
 		props: true,
+	},
+	{
+		name: "track.cage",
+		path: "/track/cage",
+		component: TrackTrainingCage,
+		meta: { requiresAuth: true },
 	},
 	{
 		name: "track.trainingCage",
@@ -549,6 +555,7 @@ router.beforeEach(async (to) => {
 		&& !WEB_START_PRACTICE_ENABLED
 		&& !isLongTossScoringRoute(to)
 		&& !isVelocityScoringRoute(to)
+		&& !['create.trainingCage', 'track.trainingCage', 'track.cage'].includes(to.name)
 		&& !['/track/bullpen', '/create/bullpen', '/track/batting', '/create/batting'].includes(to.path)
 		&& !hasPlannerSessionContext(to, userData)
 		&& START_PRACTICE_BLOCKED_PATHS.some((path) => to.path.startsWith(path))
