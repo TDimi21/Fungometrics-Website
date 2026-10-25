@@ -1,4 +1,5 @@
 <script setup>
+import {sessionReportType} from "@/features/planner/lib/assignmentFlow";
 import { mergePendingPlannerDay } from "@/features/planner/lib/pendingDay";
 import SkillResults from '@/components/workouts/SkillResults.vue';
 import TemplateExerciseActuals from "@/components/workouts/TemplateExerciseActuals.vue";
@@ -488,12 +489,12 @@ async function adjust(plan, behavior) {
             >
             <template v-else-if="item.execution_type === 'LAUNCH_SESSION'"
               ><button
-                v-if="item.linked_session.web_path"
+                v-if="item.linked_session.web_path && actual(plan, item).session_status !== 'completed'"
                 class="primary"
                 @click="launch(plan, item)"
               >
-                Start {{ item.linked_session.label }}</button
-              ><button @click="available(plan)">Link completed session</button
+                {{ actual(plan, item).session_id ? "Continue" : "Start" }} {{ item.linked_session.label }}</button
+              ><RouterLink v-if="actual(plan, item).session_id && sessionReportType(item.metadata?.session_type)" :to="{name:'session.report',params:{id:actual(plan,item).session_id,type:sessionReportType(item.metadata.session_type)},query:{scope:'player'}}">View session report &amp; statistics →</RouterLink><button @click="available(plan)">Link completed session</button
               ><select
                 v-model="actual(plan, item).session_id"
                 aria-label="Existing session"

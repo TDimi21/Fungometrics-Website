@@ -45,10 +45,12 @@ class GetDailyPlanProgress extends Controller
                 ->get()
                 ->keyBy('user_id');
 
+            $plan->setRelation('progress', $progress->values());
             $profiles = Profile::whereIn('user_id', $userIds)->get()->keyBy('user_id');
 
-            $players = collect($userIds)->map(function ($uid) use ($progress, $profiles) {
+            $players = collect($userIds)->map(function ($uid) use ($plan, $profiles) {
                 $profile = $profiles->get($uid);
+                $contract = app(\App\Services\Planner\PlannerContract::class)->plan($plan, (string) $uid);
                 return [
                     'player' => [
                         'id'         => (string) $uid,
@@ -57,7 +59,8 @@ class GetDailyPlanProgress extends Controller
                         'photo'      => $profile->picture ?? null,
                         'position'   => '',
                     ],
-                    'progress' => $progress->get($uid), // model (with items/completed_at/coach_review) or null
+                    'progress' => $contract['progress'],
+                    'session_links' => $contract['session_links'],
                 ];
             })->values();
 
