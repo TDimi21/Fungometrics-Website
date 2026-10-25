@@ -248,7 +248,7 @@ function normalize() {
           ><label v-if="e.metadata.tracking_type"
             >Session type<select v-model="e.metadata.session_type">
               <option value="weighted_ball">Weighted ball</option>
-              <option value="bullpen">Bullpen</option><option v-for="type in ['long_toss','exit_velocity','cage','live_ab','strength','assessment']" :key="type" :value="type">{{type.replaceAll('_',' ')}}</option>
+              <option value="bullpen">Bullpen</option><option v-for="type in ['long_toss','exit_velocity','cage','strength','assessment']" :key="type" :value="type">{{type.replaceAll('_',' ')}}</option>
             </select></label
           ><label
             >Demonstration image URL<input

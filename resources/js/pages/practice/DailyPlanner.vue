@@ -47,7 +47,8 @@ import { PRESCRIPTION_TYPES, makeSet, renumber, setSummary } from '@/features/pl
 import {
   blankPlan, estimateMinutes, planToApi, planFromApi, groupFromApi, bucketTitle, uid,
 } from '@/features/planner/dailyPlanner.js'
-import PlannerDaySchedule from '@/components/planner/PlannerDaySchedule.vue'
+import TodayTraining from '@/components/planner/TodayTraining.vue'
+const assignRequested = ref(false)
 import PlannerCalendar from '@/components/planner/PlannerCalendar.vue'
 import { localDateKey, shiftCalendarDate } from '@/features/planner/lib/calendar'
 import CoachWorkoutPlayers from '@/components/planner/CoachWorkoutPlayers.vue'
@@ -62,7 +63,7 @@ const plannerRoute = useRoute()
 const calendarDate = ref(validPlannerDate(plannerRoute.query.date) ? plannerRoute.query.date : localDateKey())
 const plannerLinkError = ref('')
 let handledPlannerLink = ''
-const plannerView = ref('day')
+const plannerView = ref(plannerRoute.query.action === 'calendar' ? 'calendar' : 'day')
 const openSchedule = (mode = 'day') => { workoutPanel.value = 'schedule'; plannerView.value = mode === 'day' ? 'day' : 'calendar'; if (mode !== 'day') calendarMode.value = mode }
 const openTeamManagement = async () => { workoutPanel.value = 'schedule'; teamManagementOpen.value = true; await nextTick(); document.querySelector('.planner-management')?.scrollIntoView({behavior:'smooth'}) }
 const teamManagementOpen = ref(false)
@@ -1072,7 +1073,8 @@ watch(() => [plannerRoute.query.date, plannerRoute.query.action, plannerRoute.qu
   if (signature === handledPlannerLink || loading.value || offline.value) return
   if (validPlannerDate(date)) calendarDate.value = date
   plannerLinkError.value = ''
-  if (action === 'create') newPlan(calendarDate.value)
+  if (action === 'build') newPlan(calendarDate.value)
+  else if (action === 'create') { workoutPanel.value = 'schedule'; plannerView.value = 'day'; assignRequested.value = true }
   else if (planId && ['edit', 'players'].includes(action)) {
     const plan = plans.value.find(p => String(p.id) === String(planId))
     if (!plan) { plannerLinkError.value = 'This workout is unavailable. Refresh the plan list or select another workout.'; return }
@@ -2976,18 +2978,18 @@ const del = async (p) => {
   <div class="min-h-screen bg-[#060b14] text-white">
     <div class="workout-workspace" :class="{'workout-workspace--editing': editing || viewingPlayers}">
       <aside v-if="!editing && !viewingPlayers" class="workout-sidebar">
-        <small>FMTRX TRAINING</small><h2>Workouts</h2><p>Plan the day. Build the month.</p>
+        <small>FMTRX TRAINING</small><h2>Daily Planner</h2>
         <nav aria-label="Workout tools">
-          <button :class="{active:workoutPanel === 'schedule' && plannerView === 'day'}" @click="openSchedule()">Day’s schedule</button>
-          <button class="sidebar-create" @click="newPlan(calendarDate)">＋ Build a daily plan</button>
-          <button :class="{active:workoutPanel === 'schedule' && plannerView === 'calendar' && calendarMode === 'week'}" @click="openSchedule('week')">Weekly calendar</button>
-          <button :class="{active:workoutPanel === 'schedule' && plannerView === 'calendar' && calendarMode === 'month'}" @click="openSchedule('month')">Monthly plan</button>
+          <button :class="{active:workoutPanel === 'schedule' && plannerView === 'day'}" @click="openSchedule()">Today’s Training</button>
+
+          <button :class="{active:workoutPanel === 'schedule' && plannerView === 'calendar' && calendarMode === 'week'}" @click="openSchedule('week')">Calendar</button>
+          <button :class="{active:workoutPanel === 'schedule' && plannerView === 'calendar' && calendarMode === 'month'}" @click="openSchedule('month')">Monthly Calendar</button>
           <button :class="{active:workoutPanel === 'library'}" @click="workoutPanel = 'library'">Workout library</button>
-          <button :class="{active:workoutPanel === 'programs'}" @click="workoutPanel = 'programs'">Build a multi-week program</button>
+          <button :class="{active:workoutPanel === 'programs'}" @click="workoutPanel = 'programs'">Programs</button>
           <button :class="{active:workoutPanel === 'assignments'}" @click="workoutPanel = 'assignments'">Player assignments</button>
-          <button @click="openTeamManagement">Team tools & reports</button>
+          <button @click="openTeamManagement">Reports & Advanced Tools</button>
         </nav>
-        <p class="sidebar-help">Use the monthly calendar to add a workout on any day, or build a program to schedule several weeks.</p>
+        <p class="sidebar-help">Assignments and player results stay together. Use the library or advanced builder for detailed workouts.</p>
       </aside>
       <div class="workout-main w-full px-4 py-6 lg:px-8 lg:py-8 pb-28 md:pb-12">
 
@@ -2999,15 +3001,7 @@ const del = async (p) => {
       <PlannerStudioHome v-else-if="!editing && workoutPanel === 'assignments'" initial-tab="assignments" embedded @create="newPlan" @edit="p=>editPlan(planFromApi(p))" @advanced="openTeamManagement" />
       <!-- ══ LIST ══ -->
       <template v-else-if="!editing">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <div>
-            <h1 class="text-2xl font-black tracking-wide flex items-center gap-2"><span>💪</span> Daily Planner</h1>
-            <p class="text-white/40 text-sm mt-0.5">Plan. Execute. Develop. Every Day Counts.</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2"><button class="dp-btn dp-btn--primary" @click="newPlan(calendarDate)">＋ Quick Workout</button><button class="dp-btn" aria-label="Previous day" @click="calendarDate=shiftCalendarDate(calendarDate,-1)">‹</button><input class="dp-input" style="width:auto;color-scheme:dark" type="date" aria-label="Selected planner date" :value="calendarDate" @change="$event.target.value && (calendarDate=$event.target.value)"><button class="dp-btn" aria-label="Next day" @click="calendarDate=shiftCalendarDate(calendarDate,1)">›</button><button class="dp-btn" @click="calendarDate=localDateKey()">Today</button><button class="dp-btn" @click="plannerView=plannerView==='day'?'calendar':'day'">{{ plannerView==='day'?'Week / Month':'Day Schedule' }}</button><button class="dp-btn dp-btn--primary" @click="workoutPanel='programs'">＋ Create Plan</button></div>
-        </div>
-        <p v-if="offline" class="dp-hint mb-4">Couldn't reach the server. Published plans and new saves need a connection.</p>
-        <PlannerDaySchedule :team-id="activeTeamId" v-if="plannerView==='day'" :key="activeTeamId" :plans="plans" :date="calendarDate" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @date="calendarDate=$event" @management="openTeamManagement" @refresh="loadPlans" @check-in="viewPlayers" />
+        <TodayTraining v-if="plannerView==='day'" :date="calendarDate" :open-assignment="assignRequested" @date="calendarDate=$event" @calendar="openSchedule('week')" @library="workoutPanel='library'" @advanced="newPlan(calendarDate)" @review="viewPlayers" @edit="editPlan" @assigned="assignRequested=false;loadPlans()" />
         <PlannerCalendar v-else :initial-mode="calendarMode" @mode="calendarMode=$event" @open-day="calendarDate=$event;plannerView='day'" v-model="calendarDate" :plans="plans" :loading="loading" :offline="offline" @create="newPlan" @edit="editPlan" @players="viewPlayers" @duplicate="duplicatePlan" @refresh="loadPlans" />
         <details class="planner-management" :open="teamManagementOpen" @toggle="teamManagementOpen = $event.target.open">
           <summary>Team management <span>Alerts, reviews, reports & all saved plans</span></summary>

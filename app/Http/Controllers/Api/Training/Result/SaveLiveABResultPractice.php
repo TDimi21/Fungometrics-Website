@@ -39,6 +39,8 @@ class SaveLiveABResultPractice extends Controller
             $count = LiveABPracticeResult::where('practice_id', '=', $request->practice_id)->count();
 
             DB::beginTransaction();
+            $lockedPractice = Practice::whereKey($request->practice_id)->lockForUpdate()->first();
+            abort_if($lockedPractice?->is_completed, 409, 'Reopen the game before recording another pitch.');
             $sortValue = $count++;
             $requestData = $request->validated();
 
@@ -280,6 +282,7 @@ class SaveLiveABResultPractice extends Controller
             ];
 
             return response()->json($response, HttpCodes::HTTP_CREATED);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $exception) { DB::rollBack(); throw $exception;
         } catch (Exception $exception) {
             DB::rollback();
             $response = [

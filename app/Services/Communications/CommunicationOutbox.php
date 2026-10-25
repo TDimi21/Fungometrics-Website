@@ -12,7 +12,7 @@ class CommunicationOutbox
 {
     public function record(string $type, string $resourceType, string $resourceId, string $occurrence = 'initial', ?string $teamId = null, ?string $recipientId = null, array $payload = []): ?CommunicationEvent
     {
-        if ( ! config('communications.enabled')) {
+        if ( ! config('communications.enabled') && $type !== 'LiveABCompleted') {
             return null;
         }
         $key = hash('sha256', json_encode([$type,$resourceType,$resourceId,$occurrence,$recipientId]));
@@ -22,12 +22,12 @@ class CommunicationOutbox
     }
     public function process(string $id): void
     {
-        if ( ! config('communications.enabled')) {
+        if ( ! config('communications.enabled') && CommunicationEvent::find($id)?->event_type !== 'LiveABCompleted') {
             return;
         }
         DB::transaction(function () use ($id): void {
             $event = CommunicationEvent::lockForUpdate()->find($id);
-            if ( ! $event || $event->processed_at || $event->attempts >= 5) {
+            if ( ! $event || ($event->processed_at && $event->event_type !== 'LiveABCompleted') || $event->attempts >= 5) {
                 return;
             }
             $builder = app(CommunicationContent::class);

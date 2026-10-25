@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Communications;
 
 use InvalidArgumentException;
+use App\Models\Practice;
 use App\Models\{CommunicationEvent,CommunicationDelivery,CommunicationPreference,DailyPlan,DailyPlanAssignment,FreeAssessment,PlayerAssessment,WorkoutProgram,PlayerTeam,CoachTeam,User,Team,Subscription};
 
 class CommunicationContent
@@ -29,7 +30,7 @@ class CommunicationContent
     {
         $events = CommunicationEvent::whereIn('id', $deliveries->pluck('event_id'))->get();
         $this->primedEvents = $events->keyBy('id')->all();
-        $models = ['daily_plan' => DailyPlan::class,'free_assessment' => FreeAssessment::class,'player_assessment' => PlayerAssessment::class,'workout_program' => WorkoutProgram::class,'user' => User::class,'subscription' => Subscription::class,'team' => Team::class];
+        $models = ['practice' => Practice::class,'daily_plan' => DailyPlan::class,'free_assessment' => FreeAssessment::class,'player_assessment' => PlayerAssessment::class,'workout_program' => WorkoutProgram::class,'user' => User::class,'subscription' => Subscription::class,'team' => Team::class];
         foreach($events->groupBy('resource_type') as $type => $rows) {
             if( ! isset($models[$type])) {
                 continue;
@@ -61,12 +62,13 @@ class CommunicationContent
             }
         }
     }
-    public const CATEGORIES = ['WorkoutAssigned' => 'workouts','AssessmentCompleted' => 'assessments','DevelopmentPlanPublished' => 'development_plans','WeeklyProgressReady' => 'weekly_reports','TeamAnnouncement' => 'team_announcements'];
+    public const CATEGORIES = ['LiveABCompleted' => 'team_announcements','WorkoutAssigned' => 'workouts','AssessmentCompleted' => 'assessments','DevelopmentPlanPublished' => 'development_plans','WeeklyProgressReady' => 'weekly_reports','TeamAnnouncement' => 'team_announcements'];
     private function resource(CommunicationEvent $e)
     {
         $key = $e->resource_type.':'.$e->resource_id;
         if ( ! array_key_exists($key, $this->resources)) {
             $this->resources[$key] = match($e->resource_type) {
+                'practice' => Practice::find($e->resource_id),
                 'daily_plan' => DailyPlan::with('assignments')->find($e->resource_id),
                 'free_assessment' => FreeAssessment::with(['results','participants'])->find($e->resource_id),
                 'player_assessment' => PlayerAssessment::find($e->resource_id),
@@ -90,6 +92,7 @@ class CommunicationContent
             return [];
         }
         $ids = match($e->resource_type) {
+            'practice' => $r->type === 'L' && $r->is_completed ? LiveABCompletion::participantIds($r) : [],
             'daily_plan' => 'published' === $r->status ? $r->assignments->filter(fn ($a) => ($a->schedule_status ?? 'active') === 'active')->pluck('user_id')->all() : [],
             'free_assessment' => 'completed' === $r->status && $r->report_snapshot ? $r->results->pluck('player_id')->intersect($r->participants->pluck('id'))->unique()->all() : [],
             'player_assessment' => [$r->user_id],
@@ -103,6 +106,7 @@ class CommunicationContent
     public function recipients(CommunicationEvent $e): iterable
     {
         $query = User::with('profile')->whereIn('id', $this->recipientIds($e))->where('is_dummy', false)->whereNotNull('password');
+        if ($e->resource_type === 'practice') $query->where('type', 'player');
         if ($e->team_id) {
             $query->where(fn ($q) => $q->whereHas('team_players', fn ($m) => $m->where('team_id', $e->team_id)->where('actual', true))->orWhereHas('teamsCoach', fn ($m) => $m->where('team_id', $e->team_id)));
         }
@@ -127,7 +131,7 @@ class CommunicationContent
     public function url(string $path): string
     {
         $origin = rtrim((string)config('communications.frontend_url'), '/');
-        if ('https://app.fmtrx.com' !== $origin || ! preg_match('~^/(dashboard|player-dashboard|assessment-reports|development/player|settings)(\?|$)~', $path)) {
+        if ('https://app.fmtrx.com' !== $origin || ! preg_match('~^/(dashboard|player-dashboard|assessment-reports|development/player|settings|session/report/[a-fA-F0-9-]{36}/live_ab)(\?|$)~', $path)) {
             throw new InvalidArgumentException('Invalid frontend route.');
         }
         return $origin.$path;
@@ -142,6 +146,11 @@ class CommunicationContent
         $path = '/player-dashboard';
         $heading = 'FMTRX update';
         switch($e->event_type) {
+            case 'LiveABCompleted':
+                $heading = 'Your Live AB results are ready';
+                $lines = ['Your coach finalized this game. Sign in to view your individual results.'];
+                $path = '/session/report/'.rawurlencode($r->id).'/live_ab?player='.rawurlencode($u->id);
+                break;
             case 'CoachRegistered': $heading = 'Welcome to FMTRX';
                 $lines = ['Your coach account is ready. Build your roster, plan training, and follow player development.'];
                 $path = '/dashboard';

@@ -1,4 +1,5 @@
 <script setup>
+import {sessionReportType} from '@/features/planner/lib/assignmentFlow'
 import WorkoutWeeklySummary from './WorkoutWeeklySummary.vue'
 // Coach "View Players" — every assigned player's progress for one workout, with a
 // per-player review detail (readiness, prescribed-vs-actual, coach feedback, Mark
@@ -285,7 +286,7 @@ const markReviewed = async () => {
             <p v-for="[key,label] in [['actual_sets','Actual sets'],['actual_reps','Actual reps'],['actual_distance_yards','Distance (yards)'],['actual_rpe','Actual RPE']]" :key="key">{{ label }}: {{ itemProgress(it.id)[key] ?? 'Not recorded' }}</p>
             <p v-if="itemProgress(it.id).player_note">Player note: {{ itemProgress(it.id).player_note }}</p>
             <p v-for="r in itemProgress(it.id).radar||[]" :key="r.id">Throw {{ r.attempt }}: {{ r.weight }} oz · {{ r.velocity }} mph</p>
-            <RouterLink v-if="itemProgress(it.id).session_id" :to="{name:'session.report',params:{id:itemProgress(it.id).session_id,type:it.metadata?.session_type==='bullpen'?'bullpen':'weight_ball'}}">View recorded session →</RouterLink>
+            <RouterLink v-if="itemProgress(it.id).session_id" :to="{name:'session.report',params:{id:itemProgress(it.id).session_id,type:sessionReportType(it.metadata?.session_type) || 'weight_ball'}}">View recorded session →</RouterLink>
           </div>
           <div v-else-if="isStrength(it)" class="cwp-sets">
             <div v-for="(s, idx) in it.setList" :key="s.id || idx" class="cwp-set-row">

@@ -35,6 +35,7 @@ class WorkoutPerformanceService
                 unset($actual['actualSets']);
                 unset($actual['strength_fitness_id'],$actual['strength_summary']);
                 $exercise = $prescribed[$itemId];
+                if (\App\Services\Planner\PlayerAssignmentRules::isLiveAB($exercise)) { $actual = $old?->items[$itemId] ?? []; continue; }
                 $exercise=app(\App\Services\Planner\LinkedSessionRegistry::class)->item($exercise, $exercise['_bucket_type']);
                 validator($actual, ['quick_throws'=>'sometimes|array|max:100','quick_throws.*.count'=>'required|integer|min:0|max:1000','quick_throws.*.category'=>'required|in:warmup_throws,catch_play_throws,flat_ground_throws,other_throws','quick_throws.*.ball_weight'=>'nullable|string|max:60','quick_throws.*.intent'=>'nullable|integer|min:0|max:100','quick_throws.*.timestamp'=>'required|date','sets'=>'sometimes|array|max:100','sets.*.done'=>'sometimes|boolean','sets.*.weight'=>'nullable|numeric|min:0|max:3000','sets.*.reps'=>'nullable|integer|min:0|max:1000','sets.*.rpe'=>'nullable|numeric|min:1|max:10'])->validate();
                 if(isset($data['items'][$itemId])) { $actual['edited_at']=now()->toIso8601String(); if(!empty($actual['done']))$actual['completed_at']=$old?->items[$itemId]['completed_at']??now()->toIso8601String(); }
@@ -74,7 +75,7 @@ class WorkoutPerformanceService
                     $session = Practice::whereKey($actual['session_id'])->forSharedOrTeam($plan->team_id)->where(fn ($q) => $q->where('user_id', $userId)->orWhereHas('lineup', fn ($l) => $l->where('user_id', $userId)))->firstOrFail();
                     $expected = $exercise['metadata']['session_type'] ?? null;
                     if (!$expected && in_array($exercise['_bucket_type'], ['hitting','pitching','throwing'], true)) {
-                        $candidates = $exercise['_bucket_type'] === 'hitting' ? ['exit_velocity','cage','live_ab'] : ['bullpen','long_toss','weighted_ball'];
+                        $candidates = $exercise['_bucket_type'] === 'hitting' ? ['exit_velocity','cage'] : ['bullpen','long_toss','weighted_ball'];
                         foreach ($candidates as $candidate) if (app(\App\Services\Planner\LinkedSessionRegistry::class)->matches($candidate, $session)) { $expected = $candidate; break; }
                     }
                     abort_unless(app(\App\Services\Planner\LinkedSessionRegistry::class)->matches((string)$expected, $session), 422, 'Choose a session matching this exercise.');

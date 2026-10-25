@@ -26,7 +26,7 @@ class WeightBallResultPracticeTest extends TestCase
         PlayerTeam::factory()->create(['user_id' => $user->id, 'team_id' => $team->id]);
         Sanctum::actingAs($user);
         $data =[
-            'practice_id' => Practice::factory()->create(['user_id' => $user->id, 'team_id' => null])->id,
+            'practice_id' => Practice::factory()->create(['user_id' => $user->id, 'team_id' => null, 'type' => 'T', 'modes' => 'WB'])->id,
             'user_id' => $user->id,
             'set' => fake()->numberBetween(1, 4),
             'sort' =>  fake()->numberBetween(1, 4),
@@ -46,7 +46,7 @@ class WeightBallResultPracticeTest extends TestCase
     {
         Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data =[
-            'practice_id' => Practice::factory()->create()->id,
+            'practice_id' => Practice::factory()->create(['type' => 'T', 'modes' => 'WB'])->id,
             'user_id' => User::factory()->create()->id,
             'set' => fake()->numberBetween(1, 4),
             'sort' =>  fake()->numberBetween(1, 4),

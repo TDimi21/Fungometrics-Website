@@ -10,12 +10,12 @@ final class LinkedSessionRegistry
     public function all(): array
     {
         return [
+            'batting' => ['label'=>'Batting Practice','native_practice_screen'=>'BattingPractice','practice_type'=>'B','mode'=>null,'web_path'=>'/create/batting','native_screen'=>'SessionTabs','execution_type'=>'LAUNCH_SESSION'],
             'bullpen' => ['label'=>'Bullpen','native_practice_screen'=>'PitchingPractice','practice_type'=>'P','mode'=>null,'web_path'=>'/create/bullpen','native_screen'=>'SessionTabs','execution_type'=>'LAUNCH_SESSION'],
             'long_toss' => ['label'=>'Long Toss','native_practice_screen'=>'LongTossPractice','practice_type'=>'T','mode'=>'LT','web_path'=>'/create/mode','native_screen'=>'SessionTabs','execution_type'=>'LAUNCH_SESSION'],
             'weighted_ball' => ['label'=>'Weighted Balls','native_practice_screen'=>'WeightedPractice','practice_type'=>'T','mode'=>'WB','web_path'=>'/create/mode','native_screen'=>'SessionTabs','execution_type'=>'LAUNCH_SESSION'],
             'exit_velocity' => ['label'=>'Exit Velocity','native_practice_screen'=>'VelocityPractice','practice_type'=>'T','mode'=>'EV','web_path'=>'/create/mode','native_screen'=>'SessionTabs','execution_type'=>'LAUNCH_SESSION'],
-            'cage' => ['label'=>'Cage','practice_type'=>'C','mode'=>null,'web_path'=>'/create/cage','native_screen'=>'SessionTabs','execution_type'=>'LAUNCH_SESSION'],
-            'live_ab' => ['label'=>'Live AB','practice_type'=>'L','mode'=>null,'web_path'=>'/create/live','native_screen'=>'SessionTabs','execution_type'=>'LAUNCH_SESSION'],
+            'cage' => ['label'=>'Cage','native_practice_screen'=>'CagePractice','practice_type'=>'C','mode'=>null,'web_path'=>'/create/cage','native_screen'=>'SessionTabs','execution_type'=>'LAUNCH_SESSION'],
             'strength' => ['label'=>'Strength Log','execution_type'=>'LOG','web_path'=>null,'native_screen'=>null],
             'assessment' => ['label'=>'Assessment','execution_type'=>'LOG','web_path'=>null,'native_screen'=>null],
         ];
@@ -27,6 +27,7 @@ final class LinkedSessionRegistry
     }
     public function item(array $item, string $bucket): array
     {
+        if (PlayerAssignmentRules::isLiveAB($item)) return array_merge($item, ['execution_type' => 'READ_ONLY', 'linked_session' => null, 'read_only' => true]);
         $metadata = $item['metadata'] ?? [];
         $type = $metadata['session_type'] ?? null;
         $definition = $this->all()[$type] ?? null;

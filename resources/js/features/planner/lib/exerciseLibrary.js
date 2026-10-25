@@ -522,7 +522,6 @@ export const EXERCISE_LIBRARY = [
     ['Cage', { equipment: 'Cage, balls, bat' }],
     ['Scripted BP', { equipment: 'BP setup, balls, bat' }],
     ['Regular BP', { equipment: 'BP setup, balls, bat' }],
-    ['Live AB', { defaultIntensity: 'High', equipment: 'Mound, catcher, hitter' }],
     ['Exit Velocity Testing', { equipment: 'Radar, tee/front toss', workloadType: 'measurement', relatedMetrics: ['max_exit_velocity', 'average_exit_velocity'] }],
   ]),
 ];

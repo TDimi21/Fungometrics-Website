@@ -155,6 +155,7 @@ class AuthorizeRouteScope
     private function authorizePersonalWrite(Request $request, User $user, Practice $practice): void
     {
         if ($request->isMethod('GET')) return;
+        if ($practice->type === 'L') abort_unless((string) $user->type === 'coach', 403, 'Live AB scoring is coach-only.');
         if ($practice->is_player_shared) abort_unless((string) $practice->user_id === (string) $user->id, 403, 'Shared personal sessions are read-only for coaches.');
         if (($user->type instanceof \BackedEnum ? $user->type->value : (string) $user->type) !== 'player') return;
         abort_unless(($practice->team_id === null || $practice->is_player_shared) && (string) $practice->user_id === (string) $user->id, 403, 'Players can score only their own personal sessions.');
@@ -199,6 +200,11 @@ class AuthorizeRouteScope
 
     private function canAccessPractice(User $user, Practice $practice): bool
     {
+        if ($practice->type === 'L' && (string)$user->type === 'player') {
+            return $practice->lineup()->where('user_id', $user->id)->exists()
+                || $practice->batting()->where('batter_id', $user->id)->exists()
+                || $practice->bullpen()->where('pitcher_id', $user->id)->exists();
+        }
         if ((string) $practice->user_id === (string) $user->id) {
             return true;
         }

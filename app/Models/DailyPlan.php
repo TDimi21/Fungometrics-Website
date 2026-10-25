@@ -48,6 +48,7 @@ class DailyPlan extends Model
     {
         static::saving(function (self $plan): void {
             $buckets = $plan->buckets ?? [];
+            if ($plan->isDirty('buckets')) \App\Services\Planner\PlayerAssignmentRules::validate($buckets);
             if (!collect($buckets)->contains(fn ($bucket) => ($bucket['type'] ?? null) === 'daily_readiness')) {
                 // Append to preserve existing section order and template snapshot references.
                 $buckets[] = ['type'=>'daily_readiness','title'=>'Daily Readiness','kind'=>'survey','items'=>[],'note'=>'Complete before starting your workout.'];

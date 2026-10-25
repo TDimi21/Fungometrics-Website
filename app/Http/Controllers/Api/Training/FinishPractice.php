@@ -24,7 +24,13 @@ class FinishPractice extends Controller
     {
         try {
             $data_request = $request->validated();
-            $data_request['finish'] = Carbon::now();
+            $practice = Practice::findOrFail($request->uuid);
+            if ($practice->type === 'L') {
+                abort_unless((string) $request->user()->type === 'coach', 403);
+                $result = app(\App\Services\Communications\LiveABCompletion::class)->finish($practice->id, $data_request);
+                return response()->json(['code' => '015', 'message' => 'update practice - set finish', 'status' => 'success', 'data' => $result]);
+            }
+            $data_request['finished'] = Carbon::now();
             $result = (new UpdateServiceData(new Practice()))->handle(
                 $request->uuid,
                 $data_request
@@ -37,10 +43,11 @@ class FinishPractice extends Controller
             ];
 
             return response()->json($response, HttpCodes::HTTP_OK);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $exception) { throw $exception;
         } catch (Exception $exception) {
             $message = 'error to update practice';
             $code = HttpCodes::HTTP_INTERNAL_SERVER_ERROR;
-            if ('NOT UPDATE, Not Data Found' === $exception->getMessage()) {
+            if ($exception instanceof \Illuminate\Database\Eloquent\ModelNotFoundException || 'NOT UPDATE, Not Data Found' === $exception->getMessage()) {
                 $message = 'error to update practice - Not Practices Found';
                 $code = HttpCodes::HTTP_NOT_FOUND;
             }

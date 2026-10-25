@@ -45,6 +45,7 @@ class SaveDailyPlan extends Controller
                 'published_at'        => ['nullable', 'date'],
             ]);
 
+            \App\Services\Planner\PlayerAssignmentRules::validate($validated['buckets'] ?? []);
             $teamIds = CoachTeam::where('coach_id', Auth::id())->pluck('team_id')->all();
             if (empty($teamIds)) {
                 return response()->json([
@@ -152,6 +153,7 @@ class SaveDailyPlan extends Controller
         } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) { throw $e;
         } catch (\Illuminate\Validation\ValidationException $e) { throw $e;
         } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) { throw $e;
+        } catch (\Illuminate\Validation\ValidationException $e) { throw $e;
         } catch (Exception $e) {
             Log::error('SaveDailyPlan: ' . $e->getMessage());
 

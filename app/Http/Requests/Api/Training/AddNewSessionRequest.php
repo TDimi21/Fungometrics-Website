@@ -23,6 +23,7 @@ class AddNewSessionRequest extends FormRequest
     {
         $type = $this->user()?->type;
         if (($type instanceof \BackedEnum ? $type->value : $type) !== 'player') return true;
+        if ($this->input('type') === 'L') return false;
         $players = $this->input('players');
         // Missing/empty lineups cannot create a session; let required validation report them.
         if (!$this->filled('players')) return true;

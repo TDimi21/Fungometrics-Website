@@ -41,10 +41,12 @@ class GetLiveABPracticeResults extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         try {
+            $self = $request->user()->type === 'player' ? (string)$request->user()->id : null;
             $stat = new LiveABStatisticsService();
             $calculateData = [];
 
             $data = collect()->merge(LiveABPracticeResult::where('practice_id', $request->practice)
+                ->when($self, fn ($q) => $q->where(fn ($q) => $q->whereHas('batting', fn ($b) => $b->where('batter_id', $self))->orWhereHas('pitching', fn ($p) => $p->where('pitcher_id', $self))))
                 ->orderBy('sort', 'desc')
                 ->with('pitching.profile.player', 'batting.profile.player')
                 ->get());
@@ -59,16 +61,19 @@ class GetLiveABPracticeResults extends Controller
             $batters = collect()->merge($data->sortBy('sort')->groupBy('batting.profile.user_id')->all());
 
             $matrixBS = $this->resultBSTeams($data, $this->bsCount);
-            $matrixBSxBatter = $this->resultBSPlayers($data, 'batting.batter_id');
-            $matrixBSxPitcher = $this->resultBSPlayers($data, 'pitching.pitcher_id');
+            $matrixBSxBatter = $this->resultBSPlayers($self ? $data->filter(fn ($row) => $row->batting?->batter_id === $self) : $data, 'batting.batter_id');
+            $matrixBSxPitcher = $this->resultBSPlayers($self ? $data->filter(fn ($row) => $row->pitching?->pitcher_id === $self) : $data, 'pitching.pitcher_id');
 
-            $players['batters'] = BattingPracticeResult::with('livePractice')
+            $players['batters'] = BattingPracticeResult::with('livePractice')->when($self, fn ($q) => $q->where('batter_id', $self))
                 ->whereIn('practice_id', [$request->practice])
                 ->where('is_in_match', true)->get();
-            $players['pitchers'] = BullpenPracticeResult::with('livePractice')
+            $players['pitchers'] = BullpenPracticeResult::with('livePractice')->when($self, fn ($q) => $q->where('pitcher_id', $self))
                 ->whereIn('practice_id', [$request->practice])
                 ->where('is_in_match', true)->get();
 
+            if ($self) {
+                $pitchers = $pitchers->only([$self]); $batters = $batters->only([$self]);
+            }
             $liveOptions = [
                 48 => ['label' => 'hitter-basic', 'method' => 'hitterResults', 'params' => 'false,1'],
                 49 => ['label' => 'hitter-advance', 'method' => 'hitterResults', 'params' => false],
@@ -85,19 +90,29 @@ class GetLiveABPracticeResults extends Controller
             ];
 
             foreach ($liveOptions as $key) {
+                $statsPlayers = $players;
+                if ($self) {
+                    $hitting = str_starts_with($key['label'], 'hitter');
+                    if ($players[$hitting ? 'batters' : 'pitchers']->isEmpty()) { $calculateData[$key['label']] = []; continue; }
+                    // Opposing rows are needed to calculate this player's contact/velocity,
+                    // but never become another player's standalone statistics.
+                    $opposingIds = $data->filter(fn ($row) => $hitting ? $row->batting?->batter_id === $self : $row->pitching?->pitcher_id === $self)
+                        ->pluck($hitting ? 'pitching_result_id' : 'batting_result_id');
+                    $statsPlayers[$hitting ? 'pitchers' : 'batters'] = ($hitting ? BullpenPracticeResult::query() : BattingPracticeResult::query())->with('livePractice')->whereIn('id', $opposingIds)->get();
+                }
                 if (null !== $key['params']) {
-                    $calculateData[$key['label']] = $stat->{$key['method']}($players, $key['params']);
+                    $calculateData[$key['label']] = $stat->{$key['method']}($statsPlayers, $key['params']);
                 } else {
-                    $calculateData[$key['label']] = $stat->{$key['method']}($players);
+                    $calculateData[$key['label']] = $stat->{$key['method']}($statsPlayers);
                 }
             }
 
             $practice = Practice::query()->findOrFail($request->practice);
             $entitlements = $this->resolver->getEntitlements(
                 $request->user(),
-                $practice->team_id ? (string) $practice->team_id : null
+                $self ? null : ($practice->team_id ? (string) $practice->team_id : null)
             );
-            $responseData = ['count' => $count, 'game_state' => $practice->liveab_state, 'game_config' => $practice->liveab_config, 'game_adjustments' => $practice->liveab_state ? \Illuminate\Support\Facades\DB::table('liveab_web_events')->where('practice_id',$practice->id)->whereNull('result_id')->where('undone',false)->orderBy('id')->get(['action','before_state','after_state','created_at']) : []];
+            $responseData = ['count' => $count, 'game_state' => $self ? null : $practice->liveab_state, 'game_config' => $self ? null : $practice->liveab_config, 'game_adjustments' => !$self && $practice->liveab_state ? \Illuminate\Support\Facades\DB::table('liveab_web_events')->where('practice_id',$practice->id)->whereNull('result_id')->where('undone',false)->orderBy('id')->get(['action','before_state','after_state','created_at']) : []];
             if (in_array('box_score', $entitlements, true)) {
                 $responseData += [
                     'ball_x_ball' => $data,

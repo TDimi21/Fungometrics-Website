@@ -257,7 +257,7 @@ async function adjust(plan, behavior) {
     <header class="studio-hero">
       <div>
         <small>FMTRX · TRAINING</small>
-        <h1>Today's Plan</h1>
+        <h1>Today’s Training</h1>
         <p>Complete your assigned work. Log each session and stay on track.</p>
       </div>
     </header>
@@ -291,7 +291,7 @@ async function adjust(plan, behavior) {
       @change="markPending(plan)"
     >
       <small>{{ plan.source.name || "Assigned training" }}</small>
-      <h2>{{ plan.name }}</h2>
+      <h2>{{ plan.name }}</h2><small v-if="plan.settings?.due_time">Due {{plan.settings.due_time}}</small>
       <section class="today-block" v-if="plan.progress.completed_at" aria-label="Submitted workout">
         <h3>Workout submitted</h3>
         <p v-if="plan.progress.feedback_summary">{{ plan.progress.feedback_summary.completed_drills }}/{{ plan.progress.feedback_summary.counted_drills }} counted drills completed · Readiness: {{ plan.progress.feedback_summary.checks.readiness.status }} · Reflection: {{ plan.progress.feedback_summary.checks.reflection.status }}</p>
@@ -376,7 +376,8 @@ async function adjust(plan, behavior) {
               ▾</span
             >
           </button>
-          <div v-if="expanded[item.id]" class="today-actual">
+          <p v-if="item.read_only">Coach-controlled game. View your results in session history.</p>
+          <div v-if="expanded[item.id] && !item.read_only" class="today-actual">
             <p>{{ item.prescription_text || item.coachCue }}</p>
             <p>{{ item.note }}</p>
             <SkillResults :bucket="block.type" :actual="actual(plan,item)" :sessions="sessions[plan.id] || []" @load-sessions="available(plan)" @change="plan.progress.items[item.id] = {...actual(plan,item),...$event}; markPending(plan)" />

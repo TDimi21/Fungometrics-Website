@@ -11,6 +11,53 @@ use Tests\TestCase;
 
 class WebLiveABSessionTest extends TestCase
 {
+    public function test_finalization_notifies_each_player_once_without_copying_results(): void
+    {
+        config(['communications.enabled' => false, 'communications.frontend_url' => 'https://app.fmtrx.com']);
+        [$id, $config] = $this->setupSession();
+        $state = $this->getJson('/api/coach/liveab-session/'.$id)->assertOk()->json('data.state');
+        $this->postJson('/api/coach/liveab-session/'.$id.'/pitch', $this->pitch($id, $config, $state))->assertCreated();
+        foreach ([true, true, false, true] as $completed) {
+            $this->putJson('/api/training/'.$id, ['is_completed' => $completed, 'end_note' => 'Game complete'])->assertOk();
+        }
+        $this->assertSame(1, LiveABPracticeResult::where('practice_id', $id)->count());
+        $this->assertSame(1, Practice::find($id)->batting()->count());
+        $this->assertSame(1, Practice::find($id)->bullpen()->count());
+        $this->assertSame(1, \App\Models\CommunicationEvent::where('resource_id', $id)->where('event_type', 'LiveABCompleted')->count());
+        $deliveries = \App\Models\CommunicationDelivery::where('resource_id', $id)->get();
+        $this->assertCount(2, $deliveries);
+        \Illuminate\Support\Facades\Notification::fake();
+        config(['communications.enabled' => true, 'communications.send_enabled' => true]);
+        $delivery = $deliveries->first();
+        \App\Models\CommunicationPreference::updateOrCreate(['user_id' => $delivery->recipient_id], ['team_announcements' => false]);
+        (new \App\Jobs\SendCommunicationDelivery($delivery->id))->handle(app(\App\Services\Communications\CommunicationContent::class));
+        $this->assertSame('preference_disabled', $delivery->fresh()->failure_code);
+        \Illuminate\Support\Facades\Notification::assertNothingSent();
+
+        foreach ($deliveries as $delivery) {
+            $this->assertStringContainsString('/session/report/'.$id.'/live_ab?player='.$delivery->recipient_id, $delivery->payload['action_url']);
+        }
+        $player = User::find($config['away']['hitters'][0]);
+        Sanctum::actingAs($player, ['player']);
+        $this->getJson('/api/me/communications')->assertOk()->assertJsonCount(1, 'data');
+        $player->update(['subscription_plan' => 'player_pro']);
+        $this->getJson('/api/statistics/'.$id.'/liveab')->assertOk()->assertJsonPath('data.count', 1)->assertJsonPath('data.game_config', null);
+        $this->putJson('/api/training/'.$id, ['is_completed' => false, 'end_note' => 'Not allowed'])->assertForbidden();
+        $this->postJson('/api/coach/liveab-session/'.$id.'/state', [])->assertForbidden();
+        $this->postJson('/api/result/liveab', [])->assertForbidden();
+    }
+
+    public function test_liveab_cannot_be_a_player_assignment_or_template_session(): void
+    {
+        $registry = new \App\Services\Planner\LinkedSessionRegistry();
+        $this->assertArrayNotHasKey('live_ab', $registry->all());
+        $legacy = $registry->item(['metadata' => ['session_type' => 'live_ab']], 'throwing');
+        $this->assertSame('READ_ONLY', $legacy['execution_type']);
+        $this->assertNull($legacy['linked_session']);
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        \App\Services\Planner\PlayerAssignmentRules::validate([['items' => [['metadata' => ['session_type' => 'live_ab']]]]]);
+    }
+
     private function setupSession(): array
     {
         $coach = User::factory()->create(['type' => 'coach','subscription_plan' => 'coach_pro']);
