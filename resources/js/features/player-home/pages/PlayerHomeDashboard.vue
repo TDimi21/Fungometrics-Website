@@ -16,7 +16,7 @@ import ProfileCard from '../components/ProfileCard.vue'
 import BenchmarkTasksPanel from '../components/BenchmarkTasksPanel.vue'
 import SessionCountsCard from '../components/SessionCountsCard.vue'
 import RecapList from '../components/RecapList.vue'
-import SleepCheckinModal from '../components/SleepCheckinModal.vue'
+import DailyReadiness from '@/components/readiness/DailyReadiness.vue'
 import StatTabs from '../components/StatTabs.vue'
 import BpStats from '../components/BpStats.vue'
 import BullpenStats from '../components/BullpenStats.vue'
@@ -32,12 +32,10 @@ import {
   buildSchoolTeamText,
   buildSpeedLine,
   buildStrengthLine,
-  hasSleepLoggedToday,
   mapDashboardSummary,
   metricRowsForTab,
   normalizeImageSrc,
   pick,
-  todayDateKey,
 } from '../lib/playerHomeAdapter.js'
 import { buildExitVelocityReport, buildLongTossReport, buildWeightedReport } from '../lib/trainingReports.js'
 import { createSectionState, runSection, SESSION_EXPIRED_MESSAGE } from '../lib/sectionState.js'
@@ -118,7 +116,6 @@ const loadProfile = () => runSection(profileState, async () => {
     const rows = Array.isArray(fit) ? fit : (fit ? [fit] : [])
     playerFitnessRows.value = rows
     playerFitnessLatest.value = rows[0] || null
-    maybeOpenSleepCheckin(rows)
   }
 }, 'Couldn\'t load profile & fitness.')
 
@@ -134,21 +131,6 @@ const loadRapsodo = () => runSection(rapsodoState, async () => {
 
 const loadData = () => Promise.all([loadProfile(), loadStats(), loadRapsodo()])
 onMounted(loadData)
-
-// ── Sleep check-in ──────────────────────────────────────────────────────
-const sleepCheckinOpen = ref(false)
-const sleepCheckinCheckedDate = ref('')
-
-const maybeOpenSleepCheckin = (fitnessRows = []) => {
-  const today = todayDateKey()
-  if (sleepCheckinCheckedDate.value === today) return
-  sleepCheckinCheckedDate.value = today
-  sleepCheckinOpen.value = !hasSleepLoggedToday(fitnessRows)
-}
-
-const onSleepCheckinSaved = (saved) => {
-  if (saved) playerFitnessLatest.value = saved
-}
 
 // ── Player metrics modal ────────────────────────────────────────────────
 const isOpenPlayerMetricsModal = ref(false)
@@ -195,15 +177,11 @@ const openRecapReport = (session) => {
 
 <template>
   <Layout>
-    <SleepCheckinModal
-      :open="sleepCheckinOpen"
-      :player-id="playerId || userData?.id"
-      @close="sleepCheckinOpen = false"
-      @saved="onSleepCheckinSaved"
-    />
+
 
     <div class="min-h-full bg-surface px-4 py-5 text-white lg:px-6">
       <div class="mx-auto max-w-6xl space-y-4">
+        <DailyReadiness :player-id="String(playerId || userData?.id || '')" />
         <PlayerAssessmentLinks :player-id="userData?.id || ''" />
         <div
           v-if="sessionExpired"

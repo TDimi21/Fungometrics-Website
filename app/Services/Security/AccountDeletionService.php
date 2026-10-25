@@ -110,6 +110,7 @@ class AccountDeletionService
             $this->deleteReferencedPhotos($user->id);
             $this->deleteWhere('coach_teams', 'coach_id', $user->id);
             $this->deleteWhere('player_teams', 'user_id', $user->id);
+            $this->deleteWhere('player_daily_readiness', 'user_id', $user->id);
             $this->deleteWhere('practice_line_ups', 'user_id', $user->id);
             $this->deleteWhere('account_claims', 'user_id', $user->id);
             $this->deleteWhere('team_join_challenges', 'user_id', $user->id);

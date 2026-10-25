@@ -22,7 +22,9 @@ final class WorkoutFeedbackSummary
             'readiness' => $check($readiness, ['sleep_hours','sleep_quality','energy','overall_soreness','arm_soreness','shoulder_soreness','elbow_soreness','lower_body_soreness','stress','motivation','pain_flag']),
             'reflection' => $check($reflection, ['workout_rating','session_rpe']),
         ];
-        $reasons = array_merge(app(PlannerWellnessService::class)->readiness($readiness)['alerts'], app(PlannerWellnessService::class)->post($progress->post_training ?? [])['alerts']);
+        $dailyData = DailyReadinessSummary::forPlan($plan,(string)$progress->user_id);
+        if ($dailyData) $checks['readiness'] = ['status'=>'received','answered'=>11,'expected'=>11,'scale_version'=>2];
+        $reasons = array_merge($dailyData['alerts'] ?? app(PlannerWellnessService::class)->readiness($readiness)['alerts'], app(PlannerWellnessService::class)->post($progress->post_training ?? [])['alerts']);
         if (($reflection['pain_after'] ?? 0) >= 4) $reasons[] = 'Pain reported after training';
         if (isset($reflection['workout_rating']) && $reflection['workout_rating'] !== '' && $reflection['workout_rating'] <= 2) $reasons[] = 'Low workout rating';
         if (($reflection['session_rpe'] ?? 0) >= 9) $reasons[] = 'High reported effort';
@@ -37,6 +39,7 @@ final class WorkoutFeedbackSummary
             'submission_status' => $progress->completed_at ? 'submitted' : ($progress->started_at || $done ? 'in_progress' : 'not_started'),
             'completed_drills' => $done, 'counted_drills' => $counted->count(),
             'completion_pct' => $counted->count() ? (int)round(100*$done/$counted->count()) : null,
+            'daily_readiness' => $dailyData,
             'checks' => $checks, 'attention_reasons' => array_values(array_unique($reasons)),
             'review_status' => ($progress->coach_review['reviewed'] ?? false) ? 'reviewed' : 'awaiting_review',
             'coach_feedback' => $progress->coach_review['feedback'] ?? '',

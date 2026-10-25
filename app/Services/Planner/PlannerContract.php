@@ -56,13 +56,15 @@ final class PlannerContract
         if($playerId) { $data['assigned_player_ids']=[$playerId]; unset($data['assignments']); }
         $updates=null;
         if($playerId)try{$updates=app(DailyPlanPlayerUpdateService::class)->buildPlayerPlanUpdateStatus($plan->id,$playerId);}catch(\Throwable $e){report($e);}
+        $dailyReadiness = $playerId ? DailyReadinessSummary::forPlan($plan,$playerId) : null;
         return array_merge($data,[
             'settings'=>$plan->settings??[],'planner_contract_version'=>self::VERSION,'version'=>(int)$plan->version,'owner'=>$plan->created_by,'team'=>$plan->team_id,
             'scheduled_date'=>($assignment?->scheduled_date ?? $plan->date)?->format('Y-m-d'),
             'source'=>$buckets[0]['program_source'] ?? $buckets[0]['template_source'] ?? ['type'=>'quick_workout'],
             'buckets'=>$buckets,'blocks'=>$buckets,'assignment'=>$assignment,'progress'=>$progressData,
             'completion'=>['completed_at'=>$completedAt,'completed_items'=>collect($actuals)->filter(fn($i)=>!empty($i['done']))->count()],
-            'actual_results'=>$actuals, 'readiness'=>$wellness->readiness($progress?->readiness??[]),
+            'actual_results'=>$actuals, 'daily_readiness'=>$dailyReadiness,
+            'readiness'=>$dailyReadiness ? ['score'=>null,'average'=>$dailyReadiness['average'],'scale_version'=>2,'alerts'=>$dailyReadiness['alerts'],'needs_attention'=>$dailyReadiness['needs_attention']] : $wellness->readiness($progress?->readiness??[]),
             'post_training'=>$wellness->post($progress?->post_training??[]),'alert_review'=>$progress?->alert_review,
             'schedule_adjustments'=>$assignment?->schedule_adjustments??[],'session_links'=>$links,
             'update_status'=>$updates,

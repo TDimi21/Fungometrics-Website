@@ -246,6 +246,10 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
     Route::get('player/me/teams', [\App\Http\Controllers\Api\Player\MyTeamsController::class, 'index'])->middleware('ability:player');
     Route::delete('player/me/teams/{teamId}', [\App\Http\Controllers\Api\Player\MyTeamsController::class, 'destroy'])->whereUuid('teamId')->middleware(['ability:player', 'throttle:10,1']);
     Route::get('player/me', \App\Http\Controllers\Api\Player\GetMe::class);
+    Route::get('player/readiness', [\App\Http\Controllers\Api\Player\DailyReadinessController::class, 'mine']);
+    Route::put('player/readiness', [\App\Http\Controllers\Api\Player\DailyReadinessController::class, 'save'])->middleware('throttle:30,1');
+    Route::get('players/{player}/readiness', [\App\Http\Controllers\Api\Player\DailyReadinessController::class, 'history'])->whereUuid('player');
+    Route::get('coach/teams/{team}/readiness', [\App\Http\Controllers\Api\Player\DailyReadinessController::class, 'team'])->whereUuid('team');
     Route::post('player/fitness', SaveFitness::class);
     Route::get('player/fitness/{id}', GetFitness::class);
     Route::get('players/{player}/athletic-performance', GetAthleticPerformance::class);

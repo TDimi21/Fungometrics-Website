@@ -1,4 +1,5 @@
 <script setup>
+import DailyReadiness from '@/components/readiness/DailyReadiness.vue'
 import HallOfFameWall from './HallOfFameWall.vue'
 import DashboardDailyPlanner from './DashboardDailyPlanner.vue'
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
@@ -47,6 +48,7 @@ const featuredEvidence = computed(() => featuredCategory.value?.featured)
 </script>
 <template>
   <div class="coach-home">
+    <DailyReadiness v-if="team?.id_team || team?.id" :team-id="String(team.id_team || team.id)" />
 
     <div class="overview-grid">
       <section class="panel roster"><header><h2>Roster</h2><button :disabled="activityLoading" @click="loadActivity" aria-label="Refresh player activity">↻</button><button @click="emit('roster')" class="red-link">View All →</button></header><input v-model="search" aria-label="Search roster" placeholder="⌕  Search players…"><div class="filters"><button v-for="f in ['All','Hitters','Pitchers']" :key="f" :class="{active:rosterFilter===f}" @click="rosterFilter=f">{{ f }} ({{ players?.filter(p=>matchRole(p,f)).length || 0 }})</button></div><p v-if="loading" role="status">Loading roster…</p><div v-else class="roster-scroll"><button v-for="p in roster" :key="p.id" class="athlete" :class="{chosen:featured?.id===p.id}" @click="featuredId=p.id; emit('player-metrics',p)" :aria-label="`Open metrics for ${p.name}`"><img v-if="p.picture" :src="p.picture" :alt="p.name"><span v-else class="avatar">{{ p.name?.slice(0,1) }}</span><div class="athlete-body"><small>{{ p.jersey != null ? '#'+p.jersey : 'Player' }}</small><strong>{{ p.name }}</strong><span class="activity-login" :class="{recent:recentlyLoggedIn(p)}">{{ activityLoading ? 'Loading activity…' : activityError || (recentlyLoggedIn(p) ? '● Logged in within 24h' : 'Last login: ' + activityTime(activity[p.id]?.last_login_at)) }}</span>

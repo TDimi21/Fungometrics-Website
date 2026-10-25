@@ -1,4 +1,5 @@
 <script setup>
+import DailyReadiness from '@/components/readiness/DailyReadiness.vue'
 import {sessionReportType} from "@/features/planner/lib/assignmentFlow";
 import { mergePendingPlannerDay } from "@/features/planner/lib/pendingDay";
 import SkillResults from '@/components/workouts/SkillResults.vue';
@@ -255,6 +256,7 @@ async function adjust(plan, behavior) {
 </script>
 <template>
   <section class="planner-studio player-today">
+    <DailyReadiness :player-id="String(user.userData?.id || '')" />
     <header class="studio-hero">
       <div>
         <small>FMTRX · TRAINING</small>
@@ -308,53 +310,6 @@ async function adjust(plan, behavior) {
       <p v-if="plan.update_status?.has_update">
         Coach updated this workout · {{ plan.update_status.update_message }}
       </p>
-      <details>
-        <summary>
-          How are you feeling today? ·
-          {{ plan.readiness.score ?? "Not recorded" }} / 100
-        </summary>
-        <div class="today-fields">
-          <label
-            v-for="key in [
-              'sleep_hours',
-              'sleep_quality',
-              'energy',
-              'overall_soreness',
-              'arm_soreness',
-              'shoulder_soreness',
-              'elbow_soreness',
-              'stress',
-              'motivation',
-            ]"
-            :key="key"
-            >{{ key.replaceAll("_", " ")
-            }}<input
-              type="number"
-              v-model.number="plan.progress.readiness[key]"
-              min="0"
-              :max="
-                key === 'sleep_hours'
-                  ? 24
-                  : [
-                      'sleep_quality',
-                      'energy',
-                      'overall_soreness',
-                      'stress',
-                      'motivation',
-                    ].includes(key)
-                  ? 5
-                  : 10
-              " /></label
-          ><label
-            ><input
-              type="checkbox"
-              v-model="plan.progress.readiness.pain_flag"
-            />Pain reported</label
-          >
-        </div>
-        <button :disabled="busy" @click="save(plan)">Save readiness</button>
-        <p>{{ plan.readiness.alerts.join(" · ") }}</p>
-      </details>
       <section
         v-for="block in plan.blocks"
         :key="block.type"

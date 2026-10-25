@@ -1,4 +1,5 @@
 <script setup>
+import DailyReadiness from '@/components/readiness/DailyReadiness.vue'
 import {sessionReportType} from '@/features/planner/lib/assignmentFlow'
 import WorkoutWeeklySummary from './WorkoutWeeklySummary.vue'
 // Coach "View Players" — every assigned player's progress for one workout, with a
@@ -302,7 +303,8 @@ const markReviewed = async () => {
         </div>
       </template>
 
-<details class="cwp-panel"><summary>View readiness and reflection details</summary>
+<DailyReadiness v-if="selected" :player-id="String(selected.player.id)" :entry-date="String(plan.date || '').slice(0,10)" read-only/>
+<details class="cwp-panel"><summary>Previous workout readiness (original scale) and reflection</summary>
       <div class="cwp-section">Player Reflection</div>
       <div class="cwp-panel">
         <div class="cwp-rating-row">
