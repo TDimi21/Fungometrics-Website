@@ -47,51 +47,6 @@ const isClaimCredentialsStep = computed(() => isClaimMode.value && claimStep.val
 
 const normalizeDigits = (value) => String(value || '').replace(/\D+/g, '')
 
-const getTeamIdCandidates = (teamLike) => {
-  const ids = [teamLike?.id_team, teamLike?.id]
-    .filter(Boolean)
-    .map((v) => String(v))
-  return [...new Set(ids)]
-}
-
-const getSessionCountForTeam = async (api_url, token, teamLike) => {
-  const ids = getTeamIdCandidates(teamLike)
-  for (const id of ids) {
-    try {
-      const res = await axios.get(api_url + 'coach/sessions/lasts/' + id, {
-        withCredentials: true,
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      const d = res?.data?.data ?? {}
-      return [
-        d.batting,
-        d.bullpen,
-        d.cage,
-        d.live,
-        d.weight_ball,
-        d.long_toss,
-        d.exit_velocity,
-      ].reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
-    } catch (e) {
-      const status = e?.response?.status
-      if (status !== 404 && status !== 403) break
-    }
-  }
-  return 0
-}
-
-const pickBestTeamForCoach = async (api_url, token, teams) => {
-  const list = Array.isArray(teams) ? teams : []
-  if (!list.length) return null
-
-  for (const candidate of list) {
-    const count = await getSessionCountForTeam(api_url, token, candidate)
-    if (count > 0) return candidate
-  }
-
-  return list[0]
-}
-
 const applyAuthSession = async ({ payload, apiUrl }) => {
   const token = payload?.token
   const user = payload?.user || null
@@ -116,9 +71,10 @@ const applyAuthSession = async ({ payload, apiUrl }) => {
   }
 
   const rosterTeams = Array.isArray(teams) ? teams : []
-  const selectedTeam = await pickBestTeamForCoach(apiUrl, token, rosterTeams)
+  const selectedTeam = rosterTeams[0]
   await teamStore.setTeam(selectedTeam ?? rosterTeams[0] ?? team ?? {})
   await teamStore.setTeams(rosterTeams)
+  await teamStore.initializePreferences({login: true})
   await playerStore.setPlayers(user?.players || [])
   await router.push(consumeCommunicationDestination('/dashboard'))
 }
@@ -151,9 +107,10 @@ const submitForm = async () => {
         await router.push(consumeCommunicationDestination('/player-dashboard'))
       }else{
         const teams = response?.data?.data?.teams ?? [];
-        const selectedTeam = await pickBestTeamForCoach(api_url, null, teams);
+        const selectedTeam = teams[0];
         await teamStore.setTeam(selectedTeam ?? teams[0]);
         await teamStore.setTeams(teams);
+        await teamStore.initializePreferences({login: true});
         await playerStore.setPlayers(response.data.data.players);
 
         if (response.data.data?.capabilities?.subscription_admin === true) {

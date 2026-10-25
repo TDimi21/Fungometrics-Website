@@ -279,7 +279,7 @@ const changeTeam = async (info) => {
       // await setPlayers(item.players);
       isChange.value = false;
       isLoading.status = !isLoading.status;
-      router.go(router.currentRoute);
+      // Shared team state updates subscribed pages without a full reload.
     }
   }
 };
@@ -335,6 +335,7 @@ onMounted(() => {
     }
   }
 
+  teamStore.initializePreferences();
   getTeamsWithPalyers();
   fetchSessionCount();
   fetchTeamJoinCode();

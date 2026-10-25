@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, defineAsyncComponent } from 'vue'
 import { storeToRefs } from 'pinia'
+import TeamCommandCenter from '@/components/dashboard/TeamCommandCenter.vue'
 import CoachHomeOverview from '@/components/dashboard/CoachHomeOverview.vue'
 import Layout from "../../layout/Layout.vue"
 import { useUserStore } from "../../store/user";
@@ -2471,6 +2472,7 @@ watch(
 
 
         <div :class="dashTab === 'overview' ? 'coach-overview-container' : 'rounded-2xl border border-white/10 bg-[#080f1d]/55 p-3 md:p-5 shadow-2xl'">
+        <TeamCommandCenter />
         <CoachHomeOverview v-if="dashTab === 'overview'" :key="activeTeamId" :players="devBoard" :rows="canViewPerformanceOverview ? perfRows : []" :categories="canViewPerformanceOverview ? wallCategories : []" :sessions="recentSessions" :session-types="sessionTypeColor" :loading="devBoardLoading" :performance-loading="perfLoading" :sessions-loading="recentLoading" :selected-key="selectedPerfKey" :team-name="team?.name" :leaderboard-error="leaderboardError" @select-performance="selectedPerfKey=$event" @player="openSharedPlayerDevelopmentProfile" @player-metrics="openPlayerMetricsModal" @session="openSessionReport" @roster="setDashTab('development')" @sessions="router.push({name:'sessions.all'})" :leader-mode="top10Mode" :leaders-loading="leaderboardLoading" @leader-mode="top10Mode=$event" @retry-leaders="loadLeaderboard">
           <template #percentiles>
             <TeamPercentileLeaderboard v-model:category="selectedPercentileCategory" v-model:metric-key="selectedPercentileMetricKey" :loading="percentileLeaderboardLoading" :error="percentileLeaderboardError" :categories="percentileLeaderboardCategories" :metrics="percentileMetricsForCategory" :selected-metric="selectedPercentileMetric" :rows="rankedPercentilePlayers" @retry="fetchPercentileLeaderboard(true)" @select-player="openSharedPlayerDevelopmentProfile({id:$event.playerId,name:$event.playerName})" />
