@@ -26,9 +26,9 @@ class GetPracticeSessionByMode extends Controller
     {
         try {
             if ($request->team_id) {
-                $practices = Practice::where(['modes' => $request->modes, 'team_id' => $request->team_id])->paginate(10);
+                $practices = Practice::visibleSharedTo(auth()->id())->where(['modes' => $request->modes, 'team_id' => $request->team_id])->paginate(10);
             } else {
-                $practices = Practice::where(['modes' => $request->modes, 'user_id' => Auth::id()])->paginate(10);
+                $practices = Practice::visibleSharedTo(auth()->id())->where(['modes' => $request->modes, 'user_id' => Auth::id()])->paginate(10);
             }
 
             if (0 === count($practices)) {
@@ -46,7 +46,6 @@ class GetPracticeSessionByMode extends Controller
 
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {
-            DB::rollBack();
             $response = [
                 'code' => '018-E',
                 'message' => 'Not Data Found',

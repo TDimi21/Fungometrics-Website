@@ -23,6 +23,7 @@ class AddPlayerToTraining extends Controller
      */
     public function __invoke(Request $request): JsonResponse
     {
+        abort_if(\App\Models\Practice::whereKey($request->training)->where('is_player_shared', true)->exists(), 403, 'A shared personal session can only contain its owner.');
         try {
             $practice = PracticeLineUp::with('user', 'user.player')->where('practice_id', '=', $request->training)
                 ->first();

@@ -47,8 +47,8 @@ const stats = computed(() => {
     top: speeds.length ? Math.max(...speeds) : null,
     average: speeds.length ? Math.round(speeds.reduce((a,b) => a+b,0) / speeds.length * 10) / 10 : null }
 })
-const personalOnly = computed(() => user.userData.type !== 'player' || (session.value?.team_id == null && session.value?.user_id === user.userData.id))
-const writable = computed(() => personalOnly.value && ready.value && current.value && !session.value?.is_completed && !busy.value && !pending.value)
+const personalOnly = computed(() => user.userData.type !== 'player' || ((session.value?.team_id == null || session.value?.is_player_shared) && session.value?.user_id === user.userData.id))
+const writable = computed(() => personalOnly.value && (!session.value?.is_player_shared || session.value.user_id === user.userData.id) && ready.value && current.value && !session.value?.is_completed && !busy.value && !pending.value)
 const validPitch = computed(() => (!session.value?.is_scripted || (!!step.value && step.value.playerId === selected.value && ['R','H','A','W','M'].includes(quality.value) && Number(velocity.value || 0) <= 130)) && (!['W', 'A', 'H', 'R'].includes(quality.value) || trajectories.includes(trajectory.value)) && (velocity.value === '' || (/^\d+$/.test(String(velocity.value)) && Number(velocity.value) <= 2147483647)))
 const pointStyle = computed(() => ({ left: `${(((location.value - 1) % 60) + .5) / 60 * 100}%`, top: `${(Math.floor((location.value - 1) / 60) + .5) / 60 * 100}%` }))
 const pitchInfo = computed(() => getPitchInfoFromCoordinate(location.value))
@@ -169,13 +169,14 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnBeforeUnload))
 </script>
 <template>
   <Layout>
+    <p v-if="session?.is_player_shared" role="status" class="notice">Shared personal session — results belong to the player. Coaches have read-only access.</p>
     <p v-if="session && !personalOnly" role="status" class="error">Team sessions are read-only here. Start a personal session from My Sessions to record your own results.</p>
     <main class="bullpen-screen" :aria-busy="loading || busy">
       <h1 class="sr-only">Batting practice live scoring</h1>
       <div class="scoring-stage batting-stage">
         <header class="scorebar">
           <div class="pitcher-tabs" aria-label="Session hitters">
-            <button v-if="user.userData.type === 'coach'" class="primary add-pitcher" aria-label="Add hitter" :disabled="!writable" @click="adding = !adding">+</button>
+            <button v-if="!session?.is_player_shared && user.userData.type === 'coach'" class="primary add-pitcher" aria-label="Add hitter" :disabled="!writable" @click="adding = !adding">+</button>
             <button v-for="player in players" :key="player.id" :class="{ primary: selected === player.id }" :aria-pressed="selected === player.id" :disabled="busy || !!pending || session?.is_scripted" @click="selected = player.id">{{ name(player) }}</button>
           </div>
           <nav aria-label="Session actions"><button :disabled="!ready" :aria-expanded="showStats" aria-controls="batting-stats" @click="showStats = !showStats">{{ showStats ? 'Hide statistics' : 'Show statistics' }} →</button><button :disabled="!ready || busy || !!pending" @click="report">Session report</button><button class="primary" :disabled="!writable" @click="finishing = true">End practice →</button></nav>

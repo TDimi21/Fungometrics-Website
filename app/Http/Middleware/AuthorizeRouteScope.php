@@ -154,9 +154,18 @@ class AuthorizeRouteScope
 
     private function authorizePersonalWrite(Request $request, User $user, Practice $practice): void
     {
-        if (($user->type instanceof \BackedEnum ? $user->type->value : (string) $user->type) !== 'player' || $request->isMethod('GET')) return;
-        abort_unless($practice->team_id === null && (string) $practice->user_id === (string) $user->id, 403, 'Players can score only their own personal sessions.');
-        abort_if($request->filled('team') || $request->filled('team_id'), 403, 'Personal sessions cannot be connected to a team.');
+        if ($request->isMethod('GET')) return;
+        if ($practice->is_player_shared) abort_unless((string) $practice->user_id === (string) $user->id, 403, 'Shared personal sessions are read-only for coaches.');
+        if (($user->type instanceof \BackedEnum ? $user->type->value : (string) $user->type) !== 'player') return;
+        abort_unless(($practice->team_id === null || $practice->is_player_shared) && (string) $practice->user_id === (string) $user->id, 403, 'Players can score only their own personal sessions.');
+        if ($practice->is_player_shared) {
+            abort_unless(PlayerTeam::where('user_id', $user->id)->where('team_id', $practice->team_id)->where('actual', true)->exists(), 403, 'You are no longer connected to this team.');
+        }
+        foreach (['team', 'team_id'] as $key) {
+            if ($request->filled($key)) abort_unless($practice->is_player_shared && $request->input($key) === $practice->team_id, 403);
+        }
+        // Store the chosen sharing team on every result, even when omitted by the client.
+        if ($practice->is_player_shared && $request->is('api/result/*')) $request->merge(['team_id' => $practice->team_id]);
     }
 
     private function canAccessTeam(User $user, string $teamId): bool
@@ -193,6 +202,9 @@ class AuthorizeRouteScope
             return true;
         }
 
+        if ($practice->is_player_shared) {
+            return CoachTeam::where('coach_id', $user->id)->where('team_id', $practice->team_id)->exists();
+        }
         if (null !== $practice->team_id) {
             return $this->canAccessTeam($user, (string) $practice->team_id);
         }

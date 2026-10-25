@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Layout from "@/layout/Layout.vue";
 import { useUserStore } from "@/store/user";
@@ -11,7 +11,24 @@ const route = useRoute(),
   router = useRouter(),
   user = useUserStore(),
   training = useTrainingStore();
-const { axiosPost } = useAxiosAuth();
+const { axiosPost, axiosGet } = useAxiosAuth();
+const sharingTeam = ref(""),
+  connectedTeams = ref([]),
+  teamsLoading = ref(false),
+  teamsError = ref("");
+async function loadTeams() {
+  teamsLoading.value = true;
+  teamsError.value = "";
+  try {
+    connectedTeams.value = (await axiosGet("player/me/teams")).data.data;
+  } catch {
+    teamsError.value =
+      "Could not load connected teams. Retry, or keep this session personal.";
+  } finally {
+    teamsLoading.value = false;
+  }
+}
+onMounted(loadTeams);
 const modes = {
   bullpen: { label: "Bullpen", type: "P", path: "/track/bullpen" },
   batting: { label: "Batting", type: "B", path: "/track/batting" },
@@ -41,6 +58,8 @@ const valid = computed(
     !!selected.value &&
     !busy.value &&
     !uncertain.value &&
+    (!sharingTeam.value ||
+      connectedTeams.value.some((team) => team.id === sharingTeam.value)) &&
     (selected.value.type !== "C" || !!cageDimensions(cage.value)),
 );
 async function create() {
@@ -54,6 +73,7 @@ async function create() {
       note: note.value.trim() || `${mode.label} practice`,
       players: [{ id: user.userData.id, sort: 0 }],
     };
+    if (sharingTeam.value) payload.share_with_team_id = sharingTeam.value;
     if (mode.type === "T") payload.modes = route.params.mode;
     if (mode.type === "C") payload.cage = cage.value;
     const data = (await axiosPost("training", payload)).data.data;
@@ -81,8 +101,33 @@ async function create() {
         <section class="player-card">
           <strong>{{ user.userData.name?.full || "My session" }}</strong>
           <p>
-            This session is only for you and is not connected to a team. Record your own results, view live statistics, and open your session
-            report.
+            Every result is recorded to your player profile. Only you are
+            scored.
+          </p>
+          <label
+            >Share this session with
+            <select v-model="sharingTeam" :disabled="busy || teamsLoading">
+              <option value="">Just myself — personal session</option>
+              <option
+                v-for="team in connectedTeams"
+                :key="team.id"
+                :value="team.id"
+              >
+                {{ team.name }}
+              </option>
+            </select>
+          </label>
+          <p>
+            {{
+              sharingTeam
+                ? "Coaches of the selected team can view this session and its statistics. You remain the scorer."
+                : "This session is not shared with a team."
+            }}
+          </p>
+          <p v-if="teamsLoading" role="status">Loading your connected teams…</p>
+          <p v-if="teamsError" role="alert">
+            {{ teamsError }}
+            <button type="button" @click="loadTeams">Retry</button>
           </p>
         </section>
         <fieldset v-if="selected.type === 'C'" :disabled="busy">
@@ -170,6 +215,7 @@ label {
   margin: 14px 0;
 }
 textarea,
+select,
 input {
   display: block;
   background: #1d283e;

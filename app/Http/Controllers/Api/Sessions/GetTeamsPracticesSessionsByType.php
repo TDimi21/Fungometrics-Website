@@ -34,7 +34,7 @@ class GetTeamsPracticesSessionsByType extends Controller
                     ->pluck('team_id')
                     ->all();
 
-                $practiceQuery = Practice::select('practices.*')
+                $practiceQuery = Practice::visibleSharedTo(auth()->id())->select('practices.*')
                     ->with('team', 'lineup.user.profile')
                     ->where('type', '=', $request->type)
                     ->when(request('search'), function ($query) use ($request): void {
@@ -78,7 +78,7 @@ class GetTeamsPracticesSessionsByType extends Controller
 
                 $practices = $practiceQuery->paginate();
             } else {
-                $practices = Practice::with('team')
+                $practices = Practice::visibleSharedTo(auth()->id())->with('team')
                     ->where('user_id', Auth::id())
                     ->where(['type' => $request->type])
                     ->paginate();
@@ -99,7 +99,6 @@ class GetTeamsPracticesSessionsByType extends Controller
 
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {
-            DB::rollBack();
             $response = [
                 'code' => '017-E',
                 'message' => 'Not Data Found',

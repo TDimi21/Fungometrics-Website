@@ -21,9 +21,17 @@ class Practice extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['is_completed','team_id','user_id', 'started', 'finished', 'note', 'end_note', 'type', 'modes', 'is_scripted', 'script_plan', 'game_field', 'liveab_config', 'liveab_state'];
+    public function scopeVisibleSharedTo($query, $userId)
+    {
+        return $query->where(function ($q) use ($userId) {
+            $q->where('is_player_shared', false)->orWhere('user_id', $userId)
+                ->orWhereIn('team_id', CoachTeam::where('coach_id', $userId)->select('team_id'));
+        });
+    }
 
-    protected $casts = ['id' => 'string', 'is_completed' => 'boolean', 'is_scripted' => 'boolean', 'script_plan' => 'array', 'game_field' => 'array', 'liveab_config' => 'array', 'liveab_state' => 'array'];
+    protected $fillable = ['is_completed','team_id','user_id', 'started', 'finished', 'note', 'end_note', 'type', 'modes', 'is_scripted', 'script_plan', 'game_field', 'liveab_config', 'liveab_state', 'is_player_shared'];
+
+    protected $casts = ['id' => 'string', 'is_completed' => 'boolean', 'is_scripted' => 'boolean', 'script_plan' => 'array', 'game_field' => 'array', 'liveab_config' => 'array', 'liveab_state' => 'array', 'is_player_shared' => 'boolean'];
 
     public function lineup(): HasMany
     {

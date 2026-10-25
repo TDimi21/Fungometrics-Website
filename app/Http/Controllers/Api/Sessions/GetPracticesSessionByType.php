@@ -26,9 +26,9 @@ class GetPracticesSessionByType extends Controller
     {
         try {
             if ($request->team_id) {
-                $practices = Practice::where(['type' => $request->type, 'team_id' => $request->team_id])->paginate();
+                $practices = Practice::visibleSharedTo(auth()->id())->where(['type' => $request->type, 'team_id' => $request->team_id])->paginate();
             } else {
-                $practices = Practice::where(['type' => $request->type, 'user_id' => Auth::id()])->paginate();
+                $practices = Practice::visibleSharedTo(auth()->id())->where(['type' => $request->type, 'user_id' => Auth::id()])->paginate();
             }
 
             if (0 === count($practices)) {
@@ -46,7 +46,6 @@ class GetPracticesSessionByType extends Controller
 
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {
-            DB::rollBack();
             $response = [
                 'code' => '030-E',
                 'message' => 'Not Data Found',

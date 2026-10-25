@@ -108,6 +108,9 @@ it('makes team and other-owned sessions read-only for players', async () => {
   const {s, api, app} = await screen({role:'player'})
   expect(s.writable.value).toBeTruthy()
   s.session.value.team_id = 'team-1'
+  s.session.value.is_player_shared = true
+  expect(s.writable.value).toBeTruthy()
+  s.session.value.is_player_shared = false
   expect(s.writable.value).toBeFalsy()
   s.note.value = 'Done'; await s.finish()
   expect(api.axiosPut).not.toHaveBeenCalled()

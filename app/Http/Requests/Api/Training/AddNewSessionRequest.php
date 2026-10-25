@@ -26,6 +26,7 @@ class AddNewSessionRequest extends FormRequest
         $players = $this->input('players');
         // Missing/empty lineups cannot create a session; let required validation report them.
         if (!$this->filled('players')) return true;
+        if ($this->filled('share_with_team_id') && (!is_string($this->input('share_with_team_id')) || !\App\Models\PlayerTeam::where('user_id', $this->user()->id)->where('team_id', $this->input('share_with_team_id'))->where('actual', true)->exists())) return false;
         return !$this->filled('team') && !$this->filled('team_id')
             && !$this->filled('planner_plan_id') && !$this->filled('planner_item_id')
             && is_array($players) && count($players) === 1
@@ -42,6 +43,7 @@ class AddNewSessionRequest extends FormRequest
         return [
             'planner_plan_id' => ['nullable', 'string', 'required_with:planner_item_id'],
             'planner_item_id' => ['nullable', 'string', 'required_with:planner_plan_id'],
+            'share_with_team_id' => ['nullable', 'uuid'],
             'team' => ['nullable', 'string'],
             'type' => ['nullable', Rule::enum(PracticeTypes::class)],
             'modes' => ['nullable', Rule::enum(PracticeModes::class)],

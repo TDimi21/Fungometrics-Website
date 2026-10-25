@@ -33,12 +33,22 @@ class AddNewSession extends Controller
             $players = [];
             DB::beginTransaction();
             $dataRequest = $request->validated();
+            $sharingTeam = $dataRequest['share_with_team_id'] ?? null;
+            unset($dataRequest['share_with_team_id']);
             $dataRequest['started'] = Carbon::now();
             if ( ! isset($dataRequest['team'])) {
                 $dataRequest['user_id'] = Auth::id();
             }
             if (isset($dataRequest['team'])) {
                 $dataRequest['team_id'] = $dataRequest['team'];
+            }
+            if ($sharingTeam !== null) {
+                $role = $request->user()->type;
+                abort_unless(($role instanceof \BackedEnum ? $role->value : $role) === 'player', 403);
+                abort_unless(\App\Models\PlayerTeam::where('user_id', Auth::id())->where('team_id', $sharingTeam)->where('actual', true)->exists(), 403);
+                $dataRequest['user_id'] = Auth::id();
+                $dataRequest['team_id'] = $sharingTeam;
+                $dataRequest['is_player_shared'] = true;
             }
             $dataRequest['modes'] = $dataRequest['modes'] ?? PracticeModes::HIT_OR_PITCH->value;
             $dataRequest['type'] = $dataRequest['type'] ?? PracticeTypes::TRAINING->value;

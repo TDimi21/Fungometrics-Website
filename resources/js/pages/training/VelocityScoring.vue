@@ -41,8 +41,8 @@ const currentSet = computed(() => sets.value[selected.value] || 1)
 const inSet = computed(() => ownRows.value.filter(row => Number(row.set || 1) === currentSet.value).length)
 const teamStats = computed(() => summarize(rows.value)), stats = computed(() => summarize(ownRows.value))
 const available = computed(() => (roster.players || []).filter(p => !(session.value?.players || []).some(member => member.id === p.id)))
-const personalOnly = computed(() => user.userData.type !== 'player' || (session.value?.team_id == null && session.value?.user_id === user.userData.id))
-const writable = computed(() => personalOnly.value && ready.value && current.value && !session.value?.is_completed && !busy.value)
+const personalOnly = computed(() => user.userData.type !== 'player' || ((session.value?.team_id == null || session.value?.is_player_shared) && session.value?.user_id === user.userData.id))
+const writable = computed(() => personalOnly.value && (!session.value?.is_player_shared || session.value.user_id === user.userData.id) && ready.value && current.value && !session.value?.is_completed && !busy.value)
 const name = p => p?.name?.full || [p?.name?.first, p?.name?.last].filter(Boolean).join(' ') || 'Player'
 const mph = value => value == null ? '—' : `${value} mph`
 const difference = (value, baseline) => value == null || baseline == null ? '—' : `${value - baseline >= 0 ? '+' : ''}${Math.round((value - baseline) * 10) / 10} mph`
@@ -127,6 +127,7 @@ onMounted(load)
 
 <template>
   <Layout>
+    <p v-if="session?.is_player_shared" role="status" class="notice">Shared personal session — results belong to the player. Coaches have read-only access.</p>
     <p v-if="session && !personalOnly" role="status" class="error">Team sessions are read-only here. Start a personal session from My Sessions to record your own results.</p>
     <main class="lt-scoring" :aria-busy="loading || busy">
       <header class="lt-header">
@@ -146,7 +147,7 @@ onMounted(load)
         <section class="lt-player panel">
           <label>Player<select v-model="selected" :disabled="busy"><option v-for="player in players" :key="player.id" :value="player.id">{{ name(player) }}</option></select></label>
           <p v-if="current">Jersey {{ current.shirt_number || '—' }}</p>
-          <button v-if="user.userData.type === 'coach' && teamStore.team?.id === session.team_id && !session.is_completed" :disabled="busy || !available.length" @click="adding = !adding">Add player</button>
+          <button v-if="!session?.is_player_shared && user.userData.type === 'coach' && teamStore.team?.id === session.team_id && !session.is_completed" :disabled="busy || !available.length" @click="adding = !adding">Add player</button>
           <p v-if="!players.length">No eligible players in this session.</p>
           <form v-if="adding" @submit.prevent="addPlayer"><label>Team player<select v-model="addId" required><option value="">Select a player</option><option v-for="player in available" :key="player.id" :value="player.id">{{ name(player) }}</option></select></label><button :disabled="busy || !addId">Add to session</button></form>
         </section>

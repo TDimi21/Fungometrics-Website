@@ -31,11 +31,11 @@ class GetTeamsPracticesSessionByMode extends Controller
                 $teams = CoachTeam::where('coach_id', Auth::id())
                     ->pluck('team_id')
                     ->all();
-                $practices = Practice::with('team')
+                $practices = Practice::visibleSharedTo(auth()->id())->with('team')
                     ->where(['modes' => $request->modes])
                     ->whereIn('team_id', $teams)->paginate();
             } else {
-                $practices = Practice::with('team')
+                $practices = Practice::visibleSharedTo(auth()->id())->with('team')
                     ->where('user_id', Auth::id())
                     ->where(['modes' => $request->modes])
                     ->paginate();
@@ -55,7 +55,6 @@ class GetTeamsPracticesSessionByMode extends Controller
 
             return response()->json($response, HttpCodes::HTTP_OK);
         } catch (Exception $exception) {
-            DB::rollBack();
             $response = [
                 'code' => '024-E',
                 'message' => 'Not Data Found',
