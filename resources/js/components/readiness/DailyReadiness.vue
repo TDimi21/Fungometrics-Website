@@ -46,7 +46,7 @@ async function save(){
  if(!readinessValid(answers.value))return
  busy.value=true;error.value=''
  try{await axiosPut('player/readiness',{...readinessContext(),answers:readinessPayload(answers.value)});open.value=false;await load()}
- catch(e){error.value=e.response?.data?.message||'Not saved. Please retry.'}
+ catch(e){if(e.response?.status===409){open.value=false;await load()}else error.value=e.response?.data?.message||'Not saved. Please retry.'}
  finally{busy.value=false}
 }
 function start(){answers.value={...(data.value?.today?.answers||emptyReadiness())};form.value=true;open.value=true}
@@ -66,7 +66,8 @@ onBeforeUnmount(()=>{generation++;document.removeEventListener('visibilitychange
   </template>
   <template v-else>
    <p>{{data?.today?`Submitted ${entryDate||'today'} · Average ${data.today.average}/10`:readOnly?'No readiness entry for this date.':'Ready to submit today’s readiness check?'}}</p>
-   <button v-if="!readOnly" :disabled="!data" @click="start">{{data?.today?'View / Update Today':'Start Readiness Check'}}</button>
+   <button v-if="!readOnly&&!data?.today" :disabled="!data" @click="start">Start Readiness Check</button>
+   <p v-if="data?.today">Recorded for today. You can submit again tomorrow.</p>
    <ReadinessEntry v-if="data?.today" :entry="data.today"/>
    <button @click="history=!history">{{history?'Hide History':'Recent History'}}</button>
    <div v-if="history" class="history"><ReadinessEntry v-for="entry in data?.history||[]" :key="entry.id" :entry="entry"/><p v-if="!data?.history?.length">No readiness entries yet.</p></div>

@@ -13,9 +13,10 @@ class DailyReadinessTest extends TestCase {
         $this->getJson('/api/player/readiness'.$this->query())->assertOk()->assertJsonPath('data.today',null);
         $id=$this->putJson('/api/player/readiness',$this->payload())->assertOk()->assertJsonPath('data.average',8)->json('data.id');
         $payload=$this->payload();$payload['answers']['arm_comfort']=2;$payload['answers']['pain_flag']=true;
-        $this->putJson('/api/player/readiness',$payload)->assertOk()->assertJsonPath('data.id',$id)->assertJsonPath('data.needs_attention',true);
+        $this->putJson('/api/player/readiness',$this->payload())->assertOk()->assertJsonPath('data.id',$id);
+        $this->putJson('/api/player/readiness',$payload)->assertStatus(409)->assertJsonPath('data.id',$id)->assertJsonPath('data.needs_attention',false);
         $this->assertSame(1,PlayerDailyReadiness::where('user_id',$p->id)->count());
-        $this->getJson('/api/player/readiness'.$this->query())->assertOk()->assertJsonPath('data.today.answers.arm_comfort',2)->assertJsonCount(1,'data.history');
+        $this->getJson('/api/player/readiness'.$this->query())->assertOk()->assertJsonPath('data.today.answers.arm_comfort',8)->assertJsonCount(1,'data.history');
         Sanctum::actingAs($other,['player']);
         $this->getJson('/api/players/'.$p->id.'/readiness'.$this->query())->assertNotFound();
         $this->getJson('/api/player/readiness'.$this->query())->assertOk()->assertJsonPath('data.today',null);
@@ -67,6 +68,18 @@ class DailyReadinessTest extends TestCase {
             $this->putJson('/api/player/readiness',$payload)->assertOk();
             $payload['date']='2026-10-26';
             $this->putJson('/api/player/readiness',$payload)->assertUnprocessable();
+        } finally { \Illuminate\Support\Carbon::setTestNow(); }
+    }
+    public function test_a_new_day_allows_a_new_entry_without_changing_yesterday(): void {
+        Sanctum::actingAs(User::factory()->create(['type'=>'player']),['player']);
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-10-25T16:00:00Z'));
+        try {
+            $first=$this->putJson('/api/player/readiness',$this->payload())->assertOk()->json('data.id');
+            \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-10-26T16:00:00Z'));
+            $this->getJson('/api/player/readiness'.$this->query())->assertOk()->assertJsonPath('data.today',null);
+            $second=$this->putJson('/api/player/readiness',$this->payload())->assertOk()->json('data.id');
+            $this->assertNotSame($first,$second);
+            $this->assertSame(2,PlayerDailyReadiness::count());
         } finally { \Illuminate\Support\Carbon::setTestNow(); }
     }
 }

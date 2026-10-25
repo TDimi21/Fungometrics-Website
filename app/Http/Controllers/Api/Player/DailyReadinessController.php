@@ -35,13 +35,18 @@ class DailyReadinessController extends Controller {
             'answers.notes'=>['nullable','string','max:2000']];
         foreach(DailyReadinessSummary::RATINGS as $key) $rules['answers.'.$key]=['required','integer','between:1,10'];
         $answers=$request->validate($rules)['answers'];
-        // Unique player/date plus atomic upsert makes repeated mobile/web saves idempotent.
-        PlayerDailyReadiness::upsert([['id'=>(string)Str::uuid(),'user_id'=>$request->user()->id,
+        // Atomic insert-or-no-op: the first submission wins across devices.
+        // Query builder avoids Eloquent touching updated_at on duplicate saves.
+        $id=(string)Str::uuid();
+        \Illuminate\Support\Facades\DB::table('player_daily_readiness')->upsert([['id'=>$id,'user_id'=>$request->user()->id,
             'date'=>$context['date'],'timezone'=>$context['timezone'],'scale_version'=>2,
             'answers'=>json_encode($answers),'created_at'=>now(),'updated_at'=>now()]],
-            ['user_id','date'],['answers','timezone','updated_at']);
+            ['user_id','date'],['user_id']);
         $row=PlayerDailyReadiness::where('user_id',$request->user()->id)->where('date',$context['date'])->firstOrFail();
-        return response()->json(['data'=>DailyReadinessSummary::present($row)]);
+        $conflict=$row->id!==$id && $row->answers!=$answers;
+        return response()->json(['data'=>DailyReadinessSummary::present($row),
+            'message'=>$row->id===$id?'Readiness submitted.':'Readiness has already been submitted today. Your original answers are unchanged.',
+            'already_submitted'=>$row->id!==$id],$conflict?409:200);
     }
     public function team(Request $request, string $team) {
         abort_unless((string)$request->user()->type === 'coach' && CoachTeam::where('coach_id',$request->user()->id)->where('team_id',$team)->exists(),403);
