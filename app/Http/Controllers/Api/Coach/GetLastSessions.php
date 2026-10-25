@@ -45,7 +45,7 @@ class GetLastSessions extends Controller
                         'weightBall',
                         'exitVelocity',
                     ])
-                    ->where('team_id', $teamId)
+                    ->forSharedOrTeam($teamId)
                     ->orderByDesc('updated_at')
                     ->limit(70)->get();
 

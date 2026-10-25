@@ -9,6 +9,15 @@ export const SCORED_SESSIONS = [
 ];
 export function assignmentStatus(row) {
   if (row.completion?.completed_at) return 'completed';
+  // Simple scored assignments finish when every required linked session is finalized.
+  // Guided workouts still require their normal submission/reflection workflow.
+  const required = (row.buckets || row.blocks || []).flatMap(b => b.items || []).filter(i => i.required !== false);
+  if (row.settings?.assignment_kind === 'scored' && required.length && required.every(item =>
+    (item.execution_type || item.metadata?.execution_type) === 'LAUNCH_SESSION' &&
+    row.actual_results?.[item.id]?.done === true &&
+    row.actual_results?.[item.id]?.session_status === 'completed' &&
+    row.session_links?.some(link => link.item_id === item.id && link.practice_id === row.actual_results[item.id].session_id)
+  )) return 'completed';
   return row.progress?.started_at || Object.keys(row.actual_results || {}).length || row.session_links?.length ? 'in_progress' : 'not_started';
 }
 export function assignmentSummary(rows) {

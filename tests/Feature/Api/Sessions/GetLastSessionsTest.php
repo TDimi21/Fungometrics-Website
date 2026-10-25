@@ -20,6 +20,21 @@ use Tests\TestCase;
 class GetLastSessionsTest extends TestCase
 {
     use GrantsCreatedTeamAccess;
+    public function test_recent_sessions_include_shared_teams_but_not_private_sessions(): void
+    {
+        $coach = User::factory()->create(['type' => UserTypes::COACH->value]);
+        Sanctum::actingAs($coach, [UserTypes::COACH->value]);
+        $team = Team::factory()->create();
+        $other = Team::factory()->create();
+        $shared = Practice::factory()->create(['team_id' => $other->id, 'type' => 'T', 'modes' => 'WB', 'is_player_shared' => true, 'is_completed' => true]);
+        $shared->sharedTeams()->attach($team->id);
+        $private = Practice::factory()->create(['team_id' => null, 'type' => 'T', 'modes' => 'WB']);
+        $response = $this->getJson('api/coach/sessions/lasts/'.$team->id)->assertOk();
+        $ids = collect($response->json('data.weight_ball'))->pluck('id');
+        $this->assertTrue($ids->contains($shared->id));
+        $this->assertFalse($ids->contains($private->id));
+    }
+
     public function test_get_last_sessions_by_team_ok(): void
     {
         $user = User::factory()->create(['type' => UserTypes::COACH->value]);

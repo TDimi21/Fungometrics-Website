@@ -24,3 +24,11 @@ describe('Simple assignment contract',()=>{
   expect(sessionReportType('live_ab')).toBeNull()
  })
 })
+
+it('counts finalized linked scored sessions but not partial or unlinked results',()=>{
+ const plan={...simpleAssignment(base),actual_results:{item:{done:true,session_status:'completed',session_id:'saved'}},session_links:[{item_id:'item',practice_id:'saved'}]}
+ expect(assignmentSummary([plan]).completed).toBe(1)
+ expect(assignmentSummary([{...plan,session_links:[]}]).completed).toBe(0)
+ expect(assignmentSummary([{...plan,actual_results:{item:{done:false,session_status:'in_progress',session_id:'saved'}}}]).completed).toBe(0)
+ expect(assignmentSummary([{...plan,settings:{assignment_kind:'guided'}}]).completed).toBe(0)
+})
