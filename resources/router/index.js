@@ -282,7 +282,7 @@ const routes = [
 		name: "new-statistic",
 		path: "/new-statistic",
 		component: NewStatistic,
-		meta: { requiresAuth: true, entitlement: 'view_team_stats' },
+		meta: { requiresAuth: true, entitlementByAudience: { coach: 'view_team_stats', player: 'personal_stats' } },
 		props: true,
 	},
 	{
@@ -535,6 +535,10 @@ router.beforeEach(async (to) => {
 	if (requiresAuth && !isAuthenticated) {
         rememberCommunicationDestination(to.fullPath);
 		return "/";
+	}
+
+	if (isAuthenticated && userData.type === 'player' && to.path === '/dashboard') {
+		return { path: '/player-dashboard', query: to.query };
 	}
 
 	if (to.meta?.coachOnly && userData.type !== 'coach' && !isAdmin) {

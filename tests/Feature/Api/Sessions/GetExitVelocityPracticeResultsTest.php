@@ -22,7 +22,7 @@ class GetExitVelocityPracticeResultsTest extends TestCase
     use GrantsCreatedTeamAccess;
     public function test_get_statistics_exit_velocity_ok(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
         $practice = Practice::factory()->create(['team_id' => Team::factory()->create()->id,
             'modes' => PracticeModes::EXIT_VELOCITY->value,'type' => PracticeTypes::TRAINING->value]);
@@ -45,7 +45,7 @@ class GetExitVelocityPracticeResultsTest extends TestCase
 
     public function test_get_statistics_exit_velocity_ok_without_team(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
 
         $player = Player::factory()
@@ -70,7 +70,7 @@ class GetExitVelocityPracticeResultsTest extends TestCase
 
     public function test_get_statistics_exit_velocity_not_found(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
         $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/exitvelocity');
         $response->assertNotFound()->assertJsonStructure([

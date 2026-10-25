@@ -1,4 +1,5 @@
 <script setup>
+import { sessionPage } from '@/utils/sessionPagination'
 import { storeToRefs } from 'pinia'
 import {ref, onMounted, defineProps, watch, reactive, computed} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -83,7 +84,8 @@ const getTrainigsByType = async(page = 1) => {
     { name: "cage", pass: 'C' },
     { name: "training-mode", pass: 'T' },
   ];
-  let type = typesTraining.find(({name})=>name === props.slug).pass;
+  const type = typesTraining.find(({name})=>name === props.slug)?.pass;
+  if (!type) { tableData.value = []; pages.value = []; return; }
   const data = {
     team_id: team.value.id,
     type,
@@ -95,6 +97,7 @@ const getTrainigsByType = async(page = 1) => {
       let defineEndpointmode = userData.type == 'player' ? `player/sessions/training?page=${page}` : `sessions/all/modes?page=${page}`
       await axiosGet(defineEndpointmode, {
         team: team.value.id,
+        search: searchPractice.value,
         ...(selectedMode.value ? { mode: selectedMode.value } : {})
       }).then((response)=> {
         if (response) {
@@ -147,10 +150,9 @@ const getTrainigsByType = async(page = 1) => {
   }
 }
 
-const getPaginate = (pageNumber) => {
-  if ( !pageNumber.includes('Prev') && !pageNumber.includes('Next')) {
-    getTrainigsByType(pageNumber)
-  }
+const getPaginate = (link) => {
+  const page = sessionPage(link)
+  if (page && !isLoading.value) getTrainigsByType(page)
 }
 
 const gotoCreateTraining = ()=>{
@@ -217,7 +219,8 @@ const registerAndRedirect = async () => {
         { name: "training", pass: 'T' },
         { name: "training-mode", pass: 'T' },
       ];
-      let type = typesTraining.find(({name})=>name === props.slug).pass;
+      const type = typesTraining.find(({name})=>name === props.slug)?.pass;
+  if (!type) { tableData.value = []; pages.value = []; return; }
       const data = ref({})
       if(type == "cage"){
         data.value = {
@@ -356,7 +359,7 @@ watch(() => [props.slug, selectedMode.value, team.value?.id], () => {
             class="flex flex-row flex-nowrap items-center space-x-3"
           >
             <label for="search" class="block">Search</label>
-            <InputBase v-model="searchPractice" inputType="search" class="inline-flex w-[65%]" required="false" placeholder="Search by player name"/>
+            <InputBase v-model="searchPractice" inputType="search" class="inline-flex w-[65%]" required="false" :placeholder="userData.type === 'player' ? 'Search session notes' : 'Search by player name'"/>
             <button type="submit" role="submit" class="bg-fungo-red inline-flex rounded-lg w-10 h-10 items-center justify-center">
               <SearchIcon />
             </button>
@@ -381,7 +384,8 @@ watch(() => [props.slug, selectedMode.value, team.value?.id], () => {
           :key="index"
           class="bg-white border border-fungo-darkblue w-[40px] h-[40px]"
           :class="{ 'bg-fungo-lightblue' : page.active }"
-          @click=" getPaginate(page.label) "
+          @click="getPaginate(page)"
+          :disabled="!page.url || page.active || isLoading"
         >
           <span
             v-if="page.label.includes('Prev')"

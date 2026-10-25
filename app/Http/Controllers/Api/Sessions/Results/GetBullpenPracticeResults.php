@@ -26,7 +26,7 @@ class GetBullpenPracticeResults extends Controller
                 ->where('practice_id', $request->practice)
                 ->orderByDesc('sort')
                 ->get();
-            if($request->player) {
+            if($request->player || ($request->user()->type instanceof \BackedEnum ? $request->user()->type->value : $request->user()->type) === 'player') {
                 $data = $data->filter(fn ($item) => (string) $item->pitcher_id === (string) auth()->user()->id)->values();
             }
             if (0 === $data->count()) {

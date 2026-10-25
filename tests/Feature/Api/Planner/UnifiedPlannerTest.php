@@ -83,7 +83,21 @@ class UnifiedPlannerTest extends TestCase
         $this->assertDatabaseCount('practices',0);
         $this->assertDatabaseCount('workout_session_links',0);
         unset($payload['team']);
-        $this->postJson('/api/training',$payload)->assertForbidden();
+        $this->postJson('/api/training',$payload)->assertUnprocessable();
+        $secondary=Team::factory()->create();
+        \App\Models\PlayerTeam::factory()->create(['user_id'=>$this->player->id,'team_id'=>$secondary->id,'actual'=>true]);
+        $payload['share_with_team_ids']=[$secondary->id,$this->team->id];
+        $session=$this->postJson('/api/training',$payload)->assertCreated()->json('data.id');
+        $this->postJson('/api/training',$payload)->assertOk()->assertJsonPath('data.id',$session);
+        $this->assertDatabaseCount('practices',1);
+        $this->assertDatabaseCount('workout_session_links',1);
+        $this->getJson('/api/player/daily-plans/'.$p['id'].'/sessions')->assertOk()->assertJsonPath('data.0.id',$session);
+        $stranger=User::factory()->create(['type'=>'player']);
+        Sanctum::actingAs($stranger,['player']);
+        $this->postJson('/api/training',array_replace($payload,['players'=>[['id'=>$stranger->id,'sort'=>0]]]))->assertForbidden();
+        Sanctum::actingAs($this->player,['player']);
+        $this->assertDatabaseHas('practices',['id'=>$session,'user_id'=>$this->player->id,'is_player_shared'=>true]);
+        $this->postJson('/api/result/bullpen',['practice_id'=>$session,'pitcher_id'=>$this->player->id,'type_throw'=>'FB','pitch_side'=>'MC','pitch_mark'=>1800,'is_strike'=>true,'miles_per_hour'=>85])->assertCreated();
         $this->getJson('/api/player/planner/day?date='.now()->toDateString())->assertOk();
     }
 

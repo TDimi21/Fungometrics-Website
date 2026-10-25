@@ -37,13 +37,15 @@ class GetBullpenPractices extends Controller
                 ->unique()
                 ->all();
 
-            $data = Practice::with('bullpen', 'team')
+            $data = Practice::with(['bullpen' => fn ($q) => $q->where('pitcher_id', auth()->id()), 'team'])
                 ->where('type', '=', PracticeTypes::BULLPEN->value)
                 ->where(function ($query) use ($practicesId, $lineupPracticeIds): void {
                     $query->where('user_id', '=', auth()->id())
                         ->orWhereIn('id', $practicesId)
                         ->orWhereIn('id', $lineupPracticeIds);
                 })
+                ->when($request->filled('search'), fn ($q) => $q->where('note', 'like', '%'.$request->input('search').'%'))
+                ->orderByDesc('created_at')->orderByDesc('id')
                 ->paginate();
             $response = [
                 'code' => '050',

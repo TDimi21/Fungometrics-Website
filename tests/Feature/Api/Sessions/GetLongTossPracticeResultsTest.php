@@ -22,7 +22,7 @@ class GetLongTossPracticeResultsTest extends TestCase
     use GrantsCreatedTeamAccess;
     public function test_get_statistics_long_toss_ok(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
         $practice = Practice::factory()->create(['team_id' => Team::factory()->create()->id,
             'modes' => PracticeModes::LONG_TOSS->value,'type' => PracticeTypes::TRAINING->value]);
@@ -45,7 +45,7 @@ class GetLongTossPracticeResultsTest extends TestCase
 
     public function test_get_statistics_long_toss_ok_without_team(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
 
         $player = Player::factory()
@@ -70,7 +70,7 @@ class GetLongTossPracticeResultsTest extends TestCase
 
     public function test_get_statistics_long_toss_not_found(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
         $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/longtoss');
         $response->assertNotFound()->assertJsonStructure([

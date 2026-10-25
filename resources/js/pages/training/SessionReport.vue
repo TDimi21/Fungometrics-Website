@@ -24,6 +24,7 @@ import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import { ageFromDOB, resolveBornValue } from '@/utils/dob.js'
 import { extractSessionRows } from '@/utils/sessionReportRows.js'
+import { useUserStore } from '@/store/user'
 import { useAccessStore } from '@/store/access.js'
 import StatRow from '@/components/session-report/SessionReportStatRow.vue'
 import SegBar from '@/components/session-report/SessionReportSegmentBar.vue'
@@ -39,7 +40,7 @@ const canScriptedBp = computed(() => access.canAccess('scripted_bp'))
 const canScriptedBullpen = computed(() => access.canAccess('scripted_bullpen'))
 const sessionDate = route.query.date ?? null
 const sessionNote = route.query.note ?? null
-const playerOnly = route.query.scope === 'player'
+const playerOnly = useUserStore().userData.type === 'player' || route.query.scope === 'player'
 
 const loading   = ref(true)
 const error     = ref(null)

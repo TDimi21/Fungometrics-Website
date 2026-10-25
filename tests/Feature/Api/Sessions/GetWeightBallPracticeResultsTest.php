@@ -22,7 +22,7 @@ class GetWeightBallPracticeResultsTest extends TestCase
     use GrantsCreatedTeamAccess;
     public function test_get_statistics_weight_ball_ok(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
 
         $practice = Practice::factory()->create(['team_id' => Team::factory()->create()->id,
@@ -47,7 +47,7 @@ class GetWeightBallPracticeResultsTest extends TestCase
 
     public function test_get_statistics_weight_ball_ok_without_team(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
 
         $player = Player::factory()
@@ -72,7 +72,7 @@ class GetWeightBallPracticeResultsTest extends TestCase
 
     public function test_get_statistics_weight_ball_not_found(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
         $response = $this->json('GET', 'api/statistics/'.fake()->uuid.'/weightball');
         $response->assertNotFound()->assertJsonStructure([

@@ -23,7 +23,7 @@ class GetBullpenStatisticsByPracticeTest extends TestCase
     use GrantsCreatedTeamAccess;
     public function test_get_statistics_bullpen_by_practice_ok(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
         $team = Team::factory()->create();
         $practice = Practice::factory()->create(['type' => PracticeTypes::BULLPEN, 'team_id' => $team->id]);
@@ -130,7 +130,7 @@ class GetBullpenStatisticsByPracticeTest extends TestCase
 
     public function test_get_statistics_bullpen_by_practice_not_found(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
         $team = Team::factory()->create();
         $practice = Practice::factory()->create(['type' => PracticeTypes::BULLPEN, 'team_id' => $team->id]);

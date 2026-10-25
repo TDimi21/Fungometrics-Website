@@ -36,13 +36,15 @@ class GetCagePractices extends Controller
                 ->pluck('practice_id')
                 ->unique()
                 ->all();
-            $data = Practice::with('cage', 'cageMeta', 'team')
+            $data = Practice::with(['cage' => fn ($q) => $q->where('user_id', auth()->id()), 'cageMeta', 'team'])
                 ->where('type', '=', PracticeTypes::CAGE->value)
                 ->where(function ($query) use ($practicesId, $lineupPracticeIds): void {
                     $query->where('user_id', '=', auth()->id())
                         ->orWhereIn('id', $practicesId)
                         ->orWhereIn('id', $lineupPracticeIds);
                 })
+                ->when($request->filled('search'), fn ($q) => $q->where('note', 'like', '%'.$request->input('search').'%'))
+                ->orderByDesc('created_at')->orderByDesc('id')
                 ->paginate();
             $response = [
                 'code' => '051',

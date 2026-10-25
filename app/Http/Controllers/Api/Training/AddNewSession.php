@@ -60,13 +60,13 @@ class AddNewSession extends Controller
             if (!empty($dataRequest['planner_plan_id'])) {
                 $plannerPlan = \App\Models\DailyPlan::where('status','published')->lockForUpdate()->findOrFail($dataRequest['planner_plan_id']);
                 abort_unless($plannerPlan->assignments()->where('user_id', Auth::id())->where('schedule_status','active')->exists(),403);
-                abort_unless(($dataRequest['team_id']??null)===$plannerPlan->team_id && count($dataRequest['players'])===1 && $dataRequest['players'][0]['id']===Auth::id(),422,'Planner sessions must belong to the assigned player and team.');
+                abort_unless(in_array($plannerPlan->team_id, $sharingTeams, true) && count($dataRequest['players'])===1 && $dataRequest['players'][0]['id']===Auth::id(),422,'Select the assigned workout team under sharing to link this session to your workout.');
                 $plannerItem = collect($plannerPlan->bucketsFor((string)Auth::id()))->flatMap(fn($b)=>$b['items']??[])->firstWhere('id',$dataRequest['planner_item_id']);
                 abort_unless($plannerItem && app(\App\Services\Planner\LinkedSessionRegistry::class)->matches($plannerItem['metadata']['session_type']??'',new Practice($dataRequest)),422,'Session type does not match this workout block.');
                 $link=DB::table('workout_session_links')->where(['plan_id'=>$plannerPlan->id,'user_id'=>Auth::id(),'item_id'=>$plannerItem['id']])->first();
                 if($link) {
                     $practice=Practice::findOrFail($link->practice_id);
-                    abort_unless($practice->team_id===$plannerPlan->team_id && ($practice->user_id===Auth::id() || $practice->lineup()->where('user_id',Auth::id())->exists()),403);
+                    abort_unless($practice->is_player_shared && $practice->sharedTeams()->where('teams.id', $plannerPlan->team_id)->exists() && ($practice->user_id===Auth::id() || $practice->lineup()->where('user_id',Auth::id())->exists()),403);
                     DB::commit();
                     return response()->json(['status'=>'success','data'=>new PracticeSessionResource(['practice'=>$practice,'players'=>$practice->lineup()->get(),'meta'=>CagePracticeMeta::where('practice_id',$practice->id)->first()])],200);
                 }

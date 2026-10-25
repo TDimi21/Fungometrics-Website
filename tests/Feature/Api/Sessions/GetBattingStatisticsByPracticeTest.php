@@ -24,7 +24,7 @@ class GetBattingStatisticsByPracticeTest extends TestCase
     use GrantsCreatedTeamAccess;
     public function test_get_statistics_batting_by_practice_ok(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
         $team = Team::factory()->create();
         $practice = Practice::factory()->create(['type' => PracticeTypes::BATTING, 'team_id' => $team->id]);
@@ -150,7 +150,7 @@ class GetBattingStatisticsByPracticeTest extends TestCase
 
     public function test_get_statistics_batting_by_practice_not_found(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => 'coach']);
         Sanctum::actingAs($user);
         $team = Team::factory()->create();
         $practice = Practice::factory()->create(['type' => PracticeTypes::BATTING, 'team_id' => $team->id]);

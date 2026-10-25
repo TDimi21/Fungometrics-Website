@@ -1,4 +1,5 @@
 <script setup>
+import { playerSessionHistory } from '@/utils/sessionPagination'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
@@ -237,21 +238,7 @@ const openSessionPicker = async () => {
     const routeSession = selectedSession === 'BS' ? 'L' : selectedSession
     let filtered = []
     if (isPlayerLogin.value) {
-      if (routeSession === 'B') {
-        const res = await axiosGet('player/sessions/batting')
-        filtered = res?.data?.data?.data || []
-      } else if (routeSession === 'P') {
-        const res = await axiosGet('player/sessions/bullpen')
-        filtered = res?.data?.data?.data || []
-      } else if (routeSession === 'C') {
-        const res = await axiosGet('player/sessions/cage')
-        filtered = res?.data?.data?.data || []
-      } else {
-        const res = await axiosGet('player/sessions/training')
-        const training = res?.data?.data?.data || []
-        const mode = String(routeSession).toUpperCase()
-        filtered = training.filter((s) => String(s?.modes || s?.mode || '').toUpperCase() === mode)
-      }
+      filtered = await playerSessionHistory(axiosGet, routeSession)
     } else {
       const sessionsRes = await axiosGet(`coach/sessions/lasts/${selectedTeamId.value}`)
       const sessionsData = sessionsRes?.data?.data || sessionsRes?.data || {}

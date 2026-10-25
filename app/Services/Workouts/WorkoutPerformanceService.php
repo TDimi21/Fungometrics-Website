@@ -71,7 +71,7 @@ class WorkoutPerformanceService
                         Practice::whereKey($practiceId)->where('is_completed', false)->update(['is_completed' => true,'finished' => \Carbon\Carbon::parse($data['completed_at'])->format('Y-m-d H:i:s')]);
                     }
                 } elseif( ! empty($actual['session_id'])) {
-                    $session = Practice::whereKey($actual['session_id'])->where('team_id', $plan->team_id)->where(fn ($q) => $q->where('user_id', $userId)->orWhereHas('lineup', fn ($l) => $l->where('user_id', $userId)))->firstOrFail();
+                    $session = Practice::whereKey($actual['session_id'])->forSharedOrTeam($plan->team_id)->where(fn ($q) => $q->where('user_id', $userId)->orWhereHas('lineup', fn ($l) => $l->where('user_id', $userId)))->firstOrFail();
                     $expected = $exercise['metadata']['session_type'] ?? null;
                     if (!$expected && in_array($exercise['_bucket_type'], ['hitting','pitching','throwing'], true)) {
                         $candidates = $exercise['_bucket_type'] === 'hitting' ? ['exit_velocity','cage','live_ab'] : ['bullpen','long_toss','weighted_ball'];

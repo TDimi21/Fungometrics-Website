@@ -18,6 +18,13 @@ use App\Models\WeightBallPractice;
 
 final class ResultTrainingService
 {
+    /** Include selected sharing teams and historical rows without duplicating results. */
+    private static function teamScope(string $team): \Closure
+    {
+        return fn ($query) => $query->where('team_id', $team)
+            ->orWhereIn('practice_id', Practice::forSharedOrTeam($team)->select('id'));
+    }
+
     /**
      * @param string $team
      * @param array $players
@@ -70,7 +77,7 @@ final class ResultTrainingService
             ->whereIn('user_id', $players);
 
         if ($team !== '') {
-            $query->where('team_id', '=', $team);
+            $query->where(self::teamScope($team));
         }
 
         $direct = $query->get();
@@ -81,6 +88,7 @@ final class ResultTrainingService
         // Player fallback: sessions assigned to player but result row may not carry user_id consistently
         $practiceIds = Practice::query()
             ->where('type', PracticeTypes::CAGE->value)
+            ->when($team !== '', fn ($q) => $q->forSharedOrTeam($team))
             ->where('user_id', $players[0])
             ->whereDate('created_at', '>=', $dates[0])
             ->whereDate('created_at', '<=', $dates[1])
@@ -116,7 +124,7 @@ final class ResultTrainingService
         }
 
         if ($team !== '') {
-            $battingQuery->where('team_id', $team);
+            $battingQuery->where(self::teamScope($team));
         }
 
         $batting = $battingQuery->get();
@@ -146,7 +154,7 @@ final class ResultTrainingService
         // Also include Scripted BP swings for the same team / date range
         $scriptedPracticeIds = [];
         if ($team !== '') {
-            $scriptedPracticeIds = Practice::where('team_id', $team)
+            $scriptedPracticeIds = Practice::forSharedOrTeam($team)
                 ->where('type', PracticeTypes::BATTING->value)
                 ->whereDate('created_at', '>=', $dates[0])
                 ->whereDate('created_at', '<=', $dates[1])
@@ -214,14 +222,14 @@ final class ResultTrainingService
         }
 
         $direct = (clone $baseQuery)
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->get();
 
         if ($direct->count() > 0) {
             return $direct;
         }
 
-        $teamPracticeIds = Practice::where('team_id', $team)
+        $teamPracticeIds = Practice::forSharedOrTeam($team)
             ->where('type', PracticeTypes::BULLPEN->value)
             ->pluck('id')
             ->all();
@@ -280,7 +288,7 @@ final class ResultTrainingService
 
         // Primary path: rows where team_id is populated
         $direct = (clone $baseQuery)
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->get();
 
         if ($direct->count() > 0) {
@@ -288,7 +296,7 @@ final class ResultTrainingService
         }
 
         // Fallback path: many historical rows have team_id = null
-        $teamPracticeIds = Practice::where('team_id', $team)
+        $teamPracticeIds = Practice::forSharedOrTeam($team)
             ->where('type', PracticeTypes::TRAINING->value)
             ->pluck('id')
             ->all();
@@ -346,7 +354,7 @@ final class ResultTrainingService
 
         // Primary path: rows where team_id is populated
         $direct = (clone $baseQuery)
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->get();
 
         if ($direct->count() > 0) {
@@ -354,7 +362,7 @@ final class ResultTrainingService
         }
 
         // Fallback path: many historical rows have team_id = null
-        $teamPracticeIds = Practice::where('team_id', $team)
+        $teamPracticeIds = Practice::forSharedOrTeam($team)
             ->where('type', PracticeTypes::TRAINING->value)
             ->pluck('id')
             ->all();
@@ -412,7 +420,7 @@ final class ResultTrainingService
 
         // Primary path: rows where team_id is populated
         $direct = (clone $baseQuery)
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->get();
 
         if ($direct->count() > 0) {
@@ -420,7 +428,7 @@ final class ResultTrainingService
         }
 
         // Fallback path: many historical rows have team_id = null
-        $teamPracticeIds = Practice::where('team_id', $team)
+        $teamPracticeIds = Practice::forSharedOrTeam($team)
             ->where('type', PracticeTypes::TRAINING->value)
             ->pluck('id')
             ->all();
@@ -442,7 +450,7 @@ final class ResultTrainingService
     public static function getBattingResultsLastSessions(string $team, array $players, int $limit = 10)
     {
         $practiceIds = BattingPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->where('is_in_match', false)
             ->whereIn('batter_id', $players)
             ->groupBy('practice_id')
@@ -454,7 +462,7 @@ final class ResultTrainingService
         // Fallback: include team batting sessions even when batter_id does not match claimed players
         if (empty($practiceIds)) {
             $practiceIds = BattingPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
-                ->where('team_id', $team)
+                ->where(self::teamScope($team))
                 ->where('is_in_match', false)
                 ->groupBy('practice_id')
                 ->orderByDesc('latest')
@@ -466,7 +474,7 @@ final class ResultTrainingService
         // Fallback: many historical rows have team_id = null or a different team_id —
         // resolve via the practices table (same pattern as cage/long-toss methods)
         if (empty($practiceIds)) {
-            $teamPracticeIds = Practice::where('team_id', $team)
+            $teamPracticeIds = Practice::forSharedOrTeam($team)
                 ->where('type', PracticeTypes::BATTING->value)
                 ->pluck('id')
                 ->all();
@@ -503,7 +511,7 @@ final class ResultTrainingService
         }
 
         // Also include Scripted BP swings from the last $limit scripted BP sessions for this team
-        $scriptedPracticeIds = Practice::where('team_id', $team)
+        $scriptedPracticeIds = Practice::forSharedOrTeam($team)
             ->where('type', PracticeTypes::BATTING->value)
             ->whereHas('scriptedBpSwings')
             ->orderByDesc('created_at')
@@ -538,6 +546,7 @@ final class ResultTrainingService
         // Primary lookup: by pitcher_id (claimed-player roster)
         $practiceIds = BullpenPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
             ->where('is_in_match', false)
+            ->where(self::teamScope($team))
             ->whereIn('pitcher_id', $players)
             ->groupBy('practice_id')
             ->orderByDesc('latest')
@@ -556,7 +565,7 @@ final class ResultTrainingService
         // claimed their accounts (pitcher_id not yet in PlayerTeam).
         $practiceIdsByTeam = BullpenPracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
             ->where('is_in_match', false)
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->groupBy('practice_id')
             ->orderByDesc('latest')
             ->limit($limit)
@@ -568,7 +577,7 @@ final class ResultTrainingService
         }
 
         return BullpenPracticeResult::where('is_in_match', false)
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->whereIn('practice_id', $practiceIdsByTeam)
             ->get();
     }
@@ -581,7 +590,7 @@ final class ResultTrainingService
     {
         // Primary path: rows where team_id is populated
         $practiceIds = CagePracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->whereIn('user_id', $players)
             ->groupBy('practice_id')
             ->orderByDesc('latest')
@@ -592,7 +601,7 @@ final class ResultTrainingService
         // Fallback: include team sessions even when user_id values are not claimed players
         if (empty($practiceIds)) {
             $practiceIds = CagePracticeResult::selectRaw('practice_id, MAX(created_at) as latest')
-                ->where('team_id', $team)
+                ->where(self::teamScope($team))
                 ->groupBy('practice_id')
                 ->orderByDesc('latest')
                 ->limit($limit)
@@ -602,7 +611,7 @@ final class ResultTrainingService
 
         // Fallback: many historical cage rows have team_id = null — resolve via practices table
         if (empty($practiceIds)) {
-            $teamPracticeIds = Practice::where('team_id', $team)
+            $teamPracticeIds = Practice::forSharedOrTeam($team)
                 ->where('type', PracticeTypes::CAGE->value)
                 ->pluck('id')
                 ->all();
@@ -647,7 +656,7 @@ final class ResultTrainingService
     {
         // Primary path: rows where team_id is populated (mirrors getExitVelocityResults)
         $practiceIds = ExitVelocityPractice::selectRaw('practice_id, MAX(created_at) as latest')
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->whereIn('user_id', $players)
             ->groupBy('practice_id')
             ->orderByDesc('latest')
@@ -657,7 +666,7 @@ final class ResultTrainingService
 
         if (empty($practiceIds)) {
             $practiceIds = ExitVelocityPractice::selectRaw('practice_id, MAX(created_at) as latest')
-                ->where('team_id', $team)
+                ->where(self::teamScope($team))
                 ->groupBy('practice_id')
                 ->orderByDesc('latest')
                 ->limit($limit)
@@ -667,7 +676,7 @@ final class ResultTrainingService
 
         // Fallback: result rows have team_id = null — resolve via practices table
         if (empty($practiceIds)) {
-            $teamPracticeIds = Practice::where('team_id', $team)
+            $teamPracticeIds = Practice::forSharedOrTeam($team)
                 ->pluck('id')
                 ->all();
 
@@ -710,7 +719,7 @@ final class ResultTrainingService
     {
         // Primary path: rows where team_id is populated (mirrors getLongTossResults)
         $practiceIds = LongTossPractice::selectRaw('practice_id, MAX(created_at) as latest')
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->whereIn('user_id', $players)
             ->groupBy('practice_id')
             ->orderByDesc('latest')
@@ -720,7 +729,7 @@ final class ResultTrainingService
 
         if (empty($practiceIds)) {
             $practiceIds = LongTossPractice::selectRaw('practice_id, MAX(created_at) as latest')
-                ->where('team_id', $team)
+                ->where(self::teamScope($team))
                 ->groupBy('practice_id')
                 ->orderByDesc('latest')
                 ->limit($limit)
@@ -730,7 +739,7 @@ final class ResultTrainingService
 
         // Fallback: result rows have team_id = null — resolve via practices table
         if (empty($practiceIds)) {
-            $teamPracticeIds = Practice::where('team_id', $team)
+            $teamPracticeIds = Practice::forSharedOrTeam($team)
                 ->pluck('id')
                 ->all();
 
@@ -773,7 +782,7 @@ final class ResultTrainingService
     {
         // First try direct team_id match (rows that have it populated)
         $practiceIds = WeightBallPractice::selectRaw('practice_id, MAX(created_at) as latest')
-            ->where('team_id', $team)
+            ->where(self::teamScope($team))
             ->whereIn('user_id', $players)
             ->groupBy('practice_id')
             ->orderByDesc('latest')
@@ -783,7 +792,7 @@ final class ResultTrainingService
 
         // Fallback: resolve team via practices table for rows with team_id = null
         if (empty($practiceIds)) {
-            $teamPracticeIds = Practice::where('team_id', $team)
+            $teamPracticeIds = Practice::forSharedOrTeam($team)
                 ->pluck('id')
                 ->all();
 

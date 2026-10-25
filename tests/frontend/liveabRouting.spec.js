@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 // Exercise the real navigation guard, including the legacy practice rollout gate.
 const source = readFileSync('resources/router/index.js', 'utf8')
 const guardSource = source.slice(source.indexOf('router.beforeEach('), source.indexOf('\nexport default router;'))
-function guard({ authenticated = true, entitlements = ['liveab_sessions'] } = {}) {
+function guard({ authenticated = true, entitlements = ['liveab_sessions'], audience = 'coach' } = {}) {
   let navigate
   const mocks = {
     router: { beforeEach: fn => { navigate = fn } },
@@ -12,15 +12,15 @@ function guard({ authenticated = true, entitlements = ['liveab_sessions'] } = {}
     syncAuthFromToken: () => authenticated,
     pendingCommunicationDestination: () => null,
     rememberCommunicationDestination: vi.fn(),
-    useUserStore: () => ({ userData: { type: 'coach' } }),
+    useUserStore: () => ({ userData: { type: audience } }),
     canManageSubscriptions: () => false,
     WEB_START_PRACTICE_ENABLED: false,
     START_PRACTICE_BLOCKED_PATHS: ['/create', '/track'],
     isLongTossScoringRoute: () => false,
     isVelocityScoringRoute: () => false,
     hasPlannerSessionContext: () => false,
-    useAccessStore: () => ({ loaded: true, summary: { audience: 'coach', entitlements } }),
-    routeEntitlement: to => to.meta.entitlement,
+    useAccessStore: () => ({ loaded: true, summary: { audience, entitlements } }),
+    routeEntitlement: (to, role) => to.meta.entitlement || to.meta.entitlementByAudience?.[role],
   }
   new Function(...Object.keys(mocks), guardSource)(...Object.values(mocks))
   return navigate
@@ -43,3 +43,15 @@ describe('Live AB web navigation', () => {
     expect(await guard()(route('/create/unfinished'))).toBe('/dashboard')
   })
 })
+
+describe('player navigation boundaries', () => {
+  it('keeps dashboard fallback on the player home', async () => {
+    expect(await guard({audience:'player'})({...route('/dashboard'),query:{access_denied:'x'}})).toEqual({path:'/player-dashboard',query:{access_denied:'x'}});
+  });
+  it('uses personal statistics access for the real New Statistics route',async()=>{
+    const block=source.slice(source.indexOf('name: "new-statistic",'),source.indexOf('name: "new-statistic-session-view",'));
+    const text=block.match(/meta: (\{ requiresAuth: true, entitlementByAudience: .* \}),/)[1];
+    const meta=new Function(`return (${text})`)();
+    expect(await guard({audience:'player',entitlements:['personal_stats']})({path:'/new-statistic',meta,matched:[{meta}]})).toBe(true);
+  });
+});

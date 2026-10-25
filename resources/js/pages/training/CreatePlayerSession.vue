@@ -38,6 +38,9 @@ const modes = {
   WB: { label: "Weighted Balls", type: "T", path: "/track/training-mode/WB" },
 };
 const selected = computed(() => modes[route.params.mode]);
+const planner = computed(() => route.query?.planner_plan && route.query?.planner_item ? {
+  plan: String(route.query.planner_plan), item: String(route.query.planner_item), team: String(route.query.planner_team || '')
+} : null);
 const note = ref(""),
   busy = ref(false),
   uncertain = ref(false),
@@ -78,17 +81,26 @@ async function create() {
       payload.share_with_team_ids = [...sharingTeam.value];
     if (mode.type === "T") payload.modes = route.params.mode;
     if (mode.type === "C") payload.cage = cage.value;
+    if (planner.value) {
+      payload.planner_plan_id = planner.value.plan;
+      payload.planner_item_id = planner.value.item;
+    }
     const data = (await axiosPost("training", payload)).data.data;
     if (!data?.id) throw Error("Missing session");
     training.setDataTraining(data);
+    if (planner.value) {
+      try { sessionStorage.setItem('fmtrx-planner-session-return', JSON.stringify({
+        session_id: data.id, user_id: user.userData.id, plan_id: planner.value.plan, item_id: planner.value.item
+      })); } catch { /* Scoring remains available if browser storage is blocked. */ }
+    }
     await router.push({ path: mode.path, query: { session: data.id } });
   } catch (e) {
     uncertain.value = ![401, 403, 422, 429].includes(e.response?.status);
     error.value = uncertain.value
       ? "Creation could not be confirmed. Check My Sessions before trying again."
-      : e.response?.status === 403
+      : e.response?.data?.required_entitlement
         ? "Your current plan does not include this session type."
-        : "Unable to start this session. Check your settings and try again.";
+        : e.response?.data?.message || "Unable to start this session. Check your team connections and try again.";
   } finally {
     busy.value = false;
   }
@@ -100,6 +112,7 @@ async function create() {
       <template v-if="selected">
         <p class="eyebrow">MY PRACTICE</p>
         <h1>New {{ selected.label }} Session</h1>
+        <p v-if="planner">To link this session to your assigned workout, select that workout’s team below. Your coach can view it; only you can score. To keep it personal, open New session from My Sessions instead.</p>
         <section class="player-card">
           <strong>{{ user.userData.name?.full || "My session" }}</strong>
           <p>

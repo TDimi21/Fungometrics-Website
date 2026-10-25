@@ -39,13 +39,15 @@ class GetBattingPractices extends Controller
                 ->unique()
                 ->all();
 
-            $data = Practice::with('batting', 'team')
+            $data = Practice::with(['batting' => fn ($q) => $q->where('batter_id', auth()->id()), 'team'])
                 ->where('type', '=', PracticeTypes::BATTING->value)
                 ->where(function ($query) use ($practicesId, $lineupPracticeIds): void {
                     $query->where('user_id', '=', auth()->id())
                         ->orWhereIn('id', $practicesId)
                         ->orWhereIn('id', $lineupPracticeIds);
                 })
+                ->when($request->filled('search'), fn ($q) => $q->where('note', 'like', '%'.$request->input('search').'%'))
+                ->orderByDesc('created_at')->orderByDesc('id')
                 ->paginate();
             $response = [
                 'code' => '049',

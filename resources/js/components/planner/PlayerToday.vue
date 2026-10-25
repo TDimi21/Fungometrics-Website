@@ -4,7 +4,6 @@ import SkillResults from '@/components/workouts/SkillResults.vue';
 import TemplateExerciseActuals from "@/components/workouts/TemplateExerciseActuals.vue";
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useAxiosAuth } from "@/composables/axios-auth";
-import { useTrainingStore } from "@/store/training";
 import { useUserStore } from "@/store/user";
 import { useRouter, useRoute } from "vue-router";
 import {
@@ -216,49 +215,20 @@ function matches(session, item) {
 }
 async function launch(plan, item) {
   if (busy.value) return;
-  busy.value = true;
-  try {
-    const d = item.linked_session;
-    if (["cage", "live_ab"].includes(d.type)) {
-      error.value =
-        "This session needs its normal setup. Open Sessions, record your workout, then use Link completed session here.";
-      return;
-    }
-    const r = await axiosPost("training", {
-      team: plan.team_id,
-      type: d.practice_type,
-      ...(d.mode ? { modes: d.mode } : {}),
-      note: plan.name,
-      players: [{ id: user.userData.id, sort: 0 }],
-      planner_plan_id: plan.id,
-      planner_item_id: item.id,
-    });
-    const training = useTrainingStore();
-    training.cleanListPlayer();
-    training.setCountBallsTraining(0);
-    training.setDataTraining(r.data.data);
-    training.countThrowArray[user.userData.id] = { balls: 0, bxs: 0, set: 1 };
-    sessionStorage.setItem(
-      "fmtrx-planner-session-return",
-      JSON.stringify({
-        plan_id: plan.id,
-        item_id: item.id,
-        session_id: r.data.data.id,
-        user_id: user.userData.id,
-        return_to: location.pathname,
-      })
-    );
-    const path = d.mode ? `/track/training-mode/${d.mode}` : "/track/bullpen";
-    await router.push({
-      path,
-      query: { planner_plan: plan.id, planner_item: item.id },
-    });
-  } catch (e) {
-    error.value =
-      e?.response?.data?.message || "Unable to start this session. Try again.";
-  } finally {
-    busy.value = false;
+  const definition = item.linked_session;
+  const mode = definition?.mode || { P: 'bullpen', B: 'batting', C: 'cage' }[definition?.practice_type];
+  if (!mode) {
+    error.value = 'This session requires a coach. You can link a completed session here.';
+    return;
   }
+  const existing = plan.actual_results?.[item.id]?.session_id || plan.progress?.items?.[item.id]?.session_id;
+  if (existing) {
+    await router.push({ path: definition.mode ? `/track/training-mode/${definition.mode}` : `/track/${mode}`, query: { session: existing } });
+    return;
+  }
+  await router.push({ name: 'player.session.create', params: { mode }, query: {
+    planner_plan: plan.id, planner_item: item.id, planner_team: plan.team_id,
+  } });
 }
 async function adjust(plan, behavior) {
   if (

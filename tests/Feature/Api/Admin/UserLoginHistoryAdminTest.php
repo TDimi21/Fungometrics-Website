@@ -13,6 +13,7 @@ class UserLoginHistoryAdminTest extends TestCase
 {
     public function test_admin_can_see_only_the_coachs_latest_twenty_logins(): void
     {
+        $this->travelTo(now()->startOfSecond());
         $admin = User::factory()->create([
             'type' => 'coach',
             'email' => 'admin@fungometrics.com',

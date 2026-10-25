@@ -11,7 +11,7 @@ const source = compileScript(
 )
   .content.replace(/^import[\s\S]*?from ['"][^'"]+['"];?\s*$/gm, "")
   .replace("export default", "return");
-function screen(mode) {
+function screen(mode, query = {}) {
   const api = {
       axiosGet: vi.fn(async () => ({
         data: { data: [{ id: "team1", name: "My team" }] },
@@ -25,7 +25,7 @@ function screen(mode) {
     ref,
     cageDimensions,
     Layout: {},
-    useRoute: () => ({ params: { mode } }),
+    useRoute: () => ({ params: { mode }, query }),
     useRouter: () => router,
     useUserStore: () => ({
       userData: { id: "self", type: "player", name: { full: "Player" } },
@@ -104,4 +104,14 @@ it("shares one personal session with multiple connected teams", async () => {
     share_with_team_ids: ["a", "b"],
     players: [{ id: "self", sort: 0 }],
   });
+});
+
+it("links assigned workouts only after an explicit sharing choice", async () => {
+  const {s,api,router}=screen('bullpen',{planner_plan:'plan1',planner_item:'item1',planner_team:'team1'});
+  await s.loadTeams();
+  expect(s.sharingTeam.value).toEqual([]);
+  s.sharingTeam.value=['team1'];
+  await s.create();
+  expect(api.axiosPost.mock.calls[0][1]).toMatchObject({planner_plan_id:'plan1',planner_item_id:'item1',share_with_team_ids:['team1'],players:[{id:'self',sort:0}]});
+  expect(router.push).toHaveBeenCalledWith({path:'/track/bullpen',query:{session:'session1'}});
 });

@@ -33,7 +33,6 @@ class AddNewSessionRequest extends FormRequest
             if (\App\Models\PlayerTeam::where('user_id', $this->user()->id)->whereIn('team_id', $ids)->where('actual', true)->distinct()->count('team_id') !== count(array_unique($ids))) return false;
         }
         return !$this->filled('team') && !$this->filled('team_id')
-            && !$this->filled('planner_plan_id') && !$this->filled('planner_item_id')
             && is_array($players) && count($players) === 1
             && ($players[0]['id'] ?? null) === (string) $this->user()->id;
     }

@@ -1,4 +1,6 @@
 <script setup>
+import { playerSessionHistory } from '@/utils/sessionPagination'
+import { useUserStore } from '@/store/user'
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
@@ -6,6 +8,9 @@ import { useTeamStore } from '@/store/team'
 import { useAxiosAuth } from '@/composables/axios-auth.js'
 import Layout from '@/layout/Layout.vue'
 
+const user = useUserStore()
+const playerScope = computed(() => user.userData.type === 'player' || route.query?.scope === 'player')
+const loadError = ref('')
 const router = useRouter()
 const route = useRoute()
 const { axiosGet } = useAxiosAuth()
@@ -32,7 +37,6 @@ const SESSION_REPORT_TYPE = {
   long_toss: 'long_toss', weight_ball: 'weight_ball', exit_velocity: 'exit_velocity',
 }
 
-const ONE_HOUR_MS = 3600000
 
 const SESSION_MODE_TO_FILTER = {
   EV: 'exit_velocity',
@@ -98,6 +102,8 @@ const computeTotalBalls = (session, sourceType) => {
   }
 
   if (sourceType === 'T') {
+    const trainingCount = tryLen(session?.long_toss) ?? tryLen(session?.weight_ball) ?? tryLen(session?.exit_velocity)
+    if (trainingCount !== undefined) return trainingCount
     const v = tryLen(session?.practice_match_result) ?? tryLen(session?.results)
     if (v !== undefined) return v
     if (modeHint === 'LT') {
@@ -107,18 +113,6 @@ const computeTotalBalls = (session, sourceType) => {
   }
 
   return 0
-}
-
-const shouldShowPlayerSession = (session) => {
-  if (!session) return false
-  const hasBalls = Number(session.total_balls || 0) > 0
-  const isDone = Number(session.is_completed) === 2
-  const isFreshSelfCreated = Boolean(
-    session.created_by_self &&
-    session._date &&
-    (Date.now() - new Date(session._date).getTime()) < ONE_HOUR_MS
-  )
-  return hasBalls || isDone || isFreshSelfCreated
 }
 
 const mapPlayerSession = (session, sourceType, createdBySelf = false) => {
@@ -143,7 +137,7 @@ const mapPlayerSession = (session, sourceType, createdBySelf = false) => {
     _date: date,
     _reportType: reportType,
     total_balls: computeTotalBalls(session, resolvedType),
-    is_completed: session?.is_completed === 2 || session?.is_completed === 1 || session?.is_completed === true || session?.finished === true ? 2 : 1,
+    is_completed: session?.is_completed === true || [1, 2, '1', '2'].includes(session?.is_completed),
     created_by_self: createdBySelf,
   }
 }
@@ -184,61 +178,36 @@ const loadCoachSessions = async () => {
 }
 
 const loadPlayerSessions = async () => {
-  const [battingRes, bullpenRes, cageRes, trainingRes, createdRes, rapsodoRes] = await Promise.all([
-    axiosGet('player/sessions/batting').catch(() => null),
-    axiosGet('player/sessions/bullpen').catch(() => null),
-    axiosGet('player/sessions/cage').catch(() => null),
-    axiosGet('player/sessions/training').catch(() => null),
-    axiosGet('player/sessions/created').catch(() => null),
-    axiosGet('data-hub/rapsodo-reports').catch(() => null),
+  const [batting, bullpen, cage, longToss, exitVelocity, weightedBalls, liveab, rapsodoRes] = await Promise.all([
+    ...['B', 'P', 'C', 'LT', 'EV', 'WB', 'L'].map(type => playerSessionHistory(axiosGet, type)),
+    axiosGet('data-hub/rapsodo-reports').catch(() => {
+      loadError.value = 'Imported reports could not be loaded. Refresh to retry.';
+      return null;
+    }),
   ])
-
-  const batting = battingRes?.data?.data?.data || []
-  const bullpen = bullpenRes?.data?.data?.data || []
-  const cage = cageRes?.data?.data?.data || []
-  const training = trainingRes?.data?.data?.data || []
-  const created = createdRes?.data?.data?.data || []
-
-  const withCreated = (base, createdType) => {
-    const ids = new Set(base.map((s) => s?.id).filter(Boolean))
-    const extra = created.filter((s) => String(s?.type || '').toUpperCase() === createdType && !ids.has(s?.id))
-    return [...base, ...extra]
-  }
-
-  const battingWithCreated = withCreated(batting, 'B')
-  const bullpenWithCreated = withCreated(bullpen, 'P')
-  const cageWithCreated = withCreated(cage, 'C')
-  const trainingWithCreated = withCreated(training, 'T')
-  const liveabWithCreated = withCreated([], 'L')
-  const selfCreatedIds = new Set(created.map((s) => s?.id).filter(Boolean))
-
   sessions.value = [
-    ...battingWithCreated.map((s) => mapPlayerSession(s, 'B', selfCreatedIds.has(s?.id))),
-    ...bullpenWithCreated.map((s) => mapPlayerSession(s, 'P', selfCreatedIds.has(s?.id))),
-    ...cageWithCreated.map((s) => mapPlayerSession(s, 'C', selfCreatedIds.has(s?.id))),
-    ...liveabWithCreated.map((s) => mapPlayerSession(s, 'L', selfCreatedIds.has(s?.id))),
-    ...trainingWithCreated.map((s) => mapPlayerSession(s, 'T', selfCreatedIds.has(s?.id))),
-    ...(rapsodoRes?.data?.data || []).map((item) => ({
+    ...batting.map(s => mapPlayerSession(s, 'B')),
+    ...bullpen.map(s => mapPlayerSession(s, 'P')),
+    ...cage.map(s => mapPlayerSession(s, 'C')),
+    ...[...longToss, ...exitVelocity, ...weightedBalls].map(s => mapPlayerSession(s, 'T')),
+    ...liveab.map(s => mapPlayerSession(s, 'L')),
+    ...(rapsodoRes?.data?.data || []).map(item => ({
       ...item, _type: 'rapsodo', _date: item.completed_at, _reportType: 'rapsodo', total_balls: item.pitch_count,
-      is_completed: 2, lineup: [{ name: { full: item.player_name } }],
+      is_completed: true, lineup: [{ name: { full: item.player_name } }],
     })),
-  ]
-    .filter((s) => s?.id)
-    .filter(shouldShowPlayerSession)
-    .sort((a, b) => new Date(b?._date || 0) - new Date(a?._date || 0))
-    .slice(0, 8)
+  ].filter(s => s?.id).sort((a, b) => new Date(b?._date || 0) - new Date(a?._date || 0))
 }
 
 onMounted(async () => {
   loading.value = true
   try {
-    if (route.query?.scope === 'player') {
+    if (playerScope.value) {
       await loadPlayerSessions()
     } else {
       await loadCoachSessions()
     }
   } catch (e) {
-    console.warn('AllSessions load error', e)
+    loadError.value = 'Session reports could not be loaded. Refresh to retry.'
   } finally {
     loading.value = false
   }
@@ -256,7 +225,7 @@ const openReport = (session) => {
   router.push({
     name: 'session.report',
     params: { id: session.id, type },
-    query: { date, note, scope: route.query?.scope === 'player' ? 'player' : undefined },
+    query: { date, note, scope: playerScope.value ? 'player' : undefined },
   })
 }
 </script>
@@ -277,7 +246,7 @@ const openReport = (session) => {
             </button>
             <div class="min-w-0">
               <h1 class="truncate text-white font-black text-xl tracking-wide">Session Reports</h1>
-              <p class="truncate text-white/45 text-xs uppercase tracking-wider">{{ team?.name || 'Player Sessions' }}</p>
+              <p class="truncate text-white/45 text-xs uppercase tracking-wider">{{ playerScope ? 'Player Sessions' : team?.name }}</p>
             </div>
           </div>
 
@@ -323,6 +292,8 @@ const openReport = (session) => {
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
         </svg>
       </div>
+
+      <p v-if="loadError" role="alert" class="px-5 py-4">{{ loadError }}</p>
 
       <!-- Empty -->
       <div v-else-if="!filtered.length" class="flex flex-col items-center py-24 text-center px-6">

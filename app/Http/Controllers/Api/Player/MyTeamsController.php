@@ -13,7 +13,7 @@ class MyTeamsController extends Controller
 {
     public function index(Request $request)
     {
-        abort_unless($request->user()->type === 'player', 403);
+        abort_unless(($request->user()->type instanceof \BackedEnum ? $request->user()->type->value : $request->user()->type) === 'player', 403);
         return response()->json(['data' => Team::whereHas('team_players', fn ($q) => $q
             ->where('user_id', $request->user()->id)->where('actual', true))
             ->orderBy('name')->get(['id', 'name'])])->header('Cache-Control', 'no-store');
@@ -21,7 +21,7 @@ class MyTeamsController extends Controller
 
     public function destroy(Request $request, string $teamId)
     {
-        abort_unless($request->user()->type === 'player', 403);
+        abort_unless(($request->user()->type instanceof \BackedEnum ? $request->user()->type->value : $request->user()->type) === 'player', 403);
         DB::transaction(function () use ($request, $teamId): void {
             // Same team mutex as invitation acceptance; never remove another player's membership.
             Team::whereKey($teamId)->lockForUpdate()->firstOrFail();

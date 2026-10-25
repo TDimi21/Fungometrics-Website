@@ -20,6 +20,7 @@ class GetExitVelocityPracticeResult extends Controller
         try {
             $result = ExitVelocityPractice::with('profile')
                 ->where('practice_id', $request->practice)
+                ->when(($request->user()->type instanceof \BackedEnum ? $request->user()->type->value : $request->user()->type) === 'player', fn ($q) => $q->where('user_id', $request->user()->id))
                 ->orderBy('sort')
                 ->get();
             $sets = Helper::getSets($result);

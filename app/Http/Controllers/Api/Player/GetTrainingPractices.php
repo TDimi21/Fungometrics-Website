@@ -65,6 +65,8 @@ class GetTrainingPractices extends Controller
                         ->orWhereIn('id', $practicesId)
                         ->orWhereIn('id', $lineupPracticeIds);
                 })
+                ->when($request->filled('search'), fn ($q) => $q->where('note', 'like', '%'.$request->input('search').'%'))
+                ->orderByDesc('created_at')->orderByDesc('id')
                 ->paginate();
             $response = [
                 'code' => '058',
