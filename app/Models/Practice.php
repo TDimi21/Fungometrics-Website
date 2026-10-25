@@ -25,8 +25,21 @@ class Practice extends Model
     {
         return $query->where(function ($q) use ($userId) {
             $q->where('is_player_shared', false)->orWhere('user_id', $userId)
-                ->orWhereIn('team_id', CoachTeam::where('coach_id', $userId)->select('team_id'));
+                ->orWhereIn('team_id', CoachTeam::where('coach_id', $userId)->select('team_id'))
+                ->orWhereHas('sharedTeams', fn ($teams) => $teams->whereIn('teams.id', CoachTeam::where('coach_id', $userId)->select('team_id')));
         });
+    }
+
+    public function sharedTeams()
+    {
+        return $this->belongsToMany(Team::class, 'practice_shared_teams', 'practice_id', 'team_id');
+    }
+
+    public function scopeForSharedOrTeam($query, $teamIds)
+    {
+        $teamIds = is_array($teamIds) ? $teamIds : [$teamIds];
+        return $query->where(fn ($q) => $q->whereIn('team_id', $teamIds)
+            ->orWhereHas('sharedTeams', fn ($teams) => $teams->whereIn('teams.id', $teamIds)));
     }
 
     protected $fillable = ['is_completed','team_id','user_id', 'started', 'finished', 'note', 'end_note', 'type', 'modes', 'is_scripted', 'script_plan', 'game_field', 'liveab_config', 'liveab_state', 'is_player_shared'];

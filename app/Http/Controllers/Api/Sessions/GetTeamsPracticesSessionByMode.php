@@ -33,7 +33,7 @@ class GetTeamsPracticesSessionByMode extends Controller
                     ->all();
                 $practices = Practice::visibleSharedTo(auth()->id())->with('team')
                     ->where(['modes' => $request->modes])
-                    ->whereIn('team_id', $teams)->paginate();
+                    ->forSharedOrTeam($teams)->paginate();
             } else {
                 $practices = Practice::visibleSharedTo(auth()->id())->with('team')
                     ->where('user_id', Auth::id())

@@ -27,6 +27,11 @@ class AddNewSessionRequest extends FormRequest
         // Missing/empty lineups cannot create a session; let required validation report them.
         if (!$this->filled('players')) return true;
         if ($this->filled('share_with_team_id') && (!is_string($this->input('share_with_team_id')) || !\App\Models\PlayerTeam::where('user_id', $this->user()->id)->where('team_id', $this->input('share_with_team_id'))->where('actual', true)->exists())) return false;
+        if ($this->has('share_with_team_ids')) {
+            $ids = $this->input('share_with_team_ids');
+            if (!is_array($ids) || collect($ids)->contains(fn ($id) => !is_string($id))) return false;
+            if (\App\Models\PlayerTeam::where('user_id', $this->user()->id)->whereIn('team_id', $ids)->where('actual', true)->distinct()->count('team_id') !== count(array_unique($ids))) return false;
+        }
         return !$this->filled('team') && !$this->filled('team_id')
             && !$this->filled('planner_plan_id') && !$this->filled('planner_item_id')
             && is_array($players) && count($players) === 1
@@ -43,7 +48,9 @@ class AddNewSessionRequest extends FormRequest
         return [
             'planner_plan_id' => ['nullable', 'string', 'required_with:planner_item_id'],
             'planner_item_id' => ['nullable', 'string', 'required_with:planner_plan_id'],
-            'share_with_team_id' => ['nullable', 'uuid'],
+            'share_with_team_id' => ['nullable', 'uuid', 'prohibited_with:share_with_team_ids'],
+            'share_with_team_ids' => ['sometimes', 'array', 'max:50'],
+            'share_with_team_ids.*' => ['required', 'uuid', 'distinct'],
             'team' => ['nullable', 'string'],
             'type' => ['nullable', Rule::enum(PracticeTypes::class)],
             'modes' => ['nullable', Rule::enum(PracticeModes::class)],

@@ -12,7 +12,7 @@ const route = useRoute(),
   user = useUserStore(),
   training = useTrainingStore();
 const { axiosPost, axiosGet } = useAxiosAuth();
-const sharingTeam = ref(""),
+const sharingTeam = ref([]),
   connectedTeams = ref([]),
   teamsLoading = ref(false),
   teamsError = ref("");
@@ -58,8 +58,9 @@ const valid = computed(
     !!selected.value &&
     !busy.value &&
     !uncertain.value &&
-    (!sharingTeam.value ||
-      connectedTeams.value.some((team) => team.id === sharingTeam.value)) &&
+    sharingTeam.value.every((id) =>
+      connectedTeams.value.some((team) => team.id === id),
+    ) &&
     (selected.value.type !== "C" || !!cageDimensions(cage.value)),
 );
 async function create() {
@@ -73,7 +74,8 @@ async function create() {
       note: note.value.trim() || `${mode.label} practice`,
       players: [{ id: user.userData.id, sort: 0 }],
     };
-    if (sharingTeam.value) payload.share_with_team_id = sharingTeam.value;
+    if (sharingTeam.value.length)
+      payload.share_with_team_ids = [...sharingTeam.value];
     if (mode.type === "T") payload.modes = route.params.mode;
     if (mode.type === "C") payload.cage = cage.value;
     const data = (await axiosPost("training", payload)).data.data;
@@ -104,23 +106,24 @@ async function create() {
             Every result is recorded to your player profile. Only you are
             scored.
           </p>
-          <label
-            >Share this session with
-            <select v-model="sharingTeam" :disabled="busy || teamsLoading">
-              <option value="">Just myself — personal session</option>
-              <option
-                v-for="team in connectedTeams"
-                :key="team.id"
-                :value="team.id"
-              >
-                {{ team.name }}
-              </option>
-            </select>
-          </label>
+          <fieldset :disabled="busy || teamsLoading" class="sharing-teams">
+            <legend>Share with connected teams (optional)</legend>
+            <button
+              type="button"
+              :disabled="!sharingTeam.length"
+              @click="sharingTeam = []"
+            >
+              Just myself — clear teams
+            </button>
+            <label v-for="team in connectedTeams" :key="team.id">
+              <input type="checkbox" v-model="sharingTeam" :value="team.id" />
+              {{ team.name }}
+            </label>
+          </fieldset>
           <p>
             {{
-              sharingTeam
-                ? "Coaches of the selected team can view this session and its statistics. You remain the scorer."
+              sharingTeam.length
+                ? "Coaches of all selected teams can view this session and its statistics. You remain the scorer."
                 : "This session is not shared with a team."
             }}
           </p>
@@ -274,5 +277,15 @@ button:focus-visible {
     margin: 12px;
     padding: 18px;
   }
+}
+.sharing-teams label {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.sharing-teams input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
 }
 </style>

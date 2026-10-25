@@ -47,6 +47,7 @@ class PracticeSessionResource extends JsonResource
             'team_id' => $this['practice']->team_id,
             'user_id' => $this['practice']->user_id,
             'is_player_shared' => (bool) $this['practice']->is_player_shared,
+            'shared_teams' => $this['practice']->is_player_shared ? $this['practice']->sharedTeams()->get(['teams.id', 'teams.name']) : [],
             'note' => $this['practice']->note,
             'is_completed' => $this['practice']->is_completed,
             'start' => $this['practice']->started,

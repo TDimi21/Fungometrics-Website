@@ -34,7 +34,7 @@ class GetAllPracticesByModes extends Controller
                 $trainingModes = [$request->query('mode')];
             }
             if ($request->team) {
-                $practices = Practice::visibleSharedTo(auth()->id())->where('team_id', $request->team)->whereIn('modes', $trainingModes)->orderBy('updated_at', 'desc')->paginate(10);
+                $practices = Practice::visibleSharedTo(auth()->id())->forSharedOrTeam($request->team)->whereIn('modes', $trainingModes)->orderBy('updated_at', 'desc')->paginate(10);
             } else {
                 $practices = Practice::visibleSharedTo(auth()->id())->where('user_id', Auth::id())->whereIn('modes', $trainingModes)->orderBy('updated_at', 'desc')->paginate(10);
             }

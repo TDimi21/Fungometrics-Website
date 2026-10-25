@@ -67,13 +67,13 @@ class GetTeamsPracticesSessionsByType extends Controller
                         ->all();
 
                     $practiceQuery->where(function ($query) use ($teams, $livePracticeIds): void {
-                        $query->whereIn('team_id', $teams);
+                        $query->forSharedOrTeam($teams);
                         if (!empty($livePracticeIds)) {
                             $query->orWhereIn('id', $livePracticeIds);
                         }
                     });
                 } else {
-                    $practiceQuery->whereIn('team_id', $teams);
+                    $practiceQuery->forSharedOrTeam($teams);
                 }
 
                 $practices = $practiceQuery->paginate();

@@ -82,14 +82,26 @@ it("prevents duplicate creates during an in-flight or uncertain request", async 
 it("shares only with a loaded connected team while scoring self", async () => {
   const { s, api } = screen("LT");
   await s.loadTeams();
-  s.sharingTeam.value = "team1";
+  s.sharingTeam.value = ["team1"];
   await s.create();
   expect(api.axiosPost.mock.calls[0][1]).toMatchObject({
-    share_with_team_id: "team1",
+    share_with_team_ids: ["team1"],
     players: [{ id: "self", sort: 0 }],
   });
   const other = screen("LT");
-  other.s.sharingTeam.value = "foreign";
+  other.s.sharingTeam.value = ["foreign"];
   await other.s.create();
   expect(other.api.axiosPost).not.toHaveBeenCalled();
+});
+
+it("shares one personal session with multiple connected teams", async () => {
+  const { s, api } = screen("WB");
+  s.connectedTeams.value = [{ id: "a" }, { id: "b" }];
+  s.sharingTeam.value = ["a", "b"];
+  await s.create();
+  expect(api.axiosPost).toHaveBeenCalledTimes(1);
+  expect(api.axiosPost.mock.calls[0][1]).toMatchObject({
+    share_with_team_ids: ["a", "b"],
+    players: [{ id: "self", sort: 0 }],
+  });
 });

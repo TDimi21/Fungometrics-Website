@@ -159,7 +159,8 @@ class AuthorizeRouteScope
         if (($user->type instanceof \BackedEnum ? $user->type->value : (string) $user->type) !== 'player') return;
         abort_unless(($practice->team_id === null || $practice->is_player_shared) && (string) $practice->user_id === (string) $user->id, 403, 'Players can score only their own personal sessions.');
         if ($practice->is_player_shared) {
-            abort_unless(PlayerTeam::where('user_id', $user->id)->where('team_id', $practice->team_id)->where('actual', true)->exists(), 403, 'You are no longer connected to this team.');
+            $ids = $practice->sharedTeams()->pluck('teams.id')->all() ?: [$practice->team_id];
+            abort_unless(PlayerTeam::where('user_id', $user->id)->whereIn('team_id', $ids)->where('actual', true)->distinct()->count('team_id') === count($ids), 403, 'You are no longer connected to one of the selected teams.');
         }
         foreach (['team', 'team_id'] as $key) {
             if ($request->filled($key)) abort_unless($practice->is_player_shared && $request->input($key) === $practice->team_id, 403);
@@ -203,7 +204,7 @@ class AuthorizeRouteScope
         }
 
         if ($practice->is_player_shared) {
-            return CoachTeam::where('coach_id', $user->id)->where('team_id', $practice->team_id)->exists();
+            return CoachTeam::where('coach_id', $user->id)->whereIn('team_id', $practice->sharedTeams()->pluck('teams.id')->all() ?: [$practice->team_id])->exists();
         }
         if (null !== $practice->team_id) {
             return $this->canAccessTeam($user, (string) $practice->team_id);

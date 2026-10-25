@@ -33,8 +33,8 @@ class AddNewSession extends Controller
             $players = [];
             DB::beginTransaction();
             $dataRequest = $request->validated();
-            $sharingTeam = $dataRequest['share_with_team_id'] ?? null;
-            unset($dataRequest['share_with_team_id']);
+            $sharingTeams = $dataRequest['share_with_team_ids'] ?? (isset($dataRequest['share_with_team_id']) ? [$dataRequest['share_with_team_id']] : []);
+            unset($dataRequest['share_with_team_id'], $dataRequest['share_with_team_ids']);
             $dataRequest['started'] = Carbon::now();
             if ( ! isset($dataRequest['team'])) {
                 $dataRequest['user_id'] = Auth::id();
@@ -42,12 +42,12 @@ class AddNewSession extends Controller
             if (isset($dataRequest['team'])) {
                 $dataRequest['team_id'] = $dataRequest['team'];
             }
-            if ($sharingTeam !== null) {
+            if (count($sharingTeams) > 0) {
                 $role = $request->user()->type;
                 abort_unless(($role instanceof \BackedEnum ? $role->value : $role) === 'player', 403);
-                abort_unless(\App\Models\PlayerTeam::where('user_id', Auth::id())->where('team_id', $sharingTeam)->where('actual', true)->exists(), 403);
+                abort_unless(\App\Models\PlayerTeam::where('user_id', Auth::id())->whereIn('team_id', $sharingTeams)->where('actual', true)->distinct()->count('team_id') === count($sharingTeams), 403);
                 $dataRequest['user_id'] = Auth::id();
-                $dataRequest['team_id'] = $sharingTeam;
+                $dataRequest['team_id'] = $sharingTeams[0];
                 $dataRequest['is_player_shared'] = true;
             }
             $dataRequest['modes'] = $dataRequest['modes'] ?? PracticeModes::HIT_OR_PITCH->value;
@@ -75,6 +75,7 @@ class AddNewSession extends Controller
                 unset($dataRequest['planner_plan_id'],$dataRequest['planner_item_id']);
             }
             $practice = (new CreateServiceData(new Practice()))->handle($dataRequest);
+            if (count($sharingTeams) > 0) $practice->sharedTeams()->sync($sharingTeams);
             if ($practice->type === 'B' && $practice->script_plan) {
                 \App\Models\ScriptedBpPlan::create(['practice_id' => $practice->id, 'rounds' => $practice->script_plan]);
             }
