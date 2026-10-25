@@ -16,7 +16,6 @@ import ProfileCard from '../components/ProfileCard.vue'
 import BenchmarkTasksPanel from '../components/BenchmarkTasksPanel.vue'
 import SessionCountsCard from '../components/SessionCountsCard.vue'
 import RecapList from '../components/RecapList.vue'
-import DailyReadiness from '@/components/readiness/DailyReadiness.vue'
 import StatTabs from '../components/StatTabs.vue'
 import BpStats from '../components/BpStats.vue'
 import BullpenStats from '../components/BullpenStats.vue'
@@ -181,7 +180,6 @@ const openRecapReport = (session) => {
 
     <div class="min-h-full bg-surface px-4 py-5 text-white lg:px-6">
       <div class="mx-auto max-w-6xl space-y-4">
-        <DailyReadiness :player-id="String(playerId || userData?.id || '')" />
         <PlayerAssessmentLinks :player-id="userData?.id || ''" />
         <div
           v-if="sessionExpired"
