@@ -10,7 +10,9 @@ return new class extends Migration {
             $table->date('date');
             $table->string('timezone', 64);
             $table->unsignedTinyInteger('scale_version')->default(2);
-            $table->json('answers');
+            // MariaDB 10.1 has no native JSON column type. The model's array
+            // cast serializes answers as JSON in text, as with other planner data.
+            $table->longText('answers');
             $table->timestamps();
             $table->unique(['user_id', 'date']);
         });
