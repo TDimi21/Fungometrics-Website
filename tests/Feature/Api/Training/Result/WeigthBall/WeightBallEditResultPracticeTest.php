@@ -17,7 +17,7 @@ class WeightBallEditResultPracticeTest extends TestCase
 
     public function test_weight_ball_practice_result_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $practice = WeightBallPractice::factory()->create();
 
@@ -59,7 +59,7 @@ class WeightBallEditResultPracticeTest extends TestCase
     public function test_weight_ball_practice_result_not_found(): void
     {
         $this->mock(WeightBallEditRequest::class, fn ($mock) =>$mock->shouldReceive('passes')->andReturn(true));
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data = [];
 
         $response = $this->json('PUT', "api/result/weightball/{fake()->uuid()}", $data);

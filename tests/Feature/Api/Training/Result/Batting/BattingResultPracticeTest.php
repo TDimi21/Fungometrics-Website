@@ -25,7 +25,7 @@ class BattingResultPracticeTest extends TestCase
 
     public function test_batting_practice_result_with_hit_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create([
             'type' => PracticeTypes::BATTING->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,
@@ -61,7 +61,7 @@ class BattingResultPracticeTest extends TestCase
 
     public function test_batting_practice_result_not_hit_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create([
             'type' => PracticeTypes::BATTING->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,
@@ -93,7 +93,7 @@ class BattingResultPracticeTest extends TestCase
 
     public function test_batting_practice_result_no_team_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create([
             'type' => PracticeTypes::BATTING->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,
@@ -132,7 +132,7 @@ class BattingResultPracticeTest extends TestCase
     public function test_batting_practice_result_validated(): void
     {
         $data = [];
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $response = $this->json('POST', 'api/result/batting', $data);
         $response->assertUnprocessable();
     }
@@ -143,7 +143,7 @@ class BattingResultPracticeTest extends TestCase
             $mock->shouldReceive('passes')->andReturn(true);
         });
         $data = [];
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $response = $this->json('POST', 'api/result/batting', $data);
         $response->assertStatus(Response::HTTP_INTERNAL_SERVER_ERROR);
     }

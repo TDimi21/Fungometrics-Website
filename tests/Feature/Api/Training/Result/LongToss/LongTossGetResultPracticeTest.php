@@ -16,7 +16,7 @@ class LongTossGetResultPracticeTest extends TestCase
 
     public function test_get_long_toss_practice_result_by_uuid_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $result = LongTossPractice::factory()->create();
 
         $response = $this->json('GET', "api/result/longtoss/{$result->id}");
@@ -30,7 +30,7 @@ class LongTossGetResultPracticeTest extends TestCase
 
     public function test_get_long_toss_practice_result_by_uuid_not_found(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $id = fake()->uuid();
         $response = $this->json('GET', "api/result/longtoss/{$id}");
         $response->assertNotFound()->assertJsonStructure([

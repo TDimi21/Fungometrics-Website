@@ -5,6 +5,17 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 class PlayerWebSessionsTest extends TestCase
 {
+    public function test_enum_player_role_can_write_only_personal_results(): void
+    {
+        $user=User::factory()->create(['type'=>\App\Models\Concerns\UserTypes::PLAYER,'subscription_plan'=>'player_pro']);
+        Sanctum::actingAs($user,['player']);
+        $practice=Practice::factory()->create(['user_id'=>$user->id,'team_id'=>null,'type'=>'T','modes'=>'LT']);
+        $this->getJson('/api/training/'.$practice->id)->assertOk();
+        $payload=['practice_id'=>$practice->id,'user_id'=>$user->id,'distance'=>150,'set'=>1,'hop'=>0];
+        $this->postJson('/api/result/longtoss',$payload)->assertCreated();
+        $practice->update(['team_id'=>Team::factory()->create()->id]);
+        $this->postJson('/api/result/longtoss',$payload)->assertForbidden();
+    }
     public static function modes(): array { return [['P', 'HP'], ['B', 'HP'], ['C', 'HP'], ['T', 'LT'], ['T', 'EV'], ['T', 'WB']]; }
     /** @dataProvider modes */
     public function test_player_can_create_resume_and_finish_personal_session(string $type, string $mode): void

@@ -24,7 +24,7 @@ class BullpenEditResultPracticeTest extends TestCase
 
     public function test_save_result_bullpen_practice_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         // $practice = Practice::factory()->create([
         //     'type' => PracticeTypes::BULLPEN->value,
         //     'modes' => PracticeModes::HIT_OR_PITCH->value,
@@ -58,7 +58,7 @@ class BullpenEditResultPracticeTest extends TestCase
 
     public function test_save_result_bullpen_practice_no_contact_team_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         // $practice = Practice::factory()->create([
         //     'type' => PracticeTypes::BULLPEN->value,
         //     'modes' => PracticeModes::HIT_OR_PITCH->value,
@@ -92,7 +92,7 @@ class BullpenEditResultPracticeTest extends TestCase
 
     public function test_save_result_bullpen_practice_validated(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $response = $this->json('PUT', "api/result/bullpen/{fake()->uuid()}", []);
         $response->assertUnprocessable();
@@ -109,7 +109,7 @@ class BullpenEditResultPracticeTest extends TestCase
         $this->mock(BullpenResultEditRequest::class, function ($mock): void {
             $mock->shouldReceive('passes')->andReturn('true');
         });
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create([
             'type' => PracticeTypes::BULLPEN->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,

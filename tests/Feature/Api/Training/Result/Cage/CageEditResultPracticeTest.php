@@ -20,7 +20,7 @@ class CageEditResultPracticeTest extends TestCase
 
     public function test_cage_practice_result_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $practice = CagePracticeResult::factory()->create();
 
@@ -61,7 +61,7 @@ class CageEditResultPracticeTest extends TestCase
     public function test_cage_practice_result_not_found(): void
     {
         $this->mock(CageResultEditRequest::class, fn ($mock) =>$mock->shouldReceive('passes')->andReturn(true));
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $data=[
 

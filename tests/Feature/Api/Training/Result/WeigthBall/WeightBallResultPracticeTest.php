@@ -26,9 +26,8 @@ class WeightBallResultPracticeTest extends TestCase
         PlayerTeam::factory()->create(['user_id' => $user->id, 'team_id' => $team->id]);
         Sanctum::actingAs($user);
         $data =[
-            'practice_id' => Practice::factory()->create(['user_id' => $user->id, 'team_id' => $team->id])->id,
+            'practice_id' => Practice::factory()->create(['user_id' => $user->id, 'team_id' => null])->id,
             'user_id' => $user->id,
-            'team_id' => $team->id,
             'set' => fake()->numberBetween(1, 4),
             'sort' =>  fake()->numberBetween(1, 4),
             'weight' =>  fake()->numberBetween(1, 4),
@@ -45,7 +44,7 @@ class WeightBallResultPracticeTest extends TestCase
     }
     public function test_weight_ball_practice_result_without_team_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data =[
             'practice_id' => Practice::factory()->create()->id,
             'user_id' => User::factory()->create()->id,
@@ -65,7 +64,7 @@ class WeightBallResultPracticeTest extends TestCase
     }
     public function test_weight_ball_practice_result_validate(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data =[
 
         ];
@@ -95,7 +94,7 @@ class WeightBallResultPracticeTest extends TestCase
     public function test_weight_ball_practice_result_fail(): void
     {
         $this->mock(WeightBallRequest::class, fn ($mock) =>$mock->shouldReceive('passes')->andReturn(true));
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data =[
 
         ];

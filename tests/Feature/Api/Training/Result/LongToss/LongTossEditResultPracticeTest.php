@@ -18,7 +18,7 @@ class LongTossEditResultPracticeTest extends TestCase
 
     public function test_long_toss_practice_result_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $practice = LongTossPractice::factory()->create();
         $data = [
@@ -52,7 +52,7 @@ class LongTossEditResultPracticeTest extends TestCase
     {
         $this->mock(LongTossEditRequest::class, fn ($mock) => $mock->shouldReceive('passes')->andReturn(true));
 
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $data = [
         ];

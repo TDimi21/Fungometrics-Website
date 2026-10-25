@@ -53,7 +53,7 @@ class ScriptedWebPracticeTest extends TestCase
         $this->postJson('/api/result/scripted-bp/swing',['practice_id'=>$id,'batter_id'=>$player->id])->assertNotFound();
         $this->getJson('/api/result/scripted-bp/'.$id)->assertNotFound();
         Sanctum::actingAs($player,['player']);
-        $this->postJson('/api/result/scripted-bp/swing',['practice_id'=>$id,'batter_id'=>$other->id])->assertStatus(422);
+        $this->postJson('/api/result/scripted-bp/swing',['practice_id'=>$id,'batter_id'=>$other->id])->assertForbidden();
     }
     public function test_invalid_pitch_plan_and_missing_scripted_flag_are_rejected(): void {
         [$coach,$player,$team]=$this->context();

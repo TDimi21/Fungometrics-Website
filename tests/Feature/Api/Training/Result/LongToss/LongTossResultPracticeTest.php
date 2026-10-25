@@ -26,9 +26,8 @@ class LongTossResultPracticeTest extends TestCase
         PlayerTeam::factory()->create(['user_id' => $user->id, 'team_id' => $team->id]);
         Sanctum::actingAs($user);
         $data = [
-            'practice_id' => Practice::factory()->create(['type' => UserTypes::PLAYER->value, 'user_id' => $user->id, 'team_id' => $team->id])->id,
+            'practice_id' => Practice::factory()->create(['type' => UserTypes::PLAYER->value, 'user_id' => $user->id, 'team_id' => null])->id,
             'user_id' => $user->id,
-            'team_id' => $team->id,
             'set' => fake()->numberBetween(1, 4),
             'sort' => fake()->numberBetween(1, 5),
             'hop' => fake()->numberBetween(0, 3),
@@ -46,7 +45,7 @@ class LongTossResultPracticeTest extends TestCase
 
     public function test_long_toss_practice_result_without_team_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data = [
             'practice_id' => Practice::factory()->create(['type' => UserTypes::PLAYER->value])->id,
             'user_id' => User::factory()->create()->id,
@@ -67,7 +66,7 @@ class LongTossResultPracticeTest extends TestCase
 
     public function test_long_toss_practice_result_team_validated(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data = [
 
         ];
@@ -98,7 +97,7 @@ class LongTossResultPracticeTest extends TestCase
     {
         $this->mock(LongTossRequest::class, fn ($mock) => $mock->shouldReceive('passes')->andReturn(true));
 
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data = [
         ];
 

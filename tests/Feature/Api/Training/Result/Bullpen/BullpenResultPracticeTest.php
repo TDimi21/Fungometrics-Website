@@ -25,7 +25,7 @@ class BullpenResultPracticeTest extends TestCase
 
     public function test_save_result_bullpen_practice_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create([
             'type' => PracticeTypes::BULLPEN->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,
@@ -60,7 +60,7 @@ class BullpenResultPracticeTest extends TestCase
 
     public function test_save_result_bullpen_practice_no_team_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create([
             'type' => PracticeTypes::BULLPEN->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,
@@ -95,7 +95,7 @@ class BullpenResultPracticeTest extends TestCase
 
     public function test_save_result_bullpen_practice_no_contact_team_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create([
             'type' => PracticeTypes::BULLPEN->value,
             'modes' => PracticeModes::HIT_OR_PITCH->value,
@@ -131,7 +131,7 @@ class BullpenResultPracticeTest extends TestCase
 
     public function test_save_result_bullpen_practice_validated(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $response = $this->json('POST', 'api/result/bullpen', []);
         $response->assertUnprocessable();
@@ -148,7 +148,7 @@ class BullpenResultPracticeTest extends TestCase
         $this->mock(BullpenResultRequest::class, function ($mock): void {
             $mock->shouldReceive('passes')->andReturn('true');
         });
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $response = $this->json('POST', 'api/result/bullpen', []);
         $response->assertStatus(Response::HTTP_INTERNAL_SERVER_ERROR);
     }

@@ -22,7 +22,7 @@ class CageResultPracticeTest extends TestCase
 
     public function test_cage_practice_result_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data=[
             'practice_id' => Practice::factory()->create(['type' => UserTypes::PLAYER->value])->id,
             'user_id' => User::factory()->create()->id,
@@ -46,7 +46,7 @@ class CageResultPracticeTest extends TestCase
     }
     public function test_cage_practice_result_without_team_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data=[
             'practice_id' => Practice::factory()->create(['type' => UserTypes::PLAYER->value])->id,
             'user_id' => User::factory()->create()->id,
@@ -69,7 +69,7 @@ class CageResultPracticeTest extends TestCase
     }
     public function test_cage_practice_result_validate(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data=[
 
         ];
@@ -99,7 +99,7 @@ class CageResultPracticeTest extends TestCase
     public function test_cage_practice_result_fail(): void
     {
         $this->mock(CageRequest::class, fn ($mock) =>$mock->shouldReceive('passes')->andReturn(true));
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $data=[
 
         ];

@@ -76,7 +76,7 @@ class CageDistanceV2IntegrationTest extends TestCase
     public function test_flag_disabled_by_default_v2_fields_stay_null(): void
     {
         config(['fmtrx.cage_distance_v2_enabled' => false]);
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $response = $this->json('POST', 'api/result/cage', $this->validPayload());
         $response->assertCreated();
@@ -92,7 +92,7 @@ class CageDistanceV2IntegrationTest extends TestCase
     public function test_flag_enabled_makes_v2_the_authoritative_distance(): void
     {
         config(['fmtrx.cage_distance_v2_enabled' => true]);
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $response = $this->json('POST', 'api/result/cage', $this->validPayload());
         $response->assertCreated();
@@ -124,7 +124,7 @@ class CageDistanceV2IntegrationTest extends TestCase
     public function test_flag_enabled_ground_ball_still_populates_confidence_and_meta(): void
     {
         config(['fmtrx.cage_distance_v2_enabled' => true]);
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         $response = $this->json('POST', 'api/result/cage', $this->validPayload([
             'launch_angle' => -5.0,
@@ -150,7 +150,7 @@ class CageDistanceV2IntegrationTest extends TestCase
     public function test_service_failure_does_not_block_save(): void
     {
         config(['fmtrx.cage_distance_v2_enabled' => true]);
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
 
         // Force CageDistanceService::estimate() to throw, with an otherwise
         // fully valid payload — isolates "v2 fails" from "v1 fails", since

@@ -21,7 +21,7 @@ class BattingEditResultPracticeTest extends TestCase
 
     public function test_batting_practice_result_with_hit_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = BattingPracticeResult::factory()->create();
         $data = [
             'is_contact' => true,
@@ -50,7 +50,7 @@ class BattingEditResultPracticeTest extends TestCase
 
     public function test_batting_practice_result_not_hit_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = BattingPracticeResult::factory()->create();
 
         $data = [
@@ -76,7 +76,7 @@ class BattingEditResultPracticeTest extends TestCase
 
     public function test_batting_practice_result_no_team_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = BattingPracticeResult::factory()->create();
 
         $data = [
@@ -114,7 +114,7 @@ class BattingEditResultPracticeTest extends TestCase
             $mock->shouldReceive('passes')->andReturn(true);
         });
         $data = [];
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $response = $this->json('PUT', "api/result/batting/{fake()->uuid()}", $data);
         $response->assertStatus(Response::HTTP_INTERNAL_SERVER_ERROR);
     }

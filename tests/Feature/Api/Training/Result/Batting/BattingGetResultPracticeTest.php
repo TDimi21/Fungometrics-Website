@@ -16,7 +16,7 @@ class BattingGetResultPracticeTest extends TestCase
 
     public function test_get_batting_practice_result_by_uuid_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $result = BattingPracticeResult::factory()->create();
 
         $response = $this->json('GET', "api/result/batting/{$result->id}");
@@ -30,7 +30,7 @@ class BattingGetResultPracticeTest extends TestCase
 
     public function test_get_batting_practice_result_by_uuid_not_found(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $id = fake()->uuid();
         $response = $this->json('GET', "api/result/batting/{$id}");
         $response->assertNotFound()->assertJsonStructure([

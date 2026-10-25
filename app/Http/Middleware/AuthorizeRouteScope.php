@@ -49,11 +49,11 @@ class AuthorizeRouteScope
                 if ($request->is('api/result/scripted-bp/swing') && $request->filled('batter_id')) {
                     $batter = $request->input('batter_id');
                     abort_unless(is_string($batter) && $practice->lineup()->where('user_id', $batter)->exists(), 422);
-                    abort_if((string) $user->type === 'player' && $batter !== (string) $user->id, 403);
+                    abort_if(($user->type instanceof \BackedEnum ? $user->type->value : (string) $user->type) === 'player' && $batter !== (string) $user->id, 403);
                 }
                 if ($request->is('api/result/scripted-bp/plan')) {
                     abort_if($practice->is_completed || $practice->script_plan || $practice->scriptedBpSwings()->exists(), 409, 'An active plan with recorded results cannot be replaced.');
-                    abort_if((string) $user->type === 'player' && $practice->user_id !== $user->id, 403);
+                    abort_if(($user->type instanceof \BackedEnum ? $user->type->value : (string) $user->type) === 'player' && $practice->user_id !== $user->id, 403);
                 }
             }
         }
@@ -140,7 +140,7 @@ class AuthorizeRouteScope
             }
 
             $this->authorizePersonalWrite($request, $user, $practice);
-            if ((string) $user->type === 'player' && !$request->isMethod('GET')) {
+            if (($user->type instanceof \BackedEnum ? $user->type->value : (string) $user->type) === 'player' && !$request->isMethod('GET')) {
                 $field = match ($type) { 'batting' => 'batter_id', 'bullpen' => 'pitcher_id', default => 'user_id' };
                 if (isset($result)) abort_unless((string) $result->{$field} === (string) $user->id, 403);
                 foreach (['user_id', 'pitcher_id', 'batter_id'] as $identity) {
@@ -154,7 +154,7 @@ class AuthorizeRouteScope
 
     private function authorizePersonalWrite(Request $request, User $user, Practice $practice): void
     {
-        if ((string) $user->type !== 'player' || $request->isMethod('GET')) return;
+        if (($user->type instanceof \BackedEnum ? $user->type->value : (string) $user->type) !== 'player' || $request->isMethod('GET')) return;
         abort_unless($practice->team_id === null && (string) $practice->user_id === (string) $user->id, 403, 'Players can score only their own personal sessions.');
         abort_if($request->filled('team') || $request->filled('team_id'), 403, 'Personal sessions cannot be connected to a team.');
     }
@@ -174,7 +174,7 @@ class AuthorizeRouteScope
         if ((string) $user->id === $playerId) {
             return true;
         }
-        if ('coach' !== (string) $user->type) {
+        if ('coach' !== ($user->type instanceof \BackedEnum ? $user->type->value : (string) $user->type)) {
             return false;
         }
 

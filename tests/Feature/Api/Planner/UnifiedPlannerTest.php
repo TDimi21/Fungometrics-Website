@@ -74,18 +74,17 @@ class UnifiedPlannerTest extends TestCase
         $p=$this->draft();DailyPlan::find($p['id'])->update(['status'=>'published','buckets'=>[['type'=>'recovery','items'=>[['id'=>'legacy','name'=>'Rest']]]]]);Sanctum::actingAs($this->player,['player']);$this->getJson('/api/player/daily-plans/'.$p['id'])->assertOk()->assertJsonPath('data.blocks.0.items.0.execution_type','COMPLETE');
         $outsider=User::factory()->create(['type'=>'coach']);Sanctum::actingAs($outsider,['coach']);$this->getJson('/api/coach/planner/day?team_id='.$this->team->id.'&date='.now()->toDateString())->assertForbidden();
     }
-    public function test_linked_session_start_is_idempotent_and_completion_is_canonical(): void {
+    public function test_player_cannot_create_team_linked_scoring_sessions_from_a_planner(): void {
         $p=$this->draft('bullpen-day');DailyPlan::find($p['id'])->update(['status'=>'published']);
         $item=collect($p['buckets'])->flatMap(fn($b)=>$b['items'])->first(fn($i)=>($i['metadata']['session_type']??null)==='bullpen');
         Sanctum::actingAs($this->player,['player']);
         $payload=['team'=>$this->team->id,'type'=>'P','note'=>'Assigned bullpen','players'=>[['id'=>$this->player->id,'sort'=>0]],'planner_plan_id'=>$p['id'],'planner_item_id'=>$item['id']];
-        $session=$this->postJson('/api/training',$payload)->assertCreated()->json('data.id');
-        $this->postJson('/api/training',$payload)->assertOk()->assertJsonPath('data.id',$session);
-        $this->assertDatabaseCount('practices',1);
-        $this->getJson('/api/player/planner/day?date='.now()->toDateString())->assertOk()->assertJsonPath('data.0.actual_results.'.$item['id'].'.done',false);
-        Practice::find($session)->update(['is_completed'=>true]);
-        $this->getJson('/api/player/planner/day?date='.now()->toDateString())->assertOk()->assertJsonPath('data.0.actual_results.'.$item['id'].'.done',true);
-        Sanctum::actingAs($this->second,['player']);$this->postJson('/api/training',$payload)->assertForbidden();
+        $this->postJson('/api/training',$payload)->assertForbidden();
+        $this->assertDatabaseCount('practices',0);
+        $this->assertDatabaseCount('workout_session_links',0);
+        unset($payload['team']);
+        $this->postJson('/api/training',$payload)->assertForbidden();
+        $this->getJson('/api/player/planner/day?date='.now()->toDateString())->assertOk();
     }
 
     public function test_explicit_merge_keeps_both_sources_and_one_session_launcher(): void {

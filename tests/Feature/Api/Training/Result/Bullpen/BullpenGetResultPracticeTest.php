@@ -16,7 +16,7 @@ class BullpenGetResultPracticeTest extends TestCase
 
     public function test_get_bullpen_practice_result_by_uuid_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $result = bullpenPracticeResult::factory()->create();
 
         $response = $this->json('GET', "api/result/bullpen/{$result->id}");
@@ -30,7 +30,7 @@ class BullpenGetResultPracticeTest extends TestCase
 
     public function test_get_bullpen_practice_result_by_uuid_not_found(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $id = fake()->uuid();
         $response = $this->json('GET', "api/result/bullpen/{$id}");
         $response->assertNotFound()->assertJsonStructure([

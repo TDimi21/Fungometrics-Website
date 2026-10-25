@@ -17,7 +17,7 @@ class FinishPracticeTest extends TestCase
     use OwnsCreatedPracticeFixtures;
     public function test_finish_practice_session_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create(['is_completed' => false]);
         $data =[
             'end_note'=>fake()->paragraph,
@@ -35,7 +35,7 @@ class FinishPracticeTest extends TestCase
     }
     public function test_finish_practice_session_validate(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create(['is_completed' => false]);
         $data =[
 
@@ -64,7 +64,7 @@ class FinishPracticeTest extends TestCase
     }
     public function test_finish_practice_session_not_found(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create(['is_completed' => false]);
         $data =[
             'end_note'=>fake()->paragraph,
@@ -81,7 +81,7 @@ class FinishPracticeTest extends TestCase
     public function test_finish_practice_session_fail(): void
     {
         $this->mock(FinishPracticeRequest::class, fn ($mock) =>$mock->shouldReceive('passes')->andReturn('true'));
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create(['is_completed' => false]);
         $data =[
             'end_note'=>null,

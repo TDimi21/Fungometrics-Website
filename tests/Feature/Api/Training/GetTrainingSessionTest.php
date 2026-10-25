@@ -23,7 +23,7 @@ class GetTrainingSessionTest extends TestCase
     use OwnsCreatedPracticeFixtures;
     public function test_get_training_session_by_uuid_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $team = Team::factory()->create();
         $practice = Practice::factory()->create([
             'type' => PracticeTypes::BATTING->value,
@@ -64,7 +64,7 @@ class GetTrainingSessionTest extends TestCase
 
   public function test_get_training_session_by_uuid_cage_training_ok(): void
   {
-      Sanctum::actingAs(User::factory()->create());
+      Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
       $team = Team::factory()->create();
       $practice = Practice::factory()->create([
           'type' => PracticeTypes::CAGE->value,
@@ -109,14 +109,14 @@ class GetTrainingSessionTest extends TestCase
 
     public function test_get_training_session_by_uuid_not_found(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $response = $this->json('GET', 'api/training/'.fake()->uuid);
         $response->assertNotFound();
     }
 
     public function test_get_session_by_uuid_with_not_lineup(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $practice = Practice::factory()->create();
         $response = $this->json('GET', 'api/training/'.$practice->id);
         $response->assertOk()->assertJsonStructure([

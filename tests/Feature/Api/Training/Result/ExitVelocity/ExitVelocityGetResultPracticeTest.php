@@ -16,7 +16,7 @@ class ExitVelocityGetResultPracticeTest extends TestCase
 
     public function test_get_exit_velocity_practice_result_by_uuid_ok(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $result = ExitVelocityPractice::factory()->create();
 
         $response = $this->json('GET', "api/result/exitvelocity/{$result->id}");
@@ -30,7 +30,7 @@ class ExitVelocityGetResultPracticeTest extends TestCase
 
     public function test_get_exit_velocity_practice_result_by_uuid_not_found(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        Sanctum::actingAs(User::factory()->create(['type' => 'coach']));
         $id = fake()->uuid();
         $response = $this->json('GET', "api/result/exitvelocity/{$id}");
         $response->assertNotFound()->assertJsonStructure([
