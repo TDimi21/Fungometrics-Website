@@ -1,4 +1,5 @@
 <script setup>
+import {useRouter} from 'vue-router'
 import {ref, computed, watch, onMounted, onBeforeUnmount} from 'vue'
 import {storeToRefs} from 'pinia'
 import {useTeamStore} from '@/store/team'
@@ -7,6 +8,7 @@ import {assignmentStatus, assignmentSummary, groupAssignments} from '@/features/
 import {localDateKey} from '@/features/planner/lib/calendar'
 import {planFromApi} from '@/features/planner/dailyPlanner'
 import AssignSomething from './AssignSomething.vue'
+const router = useRouter()
 const props = defineProps({date: String, openAssignment: Boolean})
 const emit = defineEmits(['date','calendar','library','advanced','review','edit','assigned'])
 const store = useTeamStore(), {team, teams, active_team_id, default_team_id} = storeToRefs(store), {axiosGet} = useAxiosAuth()
@@ -49,7 +51,7 @@ onBeforeUnmount(()=>generation++)
   <details v-if="plans.some(p=>p.status==='draft' && p.date===date)" class="drafts"><summary>Saved drafts</summary><button v-for="p in plans.filter(p=>p.status==='draft' && p.date===date)" :key="p.id" @click="emit('edit',p)">{{p.name || 'Untitled draft'}} →</button></details>
   <div class="section-heading"><h2>Player Results</h2><button @click="results=!results;selected=null">{{results?'Hide results':'View player progress'}} →</button></div><p class="hint">See what players have recorded, open their reports, and review their feedback.</p>
   <section v-if="results" class="results"><div class="section-heading"><h3>{{selected?assignments.find(a=>a.id===selected)?.name:'All assignments'}}</h3><button v-if="selected" @click="selected=null">Show all</button><button :disabled="loading" @click="load">Refresh</button></div><div class="table-scroll"><table><thead><tr><th>Player</th><th>Assignment</th><th>Status</th><th>Recorded</th><th>Review</th></tr></thead><tbody><tr v-for="row in shown" :key="row.id+row.assignment.user_id"><td>{{name(row.assignment.user_id)}}</td><td>{{row.name}}</td><td><span :class="['badge',assignmentStatus(row)]">{{labels[assignmentStatus(row)]}}</span></td><td>{{row.session_links?.length || 0}} sessions · {{Object.values(row.actual_results || {}).filter(a=>a.done).length}} tasks</td><td><button @click="review(row)">View results →</button></td></tr></tbody></table></div><p v-if="!shown.length">No player results for this date yet.</p></section>
-  <h2 class="quick-title">Quick Actions</h2><nav class="quick-actions" aria-label="Planner quick actions"><button @click="emit('calendar')">▣ View Calendar</button><button @click="emit('library')">▤ Workout Library</button><button @click="results=true;selected=null">▥ Player Progress</button></nav>
+  <h2 class="quick-title">Quick Actions</h2><nav class="quick-actions" aria-label="Planner quick actions"><button @click="emit('calendar')">▣ View Calendar</button><button @click="emit('library')">▤ Workout Library</button><button @click="results=true;selected=null">▥ Player Progress</button><button :disabled="!teamId" @click="router.push({name:'coach.readiness'})">♡ Player Readiness</button></nav>
  </section>
 </template>
 <style scoped>

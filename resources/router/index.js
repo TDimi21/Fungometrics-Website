@@ -69,6 +69,7 @@ const routes = [
   { name: 'invitations.accept', path: '/invitations/accept', component: () => import('@/pages/communications/AcceptInvitation.vue'), meta: { allowAdmin: true } },
   { name: 'team.communications', path: '/team-communications', component: () => import('@/pages/communications/TeamCommunications.vue'), meta: { requiresAuth: true, coachOnly: true } },
 
+  {name:'coach.readiness',path:'/coach/readiness',component:()=>import('@/pages/CoachReadiness.vue'),meta:{requiresAuth:true,coachOnly:true}},
   {name:'workout.library',path:'/workout-library',component:()=>import('@/pages/workouts/WorkoutLibrary.vue'),meta:{requiresAuth:true,coachOnly:true,entitlement:'planner_create'}},
   { name: 'free-assessment.team-report', path: '/free-assessment/:assessmentId/team-report', component: () => import('@/pages/free-assessment/TeamAssessmentReport.vue'), meta: { requiresAuth: true, coachOnly: true, allowAdmin: true } },
   { name: 'free-assessment', path: '/free-assessment', component: () => import('@/pages/free-assessment/FreeAssessment.vue'), meta: { requiresAuth: true, coachOnly: true, allowAdmin: true } },
