@@ -12,6 +12,7 @@ use Tests\TestCase;
 
 class PlayerCreationAuthorizationTest extends TestCase
 {
+    use \Tests\Concerns\AcceptsPlayerPolicies;
     protected function setUp(): void
     {
         parent::setUp();
@@ -23,7 +24,7 @@ class PlayerCreationAuthorizationTest extends TestCase
 
     private function payload(string $team): array
     {
-        return ['team' => $team, 'name' => ['first' => 'Private', 'last' => 'Player'], 'email' => 'private-player@example.com', 'send_invitation' => false];
+        return [...$this->policyAgreement(), 'team' => $team, 'name' => ['first' => 'Private', 'last' => 'Player'], 'email' => 'private-player@example.com', 'send_invitation' => false];
     }
 
     private function coachCookie(bool $active = true, string $role = 'coach'): array
@@ -33,7 +34,7 @@ class PlayerCreationAuthorizationTest extends TestCase
         $membership = CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
         $token = $coach->createToken('web', [$role])->plainTextToken;
         $this->withCredentials()->withCookie(ApiTokenCookie::NAME, $token)->withHeader('Authorization', 'Bearer');
-        return [$team, $membership];
+        return [...$this->policyAgreement(), $team, $membership];
     }
 
     public function test_cookie_and_empty_bearer_reproduce_team_get_success_and_membership_id_post_denial(): void

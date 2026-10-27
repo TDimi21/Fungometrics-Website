@@ -13,6 +13,7 @@ use RuntimeException;
 
 class FreeAssessmentTest extends TestCase
 {
+    use \Tests\Concerns\AcceptsPlayerPolicies;
     private User $coach;
     private User $player;
     private Team $team;
@@ -193,7 +194,7 @@ class FreeAssessmentTest extends TestCase
     }
     public function test_quick_add_creates_real_profile_and_refuses_normalized_duplicate_phone(): void
     {
-        $data = ['first_name' => 'New', 'last_name' => 'Player', 'phone' => '404-555-0123', 'born_date' => '2011-03-14', 'grad_year' => 2029, 'height_in_ft' => 5, 'height_in_inch' => 9, 'weight' => 145, 'position' => 'P', 'hit_side' => 'R', 'throw_side' => 'L'];
+        $data = [...$this->policyAgreement(), 'first_name' => 'New', 'last_name' => 'Player', 'phone' => '404-555-0123', 'born_date' => '2011-03-14', 'grad_year' => 2029, 'height_in_ft' => 5, 'height_in_inch' => 9, 'weight' => 145, 'position' => 'P', 'hit_side' => 'R', 'throw_side' => 'L'];
         $id = $this->postJson($this->url('/quick-add'), $data)->assertCreated()->json('player_id');
         $this->assertDatabaseHas('players', ['user_id' => $id, 'born_date' => '2011-03-14', 'grad_year' => 2029]);
         $this->assertDatabaseHas('free_assessment_players', ['assessment_id' => $this->event->id, 'player_id' => $id]);

@@ -17,6 +17,7 @@ use RuntimeException;
 
 class TeamInvitationsTest extends TestCase
 {
+    use \Tests\Concerns\AcceptsPlayerPolicies;
     private User $coach;
     private User $player;
     private Team $team;
@@ -36,6 +37,8 @@ class TeamInvitationsTest extends TestCase
         Profile::factory()->create(['user_id' => $this->player->id]);
         Player::factory()->create(['user_id' => $this->player->id,'born_date' => '2010-01-01']);
         PlayerTeam::factory()->create(['user_id' => $this->player->id,'team_id' => $this->team->id,'actual' => true]);
+        // These invitation lifecycle tests start after the player completed the new policy step.
+        app(\App\Services\Consent\PlayerConsentService::class)->setup($this->player, ['born_date' => '2010-01-01', ...$this->policyAgreement()], \Illuminate\Http\Request::create('/setup', 'POST'));
     }
 
     /** @dataProvider playerStatuses */
@@ -92,14 +95,14 @@ class TeamInvitationsTest extends TestCase
         $payload = ['role' => 'player', 'user_id' => $this->player->id, 'email' => $this->player->email];
         foreach ([null, now()->subYears(12)->toDateString()] as $born) {
             $this->player->player->update(['born_date' => $born]);
-            $this->postJson($base, $payload)->assertUnprocessable();
+            $this->postJson($base, $payload)->assertStatus($born === null ? 202 : 422);
         }
         $this->player->player->update(['born_date' => '2010-01-01']);
         PlayerTeam::where('user_id', $this->player->id)->update(['actual' => false]);
         $this->postJson($base, $payload)->assertNotFound();
         $this->getJson($base.'?focus_player='.$this->player->id)->assertOk()
             ->assertJsonCount(0, 'players.data')->assertJsonPath('focused_player', null);
-        $this->assertSame(0, TeamInvitation::count());
+        $this->assertSame(1, TeamInvitation::count()); // Missing DOB may receive a setup invitation; activation still requires age.
         Notification::assertNothingSent();
     }
 
@@ -601,7 +604,7 @@ class TeamInvitationsTest extends TestCase
     {
         \Illuminate\Support\Facades\Event::fake([\App\Events\UserCreated::class, \App\Events\UserChanged::class]);
         Sanctum::actingAs($this->coach, ['coach']);
-        $payload = ['team' => $this->team->id, 'name' => ['first' => 'New', 'last' => 'Athlete'], 'email' => 'new.athlete@example.com', 'player' => ['born_date' => '2010-01-01', 'position' => 'SS'], 'send_invitation' => true];
+        $payload = [...$this->policyAgreement(), 'team' => $this->team->id, 'name' => ['first' => 'New', 'last' => 'Athlete'], 'email' => 'new.athlete@example.com', 'player' => ['born_date' => '2010-01-01', 'position' => 'SS'], 'send_invitation' => true];
         $response = $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('invitation.status', 'queued');
         $id = $response->json('data.id');
         $this->assertDatabaseHas('players', ['user_id' => $id, 'born_date' => '2010-01-01']);
@@ -617,11 +620,12 @@ class TeamInvitationsTest extends TestCase
     {
         \Illuminate\Support\Facades\Event::fake([\App\Events\UserCreated::class, \App\Events\UserChanged::class]);
         Sanctum::actingAs($this->coach, ['coach']);
-        $payload = ['team' => $this->team->id, 'name' => ['first' => 'Saved', 'last' => 'Athlete'], 'send_invitation' => true];
+        $payload = [...$this->policyAgreement(), 'team' => $this->team->id, 'name' => ['first' => 'Saved', 'last' => 'Athlete'], 'send_invitation' => true];
         $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('invitation.status', 'not_queued');
         foreach ([null, now()->subYears(12)->toDateString()] as $dob) {
-            $this->postJson('/api/coach/add/players', $payload + ['email' => uniqid().'@example.com', 'player' => ['born_date' => $dob]])->assertOk()->assertJsonPath('invitation.status', 'not_queued');
+            $this->postJson('/api/coach/add/players', $payload + ['email' => uniqid().'@example.com', 'player' => ['born_date' => $dob]])->assertOk()->assertJsonPath('invitation.status', $dob === null ? 'queued' : 'not_queued');
         }
+        \Illuminate\Support\Facades\Queue::fake();
         config(['communications.invitations_enabled' => false]);
         $this->postJson('/api/coach/add/players', $payload + ['email' => 'disabled@example.com', 'player' => ['born_date' => '2010-01-01']])->assertOk()->assertJsonPath('invitation.status', 'not_queued');
         $this->assertDatabaseHas('users', ['email' => 'disabled@example.com']);
@@ -633,9 +637,11 @@ class TeamInvitationsTest extends TestCase
         $this->team->update(['join_code' => 'SAFE23']);
         foreach ([null, now()->subYears(12)->toDateString()] as $dob) {
             $this->player->player->update(['born_date' => $dob]);
-            $this->postJson('/api/player/join', ['contact' => $this->player->email, 'team_code' => 'SAFE23'])->assertUnprocessable();
+            $joined = $this->postJson('/api/player/join', ['contact' => $this->player->email, 'team_code' => 'SAFE23'])->assertOk();
+            $this->withToken($joined->json('data.token'))->postJson('/api/player/set-credentials', ['email' => $this->player->email, 'password' => 'Password123', 'password_confirmation' => 'Password123'])->assertUnprocessable();
             $code = app(\App\Services\Security\AccountClaimService::class)->issue($this->player);
-            $this->postJson('/api/player/join', ['contact' => $this->player->email, 'claim_code' => $code])->assertUnprocessable();
+            $joined = $this->postJson('/api/player/join', ['contact' => $this->player->email, 'claim_code' => $code])->assertOk();
+            $this->withToken($joined->json('data.token'))->postJson('/api/player/set-credentials', ['email' => $this->player->email, 'password' => 'Password123', 'password_confirmation' => 'Password123'])->assertUnprocessable();
             $this->assertNull($this->player->fresh()->password);
         }
     }

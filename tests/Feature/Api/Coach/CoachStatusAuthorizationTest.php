@@ -13,6 +13,7 @@ use Tests\TestCase;
 
 class CoachStatusAuthorizationTest extends TestCase
 {
+    use \Tests\Concerns\AcceptsPlayerPolicies;
     public static function statuses(): array
     {
         return [[false, true], [false, false], [true, true], [true, false]];
@@ -32,7 +33,7 @@ class CoachStatusAuthorizationTest extends TestCase
         $token = $login->json('data.token');
         $this->assertNotEmpty($token);
         $this->withToken($token)->getJson('/api/coach/teams')->assertOk();
-        $payload = ['name' => ['first' => 'New', 'last' => 'Player'], 'team' => $team->id, 'send_invitation' => false];
+        $payload = [...$this->policyAgreement(), 'name' => ['first' => 'New', 'last' => 'Player'], 'team' => $team->id, 'send_invitation' => false];
         $this->withToken($token)->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('invitation.status', 'not_requested');
         $this->assertSame($status, $coach->fresh()->status);
         $this->withToken($token)->postJson('/api/coach/add/players', array_replace($payload, ['team' => Team::factory()->create()->id]))->assertForbidden();

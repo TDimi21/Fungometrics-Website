@@ -59,7 +59,6 @@ class PlayerProfileClaimService
             /** @var User $player */
             $player = User::query()->lockForUpdate()->findOrFail($matches->first()->id);
 
-            app(\App\Services\Communications\InvitationEligibility::class)->assertPlayerAge($player);
             if (filled($player->password)) {
                 $this->audit->record('player_profile.claim_rejected_already_complete', $player->id, $team->id, $request);
                 $this->failClaim();
@@ -78,6 +77,8 @@ class PlayerProfileClaimService
             return [
                 'status' => 'success',
                 'token' => $accessToken->plainTextToken,
+                'next_action' => 'setup',
+                'policies' => app(\App\Services\Consent\PlayerConsentService::class)->policies(),
             ];
         });
     }
@@ -94,7 +95,6 @@ class PlayerProfileClaimService
             if (!$matches || !$player->status || filled($player->password)) {
                 $this->failClaim();
             }
-            app(\App\Services\Communications\InvitationEligibility::class)->assertPlayerAge($player);
             $claims->consume($claim, $request);
             $token = $player->createToken('profile_claim:individual', ['profile-claim'], now()->addMinutes(10));
             return ['status' => 'success', 'token' => $token->plainTextToken];

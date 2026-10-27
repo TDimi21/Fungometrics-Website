@@ -1,5 +1,7 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import PlayerClaimSetup from '@/components/login/PlayerClaimSetup.vue'
+const claimSetupToken = ref(null), claimSetupReady = ref(false)
 import { retainInvitationToken, retainInvitationDraft, clearInvitationToken, rememberCommunicationDestination, consumeCommunicationDestination } from '@/utils/communicationDestination.js'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
@@ -28,6 +30,7 @@ const valid = ref(false), busy = ref(false), error = ref(''), accepted = ref(fal
 const draft = retainInvitationDraft()
 const email = ref(draft.email), password = ref(''), firstName = ref(''), lastName = ref('')
 const claimCode = ref(draft.claimCode)
+watch([email, claimCode], () => { claimSetupToken.value = null; claimSetupReady.value = false; setupStep.value = false })
 function useTeamCode() {
   clearInvitationToken()
   consumeCommunicationDestination('/')
@@ -64,9 +67,14 @@ async function switchAccount() {
 }
 async function accept() {
   if (otherAccount.value) return
-  if (props.playerClaim && !setupStep.value) { setupStep.value = true; return }
   busy.value = true; error.value = ''
   try {
+    if (!claimSetupReady.value) {
+      const prepared = await axios.post(api + 'invitations/prepare-setup', {...(token ? {token} : {claim_code:claimCode.value}), email:email.value})
+      if (prepared.data.setup_required) { claimSetupToken.value = prepared.data.token; return }
+      claimSetupReady.value = true
+    }
+    if (props.playerClaim && !setupStep.value) { setupStep.value = true; return }
     const { data } = await axios.post(api + 'invitations/accept', { ...(token ? { token } : { claim_code: claimCode.value }), email: email.value, password: password.value || null, first_name: firstName.value, last_name: lastName.value }, { withCredentials: true })
     accepted.value = true; clearInvitationToken(); consumeCommunicationDestination(data.dashboard_path); rememberCommunicationDestination(data.dashboard_path); loginPath.value = data.login_path
     if ((props.playerClaim ? context.value?.matching_account : auth.isLogged.status) && !password.value) { await router.replace(consumeCommunicationDestination(data.dashboard_path)); return }
@@ -91,6 +99,7 @@ async function accept() {
     <p v-else>Claim the profile your coach created, including your existing training history. No team code is needed.</p>
     <p role="alert" v-if="error">{{ error }}</p>
     <RouterLink v-if="accepted" :to="loginPath">Sign in to your dashboard</RouterLink>
+    <PlayerClaimSetup v-else-if="claimSetupToken && !claimSetupReady" :token="claimSetupToken" @ready="claimSetupReady = true; setupStep = true" @restart="claimSetupToken = null; claimSetupReady = false; setupStep = false" />
     <form v-else-if="valid" @submit.prevent="accept" autocomplete="off">
       <div v-if="otherAccount" role="alert">
         <p>A different account is signed in. Sign out before claiming this player profile. This will not change the signed-in account.</p>
@@ -103,7 +112,7 @@ async function accept() {
       <label v-else>Email<input v-model="email" type="email" autocomplete="email" required maxlength="191"></label>
       <label v-if="playerClaim">Team code<input :value="context?.team_code || 'Connected by invitation'" name="invited-player-team" autocomplete="off" readonly></label>
       <p v-if="playerClaim && !setupStep">Your invitation has filled in these details. No backup code is needed.</p>
-      <label v-if="!playerClaim || setupStep">{{ playerClaim && !context?.has_password ? 'Create your player password' : 'Player password' }}<input v-model="password" type="password" :autocomplete="playerClaim && !context?.has_password ? 'new-password' : 'current-password'" :required="playerClaim ? !context?.matching_account : !auth.isLogged.status"></label>
+      <label v-if="!playerClaim || setupStep">{{ playerClaim && !context?.has_password ? 'Create your player password' : 'Player password' }}<input v-model="password" type="password" :autocomplete="playerClaim && !context?.has_password ? 'new-password' : 'current-password'" :required="claimSetupReady && (playerClaim ? !context?.matching_account : !auth.isLogged.status)"></label>
       <p v-if="playerClaim && setupStep">{{ context?.has_password ? 'Use your existing player password. If already signed in to this player account, you can leave it blank.' : 'Choose a password for this player profile. Your coach account and its password are separate.' }}</p>
       <RouterLink v-if="!playerClaim && !auth.isLogged.status" @click="continueToLogin" to="/login/player">Sign in to an existing player account, then return here</RouterLink>
       <RouterLink v-if="!playerClaim && !auth.isLogged.status" @click="continueToLogin" to="/login/coach">Sign in to an existing coach account, then return here</RouterLink>

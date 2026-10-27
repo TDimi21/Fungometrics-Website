@@ -73,6 +73,12 @@ class InvitationController extends Controller
         ])->header('Cache-Control', 'no-store');
     }
 
+    public function prepareSetup(Request $request, InvitationService $service)
+    {
+        $data = $request->validate(['token' => 'required_without:claim_code|prohibits:claim_code|nullable|string|size:64', 'claim_code' => 'required_without:token|prohibits:token|nullable|string|max:24|regex:/^[a-fA-F0-9 -]+$/', 'email' => 'required|email:rfc|max:191']);
+        return response()->json($service->preparePlayerSetup($data))->header('Cache-Control', 'no-store');
+    }
+
     public function accept(Request $request, InvitationService $service)
     {
         $data = $request->validate(['token' => 'required_without:claim_code|prohibits:claim_code|nullable|string|size:64','claim_code' => 'required_without:token|prohibits:token|nullable|string|max:24|regex:/^[a-fA-F0-9 -]+$/','email' => 'required|email:rfc|max:191','password' => 'nullable|string','first_name' => 'nullable|string|max:100','last_name' => 'nullable|string|max:100']);

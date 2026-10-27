@@ -230,7 +230,8 @@ const submitAddPlayer = async () => {
     if (dataPlayer.born) dataForm.append('player[born_date]', dataPlayer.born)
     if (dataPlayer.position) dataForm.append('player[position]', dataPlayer.position)
     dataForm.append('send_invitation', dataPlayer.sendInvitation && dataPlayer.email ? '1' : '0')
-    await createPlayer(team.value, dataForm).then(async function (response) {
+    await createPlayer(team.value, dataForm, dataPlayer).then(async function (response) {
+      dataPlayer.policy_accepted = false;
       let tempResponse = response.data.data
       let playerToSetInStore = {
         "id": tempResponse.id,

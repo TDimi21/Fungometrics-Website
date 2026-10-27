@@ -84,6 +84,7 @@ class FreeAssessmentController extends Controller
     {
         $this->access->event($request->user(), $assessment);
         $data = $request->validate([
+            ...app(\App\Services\Consent\PlayerConsentService::class)->acceptanceRules(),
             'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100',
             'phone' => 'required|string|max:30', 'born_date' => 'required|date_format:Y-m-d|before_or_equal:today',
             'grad_year' => 'required|integer|min:1950|max:2100', 'height_in_ft' => 'required|integer|min:2|max:8', 'height_in_inch' => 'required|integer|min:0|max:11',
@@ -91,7 +92,7 @@ class FreeAssessmentController extends Controller
         ]);
         $phone = preg_replace('/\D/', '', $data['phone']);
         abort_unless(mb_strlen($phone) >= 10 && mb_strlen($phone) <= 15, 422, 'Enter a valid phone number including area code.');
-        return DB::transaction(function () use ($assessment, $data, $phone) {
+        return DB::transaction(function () use ($assessment, $data, $phone, $request) {
             // Serialize quick-add for this team; the users.phone unique constraint
             // also protects simultaneous creation from different teams.
             Team::whereKey($assessment->team_id)->lockForUpdate()->firstOrFail();
@@ -99,6 +100,7 @@ class FreeAssessmentController extends Controller
             abort_if($existing, 409, 'That phone is already associated with an account. Select the existing roster player or resolve the shared contact before creating another account.');
             $created = CoachUtils::saveNewUser(['phone' => $phone, 'name' => ['first' => $data['first_name'], 'last' => $data['last_name']], 'team' => $assessment->team_id, 'player' => ['grad_year' => $data['grad_year']]]);
             $id = $created['user']->id;
+            app(\App\Services\Consent\PlayerConsentService::class)->record($created['user'], $request->user(), $assessment->team_id, 'coach_assessment_create', $request);
             Player::updateOrCreate(['user_id' => $id], collect($data)->only(['born_date', 'grad_year', 'height_in_ft', 'height_in_inch', 'hit_side', 'throw_side'])->all());
             PlayerFitness::create(['user_id' => $id, 'fitness_date' => $assessment->assessment_date, 'body_weight' => $data['weight']]);
             if ( ! empty($data['position'])) {

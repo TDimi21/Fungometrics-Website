@@ -66,6 +66,7 @@ class AddPlayers extends Controller
             $message = "";
             $changedEventData = null;
             if ( ! isset($player)) {
+                validator($data, app(\App\Services\Consent\PlayerConsentService::class)->acceptanceRules())->validate();
                 $savePlayer = CoachUtils::saveNewUser($data);
                 event(new UserCreated($savePlayer['user']));
                 if (!empty($data['player']['position'])) $savePlayer['user']->positions()->create(['position' => $data['player']['position']]);
@@ -103,6 +104,7 @@ class AddPlayers extends Controller
                 }
                 $response['team_code'] = $claimTeam->join_code;
             }
+            if (!isset($player)) app(\App\Services\Consent\PlayerConsentService::class)->record($claimUser, $request->user(), $data['team'], 'coach_create', $request);
             DB::commit();
             \Illuminate\Support\Facades\Cache::forget("roster_team_{$data['team']}");
             if (null !== $changedEventData) {

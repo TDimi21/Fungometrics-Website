@@ -44,6 +44,6 @@ class InvitationEligibility
             || !PlayerTeam::where('team_id', $invite->team_id)->where('user_id', $user->id)->where('actual', true)->exists()) {
             throw ValidationException::withMessages(['invitation' => 'This invitation is no longer available.']);
         }
-        $this->assertPlayerAge($user);
+        if (filled($user->player?->born_date)) $this->assertPlayerAge($user);
     }
 }

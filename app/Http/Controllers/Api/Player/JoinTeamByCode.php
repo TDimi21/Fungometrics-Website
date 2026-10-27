@@ -29,9 +29,12 @@ class JoinTeamByCode extends Controller
                 ? $claims->claimWithCode($validated['contact'] ?? $validated['email'] ?? $validated['phone'], $validated['claim_code'], $request)
                 : $claims->claim($validated['contact'] ?? $validated['email'] ?? $validated['phone'], $validated['team_code'], $request);
         } catch (ValidationException $exception) {
+            // Keep specific validation messages when available. Birth-date setup
+            // now happens after the restricted claim session is issued.
+            $eligibilityMessage = $exception->errors()['invitation'][0] ?? null;
             return response()->json([
                 'status' => 'error',
-                'message' => 'No unclaimed player profile matches that email or phone number and code.',
+                'message' => $eligibilityMessage ?? 'No unclaimed player profile matches that email or phone number and code.',
                 'errors' => $exception->errors(),
             ], 422);
         } catch (Throwable $exception) {
@@ -47,7 +50,7 @@ class JoinTeamByCode extends Controller
 
         return response()->json([
             'code' => '018',
-            'message' => 'Player profile found. Create your login to finish claiming it.',
+            'message' => 'Player profile found. Complete your birth date and policy agreement to continue.',
             'status' => 'success',
             'data' => $result,
         ]);

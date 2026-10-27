@@ -59,7 +59,7 @@ class InvitationService
                 $user = User::query()->lockForUpdate()->findOrFail($data['user_id'] ?? '');
                 // Legacy player registration leaves status=0; eligibility is not activation status.
                 abort_unless('player' === $user->type && PlayerTeam::where('team_id', $teamId)->where('user_id', $user->id)->where('actual', true)->exists(), 404);
-                app(InvitationEligibility::class)->assertPlayerAge($user);
+                if (filled($user->player?->born_date)) app(InvitationEligibility::class)->assertPlayerAge($user);
                 // A coach cannot redirect an existing account's invitation to another mailbox.
                 if (filled($user->email) && mb_strtolower($user->email) !== $email) {
                     $this->invalid('Use the email already recorded on this player account.');
@@ -151,6 +151,30 @@ class InvitationService
         return ['claim_code_hash', hash('sha256', $code)];
     }
 
+    public function preparePlayerSetup(array $data): array
+    {
+        $this->enabled();
+        [$column, $digest] = $this->credential($data);
+        $snapshot = TeamInvitation::where($column, $digest)->first();
+        if (!$snapshot || $snapshot->state() !== 'pending') $this->invalid('This invitation is invalid or no longer available.');
+        return DB::transaction(function () use ($snapshot, $data, $column, $digest) {
+            Team::lockForUpdate()->findOrFail($snapshot->team_id);
+            $invite = TeamInvitation::lockForUpdate()->findOrFail($snapshot->id);
+            if ($invite->state() !== 'pending' || !hash_equals((string) $invite->{$column}, $digest)
+                || strtolower(trim($data['email'])) !== $invite->email) $this->invalid('The invitation and account details do not match.');
+            $inviter = User::findOrFail($invite->invited_by);
+            $this->authorize($inviter, $invite->team_id, $invite->role === 'coach');
+            if ($invite->role !== 'player') return ['setup_required' => false];
+            $user = User::lockForUpdate()->findOrFail($invite->user_id);
+            abort_unless($user->type === 'player' && PlayerTeam::where('team_id', $invite->team_id)->where('user_id', $user->id)->where('actual', true)->exists(), 404);
+            if (filled($user->email) && strtolower($user->email) !== $invite->email) $this->invalid('This invitation needs account review.');
+            if (filled($user->password)) return ['setup_required' => false];
+            $user->tokens()->where('name', 'like', 'profile_claim%')->delete();
+            $token = $user->createToken('profile_claim_invitation:'.$invite->id, ['profile-setup'], now()->addMinutes(10));
+            return ['setup_required' => true, 'token' => $token->plainTextToken];
+        });
+    }
+
     public function accept(array $data, ?User $actor): string
     {
         $this->enabled();
@@ -176,7 +200,10 @@ class InvitationService
                 $this->invalid('This account is no longer available.');
             }
             if ($user) {
-                if ($invite->role === 'player') app(InvitationEligibility::class)->assertPlayerAge($user);
+                if ($invite->role === 'player') {
+                    if (filled($user->password)) app(InvitationEligibility::class)->assertPlayerAge($user);
+                    else app(\App\Services\Consent\PlayerConsentService::class)->assertReady($user);
+                }
                 if ($user->type !== $invite->role || (filled($user->email) && mb_strtolower($user->email) !== $invite->email)) {
                     $this->invalid('This account needs review.');
                 }

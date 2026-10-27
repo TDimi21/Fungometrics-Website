@@ -1,0 +1,65 @@
+Player creation agreement and claim setup — October 27, 2026
+
+Requested final scope
+A required, initially unchecked coach acknowledgment when a NEW player profile
+is created. No signed-form uploads, parent review queue, consent provider,
+parent emails, or guardian account activation were added.
+
+Behavior
+- Web roster, global Add Player, free-assessment quick-add and mobile Add Player
+  / assessment quick-add show the agreement and Terms/Privacy links.
+- New-profile API requests must carry affirmative acceptance and the exact
+  terms, privacy and acknowledgment versions shown to the coach.
+- Existing-player roster attachment does not fabricate a new acceptance.
+- A transactional audit record saves accepting actor, player, team, context,
+  server timestamp, exact acknowledgment text and policy versions.
+- Ordinary coach roster creation does not require DOB. Assessment-specific
+  fields remain required where the assessment workflow already requires them.
+- Team-code lookup now returns only a short-lived restricted claim token even
+  when DOB is absent. The player enters DOB and accepts policies, then creates
+  credentials for the SAME original player. No duplicate profile is created.
+- Under-13 declarations persist across retries. Altering the declared DOB
+  requires support correction; changing a known under-13 DOB to an adult DOB
+  through claim setup is refused. Under-13 profiles remain coach-managed.
+- A checkbox is an authorization/policy acknowledgment, NOT verified parental
+  consent. No under-13 self-service activation has been enabled.
+- Invitation links/manual codes use the same setup. Setup-only invitation tokens
+  cannot call set-credentials or normal account APIs. Original invitation
+  acceptance still checks expiry, revocation, membership and ownership.
+- Native claim requests are online-only and suppress sensitive HTTP logging.
+
+Deployment
+Apply migration 2026_10_27_160000_create_player_consent_tables.php before using
+this backend release; ship the updated web bundle and mobile client together.
+Older mobile clients cannot create a NEW player or finish a claim without the
+new policy fields/setup step. Normal login and existing roster linking remain.
+The migration only adds player_claim_setups and player_policy_acceptances;
+there is no automatic backfill of historical consent or acceptance.
+Use existing reviewed backup/migration/release procedures. No production data
+was changed, and no release was committed, pushed, deployed, or sent to Apple.
+The existing iOS project.pbxproj working-tree change was left untouched.
+
+Policy management
+config/player_consent.php identifies the current document/acknowledgment
+versions. Keep those values and the rendered Terms/Privacy documents aligned.
+If legal URLs point at external documents, publish those same versions there.
+The checkbox does not remove obligations associated with youth roster data.
+Review actual policies and data practices before publishing legal changes.
+
+Validation
+Focused backend integration tests exercise creation authorization, duplicate
+identity preservation, missing DOB setup, checked/unchecked and stale policies,
+known/declared underage restrictions, exact age boundary, invitation setup,
+restricted tokens, invitation lifecycle and assessment creation.
+Frontend tests cover explicit acceptance serialization and native setup outcomes.
+Web build and native bundle are build checks, not physical-device validation.
+
+Completed local checks
+- Backend: 135 focused integration tests passed.
+- Web: all 80 frontend suites / 496 tests passed.
+- Native: 4 focused suites / 38 tests passed.
+- Web production build succeeded (temporary output only).
+- iOS production JavaScript bundle succeeded (temporary output only).
+- New native components/invitation screen ESLint passed; changed PHP syntax
+  checks and git diff --check passed in both repositories.
+- No physical-device or interactive browser validation was performed.

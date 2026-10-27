@@ -21,13 +21,14 @@ use Tests\TestCase;
 
 class AddPlayersTest extends TestCase
 {
+    use \Tests\Concerns\AcceptsPlayerPolicies;
     public function test_coach_can_add_and_reuse_email_only_player(): void
     {
         $coach = User::factory()->create(['type' => 'coach', 'status' => true]);
         $team = Team::factory()->create();
         CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
         Sanctum::actingAs($coach, ['coach']);
-        $payload = ['email' => 'NewPlayer@example.com', 'team' => $team->id, 'name' => ['first' => 'New', 'last' => 'Player']];
+        $payload = [...$this->policyAgreement(), 'email' => 'NewPlayer@example.com', 'team' => $team->id, 'name' => ['first' => 'New', 'last' => 'Player']];
         $first = $this->postJson('/api/coach/add/players', $payload)->assertOk()->assertJsonPath('data.email', 'newplayer@example.com');
         $this->assertSame($team->fresh()->join_code, $first->json('team_code'));
         $this->assertSame(6, strlen($first->json('team_code')));
@@ -43,6 +44,7 @@ class AddPlayersTest extends TestCase
         CoachTeam::factory()->create(['coach_id' => $coach->id, 'team_id' => $team->id, 'is_main' => true]);
         Sanctum::actingAs($coach, ['coach']);
         $added = $this->postJson('/api/coach/add/players', [
+            ...$this->policyAgreement(),
             'email' => 'email@fungo.com', 'team' => $team->id, 'player' => ['born_date' => '2000-01-01'],
             'name' => ['first' => 'Email', 'last' => 'Player'],
         ])->assertOk();
@@ -85,6 +87,7 @@ class AddPlayersTest extends TestCase
         Sanctum::actingAs($coach, [UserTypes::COACH->value]);
 
         $this->json('POST', 'api/coach/add/players', [
+            ...$this->policyAgreement(),
             'phone' => fake()->unique()->phoneNumber,
             'team' => $team->id,
             'name' => ['first' => fake()->firstName, 'last' => fake()->lastName],
@@ -110,6 +113,7 @@ class AddPlayersTest extends TestCase
         Sanctum::actingAs($coach, [UserTypes::COACH->value]);
 
         $this->json('POST', 'api/coach/add/players', [
+            ...$this->policyAgreement(),
             'phone' => fake()->unique()->phoneNumber,
             'team' => $team->id,
             'name' => ['first' => fake()->firstName, 'last' => fake()->lastName],
@@ -131,6 +135,7 @@ class AddPlayersTest extends TestCase
         Sanctum::actingAs($coach, [UserTypes::COACH->value]);
 
         $this->json('POST', 'api/coach/add/players', [
+            ...$this->policyAgreement(),
             'phone' => fake()->unique()->phoneNumber,
             'team' => $team->id,
             'name' => ['first' => fake()->firstName, 'last' => fake()->lastName],
@@ -150,6 +155,7 @@ class AddPlayersTest extends TestCase
         ]);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
         $data = [
+            ...$this->policyAgreement(),
             'phone' => fake()->phoneNumber,
             'team' => $team_coach->id,
             'name' => [
@@ -186,6 +192,7 @@ class AddPlayersTest extends TestCase
         ]);
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
         $data = [
+            ...$this->policyAgreement(),
             'phone' => $player->phone,
             'team' => $team_coach->id,
             'name' => [
@@ -215,6 +222,7 @@ class AddPlayersTest extends TestCase
 
         Sanctum::actingAs($user, [UserTypes::COACH->value]);
         $data = [
+            ...$this->policyAgreement(),
             'phone' => $player->phone,
             'team' => $team_coach->id,
             'name' => [
@@ -263,6 +271,7 @@ class AddPlayersTest extends TestCase
         ]);
 
         $data = [
+            ...$this->policyAgreement(),
             'phone' => $player->phone,
             'name' => [
                 'first' => $player->profile->first_name,

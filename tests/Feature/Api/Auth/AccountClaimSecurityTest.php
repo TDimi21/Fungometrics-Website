@@ -23,6 +23,7 @@ use Tests\TestCase;
 
 class AccountClaimSecurityTest extends TestCase
 {
+    use \Tests\Concerns\AcceptsPlayerPolicies;
     public function test_team_code_claim_accepts_email_and_keeps_the_existing_player(): void
     {
         $player = User::factory()->create(['type' => 'player', 'email' => 'roster@example.com', 'phone' => null, 'password' => null, 'status' => true]);
@@ -35,6 +36,7 @@ class AccountClaimSecurityTest extends TestCase
         $response = $this->postJson('/api/player/join', ['contact' => 'ROSTER@example.com', 'team_code' => strtolower($team->join_code)])->assertOk();
         $token = $response->json('data.token');
         $this->assertSame(['profile-claim'], PersonalAccessToken::findToken($token)->abilities);
+        $this->completePolicySetup($token);
         $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/player/set-credentials', [
             'email' => 'roster@example.com', 'password' => 'password123', 'password_confirmation' => 'password123',
         ])->assertOk()->assertJsonPath('data.user.id', $player->id)->assertJsonPath('data.team.id', $team->id);
@@ -62,6 +64,7 @@ class AccountClaimSecurityTest extends TestCase
         $response = $this->postJson('/api/player/join', ['contact' => 'INVITE@example.com', 'claim_code' => $code])->assertOk();
         $token = $response->json('data.token');
         $this->postJson('/api/player/join', ['contact' => 'invite@example.com', 'claim_code' => $code])->assertUnprocessable();
+        $this->completePolicySetup($token);
         $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/player/set-credentials', [
             'email' => 'invite@example.com', 'password' => 'password123', 'password_confirmation' => 'password123',
         ])->assertOk()->assertJsonPath('data.user.id', $player->id);
@@ -258,6 +261,7 @@ class AccountClaimSecurityTest extends TestCase
         ])->assertOk();
         $claimToken = $claim->json('data.token');
 
+        $this->completePolicySetup($claimToken);
         $credentials = $this->withToken($claimToken)->postJson('/api/player/set-credentials', [
             'email' => 'newplayer@example.com',
             'password' => 'password123',

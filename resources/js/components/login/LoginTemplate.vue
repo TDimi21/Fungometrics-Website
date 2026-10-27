@@ -1,6 +1,7 @@
 <script setup>
 import { consumeCommunicationDestination, pendingCommunicationDestination } from '@/utils/communicationDestination.js'
 import { reactive, ref, computed } from 'vue'
+import PlayerClaimSetup from './PlayerClaimSetup.vue'
 import {BigButtonField, InputBase, LabelField, PasswordField, SwitchField} from '../../components/form'
 import axios from "axios";
 import {toast} from "../../utils/AlertPlugin";
@@ -183,11 +184,11 @@ const submitClaimForm = async () => {
     claimCredentials.email = phone.includes('@') ? phone.toLowerCase() : ''
     claimCredentials.password = ''
     claimCredentials.confirmPassword = ''
-    claimStep.value = 'credentials'
+    claimStep.value = 'setup'
     await toast.fire({
       icon: 'info',
-      title: 'Create Your Login',
-      text: 'Set your email and password to finish claiming your profile.',
+      title: 'Complete Your Profile',
+      text: 'Confirm your birth date and review the account policies.',
     })
   } catch (error) {
     const message = error?.response?.data?.message || error?.message || 'Could not claim profile. Please try again.'
@@ -265,7 +266,7 @@ const submitClaimCredentials = async () => {
 <template>
   <Loader v-show="!isLoading.status"/>
   <div :style="{ backgroundImage: `url('${ props.backgroundImage }')` }"
-       class="grid h-screen bg-no-repeat bg-cover place-items-center">
+       class="grid min-h-screen bg-no-repeat bg-cover place-items-center py-6">
     <div class="grid w-full h-full grid-flow-row bg-gradient place-items-center">
       <RouterLink to="/">
       <div class="grid-rows-1"><img alt="Fungo's logo" src="../../assets/img/login/assteslogin/logo-fungo.png"></div>
@@ -325,7 +326,7 @@ const submitClaimCredentials = async () => {
       </FormKit>
 
       <RouterLink v-if="isPlayerLogin" to="/invitations/accept" class="block my-3 text-white underline">Claim your invited profile — no team code needed</RouterLink>
-      <form v-if="isClaimMode && !isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
+      <form v-if="isClaimMode && claimStep === 'find'" class="w-full max-w-xl" @submit.prevent="submitClaimForm">
         <div class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-sm font-bold text-white mb-2">Email or Phone Number</label>
@@ -358,6 +359,7 @@ const submitClaimCredentials = async () => {
         </div>
       </form>
 
+      <PlayerClaimSetup v-if="isClaimMode && claimStep === 'setup'" :token="claimedSession.token" @ready="claimStep = 'credentials'" @restart="claimStep = 'find'; claimedSession = null" />
       <form v-if="isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimCredentials">
         <div class="grid grid-cols-1 gap-4">
           <div>

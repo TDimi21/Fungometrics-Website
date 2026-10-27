@@ -272,6 +272,7 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
 Route::prefix('player')->group(function (): void {
     Route::post('register', RegisterPlayerController::class);
     Route::middleware('throttle:5,1')->post('join', JoinTeamByCode::class);
+    Route::post('claim-setup', [\App\Http\Controllers\Api\Player\PlayerConsentController::class, 'setup'])->middleware(['auth:sanctum', 'ability:profile-claim,profile-setup', 'throttle:10,1']);
     Route::middleware(['auth:sanctum', 'ability:profile-claim'])->group(function (): void {
         Route::post('set-credentials', SetPlayerCredentials::class); // first-time email+password setup after claim
     });
@@ -676,3 +677,7 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'route.scope'])->group(funct
     Route::post('coach/teams/{teamId}/communications/announcements', [\App\Http\Controllers\Api\Communications\CommunicationController::class, 'announce'])->middleware('throttle:5,1');
     Route::post('coach/workouts/{id}/notify-update', [\App\Http\Controllers\Api\Communications\CommunicationController::class, 'republish'])->middleware('throttle:5,1');
 });
+
+Route::get('player/claim-policies', [\App\Http\Controllers\Api\Player\PlayerConsentController::class, 'policies']);
+
+Route::post('invitations/prepare-setup', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'prepareSetup'])->middleware('throttle:5,1');

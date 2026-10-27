@@ -196,9 +196,10 @@ const submitAddPlayer = async () => {
     if (player.born) dataForm.append("player[born_date]", player.born);
     if (player.position) dataForm.append("player[position]", player.position);
     dataForm.append("send_invitation", player.sendInvitation && player.email ? "1" : "0");
-    await createPlayer(team.value, dataForm)
+    await createPlayer(team.value, dataForm, player)
       .then(async function (response) {
         if (response.data.invitation?.message) window.alert(`Player saved. ${response.data.invitation.message}`);
+        player.policy_accepted = false;
         let tempResponse = response.data.data;
         let playerToSetInStore = {
           id: tempResponse.id,

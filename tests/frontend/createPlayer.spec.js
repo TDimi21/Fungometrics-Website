@@ -38,7 +38,23 @@ describe('coach player creation request', () => {
   })
   it.each(['resources/js/pages/roster/HomeRoster.vue', 'resources/js/layout/Layout.vue', 'resources/js/components/roster/PlayerCard.vue'])('routes each creation entry point through shared authenticated submission: %s', file => {
     const source = fs.readFileSync(file, 'utf8')
-    expect(source).toContain('createPlayer(team.value, dataForm)')
+    expect(source).toMatch(/createPlayer\(team.value, dataForm(?:, (?:player|dataPlayer))?\)/)
     expect(source).not.toMatch(/\.post\([^\n]*coach\/add\/players/)
+  })
+})
+
+describe('player creation policy acceptance', () => {
+  const policies = {terms_version:'v1', privacy_version:'v2', acknowledgment_version:'v3'}
+  it('blocks an unchecked agreement before sending a creation request', async () => {
+    await expect(useCreatePlayer()({id:teamId}, new FormData(), {policy_accepted:false,policy_info:policies})).rejects.toThrow('check')
+    expect(axios.post).not.toHaveBeenCalled()
+  })
+  it('posts the exact versions shown with an explicitly checked agreement', async () => {
+    await useCreatePlayer()({id:teamId}, new FormData(), {policy_accepted:true,policy_info:policies})
+    const sent = axios.post.mock.calls[0][1]
+    expect(sent.get('policy_accepted')).toBe('1')
+    expect(sent.get('terms_version')).toBe('v1')
+    expect(sent.get('privacy_version')).toBe('v2')
+    expect(sent.get('acknowledgment_version')).toBe('v3')
   })
 })

@@ -29,6 +29,10 @@ class AddUserRequest extends FormRequest
     public function rules()
     {
         return [
+            'policy_accepted' => ['sometimes', 'boolean'],
+            'terms_version' => ['sometimes', 'string', 'max:40'],
+            'privacy_version' => ['sometimes', 'string', 'max:40'],
+            'acknowledgment_version' => ['sometimes', 'string', 'max:40'],
             'phone' => $this->is('api/coach/add/players') ? ['nullable', 'string', 'max:32'] : ['required'],
             'email' => ['nullable', 'email', 'max:191'],
             'team' => $this->is('api/coach/add/players') ? ['required', 'uuid'] : ['required'],

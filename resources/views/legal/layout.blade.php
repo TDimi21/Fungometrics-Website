@@ -13,7 +13,7 @@
 <body><main>
     <a href="/">FMTRX</a>
     <h1>@yield('title')</h1>
-    <small>Effective July 23, 2026</small>
+    <small>Effective @yield('effective_date', 'July 23, 2026')</small>
     @yield('content')
     <p>
         <a href="{{ config('legal.privacy_url') }}">Privacy</a> ·
