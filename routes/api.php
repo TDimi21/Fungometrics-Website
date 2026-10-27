@@ -681,3 +681,15 @@ Route::middleware(['auth:sanctum', 'ability:coach', 'route.scope'])->group(funct
 Route::get('player/claim-policies', [\App\Http\Controllers\Api\Player\PlayerConsentController::class, 'policies']);
 
 Route::post('invitations/prepare-setup', [\App\Http\Controllers\Api\Communications\InvitationController::class, 'prepareSetup'])->middleware('throttle:5,1');
+
+// Private media: every metadata and byte request rechecks current sharing and roster access.
+Route::middleware(['auth:sanctum', 'ability:player,coach'])->prefix('player-videos')->group(function () {
+    $controller = \App\Http\Controllers\Api\Video\PlayerVideoController::class;
+    Route::get('context', [$controller, 'context']);
+    Route::get('/', [$controller, 'index']);
+    Route::post('/', [$controller, 'store'])->middleware('throttle:10,1');
+    Route::get('{video}/content', [$controller, 'content']);
+    Route::post('{video}/shares', [$controller, 'share']);
+    Route::delete('{video}/shares/{share}', [$controller, 'revoke']);
+    Route::delete('{video}', [$controller, 'destroy']);
+});

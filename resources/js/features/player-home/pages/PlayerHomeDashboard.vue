@@ -182,6 +182,7 @@ const openRecapReport = (session) => {
 
     <div class="min-h-full bg-surface px-4 py-5 text-white lg:px-6">
       <div class="mx-auto max-w-6xl space-y-4">
+        <RouterLink to="/player-videos" class="inline-block rounded-lg border border-white/20 px-4 py-3 font-bold">My Video Library →</RouterLink>
         <ConnectedTeamsCard :active-team-id="selectedTeam?.id" @select-team="selectedTeam = $event" />
         <TeamCollectedData v-if="selectedTeam" :key="selectedTeam.id" :team="selectedTeam" :player-id="playerId" @open-report="openRecapReport" />
         <PlayerAssessmentLinks v-if="!selectedTeam" :player-id="userData?.id || ''" />

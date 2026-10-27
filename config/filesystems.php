@@ -32,6 +32,12 @@ return [
 
     'disks' => [
 
+        'player_videos' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/player-videos'),
+            'throw' => true,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app'),

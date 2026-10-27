@@ -108,6 +108,13 @@ class AccountDeletionService
                 foreach ($teamIds as $teamId) \Illuminate\Support\Facades\Cache::forget('roster_team_'.$teamId);
             });
             $this->deleteReferencedPhotos($user->id);
+            if (Schema::hasTable('player_videos')) {
+                foreach (\App\Models\PlayerVideo::where('player_id', $user->id)->get() as $video) {
+                    Storage::disk('player_videos')->delete($video->path);
+                    $video->delete();
+                }
+                $this->deleteWhere('player_video_shares', 'coach_id', $user->id);
+            }
             $this->deleteWhere('coach_teams', 'coach_id', $user->id);
             $this->deleteWhere('player_teams', 'user_id', $user->id);
             $this->deleteWhere('player_daily_readiness', 'user_id', $user->id);

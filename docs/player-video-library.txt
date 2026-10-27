@@ -1,0 +1,35 @@
+Player video library — release notes
+
+Players upload private clips. Sharing is per clip with a current team (its coaches)
+or an individual coach on that team. No other players gain access. Coaches may
+upload for active roster players; that upload creates one share for the uploader.
+The player can revoke that share. Coaches cannot share a player's clips onwards.
+Coach access also requires current roster membership on both sides. Every list
+and playback request checks these conditions. Already downloaded/buffered bytes
+cannot be revoked. Deleting a player account removes its private video files.
+
+Web entry: Video Library sidebar / player dashboard link, /player-videos.
+App entry: More > Video Library. Coaches choose an active roster player and team.
+
+Before release:
+- Run the new player_videos/player_video_shares migration through the normal
+  deployment process; deploy backend and web assets before distributing the app.
+- Configure PHP upload_max_filesize >= 100M, post_max_size >= 110M and web server
+  client_max_body_size >= 110M. Allow upload requests up to 300 seconds and size
+  PHP/proxy timeouts appropriately. Application limit is 100 MiB per clip.
+- storage/app/private/player-videos must be writable by PHP, backed up, and NOT
+  exposed through nginx aliases or the public storage symlink. This first version
+  uses private local disk; multiple web nodes require a shared private filesystem.
+- Library quota is 50 clips / 2 GiB per player. Provision storage/monitor capacity.
+- Authenticated content endpoint supports HTTP Range via BinaryFileResponse.
+  Native playback sends bearer authorization. Web downloads authenticated blobs
+  for playback, releases object URLs on close, and never exposes a public file URL.
+- Verify on real iPhone/Android and target browsers with MP4 H.264, MOV and WebM.
+  There is no transcoding in this version: codec compatibility depends on device.
+  iPhone picker requests MP4 conversion. Failed uploads retain the form for retry.
+  Uploads are foreground-only, not resumable; keep the app open while uploading.
+- Check upload, play/seek, share one clip, revoke, coach/team removal, delete,
+  logout, oversized files, server outage, and full-library messages in staging.
+
+Timestamped comments, drawing, automated mechanics analysis, background upload,
+and managed video transcoding are not included in this release.

@@ -19,6 +19,7 @@ const userStore = useUserStore();
 const { userData } = storeToRefs(userStore);
 
 const sidebarItems = ref([
+  { title: 'Video Library', iconPath: iconRoster, url: '/player-videos' },
   {
     title: 'Home',
     iconPath: iconDashboard,
@@ -187,6 +188,7 @@ onMounted(() => {
     ]
   } else if (userData.value?.type == "player") {
     sidebarItems.value = [
+      { title: 'Video Library', iconPath: iconRoster, url: '/player-videos' },
       { title: 'Assessment Reports', iconPath: iconDashboard, url: '/assessment-reports' },
       {
         title: 'Dashboard',

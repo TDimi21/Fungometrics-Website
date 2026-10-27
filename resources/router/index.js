@@ -141,6 +141,12 @@ const routes = [
 		meta: { requiresAuth: true, allowAdmin: true },
 	},
 	{
+		name: "video.library",
+		path: "/player-videos",
+		component: () => import("@/features/video/VideoLibrary.vue"),
+		meta: { requiresAuth: true },
+	},
+	{
 		name: "playerDashboard",
 		path: "/player-dashboard",
 		component: () => import("@/features/player-home/pages/PlayerHomeDashboard.vue"),
