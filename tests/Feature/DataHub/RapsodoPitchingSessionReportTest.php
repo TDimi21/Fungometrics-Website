@@ -111,6 +111,17 @@ final class RapsodoPitchingSessionReportTest extends TestCase
         $this->getJson('/api/data-hub/rapsodo-reports')->assertOk()->assertJsonPath('data.0.id', $this->batchId);
     }
 
+    public function test_report_index_can_filter_the_players_reports_by_team(): void
+    {
+        Sanctum::actingAs($this->player, ['player']);
+        $this->getJson('/api/data-hub/rapsodo-reports?team_id='.$this->team->id)
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $this->batchId);
+        $otherTeam = Team::factory()->create();
+        $this->getJson('/api/data-hub/rapsodo-reports?team_id='.$otherTeam->id)
+            ->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/data-hub/rapsodo-reports')->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_genuine_zero_is_preserved_while_blank_metrics_remain_unavailable(): void
     {
         $sessionId = DB::table('external_sessions')->where('import_batch_id', $this->batchId)->value('id');

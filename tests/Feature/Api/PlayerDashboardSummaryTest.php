@@ -167,6 +167,66 @@ class PlayerDashboardSummaryTest extends TestCase
             ->assertJsonPath('data.counts.batting', 0);
     }
 
+    public function test_team_filter_isolates_results_and_all_data_combines_individual_and_team_sessions(): void
+    {
+        $player = User::factory()->create(['type' => UserTypes::PLAYER->value]);
+        $coach = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $teammate = User::factory()->create(['type' => UserTypes::PLAYER->value]);
+        $teams = \App\Models\Team::factory()->count(2)->create();
+        foreach ($teams as $team) {
+            \App\Models\PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
+        }
+        Sanctum::actingAs($player, [UserTypes::PLAYER->value]);
+        $individual = $this->makePractice($player->id, PracticeTypes::BATTING->value, PracticeModes::HIT_OR_PITCH->value);
+        $this->makeBattingRow($player->id, $individual->id, ['velocity' => 60]);
+        $teamPractices = [];
+        foreach ($teams as $index => $team) {
+            $practice = $this->makePractice($coach->id, PracticeTypes::BATTING->value, PracticeModes::HIT_OR_PITCH->value);
+            $practice->update(['team_id' => $team->id]);
+            $teamPractices[] = $practice;
+            $this->makeBattingRow($player->id, $practice->id, ['velocity' => 80 + $index * 20]);
+            // A teammate's result in the same session must never affect the player's stats.
+            $this->makeBattingRow($teammate->id, $practice->id, ['velocity' => 120]);
+        }
+        // Populate all three caches, then repeat in reverse order to catch scope collisions.
+        foreach ([null, 0, 1, 1, 0, null] as $scope) {
+            $url = 'api/player/dashboard-summary'.(null === $scope ? '' : '?team_id='.$teams[$scope]->id);
+            $response = $this->json('GET', $url)->assertOk()
+                ->assertJsonPath('data.counts.batting', null === $scope ? 3 : 1)
+                ->assertJsonPath('data.breakdowns.batting.swings', null === $scope ? 3 : 1);
+            $this->assertEquals(null === $scope ? 80 : 80 + $scope * 20, $response->json('data.breakdowns.batting.avgEV'));
+            if (null !== $scope) {
+                $response->assertJsonCount(1, 'data.recent_sessions')
+                    ->assertJsonPath('data.recent_sessions.0.id', $teamPractices[$scope]->id);
+            }
+        }
+        // Membership is checked even when a scoped payload is already cached.
+        \App\Models\PlayerTeam::where('user_id', $player->id)->where('team_id', $teams[0]->id)->delete();
+        $this->json('GET', 'api/player/dashboard-summary?team_id='.$teams[0]->id)->assertForbidden();
+        $this->json('GET', 'api/player/dashboard-summary')->assertOk()->assertJsonPath('data.counts.batting', 3);
+        $foreignTeam = \App\Models\Team::factory()->create();
+        $this->json('GET', 'api/player/dashboard-summary?team_id='.$foreignTeam->id)->assertForbidden();
+        $this->json('GET', 'api/player/dashboard-summary?team_id=invalid')->assertUnprocessable();
+    }
+
+    public function test_team_live_ab_participation_appears_in_combined_and_team_history(): void
+    {
+        $player = User::factory()->create(['type' => UserTypes::PLAYER->value]);
+        $coach = User::factory()->create(['type' => UserTypes::COACH->value]);
+        $team = \App\Models\Team::factory()->create();
+        \App\Models\PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
+        $practice = $this->makePractice($coach->id, PracticeTypes::LIVE_AB->value, PracticeModes::HIT_OR_PITCH->value);
+        $practice->update(['team_id' => $team->id]);
+        $this->makeBattingRow($player->id, $practice->id, ['is_in_match' => true]);
+        Sanctum::actingAs($player, ['player']);
+        foreach (['', '?team_id='.$team->id] as $query) {
+            $this->getJson('/api/player/dashboard-summary'.$query)->assertOk()
+                ->assertJsonPath('data.recent_sessions.0.id', $practice->id)
+                ->assertJsonPath('data.recent_sessions.0.total_balls', 1)
+                ->assertJsonPath('data.counts.batting', 0);
+        }
+    }
+
     private function makePractice(string $userId, string $type, string $mode): Practice
     {
         return Practice::factory()->create([

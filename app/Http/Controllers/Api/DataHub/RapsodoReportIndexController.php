@@ -16,6 +16,7 @@ final class RapsodoReportIndexController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $user = $request->user();
+        $teamId = $request->validate(['team_id' => 'nullable|uuid'])['team_id'] ?? null;
         $query = DB::table('import_batches as batch')
             ->join('translation_snapshots as snapshot', 'snapshot.id', '=', 'batch.translation_snapshot_id')
             ->join('platform_definitions as platform', 'platform.id', '=', 'snapshot.platform_definition_id')
@@ -23,6 +24,7 @@ final class RapsodoReportIndexController extends Controller
             ->join('profiles as profile', 'profile.user_id', '=', 'session.player_id')
             ->join('teams as team', 'team.id', '=', 'session.team_id')
             ->where('platform.key', 'rapsodo')
+            ->when($teamId, fn ($query) => $query->where('session.team_id', $teamId)->where('snapshot.team_id', $teamId))
             ->where('batch.status', 'completed')
             ->whereExists(fn ($events) => $events->selectRaw('1')->from('canonical_events as event')
                 ->whereColumn('event.external_session_id', 'session.id')->whereColumn('event.player_id', 'session.player_id'));

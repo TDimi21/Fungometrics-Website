@@ -1,14 +1,14 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useAxiosAuth } from '@/composables/axios-auth'
-const props = defineProps({ playerId: { type: String, default: '' } })
+const props = defineProps({ playerId: { type: String, default: '' }, teamId: { type: String, default: null } })
 const { axiosGet } = useAxiosAuth()
 const reports = ref([]), error = ref('')
 let generation = 0
-watch(() => props.playerId, async id => {
+watch(() => [props.playerId, props.teamId], async ([id, teamId]) => {
   const current = ++generation; reports.value = []; error.value = ''
   if (!id) return
-  try { const { data } = await axiosGet('free-assessment-reports', { player_id: id }); if (current === generation) reports.value = data.data }
+  try { const { data } = await axiosGet('free-assessment-reports', { player_id: id, ...(teamId ? { team_id: teamId } : {}) }); if (current === generation) reports.value = data.data }
   catch (_) { if (current === generation) error.value = 'Assessment reports could not be loaded.' }
 }, { immediate: true })
 </script>

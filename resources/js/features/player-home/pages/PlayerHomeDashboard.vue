@@ -11,6 +11,7 @@ import { useUserStore } from '@/store/user'
 import { useAxiosAuth } from '@/composables/axios-auth'
 import { resolvePlayerId, resolveTeamId } from '@/utils/identity.js'
 import updatedLogo from '@/assets/img/login/assteslogin/updatedlogo.webp'
+import TeamCollectedData from '../components/TeamCollectedData.vue'
 import ConnectedTeamsCard from '../components/ConnectedTeamsCard.vue'
 import ProfileCard from '../components/ProfileCard.vue'
 import BenchmarkTasksPanel from '../components/BenchmarkTasksPanel.vue'
@@ -50,6 +51,7 @@ const profileState = createSectionState()
 const statsState = createSectionState()
 const rapsodoState = createSectionState()
 
+const selectedTeam = ref(null)
 const summary = ref(mapDashboardSummary(null))
 const rapsodoReports = ref([])
 const playerFitnessLatest = ref(null)
@@ -180,7 +182,9 @@ const openRecapReport = (session) => {
 
     <div class="min-h-full bg-surface px-4 py-5 text-white lg:px-6">
       <div class="mx-auto max-w-6xl space-y-4">
-        <PlayerAssessmentLinks :player-id="userData?.id || ''" />
+        <ConnectedTeamsCard :active-team-id="selectedTeam?.id" @select-team="selectedTeam = $event" />
+        <TeamCollectedData v-if="selectedTeam" :key="selectedTeam.id" :team="selectedTeam" :player-id="playerId" @open-report="openRecapReport" />
+        <PlayerAssessmentLinks v-if="!selectedTeam" :player-id="userData?.id || ''" />
         <div
           v-if="sessionExpired"
           class="rounded-lg border border-accent-2/50 bg-accent-2/15 px-4 py-3 text-sm text-white"
@@ -189,7 +193,7 @@ const openRecapReport = (session) => {
           {{ SESSION_EXPIRED_MESSAGE }}
         </div>
 
-        <section class="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
+        <section v-if="!selectedTeam" class="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
           <div class="space-y-4">
             <StatePanel v-if="profileState.loading" state="loading" message="Loading profile…" />
             <StatePanel v-else-if="profileState.error" state="error" :message="profileState.error" @retry="loadProfile" />
@@ -212,7 +216,6 @@ const openRecapReport = (session) => {
             />
             <StatePanel v-if="rapsodoState.error" state="error" :message="rapsodoState.error" @retry="loadRapsodo" />
 
-            <ConnectedTeamsCard />
             <BenchmarkTasksPanel />
 
             <StatePanel v-if="statsState.loading" state="loading" message="Loading session counts…" />

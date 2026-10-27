@@ -2,6 +2,7 @@
 import DashCard from '@/features/shared/components/DashCard.vue'
 
 defineProps({
+  showMetrics: { type: Boolean, default: true },
   counts: { type: Object, required: true },
 })
 
@@ -10,7 +11,7 @@ defineEmits(['open-metrics'])
 
 <template>
   <DashCard title="Player Metrics">
-    <template #badge>
+    <template v-if="showMetrics" #badge>
       <button
         type="button"
         class="rounded-lg border border-accent-2/60 bg-accent-2/25 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white"

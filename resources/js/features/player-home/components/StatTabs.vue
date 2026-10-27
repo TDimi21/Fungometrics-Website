@@ -1,5 +1,6 @@
 <script setup>
 defineProps({
+  showWorkout: { type: Boolean, default: true },
   modelValue: { type: String, required: true },
   tabs: { type: Array, required: true },
 })
@@ -9,7 +10,7 @@ defineEmits(['update:modelValue', 'toggle-workout'])
 
 <template>
   <div class="sticky top-0 z-30 -mx-4 mb-4 border-b border-white/10 bg-surface-raised/95 px-4 pb-3 pt-1 backdrop-blur">
-    <div class="mb-4 flex justify-center">
+    <div v-if="showWorkout" class="mb-4 flex justify-center">
       <div class="relative flex w-full max-w-sm rounded-2xl border border-white/15 bg-surface-raised p-1.5 shadow-lg">
         <span
           class="absolute inset-y-1.5 left-1.5 w-[calc(50%-0.375rem)] rounded-xl bg-accent-2 shadow-md transition-transform duration-300 ease-out"

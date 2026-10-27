@@ -126,11 +126,18 @@ class LoginController extends Controller
 
       private function getDataLoginCoach(User $user): array
       {
-          $teams = CoachTeam::with(['team'])->where('coach_id', $user->id)->get();
+          $teams = CoachTeam::with(['team'])->where('coach_id', $user->id)
+              ->whereHas('team')
+              ->orderByDesc('is_main')->orderBy('created_at')->orderBy('team_id')->get();
+          // Native login selects teams[0]. Honor the same saved default and
+          // fallback order as the web's team-preferences endpoint; a temporary
+          // active-team selection must not override the login default.
+          $teams = $teams->sortByDesc(fn (CoachTeam $membership): bool =>
+              $membership->team_id === $user->default_team_id)->values();
           return [
               'user' => $user,
-              'team'=> $teams->where('is_main', true)->first()?->team,
-              'teams' => $teams->sortByDesc('is_main')
+              'team'=> $teams->first()?->team,
+              'teams' => $teams
 
           ];
       }

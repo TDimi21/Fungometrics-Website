@@ -40,12 +40,12 @@ final class PlayerDashboardSummaryService
     private const ZONE_ROW_MIN = 18;
     private const ZONE_ROW_MAX = 43;
 
-    public static function cacheKey(string $userId): string
+    public static function cacheKey(string $userId, ?string $teamId = null): string
     {
-        return "player-dashboard-summary:{$userId}";
+        return "player-dashboard-summary:{$userId}".($teamId ? ":team:{$teamId}" : '');
     }
 
-    public function build(string $userId): array
+    public function build(string $userId, ?string $teamId = null): array
     {
         $lineupIds = $this->lineupPracticeIds($userId);
         $battingLineupIds = $this->lineupPracticeIds($userId, 'is_batting');
@@ -55,19 +55,22 @@ final class PlayerDashboardSummaryService
             $userId,
             PracticeTypes::BATTING->value,
             BattingPracticeResult::query()->where('batter_id', $userId)->where('is_in_match', false)->pluck('practice_id')->unique(),
-            $battingLineupIds
+            $battingLineupIds,
+            $teamId
         );
         $bullpenPractices = $this->participatedPractices(
             $userId,
             PracticeTypes::BULLPEN->value,
             BullpenPracticeResult::query()->where('pitcher_id', $userId)->pluck('practice_id')->unique(),
-            $pitchingLineupIds
+            $pitchingLineupIds,
+            $teamId
         );
         $cagePractices = $this->participatedPractices(
             $userId,
             PracticeTypes::CAGE->value,
             CagePracticeResult::query()->where('user_id', $userId)->pluck('practice_id')->unique(),
-            $lineupIds
+            $lineupIds,
+            $teamId
         );
         $trainingPractices = $this->participatedPractices(
             $userId,
@@ -76,12 +79,20 @@ final class PlayerDashboardSummaryService
                 ->merge(WeightBallPractice::query()->where('user_id', $userId)->pluck('practice_id'))
                 ->merge(ExitVelocityPractice::query()->where('user_id', $userId)->pluck('practice_id'))
                 ->unique(),
-            $lineupIds
+            $lineupIds,
+            $teamId
         );
-        $liveabPractices = Practice::query()
-            ->where('type', PracticeTypes::LIVE_AB->value)
-            ->where('user_id', $userId)
-            ->get();
+        $liveabBatting = BattingPracticeResult::query()->where('batter_id', $userId)
+            ->where('is_in_match', true)->get(['practice_id']);
+        $liveabPitching = BullpenPracticeResult::query()->where('pitcher_id', $userId)
+            ->where('is_in_match', true)->get(['practice_id']);
+        $liveabPractices = $this->participatedPractices(
+            $userId,
+            PracticeTypes::LIVE_AB->value,
+            $liveabBatting->pluck('practice_id')->merge($liveabPitching->pluck('practice_id'))->unique(),
+            $lineupIds,
+            $teamId
+        );
 
         $battingRows = BattingPracticeResult::query()
             ->where('batter_id', $userId)
@@ -137,6 +148,7 @@ final class PlayerDashboardSummaryService
                 $userId,
                 $battingPractices->concat($bullpenPractices)->concat($cagePractices)->concat($trainingPractices)->concat($liveabPractices),
                 $battingRows->countBy('practice_id')
+                    ->union($liveabBatting->concat($liveabPitching)->countBy('practice_id'))
                     ->union($bullpenRows->countBy('practice_id'))
                     ->union($cageRows->countBy('practice_id'))
                     ->union(
@@ -157,10 +169,11 @@ final class PlayerDashboardSummaryService
             ->unique();
     }
 
-    private function participatedPractices(string $userId, string $type, Collection $resultPracticeIds, Collection $lineupPracticeIds): Collection
+    private function participatedPractices(string $userId, string $type, Collection $resultPracticeIds, Collection $lineupPracticeIds, ?string $teamId = null): Collection
     {
         return Practice::query()
             ->where('type', $type)
+            ->when($teamId, fn ($query) => $query->where('team_id', $teamId))
             ->where(function ($query) use ($userId, $resultPracticeIds, $lineupPracticeIds): void {
                 $query->where('user_id', $userId)
                     ->orWhereIn('id', $resultPracticeIds->all())
