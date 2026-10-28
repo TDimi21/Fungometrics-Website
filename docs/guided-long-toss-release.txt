@@ -1,0 +1,50 @@
+FMTRX Guided Long Toss — release notes (2026-10-28)
+
+Deploy API and web together, run php artisan migrate --force, then release the
+updated native app. No live deployment or physical-device testing was performed.
+Existing legacy clients remain compatible when no guide exists. Once a guide is
+created, the API enforces its stop state and per-checkpoint throw quota.
+
+Entry: Long Toss scoring opens the check-in before the first throw. Session
+metadata already exists at that point. Each player has a separate guide.
+A coach configures the plan in a team Long Toss session before check-in:
+age range, throwing history, season phase, starting distance, progression step,
+distance ceiling, warm-up/extension/finish counts, rest interval, total throws,
+day type and scheduled date. Players cannot change coaching settings.
+Known player age and a usable baseline are required. Pain/rest check-ins can
+be saved without a plan. Guidance requires connectivity. Rest intervals are
+shown and acknowledged by the user; there is no enforced countdown timer.
+
+Readiness 1–2 or pain stops throwing. 3–4/recovery days use 50% with a 60%
+ceiling; 5–7 use 80% with a 90% ceiling. Readiness 8–10 uses 97% only when
+high intensity is scheduled for the player's local date, otherwise moderate.
+All targets obey the coach's distance and total-throw limits. Counts are
+coach-configured, not universal prescriptions. No automatic pulldowns.
+
+Baseline: coach-measured maximum first, then consistent recorded no-hop
+session maximum over 180 days, then illustrative velocity estimates. Velocity
+reference uses recent fastball bullpen data (90 days), only 55–100 MPH.
+Interpolation uses the user-supplied table; it is not a validated stress model.
+At least three confirmed, completed, pain-free non-recovery guided sessions
+allow the median measured distance to become an individual review reference.
+Early finishes and fatigue stops do not enter that adaptation. Raw PRs remain
+recorded even when unusual; the baseline filter avoids automatically prescribing
+an extreme single result. Coach configuration and baseline bounds: 600 feet.
+
+Informational heuristic: >25% above reference, or >25% below on scheduled high
+days, flags a measurement review. Recovery distances are not flagged for being
+short. Three flags in the latest five prompt review. Pain, reported fatigue,
+or a 3-point readiness drop with a short distance produce separate recovery
+attention. These thresholds are not clinically validated. In-app alerts appear
+on Coach Readiness for current roster members, scoped to the coach's team;
+no push notifications or email are sent.
+
+Validation: Long Toss PHP unit/integration tests cover readiness, schedule,
+workload caps, access control, checkpoint quotas/retries, PR preservation,
+fatigue persistence, and repeated-flag alerts. Web scoring tests cover check-in
+gates. Native component tests cover failure and stale-request handling.
+
+References reviewed (not reproduced):
+https://www.sportsmed.org/baseball-injuries
+https://treadathletics.com/wp-content/uploads/2021/05/A-4-Week-Intro-to-Weighted-Ball-Training.pdf
+https://img.mlbstatic.com/opprops-images/image/upload/opprops/b625x1bvaoql5c1dcdvl.pdf

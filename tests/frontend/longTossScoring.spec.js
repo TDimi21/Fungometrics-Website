@@ -19,7 +19,7 @@ async function screen({ role = 'coach', completed = false, fails = false, noSess
   const training = { trainingActive: noSession ? {} : { id: session.id }, setDataTraining: vi.fn() }
   const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: {} }), useRouter: () => router,
     useTrainingStore: () => training, useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
-    useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, TrainingSessionStatsTabs: {},
+    useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, TrainingSessionStatsTabs: {}, GuidedLongToss: {},
     extractSessionRows, playerThrows, summarizeThrows, validDistance,
     plannerSessionReturn: (storage, id, user, fallback) => fallback, sessionStorage: {},
   }
@@ -52,6 +52,7 @@ describe('Long Toss web scoring', () => {
     s.sets.value.p2 = 2
     expect(s.inSet.value).toBe(0)
     expect(s.sets.value.p1).toBe(2)
+    s.guidedAccess.value = {canRecord:true,finishReady:false}
     s.distance.value = '210'; s.hop.value = 2
     await Promise.all([s.save(), s.save()])
     expect(api.axiosPost).toHaveBeenCalledTimes(1)
@@ -61,6 +62,7 @@ describe('Long Toss web scoring', () => {
   })
   it('preserves an uncertain throw and requires reconciliation before retry', async () => {
     const { state: s, api, app } = await screen({ fails: true })
+    s.guidedAccess.value = {canRecord:true,finishReady:false}
     s.distance.value = '160'; await s.save(); await s.save()
     expect(s.distance.value).toBe('160'); expect(s.ready.value).toBe(false)
     expect(api.axiosPost).toHaveBeenCalledTimes(1); expect(s.stats.value.count).toBe(1)
@@ -86,6 +88,7 @@ describe('Long Toss web scoring', () => {
   })
   it('completes the original session and opens its report', async () => {
     const { state: s, api, router, app } = await screen()
+    s.guidedAccess.value = {canRecord:false,finishReady:true}
     s.note.value = ' Good session '; await s.finish()
     expect(api.axiosPut).toHaveBeenCalledWith('training/session-1', { end_note: 'Good session', is_completed: true })
     expect(router.push).toHaveBeenCalledWith('/session/report/session-1/long_toss'); app.unmount()
@@ -104,5 +107,13 @@ it('makes team and other-owned sessions read-only for players', async () => {
   expect(api.axiosPut).not.toHaveBeenCalled()
   s.session.value.team_id = null; s.session.value.user_id = 'other'
   expect(s.writable.value).toBeFalsy()
+  app.unmount()
+})
+
+it('requires a guided check-in before throws and a post-session check-in before ending', async () => {
+  const {state:s, api, app}=await screen()
+  s.distance.value='150'; await s.save(); await s.finish()
+  expect(api.axiosPost).not.toHaveBeenCalled()
+  expect(api.axiosPut).not.toHaveBeenCalled()
   app.unmount()
 })

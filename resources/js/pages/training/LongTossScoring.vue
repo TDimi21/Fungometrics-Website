@@ -1,4 +1,5 @@
 <script setup>
+import GuidedLongToss from '@/features/long-toss/GuidedLongToss.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TrainingSessionStatsTabs from '@/components/statistics/training/TrainingSessionStatsTabs.vue'
@@ -15,6 +16,7 @@ import { plannerSessionReturn } from '@/features/planner/lib/sessionReturn'
 const training = useTrainingStore(), user = useUserStore(), roster = usePlayerStore(), teamStore = useTeamStore()
 const route = useRoute(), router = useRouter()
 const { axiosGet, axiosPost, axiosPut } = useAxiosAuth()
+const guidedAccess = ref({canRecord:false,finishReady:false})
 const session = ref(null), rows = ref([]), selected = ref(''), sets = ref({})
 const distance = ref(''), hop = ref(0), busy = ref(false), loading = ref(true), ready = ref(false)
 const error = ref(''), notice = ref(''), finishing = ref(false), note = ref(''), adding = ref(false), addId = ref('')
@@ -32,7 +34,7 @@ const name = p => p?.name?.full || [p?.name?.first, p?.name?.last].filter(Boolea
 const feet = value => value == null ? '—' : `${value} ft`
 const difference = (value, baseline) => value == null || baseline == null ? '—' : `${value - baseline >= 0 ? '+' : ''}${Math.round((value - baseline) * 10) / 10} ft`
 const byHop = (source, value) => summarizeThrows(source.filter(row => Number(row.hop || 0) === value)).average
-watch(selected, () => { distance.value = ''; hop.value = 0 })
+watch(selected, () => { distance.value = ''; hop.value = 0; guidedAccess.value = {canRecord:false,finishReady:false} })
 
 async function load() {
   loading.value = true; ready.value = false; error.value = ''
@@ -60,7 +62,7 @@ function key(value) {
   else distance.value = `${distance.value}${value}`.replace(/^0+(?=\d)/, '').slice(0, 10)
 }
 async function save() {
-  if (!writable.value || !validDistance(distance.value)) return
+  if (!writable.value || !validDistance(distance.value) || !guidedAccess.value.canRecord) return
   busy.value = true; error.value = ''; notice.value = ''
   try {
     const response = await axiosPost('result/longtoss', {
@@ -96,7 +98,7 @@ const report = () => {
   return router.push(`/session/report/${session.value.id}/long_toss${user.userData.type === 'player' ? '?scope=player' : ''}`)
 }
 async function finish() {
-  if (!writable.value || !note.value.trim()) return
+  if (!writable.value || !note.value.trim() || !guidedAccess.value.finishReady) return
   busy.value = true; error.value = ''
   try {
     await axiosPut(`training/${session.value.id}`, { end_note: note.value.trim(), is_completed: true })
@@ -110,6 +112,7 @@ onMounted(load)
 
 <template>
   <Layout>
+    <GuidedLongToss v-if="ready && selected && !session?.is_completed" :key="selected" :practice-id="practiceId" :player-id="selected" :throw-count="ownRows.length" @access="guidedAccess = $event" />
     <p v-if="session?.is_player_shared" role="status" class="notice">Shared personal session — results belong to the player. Coaches have read-only access.</p>
     <p v-if="session && !personalOnly" role="status" class="error">Team sessions are read-only here. Start a personal session from My Sessions to record your own results.</p>
     <main class="lt-scoring" :aria-busy="loading || busy">
@@ -119,7 +122,7 @@ onMounted(load)
           <button :disabled="busy" @click="router.push(user.userData.type === 'player' ? '/training-player/training-mode?mode=LT' : '/training/training-mode?mode=LT')">Leave session</button>
           <button :disabled="!ready || busy" :aria-expanded="showStats" aria-controls="live-session-stats" @click="showStats = !showStats">{{ showStats ? 'Hide stats' : 'Stats' }}</button>
           <button :disabled="!ready || busy" @click="report">Session report</button>
-          <button class="primary" :disabled="!writable" @click="finishing = true">End session</button>
+          <button class="primary" :disabled="!writable || !guidedAccess.finishReady" @click="finishing = true">End session</button>
         </nav>
       </header>
       <p v-if="loading" role="status">Loading session…</p>
@@ -148,7 +151,7 @@ onMounted(load)
           </section>
           <form class="panel" @submit.prevent="save"><label for="lt-distance">Distance (whole feet)</label><input id="lt-distance" v-model="distance" class="distance" inputmode="numeric" autocomplete="off" :disabled="!writable" placeholder="0" />
             <div class="keypad"><button v-for="value in ['1','2','3','4','5','6','7','8','9','Clear','0','⌫']" :key="value" type="button" :disabled="!writable" :aria-label="value === '⌫' ? 'Delete last digit' : value" @click="key(value)">{{ value }}</button></div>
-            <button class="primary save" :disabled="!writable || !validDistance(distance)">{{ busy ? 'Saving…' : 'Save throw' }}</button>
+            <button class="primary save" :disabled="!writable || !validDistance(distance) || !guidedAccess.canRecord">{{ busy ? 'Saving…' : 'Save throw' }}</button>
           </form>
         </div>
         <section v-if="showStats" id="live-session-stats" class="panel finish" aria-label="Live session statistics">

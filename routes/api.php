@@ -693,3 +693,15 @@ Route::middleware(['auth:sanctum', 'ability:player,coach'])->prefix('player-vide
     Route::delete('{video}/shares/{share}', [$controller, 'revoke']);
     Route::delete('{video}', [$controller, 'destroy']);
 });
+
+Route::middleware(['auth:sanctum','ability:player,coach'])->prefix('long-toss-guidance/{practice}/{player}')->group(function () {
+    $controller = \App\Http\Controllers\Api\LongToss\GuidedLongTossController::class;
+    Route::get('/', [$controller, 'context']);
+    Route::put('plan', [$controller, 'savePlan']);
+    Route::post('preview', [$controller, 'preview']);
+    Route::post('check-in', [$controller, 'checkIn']);
+    Route::post('checkpoint', [$controller, 'checkpoint']);
+    Route::post('finish', [$controller, 'finish']);
+});
+
+Route::get('long-toss-guidance-team/{team}/alerts', [\App\Http\Controllers\Api\LongToss\GuidedLongTossController::class, 'alerts'])->middleware(['auth:sanctum','ability:coach']);

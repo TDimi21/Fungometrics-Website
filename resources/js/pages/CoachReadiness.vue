@@ -1,4 +1,5 @@
 <script setup>
+import LongTossAlerts from '@/features/long-toss/LongTossAlerts.vue'
 import {computed, onMounted} from 'vue'
 import {storeToRefs} from 'pinia'
 import Layout from '@/layout/Layout.vue'
@@ -26,6 +27,7 @@ onMounted(() => store.initializePreferences())
           </select>
         </label>
       </header>
+      <LongTossAlerts v-if="teamId" :team-id="String(teamId)" />
       <DailyReadiness v-if="teamId" :key="teamId" :team-id="String(teamId)" />
       <p v-else>Select a team to view player readiness.</p>
     </main>
