@@ -58,6 +58,7 @@ final class PlayerVideoController extends Controller
         $actor = $request->user();
         $own = $actor->type === 'player' && $actor->id === $data['player_id'];
         abort_unless($own || $this->access->roster($actor, $data['player_id'], $data['team_id'] ?? ''), 403);
+        app(\App\Services\Video\VideoDuration::class)->validate($request->file('video'));
         $path = null;
         try {
             $video = DB::transaction(function () use ($request, $actor, $data, $own, &$path) {

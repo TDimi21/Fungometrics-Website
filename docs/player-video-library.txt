@@ -11,7 +11,15 @@ cannot be revoked. Deleting a player account removes its private video files.
 Web entry: Video Library sidebar / player dashboard link, /player-videos.
 App entry: More > Video Library. Coaches choose an active roster player and team.
 
+Clip duration: strictly shorter than 15 seconds. Exactly 15 seconds is rejected.
+App and web check metadata before upload; the API independently checks the actual
+file using ffprobe before storage. Unreadable/unknown durations are rejected.
+Existing stored clips are not automatically trimmed or deleted by this change.
+
 Before release:
+- Install FFmpeg/ffprobe on every PHP upload host and set FFPROBE_BINARY to its
+  executable path if not in PHP's PATH. Ensure PHP proc_open is allowed. Missing
+  verification returns 503 and blocks uploads; it never bypasses the duration cap.
 - Run the new player_videos/player_video_shares migration through the normal
   deployment process; deploy backend and web assets before distributing the app.
 - Configure PHP upload_max_filesize >= 100M, post_max_size >= 110M and web server

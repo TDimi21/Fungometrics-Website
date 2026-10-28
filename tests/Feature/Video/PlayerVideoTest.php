@@ -9,6 +9,12 @@ use Tests\TestCase;
 
 class PlayerVideoTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Synthetic upload fixtures contain no media; real metadata validation has its own tests.
+        $this->mock(\App\Services\Video\VideoDuration::class)->shouldReceive('validate')->andReturn(14.9);
+    }
     private function actor(string $role): User { return User::factory()->create(['type' => $role]); }
     private function login(User $user): void { Sanctum::actingAs($user, [$user->type]); }
     private function upload(User $player, array $extra = []) {
@@ -101,6 +107,30 @@ class PlayerVideoTest extends TestCase
         $this->deleteJson('/api/me/account', ['confirmation' => 'DELETE', 'confirmation_token' => $auth->json('data.confirmation_token')])->assertOk();
         Storage::disk('player_videos')->assertMissing($path);
         $this->assertDatabaseMissing('player_videos', ['id' => $id]);
+    }
+
+    public function test_duration_validation_rejects_before_saving_any_file(): void
+    {
+        Storage::fake('player_videos');
+        $player = $this->actor('player'); $this->login($player);
+        $this->instance(\App\Services\Video\VideoDuration::class, new class extends \App\Services\Video\VideoDuration {
+            public function validate(UploadedFile $file): float
+            {
+                return $this->validateMetadata(['format' => ['duration' => 15], 'streams' => [['codec_type' => 'video']]]);
+            }
+        });
+        $this->upload($player)->assertUnprocessable()->assertJsonValidationErrors('video');
+        $this->assertDatabaseCount('player_videos', 0);
+        $this->assertCount(0, Storage::disk('player_videos')->allFiles());
+    }
+    public function test_missing_probe_blocks_upload_with_recoverable_error(): void
+    {
+        Storage::fake('player_videos');
+        $player = $this->actor('player'); $this->login($player);
+        config(['player_videos.ffprobe_binary' => '/not-installed/ffprobe']);
+        $this->instance(\App\Services\Video\VideoDuration::class, new \App\Services\Video\VideoDuration);
+        $this->upload($player)->assertStatus(503);
+        $this->assertDatabaseCount('player_videos', 0);
     }
 
 }

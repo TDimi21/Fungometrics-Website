@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import axios from 'axios'
+import { readVideoDuration } from './videoDuration.js'
 import Layout from '@/layout/Layout.vue'
 import { useAxiosAuth } from '@/composables/axios-auth'
 import { getAuthToken } from '@/utils/authToken'
@@ -48,6 +49,7 @@ async function upload() {
   for (const [key, value] of Object.entries({player_id: playerId.value, title: title.value.trim(), category: category.value, notes: notes.value, video: file.value})) data.append(key, value)
   if (context.value.role === 'coach') data.append('team_id', teamId.value)
   try {
+    await readVideoDuration(file.value)
     await axios.post(apiRoot + 'player-videos', data, {headers: {Authorization: `Bearer ${getAuthToken()}`}, timeout: 300000,
       onUploadProgress: event => { if (event.total) progress.value = Math.round(event.loaded * 100 / event.total) }})
     file.value = null; title.value = ''; notes.value = ''; fileInput.value.value = ''; await load()
@@ -95,8 +97,8 @@ onBeforeUnmount(() => { generation++; closeVideo() })
           <label>Title <input v-model="title" maxlength="120" required :disabled="busy"></label>
           <label>Category <select v-model="category" :disabled="busy"><option v-for="kind in ['pitching','hitting','fielding','other']" :key="kind">{{ kind }}</option></select></label>
           <label>Notes <textarea v-model="notes" maxlength="2000" :disabled="busy" /></label>
-          <label>Video (MP4, MOV, or WebM; up to 100 MB)<input ref="fileInput" type="file" accept="video/mp4,video/quicktime,video/webm" :disabled="busy" @change="file = $event.target.files[0] || null"></label>
-          <p class="hint">MP4 with H.264 video works best across devices. Library limit: 50 clips or 2 GB.</p>
+          <label>Video (shorter than 15 seconds; up to 100 MB)<input ref="fileInput" type="file" accept="video/mp4,video/quicktime,video/webm" :disabled="busy" @change="file = $event.target.files[0] || null"></label>
+          <p class="hint">Clips must be shorter than 15 seconds. MP4 with H.264 video works best across devices. Library limit: 50 clips or 2 GB.</p>
           <button :disabled="busy || !file">{{ busy ? `Working… ${progress}%` : 'Upload video' }}</button>
         </form>
         <section v-if="playing" class="panel">
