@@ -17,11 +17,13 @@ const links = computed(() => [
   {id:'strength', label:'Assessment', to:{path:'/dashboard', query:{tab:'strength'}}},
   ...(access.canAccess('data_hub_import') || access.summary?.capabilities?.subscription_admin
     ? [{id:'datahub', label:'Data Hub', to:{path:'/dashboard', query:{tab:'datahub'}}}] : []),
+  {id:'videos', label:'My Videos', to:{name:'video.library'}},
 ])
 const active = computed(() => {
   if(route.path === '/dashboard') return route.query.tab || 'overview'
   if(route.path === '/workouts' || route.path === '/workout-library') return 'workout'
   if(route.path === '/practice') return 'practice'
+  if(route.path === '/player-videos') return 'videos'
   if(route.path.startsWith('/data-hub')) return 'datahub'
   if(route.path.startsWith('/development')) return 'development'
   if(route.path.startsWith('/free-assessment') || route.path === '/assessment-reports') return 'strength'

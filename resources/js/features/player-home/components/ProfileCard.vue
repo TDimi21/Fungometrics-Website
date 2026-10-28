@@ -13,7 +13,7 @@ defineProps({
   rapsodoReports: { type: Array, default: () => [] },
 })
 
-defineEmits(['open-development', 'open-metrics', 'open-sessions', 'open-rapsodo', 'open-assessments', 'open-armcare'])
+defineEmits(['open-development', 'open-metrics', 'open-sessions', 'open-rapsodo', 'open-assessments', 'open-armcare', 'open-videos'])
 
 const profileBgStyle = {
   backgroundImage: `url('${updatedLogo}')`,
@@ -105,6 +105,13 @@ const onAvatarError = (e) => {
           @click="$emit('open-armcare')"
         >
           Arm Care ›
+        </button>
+        <button
+          type="button"
+          class="flex w-full items-center justify-center rounded-xl border border-sky-400/60 bg-sky-500/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white"
+          @click="$emit('open-videos')"
+        >
+          My Video Library ›
         </button>
       </div>
 

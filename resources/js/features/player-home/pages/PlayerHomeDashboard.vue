@@ -182,9 +182,6 @@ const openRecapReport = (session) => {
 
     <div class="min-h-full bg-surface px-4 py-5 text-white lg:px-6">
       <div class="mx-auto max-w-6xl space-y-4">
-        <RouterLink to="/player-videos" class="inline-block rounded-lg border border-white/20 px-4 py-3 font-bold">My Video Library →</RouterLink>
-        <ConnectedTeamsCard :active-team-id="selectedTeam?.id" @select-team="selectedTeam = $event" />
-        <TeamCollectedData v-if="selectedTeam" :key="selectedTeam.id" :team="selectedTeam" :player-id="playerId" @open-report="openRecapReport" />
         <PlayerAssessmentLinks v-if="!selectedTeam" :player-id="userData?.id || ''" />
         <div
           v-if="sessionExpired"
@@ -194,40 +191,47 @@ const openRecapReport = (session) => {
           {{ SESSION_EXPIRED_MESSAGE }}
         </div>
 
-        <section v-if="!selectedTeam" class="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
+        <section class="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
           <div class="space-y-4">
-            <StatePanel v-if="profileState.loading" state="loading" message="Loading profile…" />
-            <StatePanel v-else-if="profileState.error" state="error" :message="profileState.error" @retry="loadProfile" />
-            <ProfileCard
-              v-else
-              :player-name="playerName"
-              :player-image-src="playerImageSrc"
-              :profile="profile"
-              :coach-profile="coachProfile"
-              :school-team-text="schoolTeamText"
-              :strength-line="strengthLine"
-              :speed-line="speedLine"
-              :rapsodo-reports="rapsodoReports"
-              @open-development="openDevelopmentProfile"
-              @open-metrics="openPlayerMetricsModal"
-              @open-sessions="openSessionReports"
-              @open-rapsodo="openRapsodoReport"
-              @open-assessments="openAssessmentReports"
-              @open-armcare="openArmCare"
-            />
-            <StatePanel v-if="rapsodoState.error" state="error" :message="rapsodoState.error" @retry="loadRapsodo" />
+            <template v-if="!selectedTeam">
+              <StatePanel v-if="profileState.loading" state="loading" message="Loading profile…" />
+              <StatePanel v-else-if="profileState.error" state="error" :message="profileState.error" @retry="loadProfile" />
+              <ProfileCard
+                v-else
+                :player-name="playerName"
+                :player-image-src="playerImageSrc"
+                :profile="profile"
+                :coach-profile="coachProfile"
+                :school-team-text="schoolTeamText"
+                :strength-line="strengthLine"
+                :speed-line="speedLine"
+                :rapsodo-reports="rapsodoReports"
+                @open-development="openDevelopmentProfile"
+                @open-metrics="openPlayerMetricsModal"
+                @open-sessions="openSessionReports"
+                @open-rapsodo="openRapsodoReport"
+                @open-assessments="openAssessmentReports"
+                @open-armcare="openArmCare"
+                @open-videos="router.push({ name: 'video.library' })"
+              />
+              <StatePanel v-if="rapsodoState.error" state="error" :message="rapsodoState.error" @retry="loadRapsodo" />
 
-            <BenchmarkTasksPanel />
+            </template>
+            <ConnectedTeamsCard :active-team-id="selectedTeam?.id" @select-team="selectedTeam = $event" />
+            <template v-if="!selectedTeam">
+              <BenchmarkTasksPanel />
 
-            <StatePanel v-if="statsState.loading" state="loading" message="Loading session counts…" />
-            <StatePanel v-else-if="statsState.error" state="error" :message="statsState.error" @retry="loadStats" />
-            <template v-else>
-              <SessionCountsCard :counts="sessionCounts" @open-metrics="openPlayerMetricsModal" />
-              <RecapList :sessions="recentSessions" @open-report="openRecapReport" />
+              <StatePanel v-if="statsState.loading" state="loading" message="Loading session counts…" />
+              <StatePanel v-else-if="statsState.error" state="error" :message="statsState.error" @retry="loadStats" />
+              <template v-else>
+                <SessionCountsCard :counts="sessionCounts" @open-metrics="openPlayerMetricsModal" />
+                <RecapList :sessions="recentSessions" @open-report="openRecapReport" />
+              </template>
             </template>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-surface-raised/75 p-4">
+          <TeamCollectedData v-if="selectedTeam" :key="selectedTeam.id" :team="selectedTeam" :player-id="playerId" @open-report="openRecapReport" />
+          <div v-else class="min-w-0 rounded-2xl border border-white/10 bg-surface-raised/75 p-4">
             <StatTabs v-model="activeStatTab" :tabs="STAT_TABS" @toggle-workout="toggleWorkout" />
 
             <StatePanel v-if="statsState.loading && !['percentiles', 'workout'].includes(activeStatTab)" state="loading" message="Loading player stats…" />

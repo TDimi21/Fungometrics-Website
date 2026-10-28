@@ -56,7 +56,7 @@ onMounted(() => { load(); loadReports() })
 </script>
 
 <template>
-  <section class="space-y-4" aria-label="Selected team data">
+  <section class="min-w-0 space-y-4" aria-label="Selected team data">
     <div class="rounded-xl border border-white/10 bg-surface-raised p-4" role="status">
       <h2 class="text-lg font-black">{{ team.name }} — My Data</h2>
       <p class="mt-1 text-sm text-white/70">Only your results from sessions and assessments recorded for this team.</p>
@@ -72,7 +72,7 @@ onMounted(() => { load(); loadReports() })
         <button v-for="report in reports" :key="report.id" type="button" class="mt-2 block w-full rounded-lg border border-white/20 px-3 py-3 text-left hover:bg-white/10"
           @click="router.push(report.report_path)">{{ report.team_name }} · {{ String(report.completed_at || '').slice(0, 10) }} · {{ report.pitch_count }} pitches →</button>
       </div>
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
+      <div class="space-y-4">
         <div class="space-y-4">
           <SessionCountsCard :counts="summary.counts" :show-metrics="false" />
           <RecapList :sessions="summary.recentSessions" @open-report="$emit('open-report', $event)" />
