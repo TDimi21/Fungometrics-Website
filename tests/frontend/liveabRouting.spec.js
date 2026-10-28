@@ -1,3 +1,4 @@
+import { dashboardRedirect } from '../../resources/js/utils/dashboardRouting.js'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -7,6 +8,7 @@ const guardSource = source.slice(source.indexOf('router.beforeEach('), source.in
 function guard({ authenticated = true, entitlements = ['liveab_sessions'], audience = 'coach' } = {}) {
   let navigate
   const mocks = {
+    dashboardRedirect,
     router: { beforeEach: fn => { navigate = fn } },
     isPlayerInvitationRoute: () => false,
     syncAuthFromToken: () => authenticated,
@@ -55,3 +57,7 @@ describe('player navigation boundaries', () => {
     expect(await guard({audience:'player',entitlements:['personal_stats']})({path:'/new-statistic',meta,matched:[{meta}]})).toBe(true);
   });
 });
+
+it('redirects an authenticated coach away from a saved player dashboard URL', async () => {
+  expect(await guard({audience: 'coach'})(route('/player-dashboard'))).toEqual({path: '/dashboard'})
+})

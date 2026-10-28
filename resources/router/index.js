@@ -1,3 +1,4 @@
+import { dashboardRedirect } from '../js/utils/dashboardRouting.js';
 import { isLongTossScoringRoute, isVelocityScoringRoute } from '@/utils/longTossScoring'
 import { isPlayerInvitationRoute, rememberCommunicationDestination, consumeCommunicationDestination, pendingCommunicationDestination } from '../js/utils/communicationDestination.js';
 import { createRouter, createWebHistory } from "vue-router";
@@ -544,8 +545,9 @@ router.beforeEach(async (to) => {
 		return "/";
 	}
 
-	if (isAuthenticated && userData.type === 'player' && to.path === '/dashboard') {
-		return { path: '/player-dashboard', query: to.query };
+	if (isAuthenticated) {
+		const dashboard = dashboardRedirect(userData.type, to.path, to.query);
+		if (dashboard) return dashboard;
 	}
 
 	if (to.meta?.coachOnly && userData.type !== 'coach' && !isAdmin) {
