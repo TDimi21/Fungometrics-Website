@@ -1,3 +1,4 @@
+import {longTossFeet} from '@/features/long-toss/distanceUnits'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { parse, compileScript } from '@vue/compiler-sfc'
@@ -8,7 +9,7 @@ import { extractSessionRows } from '@/utils/sessionReportRows'
 const source = compileScript(parse(readFileSync('resources/js/pages/training/LongTossScoring.vue', 'utf8')).descriptor, { id: 'lt-test' }).content
 const script = source.replace(/^import .*from ['"].*['"];?\s*$/gm, '').replace('export default', 'return')
 async function screen({ role = 'coach', completed = false, fails = false, noSession = false } = {}) {
-  const session = { id: 'session-1', user_id: role === 'player' ? 'p1' : 'coach1', team_id: role === 'player' ? null : 'team-1', modes: 'LT', is_completed: completed, players: [{ id: 'p1', sort: 0 }, { id: 'p2', sort: 1 }] }
+  const session = { long_toss_mode:'guided', id: 'session-1', user_id: role === 'player' ? 'p1' : 'coach1', team_id: role === 'player' ? null : 'team-1', modes: 'LT', is_completed: completed, players: [{ id: 'p1', sort: 0 }, { id: 'p2', sort: 1 }] }
   const rows = [{ id: 'r1', user_id: 'p1', set: 2, hop: 0, distance: 120 }, { id: 'r2', user_id: 'p2', set: 1, hop: 1, distance: 180 }]
   const api = {
     axiosGet: vi.fn(async path => ({ data: { data: path.startsWith('training/') ? session : { ball_x_ball: rows } } })),
@@ -20,7 +21,7 @@ async function screen({ role = 'coach', completed = false, fails = false, noSess
   const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: {} }), useRouter: () => router,
     useTrainingStore: () => training, useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
     useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, TrainingSessionStatsTabs: {}, GuidedLongToss: {},
-    extractSessionRows, playerThrows, summarizeThrows, validDistance,
+    extractSessionRows, playerThrows, summarizeThrows, validDistance, longTossFeet,
     plannerSessionReturn: (storage, id, user, fallback) => fallback, sessionStorage: {},
   }
   const component = new Function(...Object.keys(mocks), script)(...Object.values(mocks))
@@ -117,3 +118,14 @@ it('requires a guided check-in before throws and a post-session check-in before 
   expect(api.axiosPut).not.toHaveBeenCalled()
   app.unmount()
 })
+
+it('regular sessions save throws without guided check-ins', async()=>{
+ const {state:s,api,app}=await screen();s.session.value.long_toss_mode='regular';s.distance.value='150';
+ await s.save();expect(api.axiosPost).toHaveBeenCalledTimes(1);app.unmount();
+})
+
+it('converts yard entries into stored feet and rejects distances over 500 feet',async()=>{
+ const {state:s,api,app}=await screen();s.session.value.long_toss_mode='regular';s.distanceUnit.value='yd';s.distance.value='100';
+ await s.save();expect(api.axiosPost.mock.calls[0][1].distance).toBe(300);
+ api.axiosPost.mockClear();s.distance.value='167';await s.save();expect(api.axiosPost).not.toHaveBeenCalled();app.unmount();
+});

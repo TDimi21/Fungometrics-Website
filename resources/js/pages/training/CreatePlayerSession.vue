@@ -1,4 +1,6 @@
 <script setup>
+import LongTossSetup from '@/features/long-toss/LongTossSetup.vue'
+import {setupPayload} from '@/features/long-toss/sessionSetup'
 import { computed, ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Layout from "@/layout/Layout.vue";
@@ -7,6 +9,7 @@ import { useTrainingStore } from "@/store/training";
 import { useAxiosAuth } from "@/composables/axios-auth";
 import { cageDimensions } from "@/utils/cageScoring";
 
+const longTossMode=ref('regular'), longTossDrafts=ref({})
 const route = useRoute(),
   router = useRouter(),
   user = useUserStore(),
@@ -70,6 +73,7 @@ async function create() {
   if (!valid.value) return;
   busy.value = true;
   error.value = "";
+  let sent=false;
   try {
     const mode = selected.value;
     const payload = {
@@ -85,7 +89,10 @@ async function create() {
       payload.planner_plan_id = planner.value.plan;
       payload.planner_item_id = planner.value.item;
     }
+    if(route.params.mode==='LT'&&longTossMode.value==='guided')payload.long_toss_setup=setupPayload([{id:user.userData.id,name:'Your setup'}],longTossDrafts.value);
+    sent=true;
     const data = (await axiosPost("training", payload)).data.data;
+    if(route.params.mode==='LT'&&longTossMode.value==='guided'&&data?.long_toss_mode!=='guided')throw new Error('The server did not save guided setup. Check My Sessions; the updated API is required.');
     if (!data?.id) throw Error("Missing session");
     training.setDataTraining(data);
     if (planner.value) {
@@ -95,12 +102,12 @@ async function create() {
     }
     await router.push({ path: mode.path, query: { session: data.id } });
   } catch (e) {
-    uncertain.value = ![401, 403, 422, 429].includes(e.response?.status);
+    uncertain.value = sent && ![401, 403, 422, 429].includes(e.response?.status);
     error.value = uncertain.value
       ? "Creation could not be confirmed. Check My Sessions before trying again."
       : e.response?.data?.required_entitlement
         ? "Your current plan does not include this session type."
-        : e.response?.data?.message || "Unable to start this session. Check your team connections and try again.";
+        : e.response?.data?.message || e.message || "Unable to start this session. Check your team connections and try again.";
   } finally {
     busy.value = false;
   }
@@ -113,6 +120,7 @@ async function create() {
         <p class="eyebrow">MY PRACTICE</p>
         <h1>New {{ selected.label }} Session</h1>
         <p v-if="planner">To link this session to your assigned workout, select that workout’s team below. Your coach can view it; only you can score. To keep it personal, open New session from My Sessions instead.</p>
+        <LongTossSetup v-if="route.params.mode==='LT'" :players="[{id:user.userData.id,name:'Your setup'}]" v-model:mode="longTossMode" v-model:drafts="longTossDrafts" :disabled="busy"/>
         <section class="player-card">
           <strong>{{ user.userData.name?.full || "My session" }}</strong>
           <p>

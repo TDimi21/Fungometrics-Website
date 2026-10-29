@@ -67,12 +67,21 @@ class AddNewSessionRequest extends FormRequest
             'game_field.fences.*' => ['required', 'numeric', 'between:50,600'],
             'script_plan' => ['nullable', 'array', 'min:1', 'max:200'],
             ...$this->scriptRules(),
+            ...\App\Services\LongToss\SessionSetup::rules(),
         ];
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
+            if ($this->has('long_toss_setup')) {
+                $setups=$this->input('long_toss_setup'); $players=$this->input('players');
+                if ($this->input('type')!=='T' || $this->input('modes')!=='LT' || !is_array($setups) || !is_array($players)
+                    || collect($setups)->pluck('player_id')->sort()->values()->all() !== collect($players)->pluck('id')->sort()->values()->all()) {
+                    $validator->errors()->add('long_toss_setup','Guided Long Toss requires one setup for every selected player.');
+                }
+            }
+
             if ($this->filled('game_field') && ($this->input('type') !== 'C' || $this->filled('script_plan') || $this->boolean('scripted'))) {
                 $validator->errors()->add('game_field', 'Game mode requires a cage session without scripted rounds.');
             }

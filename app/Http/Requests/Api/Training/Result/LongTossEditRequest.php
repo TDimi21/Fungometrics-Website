@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class LongTossEditRequest extends FormRequest
 {
+    use NormalizesLongTossDistance;
     /**
      * @return bool
      */
@@ -27,7 +28,8 @@ class LongTossEditRequest extends FormRequest
         return [
             'set'=>['nullable','integer'],
             'hop'=>['nullable','integer'],
-            'distance'=>['nullable','integer'],
+            'distance'=>['nullable','integer','between:0,500'],
+            'distance_unit'=>['sometimes','in:ft,yd'],
             'user_id'=>['nullable','string'],
         ];
     }

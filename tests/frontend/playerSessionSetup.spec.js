@@ -1,3 +1,4 @@
+import {setupPayload} from '@/features/long-toss/sessionSetup'
 import { it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { parse, compileScript } from "@vue/compiler-sfc";
@@ -19,7 +20,7 @@ function screen(mode, query = {}) {
       axiosPost: vi.fn(async () => ({ data: { data: { id: "session1" } } })),
     },
     router = { push: vi.fn() };
-  const mocks = {
+  const mocks = { LongTossSetup: {}, setupPayload,
     onMounted: () => {},
     computed,
     ref,
@@ -114,4 +115,9 @@ it("links assigned workouts only after an explicit sharing choice", async () => 
   await s.create();
   expect(api.axiosPost.mock.calls[0][1]).toMatchObject({planner_plan_id:'plan1',planner_item_id:'item1',share_with_team_ids:['team1'],players:[{id:'self',sort:0}]});
   expect(router.push).toHaveBeenCalledWith({path:'/track/bullpen',query:{session:'session1'}});
+});
+
+it('requires complete guided details before creating personal Long Toss',async()=>{
+ const {s,api}=screen('LT');s.longTossMode.value='guided';await s.create();
+ expect(api.axiosPost).not.toHaveBeenCalled();expect(s.uncertain.value).toBe(false);
 });

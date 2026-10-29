@@ -34,7 +34,7 @@ class GuidedLongTossController extends Controller
     }
     private function baseline(Request $request, Practice $practice, User $player, ?LongTossPlan $plan): array {
         $history=$this->history($request,$practice,$player->id);
-        $recent = LongTossPractice::where('user_id',$player->id)->where('distance','>',0)->where('distance','<=',600)
+        $recent = LongTossPractice::where('user_id',$player->id)->where('distance','>',0)->where('distance','<=',500)
             ->where('hop',0)->where('created_at','>=',now()->subDays(180))->where('practice_id','!=',$practice->id)
             ->when($request->user()->type === 'coach',fn($q)=>$q->where('team_id',$practice->team_id))
             ->selectRaw('practice_id, MAX(distance) as distance')->groupBy('practice_id')->get();
@@ -79,12 +79,29 @@ class GuidedLongTossController extends Controller
         $data=$request->validate(['min_age'=>'required|integer|between:5,99','max_age'=>'required|integer|gte:min_age|lte:99',
             'season_phase'=>'required|in:offseason,preseason,inseason,returning','throwing_history'=>'required|string|max:500',
             'day_type'=>'required|in:recovery,moderate,high','scheduled_date'=>'required|date_format:Y-m-d',
-            'measured_max_ft'=>'nullable|numeric|between:30,600','start_ft'=>'required|integer|between:15,90',
-            'step_ft'=>'required|integer|between:15,90','distance_cap_ft'=>'required|integer|gte:start_ft|lte:600',
+            'measured_max_ft'=>'nullable|numeric|between:30,500','start_ft'=>'required|integer|between:15,90',
+            'step_ft'=>'required|integer|between:15,90','distance_cap_ft'=>'required|integer|gte:start_ft|lte:500',
             'warmup_throws'=>'required|integer|between:1,30','throws_per_step'=>'required|integer|between:1,20',
             'finish_throws'=>'required|integer|between:1,20','rest_seconds'=>'required|integer|between:10,300','max_throws'=>'required|integer|between:3,120']);
         LongTossPlan::updateOrCreate(['player_id'=>$player,'team_id'=>$practice->team_id],['coach_id'=>$request->user()->id,'settings'=>$data]);
         return $this->context($request,$practice,$player);
+    }
+    public function setupPlayers(Request $request) {
+        $data=$request->validate(['player_ids'=>'required|array|min:1|max:100','player_ids.*'=>'required|uuid|distinct']);
+        $actor=$request->user(); $ids=$data['player_ids'];
+        if($actor->type==='player') abort_unless(count($ids)===1 && $ids[0]===$actor->id,403);
+        else abort_unless($actor->type==='coach',403);
+        $teams=$actor->type==='coach'?CoachTeam::where('coach_id',$actor->id)->whereHas('team')->pluck('team_id'):collect();
+        $rows=[];
+        foreach($ids as $id) {
+            $visibleTeams=$actor->type==='coach'?PlayerTeam::where('user_id',$id)->where('actual',true)->whereIn('team_id',$teams)->pluck('team_id'):collect();
+            if($actor->type==='coach')abort_if($visibleTeams->isEmpty(),403);
+            $player=User::whereKey($id)->where('type','player')->firstOrFail();
+            $maximum=LongTossPractice::where('user_id',$id)->whereBetween('distance',[1,500])
+                ->when($actor->type==='coach',fn($q)=>$q->whereIn('team_id',$visibleTeams))->max('distance');
+            $rows[]=['player_id'=>$id,'maximum_ft'=>$maximum===null?null:(int)$maximum];
+        }
+        return response()->json(['data'=>$rows]);
     }
     public function alerts(Request $request, string $team) {
         abort_unless($request->user()->type==='coach' && CoachTeam::where('coach_id',$request->user()->id)->where('team_id',$team)->whereHas('team')->exists(),403);

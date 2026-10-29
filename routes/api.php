@@ -705,3 +705,5 @@ Route::middleware(['auth:sanctum','ability:player,coach'])->prefix('long-toss-gu
 });
 
 Route::get('long-toss-guidance-team/{team}/alerts', [\App\Http\Controllers\Api\LongToss\GuidedLongTossController::class, 'alerts'])->middleware(['auth:sanctum','ability:coach']);
+
+Route::get('long-toss-setup/players', [\App\Http\Controllers\Api\LongToss\GuidedLongTossController::class, 'setupPlayers'])->middleware(['auth:sanctum','ability:player,coach']);

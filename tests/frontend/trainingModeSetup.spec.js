@@ -1,3 +1,4 @@
+import {setupPayload} from '@/features/long-toss/sessionSetup'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { parse, compileScript } from '@vue/compiler-sfc'
@@ -14,7 +15,7 @@ async function mountSetup(get) {
   const api = { axiosGet: get || vi.fn(async path => ({ data: { data: path.endsWith('t1') ? [{ id: 'p1', name: { full: 'Alex' } }, { id: 'p2', name: { full: 'Sam' } }] : [{ id: 'p3', name: { full: 'Lee' } }] } })),
     axiosPost: vi.fn(async () => ({ data: { data: { id: 'session' } } })) }
   const router = { push: vi.fn(async () => {}) }
-  const mocks = { computed: Vue.computed, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: { mode: 'LT' } }), useRouter: () => router,
+  const mocks = { LongTossSetup: {}, setupPayload, computed: Vue.computed, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: { mode: 'LT' } }), useRouter: () => router,
     useTeamStore: () => teamStore, usePlayerStore: () => playerStore, useTrainingStore: () => trainingStore, useAxiosAuth: () => api,
     Dialog: {}, DialogPanel: {}, DialogTitle: {}, Layout: {} }
   const component = new Function(...Object.keys(mocks), script)(...Object.values(mocks))
@@ -67,3 +68,14 @@ describe('app-style training setup', () => {
     expect(api.axiosPost).not.toHaveBeenCalled(); app.unmount()
   })
 })
+
+it('submits a guided setup for each selected coach player before navigation',async()=>{
+ const {state:s,api,app}=await mountSetup();s.selectedIds.value=['p1'];s.longTossMode.value='guided';
+ api.axiosPost.mockResolvedValue({data:{data:{id:'session',long_toss_mode:'guided'}}});
+ s.longTossDrafts.value={p1:{readiness:7,pain:false,maximum_ft:250,day_type:'moderate',season_phase:'inseason',throwing_history:'Established program',out_sets:5,in_sets:3,out_throws:4,in_throws:2,rest_seconds:30,max_throws:null}};
+ await s.createPractice();expect(api.axiosPost.mock.calls[0][1].long_toss_setup[0]).toMatchObject({player_id:'p1',maximum_ft:250});app.unmount();
+});
+it('does not send an incomplete guided setup',async()=>{
+ const {state:s,api,app}=await mountSetup();s.selectedIds.value=['p1'];s.longTossMode.value='guided';
+ await s.createPractice();expect(api.axiosPost).not.toHaveBeenCalled();expect(s.error.value).toContain('Alex');app.unmount();
+});

@@ -1,3 +1,69 @@
+Player setup and distance units update (2026-10-29)
+Setup uses collapsible per-player sections. Coach setup offers a shared workload
+with an explicit Apply to all players button; per-player changes remain editable.
+The shared plan copies intensity, season, set counts, per-set throws, rest, and
+throw cap. It never copies arm feel, pain, restrictions, or individual maximums.
+App setup routes lock portrait; scoring remains landscape, including its guide.
+
+Authenticated GET long-toss-setup/players accepts player_ids[]. It returns prior
+recorded maximums in feet, excluding values over 500. Players can access only
+their own history; coaches only current roster players and results from teams
+they coach. Maximums populate empty fields only. Failed history requests allow
+retry or manual entry. No existing historical records are deleted or rewritten.
+
+Scoring offers Feet/Yards buttons on app and web. Changing units clears the
+entry to prevent accidental reinterpretation. Yard inputs allow up to three
+decimals and convert to the nearest whole foot to preserve the existing integer
+storage format. The API also accepts distance_unit ft/yd, defaults to ft, and
+normalizes create/edit requests. It rejects over-500-ft values before rounding
+(166.667 yd is rejected); 500 ft is accepted. Scoring, editing, and guided setup
+all enforce the 500-ft limit. Prior saved sessions keep their stage snapshots,
+but all new/edited throws are subject to the limit.
+
+Validation: 46 Long Toss backend tests, 522 web tests, 18 app tests, web production
+build and iOS JavaScript bundle passed. Physical-device orientation/UI walkthrough
+and deployment remain outstanding. Deploy API/web before releasing the app.
+
+Throw total update (2026-10-29)
+New session snapshots are version 3. Total throws are always calculated as
+outgoing sets * outgoing throws + incoming sets * incoming throws. An optional
+Do not exceed maximum is a ceiling, not an allocation or target: the plan must
+fit within it before starting. No throws are added to meet a higher maximum.
+Without a maximum, the computed workload is used. Both per-direction throw
+counts remain editable and required. Existing saved version 2 sessions retain
+their stored allocations. This supersedes the allocation behavior below.
+
+Out-and-back sets update (2026-10-29)
+New setup reads age exclusively from the player profile. Missing/invalid profile
+birth date gives an actionable validation error, never an invented age. Start
+and finish are fixed at 30 feet. Outgoing sets include 30 feet and the daily
+readiness-adjusted target (minimum 2 sets). Incoming sets step down from the
+target to 30 feet (minimum 1); the farthest set is not duplicated. Distances are
+rounded to whole feet. Each direction has its own throws-per-set value. An
+optional total throw limit replaces those values and is divided evenly across
+all sets, with the remainder assigned to the earliest sets. A total smaller than
+the number of sets is rejected. New snapshots are version 2; existing saved
+sessions retain their original stages. Result set numbers follow the guided
+checkpoint on the server. No new database migration is required.
+
+Setup update (2026-10-29)
+App and web now offer Regular or Guided before session creation, for coach and
+player accounts. Guided setup is per player, includes arm readiness/pain, age,
+measured maximum, intensity, season/history, distance progression, throws and
+rest. The target and total throws are previewed before Start. Setup is saved
+atomically with session creation; invalid workloads leave no partial session.
+Player-entered plans apply only to that session, not the team's saved coach plan.
+Known profile age must match. Missing profile age can be supplied for this
+session without modifying birth dates. Guided mode persists through its saved
+guide records and is returned as long_toss_mode on session retrieval. Regular
+sessions bypass guided check-ins; existing guided sessions retain stop rules.
+Deploy API/web before releasing the app update. Existing Long Toss migrations
+are still required; this setup update adds no migration. Guided setup needs
+connectivity. No live deployment or simulator walkthrough was performed.
+
+Previous release details (the setup entry and coach-only requirement below
+are superseded by this update):
+
 FMTRX Guided Long Toss — release notes (2026-10-28)
 
 Deploy API and web together, run php artisan migrate --force, then release the

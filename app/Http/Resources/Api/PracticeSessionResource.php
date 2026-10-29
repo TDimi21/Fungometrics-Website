@@ -58,6 +58,7 @@ class PracticeSessionResource extends JsonResource
             'script_completed_reps' => $this['practice']->type === 'C' && $this['practice']->script_plan ? $this['practice']->cage()->count() : null,
             'game_field' => $this['practice']->game_field,
             'script_plan' => $this['practice']->script_plan,
+            'long_toss_mode' => $this['practice']->modes === 'LT' && \App\Models\LongTossGuide::where('practice_id',$this['practice']->id)->exists() ? 'guided' : 'regular',
             'is_scripted' => (bool) $this['practice']->is_scripted,
             'players' => PracticePlayersResource::collection($this['players']),
             'cage_data' => $cage

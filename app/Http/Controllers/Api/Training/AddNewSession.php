@@ -33,6 +33,8 @@ class AddNewSession extends Controller
             $players = [];
             DB::beginTransaction();
             $dataRequest = $request->validated();
+            $longTossSetup=$dataRequest['long_toss_setup']??[];
+            unset($dataRequest['long_toss_setup']);
             $sharingTeams = $dataRequest['share_with_team_ids'] ?? (isset($dataRequest['share_with_team_id']) ? [$dataRequest['share_with_team_id']] : []);
             unset($dataRequest['share_with_team_id'], $dataRequest['share_with_team_ids']);
             $dataRequest['started'] = Carbon::now();
@@ -104,6 +106,7 @@ class AddNewSession extends Controller
                           !== PracticeTypes::TRAINING->value,
                     ]);
             }
+            if($longTossSetup) app(\App\Services\LongToss\SessionSetup::class)->create($practice,$longTossSetup);
             if($plannerPlan) DB::table('workout_session_links')->insert(['id'=>(string)\Illuminate\Support\Str::uuid(),'plan_id'=>$plannerPlan->id,'user_id'=>Auth::id(),'item_id'=>$plannerItem['id'],'practice_id'=>$practice->id,'type'=>$plannerItem['metadata']['session_type'],'created_for_workout'=>true,'created_at'=>now(),'updated_at'=>now()]);
             $response = [
                 'code' => '006',

@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class LongTossRequest extends FormRequest
 {
+    use NormalizesLongTossDistance;
     /**
      * @return bool
      */
@@ -30,7 +31,8 @@ class LongTossRequest extends FormRequest
             'team_id'=>['nullable','string'],
             'set'=>['nullable','integer'],
             'hop'=>['nullable','integer'],
-            'distance'=>['nullable','integer'],
+            'distance'=>['nullable','integer','between:0,500'],
+            'distance_unit'=>['sometimes','in:ft,yd'],
         ];
     }
 

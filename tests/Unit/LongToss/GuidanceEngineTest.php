@@ -36,4 +36,25 @@ class GuidanceEngineTest extends TestCase {
         $this->assertTrue($e->review(310,235,7,7,false,'Moderate extension')['flagged']);
         $r=$e->review(120,235,7,3,false,'Moderate extension'); $this->assertFalse($r['flagged']);$this->assertTrue($r['fatigue_attention']);
     }
+    public function test_out_and_back_sets_start_and_finish_at_thirty_and_allocate_exact_total(): void {
+        $e=new GuidanceEngine;
+        $plan=$this->plan(['version'=>2,'start_ft'=>30,'out_sets'=>5,'in_sets'=>3,'out_throws'=>4,'in_throws'=>2,'max_throws'=>null]);
+        $g=$e->build(7,false,250,$plan,'2026-10-28',18);
+        $this->assertSame([30,73,115,158,200,143,87,30],array_column($g['stages'],'distance_ft'));
+        $this->assertSame([4,4,4,4,4,2,2,2],array_column($g['stages'],'throws'));
+        $g=$e->build(7,false,250,array_merge($plan,['max_throws'=>29]),'2026-10-28',18);
+        $this->assertSame([4,4,4,4,4,3,3,3],array_column($g['stages'],'throws'));
+        $g=$e->build(7,false,250,array_merge($plan,['max_throws'=>3]),'2026-10-28',18);
+        $this->assertSame('needs_plan',$g['status']);
+    }
+
+    public function test_version_three_limit_is_a_ceiling_not_a_throw_allocation(): void {
+        $e=new GuidanceEngine;
+        $plan=$this->plan(['version'=>3,'start_ft'=>30,'out_sets'=>5,'in_sets'=>3,'out_throws'=>4,'in_throws'=>2,'max_throws'=>29]);
+        $g=$e->build(7,false,250,$plan,'2026-10-28',18);
+        $this->assertSame([4,4,4,4,4,2,2,2],array_column($g['stages'],'throws'));
+        foreach([null,26] as $limit) $this->assertSame('ready',$e->build(7,false,250,array_merge($plan,['max_throws'=>$limit]),'2026-10-28',18)['status']);
+        $this->assertSame('needs_plan',$e->build(7,false,250,array_merge($plan,['max_throws'=>25]),'2026-10-28',18)['status']);
+    }
+
 }

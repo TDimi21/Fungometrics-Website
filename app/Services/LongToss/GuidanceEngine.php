@@ -21,9 +21,24 @@ final class GuidanceEngine
         // An unscheduled high-readiness day stays moderate. Recovery remains recovery.
         [$low,$upper,$fraction,$label] = $readiness <= 4 || $plan['day_type'] === 'recovery'
             ? [.5,.6,.5,'Light recovery'] : ($high ? [.97,1,.97,'Scheduled high readiness'] : [.75,.9,.8,'Moderate extension']);
-        $ceiling = min($plan['distance_cap_ft'], floor($baseline * $upper));
+        $ceiling = min(500, $plan['distance_cap_ft'], floor($baseline * $upper));
         $target = min($ceiling, floor($baseline * $fraction));
         if ($target < $plan['start_ft']) return array_merge($out, ['message'=>'Today’s distance ceiling is below this plan’s starting distance. Ask your coach to adjust the plan.']);
+        if (($plan['version']??1) >= 2) {
+            $outSets=(int)$plan['out_sets']; $inSets=(int)$plan['in_sets']; $sets=$outSets+$inSets;
+            $limit=$plan['max_throws']??null;
+            if ($limit!==null && $limit<$sets) return array_merge($out,['message'=>'The total throw limit must allow at least one throw per set. Reduce the sets or increase the limit.']);
+            $steps=[];
+            for($i=0;$i<$sets;$i++) {
+                $outward=$i<$outSets;
+                $distance=$outward ? 30+($target-30)*$i/($outSets-1) : $target-($target-30)*($i-$outSets+1)/$inSets;
+                $throws=($plan['version']??2)===2 && $limit!==null ? intdiv((int)$limit,$sets)+($i<((int)$limit%$sets)?1:0) : (int)$plan[$outward?'out_throws':'in_throws'];
+                $steps[]=['phase'=>$outward?'Going Out':'Coming In','set_number'=>$i+1,'direction_set'=>$outward?$i+1:$i-$outSets+1,'distance_ft'=>(int)round($distance),'throws'=>$throws];
+            }
+            if(($plan['version']??2)>=3 && $limit!==null && array_sum(array_column($steps,'throws'))>$limit) return array_merge($out,['message'=>'Planned throws exceed the total throw limit. Reduce sets or throws per set, or change the limit.']);
+            if(array_sum(array_column($steps,'throws'))>120) return array_merge($out,['message'=>'This session exceeds 120 throws. Reduce sets or throws per set.']);
+            $out['version']=$plan['version'];
+        } else {
         $steps = [['phase'=>'Warm-Up','distance_ft'=>$plan['start_ft'],'throws'=>$plan['warmup_throws']]];
         for ($distance = min($target,$plan['start_ft']+$plan['step_ft']); $distance <= $target && $distance > $plan['start_ft']; $distance = min($target, $distance+$plan['step_ft'])) {
             $steps[] = ['phase'=>'Extension','distance_ft'=>$distance,'throws'=>$plan['throws_per_step']];
@@ -31,6 +46,7 @@ final class GuidanceEngine
         }
         $steps[] = ['phase'=>'Finish','distance_ft'=>$plan['start_ft'],'throws'=>$plan['finish_throws']];
         if (array_sum(array_column($steps,'throws')) > $plan['max_throws']) return array_merge($out, ['message'=>'This progression exceeds the coach’s throw limit. Ask your coach to adjust the plan.']);
+        }
         foreach ($steps as &$step) { $step['rest_seconds']=$plan['rest_seconds']; $step['instruction']="Make {$step['throws']} controlled throws at {$step['distance_ft']} feet. Stop for pain, increasing fatigue, or loss of control."; }
         return array_merge($out, ['status'=>'ready','day_type'=>$label,'target_ft'=>$target,
             'range_ft'=>[min($target, floor($baseline*$low)), $ceiling], 'stages'=>$steps,

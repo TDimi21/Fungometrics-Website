@@ -1,4 +1,10 @@
 <script setup>
+import ChoiceButtons from './ChoiceButtons.vue'
+const ratings=Array.from({length:10},(_,i)=>({label:String(i+1),value:i+1}))
+const yesNo=[{label:'No',value:false},{label:'Yes',value:true}]
+const phases=['offseason','preseason','inseason','returning'].map(value=>({label:value,value}))
+const intensities=[{label:'Recovery',value:'recovery'},{label:'Moderate',value:'moderate'},{label:'Scheduled high intensity',value:'high'}]
+const methods=[{label:'Measuring tape',value:'tape'},{label:'Marked field',value:'marked_field'},{label:'Rangefinder',value:'rangefinder'},{label:'Estimated / no throws',value:'estimate'}]
 import {computed, ref, watch, onBeforeUnmount} from 'vue'
 import {useAxiosAuth} from '@/composables/axios-auth'
 const props=defineProps({practiceId:String, playerId:String, throwCount:Number})
@@ -40,7 +46,7 @@ const savePlan=()=>run(async()=>{
 </script>
 <template>
 <section class="guided">
-  <h2>FMTRX Guided Long Toss</h2><p>Check-In → Warm-Up → Extension → Finish</p>
+  <h2>FMTRX Guided Long Toss</h2><p>{{guide?.snapshot?.version>=2?'Check-In → Going Out → Coming In → Finish':'Check-In → Warm-Up → Extension → Finish'}}</p>
   <p v-if="error" role="alert">{{error}} <button :disabled="busy" @click="load">Retry</button></p>
   <template v-if="context">
     <p><b>Distance baseline:</b> {{context.baseline.maximum_ft ?? 'Not established'}} ft · {{context.baseline.source}}</p>
@@ -51,16 +57,16 @@ const savePlan=()=>run(async()=>{
     <form v-if="editing && !guide" @submit.prevent="savePlan">
       <p>Set this player’s approved workload using their age, throwing history, and season phase. These are coaching settings, not universal age-based prescriptions.</p>
       <label v-for="key in numeric" :key="key">{{labels[key]}}<input v-model="plan[key]" type="number" :required="key !== 'measured_max_ft'" :disabled="busy"></label>
-      <label>Season phase<select v-model="plan.season_phase"><option v-for="phase in ['offseason','preseason','inseason','returning']" :key="phase">{{phase}}</option></select></label>
+      <ChoiceButtons label="Season phase" v-model="plan.season_phase" :options="phases" :disabled="busy"/>
       <label>Throwing history and restrictions<textarea v-model="plan.throwing_history" required maxlength="500"/></label>
-      <label>Scheduled day type<select v-model="plan.day_type"><option value="recovery">Recovery</option><option value="moderate">Moderate</option><option value="high">High intensity (scheduled only)</option></select></label>
+      <ChoiceButtons label="Scheduled day type" v-model="plan.day_type" :options="intensities" :disabled="busy"/>
       <label>Scheduled date<input type="date" v-model="plan.scheduled_date" required></label>
       <button :disabled="busy">Save coach plan</button>
     </form>
     <template v-if="!guide">
-      <label>How does your arm feel today? <b>{{readiness}} / 10</b><input v-model="readiness" type="range" min="1" max="10" step="1"></label>
+      <ChoiceButtons label="How does your arm feel today?" v-model="readiness" :options="ratings" :disabled="busy"/>
       <p>1 · Very tired — 10 · Feeling great. Be honest; readiness does not override a recovery day.</p>
-      <label>Arm pain today?<select v-model="pain"><option :value="null" disabled>Choose an answer</option><option :value="false">No</option><option :value="true">Yes</option></select></label>
+      <ChoiceButtons label="Arm pain today?" v-model="pain" :options="yesNo" :disabled="busy"/>
       <button :disabled="busy || pain===null" @click="showPreview">Build today’s plan</button>
       <div v-if="preview">
         <h3 v-if="preview.target_ft !== null">Today’s extension target: {{preview.target_ft}} ft</h3>
@@ -73,7 +79,7 @@ const savePlan=()=>run(async()=>{
       <p>{{guide.snapshot.message}}</p>
       <p v-if="guide.snapshot.target_ft">Today’s target: <b>{{guide.snapshot.target_ft}} ft</b></p>
       <div v-if="guide.status==='active' && guide.current_stage">
-        <h3>{{guide.current_stage.phase}} · {{guide.current_stage.distance_ft}} ft</h3>
+        <h3><template v-if="guide.current_stage.set_number">Set {{guide.current_stage.set_number}} · </template>{{guide.current_stage.phase}} · {{guide.current_stage.distance_ft}} ft</h3>
         <p>{{guide.current_stage.instruction}}</p><p>{{guide.stage_throws}} / {{guide.current_stage.throws}} throws recorded. Use the session controls to record each throw.</p>
         <p>Rest {{guide.current_stage.rest_seconds}} seconds before progressing. Continue only if pain-free and your arm feels good.</p>
         <button :disabled="busy || guide.stage_throws < guide.current_stage.throws" @click="checkpoint()">Rested, arm feels good — next checkpoint</button>
@@ -83,11 +89,11 @@ const savePlan=()=>run(async()=>{
       <p v-if="guide.status==='stopped'" role="alert">Throwing stopped. Do not continue today. Tell your coach or parent if there is pain.</p>
       <form v-if="!guide.finished_at" @submit.prevent="finish">
         <h3>Finish / stop early</h3><p>You may finish early at any time. Your farthest recorded no-hop throw is saved automatically.</p>
-        <label>Arm feel now: {{after}} / 10<input v-model="after" type="range" min="1" max="10"></label>
-        <label>Any arm pain now?<select v-model="afterPain" required><option :value="null" disabled>Choose</option><option :value="false">No</option><option :value="true">Yes</option></select></label>
-        <label>How was distance measured?<select v-model="method" required><option value="" disabled>Choose</option><option value="tape">Measuring tape</option><option value="marked_field">Marked field</option><option value="rangefinder">Rangefinder</option><option value="estimate">Estimated / no throws</option></select></label>
+      <ChoiceButtons label="Arm feel now" v-model="after" :options="ratings" :disabled="busy"/>
+      <ChoiceButtons label="Any arm pain now?" v-model="afterPain" :options="yesNo" :disabled="busy"/>
+      <ChoiceButtons label="How was distance measured?" v-model="method" :options="methods" :disabled="busy"/>
         <label><input type="checkbox" v-model="confirmed">I checked the distance and measurement method.</label>
-        <button :disabled="busy || afterPain===null">Save post-session check-in</button>
+        <button :disabled="busy || afterPain===null || !method">Save post-session check-in</button>
       </form>
       <div v-if="guide.review"><p>{{guide.review.message}}</p><p>Farthest no-hop throw: {{guide.review.distance_ft}} ft.</p><p v-if="guide.review.coach_review_needed" role="alert">Coach review requested: 3 flagged sessions within the last 5.</p></div>
     </template>

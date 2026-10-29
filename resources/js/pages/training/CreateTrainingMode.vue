@@ -1,4 +1,6 @@
 <script setup>
+import LongTossSetup from '@/features/long-toss/LongTossSetup.vue'
+import {setupPayload} from '@/features/long-toss/sessionSetup'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
@@ -8,6 +10,7 @@ import { usePlayerStore } from '@/store/players'
 import { useTrainingStore } from '@/store/training'
 import { useAxiosAuth } from '@/composables/axios-auth'
 
+const longTossMode=ref('regular'), longTossDrafts=ref({})
 const route = useRoute(), router = useRouter()
 const teamStore = useTeamStore(), playerStore = usePlayerStore(), trainingStore = useTrainingStore()
 const { axiosGet, axiosPost } = useAxiosAuth()
@@ -58,18 +61,20 @@ async function createPractice() {
   try {
     const response = await axiosPost('training', {
       team: teamId.value, type: 'T', modes: mode.value,
+      ...(mode.value==='LT'&&longTossMode.value==='guided'?{long_toss_setup:setupPayload(selected.value.map(p=>({id:p.id,name:playerName(p)})),longTossDrafts.value)}:{}),
       note: note.value.trim() || `${labels[mode.value]} session`,
       players: selected.value.map((player, sort) => ({ id: player.id, sort })),
     })
     const session = response.data.data
+    if(mode.value==='LT'&&longTossMode.value==='guided'&&session.long_toss_mode!=='guided')throw new Error('The server did not save guided setup. Check My Sessions; the updated API is required.')
     trainingStore.setDataTraining(session)
     trainingStore.setCountBallsTraining(0)
     trainingStore.countThrowArray = Object.fromEntries(selected.value.map(p => [p.id, { balls: 0, bxs: 0, set: 1 }]))
     teamStore.setTeam(teams.value.find(t => t.id === teamId.value))
     playerStore.setPlayers(roster.value)
     await router.push({ path: `/track/training-mode/${mode.value}`, query: { session: session.id } })
-  } catch {
-    error.value = 'Unable to confirm creation. Check your session list before trying again.'
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message || 'Unable to confirm creation. Check your session list before trying again.'
   } finally { saving.value = false }
 }
 </script>
@@ -82,6 +87,7 @@ async function createPractice() {
         <label>Team<select v-model="teamId" :disabled="saving || pickerOpen"><option value="" disabled>Select team</option><option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option></select></label>
         <label v-if="!labels[route.query.mode]">Mode<select v-model="mode" :disabled="saving"><option value="" disabled>Select mode</option><option v-for="(label, value) in labels" :key="value" :value="value">{{ label }}</option></select></label>
       </div>
+      <LongTossSetup allow-shared v-if="mode==='LT'" :players="selected.map(p=>({id:p.id,name:playerName(p)}))" v-model:mode="longTossMode" v-model:drafts="longTossDrafts" :disabled="saving"/>
       <p v-if="error" role="alert" class="setup-error">{{ error }} <button v-if="!roster.length" :disabled="saving || loading" @click="loadRoster">Retry roster</button></p>
       <button class="setup-row" :disabled="!teamId || loading || saving" aria-haspopup="dialog" @click="openPicker">
         <span>PLAYERS <small>{{ loading ? 'Loading roster…' : selected.length ? `${selected.length} selected` : 'Choose players' }}</small></span>
@@ -100,7 +106,7 @@ async function createPractice() {
         <span>NOTES <small>{{ note.trim() ? 'Notes added' : 'Optional' }}</small></span><span class="plus" aria-hidden="true">{{ notesOpen ? '−' : '+' }}</span>
       </button>
       <div v-if="notesOpen" id="practice-notes" class="notes-panel"><label for="session-notes">Session notes</label><textarea id="session-notes" v-model="note" :disabled="saving" placeholder="Focus, goals, or reminders for this session" rows="4" /></div>
-      <footer class="setup-actions"><button :disabled="saving" class="cancel" @click="cancel">CANCEL</button><button class="create" :disabled="!canCreate" @click="createPractice">{{ saving ? 'CREATING…' : 'CREATE' }}</button></footer>
+      <footer class="setup-actions"><button :disabled="saving" class="cancel" @click="cancel">CANCEL</button><button class="create" :disabled="!canCreate" @click="createPractice">{{ saving ? 'CREATING…' : mode==='LT' ? (longTossMode==='guided'?'START GUIDED':'START REGULAR') : 'CREATE' }}</button></footer>
     </main>
     <Dialog :open="pickerOpen" @close="pickerOpen = false" class="player-picker">
       <div class="picker-backdrop" aria-hidden="true" />

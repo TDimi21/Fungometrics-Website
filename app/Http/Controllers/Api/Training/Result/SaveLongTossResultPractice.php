@@ -25,10 +25,11 @@ class SaveLongTossResultPractice extends Controller
     {
         try {
             DB::beginTransaction();
-            app(\App\Services\LongToss\GuidedThrowGate::class)->check((string)$request->practice_id,(string)$request->user_id);
+            $guidedSet=app(\App\Services\LongToss\GuidedThrowGate::class)->check((string)$request->practice_id,(string)$request->user_id);
             $results = LongTossPractice::where('practice_id', '=', $request->practice_id);
             $count = $results->count();
             $data = $request->validated();
+            if($guidedSet!==null)$data['set']=$guidedSet;
             $data['sort'] = $count++;
             $result['result'] = (new CreateServiceData(new LongTossPractice()))->handle($data);
             DB::commit();
