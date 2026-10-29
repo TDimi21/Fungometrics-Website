@@ -1,4 +1,5 @@
 <script setup>
+import {guidedProgress,plannedEntry,progressKey} from '@/features/long-toss/guidedProgress'
 import {longTossFeet} from '@/features/long-toss/distanceUnits'
 import GuidedLongToss from '@/features/long-toss/GuidedLongToss.vue'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -27,7 +28,8 @@ const practiceId = route.query.session || training.trainingActive?.id
 const players = computed(() => (session.value?.players || []).filter(p => user.userData.type !== 'player' || p.id === user.userData.id))
 const current = computed(() => players.value.find(p => p.id === selected.value))
 const ownRows = computed(() => playerThrows(rows.value, selected.value))
-const currentSet = computed(() => sets.value[selected.value] || 1)
+const progress = computed(() => isGuided.value ? guidedProgress(guidedAccess.value.guide) : null)
+const currentSet = computed(() => progress.value?.set || sets.value[selected.value] || 1)
 const inSet = computed(() => ownRows.value.filter(row => Number(row.set || 1) === currentSet.value).length)
 const teamStats = computed(() => summarizeThrows(rows.value)), stats = computed(() => summarizeThrows(ownRows.value))
 const available = computed(() => (roster.players || []).filter(p => !(session.value?.players || []).some(member => member.id === p.id)))
@@ -38,6 +40,14 @@ const feet = value => value == null ? '—' : `${value} ft`
 const difference = (value, baseline) => value == null || baseline == null ? '—' : `${value - baseline >= 0 ? '+' : ''}${Math.round((value - baseline) * 10) / 10} ft`
 const byHop = (source, value) => summarizeThrows(source.filter(row => Number(row.hop || 0) === value)).average
 watch(selected, () => { distance.value = ''; hop.value = 0; guidedAccess.value = {canRecord:false,finishReady:false} })
+
+function updateGuidedAccess(access) {
+  if(access.guide?.player_id && String(access.guide.player_id)!==String(selected.value))return
+  const changed=access.guide && progressKey(access.guide)!==progressKey(guidedAccess.value.guide)
+  guidedAccess.value={...guidedAccess.value,...access}
+  if(changed)distance.value=plannedEntry(access.guide,distanceUnit.value)
+}
+watch(distanceUnit,()=>{distance.value=isGuided.value?plannedEntry(guidedAccess.value.guide,distanceUnit.value):''})
 
 async function load() {
   loading.value = true; ready.value = false; error.value = ''
@@ -115,7 +125,7 @@ onMounted(load)
 
 <template>
   <Layout>
-    <GuidedLongToss v-if="isGuided && ready && selected && !session?.is_completed" :key="selected" :practice-id="practiceId" :player-id="selected" :throw-count="ownRows.length" @access="guidedAccess = $event" />
+    <details v-if="isGuided && ready && selected && !session?.is_completed" :open="!guidedAccess.canRecord" class="guided-controls"><summary>Arm check-in and guided controls</summary><GuidedLongToss :key="selected" :practice-id="practiceId" :player-id="selected" :throw-count="ownRows.length" @access="updateGuidedAccess" /></details>
     <p v-if="session?.is_player_shared" role="status" class="notice">Shared personal session — results belong to the player. Coaches have read-only access.</p>
     <p v-if="session && !personalOnly" role="status" class="error">Team sessions are read-only here. Start a personal session from My Sessions to record your own results.</p>
     <main class="lt-scoring" :aria-busy="loading || busy">
@@ -134,17 +144,25 @@ onMounted(load)
       <p v-if="session?.is_completed">This session is complete. View the session report to review results.</p>
       <template v-if="ready">
         <section class="lt-player panel">
-          <label>Player<select v-model="selected" :disabled="busy"><option v-for="player in players" :key="player.id" :value="player.id">{{ name(player) }}</option></select></label>
+          <h2>Player</h2><div class="player-buttons" role="group" aria-label="Select player"><button v-for="player in players" :key="player.id" type="button" :disabled="busy" :aria-pressed="selected===player.id" @click="selected=player.id">{{name(player)}}</button></div>
           <p v-if="current">Jersey {{ current.shirt_number || '—' }}</p>
           <button v-if="!session?.is_player_shared && user.userData.type === 'coach' && teamStore.team?.id === session.team_id && !session.is_completed" :disabled="busy || !available.length" @click="adding = !adding">Add player</button>
           <p v-if="!players.length">No eligible players in this session.</p>
-          <form v-if="adding" @submit.prevent="addPlayer"><label>Team player<select v-model="addId" required><option value="">Select a player</option><option v-for="player in available" :key="player.id" :value="player.id">{{ name(player) }}</option></select></label><button :disabled="busy || !addId">Add to session</button></form>
+          <form v-if="adding" @submit.prevent="addPlayer"><div class="player-buttons" role="group" aria-label="Add team player"><button v-for="player in available" :key="player.id" type="button" :disabled="busy" :aria-pressed="addId===player.id" @click="addId=player.id">{{name(player)}}</button></div><button :disabled="busy || !addId">Add to session</button></form>
+        </section>
+        <section v-if="progress" class="panel guided-progress" aria-label="Guided throwing progress">
+          <h2 v-if="progress.current">Set {{progress.set}} of {{progress.setCount}} · {{progress.current.phase}} · {{progress.current.distance_ft}} ft</h2><h2 v-else>Guided throwing finished</h2>
+          <p>{{progress.stageRecorded}} / {{progress.current?.throws||0}} throws this set · {{progress.stageRemaining}} remaining</p>
+          <p>{{progress.recorded}} / {{progress.total}} total throws · {{progress.remaining}} remaining</p>
+          <progress :value="progress.recorded" :max="progress.total||1" aria-label="Completed guided throws"/>
+          <p>{{progress.status==='stopped'?'Throwing stopped. Complete the finish check-in.':progress.current&&progress.stageRemaining===0?'Set complete. Check arm feel before advancing.':'Planned distance is prefilled. Adjust it if the actual throw differs, then save each throw.'}}</p>
+          <ol class="planned-sets"><li v-for="set in progress.sets" :key="set.number" :class="{active:set.current,complete:set.remaining===0}">Set {{set.number}} · {{set.phase}} · {{set.distance_ft}} ft · {{set.completed}}/{{set.throws}} throws</li></ol>
         </section>
         <div class="lt-grid">
           <section class="panel"><h2>Throw type</h2><p>Select hops. Click again for no hops.</p>
             <div class="hop-options"><button v-for="value in [0,1,2,3]" :key="value" :aria-pressed="hop === value" :disabled="!writable" @click="hop = hop === value ? 0 : value">{{ value === 0 ? 'No hops' : `${value} hop${value > 1 ? 's' : ''}` }}</button></div>
-            <button class="primary new-set" :disabled="!writable || !inSet" @click="sets[selected] = currentSet + 1">New set +</button>
-            <p>New sets apply to the selected player. The next saved throw records the set.</p>
+            <button v-if="!isGuided" class="primary new-set" :disabled="!writable || !inSet" @click="sets[selected] = currentSet + 1">New set +</button>
+            <p v-if="!isGuided">New sets apply to the selected player. The next saved throw records the set.</p>
           </section>
           <section class="panel"><h2>Session statistics</h2><p>Distances from this session only.</p>
             <dl class="metrics"><div><dt>Top team distance</dt><dd>{{ feet(teamStats.top) }}</dd></div><div><dt>Average team distance</dt><dd>{{ feet(teamStats.average) }}</dd></div></dl>
@@ -152,7 +170,7 @@ onMounted(load)
             <dl class="metrics"><div><dt>Player top distance</dt><dd>{{ feet(stats.top) }}</dd><small>{{ difference(stats.top, teamStats.top) }} vs team top</small></div><div><dt>Player average</dt><dd>{{ feet(stats.average) }}</dd><small>{{ difference(stats.average, teamStats.average) }} vs team average</small></div></dl>
             <h3>Average distance by hops</h3><div class="hop-stats"><div v-for="value in [0,1,2,3]" :key="value"><strong>{{ value }} hops</strong><p>{{ feet(byHop(ownRows, value)) }}</p><small>{{ difference(byHop(ownRows, value), byHop(rows, value)) }} vs team</small></div></div>
           </section>
-          <form class="panel" @submit.prevent="save"><div class="hop-options"><button v-for="unit in ['ft','yd']" :key="unit" type="button" :disabled="!writable" :aria-pressed="distanceUnit===unit" @click="distanceUnit=unit;distance=''">{{unit==='ft'?'Feet':'Yards'}}</button></div><label for="lt-distance">Distance ({{distanceUnit==='ft'?'whole feet':'yards'}})</label><input id="lt-distance" v-model="distance" class="distance" inputmode="decimal" autocomplete="off" :disabled="!writable" placeholder="0" />
+          <form class="panel" @submit.prevent="save"><div class="hop-options"><button v-for="unit in ['ft','yd']" :key="unit" type="button" :disabled="!writable" :aria-pressed="distanceUnit===unit" @click="distanceUnit=unit">{{unit==='ft'?'Feet':'Yards'}}</button></div><label for="lt-distance">Distance ({{distanceUnit==='ft'?'whole feet':'yards'}})</label><input id="lt-distance" v-model="distance" class="distance" inputmode="decimal" autocomplete="off" :disabled="!writable" placeholder="0" />
             <div class="keypad"><button v-for="value in ['1','2','3','4','5','6','7','8','9','Clear','0','⌫',...(distanceUnit==='yd'?['.']:[])]" :key="value" type="button" :disabled="!writable" :aria-label="value === '⌫' ? 'Delete last digit' : value" @click="key(value)">{{ value }}</button></div>
             <p>Maximum 500 ft. All results are saved in whole feet.<span v-if="distanceUnit==='yd' && longTossFeet(distance,distanceUnit)!==null"> {{longTossFeet(distance,distanceUnit)}} ft</span></p>
             <button class="primary save" :disabled="!writable || longTossFeet(distance,distanceUnit)===null || (isGuided && !guidedAccess.canRecord)">{{ busy ? 'Saving…' : 'Save throw' }}</button>
@@ -170,6 +188,8 @@ onMounted(load)
 </template>
 
 <style scoped>
+.player-buttons{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.player-buttons button{min-height:48px;padding:12px 20px;border:1px solid #8291aa;border-radius:10px}.player-buttons button[aria-pressed="true"]{background:#bc1035;color:white;border:2px solid #ff8da8}.guided-controls{margin:16px;padding:16px;border:1px solid #8291aa;border-radius:12px}.guided-controls summary{cursor:pointer;font-weight:700}.guided-progress progress{width:100%;height:18px;accent-color:#d61132}.planned-sets{display:flex;gap:8px;overflow:auto;list-style:none;padding:10px 0}.planned-sets li{min-width:170px;padding:12px;border:1px solid #8291aa;border-radius:8px}.planned-sets .active{background:#bc1035;color:white}.planned-sets .complete{border-color:#33a984}
+
 .lt-scoring{--lt-bg:var(--app-surface,#fff);--lt-ink:var(--app-text,#17243b);max-width:1440px;margin:auto;padding:28px;color:var(--lt-ink)}
 .lt-header,.lt-player{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.lt-header{padding:24px;border-radius:18px;background:#101e35;color:#fff;margin-bottom:20px}.lt-header p{color:#d4dfef}.lt-header h1{font-size:30px;font-weight:800}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:1.5px}nav{display:flex;gap:10px;flex-wrap:wrap}.panel{background:var(--lt-bg);border:1px solid #9eafc5;border-radius:16px;padding:22px;color:var(--lt-ink)}.lt-player{margin:18px 0}.lt-grid{display:grid;grid-template-columns:minmax(180px,1fr) minmax(300px,2fr) minmax(220px,1fr);gap:18px}h2{font-size:19px;font-weight:750;margin-bottom:8px}h3{font-weight:700;margin-top:20px}p{font-size:14px;line-height:1.6}button{border:1px solid #879bb6;border-radius:9px;padding:12px 16px;font-weight:650;background:#f1f5fa;color:#17243b;min-height:44px}button:disabled{opacity:.5;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #1684d4;outline-offset:3px}.primary,button[aria-pressed=true]{background:#cf1737;border-color:#cf1737;color:white}.hop-options{display:grid;gap:12px;margin-top:22px}.new-set,.save{width:100%;margin-top:18px}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.metrics>div,.hop-stats>div{background:#edf2f8;color:#17243b;border-radius:10px;padding:12px}dt{font-size:12px}dd{font-size:24px;font-weight:800}.counters{grid-template-columns:repeat(3,1fr)}small{font-size:11px}.hop-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}.hop-stats>div{padding:8px;text-align:center}label{display:block;font-weight:650}select,input,textarea{display:block;border:1px solid #879bb6;border-radius:8px;background:#fff;color:#17243b;padding:12px;max-width:100%;margin-top:6px}select{min-width:220px}.distance{font-size:40px;text-align:center;width:100%;font-weight:800}.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:18px}.keypad button{font-size:20px;padding:16px 5px}.lt-error{padding:15px;background:#fff1f2;color:#911a2d;border:1px solid #e797a6;border-radius:10px}.finish{margin-top:20px}.finish textarea{width:100%;min-height:100px;margin-bottom:15px}.finish button{margin-right:10px}@media(max-width:1100px){.lt-grid{grid-template-columns:1fr 1fr}.lt-grid>section:nth-child(2){grid-column:1/-1;grid-row:2}}@media(max-width:600px){.lt-scoring{padding:12px}.lt-grid{display:flex;flex-direction:column}.lt-grid>form{order:-1}.hop-options{grid-template-columns:repeat(2,1fr)}.panel{padding:16px}.hop-stats{grid-template-columns:repeat(2,1fr)}}
 </style>

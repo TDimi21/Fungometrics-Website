@@ -1,3 +1,17 @@
+Guided scoring progress update (2026-10-29)
+App and web preload the current guided checkpoint's distance into scoring.
+The scorer may edit it to the actual measured throw. Planned sets display
+completed/required throws, active-set highlighting, remaining throws and total
+progress. Only saved results count toward completion; preload never creates
+results. Progress restores from server guide state after reopening and switching
+players. Advancing still requires the arm-feel checkpoint. Manual set increment
+is unavailable during guided scoring. Feet/yards prefill uses the same conversion
+and cap behavior as manual scoring. Web player selection and add-player selection
+use buttons. Web guided controls collapse while scoring is available and open
+when a checkpoint is required.
+Validation: 523 web tests, 21 app tests, lint, web build and iOS JavaScript bundle
+passed. Device walkthrough and deployment remain outstanding.
+
 Player setup and distance units update (2026-10-29)
 Setup uses collapsible per-player sections. Coach setup offers a shared workload
 with an explicit Apply to all players button; per-player changes remain editable.

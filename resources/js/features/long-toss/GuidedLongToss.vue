@@ -18,7 +18,7 @@ const labels={min_age:'Minimum age for this plan',max_age:'Maximum age',measured
 const endpoint=computed(()=>`long-toss-guidance/${props.practiceId}/${props.playerId}`)
 let generation=0, active=true
 onBeforeUnmount(()=>{active=false;generation++})
-function access(){if(!active)return;emit('access',{canRecord:!busy.value && !error.value && !!guide.value?.can_record,finishReady:!!guide.value?.finished_at})}
+function access(){if(!active)return;emit('access',{canRecord:!busy.value && !error.value && !!guide.value?.can_record,finishReady:!!guide.value?.finished_at,guide:guide.value})}
 async function load(){
   const current=++generation; emit('access',{canRecord:false,finishReady:false}); error.value=''
   try {

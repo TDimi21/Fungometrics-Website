@@ -1,3 +1,4 @@
+import {guidedProgress,plannedEntry,progressKey} from '@/features/long-toss/guidedProgress'
 import {longTossFeet} from '@/features/long-toss/distanceUnits'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -21,7 +22,7 @@ async function screen({ role = 'coach', completed = false, fails = false, noSess
   const mocks = { computed: Vue.computed, onMounted: Vue.onMounted, ref: Vue.ref, watch: Vue.watch, useRoute: () => ({ query: {} }), useRouter: () => router,
     useTrainingStore: () => training, useUserStore: () => ({ userData: { id: role === 'player' ? 'p1' : 'coach1', type: role } }),
     useTeamStore: () => ({ team: { id: 'team-1' } }), usePlayerStore: () => ({ players: [] }), useAxiosAuth: () => api, Layout: {}, TrainingSessionStatsTabs: {}, GuidedLongToss: {},
-    extractSessionRows, playerThrows, summarizeThrows, validDistance, longTossFeet,
+    extractSessionRows, playerThrows, summarizeThrows, validDistance, longTossFeet, guidedProgress,plannedEntry,progressKey,
     plannerSessionReturn: (storage, id, user, fallback) => fallback, sessionStorage: {},
   }
   const component = new Function(...Object.keys(mocks), script)(...Object.values(mocks))
@@ -128,4 +129,17 @@ it('converts yard entries into stored feet and rejects distances over 500 feet',
  const {state:s,api,app}=await screen();s.session.value.long_toss_mode='regular';s.distanceUnit.value='yd';s.distance.value='100';
  await s.save();expect(api.axiosPost.mock.calls[0][1].distance).toBe(300);
  api.axiosPost.mockClear();s.distance.value='167';await s.save();expect(api.axiosPost).not.toHaveBeenCalled();app.unmount();
+});
+
+it('prefills the active set, preserves manual edits until progress advances, and isolates players',async()=>{
+ const {state:s,app}=await screen();
+ const stages=[{set_number:1,phase:'Going Out',distance_ft:30,throws:3},{set_number:2,phase:'Going Out',distance_ft:100,throws:3}];
+ const guide={player_id:'p1',status:'active',stage:0,recorded_throws:0,stage_throws:0,current_stage:stages[0],snapshot:{stages},can_record:true};
+ s.updateGuidedAccess({canRecord:true,finishReady:false,guide});expect(s.distance.value).toBe('30');expect(s.progress.value.recorded).toBe(0);
+ s.distance.value='35';s.updateGuidedAccess({canRecord:false,finishReady:false,guide});expect(s.distance.value).toBe('35');
+ s.updateGuidedAccess({canRecord:true,finishReady:false,guide:{...guide,stage:1,recorded_throws:3,current_stage:stages[1]}});
+ expect(s.distance.value).toBe('100');expect(s.currentSet.value).toBe(2);expect(s.progress.value.remaining).toBe(3);
+ s.selected.value='p2';await Vue.nextTick();s.updateGuidedAccess({canRecord:true,finishReady:false,guide});expect(s.distance.value).toBe('');
+ s.updateGuidedAccess({canRecord:true,finishReady:false,guide:{...guide,player_id:'p2'}});expect(s.distance.value).toBe('30');
+ s.distanceUnit.value='yd';await Vue.nextTick();expect(s.distance.value).toBe('10');app.unmount();
 });
