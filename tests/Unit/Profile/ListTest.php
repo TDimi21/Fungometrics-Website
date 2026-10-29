@@ -52,17 +52,17 @@ class ListTest extends TestCase
 
     public function test_get_profile_by_param(): void
     {
-        $numModels = 5;
-        $colum = 'first_name';
-        $value = fake()->firstName;
-        Profile::factory()->count($numModels)->create(['user_id' => User::factory()->create()->id]);
+        Profile::factory()->count(5)->create([
+            'user_id' => User::factory()->create()->id,
+            'first_name' => 'Other Profile',
+        ]);
         $profileTemp = Profile::factory()->create([
             'user_id' => User::factory()->create()->id,
-            $colum => $value,
+            'first_name' => 'Matching Profile',
         ]);
         $profileModel = new ListServiceData(new Profile());
-        $result = $profileModel->byParamFirst($colum, $value);
-        $this->assertEquals($profileTemp->count(), $result->count());
+        $result = $profileModel->byParamFirst('first_name', 'Matching Profile');
+        $this->assertNotNull($result);
         $this->assertEquals($profileTemp->id, $result->id);
         $this->assertEquals($profileTemp->first_name, $result->first_name);
         $this->assertEquals($profileTemp->last_name, $result->last_name);
@@ -71,17 +71,13 @@ class ListTest extends TestCase
 
     public function test_get_profile_by_param_null(): void
     {
-        $numModels = 5;
-        $colum = 'first_name';
-        $value = fake()->firstName;
-        Profile::factory()->count($numModels)->create(['user_id' => User::factory()->create()->id]);
-        Profile::factory()->create([
+        // Faker words can match generated names under a case-insensitive collation.
+        Profile::factory()->count(5)->create([
             'user_id' => User::factory()->create()->id,
-            $colum => fake()->phoneNumber,
+            'first_name' => 'Existing Profile',
         ]);
         $profileModel = new ListServiceData(new Profile());
-        $data = $profileModel->byParamFirst($colum, fake()->word);
-        $this->assertNull($data);
+        $this->assertNull($profileModel->byParamFirst('first_name', 'Missing Profile'));
     }
 
     public function test_get_profile_by_params(): void
