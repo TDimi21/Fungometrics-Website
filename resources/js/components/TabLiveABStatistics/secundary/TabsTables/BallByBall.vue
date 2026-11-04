@@ -223,7 +223,7 @@ const showTotalBasesValue = (item) => {
         <tr v-else-if="props.tableData == null || props.tableData == undefined" class="w-full">
           <td colspan="14" class="text-app-muted text-xl text-center py-6">There is no data</td>
         </tr>
-        <tr v-else v-for="(item, index) in props.tableData" :key="index" class="border-t border-white/5 even:bg-white/[0.02] hover:bg-app-card-hover transition-colors">
+        <tr v-else v-for="(item, index) in props.tableData" :key="index" :class="{ 'out-divider': outsRecordedForRow(item) > 0 }" class="border-t border-white/5 even:bg-white/[0.02] hover:bg-app-card-hover transition-colors">
           <td class="text-app-gold font-semibold">
             {{ item.sort + 1 }}
           </td>
@@ -278,6 +278,7 @@ const showTotalBasesValue = (item) => {
 </template>
 
 <style scoped>
+.out-divider > td { border-bottom: 2px solid #E6D08A; }
 table tbody tr td {
   @apply text-center py-3 px-1 2xl:px-5;
 }
