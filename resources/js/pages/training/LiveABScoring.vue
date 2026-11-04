@@ -1,4 +1,5 @@
 <script setup>
+import LiveABPlayerAnalytics from "@/components/statistics/LiveABPlayerAnalytics.vue";
 import LiveABBoxScore from "@/components/practice/LiveABBoxScore.vue";
 import { computed, ref, onMounted } from "vue";
 import { useRoute, useRouter, onBeforeRouteLeave } from "vue-router";
@@ -42,6 +43,7 @@ const pitch = ref("FB"),
   field = ref(0),
   quality = ref("A"),
   outcome = ref("");
+const analytics = ref(null);
 const review = ref(false),
   movements = ref([]),
   thirdOut = ref("none"),
@@ -573,7 +575,7 @@ onMounted(load);
                 >
                   {{ index + 1 }}. {{ name(id) }}
                 </option>
-              </select></label
+              </select><button type="button" class="analytics-button" :disabled="!hitter" @click="analytics = { playerId: hitter, side: 'hitting' }">Hitter Analytics ↗</button></label
             ><label
               >Pitcher<select
                 :value="state.pitcherIndex[fielding]"
@@ -586,8 +588,8 @@ onMounted(load);
                 >
                   {{ name(id) }}
                 </option>
-              </select></label
-            ><small>Hitter: {{config[side].hitPositions?.[hitter] || 'DH'}} · Bats {{allPlayers.find(p=>p.id===hitter)?.hit_side || '—'}}<br />Pitcher throws {{allPlayers.find(p=>p.id===pitcher)?.throw_side || '—'}}</small>
+              </select><button type="button" class="analytics-button" :disabled="!pitcher" @click="analytics = { playerId: pitcher, side: 'pitching' }">Pitcher Analytics ↗</button></label>
+            <small>Hitter: {{config[side].hitPositions?.[hitter] || 'DH'}} · Bats {{allPlayers.find(p=>p.id===hitter)?.hit_side || '—'}}<br />Pitcher throws {{allPlayers.find(p=>p.id===pitcher)?.throw_side || '—'}}</small>
             <button v-if="session.config" @click="openAdd">
               ＋ Add player</button
             ><button @click="controls = !controls">Game controls</button>
@@ -648,19 +650,36 @@ onMounted(load);
                   </button>
                 </div>
               </div>
-              <div class="summary">
-                <span
-                  >Pitches <b>{{ rows.length }}</b></span
-                ><span
-                  >Matchup
-                  <b>{{
-                    rows.filter(
-                      (r) =>
-                        r.pitching?.pitcher_id === pitcher &&
-                        r.batting?.batter_id === hitter,
-                    ).length
-                  }}</b></span
-                >
+              <div class="game-situation" aria-label="Current game situation" aria-live="polite">
+                <div class="situation-stat">
+                  <span>Inning</span>
+                  <b :aria-label="`${state.half === 'top' ? 'Top' : 'Bottom'} of inning ${state.inning}`">
+                    {{ state.half === 'top' ? '▲' : '▼' }} {{ state.inning }}
+                  </b>
+                </div>
+                <div class="situation-stat">
+                  <span>Outs</span>
+                  <b :class="{ 'has-outs': state.outs > 0 }">{{ state.outs }}</b>
+                </div>
+                <div class="situation-bases">
+                  <span>Bases</span>
+                  <svg viewBox="0 0 100 86" role="img" aria-label="Base runners">
+                    <g v-for="(runner, i) in state.runners" :key="i">
+                      <title>{{ ['First', 'Second', 'Third'][i] }} base: {{ runner ? name(runner) : 'empty' }}</title>
+                      <path
+                        :d="[
+                          'M 76 28 L 90 42 L 76 56 L 62 42 Z',
+                          'M 50 2 L 64 16 L 50 30 L 36 16 Z',
+                          'M 24 28 L 38 42 L 24 56 L 10 42 Z',
+                        ][i]"
+                        :class="{ occupied: runner }"
+                        class="base-marker"
+                        :aria-label="`${['First', 'Second', 'Third'][i]} base: ${runner ? name(runner) : 'empty'}`"
+                      />
+                    </g>
+                    <path d="M 40 65 L 60 65 L 60 73 L 50 83 L 40 73 Z" class="home-marker" />
+                  </svg>
+                </div>
               </div>
             </section>
             <section class="target">
@@ -682,14 +701,7 @@ onMounted(load);
                     : "Tap pitch location"
                 }}
               </p>
-              <div class="bases">
-                <span
-                  v-for="(runner, i) in state.runners"
-                  :key="i"
-                  :class="{ occupied: runner }"
-                  >{{ i + 1 }}B {{ runner ? name(runner) : "Empty" }}</span
-                >
-              </div>
+
             </section>
             <section class="glass keypad-panel">
               <label
@@ -921,6 +933,7 @@ onMounted(load);
         </section>
       </template></main
   ></Layout>
+  <LiveABPlayerAnalytics v-if="analytics" :key="`${analytics.side}-${analytics.playerId}`" v-bind="analytics" :rows="rows" :players="allPlayers" @close="analytics = null" />
 </template>
 <style scoped>
 .liveab {
@@ -1033,6 +1046,15 @@ td {
   border-radius: 16px;
   margin-bottom: 14px;
 }
+.players .analytics-button {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  color: #74dcff;
+  border-color: #41bde9;
+  background: #102b44;
+  min-height: 44px;
+}
 .players label {
   flex: 1;
   min-width: 160px;
@@ -1060,19 +1082,62 @@ td {
   margin-bottom: 8px;
   background: #161b2c99;
 }
-.summary {
-  display: flex;
-  gap: 8px;
-}
-.summary span {
+.game-situation {
   display: grid;
-  padding: 12px;
-  background: #1c1945b0;
-  border-radius: 16px;
-  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  margin-top: auto;
+  background: #1b1b49;
+  border: 1px solid #ffffff33;
+  border-radius: 14px;
+  text-align: center;
 }
-.summary b {
+.situation-stat {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ffffff33;
+  border-radius: 24px;
+  padding: 6px 2px;
+}
+.situation-stat span,
+.situation-bases > span {
+  color: #bec3db;
+  font-size: 14px;
+  font-weight: 700;
+}
+.situation-stat b {
   font-size: 24px;
+  line-height: 1.2;
+}
+.situation-stat .has-outs {
+  color: #ff2450;
+}
+.situation-bases svg {
+  display: block;
+  width: 76px;
+  max-width: 100%;
+  height: 64px;
+  margin: 0 auto;
+}
+.base-marker {
+  fill: transparent;
+  stroke: #b8bed4;
+  stroke-width: 3;
+}
+.base-marker.occupied {
+  fill: #ff2450;
+  stroke: #fff;
+}
+.home-marker {
+  fill: transparent;
+  stroke: #68708d;
+  stroke-width: 2;
+}
+.scoring-columns > .glass:first-child {
+  display: flex;
+  flex-direction: column;
 }
 .target {
   display: flex;
@@ -1111,22 +1176,6 @@ td {
   background: #080d1bc9;
   padding: 8px;
   border-radius: 16px;
-}
-.bases {
-  display: flex;
-  justify-content: center;
-  gap: 5px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-.bases span {
-  font-size: 11px;
-  padding: 10px;
-  background: #141a29;
-  border-radius: 10px;
-}
-.bases .occupied {
-  background: #b21942;
 }
 .keypad {
   display: grid;

@@ -86,6 +86,7 @@ async function screen({
     BattingScoringField: {},
     LivePracticeStats: {},
     LiveABBoxScore: {},
+    LiveABPlayerAnalytics: {},
     useRoute: () => ({ query: { session: "s" } }),
     useRouter: () => ({ push: vi.fn() }),
     useTrainingStore: () => ({ trainingActive: {} }),
