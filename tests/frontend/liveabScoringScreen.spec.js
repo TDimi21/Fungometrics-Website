@@ -19,6 +19,7 @@ async function screen({
   half = "top",
   strikes = 0,
   outs = 0,
+  runners = [null, null, null],
 } = {}) {
   const config = {
     mode: "game",
@@ -51,7 +52,7 @@ async function screen({
       strikes,
       turn: 1,
       pitches: 0,
-      runners: [null, null, null],
+      runners,
       scores: [],
       hitterIndex: { away: 0, home: 0 },
       pitcherIndex: { away: 0, home: 0 },
@@ -169,6 +170,49 @@ describe("LiveAB web scorer lifecycle", () => {
   });
   it("does not save completed sessions", async () => {
     const { s, api, app } = await screen({ completed: true });
+    await s.save();
+    expect(api.axiosPost).not.toHaveBeenCalled();
+    app.unmount();
+  });
+});
+
+describe("Live AB contact review", () => {
+  it.each(["GB", "LD", "FB"])("requires an explicit result and saves optional EV for %s", async trajectory => {
+    const { s, api, app } = await screen({ outs: 1 });
+    s.trajectory.value = trajectory;
+    s.prepare();
+    expect(s.outcome.value).toBe("");
+    expect(s.canSave.value).toBe(false);
+    s.choosePath("OUT");
+    s.suggest("OUT");
+    s.key("8"); s.key("5");
+    expect(s.reviewPreview.value.outs).toBe(1);
+    await s.save();
+    expect(api.axiosPost.mock.calls[0][1]).toMatchObject({
+      outs_recorded: 1, state: { outs: 2 },
+      batting: { velocity: 85 }, pitching: { miles_per_hour: 90 },
+    });
+    app.unmount();
+  });
+  it("records a double play and advances the half after the third out", async () => {
+    const { s, api, app } = await screen({ outs: 1, runners: ["runner", null, null] });
+    s.trajectory.value = "GB"; s.prepare(); s.choosePath("OUT"); s.suggest("DOUBLE_PLAY");
+    expect(s.reviewPreview.value).toMatchObject({ outs: 2, endsHalf: true, error: "" });
+    await s.save();
+    expect(api.axiosPost.mock.calls[0][1]).toMatchObject({
+      outs_recorded: 2, batting: { velocity: 0 },
+      state: { outs: 0, half: "bottom", runners: [null, null, null] },
+    });
+    app.unmount();
+  });
+  it("blocks contradictory runner decisions and impossible double plays", async () => {
+    const { s, api, app } = await screen();
+    s.trajectory.value = "LD"; s.prepare(); s.choosePath("OUT"); s.suggest("DOUBLE_PLAY");
+    expect(s.reviewPreview.value.error).toContain("exactly 2");
+    expect(s.canSave.value).toBe(false);
+    s.suggest("LINE_OUT");
+    s.movements.value[0].to = 1;
+    expect(s.reviewPreview.value.error).toContain("Mark the batter out");
     await s.save();
     expect(api.axiosPost).not.toHaveBeenCalled();
     app.unmount();

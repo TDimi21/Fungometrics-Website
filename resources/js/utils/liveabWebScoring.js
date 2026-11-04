@@ -187,6 +187,12 @@ export function scorePitch(
     action = ended
       ? resolveMovements(movements, state.outs, thirdOut)
       : { runners: [...state.runners], outs: 0, runs: 0 };
+  const requiredOuts = result === "DOUBLE_PLAY" ? 2 : result === "TRIPLE_PLAY" ? 3 : null;
+  if (requiredOuts && action.outs !== requiredOuts)
+    throw Error(`Confirm exactly ${requiredOuts} outs for this play, or choose a different result.`);
+  const batterOutResults = ["OUT", "GROUND_OUT", "FLY_OUT", "LINE_OUT", "POP_OUT", "FOUL_OUT", "SAC_FLY", "SAC_BUNT", "INFIELD_FLY"];
+  if (batterOutResults.includes(result) && !movements.some(m => m.from === 0 && Number(m.to) === 0))
+    throw Error("Mark the batter out, or choose a safe result.");
   next.pitches++;
   next.balls = ended ? 0 : count.balls;
   next.strikes = ended ? 0 : count.strikes;

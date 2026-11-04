@@ -148,8 +148,29 @@ const canSave = computed(
       trajectory.value === "HBP" ||
       (review.value && ["IBB", "CI"].includes(outcome.value))) &&
     validSpeed(velocity.value) &&
-    validSpeed(exitVelocity.value),
+    validSpeed(exitVelocity.value) &&
+    (!review.value || !!outcome.value && !reviewPreview.value.error),
 );
+const scoringPath = ref("");
+const safeResults = ["SINGLE", "DOUBLE", "TRIPLE", "HR", "ERROR", "FC", "CI"];
+const outResults = ["GROUND_OUT", "FLY_OUT", "LINE_OUT", "POP_OUT", "OUT", "SAC_FLY", "DOUBLE_PLAY", "TRIPLE_PLAY", "SAC_BUNT"];
+function choosePath(path) {
+  scoringPath.value = path;
+  outcome.value = "";
+  movements.value = [];
+}
+const reviewPreview = computed(() => {
+  if (!review.value || !outcome.value) return { error: "" };
+  try {
+    const result = scorePitch(state.value, config.value, {
+      zone: info.value.zone, trajectory: trajectory.value, result: outcome.value,
+      movements: movements.value, thirdOut: thirdOut.value,
+      rbi: rbi.value === "" ? null : rbi.value,
+    });
+    return { outs: result.play.outs_recorded,
+      endsHalf: state.value.outs + result.play.outs_recorded === 3, error: "" };
+  } catch (e) { return { error: e.message }; }
+});
 const allowedResults = computed(() =>
   isInPlay.value
     ? resultLabels
@@ -208,6 +229,7 @@ function clear() {
   trajectory.value = "TK";
   outcome.value = "";
   review.value = false;
+  scoringPath.value = "";
   runnerMode.value = false;
   thirdOut.value = "none";
   rbi.value = null;
@@ -276,7 +298,7 @@ function prepare() {
   ).result;
   if (isInPlay.value) {
     review.value = true;
-    suggest("SINGLE");
+    choosePath("");
   } else if (auto) {
     review.value = true;
     suggest(auto);
@@ -749,6 +771,16 @@ onMounted(load);
             </h2>
             <div class="review-columns">
               <div v-if="isInPlay">
+                <section class="exit-entry">
+                  <label for="exit-velocity">Exit velocity · mph (optional)</label>
+                  <input id="exit-velocity" v-model="exitVelocity" inputmode="numeric"
+                    placeholder="Not measured" :disabled="!writeable" />
+                  <small>Leave blank if not recorded. Pitch velocity: {{ velocity || "—" }} mph.</small>
+                  <div class="keypad">
+                    <button v-for="k in ['1','2','3','4','5','6','7','8','9','Clear','0','⌫']"
+                      :key="k" type="button" :disabled="!writeable" @click="key(k)">{{ k }}</button>
+                  </div>
+                </section>
                 <BattingScoringField
                   v-model="field"
                   :disabled="!writeable"
@@ -758,15 +790,22 @@ onMounted(load);
                     <option value="A">Average</option>
                     <option value="H">Hard</option>
                   </select></label
-                ><label
-                  >Exit velocity · mph<input
-                    v-model="exitVelocity"
-                    inputmode="numeric"
-                    placeholder="Not measured"
-                /></label>
+                >
               </div>
               <div>
-                <label
+                <div v-if="isInPlay" class="outcome-picker">
+                  <h3>Was the batter safe or out?</h3>
+                  <div class="result-buttons">
+                    <button v-for="path in ['SAFE', 'OUT']" :key="path" type="button"
+                      :aria-pressed="scoringPath === path" @click="choosePath(path)">{{ path }}</button>
+                  </div>
+                  <div v-if="scoringPath" class="result-buttons">
+                    <button v-for="code in scoringPath === 'SAFE' ? safeResults : outResults"
+                      :key="code" type="button" :aria-pressed="outcome === code"
+                      @click="suggest(code)">{{ resultLabels[code] }}</button>
+                  </div>
+                </div>
+                <label v-else
                   >Result<select
                     :value="outcome"
                     @change="suggest($event.target.value)"
@@ -783,7 +822,16 @@ onMounted(load);
                     </option>
                   </select></label
                 >
-                <h3>Confirm batter and runners</h3>
+                <div class="outs-preview" aria-live="polite">
+                  <strong>Outs before play: {{ state.outs }}</strong>
+                  <template v-if="outcome && !reviewPreview.error">
+                    · Outs on this play: {{ reviewPreview.outs }}
+                    · {{ reviewPreview.endsHalf ? "Third out — bases clear after saving" : "Outs after play: " + (state.outs + reviewPreview.outs) }}
+                  </template>
+                  <p v-if="reviewPreview.error" role="alert">{{ reviewPreview.error }}</p>
+                  <p v-else-if="!outcome">Choose a result, then confirm each runner below.</p>
+                </div>
+                <h3 v-if="outcome">Confirm batter and runners</h3>
                 <label v-for="m in movements" :key="`${m.from}-${m.id}`"
                   >{{ m.from ? `${m.from}B` : "Batter" }} · {{ name(m.id)
                   }}<select v-model.number="m.to">
@@ -1293,4 +1341,12 @@ footer {
     padding: 10px;
   }
 }
+.exit-entry { background: #101a30; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
+.exit-entry input { font-size: 28px; text-align: center; }
+.review .keypad button { margin: 0; min-height: 44px; }
+.result-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.review .result-buttons button { margin: 0; padding: 12px 16px; }
+.result-buttons button[aria-pressed="true"] { background: #ff2450; border-color: white; color: white; }
+.outs-preview { padding: 16px; background: #101a30; border: 1px solid #708099; border-radius: 12px; margin: 16px 0; }
+.review-columns > div { min-width: 0; }
 </style>
