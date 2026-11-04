@@ -70,7 +70,7 @@ class AddTeams extends Controller
             }
 
             // ── 1. Create the real team ──────────────────────────────────────
-            $url  = UploadS3File::getUrl($request->logo, '/teams');
+            $url  = $request->hasFile('logo') ? UploadS3File::getUrl($request->logo, '/teams') : '';
             $data = $request->validated();
             $data['logo']      = $url;
             $data['join_code'] = Team::generateJoinCode();

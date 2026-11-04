@@ -707,3 +707,9 @@ Route::middleware(['auth:sanctum','ability:player,coach'])->prefix('long-toss-gu
 Route::get('long-toss-guidance-team/{team}/alerts', [\App\Http\Controllers\Api\LongToss\GuidedLongTossController::class, 'alerts'])->middleware(['auth:sanctum','ability:coach']);
 
 Route::get('long-toss-setup/players', [\App\Http\Controllers\Api\LongToss\GuidedLongTossController::class, 'setupPlayers'])->middleware(['auth:sanctum','ability:player,coach']);
+
+// Clients must check this before sending durable offline writes.
+Route::middleware('auth:sanctum')->get('offline/capabilities', function () {
+    abort_unless(\Illuminate\Support\Facades\Schema::hasTable('offline_write_receipts'), 503);
+    return response()->json(['status' => 'success', 'data' => ['version' => 1]]);
+});

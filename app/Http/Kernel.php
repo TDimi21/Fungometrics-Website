@@ -49,6 +49,7 @@ class Kernel extends HttpKernel
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \App\Http\Middleware\UseApiTokenCookie::class,
             'throttle:api',
+            \App\Http\Middleware\OfflineWriteReceipt::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ];

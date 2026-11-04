@@ -32,7 +32,7 @@ class AddTeamRequest extends FormRequest
             'name' => ['required'],
             'zip' => ['required'],
             'state' => ['required'],
-            'logo' => ['required', 'image'],
+            'logo' => [$this->header('X-Offline-Request-ID') ? 'nullable' : 'required', 'image'],
         ];
     }
 
