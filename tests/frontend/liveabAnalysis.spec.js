@@ -35,14 +35,16 @@ describe('LiveAB mobile-style analysis',()=>{
 
 import {readFileSync} from 'node:fs'
 import {parse, compileScript} from '@vue/compiler-sfc'
-import * as Vue from 'vue'
-import * as analysis from '@/utils/liveabAnalysis'
+import {computed, reactive, ref, watch} from 'vue'
+import {pitchColors, trajectoryColors} from '@/utils/liveabAnalysis'
 function panel(props) {
   const source = compileScript(parse(readFileSync('resources/js/components/statistics/LiveABAnalysis.vue','utf8')).descriptor,{id:'live-analysis-test'}).content
     .replace(/^import[^\n]+\n/gm,'').replace('export default','return')
-  const globals = {...Vue,...analysis,VelocitySprayField:{},StatsStrikeZonePlot:{},stadium:''}
+  // Only JavaScript identifiers belong in Function's parameter list.
+  // Node 24 module namespaces can also expose a 'module.exports' key.
+  const globals = {computed, ref, watch, liveabAnalysisBalls, analysisValue, resultColor, pitchColors, trajectoryColors, VelocitySprayField:{}, StatsStrikeZonePlot:{}, stadium:''}
   const component = new Function(...Object.keys(globals),source)(...Object.values(globals))
-  return component.setup(Vue.reactive(props),{expose(){}})
+  return component.setup(reactive(props),{expose(){}})
 }
 it('keeps Team and player ID 1 distinct and combines player and pitch filters',()=>{
   const p = panel({balls:[...rows,{pitching:{pitcher_id:3,type_throw:'FB',pitch_mark:10}}],side:'pitching',mode:'pitch'})
