@@ -15,7 +15,7 @@ defineProps({
 })
 </script>
 <template>
-  <section class="mt-10">
+  <section class="mt-4">
     <tab-group>
       <tab-list class="bg-app-surface flex justify-center items-center py-4 rounded-xl">
         <div class="border border-white/15 rounded-lg overflow-hidden flex">
@@ -26,7 +26,7 @@ defineProps({
           >
             <button
               class="outline-none py-2 px-6 !mx-0 transition-colors"
-              :class="{ 'bg-app-gold text-app-bg font-fungo-500': selected, 'text-app-muted hover:text-white': !selected }"
+              :class="{ 'bg-app-red text-white font-fungo-500': selected, 'text-app-muted hover:text-white': !selected }"
             >
               {{ head }}
             </button>

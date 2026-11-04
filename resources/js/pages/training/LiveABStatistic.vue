@@ -56,7 +56,7 @@ const buildPlayersFromBallData = () => {
 
 const getStatistic = async () => {
   try {
-    isLoading.value = !isLoading.value
+    isLoading.value = true
     await axiosGet(`statistics/${route.params.id}/liveab`)
       .then(response => {
         statisticsData.value = response.data.data
@@ -67,7 +67,7 @@ const getStatistic = async () => {
   } catch (error) {
     console.log(error);
   } finally {
-    isLoading.value = !isLoading.value
+    isLoading.value = false
   }
 }
 
@@ -207,18 +207,18 @@ const showTotalBasesValue = (item) => {
     <!-- Page header: logo + title -->
     <div class="flex items-center gap-4 mb-8 md:px-[5%]">
       <batting-logo-practice class="h-[56px] w-[56px] flex-shrink-0" />
-      <h1 class="text-app-red text-2xl md:text-3xl font-bold tracking-wide">LiveAB Mode Practices Statistics</h1>
+      <h1 class="text-app-red text-2xl md:text-3xl font-bold tracking-wide">LiveAB Statistics</h1>
     </div>
 
     <!-- Tabs + Export button -->
-    <section class="md:px-[5%]">
+    <section class="liveab-stats">
       <tab-group>
         <!-- Tab bar row: tabs left, Excel export right -->
         <div class="flex items-center justify-between border-b-2 border-white/10 mb-4">
           <tab-list class="flex">
             <tab as="template" v-slot="{ selected }" v-for="head in tabHeading" :key="head">
               <button class="outline-none pb-2 px-4 text-sm font-semibold transition-colors whitespace-nowrap"
-                :class="{ 'text-app-gold border-b-2 border-app-gold': selected, 'text-app-muted hover:text-white': !selected }">
+                :class="{ 'bg-app-red text-white rounded-lg': selected, 'text-app-muted hover:text-white': !selected }">
                 {{ head }}
               </button>
             </tab>
@@ -254,3 +254,7 @@ const showTotalBasesValue = (item) => {
     </section>
   </Layout>
 </template>
+
+<style scoped>
+.liveab-stats{max-width:1440px;margin:0 auto;color:white}.liveab-stats :deep([role="tablist"]){gap:8px;flex-wrap:wrap}.liveab-stats :deep([role="tab"]){min-height:44px;border-radius:8px;font-weight:700}.liveab-stats :deep([role="tab"][aria-selected="false"]){background:#2e3039;color:#e2e6ef}.liveab-stats :deep(table){font-size:14px}.liveab-stats :deep(th),.liveab-stats :deep(td){vertical-align:middle}@media(max-width:700px){.liveab-stats>div{flex-wrap:wrap}}
+</style>

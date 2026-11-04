@@ -7,10 +7,13 @@
 // Drawn field (mowing stripes, tan infield, diamond, mound) with the fence
 // distance arcs, so ball positions line up exactly with the geometry.
 import { ref, computed } from 'vue'
+import fieldLogo from '@/assets/img/login/assteslogin/updatedlogo.png'
 import { configFromLevel, createFieldMapper, fenceAt, baseCoords } from '@/utils/ballFieldGeometry'
 import { fieldMarkToBalls } from '@/utils/fieldMark'
 
 const props = defineProps({
+  colorBy: { type: String, default: 'velocity' },
+  watermark: { type: Boolean, default: false },
   balls: { type: Array, default: () => [] },
   mode: { type: String, default: 'heatmap' },   // 'heatmap' | 'spray'
   useFieldMark: { type: Boolean, default: true }, // batting taps a grid; cage has real spray
@@ -122,7 +125,7 @@ const dots = computed(() => {
   const home = mapper.home
   return balls.map((b, i) => {
     const p = mapper.mapBall(b.distance_travel, b.spray_angle)
-    const color = b.velocity > 0 ? velColor(b.velocity, min, max, 0.95) : 'rgba(255,255,255,0.7)'
+    const color = props.colorBy === 'trajectory' ? ({GB:'#16224C',LD:'#D8232A',FB:'#2160C4',PF:'#E6D08A'}[b.trajectory] || '#5C6B8A') : b.velocity > 0 ? velColor(b.velocity, min, max, 0.95) : 'rgba(255,255,255,0.7)'
     let trajPath = null
     if (props.trajectoryLines && b.launch_angle != null) {
       const mx = (home.px + p.px) / 2; const my = (home.py + p.py) / 2
@@ -197,6 +200,7 @@ const distanceLabels = (() => {
           <polygon :points="diamond" fill="#2a7d3c" />
         </g>
 
+        <image v-if="watermark" :href="fieldLogo" :x="W*.34" :y="H*.23" :width="W*.32" :height="H*.4" opacity="0.18" preserveAspectRatio="xMidYMid meet"/>
         <!-- infield arc + foul lines -->
         <path :d="infieldArc" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1" stroke-dasharray="4 4" />
         <line v-for="(l, i) in foulLines" :key="`fl${i}`" :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" stroke="rgba(255,255,255,0.75)" stroke-width="1.4" />

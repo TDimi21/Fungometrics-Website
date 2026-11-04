@@ -1,8 +1,9 @@
 <script setup>
 import { ref } from 'vue'
-import { Tendency, PitchBreackdown, Contact, Velocity } from '@/components/TabLiveABStatistics/secundary/TabsPitching/index.js'
+import LiveABAnalysis from '@/components/statistics/LiveABAnalysis.vue'
+import { Tendency } from '@/components/TabLiveABStatistics/secundary/TabsPitching/index.js'
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/vue'
-const primaryTabHeading = ref(['TENDENCY', 'PITCH BREAK DOWN', 'CONTACT', 'VELOCITY'])
+const primaryTabHeading = ref(['TENDENCY', 'PITCH BREAKDOWN', 'CONTACT', 'VELOCITY'])
 
 defineProps({
   statsData: {
@@ -11,7 +12,7 @@ defineProps({
 })
 </script>
 <template>
-  <section class="mt-10">
+  <section class="mt-4">
     <tab-group>
       <tab-list class="bg-app-surface flex justify-center items-center py-4 rounded-xl flex-wrap gap-y-2">
         <div class="border border-white/15 rounded-lg overflow-hidden flex flex-wrap">
@@ -22,7 +23,7 @@ defineProps({
           >
             <button
               class="outline-none py-2 px-6 !mx-0 transition-colors"
-              :class="{ 'bg-app-gold text-app-bg font-fungo-500': selected, 'text-app-muted hover:text-white': !selected }"
+              :class="{ 'bg-app-red text-white font-fungo-500': selected, 'text-app-muted hover:text-white': !selected }"
             >
               {{ head }}
             </button>
@@ -34,13 +35,13 @@ defineProps({
           <tendency :tableData="statsData.matrixBSPH" :teamData="statsData.matrixBS"/>
         </tab-panel>
         <tab-panel>
-          <pitch-breackdown :tableData="statsData.calculates" :ballData="statsData.ball_x_ball"/>
+          <LiveABAnalysis :balls="statsData.ball_x_ball || []" side="pitching" mode="pitch" />
         </tab-panel>
         <tab-panel>
-          <contact :tableData="statsData.calculates"/>
+          <LiveABAnalysis :balls="statsData.ball_x_ball || []" side="pitching" mode="contact" />
         </tab-panel>
         <tab-panel>
-          <Velocity :tableData="statsData.by_pitchers"/>
+          <LiveABAnalysis :balls="statsData.ball_x_ball || []" side="pitching" mode="velocity" />
         </tab-panel>
       </tab-panels>
     </tab-group>

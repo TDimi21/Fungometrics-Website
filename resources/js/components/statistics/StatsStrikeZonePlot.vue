@@ -12,6 +12,8 @@ import { markToColRow } from '@/features/player-home/lib/constants.js'
 const props = defineProps({
   balls: { type: Array, default: () => [] },
   colorOf: { type: Function, default: () => '#3498DB' },
+  heatmapMetric: { type: String, default: 'count' },
+  displayMode: { type: String, default: 'balls' },
   markKey: { type: String, default: 'pitch_mark' },
 })
 
@@ -61,6 +63,20 @@ const dots = computed(() => {
   })
   return out
 })
+const cells = computed(() => {
+  const buckets = new Map()
+  for (const ball of props.balls) {
+    const p = decodeMark(ball[props.markKey] ?? ball.pitch_mark)
+    if (!p) continue
+    const col = Math.floor((p.col - 1) / 12), row = Math.floor((p.row - 1) / 12)
+    const key = `${col}:${row}`
+    if (!buckets.has(key)) buckets.set(key, {key, col, row, count: 0, values: []})
+    const cell = buckets.get(key); cell.count++
+    if (Number(ball.velocity) > 0) cell.values.push(Number(ball.velocity))
+  }
+  const max = Math.max(1, ...[...buckets.values()].map(c => c.count))
+  return [...buckets.values()].map(c => ({...c, label: (props.displayMode === 'velocity' || props.heatmapMetric === 'velocity') ? (c.values.length ? Math.round(c.values.reduce((a,b)=>a+b,0)/c.values.length) : '—') : c.count, opacity: 0.2 + c.count / max * 0.65}))
+})
 const R = 13
 </script>
 
@@ -75,8 +91,11 @@ const R = 13
       <line :x1="box.l" :y1="box.t + (box.h * 2) / 3" :x2="box.r" :y2="box.t + (box.h * 2) / 3" stroke="rgba(255,255,255,0.2)" stroke-width="0.8" />
       <path :d="box.plate" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
 
+      <g v-if="displayMode !== 'balls'">
+        <g v-for="c in cells" :key="c.key"><rect :x="c.col*W/5" :y="c.row*H/5" :width="W/5" :height="H/5" fill="#D8232A" :fill-opacity="c.opacity" stroke="#ffffff44"/><text :x="(c.col+.5)*W/5" :y="(c.row+.5)*H/5" fill="white" font-size="15" text-anchor="middle" dominant-baseline="central">{{ c.label }}</text></g>
+      </g>
       <!-- pitch dots -->
-      <g v-for="d in dots" :key="d.key">
+      <g v-for="d in (displayMode === 'balls' ? dots : [])" :key="d.key">
         <circle :cx="d.cx" :cy="d.cy" :r="R" :fill="d.color" stroke="#fff" stroke-width="1.5" />
         <text :x="d.cx" :y="d.cy" fill="#fff" :font-size="R * 0.85" font-weight="800" text-anchor="middle" dominant-baseline="central">{{ d.n }}</text>
       </g>
