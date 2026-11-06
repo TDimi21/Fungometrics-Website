@@ -51,3 +51,21 @@ it('does not initialize coach preferences for players', async () => {
   await useTeamStore().initializePreferences()
   expect(api.axiosGet).not.toHaveBeenCalled()
 })
+
+it('keeps a restored team visible if preference loading fails', async () => {
+  const store = useTeamStore()
+  store.setTeam({id: 'a', name: 'Varsity', players: [{id: 'p'}]})
+  api.axiosGet.mockRejectedValue(new Error('Service unavailable'))
+  await store.initializePreferences()
+  expect(store.active_team_id).toBe('a')
+  expect(store.team.players).toHaveLength(1)
+  expect(store.preferenceError).toContain('Could not load')
+})
+it('clears the previous account team when another coach signs in', async () => {
+  const store = useTeamStore()
+  store.preferenceOwner = 'another-coach'
+  store.setTeam({id: 'private-team'})
+  api.axiosGet.mockRejectedValue(new Error('Service unavailable'))
+  await store.initializePreferences({login: true})
+  expect(store.active_team_id).toBeNull()
+})

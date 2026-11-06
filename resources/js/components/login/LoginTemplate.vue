@@ -1,4 +1,6 @@
 <script setup>
+import {discardLegacyAuthToken} from '@/utils/authToken.js'
+
 import { consumeCommunicationDestination, pendingCommunicationDestination } from '@/utils/communicationDestination.js'
 import { reactive, ref, computed } from 'vue'
 import PlayerClaimSetup from './PlayerClaimSetup.vue'
@@ -102,6 +104,7 @@ const submitForm = async () => {
         text: response.data.message,
       })
       setToken('');
+      discardLegacyAuthToken();
       prepareSessionForUser(response.data.data.id)
       await userStore.setData(response.data.data);
       if(response.data.data.type == 'player'){

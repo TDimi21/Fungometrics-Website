@@ -1,3 +1,4 @@
+import { useTeamStore } from '@/store/team.js';
 import { dashboardRedirect } from '../js/utils/dashboardRouting.js';
 import { isLongTossScoringRoute, isVelocityScoringRoute } from '@/utils/longTossScoring'
 import { isPlayerInvitationRoute, rememberCommunicationDestination, consumeCommunicationDestination, pendingCommunicationDestination } from '../js/utils/communicationDestination.js';
@@ -589,13 +590,18 @@ router.beforeEach(async (to) => {
 			// Use the authoritative snapshot already loaded for this context.
 			// The access store deduplicates this call when startup/team refresh
 			// is still in flight.
-			if (!access.loaded) accessSummary = await access.refresh();
+			const teams = useTeamStore();
+            await teams.initializePreferences();
+            const selected = teams.active_team_id;
+            access.setTeamContext(selected);
+            if (!access.loaded || access.error) accessSummary = await access.refresh({team_id: selected});
+            else accessSummary = access.summary;
 		} catch (_) {
 			return { path: '/dashboard', query: { access_denied: 'access_verification_failed' } };
 		}
 
 		const entitlement = routeEntitlement(to, accessSummary?.audience);
-		if (!entitlement) return { path: '/dashboard' };
+		if (!entitlement) return { path: '/dashboard', query: { access_denied: 'access_verification_failed' } };
 
 		const entitlements = Array.isArray(accessSummary?.entitlements)
 			? accessSummary.entitlements

@@ -21,7 +21,8 @@ function guard({ authenticated = true, entitlements = ['liveab_sessions'], audie
     isLongTossScoringRoute: () => false,
     isVelocityScoringRoute: () => false,
     hasPlannerSessionContext: () => false,
-    useAccessStore: () => ({ loaded: true, summary: { audience, entitlements } }),
+    useTeamStore: () => ({ initializePreferences: vi.fn(), active_team_id: 'team-a' }),
+    useAccessStore: () => ({ setTeamContext: vi.fn(), loaded: true, summary: { audience, entitlements } }),
     routeEntitlement: (to, role) => to.meta.entitlement || to.meta.entitlementByAudience?.[role],
   }
   new Function(...Object.keys(mocks), guardSource)(...Object.values(mocks))

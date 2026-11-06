@@ -69,7 +69,7 @@ console.log(training.selectedRowID);
           <td colspan="9" class="text-fungo-darkblue text-3xl text-center">Loading data...</td>
         </tr>
         <tr v-else-if="!tableData.length > 0">
-          <td colspan="9" class="text-fungo-darkblue text-3xl text-center">No found data</td>
+          <td colspan="9" class="text-fungo-darkblue text-3xl text-center">No sessions found</td>
         </tr>
         <template v-else>
           <tr v-if="have_team" v-for="(item, index) in tableDataTeam"  v-on:click="$emit('clicked-data', {item, index})" class="bg-white even:bg-fungo-gray4 border-l border-fungo-lightblue relative">

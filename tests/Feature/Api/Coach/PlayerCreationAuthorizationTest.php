@@ -50,6 +50,22 @@ class PlayerCreationAuthorizationTest extends TestCase
         ]);
     }
 
+    public function test_cookie_remains_authorized_across_coach_navigation_reads(): void
+    {
+        [$team] = $this->coachCookie();
+        $this->flushHeaders();
+        foreach ([
+            '/api/coach/teams',
+            '/api/coach/team-preferences',
+            '/api/coach/teams/'.$team->id,
+            '/api/me/access?team_id='.$team->id,
+            '/api/player-videos/context',
+            '/api/coach/teams',
+        ] as $url) {
+            $this->getJson($url)->assertOk();
+        }
+    }
+
     public function test_cookie_with_correct_team_creates_player_without_invitations_or_bearer(): void
     {
         [$team] = $this->coachCookie();

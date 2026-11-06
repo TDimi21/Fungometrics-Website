@@ -27,6 +27,8 @@ const playerStore = usePlayerStore()
 const { players } = storeToRefs(playerStore)
 const route = useRoute()
 
+const rosterError = ref('')
+let rosterRequest = 0
 const pages = ref([])
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const isLoading = reactive({status: true})
@@ -116,10 +118,13 @@ const getCoachesByRoster = async(page = 1) => {
 }
 
 const getPlayerByTeam = async(page = 1) => {
+  const request = ++rosterRequest
+  const selectedTeam = String(team.value?.id_team ?? team.value?.id ?? '')
+  rosterError.value = ''
   const data = {}
   try {
     isLoadingPlayer.value = true
-    const teamId = team.value?.id ?? team.value?.id_team
+    const teamId = selectedTeam
     if (!teamId) {
       tableDataPlayers.value = []
       playersDataDefault.value = []
@@ -128,7 +133,9 @@ const getPlayerByTeam = async(page = 1) => {
     await axiosGet(`coach/teams/${teamId}`, data)
       .then((response) => {
         if (response) {
+          if (request !== rosterRequest || selectedTeam !== String(team.value?.id_team ?? team.value?.id ?? '')) return
           const payload = response?.data?.data
+          if (!Array.isArray(payload) && !Array.isArray(payload?.players)) throw new Error('Invalid roster response')
           tableDataPlayers.value = Array.isArray(payload)
             ? payload
             : (Array.isArray(payload?.players) ? payload.players : [])
@@ -139,13 +146,16 @@ const getPlayerByTeam = async(page = 1) => {
       })
 
   } catch (error) {
+    if (request === rosterRequest) rosterError.value = error?.response?.status === 401
+      ? 'Your roster could not be authorized. Please sign in again.'
+      : 'Could not load the roster. Your players have not been removed. Please retry.'
     // await toast.fire({
     //   icon: 'error',
     //   title: 'Error get data',
     //   text: 'Yo can try with a different type of user',
     // })
   } finally {
-    isLoadingPlayer.value = false
+    if (request === rosterRequest) isLoadingPlayer.value = false
   }
 }
 
@@ -396,9 +406,13 @@ const submitAddCoach = async () => {
   }
 }
 
+watch(() => team.value?.id_team ?? team.value?.id, () => {
+  tableDataPlayers.value = []; playersDataDefault.value = []
+  getPlayerByTeam(); fetchTeamJoinCode()
+}, {immediate: true})
+
 onMounted(() => {
   fetchTeamJoinCode()
-  getPlayerByTeam()
   getCoachesByRoster()
 })
 
@@ -659,6 +673,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
 
         <!-- Player cards grid -->
         <div v-if="isLoadingPlayer" class="text-white/25 text-center py-10">Loading players…</div>
+        <div v-else-if="rosterError" role="alert" class="text-red-300 text-center py-6">{{ rosterError }} <button @click="getPlayerByTeam()">Retry</button></div>
         <div v-else-if="!tableDataPlayers.length" class="text-white/25 text-center py-10">No players found</div>
         <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           <div v-for="item in tableDataPlayers" :key="item.id">

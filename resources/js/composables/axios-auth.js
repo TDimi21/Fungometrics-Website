@@ -1,3 +1,4 @@
+import {apiBaseUrl} from '@/utils/apiTransport.js'
 import axios from "axios"
 import { getAuthToken } from '@/utils/authToken.js'
 
@@ -7,7 +8,6 @@ export const isEntitlementForbidden = error =>
   && error.response.data.required_entitlement.length > 0
 
 export const useAxiosAuth = () => {
-  const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
   const withAccessRefreshSignal = promise => promise.catch(error => {
     if (
       isEntitlementForbidden(error)

@@ -72,16 +72,17 @@ const { team } = storeToRefs(teamStore)
 const activeTeamId = () => team.value?.id_team ?? team.value?.id ?? null
 const refreshAndEnforceAccess = async () => {
   if (!auth.isLogged.status) return
+  const previousAudience = access.summary?.audience
   try {
     await access.refresh({ team_id: activeTeamId() })
-    const required = routeEntitlement(Router.currentRoute.value)
+    const required = routeEntitlement(Router.currentRoute.value, access.summary?.audience || previousAudience)
     if (required && !access.canAccess(required)) {
       await Router.replace({ path: '/dashboard', query: { access_denied: required } })
     }
   } catch (_) {
-    const required = routeEntitlement(Router.currentRoute.value)
+    const required = routeEntitlement(Router.currentRoute.value, access.summary?.audience || previousAudience)
     if (required) {
-      await Router.replace({ path: '/dashboard', query: { access_denied: required } })
+      await Router.replace({ path: '/dashboard', query: { access_denied: 'access_verification_failed' } })
     }
   }
 }

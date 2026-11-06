@@ -1,4 +1,5 @@
 <script setup>
+import {apiBaseUrl} from '@/utils/apiTransport.js'
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import axios from 'axios'
 import { readVideoDuration } from './videoDuration.js'
@@ -16,7 +17,7 @@ const targets = computed(() => [
   ...(context.value?.teams || []).map(t => ({key: `team:${t.id}`, label: `Team: ${t.name} (all current coaches)`, team_id: t.id})),
   ...(context.value?.coaches || []).map(c => ({key: `coach:${c.team_id}:${c.id}`, label: `Coach: ${c.name} — ${context.value?.teams.find(t => t.id === c.team_id)?.name || ''}`, team_id: c.team_id, coach_id: c.id})),
 ])
-const apiRoot = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
+const apiRoot = apiBaseUrl
 const message = e => Object.values(e?.response?.data?.errors || {}).flat().join(' ') || e?.response?.data?.message || e.message || 'Request failed. Please retry.'
 function closeVideo() { mediaGeneration++; playing.value = null; if (mediaUrl.value) URL.revokeObjectURL(mediaUrl.value); mediaUrl.value = '' }
 async function initialize() {
@@ -50,7 +51,7 @@ async function upload() {
   if (context.value.role === 'coach') data.append('team_id', teamId.value)
   try {
     await readVideoDuration(file.value)
-    await axios.post(apiRoot + 'player-videos', data, {headers: {Authorization: `Bearer ${getAuthToken()}`}, timeout: 300000,
+    await axios.post(apiRoot + 'player-videos', data, {withCredentials: true, headers: getAuthToken() ? {Authorization: `Bearer ${getAuthToken()}`} : {}, timeout: 300000,
       onUploadProgress: event => { if (event.total) progress.value = Math.round(event.loaded * 100 / event.total) }})
     file.value = null; title.value = ''; notes.value = ''; fileInput.value.value = ''; await load()
   } catch (e) { error.value = message(e) }
@@ -59,7 +60,7 @@ async function upload() {
 async function play(video) {
   closeVideo(); const request = mediaGeneration; playing.value = video; error.value = ''
   try {
-    const response = await axios.get(apiRoot + `player-videos/${video.id}/content`, {headers: {Authorization: `Bearer ${getAuthToken()}`}, responseType: 'blob', timeout: 300000})
+    const response = await axios.get(apiRoot + `player-videos/${video.id}/content`, {withCredentials: true, headers: getAuthToken() ? {Authorization: `Bearer ${getAuthToken()}`} : {}, responseType: 'blob', timeout: 300000})
     if (request === mediaGeneration) mediaUrl.value = URL.createObjectURL(response.data)
   } catch { if (request === mediaGeneration) { closeVideo(); error.value = 'Video could not be played. Refresh the library to check your access.' } }
 }
@@ -77,7 +78,7 @@ onBeforeUnmount(() => { generation++; closeVideo() })
 </script>
 <template>
   <Layout><main class="library">
-    <h1>Player Video Library</h1>
+    <h1>Video Library</h1>
     <p>Upload mechanics clips and share only the videos you choose. Team sharing includes current coaches, not teammates.</p>
     <p v-if="error" role="alert" class="error">{{ error }} <button :disabled="busy || loading" @click="context ? load() : initialize()">Retry</button></p>
     <template v-if="context">

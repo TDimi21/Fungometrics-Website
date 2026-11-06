@@ -29,8 +29,10 @@ const findToken = (value, depth = 0) => {
 }
 
 let volatileLegacyToken = ''
+let legacyTokenDiscarded = false
 
 export const migrateLegacyAuthToken = () => {
+  if (legacyTokenDiscarded) return ''
   try {
     const localAuth = localStorage.getItem('auth')
     const sessionAuth = sessionStorage.getItem('auth')
@@ -61,5 +63,6 @@ export const getAuthToken = () => {
 }
 
 export const discardLegacyAuthToken = () => {
+  legacyTokenDiscarded = true
   volatileLegacyToken = ''
 }

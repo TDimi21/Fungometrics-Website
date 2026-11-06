@@ -133,7 +133,7 @@ onMounted(() => {
           <td colspan="9" class="text-white/80 text-3xl text-center">Loading data...</td>
         </tr>
         <tr v-else-if="!tableData.length > 0">
-          <td colspan="9" class="text-white/80 text-3xl text-center">No found data</td>
+          <td colspan="9" class="text-white/80 text-3xl text-center">No teams found</td>
         </tr>
         <tr
           v-else
@@ -185,6 +185,7 @@ onMounted(() => {
 
           <td class="w-[80px] max-w[80px]">
             <button
+              :aria-label="`Edit ${item.name || 'team'}`"
               @click="router.push({name: 'manage.team.update', params: { id: item.id } })"
             >
               <TableEdit />
@@ -193,7 +194,7 @@ onMounted(() => {
 
           <td class="w-[80px] max-w[80px]">
             <button
-              @click="showPlayersOfTeam(item.id)"
+              :aria-label="`View players for ${item.name || 'team'}`" @click="showPlayersOfTeam(item.id)"
             >
               <TableHappyFace />
             </button>
@@ -201,7 +202,7 @@ onMounted(() => {
 
           <td class="w-[80px] max-w[80px]">
             <button
-              @click="deleteTeam(item.id)"
+              :aria-label="`Delete ${item.name || 'team'}`" @click="deleteTeam(item.id)"
             >
               <TableCancel />
             </button>

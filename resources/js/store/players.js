@@ -12,6 +12,5 @@ export const usePlayerStore = defineStore('players',()=>{
     }
   },
   {
-    persist:true,
-    storage: sessionStorage
+    persist: { storage: sessionStorage }
   });

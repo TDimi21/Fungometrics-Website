@@ -1,4 +1,5 @@
 <script setup>
+import SessionAccessNotice from "@/components/SessionAccessNotice.vue";
 import { useCreatePlayer, playerCreationError } from "@/composables/create-player.js"
 import PlayerOnboardingFields from "@/components/communications/PlayerOnboardingFields.vue";
 import CoachHeader from "./CoachHeader.vue";
@@ -80,7 +81,7 @@ const withTeamIdFallbackGet = async (buildPath, teamLike = team.value) => {
 
 const isOpen = ref(false);
 const isChange = ref(false);
-const sessionCount = ref(0);
+const sessionCount = ref(null);
 const teamJoinCode = ref('');
 const api_url = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || '';
 const isLoading = reactive({ status: true });
@@ -290,22 +291,25 @@ const openChangeTeamModal = () => {
 };
 
 const fetchSessionCount = async () => {
+  const requestedTeam = activeTeamId.value;
   if ((userData.value?.type ?? 'coach') !== 'coach' || !getTeamIdCandidates(team.value).length) {
     sessionCount.value = 0;
     return;
   }
   try {
     const { data } = await withTeamIdFallbackGet((id) => `coach/sessions/lasts/${id}`);
+    if (requestedTeam !== activeTeamId.value) return;
     const d = data?.data ?? {};
     sessionCount.value = [
       d.batting, d.bullpen, d.cage, d.live, d.weight_ball, d.long_toss, d.exit_velocity
     ].reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
   } catch {
-    sessionCount.value = 0;
+    // Keep the last successful count when a refresh fails.
   }
 };
 
 const fetchTeamJoinCode = async () => {
+  const requestedTeam = activeTeamId.value;
   if ((userData.value?.type ?? 'coach') !== 'coach' || !getTeamIdCandidates(team.value).length) {
     teamJoinCode.value = '';
     return;
@@ -313,9 +317,10 @@ const fetchTeamJoinCode = async () => {
 
   try {
     const response = await withTeamIdFallbackGet((id) => `coach/teams/${id}/code`);
+    if (requestedTeam !== activeTeamId.value) return;
     teamJoinCode.value = response?.data?.data?.join_code || response?.data?.join_code || '';
   } catch {
-    teamJoinCode.value = '';
+    // Keep the current team's last successfully loaded code.
   }
 };
 
@@ -357,6 +362,9 @@ onUnmounted(() => {
 watch(
   () => activeTeamId.value,
   () => {
+    sessionCount.value = null;
+    teamJoinCode.value = '';
+    players.value = team.value?.players || [];
     fetchSessionCount();
     fetchTeamJoinCode();
     syncTopHeaderAssets();
@@ -456,7 +464,7 @@ watch(
               </div>
               <div class="rounded-lg border border-white/10 bg-white/10 p-2 text-center">
                 <div class="text-[9px] font-black uppercase tracking-widest text-white/45">Sessions</div>
-                <div class="mt-0.5 text-lg font-black text-white">{{ sessionCount }}</div>
+                <div class="mt-0.5 text-lg font-black text-white">{{ sessionCount ?? '—' }}</div>
               </div>
             </div>
           </div>
@@ -538,6 +546,7 @@ watch(
         v-if="userType !== 'player'"
       >
         <div class="screen-stage">
+          <SessionAccessNotice />
           <slot />
         </div>
       </main>
@@ -546,6 +555,7 @@ watch(
         v-if="userType === 'player'"
       >
         <div class="screen-stage">
+          <SessionAccessNotice />
           <slot />
         </div>
       </main>

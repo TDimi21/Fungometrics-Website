@@ -1,3 +1,4 @@
+import {apiBaseUrl} from '@/utils/apiTransport.js'
 import axios from 'axios'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -76,8 +77,7 @@ export const useAccessStore = defineStore('access', () => {
     error.value = null
 
     const request = (async () => {
-      const apiBaseUrl = import.meta.env.VITE_API_ENDPOINT || import.meta.env.API_ENDPOINT || ''
-      try {
+          try {
         const response = await axios.get(`${apiBaseUrl}me/access`, {
           params: context ? { team_id: context } : {},
           withCredentials: true,
@@ -95,7 +95,7 @@ export const useAccessStore = defineStore('access', () => {
         // Fail closed. Stale paid access must not survive a failed refresh.
         if (sequence !== requestSequence || teamId.value !== context) return summary.value
         summary.value = emptySummary()
-        loaded.value = true
+        loaded.value = false
         error.value = requestError
         throw requestError
       } finally {

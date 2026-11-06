@@ -29,7 +29,7 @@ describe('web entitlement gate coverage', () => {
     const app = source('resources/js/app.js')
 
     expect(router.match(/router\.beforeEach\(/g)).toHaveLength(1)
-    expect(router).toContain('if (!access.loaded) accessSummary = await access.refresh()')
+    expect(router).toContain('if (!access.loaded || access.error) accessSummary = await access.refresh({team_id: selected});')
     expect(app.match(/void refreshAndEnforceAccess\(\)/g) ?? []).toHaveLength(1)
   })
 

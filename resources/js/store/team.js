@@ -41,7 +41,7 @@ export const useTeamStore = defineStore('teams',()=>{
       if (pendingPreferences && !login) return pendingPreferences
       const owner = ownerId()
       preferencesReady.value = false
-      if (login || preferenceOwner.value !== owner) { team.value = {}; default_team_id.value = null }
+      if (login || (preferenceOwner.value && preferenceOwner.value !== owner)) { team.value = {}; default_team_id.value = null }
       const task = (async () => {
         try {
           const [list, response] = await Promise.all([axiosGet('coach/teams'), axiosGet('coach/team-preferences')])
@@ -102,7 +102,7 @@ export const useTeamStore = defineStore('teams',()=>{
 
 
     return{
-      default_team_id, active_team_id, preferenceError, preferencesReady,
+      default_team_id, active_team_id, preferenceError, preferencesReady, preferenceOwner,
       initializePreferences, setDefaultTeam,
       team,
       teamA,
@@ -118,6 +118,8 @@ export const useTeamStore = defineStore('teams',()=>{
     }
   },
   {
-    persist:true,
-    storage: sessionStorage
+    persist: {
+      storage: sessionStorage,
+      paths: ['team', 'teamA', 'teamB', 'teams', 'default_team_id', 'preferenceOwner'],
+    }
   });

@@ -81,11 +81,11 @@ const sidebarItems = ref([
     startWith: ['/statistic', '/new-statistic'],
     child: [
       {
-        title: 'Legacy Statistics',
+        title: 'Detailed Statistics',
         url: '/statistic'
       },
       {
-        title: 'New Statistics',
+        title: 'Statistics Overview',
         url: '/new-statistic'
       }
     ]
@@ -104,7 +104,7 @@ const sidebarItems = ref([
         url: { path: '/dashboard', query: { tab: 'quickstats' } }
       },
       {
-        title: 'Strength',
+        title: 'Assessment',
         url: { path: '/dashboard', query: { tab: 'strength' } }
       },
       {
@@ -229,11 +229,11 @@ onMounted(() => {
         startWith: ['/statistic', '/new-statistic'],
         child: [
           {
-            title: 'Legacy Statistics',
+            title: 'Detailed Statistics',
             url: '/statistic'
           },
           {
-            title: 'New Statistics',
+            title: 'Statistics Overview',
             url: '/new-statistic'
           },
         ]

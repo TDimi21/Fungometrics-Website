@@ -17,7 +17,7 @@ const links = computed(() => [
   {id:'strength', label:'Assessment', to:{path:'/dashboard', query:{tab:'strength'}}},
   ...(access.canAccess('data_hub_import') || access.summary?.capabilities?.subscription_admin
     ? [{id:'datahub', label:'Data Hub', to:{path:'/dashboard', query:{tab:'datahub'}}}] : []),
-  {id:'videos', label:'My Videos', to:{name:'video.library'}},
+  {id:'videos', label:'Video Library', to:{name:'video.library'}},
 ])
 const active = computed(() => {
   if(route.path === '/dashboard') return route.query.tab || 'overview'

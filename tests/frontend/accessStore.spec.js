@@ -88,3 +88,15 @@ describe('web access store', () => {
     expect(access.canAccess('performance_overview')).toBe(false)
   })
 })
+
+it('retries a failed access check instead of caching it as a permission denial', async () => {
+  setActivePinia(createPinia())
+  const access = useAccessStore()
+  axios.get.mockRejectedValueOnce(new Error('503'))
+  await expect(access.refresh({team_id: 'a'})).rejects.toThrow('503')
+  expect(access.loaded).toBe(false)
+  axios.get.mockResolvedValueOnce({data: {data: {audience: 'coach', entitlements: ['planner_create']}}})
+  await access.refresh({team_id: 'a'})
+  expect(access.canAccess('planner_create')).toBe(true)
+  expect(access.error).toBeNull()
+})

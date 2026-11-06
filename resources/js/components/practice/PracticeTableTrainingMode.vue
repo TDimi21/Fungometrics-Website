@@ -228,7 +228,7 @@ const confirmDelete = async() => {
 <template>
   <section class="practice-list-container mt-6">
     <div v-if="props.isLoading" class="list-state">Loading data...</div>
-    <div v-else-if="!props.tableData.length > 0" class="list-state">No found data</div>
+    <div v-else-if="!props.tableData.length > 0" class="list-state">No sessions found</div>
 
     <div v-else class="practice-card-list">
       <article

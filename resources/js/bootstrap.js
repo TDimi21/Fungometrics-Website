@@ -10,6 +10,8 @@ import 'bootstrap';
  */
 
 import axios from 'axios';
+import {installApiTransport} from './utils/apiTransport.js';
+installApiTransport(axios);
 window.axios = axios;
 
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
