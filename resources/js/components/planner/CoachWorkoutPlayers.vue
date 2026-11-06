@@ -34,8 +34,9 @@ const FILTERS = ['All', 'Submitted', 'In Progress', 'Not Started', 'Needs Attent
 const STATUS = {
   not_started: { label: 'Not Started', color: '#64748B' },
   in_progress: { label: 'In Progress', color: '#f59e0b' },
-  completed: { label: 'Submitted', color: '#22c55e' },
-  reviewed: { label: 'Reviewed', color: '#2160C4' },
+  submitted_incomplete: { label: 'Submitted with unfinished drills', color: '#f59e0b' },
+  completed: { label: 'Fully completed', color: '#22c55e' },
+  reviewed: { label: 'Fully completed · Reviewed', color: '#2160C4' },
 }
 const statusMeta = (s) => STATUS[s] || STATUS.not_started
 
@@ -87,7 +88,7 @@ const stats = computed(() => {
 
 const filtered = computed(() => enriched.value.filter((e) => {
   switch (filter.value) {
-    case 'Submitted': return e.summary.status === 'completed' || e.summary.status === 'reviewed'
+    case 'Submitted': return ['submitted_incomplete', 'completed', 'reviewed'].includes(e.summary.status)
     case 'In Progress': return e.summary.status === 'in_progress'
     case 'Not Started': return e.summary.status === 'not_started'
     case 'Needs Attention': return e.attention

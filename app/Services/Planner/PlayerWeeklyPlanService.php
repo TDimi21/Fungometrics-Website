@@ -148,9 +148,12 @@ class PlayerWeeklyPlanService
     private function buildDayCardFromPlan(DailyPlan $plan, string $playerId, ?DailyPlanProgress $progress): array
     {
         $buckets = Arr::wrap($plan->buckets);
-        $totalItems = $this->totalItems($buckets);
+        $content = collect($plan->bucketsFor($playerId))->reject(fn ($b) => in_array($b['type'] ?? '', ['daily_readiness', 'player_reflection', 'coach_notes'], true) || in_array($b['kind'] ?? '', ['survey', 'note'], true))->flatMap(fn ($b) => $b['items'] ?? []);
+        $required = $content->filter(fn ($item) => ($item['required'] ?? true) !== false);
+        $counted = $required->isNotEmpty() ? $required : $content;
+        $totalItems = $counted->count();
         $progressItems = is_array($progress?->items) ? $progress->items : [];
-        $completedItems = $this->completedItems($progressItems);
+        $completedItems = $counted->filter(fn ($item) => !empty($progressItems[$item['id']]['done']))->count();
         $completionPercentage = $totalItems > 0
             ? round(min(100, ($completedItems / $totalItems) * 100), 1)
             : 0.0;
@@ -300,8 +303,12 @@ class PlayerWeeklyPlanService
             return 'updated';
         }
 
-        if ($progress?->completed_at || ($totalItems > 0 && $completedItems >= $totalItems)) {
+        if ($totalItems > 0 && $completedItems >= $totalItems) {
             return 'completed';
+        }
+
+        if ($progress?->completed_at) {
+            return 'submitted_incomplete';
         }
 
         if ($progress?->started_at || $completedItems > 0 || ! empty($progress?->items)) {

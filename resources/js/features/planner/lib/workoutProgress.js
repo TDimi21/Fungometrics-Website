@@ -50,12 +50,16 @@ export function calculateWorkoutCompletion(plan, progress) {
  */
 export function getWorkoutStatus(plan, progress) {
   const p = progress || {};
-  if (p.completedAt) {
-    return p.coachReview && p.coachReview.reviewed ? 'reviewed' : 'completed';
+  if (p.completedAt || p.completed_at) {
+    const items = contentItems(plan);
+    const required = items.filter(isRequired);
+    const counted = required.length ? required : items;
+    if (!counted.length || counted.some(it => !isDone(p, it.id))) return 'submitted_incomplete';
+    return (p.coachReview?.reviewed || p.coach_review?.reviewed) ? 'reviewed' : 'completed';
   }
   const items = contentItems(plan);
   const anyDone = items.some((it) => isDone(p, it.id));
-  if (p.startedAt || anyDone) return 'in_progress';
+  if (p.startedAt || p.started_at || anyDone) return 'in_progress';
   return 'not_started';
 }
 
@@ -122,3 +126,5 @@ export function workoutFeedback(plan, progress = {}) {
 export function needsAttention(plan, progress) {
   return workoutFeedback(plan, progress).attention_reasons.length > 0;
 }
+
+export const workoutStatusLabel = status => ({not_started:'Assigned', in_progress:'In Progress', submitted_incomplete:'Submitted with unfinished drills', completed:'Fully completed', reviewed:'Fully completed · Reviewed'}[status] || 'Assigned');

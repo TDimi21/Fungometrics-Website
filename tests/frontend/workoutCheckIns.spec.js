@@ -11,6 +11,14 @@ describe('coach workout check-in summaries', () => {
   });
   it('keeps actual task completion separate from submitting the workout', () => {
     const progress = progressFromApi({started_at:'2026-10-10T08:00:00Z',completed_at:'2026-10-10T09:00:00Z',items:{0:{done:true},1:{done:true}}},plan.id);
-    expect(buildWorkoutCompletionSummary(plan,progress)).toMatchObject({status:'completed',completionPct:11,completedItems:2,totalItems:18});
+    expect(buildWorkoutCompletionSummary(plan,progress)).toMatchObject({status:'submitted_incomplete',completionPct:11,completedItems:2,totalItems:18});
   });
+});
+
+it('counts a submitted workout as fully completed only when all required drills are done', () => {
+ const items=Object.fromEntries(Array.from({length:18},(_,i)=>[String(i),{done:true}]));
+ const progress=progressFromApi({completed_at:'2026-10-10T09:00:00Z',items},plan.id);
+ expect(buildWorkoutCompletionSummary(plan,progress)).toMatchObject({status:'completed',completionPct:100});
+ delete progress.items['17'];
+ expect(buildWorkoutCompletionSummary(plan,progress).status).toBe('submitted_incomplete');
 });

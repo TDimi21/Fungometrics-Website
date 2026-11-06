@@ -159,7 +159,7 @@ const openDevelopmentProfile = () => {
   router.push({
     name: 'development.player',
     params: { playerId: id },
-    query: { teamId: teamId.value || undefined, playerName: playerName.value },
+    query: { scope: 'personal', playerName: playerName.value },
   })
 }
 const openSessionReports = () => router.push({ name: 'sessions.all', query: { scope: 'player' } })

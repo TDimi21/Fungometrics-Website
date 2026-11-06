@@ -19,7 +19,7 @@ class GetPlayerDevelopmentDashboardRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'team' => $this->route('team') ? (string) $this->route('team') : null,
+            'team' => $this->route('team') ? (string) $this->route('team') : $this->query('team_id'),
             'player' => (string) $this->route('player'),
         ]);
     }

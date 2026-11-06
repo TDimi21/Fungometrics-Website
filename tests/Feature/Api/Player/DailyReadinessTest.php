@@ -59,6 +59,21 @@ class DailyReadinessTest extends TestCase {
         $this->assertSame(['energy'=>2],$progress->readiness);
     }
 
+    public function test_partial_submission_is_not_full_completion(): void {
+        $player=User::factory()->create(['type'=>'player']);
+        $items=array_map(fn($i)=>['id'=>(string)$i,'required'=>true],range(1,18));
+        $plan=new \App\Models\DailyPlan(['id'=>(string)\Illuminate\Support\Str::uuid(),'date'=>now()->toDateString(),'buckets'=>[['type'=>'throwing','items'=>$items]]]);
+        $progress=new \App\Models\DailyPlanProgress(['user_id'=>$player->id,'completed_at'=>now(),'items'=>['1'=>['done'=>true],'2'=>['done'=>true]]]);
+        $summary=app(\App\Services\Planner\WorkoutFeedbackSummary::class)->build($plan,$progress);
+        $this->assertSame('submitted_incomplete',$summary['completion_status']);
+        $this->assertFalse($summary['fully_completed']);
+        $this->assertSame(11,$summary['completion_pct']);
+        $progress->items=array_fill_keys(range(1,18),['done'=>true]);
+        $summary=app(\App\Services\Planner\WorkoutFeedbackSummary::class)->build($plan,$progress);
+        $this->assertTrue($summary['fully_completed']);
+        $this->assertSame('completed',$summary['completion_status']);
+    }
+
     public function test_local_day_is_used_across_the_utc_midnight_boundary(): void {
         \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-10-26T00:30:00Z'));
         try {

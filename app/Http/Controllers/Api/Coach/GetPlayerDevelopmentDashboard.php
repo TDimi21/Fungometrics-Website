@@ -78,7 +78,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                 }
             }
 
-            $teamScopeId = $isPlayerRequest ? null : $teamId;
+            $teamScopeId = $teamId;
             if ( ! $teamScopeId && ! $isPlayerRequest) {
                 return response()->json([
                     'code'    => '066-TEAM',
@@ -89,7 +89,7 @@ class GetPlayerDevelopmentDashboard extends Controller
             }
 
             $cacheTeamKey = $teamScopeId ?: 'all';
-            $cacheKey = "dev_dashboard_v5_{$cacheTeamKey}_{$playerId}_{$days}";
+            $cacheKey = "dev_dashboard_v6_{$cacheTeamKey}_{$playerId}_{$days}";
 
             // Check player exists before entering the cache closure so a missing
             // player never gets cached as an empty array.
@@ -148,7 +148,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ->where('created_at', '>=', $since);
                 if ($teamScopeId) {
                     $evCurrentQuery->where(function ($query) use ($teamScopeId): void {
-                        $query->where('team_id', $teamScopeId)->orWhereNull('team_id');
+                        $query->where('team_id', $teamScopeId);
                     });
                 }
                 $evCurrent = $evCurrentQuery->get()->toBase()->concat(app(\App\Services\FreeAssessment\AssessmentMetricSource::class)->velocities('exit_velocity', $teamScopeId, $playerId, $since));
@@ -201,7 +201,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ->where('user_id', $playerId);
                 if ($teamScopeId) {
                     $assessmentBaseQuery->where(function ($query) use ($teamScopeId): void {
-                        $query->where('team_id', $teamScopeId)->orWhereNull('team_id');
+                        $query->where('team_id', $teamScopeId);
                     });
                 }
 
@@ -427,6 +427,7 @@ class GetPlayerDevelopmentDashboard extends Controller
                         'weight' => $bodyWeight,
                         'level' => $player->profile?->level ?? 'travel',
                         'role' => $role,
+                        'team_name' => $teamScopeId ? \App\Models\Team::find($teamScopeId)?->name : 'All my data',
                     ],
                     'current' => [
                         'avg_exit_velocity' => $battingAggCurrent['avg_exit_velocity'],

@@ -16,8 +16,8 @@ describe('Simple assignment contract',()=>{
  })
  it('does not treat saved partial results as a submitted assignment',()=>{
   const rows=[{id:'a',actual_results:{x:{done:true}}},{id:'a',completion:{completed_at:'2026-10-24'}},{id:'b'}]
-  expect(assignmentSummary(rows)).toEqual({assigned:3,completed:1,in_progress:1,not_started:1})
-  expect(groupAssignments(rows)[0]).toMatchObject({assigned:2,completed:1,in_progress:1})
+  expect(assignmentSummary(rows)).toEqual({assigned:3,completed:0,submitted_incomplete:1,in_progress:1,not_started:1})
+  expect(groupAssignments(rows)[0]).toMatchObject({assigned:2,completed:0,submitted_incomplete:1,in_progress:1})
  })
  it('routes all session types to the matching report',()=>{
   expect(SCORED_SESSIONS.map(s=>sessionReportType(s.id))).toEqual(['bullpen','weight_ball','cage','batting','long_toss','exit_velocity'])

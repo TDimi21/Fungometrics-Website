@@ -36,6 +36,8 @@ final class WorkoutFeedbackSummary
         return [
             'strength_results' => $items->filter(fn($item) => isset($actual[$item['id']]['strength_summary']))->map(fn($item) => ['item_id'=>$item['id'], 'name'=>$item['name'] ?? 'Exercise', 'summary'=>$actual[$item['id']]['strength_summary']])->values()->all(),
             'skill_results' => $items->map(fn($item) => ['item_id'=>$item['id'], 'name'=>$item['name'] ?? 'Drill'] + app(WorkoutSkillResults::class)->summary($actual[$item['id']] ?? []))->values()->all(),
+            'completion_status' => $progress->completed_at ? ($counted->count() > 0 && $done === $counted->count() ? 'completed' : 'submitted_incomplete') : ($progress->started_at || $done ? 'in_progress' : 'not_started'),
+            'fully_completed' => (bool) $progress->completed_at && $counted->count() > 0 && $done === $counted->count(),
             'submission_status' => $progress->completed_at ? 'submitted' : ($progress->started_at || $done ? 'in_progress' : 'not_started'),
             'completed_drills' => $done, 'counted_drills' => $counted->count(),
             'completion_pct' => $counted->count() ? (int)round(100*$done/$counted->count()) : null,

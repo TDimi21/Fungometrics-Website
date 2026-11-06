@@ -296,7 +296,7 @@ async function adjust(plan, behavior) {
       <small>{{ plan.source.name || "Assigned training" }}</small>
       <h2>{{ plan.name }}</h2><small v-if="plan.settings?.due_time">Due {{plan.settings.due_time}}</small>
       <section class="today-block" v-if="plan.progress.completed_at" aria-label="Submitted workout">
-        <h3>Workout submitted</h3>
+        <h3>{{ plan.progress.feedback_summary?.fully_completed ? 'Fully completed' : 'Submitted with unfinished drills' }}</h3>
         <p v-if="plan.progress.feedback_summary">{{ plan.progress.feedback_summary.completed_drills }}/{{ plan.progress.feedback_summary.counted_drills }} counted drills completed · Readiness: {{ plan.progress.feedback_summary.checks.readiness.status }} · Reflection: {{ plan.progress.feedback_summary.checks.reflection.status }}</p>
         <h3>Coach feedback</h3>
         <p>{{ plan.progress.coach_review?.feedback || (plan.progress.coach_review?.reviewed ? 'Your coach reviewed this workout.' : 'Awaiting coach review.') }}</p>

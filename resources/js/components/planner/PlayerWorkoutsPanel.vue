@@ -1,4 +1,5 @@
 <script setup>
+import {getWorkoutStatus, workoutStatusLabel} from '@/features/planner/lib/workoutProgress.js'
 import WorkoutWeeklySummary from './WorkoutWeeklySummary.vue'
 import SkillResults from '@/components/workouts/SkillResults.vue'
 import PlayerToday from './PlayerToday.vue'
@@ -295,9 +296,7 @@ const coachCue = (item = {}) => cleanText(item.coachCue || item.coach_cue)
 const pct = (value) => `${Math.round(Math.max(0, Math.min(100, Number(value) || 0)))}%`
 const planStatusLabel = (plan = {}) => {
   if (plan.update_status?.has_update) return 'Updated'
-  if (plan.progress?.completed_at) return 'Completed'
-  if (plan.progress?.started_at || Object.values(plan.progress?.items || {}).some(item => item.done)) return 'In Progress'
-  return 'Assigned'
+  return workoutStatusLabel(getWorkoutStatus(plan, plan.progress))
 }
 
 const fmtDateTime = (iso) => {
@@ -627,7 +626,8 @@ const hasWeeklyPlans = computed(() => weeklyDays.value.length > 0)
 const isTodayCard = (day = {}) => day.scheduled_for === todayISO()
 const weeklyStatusLabel = (status) => ({
   updated: 'Updated',
-  completed: 'Completed',
+  completed: 'Fully completed',
+  submitted_incomplete: 'Submitted with unfinished drills',
   in_progress: 'In Progress',
   not_started: 'Not Started',
   unknown: 'Unknown',
@@ -1186,7 +1186,7 @@ const finish = async () => {
             class="pw-badge pw-hero-status"
             :class="{ 'pw-badge--updated': showPlanUpdateBanner, 'pw-badge--done': total > 0 && done === total }"
           >
-            {{ showPlanUpdateBanner ? 'Updated' : total > 0 && done === total ? 'Complete' : current.startedAt || done > 0 ? 'In Progress' : 'Assigned' }}
+            {{ showPlanUpdateBanner ? 'Updated' : workoutStatusLabel(getWorkoutStatus(current.plan, {...current.plan.progress, items: current.items, startedAt: current.startedAt})) }}
           </span>
         </div>
         <div class="pw-hero-stats">

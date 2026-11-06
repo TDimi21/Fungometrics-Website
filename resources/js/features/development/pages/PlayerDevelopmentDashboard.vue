@@ -62,7 +62,7 @@ const canViewAdmin = computed(() => canManageSubscriptions(userStore.userData))
 const canAddToPlanner = computed(() => !isPlayerUser.value && access.canAccess('planner_create'))
 const routePlayerId = computed(() => route.params?.playerId || String(route.query?.playerId || '').trim() || null)
 const selfPlayerId = computed(() => resolvePlayerId(userStore.userData))
-const teamId = computed(() => team.value?.id || team.value?.id_team || resolveTeamId(userStore.userData) || String(route.query?.teamId || '') || null)
+const teamId = computed(() => route.query?.scope === 'personal' ? null : String(route.query?.teamId || '') || (isPlayerUser.value ? null : team.value?.id_team || team.value?.id || resolveTeamId(userStore.userData)) || null)
 const playerId = computed(() => isPlayerUser.value ? (selfPlayerId.value || routePlayerId.value) : routePlayerId.value)
 const selectedPlayerName = computed(() => String(route.query?.playerName || route.query?.name || '').trim())
 const isEmptySelection = computed(() => !loading.value && !live.value && !playerId.value && !isPlayerUser.value)
@@ -109,6 +109,8 @@ const loadPlayers = async () => {
 const loadIntelligence = async () => {
   intelligence.value = null
   if (isPlayerUser.value) {
+    // The player intelligence endpoint is combined history, not a team snapshot.
+    if (teamId.value) return
     try {
       const { data } = await axiosGet('player/intelligence', { days: dataWindow.value })
       intelligence.value = data?.data || data || null
@@ -163,7 +165,7 @@ const loadDashboard = async () => {
     const endpoint = isPlayerUser.value
       ? `player/development/players/${playerId.value}`
       : `coach/development/teams/${teamId.value}/players/${playerId.value}`
-    const { data } = await axiosGet(endpoint, { days: dataWindow.value })
+    const { data } = await axiosGet(endpoint, { days: dataWindow.value, ...(isPlayerUser.value && teamId.value ? {team_id: teamId.value} : {}) })
     const payload = data?.data
     if (!payload?.player || !payload?.current) {
       state.value = 'empty'
@@ -188,7 +190,7 @@ const loadDashboard = async () => {
 const printDashboard = () => window.print()
 
 watch(
-  () => [route.params?.playerId, route.query?.teamId, team.value?.id, userStore.userData?.id, dataWindow.value],
+  () => [route.params?.playerId, route.query?.teamId, route.query?.scope, team.value?.id, userStore.userData?.id, dataWindow.value],
   loadDashboard,
   { immediate: true },
 )
@@ -238,6 +240,7 @@ watch(
       <section v-else-if="state === 'empty' && !live" class="state-card" data-testid="empty-data-state"><h1>Needs Data</h1><p>{{ selectedPlayerName || 'This player' }} needs a completed session or assessment before the development dashboard can be shown.</p></section>
 
       <template v-else-if="live">
+        <p class="partial-notice" role="note"><b>{{ live.source?.team_id ? 'Team data: ' + (live.player?.team_name || live.source.team_id) : 'All my data' }}</b><span>Session history: last {{ dataWindow }} days. Profile measurements remain personal. {{ live.source?.team_id ? 'Combined-history intelligence rankings are not included in this team view.' : 'Includes your personal and connected team session history.' }}</span></p>
         <p class="partial-notice" role="note" v-if="live.source?.exit_velocity_scope">
           Development exit velocity: batting practice over {{ live.source.exit_velocity_scope.batting_days }} days, plus Exit Velocity sessions and assessments over {{ live.source.exit_velocity_scope.exit_velocity_days }} days.
           Cage and Live AB are excluded. BP and Cage dashboard totals use their own session histories, so their maximums may differ.

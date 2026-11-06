@@ -1,3 +1,4 @@
+import {getWorkoutStatus} from './workoutProgress.js';
 // Shared assignment contract: canonical planner records, never duplicate scoring records.
 export const SCORED_SESSIONS = [
   {id: 'bullpen', name: 'Bullpen', bucket: 'pitching', description: 'Pitch locations, contact and velocity'},
@@ -8,7 +9,10 @@ export const SCORED_SESSIONS = [
   {id: 'exit_velocity', name: 'Exit Velocity', bucket: 'hitting', description: 'Recorded exit velocities'},
 ];
 export function assignmentStatus(row) {
-  if (row.completion?.completed_at) return 'completed';
+  if (row.completion?.completed_at || row.progress?.completed_at) {
+    const status = getWorkoutStatus({...row, buckets: row.buckets || row.blocks || []}, {...row.progress, items: row.actual_results || row.progress?.items || {}, completedAt: row.completion?.completed_at || row.progress?.completed_at});
+    return status === 'reviewed' ? 'completed' : status;
+  }
   // Simple scored assignments finish when every required linked session is finalized.
   // Guided workouts still require their normal submission/reflection workflow.
   const required = (row.buckets || row.blocks || []).flatMap(b => b.items || []).filter(i => i.required !== false);
@@ -21,7 +25,7 @@ export function assignmentStatus(row) {
   return row.progress?.started_at || Object.keys(row.actual_results || {}).length || row.session_links?.length ? 'in_progress' : 'not_started';
 }
 export function assignmentSummary(rows) {
-  const counts = {assigned: rows.length, completed: 0, in_progress: 0, not_started: 0};
+  const counts = {assigned: rows.length, completed: 0, submitted_incomplete: 0, in_progress: 0, not_started: 0};
   rows.forEach(row => counts[assignmentStatus(row)]++);
   return counts;
 }

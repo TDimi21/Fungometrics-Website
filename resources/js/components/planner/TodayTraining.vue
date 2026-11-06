@@ -16,7 +16,7 @@ const teamId = computed(()=>team.value?.id_team ?? team.value?.id)
 const rows = ref([]), roster = ref([]), plans = ref([]), loading = ref(false), error = ref(''), assigning = ref(false), selected = ref(null), results = ref(false)
 const counts = computed(()=>assignmentSummary(rows.value)), assignments = computed(()=>groupAssignments(rows.value))
 const shown = computed(()=>selected.value ? rows.value.filter(r=>r.id===selected.value) : rows.value)
-const labels = {completed:'Completed',in_progress:'In Progress',not_started:'Not Started'}
+const labels = {completed:'Fully completed',submitted_incomplete:'Submitted with unfinished drills',in_progress:'In Progress',not_started:'Not Started'}
 const name = id => {const p=roster.value.find(p=>String(p.id ?? p.user_id)===String(id));return p?.name?.full || [p?.first_name,p?.last_name].filter(Boolean).join(' ') || 'Player'}
 let generation=0
 async function load() {
