@@ -27,6 +27,7 @@ class RegisterPlayerController extends Controller
      */
     public function __invoke(RegisterPlayerRequest $request): JsonResponse
     {
+        $url = null;
         try {
             DB::beginTransaction();
             $responseUser = AuthUtils::saveUser($request);
@@ -73,7 +74,9 @@ class RegisterPlayerController extends Controller
 
             return response()->json($response, HttpCodes::HTTP_CREATED);
         } catch (Exception $exception) {
-            UploadS3File::deleteObject($url, 'players');
+            if (is_string($url) && $url !== '') {
+                UploadS3File::deleteObject($url, 'players');
+            }
             DB::rollBack();
             $response = [
                 'code' => '002-E',

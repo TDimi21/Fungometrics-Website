@@ -25,6 +25,7 @@ class RegisterCoachController extends Controller
      */
     public function __invoke(RegisterCoachRequest $request): JsonResponse
     {
+        $url = null;
         try {
             DB::beginTransaction();
             $url = UploadS3File::getUrl($request->logo, '/teams');
@@ -48,7 +49,9 @@ class RegisterCoachController extends Controller
 
             return response()->json($response, HttpCodes::HTTP_CREATED);
         } catch (Exception $exception) {
-            UploadS3File::deleteObject($url, 'teams');
+            if (is_string($url) && $url !== '') {
+                UploadS3File::deleteObject($url, 'teams');
+            }
             DB::rollBack();
             $response = [
                 'code' => '003-E',

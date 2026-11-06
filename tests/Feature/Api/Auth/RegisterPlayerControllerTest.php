@@ -156,6 +156,30 @@ class RegisterPlayerControllerTest extends TestCase
             ->assertJsonPath('data.existing_account.next_action', 'claim_player_profile');
     }
 
+    public function test_coach_created_player_with_email_is_directed_to_claiming(): void
+    {
+        $user = User::factory()->create(['type' => 'player', 'password' => null]);
+        foreach ([['phone' => $user->phone], ['email' => $user->email]] as $contact) {
+            $this->postJson('/api/player/register', $contact)->assertUnprocessable()
+                ->assertJsonPath('data.existing_account.claimable', true)
+                ->assertJsonPath('data.existing_account.next_action', 'claim_player_profile');
+        }
+    }
+
+    public function test_registered_player_email_is_directed_to_login(): void
+    {
+        $user = User::factory()->create(['type' => 'player']);
+        $this->postJson('/api/player/register', ['email' => $user->email])->assertUnprocessable()
+            ->assertJsonPath('data.existing_account.claimable', false)
+            ->assertJsonPath('data.existing_account.next_action', 'login_or_recover');
+    }
+
+    public function test_unknown_team_code_is_not_silently_ignored(): void
+    {
+        $this->postJson('/api/player/register', ['team_code' => 'ZZZZZZ'])->assertUnprocessable()
+            ->assertJsonStructure(['data' => ['errors' => ['team_code']]]);
+    }
+
     public function test_register_player_fail(): void
     {
         $this->mock(RegisterPlayerRequest::class, function ($mock): void {

@@ -29,6 +29,13 @@ class RegisterPlayerRequest extends FormRequest
      *
      * @return array<string, mixed>
      */
+    protected function prepareForValidation(): void
+    {
+        if (filled($this->input('team_code'))) {
+            $this->merge(['team_code' => strtoupper(trim((string) $this->input('team_code')))]);
+        }
+    }
+
     public function rules()
     {
         $optionalRules = [
@@ -62,17 +69,21 @@ class RegisterPlayerRequest extends FormRequest
             'player.inch' => ['required', 'integer'],
             'player.shirt' => ['required', 'integer'],
             'positions' => ['required'],
-            'team_code' => ['nullable', 'string', 'size:6'],
+            'team_code' => ['nullable', 'string', 'size:6', Rule::exists('teams', 'join_code')],
         ];
     }
 
     public function failedValidation(Validator $validator): void
     {
         $existingAccount = null;
-        if ($validator->errors()->has('phone')) {
-            $user = User::query()->where('phone', $this->input('phone'))->first();
+        if ($validator->errors()->has('phone') || $validator->errors()->has('email')) {
+            $user = $validator->errors()->has('phone') && filled($this->input('phone'))
+                ? User::query()->where('phone', $this->input('phone'))->first() : null;
+            if (! $user && $validator->errors()->has('email') && filled($this->input('email'))) {
+                $user = User::query()->where('email', $this->input('email'))->first();
+            }
             if ($user) {
-                $claimable = ! filled($user->email) && ! filled($user->password);
+                $claimable = UserTypes::PLAYER->value === (string) $user->type && ! filled($user->password);
                 $existingAccount = [
                     'type' => (string) $user->type,
                     'claimable' => $claimable,
