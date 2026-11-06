@@ -1,4 +1,5 @@
 <script setup>
+import {sessionParticipants} from '@/utils/sessionParticipants.js'
 import { ref } from 'vue'
 import { TableStats, TableCancel, TableStart } from '@/components/icons'
 import { useRouter, useRoute } from 'vue-router'
@@ -91,10 +92,7 @@ const sessionTitle = () => {
   return 'Practice Session'
 }
 
-const playerNames = (item) => {
-  if (!Array.isArray(item?.lineup) || item.lineup.length === 0) return 'No players assigned'
-  return item.lineup.map((player) => player?.player?.name?.full).filter(Boolean).join(', ')
-}
+const playerNames = item => sessionParticipants(item).map(player => player.name).filter(Boolean).join(', ') || 'Player names unavailable — open report'
 
 const { timezone, zoneLabel } = useUserTimezone()
 

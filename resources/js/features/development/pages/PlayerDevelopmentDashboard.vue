@@ -238,6 +238,10 @@ watch(
       <section v-else-if="state === 'empty' && !live" class="state-card" data-testid="empty-data-state"><h1>Needs Data</h1><p>{{ selectedPlayerName || 'This player' }} needs a completed session or assessment before the development dashboard can be shown.</p></section>
 
       <template v-else-if="live">
+        <p class="partial-notice" role="note" v-if="live.source?.exit_velocity_scope">
+          Development exit velocity: batting practice over {{ live.source.exit_velocity_scope.batting_days }} days, plus Exit Velocity sessions and assessments over {{ live.source.exit_velocity_scope.exit_velocity_days }} days.
+          Cage and Live AB are excluded. BP and Cage dashboard totals use their own session histories, so their maximums may differ.
+        </p>
         <div v-if="state === 'partial'" class="partial-notice no-print" data-testid="partial-data-state"><b>Partial data</b><span>Available panels are shown. Missing measurements remain marked Needs Data.</span></div>
 
         <nav class="view-tabs no-print" aria-label="Player development view" data-testid="development-view-tabs">

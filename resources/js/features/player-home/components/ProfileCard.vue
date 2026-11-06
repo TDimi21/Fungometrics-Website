@@ -47,7 +47,7 @@ const onAvatarError = (e) => {
             <div class="min-w-0 pr-2">
               <p class="truncate text-3xl font-black tracking-wide text-white">{{ playerName }}</p>
               <p class="mt-1 text-xl text-white/90">Height: {{ profile.height }}</p>
-              <p class="text-xl text-white/90">Weight: {{ profile.weight }}</p>
+              <p class="text-xl text-white/90">Weight: {{ profile.weight }}{{ profile.weight !== '—' ? ' lb' : '' }}</p><p class="text-xs text-white/70">{{ profile.weightSource }}{{ profile.weightDate ? ' · ' + new Date(profile.weightDate).toLocaleDateString() : ' · Date not recorded' }}</p>
               <p class="text-xl text-white/90">Position: {{ profile.position }}</p>
               <p class="mt-1 truncate text-sm text-white/70">{{ strengthLine }}</p>
               <p class="truncate text-sm text-white/70">{{ speedLine }}</p>

@@ -117,9 +117,9 @@ const isLoggingOut = ref(false);
 const teamHeaderLogo = ref(updatedLogo);
 const teamHeaderBackground = ref(stadiumBackground);
 const socialLinks = {
-  facebook: import.meta.env.VITE_SOCIAL_FACEBOOK_URL || import.meta.env.SOCIAL_FACEBOOK_URL || 'https://www.facebook.com/',
-  x: import.meta.env.VITE_SOCIAL_X_URL || import.meta.env.SOCIAL_X_URL || 'https://x.com/',
-  instagram: import.meta.env.VITE_SOCIAL_INSTAGRAM_URL || import.meta.env.SOCIAL_INSTAGRAM_URL || 'https://www.instagram.com/',
+  facebook: import.meta.env.VITE_SOCIAL_FACEBOOK_URL || import.meta.env.SOCIAL_FACEBOOK_URL || '',
+  x: import.meta.env.VITE_SOCIAL_X_URL || import.meta.env.SOCIAL_X_URL || '',
+  instagram: import.meta.env.VITE_SOCIAL_INSTAGRAM_URL || import.meta.env.SOCIAL_INSTAGRAM_URL || '',
 };
 const sidebarTeamCardBackground = computed(() => team.value?.logo || '/app_logo.png');
 
@@ -517,13 +517,13 @@ watch(
           </div>
 
           <div class="top-brand-social">
-            <a :href="socialLinks.facebook" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Facebook" title="Facebook">
+            <a v-if="socialLinks.facebook" :href="socialLinks.facebook" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Facebook" title="Facebook">
               <svg viewBox="0 0 24 24" class="social-icon" fill="currentColor"><path d="M13.5 21v-8h2.7l.4-3h-3.1V8.2c0-.9.3-1.5 1.6-1.5h1.7V4c-.3 0-1.4-.1-2.6-.1-2.6 0-4.3 1.5-4.3 4.3V10H7v3h2.9v8h3.6z"/></svg>
             </a>
-            <a :href="socialLinks.x" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="X" title="X">
+            <a v-if="socialLinks.x" :href="socialLinks.x" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="X" title="X">
               <svg viewBox="0 0 24 24" class="social-icon" fill="currentColor"><path d="M18.2 3h2.9l-6.4 7.3L22.2 21h-5.9l-4.6-6-5.2 6H3.6l6.9-7.8L1.8 3h6l4.1 5.4L18.2 3zm-1 16h1.6L7 4.9H5.3L17.2 19z"/></svg>
             </a>
-            <a :href="socialLinks.instagram" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Instagram" title="Instagram">
+            <a v-if="socialLinks.instagram" :href="socialLinks.instagram" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Instagram" title="Instagram">
               <svg viewBox="0 0 24 24" class="social-icon" fill="currentColor"><path d="M7.8 2h8.4A5.8 5.8 0 0 1 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8A5.8 5.8 0 0 1 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2zm8.2 1.8H8A4.2 4.2 0 0 0 3.8 8v8a4.2 4.2 0 0 0 4.2 4.2h8a4.2 4.2 0 0 0 4.2-4.2V8A4.2 4.2 0 0 0 16 3.8zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 1.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4zm5.4-2a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4z"/></svg>
             </a>
             <div class="flex items-center gap-1 ml-3 pl-3 border-l border-white/20">

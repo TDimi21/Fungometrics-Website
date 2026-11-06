@@ -1,9 +1,10 @@
 <script setup>
 import { computed } from 'vue'
 const props = defineProps({ metric: { type: Object, required: true } })
+const ranked = computed(() => props.metric.available && !!props.metric.peer_group)
 const position = computed(() => props.metric.percentile === null || props.metric.percentile === undefined ? 50 : Math.max(0, Math.min(100, Number(props.metric.percentile))))
 const percentileTone = computed(() => {
-  if (!props.metric.available) return 'neutral'
+  if (!ranked.value) return 'neutral'
   if (position.value >= 90) return 'elite'
   if (position.value >= 75) return 'above-average'
   if (position.value >= 50) return 'average'
@@ -16,7 +17,7 @@ const ordinal = (value) => {
   return `${number}${number % 10 === 1 ? 'st' : number % 10 === 2 ? 'nd' : number % 10 === 3 ? 'rd' : 'th'}`
 }
 const aria = computed(() => {
-  const percentile = props.metric.available ? `${ordinal(props.metric.percentile)} percentile` : 'benchmark needs data'
+  const percentile = ranked.value ? `${ordinal(props.metric.percentile)} percentile` : 'benchmark needs data'
   const current = props.metric.display_value ? `current value ${props.metric.display_value}` : 'current value unavailable'
   const relative = props.metric.relative_display ? `relative value ${props.metric.relative_display}` : ''
   const peer = props.metric.peer_group ? `peer group ${props.metric.peer_group}` : 'peer group needs data'
@@ -33,15 +34,15 @@ const trend = computed(() => ['up','improving'].includes(props.metric.trend) ? '
 </script>
 <template>
   <div class="metric-row" :aria-label="aria" :title="detailTitle" :data-testid="`percentile-${metric.key}`">
-    <strong class="metric-name">{{ metric.label }}</strong>
+    <strong class="metric-name">{{ metric.label }}<small class="block font-normal">{{ metric.peer_group || 'Comparison population unavailable' }}</small></strong>
     <div class="percentile-cell">
-      <div class="track" :class="[percentileTone, { dashed: !metric.available }]">
-        <span v-if="metric.available" class="fill" :style="{ width: `${position}%` }" />
-        <b class="marker" :class="percentileTone" :style="{ left: `${position}%` }">{{ metric.available ? Math.round(metric.percentile) : '—' }}</b>
+      <div class="track" :class="[percentileTone, { dashed: !ranked }]">
+        <span v-if="ranked" class="fill" :style="{ width: `${position}%` }" />
+        <b class="marker" :class="percentileTone" :style="{ left: `${position}%` }">{{ ranked ? Math.round(metric.percentile) : '—' }}</b>
       </div>
     </div>
     <span class="value"><span>{{ metric.display_value || '—' }}</span><small v-if="metric.relative_display">{{ metric.relative_display }}</small></span>
-    <span class="status" :class="metric.status">{{ metric.status_label }}</span>
+    <span class="status" :class="metric.status">{{ metric.available && !ranked ? 'Comparison population unavailable' : metric.status_label }}</span>
     <span class="goal">{{ metric.goal_display || 'Not established' }}</span>
     <span class="gap">{{ metric.gap_display || '—' }}</span>
     <span class="trend" :aria-label="`Trend ${metric.trend || 'needs data'}`">{{ trend }}</span>

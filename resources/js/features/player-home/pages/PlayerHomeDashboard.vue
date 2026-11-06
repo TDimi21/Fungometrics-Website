@@ -85,7 +85,7 @@ const playerImageSrc = computed(() => {
   )
   return normalizeImageSrc(raw) || updatedLogo
 })
-const profile = computed(() => buildProfile(userData.value, playerFitnessLatest.value))
+const profile = computed(() => buildProfile(userData.value, playerFitnessRows.value))
 const coachProfile = computed(() => buildCoachProfile(userData.value))
 const schoolTeamText = computed(() => buildSchoolTeamText(coachProfile.value))
 const strengthLine = computed(() => buildStrengthLine(playerFitnessRows.value.length ? playerFitnessRows.value : (playerFitnessLatest.value ? [playerFitnessLatest.value] : [])))
@@ -250,8 +250,8 @@ const openRecapReport = (session) => {
                 <BullpenStats v-if="activeStatTab === 'bullpen'" :breakdown="breakdowns.bullpen" :metric-rows="metricRows" />
                 <CageStats v-if="activeStatTab === 'cage'" :breakdown="breakdowns.cage" :metric-rows="metricRows" />
                 <WeightedStats v-if="activeStatTab === 'weighted'" :report="weightedReport" :metric-rows="metricRows" />
-                <ExitVelStats v-if="activeStatTab === 'exitVel'" :breakdown="breakdowns.exitVel" :report="exitVelReport" :metric-rows="metricRows" />
-                <LongTossStats v-if="activeStatTab === 'longToss'" :breakdown="breakdowns.longToss" :report="longTossReport" :metric-rows="metricRows" />
+                <ExitVelStats v-if="activeStatTab === 'exitVel'" :session-count="sessionCounts.exitVel" :breakdown="breakdowns.exitVel" :report="exitVelReport" :metric-rows="metricRows" />
+                <LongTossStats v-if="activeStatTab === 'longToss'" :session-count="sessionCounts.longToss" :breakdown="breakdowns.longToss" :report="longTossReport" :metric-rows="metricRows" />
 
                 <div class="pt-2">
                   <div class="flex items-center justify-center gap-8 text-[10px] font-black uppercase tracking-widest">

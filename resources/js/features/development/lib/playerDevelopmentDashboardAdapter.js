@@ -162,8 +162,7 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
         ? { metric_key: key, raw_value: currentRaw, ...currentBenchmark }
         : null))
   if (
-    benchmark?.metric_key === 'squat'
-    && currentRaw !== null
+    currentRaw !== null
     && numberOrNull(benchmark?.raw_value) !== null
     && Math.abs(Number(benchmark.raw_value) - currentRaw) > 0.11
   ) {
@@ -199,7 +198,7 @@ const metricRow = (live, intelligence, key, overrides = {}) => {
     confidence: textOrNull(benchmark?.confidence),
     calculated_at: textOrNull(benchmark?.calculated_at) || textOrNull(intelligence?.generated_at),
     evidence: benchmark?.evidence || null,
-    peer_group: Array.isArray(benchmark?.peer_group) ? benchmark.peer_group.filter(Boolean).join(' · ') : null,
+    peer_group: Array.isArray(benchmark?.peer_group) ? benchmark.peer_group.filter(Boolean).join(' · ') : typeof benchmark?.peer_group === 'string' ? textOrNull(benchmark.peer_group) : textOrNull(benchmark?.peer_group?.label),
   }
 }
 

@@ -219,3 +219,13 @@ describe('shared constants', () => {
     expect(isStrikeZoneMark(0)).toBe(false)
   })
 })
+
+it('uses the latest recorded weight even when the newest fitness entry contains only other measurements', () => {
+  const profile = buildProfile({player:{weight:180}}, [
+    {body_weight:null,created_at:'2026-11-06'},
+    {body_weight:197,created_at:'2026-11-05'},
+    {body_weight:190,created_at:'2026-10-01'}
+  ])
+  expect(profile.weight).toBe(197)
+  expect(profile.weightDate).toBe('2026-11-05')
+})

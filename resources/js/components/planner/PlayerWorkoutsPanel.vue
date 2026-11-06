@@ -276,7 +276,7 @@ const itemMetaParts = (item = {}, bucket = {}) => {
   const parts = []
   const minutes = itemMinutes(item)
   if (minutes) parts.push(`${minutes} min`)
-  if (item.sets) parts.push(`${item.sets} sets`)
+  if (item.sets) parts.push(`${Number(item.sets)} ${Number(item.sets) === 1 ? 'set' : 'sets'}`)
   if (item.reps) parts.push(`${item.reps} reps`)
   if (item.throws) parts.push(`${item.throws} throws`)
   if (item.intent) parts.push(`${item.intent}% intent`)
@@ -296,6 +296,7 @@ const pct = (value) => `${Math.round(Math.max(0, Math.min(100, Number(value) || 
 const planStatusLabel = (plan = {}) => {
   if (plan.update_status?.has_update) return 'Updated'
   if (plan.progress?.completed_at) return 'Completed'
+  if (plan.progress?.started_at || Object.values(plan.progress?.items || {}).some(item => item.done)) return 'In Progress'
   return 'Assigned'
 }
 
@@ -838,7 +839,7 @@ const open = (w) => {
     }
   }))
   expandedInstructions.value = new Set()
-  current.value = { plan: w, items, reflection: { ...(w.progress?.reflection || {}) }, startedAt: w.progress?.started_at || new Date().toISOString() }
+  current.value = { plan: w, items, reflection: { ...(w.progress?.reflection || {}) }, startedAt: w.progress?.started_at || null }
   fetchCompletionSummary(w.id)
 }
 
@@ -867,6 +868,7 @@ const openWeeklyDay = async (day = {}) => {
 }
 const back = () => { current.value = null }
 const toggleItem = (id) => {
+  current.value.startedAt ||= new Date().toISOString()
   const item = current.value.items[id] || {}
   const done = !item.done
   current.value.items[id] = {
@@ -885,7 +887,7 @@ const finish = async () => {
     const res = await axiosPost(`player/daily-plans/${current.value.plan.id}/progress`, {
       items: current.value.items,
       reflection: current.value.reflection,
-      started_at: current.value.startedAt,
+      started_at: current.value.startedAt || new Date().toISOString(),
       completed_at: new Date().toISOString(),
     })
     saveNotice.value = bridgeSaveMessage(res?.data?.benchmark_completion_bridge)
@@ -1184,7 +1186,7 @@ const finish = async () => {
             class="pw-badge pw-hero-status"
             :class="{ 'pw-badge--updated': showPlanUpdateBanner, 'pw-badge--done': total > 0 && done === total }"
           >
-            {{ showPlanUpdateBanner ? 'Updated' : total > 0 && done === total ? 'Complete' : 'In Progress' }}
+            {{ showPlanUpdateBanner ? 'Updated' : total > 0 && done === total ? 'Complete' : current.startedAt || done > 0 ? 'In Progress' : 'Assigned' }}
           </span>
         </div>
         <div class="pw-hero-stats">
@@ -1398,7 +1400,7 @@ const finish = async () => {
               </span>
             </div>
             <span class="pw-item-name">{{ it.name || 'Item' }}</span>
-            <SkillResults :bucket="bucket.type" :actual="current.items[it.id] || {}" readonly @click.stop />
+            <SkillResults :bucket="bucket.type" :actual="current.items[it.id] || {}" :sessions="workoutSessions" @change="current.items[it.id] = {...current.items[it.id], ...$event}; current.startedAt ||= new Date().toISOString()" @click.stop />
             <TemplateExerciseActuals v-if="it.template_id" :item="it" v-model="current.items[it.id]" :sessions="workoutSessions" />
             <span v-if="itemMetaParts(it, bucket).length" class="pw-item-meta">{{ itemMetaParts(it, bucket).join(' · ') }}</span>
 

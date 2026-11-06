@@ -159,7 +159,7 @@ describe('Player Development Dashboard redesign', () => {
     expect(missing.percentile).toBeNull()
     expect(missing.status_label).toBe('Benchmark Not Configured')
     expect(percentile).toContain('Math.max(0, Math.min(100')
-    expect(percentile).toContain("{ dashed: !metric.available }")
+    expect(percentile).toContain("{ dashed: !ranked }")
     expect(percentile).toContain(':aria-label="aria"')
     expect(percentile).toContain(':class="percentileTone"')
     expect(percentile).toContain('.track.critical,.track.below-average,.marker.critical,.marker.below-average{--percentile-tone:#ff2d4f}')
@@ -247,4 +247,19 @@ describe('Player Development Dashboard redesign', () => {
     expect(page).toContain('@media print')
     expect(page).toContain('print-dashboard')
   })
+})
+
+it('does not attach an older velocity ranking to a different current measurement', () => {
+  const model = buildPlayerDevelopmentDashboard({current: {max_fb_velocity: 101}}, {
+    benchmark_profile: {metrics: [{metric_key: 'max_fb_velocity', raw_value: 85, percentile: 54, peer_group: 'Age 18'}]}
+  })
+  const metric = model.percentileGroups.flatMap(group => group.metrics).find(row => row.key === 'max_fb_velocity')
+  expect(metric.value).toBe(101)
+  expect(metric.percentile).toBeNull()
+})
+it('preserves a named comparison population supplied as a string', () => {
+  const model = buildPlayerDevelopmentDashboard({current: {max_fb_velocity: 101}}, {
+    benchmark_profile: {metrics: [{metric_key: 'max_fb_velocity', raw_value: 101, percentile: 98, peer_group: 'Age 18'}]}
+  })
+  expect(model.percentileGroups.flatMap(group => group.metrics).find(row => row.key === 'max_fb_velocity').peer_group).toBe('Age 18')
 })

@@ -1,4 +1,5 @@
 <script setup>
+import {ordinal} from '@/utils/ordinal.js'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Layout from '@/layout/Layout.vue'
@@ -689,9 +690,9 @@ const coachInsights = computed(() => {
     insights.push({ tone: improving ? 'good' : 'warn', icon: improving ? '↗' : '!', text: `${highlightedPlayer.value.name} is ${improving ? 'trending in the right direction' : 'moving away from the preferred direction'} in ${activeMetric.value.label} (${legendChangeLabel(highlightedPlayer.value)}).` })
   }
   const percentile = highlightedBenchmark.value?.percentile
-  if (percentile != null) insights.push({ tone: percentile >= 75 ? 'good' : percentile >= 40 ? 'warn' : 'bad', icon: percentile >= 75 ? '↑' : '•', text: `${activeMetric.value.label} ranks in the ${Math.round(percentile)}th percentile for the player’s governed age benchmark.` })
+  if (percentile != null) insights.push({ tone: percentile >= 75 ? 'good' : percentile >= 40 ? 'warn' : 'bad', icon: percentile >= 75 ? '↑' : '•', text: `${activeMetric.value.label} ranks in the ${ordinal(percentile)} percentile for the player’s governed age benchmark.` })
   const weakest = strengthBalanceRows.value.filter((row) => row.selected != null).sort((a, b) => a.selected - b.selected)[0]
-  if (weakest) insights.push({ tone: weakest.selected < 40 ? 'bad' : 'warn', icon: '↗', text: `${weakest.metric.label} is the lowest strength percentile (${Math.round(weakest.selected)}th); prioritize it without losing progress in stronger lifts.` })
+  if (weakest) insights.push({ tone: weakest.selected < 40 ? 'bad' : 'warn', icon: '↗', text: `${weakest.metric.label} is the lowest strength percentile (${ordinal(weakest.selected)}); prioritize it without losing progress in stronger lifts.` })
   if (!insights.length) insights.push({ tone: 'muted', icon: 'i', text: 'Log at least two tests and complete benchmark metrics to unlock trend and comparison insights.' })
   return insights.slice(0, 3)
 })
@@ -871,7 +872,7 @@ const takeaway = computed(() => {
               <article class="summary-card"><span>Selected Avg</span><b>{{ displayMetricValue(groupStats.avg) }}</b><small>{{ comparedPlayers.length }} athletes</small></article>
               <article class="summary-card"><span>Best Selected</span><b>{{ displayMetricValue(groupStats.best) }}</b><small>{{ groupStats.bestName || '—' }}</small></article>
               <article class="summary-card"><span>Benchmark</span><b>{{ displayMetricValue(benchmarkMedian) }}</b><small>Age-group median</small></article>
-              <article class="summary-card"><span>Percentile</span><b class="accent">{{ highlightedBenchmark?.percentile != null ? `${Math.round(highlightedBenchmark.percentile)}th` : '—' }}</b><small>{{ activeTierLabel || 'Needs data' }}</small></article>
+              <article class="summary-card"><span>Percentile</span><b class="accent">{{ highlightedBenchmark?.percentile != null ? ordinal(highlightedBenchmark.percentile) : '—' }}</b><small>{{ activeTierLabel || 'Needs data' }}</small></article>
               <article class="summary-card readiness"><span>Data Readiness</span><b>{{ dataReadiness }}%</b><div class="readiness-track"><i :style="{ width: `${dataReadiness}%` }"></i></div></article>
             </section>
 

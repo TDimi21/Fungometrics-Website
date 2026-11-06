@@ -1,4 +1,5 @@
 <script setup>
+import {ordinal} from '@/utils/ordinal.js'
 import { ref, computed } from 'vue'
 import { estimatePercentileFromAnchors } from '../lib/percentileInterpolation.js'
 import { METRICS, categorizeMetrics, benchmarkFor as lookupBenchmark, positiveMetricNumber } from '../lib/strengthMetricCatalog.js'
@@ -132,7 +133,7 @@ const singleStats = computed(() => {
     currentDisplay: `${current}${m.unit.startsWith('/') ? '' : ' '}${m.unit}`.trim(),
     changeDisplay: change === null ? null : `${change > 0 ? '+' : ''}${change} ${m.unit}`.trim(),
     relative: positiveMetricNumber(b?.relative_value),
-    percentile: b?.percentile ?? null,
+    percentile: b?.peer_group?.length && Number(b?.raw_value) === current ? b?.percentile ?? null : null,
     label: b?.label ?? null,
     goal: positiveMetricNumber(b?.goal),
     gap: b?.gap ?? null,
@@ -339,7 +340,7 @@ const trendInsights = computed(() => {
       <div v-if="singleStats" class="stat-grid">
         <div class="stat-box"><span>Current</span><b>{{ singleStats.currentDisplay }}</b></div>
         <div v-if="singleStats.relative != null" class="stat-box"><span>Relative Strength</span><b>{{ singleStats.relative.toFixed(2) }}×</b><small>Body Weight</small></div>
-        <div v-if="singleStats.percentile != null" class="stat-box"><span>Peer Percentile</span><b>{{ singleStats.percentile }}<sup>{{ singleStats.percentile === 1 ? 'st' : singleStats.percentile === 2 ? 'nd' : singleStats.percentile === 3 ? 'rd' : 'th' }}</sup></b><small>{{ singleStats.label }}</small></div>
+        <div v-if="singleStats.percentile != null" class="stat-box"><span>Peer Percentile</span><b>{{ ordinal(singleStats.percentile) }}</b><small>{{ singleStats.label }}</small></div>
         <div v-if="singleStats.changeDisplay" class="stat-box" :class="singleStats.good ? 'good' : 'bad'"><span>Change</span><b>{{ singleStats.changeDisplay }}</b><small v-if="singleStats.changePct != null">{{ singleStats.changePct > 0 ? '+' : '' }}{{ singleStats.changePct }}%</small></div>
         <div v-if="singleStats.goal != null" class="stat-box"><span>Goal</span><b>{{ singleStats.goal }} {{ singleMetric.unit }}</b></div>
         <div v-if="singleStats.gap != null" class="stat-box"><span>Gap</span><b>{{ singleStats.gap }} {{ singleMetric.unit }}</b></div>
@@ -393,7 +394,7 @@ const trendInsights = computed(() => {
           <div class="panel-title">Peer Comparison</div>
           <div v-if="peerTiers.length" class="peer-list">
             <div v-for="tier in peerTiers" :key="tier.key" class="peer-row"><span>{{ tier.label }}</span><b>{{ tier.value }} {{ singleMetric.unit }}</b></div>
-            <div v-if="singleStats?.current != null" class="peer-row peer-current"><span>Your Current</span><b>{{ singleStats.percentile }}th Percentile ({{ singleStats.current }} {{ singleMetric.unit }})</b></div>
+            <div v-if="singleStats?.current != null" class="peer-row peer-current"><span>Your Current</span><b>{{ singleStats.percentile == null ? 'Comparison unavailable' : ordinal(singleStats.percentile) + ' Percentile' }} ({{ singleStats.current }} {{ singleMetric.unit }})</b></div>
           </div>
           <p v-else class="panel-empty">Governed benchmark not configured for this metric/age group yet.</p>
           <p v-if="singleStats?.peerGroup?.length" class="peer-footer">Peer Group: {{ singleStats.peerGroup.join(' · ') }} <span v-if="singleStats.confidence">· Confidence: {{ singleStats.confidence }}</span></p>

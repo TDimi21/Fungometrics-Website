@@ -89,7 +89,7 @@ class GetPlayerDevelopmentDashboard extends Controller
             }
 
             $cacheTeamKey = $teamScopeId ?: 'all';
-            $cacheKey = "dev_dashboard_v4_{$cacheTeamKey}_{$playerId}_{$days}";
+            $cacheKey = "dev_dashboard_v5_{$cacheTeamKey}_{$playerId}_{$days}";
 
             // Check player exists before entering the cache closure so a missing
             // player never gets cached as an empty array.
@@ -650,6 +650,12 @@ class GetPlayerDevelopmentDashboard extends Controller
                     ],
                     'source' => [
                         'mode' => 'live_sessions',
+                        'exit_velocity_scope' => [
+                            'batting_days' => $battingLast30->isNotEmpty() ? min(30, $days) : $days,
+                            'exit_velocity_days' => $days,
+                            'included' => ['Batting practice', 'Exit Velocity sessions', 'Exit Velocity assessments'],
+                            'excluded' => ['Cage', 'Live AB'],
+                        ],
                         'team_id' => $teamScopeId,
                         'player_id' => $playerId,
                         'days' => $days,

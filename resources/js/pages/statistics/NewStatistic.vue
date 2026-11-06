@@ -1,4 +1,5 @@
 <script setup>
+import {sessionParticipants} from '@/utils/sessionParticipants.js'
 import { playerSessionHistory } from '@/utils/sessionPagination'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -132,21 +133,7 @@ const inDateRange = (session) => {
   return s >= from && s <= to
 }
 
-const extractSessionPlayerIds = (session) => {
-  const ids = new Set()
-  const pushId = (v) => {
-    if (v !== null && v !== undefined && v !== '') ids.add(String(v))
-  }
-
-  ;(session?.players || []).forEach((p) => pushId(p?.id || p?.user_id))
-  ;(session?.pitchers || []).forEach((p) => pushId(p?.id || p?.user_id || p?.pitcher_id))
-  ;(session?.batters || []).forEach((p) => pushId(p?.id || p?.user_id || p?.batter_id))
-  ;(session?.pitching_practice_lineups || []).forEach((p) => pushId(p?.pitcher_id || p?.user_id || p?.id))
-  ;(session?.practice_line_ups || []).forEach((p) => pushId(p?.batter_id || p?.user_id || p?.id))
-  ;(session?.lineup || []).forEach((p) => pushId(p?.id || p?.user_id))
-
-  return ids
-}
+const extractSessionPlayerIds = session => new Set(sessionParticipants(session).map(player => player.id))
 
 const sessionHasSelectedPlayers = (session) => {
   if (selectedPlayers.value.length === 0) return true
@@ -486,7 +473,7 @@ onMounted(async () => {
                 <p class="font-bold text-white truncate">{{ session.label }}</p>
                 <p class="text-xs md:text-sm text-white/70">{{ session.dateLabel }}</p>
               </div>
-              <p class="text-xs text-white/60 mt-0.5">Players in session: {{ session.playerCount }}</p>
+              <p class="text-xs text-white/60 mt-0.5">Players in session: {{ session.playerCount || 'Not available in this summary' }}</p>
             </button>
           </div>
 

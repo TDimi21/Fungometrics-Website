@@ -5,7 +5,7 @@ const emit=defineEmits(['change','load-sessions']);
 </script>
 <template>
   <section v-if="skillFields(bucket).length" class="skill-results">
-    <strong>Recorded performance</strong>
+    <details :open="readonly"><summary>{{ readonly ? 'Recorded performance' : 'Record Results' }}</summary><p v-if="!readonly">Enter measured results or link a scored session below. Save or finish the workout to submit these results for your coach; marking a drill complete alone does not add measurements.</p>
     <p>{{ actual.session_id ? 'Results linked to an existing session.' : Object.values(actual.performance || {}).some(v => v != null && v !== '') ? 'Manually recorded results' : 'Not recorded — completing a drill does not record measurements.' }}</p>
     <template v-if="!actual.session_id">
       <label v-for="[key,label] in skillFields(bucket)" :key="key">{{ label }}
@@ -20,6 +20,7 @@ const emit=defineEmits(['change','load-sessions']);
       <select aria-label="Link recorded skill session" value="" @change="$event.target.value && emit('change',{session_id:$event.target.value,performance:{}})"><option value="">Choose recorded session</option><option v-for="s in sessions.filter(s => matchesSkillSession(s,bucket))" :key="s.id" :value="s.id">{{ s.started }} · {{ s.modes || s.type }} · {{ s.is_completed ? 'Completed' : 'In progress' }}</option></select>
       <small>Linking uses that session instead of these manual measurements.</small>
     </template>
+    </details>
   </section>
 </template>
 <style scoped>

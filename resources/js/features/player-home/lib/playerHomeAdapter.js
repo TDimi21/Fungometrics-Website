@@ -342,7 +342,11 @@ export const clampPct = (value) => Math.max(0, Math.min(100, Number(value || 0))
 export const buildProfile = (userData, fitnessLatest) => {
   const p = userData?.profile || {}
   const player = userData?.player || {}
-  const wt = pick(fitnessLatest?.body_weight, p?.weight, player?.weight, userData?.weight)
+  const measurements = (Array.isArray(fitnessLatest) ? fitnessLatest : [fitnessLatest])
+    .filter(row => Number(row?.body_weight) > 0)
+    .sort((a, b) => (Date.parse(b.measured_at || b.fitness_date || b.date || b.created_at) || 0) - (Date.parse(a.measured_at || a.fitness_date || a.date || a.created_at) || 0))
+  const measuredWeight = measurements[0]
+  const wt = pick(measuredWeight?.body_weight, p?.weight, player?.weight, userData?.weight)
 
   return {
     height: formatHeight(
@@ -351,6 +355,8 @@ export const buildProfile = (userData, fitnessLatest) => {
       pick(p?.height, player?.height),
     ),
     weight: wt != null ? wt : '—',
+    weightDate: measuredWeight?.measured_at || measuredWeight?.fitness_date || measuredWeight?.date || measuredWeight?.created_at || null,
+    weightSource: measuredWeight ? 'Latest recorded measurement' : 'Profile weight',
     position: formatPositions(pick(userData?.positions, p?.positions, p?.position, player?.positions, player?.position)),
   }
 }
