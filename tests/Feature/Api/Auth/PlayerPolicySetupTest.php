@@ -9,6 +9,7 @@ use Tests\TestCase;
 
 class PlayerPolicySetupTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesPlayerContact;
     private function agreement(): array
     {
         return ['policy_accepted' => true, 'terms_version' => config('player_consent.terms_version'),
@@ -20,7 +21,7 @@ class PlayerPolicySetupTest extends TestCase
         if ($born) Player::factory()->create(['user_id' => $player->id, 'born_date' => $born]);
         $team = Team::factory()->create(['join_code' => 'TEAM23']);
         PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
-        $response = $this->postJson('/api/player/join', ['contact' => $player->email, 'team_code' => $team->join_code])->assertOk();
+        $response = $this->claimVerifiedTeam(['contact' => $player->email, 'team_code' => $team->join_code])->assertOk();
         return [$player, $team, $response->json('data.token')];
     }
     public function test_coach_checkbox_is_required_records_actor_and_does_not_require_birthday(): void

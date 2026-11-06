@@ -34,7 +34,7 @@ class JoinTeamByCode extends Controller
             $eligibilityMessage = $exception->errors()['invitation'][0] ?? null;
             return response()->json([
                 'status' => 'error',
-                'message' => $eligibilityMessage ?? 'No unclaimed player profile matches that email or phone number and code.',
+                'message' => $eligibilityMessage ?? ($exception->errors()['claim'][0] ?? 'Use the contact your coach entered, or ask your coach to update it.'),
                 'errors' => $exception->errors(),
             ], 422);
         } catch (Throwable $exception) {
@@ -50,9 +50,9 @@ class JoinTeamByCode extends Controller
 
         return response()->json([
             'code' => '018',
-            'message' => 'Player profile found. Complete your birth date and policy agreement to continue.',
+            'message' => isset($result['challenge_id']) ? 'Enter the verification code sent to your contact.' : 'Complete your profile setup to continue.',
             'status' => 'success',
             'data' => $result,
-        ]);
+        ])->header('Cache-Control', 'no-store');
     }
 }

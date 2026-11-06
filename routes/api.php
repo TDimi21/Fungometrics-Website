@@ -272,6 +272,8 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
 Route::prefix('player')->group(function (): void {
     Route::post('register', RegisterPlayerController::class);
     Route::middleware('throttle:5,1')->post('join', JoinTeamByCode::class);
+    Route::post('claim/verify-contact', [\App\Http\Controllers\Api\Player\VerifyPlayerContact::class, 'verify'])->middleware('throttle:10,1,player-contact-verify:');
+    Route::post('claim/confirm-profile', [\App\Http\Controllers\Api\Player\VerifyPlayerContact::class, 'confirm'])->middleware('throttle:10,1,player-contact-confirm:');
     Route::post('claim-setup', [\App\Http\Controllers\Api\Player\PlayerConsentController::class, 'setup'])->middleware(['auth:sanctum', 'ability:profile-claim,profile-setup', 'throttle:10,1']);
     Route::middleware(['auth:sanctum', 'ability:profile-claim'])->group(function (): void {
         Route::post('set-credentials', SetPlayerCredentials::class); // first-time email+password setup after claim

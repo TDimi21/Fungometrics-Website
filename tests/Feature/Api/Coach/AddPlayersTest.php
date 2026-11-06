@@ -21,7 +21,26 @@ use Tests\TestCase;
 
 class AddPlayersTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesPlayerContact;
     use \Tests\Concerns\AcceptsPlayerPolicies;
+    public function test_shared_family_contact_creates_separate_children_and_retries_reuse_the_same_child(): void
+    {
+        $coach = User::factory()->create(['type'=>'coach','status'=>true]);
+        $team = Team::factory()->create();
+        CoachTeam::factory()->create(['coach_id'=>$coach->id,'team_id'=>$team->id,'is_main'=>true]);
+        Sanctum::actingAs($coach,['coach']);
+        $payload = [...$this->policyAgreement(),'team'=>$team->id,'guardian_contact'=>'family@example.com','name'=>['first'=>'Alex','last'=>'Family']];
+        $one = $this->postJson('/api/coach/add/players',$payload)->assertOk()->json('data.id');
+        $this->postJson('/api/coach/add/players',$payload)->assertOk()->assertJsonPath('data.id',$one);
+        $payload['name']['first']='Blake';
+        $two = $this->postJson('/api/coach/add/players',$payload)->assertOk()->json('data.id');
+        $this->assertNotSame($one,$two);
+        $this->assertSame(2,PlayerTeam::where('team_id',$team->id)->count());
+        $this->assertNull(User::find($one)->email);
+        $this->assertNull(User::find($two)->email);
+        $this->assertDatabaseCount('player_claim_contacts',2);
+    }
+
     public function test_coach_can_add_and_reuse_email_only_player(): void
     {
         $coach = User::factory()->create(['type' => 'coach', 'status' => true]);
@@ -53,7 +72,7 @@ class AddPlayersTest extends TestCase
             ->assertExitCode(0);
         $this->assertNull(User::findOrFail($added->json('data.id'))->password);
         $this->app['auth']->forgetGuards();
-        $claim = $this->postJson('/api/player/join', [
+        $claim = $this->claimVerifiedTeam([
             'contact' => 'email@fungo.com', 'team_code' => $added->json('team_code'),
         ])->assertOk();
         $token = \Laravel\Sanctum\PersonalAccessToken::findToken($claim->json('data.token'));

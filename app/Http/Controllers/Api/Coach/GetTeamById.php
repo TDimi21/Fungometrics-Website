@@ -62,6 +62,15 @@ class GetTeamById extends Controller
                 ], HttpCodes::HTTP_OK);
             }
 
+            // Connection badges are read fresh; cached roster membership is not proof of a claim.
+            $ids = array_column($result, 'id');
+            $connected = \App\Models\User::whereIn('id', $ids)->whereNotNull('password')->where('password', '!=', '')->pluck('id')->all();
+            $invited = \App\Models\TeamInvitation::where('team_id', $teamId)->whereIn('user_id', $ids)->whereNotNull('sent_at')->whereNull('revoked_at')->whereNull('accepted_at')->where('expires_at', '>', now())->pluck('user_id')->all();
+            $result = array_map(function ($row) use ($connected, $invited) {
+                $row['connection_status'] = in_array($row['id'], $connected, true) ? 'connected' : (in_array($row['id'], $invited, true) ? 'invite_sent' : 'unclaimed');
+                $row['profile_claim_status'] = $row['connection_status'] === 'connected' ? 'claimed' : 'unclaimed';
+                return $row;
+            }, $result);
             $response = [
                 'code'    => '029',
                 'message' => 'data players by team '.$teamId,

@@ -18,69 +18,10 @@ class PlayerProfileClaimService
     {
     }
 
-    /** @return array{status: string, token: string} */
+    /** Start contact verification; a team code never issues an authentication token. */
     public function claim(string $contact, string $teamCode, Request $request): array
     {
-        $contact = trim($contact);
-        $email = filter_var($contact, FILTER_VALIDATE_EMAIL) ? strtolower($contact) : null;
-        $normalizedPhone = $this->normalizePhone($contact);
-        if ($email === null && (!preg_match('/^[+()\d\s.-]+$/', $contact) || strlen($normalizedPhone) < 10 || strlen($normalizedPhone) > 15)) {
-            $this->failClaim();
-        }
-        $normalizedTeamCode = mb_strtoupper(trim($teamCode));
-
-        return DB::transaction(function () use ($email, $normalizedPhone, $normalizedTeamCode, $request): array {
-            $team = Team::query()
-                ->where('join_code', $normalizedTeamCode)
-                ->first();
-
-            if ( ! $team) {
-                $this->failClaim();
-            }
-
-            // Match contact details only among active players on this roster.
-            // Comparing normalized values in PHP also supports older formatted
-            // phone values without relying on database-specific SQL functions.
-            $matches = User::query()
-                ->where('type', UserTypes::PLAYER->value)
-                ->where('status', true)
-                ->whereHas('team_players', fn ($query) => $query
-                    ->where('team_id', $team->id)
-                    ->where('actual', true))
-                ->get()
-                ->filter(fn (User $user): bool => $email !== null
-                    ? strtolower((string) $user->email) === $email
-                    : $this->normalizePhone((string) $user->phone) === $normalizedPhone);
-
-            if ($matches->count() !== 1) {
-                $this->failClaim();
-            }
-
-            /** @var User $player */
-            $player = User::query()->lockForUpdate()->findOrFail($matches->first()->id);
-
-            if (filled($player->password)) {
-                $this->audit->record('player_profile.claim_rejected_already_complete', $player->id, $team->id, $request);
-                $this->failClaim();
-            }
-
-            // Only the newest short-lived claim session remains valid.
-            $player->tokens()->where('name', 'like', 'profile_claim%')->delete();
-            $accessToken = $player->createToken(
-                'profile_claim:'.$team->id,
-                ['profile-claim'],
-                now()->addMinutes((int) config('security.profile_claim_ttl_minutes', 10))
-            );
-
-            $this->audit->record('player_profile.claim_matched', $player->id, $team->id, $request);
-
-            return [
-                'status' => 'success',
-                'token' => $accessToken->plainTextToken,
-                'next_action' => 'setup',
-                'policies' => app(\App\Services\Consent\PlayerConsentService::class)->policies(),
-            ];
-        });
+        return app(PlayerContactVerification::class)->start($contact, $teamCode);
     }
 
     public function claimWithCode(string $contact, string $code, Request $request): array

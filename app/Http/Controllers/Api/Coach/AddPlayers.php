@@ -54,15 +54,37 @@ class AddPlayers extends Controller
                     ], HttpCodes::HTTP_FORBIDDEN);
                 }
             }
+            // A shared family contact verifies a specific roster profile; it is never a login identity.
+            $familyHash = null;
+            if (!empty($data['guardian_contact'])) {
+                $contact = app(\App\Services\Security\PlayerContactVerification::class)->normalize($data['guardian_contact']);
+                $familyHash = hash_hmac('sha256', $contact, (string) config('app.key'));
+                unset($data['email'], $data['phone']);
+            }
             $email = strtolower(trim($data['email'] ?? ''));
             $phone = preg_replace('/\D+/', '', $data['phone'] ?? '');
-            $matches = User::query()->when($phone === '', fn ($query) => $query->whereRaw('LOWER(email) = ?', [$email]))->cursor()->filter(fn ($user) =>
+            $matches = $familyHash ? collect() : User::query()->when($phone === '', fn ($query) => $query->whereRaw('LOWER(email) = ?', [$email]))->cursor()->filter(fn ($user) =>
                 ($email !== '' && strtolower((string) $user->email) === $email) ||
                 ($phone !== '' && preg_replace('/\D+/', '', (string) $user->phone) === $phone))->take(2)->collect();
             if ($matches->count() > 1 || ($matches->first() && (string) $matches->first()->type !== 'player')) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['contact' => 'These contact details cannot be used for this player.']);
             }
             $player = $matches->first();
+            if ($familyHash) {
+                $ids = DB::table('player_claim_contacts')->where('team_id',$teamId)->where('contact_hash',$familyHash)->pluck('user_id');
+                $familyMatches = User::with('profile')->whereIn('id',$ids)->get()->filter(fn($u) =>
+                    mb_strtolower(trim((string)$u->profile?->first_name)) === mb_strtolower(trim($data['name']['first'])) &&
+                    mb_strtolower(trim((string)$u->profile?->last_name)) === mb_strtolower(trim($data['name']['last'])));
+                if ($familyMatches->count() > 1) throw \Illuminate\Validation\ValidationException::withMessages(['contact'=>'More than one profile matches. Select the existing player from your roster.']);
+                $player = $familyMatches->first();
+            }
+            if ($player) {
+                $first = mb_strtolower(trim((string) $player->profile?->first_name));
+                $last = mb_strtolower(trim((string) $player->profile?->last_name));
+                if ($first !== mb_strtolower(trim($data['name']['first'])) || $last !== mb_strtolower(trim($data['name']['last']))) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['contact' => 'This contact belongs to a different roster profile. Search for the existing player, or use a distinct player email. Do not reuse another child’s profile.']);
+                }
+            }
             $message = "";
             $changedEventData = null;
             if ( ! isset($player)) {
@@ -82,6 +104,10 @@ class AddPlayers extends Controller
             }
 
             $userId = $player?->id ?? $savePlayer['user']->id;
+            if ($familyHash) DB::table('player_claim_contacts')->updateOrInsert(
+                ['team_id'=>$teamId,'user_id'=>$userId,'contact_hash'=>$familyHash],
+                ['updated_at'=>now(),'created_at'=>now()]
+            );
             $playerInput = $data['player'] ?? [];
             if (isset($playerInput['grad_year']) && $playerInput['grad_year']) {
                 Player::query()->updateOrCreate(

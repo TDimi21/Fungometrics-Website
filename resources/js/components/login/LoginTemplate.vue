@@ -4,6 +4,8 @@ import {discardLegacyAuthToken} from '@/utils/authToken.js'
 import { consumeCommunicationDestination, pendingCommunicationDestination } from '@/utils/communicationDestination.js'
 import { reactive, ref, computed } from 'vue'
 import PlayerClaimSetup from './PlayerClaimSetup.vue'
+import PlayerContactVerification from './PlayerContactVerification.vue'
+const claimChallenge = ref(null)
 import {BigButtonField, InputBase, LabelField, PasswordField, SwitchField} from '../../components/form'
 import axios from "axios";
 import {toast} from "../../utils/AlertPlugin";
@@ -179,20 +181,8 @@ const submitClaimForm = async () => {
     const response = await axios.post(api_url + 'player/join', dataForm)
     const body = response?.data || {}
 
-    if (body?.status !== 'success' || !body?.data?.token) {
-      throw new Error(body?.message || 'Could not claim profile')
-    }
-
-    claimedSession.value = { token: body.data.token }
-    claimCredentials.email = phone.includes('@') ? phone.toLowerCase() : ''
-    claimCredentials.password = ''
-    claimCredentials.confirmPassword = ''
-    claimStep.value = 'setup'
-    await toast.fire({
-      icon: 'info',
-      title: 'Complete Your Profile',
-      text: 'Confirm your birth date and review the account policies.',
-    })
+    if (body?.data?.next_action === 'verify_contact') { claimChallenge.value = body.data; claimStep.value = 'verify'; return }
+    throw new Error('Contact verification is unavailable. Please try again later.')
   } catch (error) {
     const message = error?.response?.data?.message || error?.message || 'Could not claim profile. Please try again.'
     await toast.fire({ icon: 'error', title: 'Claim Error', text: message })
@@ -362,6 +352,7 @@ const submitClaimCredentials = async () => {
         </div>
       </form>
 
+      <PlayerContactVerification v-if="isClaimMode && claimStep === 'verify'" :challenge="claimChallenge" @restart="claimStep='find'" @ready="token => {claimedSession={token};claimCredentials.email=claimForm.phone.includes('@')?claimForm.phone.toLowerCase():'';claimStep='setup'}" @signin="loginMode='email';claimStep='find';toast.fire({icon:'info',text:'This profile is already connected. Sign in to your existing account.'})" />
       <PlayerClaimSetup v-if="isClaimMode && claimStep === 'setup'" :token="claimedSession.token" @ready="claimStep = 'credentials'" @restart="claimStep = 'find'; claimedSession = null" />
       <form v-if="isClaimCredentialsStep" class="w-full max-w-xl" @submit.prevent="submitClaimCredentials">
         <div class="grid grid-cols-1 gap-4">

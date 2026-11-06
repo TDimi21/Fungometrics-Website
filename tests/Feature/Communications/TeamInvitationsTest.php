@@ -17,6 +17,7 @@ use RuntimeException;
 
 class TeamInvitationsTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesPlayerContact;
     use \Tests\Concerns\AcceptsPlayerPolicies;
     private User $coach;
     private User $player;
@@ -637,7 +638,7 @@ class TeamInvitationsTest extends TestCase
         $this->team->update(['join_code' => 'SAFE23']);
         foreach ([null, now()->subYears(12)->toDateString()] as $dob) {
             $this->player->player->update(['born_date' => $dob]);
-            $joined = $this->postJson('/api/player/join', ['contact' => $this->player->email, 'team_code' => 'SAFE23'])->assertOk();
+            $joined = $this->claimVerifiedTeam(['contact' => $this->player->email, 'team_code' => 'SAFE23'])->assertOk();
             $this->withToken($joined->json('data.token'))->postJson('/api/player/set-credentials', ['email' => $this->player->email, 'password' => 'Password123', 'password_confirmation' => 'Password123'])->assertUnprocessable();
             $code = app(\App\Services\Security\AccountClaimService::class)->issue($this->player);
             $joined = $this->postJson('/api/player/join', ['contact' => $this->player->email, 'claim_code' => $code])->assertOk();

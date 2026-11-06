@@ -23,6 +23,7 @@ use Tests\TestCase;
 
 class AccountClaimSecurityTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesPlayerContact;
     use \Tests\Concerns\AcceptsPlayerPolicies;
     public function test_team_code_claim_accepts_email_and_keeps_the_existing_player(): void
     {
@@ -33,14 +34,15 @@ class AccountClaimSecurityTest extends TestCase
         $otherTeam = Team::factory()->create(['join_code' => 'OTHER2']);
         $this->postJson('/api/player/join', ['contact' => 'roster@example.com', 'team_code' => $otherTeam->join_code])->assertUnprocessable();
         $this->postJson('/api/player/join', ['contact' => 'wrong@example.com', 'team_code' => $team->join_code])->assertUnprocessable();
-        $response = $this->postJson('/api/player/join', ['contact' => 'ROSTER@example.com', 'team_code' => strtolower($team->join_code)])->assertOk();
+        $response = $this->claimVerifiedTeam(['contact' => 'ROSTER@example.com', 'team_code' => strtolower($team->join_code)])->assertOk();
         $token = $response->json('data.token');
         $this->assertSame(['profile-claim'], PersonalAccessToken::findToken($token)->abilities);
         $this->completePolicySetup($token);
         $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/player/set-credentials', [
             'email' => 'roster@example.com', 'password' => 'password123', 'password_confirmation' => 'password123',
         ])->assertOk()->assertJsonPath('data.user.id', $player->id)->assertJsonPath('data.team.id', $team->id);
-        $this->postJson('/api/player/join', ['contact' => 'roster@example.com', 'team_code' => $team->join_code])->assertUnprocessable();
+        $this->travel(61)->seconds();
+        $this->claimVerifiedTeam(['contact' => 'roster@example.com', 'team_code' => $team->join_code])->assertOk()->assertJsonPath('data.next_action', 'sign_in')->assertJsonMissingPath('data.token');
     }
 
     public function test_team_code_claim_accepts_phone_for_email_invited_player_but_not_removed_members(): void
@@ -49,7 +51,7 @@ class AccountClaimSecurityTest extends TestCase
         \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         $team = Team::factory()->create(['join_code' => 'TEAM23']);
         $membership = PlayerTeam::factory()->create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
-        $this->postJson('/api/player/join', ['contact' => '5551234567', 'team_code' => $team->join_code])->assertOk();
+        $this->claimVerifiedTeam(['contact' => '5551234567', 'team_code' => $team->join_code])->assertOk();
         $membership->update(['actual' => false]);
         $this->postJson('/api/player/join', ['contact' => '5551234567', 'team_code' => $team->join_code])->assertUnprocessable();
         $this->postJson('/api/player/join', ['contact' => 'not-a-contact', 'team_code' => $team->join_code])->assertUnprocessable();
@@ -168,7 +170,7 @@ class AccountClaimSecurityTest extends TestCase
         \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
 
-        $response = $this->postJson('/api/player/join', [
+        $response = $this->claimVerifiedTeam([
             'phone' => '5558675309',
             'team_code' => 'ABC123',
         ])->assertOk()
@@ -235,10 +237,10 @@ class AccountClaimSecurityTest extends TestCase
         \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
 
-        $this->postJson('/api/player/join', [
+        $this->claimVerifiedTeam([
             'phone' => '5550001234',
             'team_code' => 'TST124',
-        ])->assertUnprocessable()
+        ])->assertOk()->assertJsonPath('data.next_action', 'sign_in')
             ->assertJsonMissingPath('data.token');
     }
 
@@ -255,7 +257,7 @@ class AccountClaimSecurityTest extends TestCase
         \App\Models\Player::factory()->create(['user_id' => $player->id, 'born_date' => '2000-01-01']);
         PlayerTeam::create(['user_id' => $player->id, 'team_id' => $team->id, 'actual' => true]);
 
-        $claim = $this->postJson('/api/player/join', [
+        $claim = $this->claimVerifiedTeam([
             'phone' => '5558675309',
             'team_code' => 'NEW123',
         ])->assertOk();

@@ -38,6 +38,7 @@ class AddUserRequest extends FormRequest
             'team' => $this->is('api/coach/add/players') ? ['required', 'uuid'] : ['required'],
             'name.first' => ['required'],
             'name.last' => ['required'],
+            'guardian_contact' => ['sometimes', 'nullable', 'string', 'max:191'],
             'send_invitation' => ['sometimes', 'boolean'],
             'player.born_date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
             'player.position' => ['nullable', 'string', 'in:P,C,1B,2B,3B,SS,LF,CF,RF,DH,OF,IF'],
