@@ -155,6 +155,7 @@ final class BlastImportService
 
     private function forgetDevelopmentDashboardCaches(string $teamId, string $playerId): void
     {
+        app(\App\Services\Development\PlayerDevelopmentDashboardCache::class)->forgetPlayer($playerId);
         foreach ([30, 60, 90, 120, 365, 'all'] as $days) {
             Cache::forget("dev_dashboard_v4_{$teamId}_{$playerId}_{$days}");
         }

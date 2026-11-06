@@ -89,7 +89,7 @@ class GetPlayerDevelopmentDashboard extends Controller
             }
 
             $cacheTeamKey = $teamScopeId ?: 'all';
-            $cacheKey = "dev_dashboard_v6_{$cacheTeamKey}_{$playerId}_{$days}";
+            $cacheKey = \App\Services\Development\PlayerDevelopmentDashboardCache::key($cacheTeamKey, $playerId, $days);
 
             // Check player exists before entering the cache closure so a missing
             // player never gets cached as an empty array.

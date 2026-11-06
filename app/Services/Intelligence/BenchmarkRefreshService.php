@@ -275,6 +275,7 @@ class BenchmarkRefreshService
             return;
         }
 
+        app(\App\Services\Development\PlayerDevelopmentDashboardCache::class)->forgetPlayer($playerId);
         foreach (array_unique([7, 30, 60, 90, 180, 365, $this->days($days)]) as $window) {
             Cache::forget("dev_dashboard_{$teamId}_{$playerId}_{$window}");
             Cache::forget("dev_dashboard_v2_{$teamId}_{$playerId}_{$window}");

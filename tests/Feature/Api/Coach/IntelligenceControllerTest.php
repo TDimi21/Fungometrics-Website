@@ -368,6 +368,10 @@ class IntelligenceControllerTest extends TestCase
             ->assertJsonPath('summary.assessment.ankle_mobility_score', 3)
             ->assertJsonPath('summary.assessment.metric_percentiles.bench_press', 74);
 
+        // Custom date windows must be invalidated too, not only preset ranges.
+        $customEndpoint = "api/coach/development/teams/{$team->id}/players/{$player->id}?days=200";
+        $this->getJson($customEndpoint)->assertOk()->assertJsonPath('data.current.body_weight', 195);
+
         // The first request is cached. Saving a new single-field app update must
         // invalidate it without disturbing the other current metric values.
         PlayerFitness::query()->create([
@@ -380,6 +384,7 @@ class IntelligenceControllerTest extends TestCase
             ->assertJsonPath('data.current.body_weight', 205)
             ->assertJsonPath('data.current.bench_press', 230)
             ->assertJsonPath('data.current.mobility_score', 40);
+        $this->getJson($customEndpoint)->assertOk()->assertJsonPath('data.current.body_weight', 205);
     }
 
     public function test_coach_cannot_get_intelligence_for_team_they_do_not_coach(): void
