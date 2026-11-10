@@ -1,12 +1,18 @@
 <script setup>
 import {ref, computed, onMounted} from 'vue'
 import {useAxiosAuth} from '@/composables/axios-auth'
-import {SCORED_SESSIONS, simpleAssignment} from '@/features/planner/lib/assignmentFlow'
+import {SCORED_SESSIONS, simpleAssignment, createAssignmentSchedule} from '@/features/planner/lib/assignmentFlow'
 const props = defineProps({teamId: [String, Number], teamName: String, date: String})
 const emit = defineEmits(['close', 'assigned', 'advanced'])
 const {axiosGet, axiosPost} = useAxiosAuth()
 const step = ref(0), kind = ref(''), session = ref(''), title = ref(''), notes = ref(''), date = ref(props.date), due = ref(''), players = ref([]), roster = ref([]), groups = ref([]), templates = ref([]), template = ref(null), error = ref(''), loading = ref(true), busy = ref(false), audience = ref('team')
-const id = crypto.randomUUID(), itemId = crypto.randomUUID()
+const dates = ref(props.date ? [props.date] : [])
+const started = ref(false), savedDates = ref([])
+const schedule = createAssignmentSchedule()
+function addDate() {
+  if (date.value && !dates.value.includes(date.value)) dates.value = [...dates.value, date.value].sort()
+}
+function removeDate(value) { dates.value = dates.value.filter(d => d !== value) }
 const name = p => p.name?.full || p.name || [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Player'
 const ready = computed(() => kind.value === 'guided' ? !!template.value : !!title.value.trim() && (kind.value === 'quick' || !!session.value))
 onMounted(async () => {
@@ -25,14 +31,18 @@ async function publish() {
   if (busy.value || !players.value.length) return
   busy.value = true; error.value = ''
   try {
-    let body
-    if (kind.value === 'guided') {
-      const {data} = await axiosPost(`coach/workout-templates/${template.value.id}/use`, {id, team_id: String(props.teamId), date: date.value, player_ids: players.value})
-      body = {...data.data, assigned_player_ids: players.value, status: 'published', settings: {...data.data.settings, assignment_kind: 'guided', due_time: due.value || null}}
-      if (notes.value) body.buckets = [...body.buckets, {type: 'coach_notes', note: notes.value, items: []}]
-    } else body = simpleAssignment({id, itemId, teamId: props.teamId, kind: kind.value, sessionType: session.value, name: title.value, instructions: notes.value, date: date.value, dueTime: due.value, players: players.value})
-    const {data} = await axiosPost('coach/daily-plans', body)
-    if (!data?.data?.id) throw new Error('Save was not confirmed. Retry with this form open.')
+    started.value = true
+    await schedule.publish(dates.value, async ({date: assignmentDate, id, itemId}) => {
+      let body
+      if (kind.value === 'guided') {
+        const {data} = await axiosPost(`coach/workout-templates/${template.value.id}/use`, {id, team_id: String(props.teamId), date: assignmentDate, player_ids: players.value})
+        body = {...data.data, assigned_player_ids: players.value, status: 'published', settings: {...data.data.settings, assignment_kind: 'guided', due_time: due.value || null}}
+        if (notes.value) body.buckets = [...body.buckets, {type: 'coach_notes', note: notes.value, items: []}]
+      } else body = simpleAssignment({id, itemId, teamId: props.teamId, kind: kind.value, sessionType: session.value, name: title.value, instructions: notes.value, date: assignmentDate, dueTime: due.value, players: players.value})
+      const {data} = await axiosPost('coach/daily-plans', body)
+      if (!data?.data?.id) throw new Error('Save was not confirmed. Retry with this form open.')
+      savedDates.value = [...savedDates.value, assignmentDate]
+    })
     emit('assigned')
   } catch(e) {error.value = e.response?.data?.message || e.message || 'Assignment could not be saved.'}
   finally {busy.value = false}
@@ -40,7 +50,7 @@ async function publish() {
 </script>
 <template>
   <section class="assign-flow" aria-label="Assign something">
-    <header><button :disabled="busy" @click="step ? step-- : emit('close')">← {{step ? 'Back' : 'Cancel'}}</button><span>{{ step ? `Step ${step} of 3` : teamName }}</span></header>
+    <header><button :disabled="busy || started" @click="step ? step-- : emit('close')">← {{step ? 'Back' : 'Cancel'}}</button><span>{{ step ? `Step ${step} of 3` : teamName }}</span></header>
     <p v-if="error" role="alert">{{error}}</p><p v-if="loading" role="status">Loading your team and library…</p>
     <template v-if="step===0">
       <h2>What do you want your players to do?</h2>
@@ -59,16 +69,18 @@ async function publish() {
       <div class="tabs"><button v-for="a in ['team','group','individuals']" :key="a" :class="{selected:audience===a}" @click="selectAudience(a)">{{a==='team'?'Entire Team':a==='group'?'Saved Group':'Individual Players'}}</button></div>
       <label v-if="audience==='group'">Group<select aria-label="Assignment group" @change="selectGroup"><option value="">Choose a group</option><option v-for="g in groups" :key="g.id" :value="g.id">{{g.name}}</option></select><small v-if="!groups.length">No saved groups. Choose individual players instead.</small></label>
       <div v-if="audience==='individuals'" class="player-list"><label v-for="p in roster" :key="p.id ?? p.user_id"><input type="checkbox" v-model="players" :value="String(p.id ?? p.user_id)">{{name(p)}}</label></div>
-      <p>{{players.length}} players selected</p><div class="fields"><label>Date<input type="date" v-model="date" required></label><label>Due time (optional)<input type="time" v-model="due"></label></div>
+      <p>{{players.length}} players selected</p><div class="fields"><label>Add a date<input type="date" v-model="date"><button type="button" :disabled="!date" @click="addDate">+ Add Date</button></label><label>Due time (optional)<input type="time" v-model="due"></label></div>
+      <div class="tabs" aria-label="Selected dates"><button v-for="d in dates" :key="d" type="button" :aria-label="`Remove ${d}`" @click="removeDate(d)">{{d}} ×</button></div><p>{{dates.length}} dates selected. Add each date you want this workout assigned.</p>
       <label>Coach instructions (optional)<textarea v-model="notes" maxlength="500" rows="4" placeholder="Explain what you want players to work on."></textarea><small>{{notes.length}}/500</small></label>
-      <button class="primary" :disabled="!players.length || !date" @click="step=3">Next: Review & Assign →</button>
+      <button class="primary" :disabled="!players.length || !dates.length" @click="step=3">Next: Review & Assign →</button>
     </template>
     <template v-if="step===3">
-      <h2>Review Assignment</h2><h3>{{title}}</h3><p>{{teamName}} · {{players.length}} players · {{date}} · {{due || 'End of day'}}</p>
+      <h2>Review Assignment</h2><h3>{{title}}</h3><p>{{teamName}} · {{players.length}} players · {{dates.length}} dates · {{due || 'End of day'}}</p>
+      <p>Scheduled dates: {{dates.join(', ')}}</p><p v-if="savedDates.length" role="status">Saved {{savedDates.length}} of {{dates.length}} dates. Retry continues with the remaining dates.</p>
       <p class="recipients">{{roster.filter(p=>players.includes(String(p.id ?? p.user_id))).map(name).join(', ')}}</p>
       <article class="preview"><small>PLAYER PREVIEW</small><h3>{{title}}</h3><p>{{notes || 'Follow the assigned training instructions.'}}</p><p v-for="s in template?.sections || []" :key="s.id">{{s.name}} · {{s.exercises?.length || 0}} exercises</p><strong class="preview-action">{{kind==='quick'?'Complete Task':kind==='guided'?'Start Workout':'Record Session'}}</strong></article>
       <p>Players record results in their session. You can review their progress and reports here.</p>
-      <button class="primary" :disabled="busy" @click="publish">{{busy?'Assigning…':`Assign to ${players.length} Players`}}</button>
+      <button class="primary" :disabled="busy" @click="publish">{{busy?'Assigning…':`Assign to ${players.length} Players on ${dates.length} Dates`}}</button>
     </template>
   </section>
 </template>

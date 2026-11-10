@@ -52,3 +52,23 @@ export function simpleAssignment({id, itemId, teamId, kind, sessionType, name, i
 }
 
 export const sessionReportType = type => ({weighted_ball:'weight_ball',bullpen:'bullpen',batting:'batting',cage:'cage',long_toss:'long_toss',exit_velocity:'exit_velocity'})[type] || null;
+
+// Keep IDs stable across retries; each date has independent progress and results.
+export function createAssignmentSchedule(makeId = () => crypto.randomUUID()) {
+  const entries = new Map();
+  return {
+    async publish(dates, save) {
+      for (const date of [...new Set(dates)].sort()) {
+        if (!entries.has(date)) entries.set(date, {date, id: makeId(), itemId: makeId(), saved: false});
+        const entry = entries.get(date);
+        if (entry.saved) continue;
+        try {
+          await save({...entry});
+          entry.saved = true;
+        } catch (error) {
+          throw new Error(`${date}: ${error.response?.data?.message || error.message || 'Assignment could not be saved.'} Keep this form open and retry to finish the remaining dates.`);
+        }
+      }
+    },
+  };
+}
