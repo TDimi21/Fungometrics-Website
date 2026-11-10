@@ -35,7 +35,7 @@ class SaveDailyPlan extends Controller
                 'name'                => ['nullable', 'string', 'max:200'],
                 'date'                => ['nullable', 'date'],
                 'phase'               => ['nullable', 'string', 'max:60'],
-                'primary_goal'        => ['nullable', 'string', 'max:200'],
+                'primary_goal'        => ['nullable', 'string', 'max:191'],
                 'estimated_minutes'   => ['nullable', 'integer', 'min:0', 'max:1440'],
                 'workload_level'      => ['nullable', 'string', 'max:40'],
                 'status'              => ['nullable', 'string', 'in:draft,published,template'],

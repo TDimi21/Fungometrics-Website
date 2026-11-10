@@ -8,6 +8,33 @@ use Tests\TestCase;
 
 class SimpleAssignmentsTest extends TestCase
 {
+    public function test_guided_template_can_be_published_to_two_players(): void
+    {
+        config(['access.temporary_full_access.enabled'=>true,'access.temporary_full_access.ends_at'=>null]);
+        $coach=User::factory()->create(['type'=>'coach']);
+        $team=Team::factory()->create();
+        $this->grantTeamAccess($coach,$team);
+        $players=User::factory()->count(2)->create(['type'=>'player']);
+        foreach($players as $player) $this->grantTeamAccess($player,$team);
+        $this->seed(\Database\Seeders\FlameBangersWorkoutTemplateSeeder::class);
+        $template=\App\Models\WorkoutTemplate::where('is_premade',true)->firstOrFail();
+
+        $description=str_repeat('Throwing preparation and recovery. ', 20);
+        $template->update(['description'=>$description]);
+        Sanctum::actingAs($coach,['coach']);
+        $id=(string)Str::uuid();
+        $draft=$this->postJson('/api/coach/workout-templates/'.$template->id.'/use',[
+            'id'=>$id,'team_id'=>$team->id,'date'=>now()->toDateString(),'player_ids'=>$players->modelKeys(),
+        ])->assertCreated()->json('data');
+        $this->assertLessThanOrEqual(191, mb_strlen($draft['primary_goal']));
+        $this->assertSame($description, $draft['buckets'][0]['template_source']['description']);
+        $body=array_merge($draft,['assigned_player_ids'=>$players->modelKeys(),'status'=>'published',
+            'settings'=>array_merge($draft['settings'],['assignment_kind'=>'guided','due_time'=>null])]);
+        $this->postJson('/api/coach/daily-plans',$body)->assertOk();
+        $this->assertDatabaseHas('daily_plans',['id'=>$id,'status'=>'published']);
+        foreach($players as $player) $this->assertDatabaseHas('daily_plan_assignments',['plan_id'=>$id,'user_id'=>$player->id]);
+    }
+
     public function test_quick_task_publish_retry_and_player_completion_reach_coach_results(): void
     {
         config(['access.temporary_full_access.enabled'=>true,'access.temporary_full_access.ends_at'=>null]);

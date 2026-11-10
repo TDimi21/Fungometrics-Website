@@ -85,7 +85,7 @@ class WorkoutProgramController extends Controller
                     }
                     $resolution=app(\App\Services\Planner\PlannerConflictResolutionService::class)->resolve($program->team_id,$player,$date,$buckets,$oldId?[$oldId]:[],$v['resolutions']??[]);
                     if($resolution['skip'])continue;
-                    $plan=DailyPlan::create(['id'=>(string)Str::uuid(),'team_id'=>$program->team_id,'created_by'=>$program->created_by,'name'=>$snapshot['name'],'date'=>$resolution['date'],'phase'=>$entry['phase'],'primary_goal'=>Str::limit($snapshot['description']??'',200,''),'workload_level'=>$snapshot['intensity_label']??null,'estimated_minutes'=>$snapshot['estimated_duration_minutes']??null,'buckets'=>$resolution['buckets'],'status'=>'published','published_at'=>now(),'settings'=>['readiness_required'=>true,'post_check_required'=>true]]);
+                    $plan=DailyPlan::create(['id'=>(string)Str::uuid(),'team_id'=>$program->team_id,'created_by'=>$program->created_by,'name'=>$snapshot['name'],'date'=>$resolution['date'],'phase'=>$entry['phase'],'primary_goal'=>Str::limit($snapshot['description']??'',191,''),'workload_level'=>$snapshot['intensity_label']??null,'estimated_minutes'=>$snapshot['estimated_duration_minutes']??null,'buckets'=>$resolution['buckets'],'status'=>'published','published_at'=>now(),'settings'=>['readiness_required'=>true,'post_check_required'=>true]]);
                     DailyPlanAssignment::create(['plan_id'=>$plan->id,'user_id'=>$player]);
                     foreach($resolution['replaced'] as $replacedId) {
                         DailyPlanAssignment::where('plan_id',$replacedId)->where('user_id',$player)->update(['schedule_status'=>'superseded']);

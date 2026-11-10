@@ -253,7 +253,7 @@ class IntelligenceController extends Controller
             'assigned_player_ids.*' => ['string'],
             'name' => ['nullable', 'string', 'max:200'],
             'date' => ['nullable', 'date'],
-            'primary_goal' => ['nullable', 'string', 'max:200'],
+            'primary_goal' => ['nullable', 'string', 'max:191'],
         ]);
 
         $status = ($validated['publish'] ?? false) === true

@@ -58,7 +58,7 @@ class WorkoutTemplateController extends Controller
                 abort_unless( ! $old->trashed() && $old->created_by === $r->user()->id && $old->team_id === $data['team_id'] && ($old->buckets[0]['template_source']['id'] ?? null) === $t->id, 409, 'This request ID already belongs to another plan.');
                 return $old;
             }
-            $plan = DailyPlan::create(['id' => $data['id'],'team_id' => $data['team_id'],'created_by' => $r->user()->id,'name' => $t->name,'date' => $data['date'],'primary_goal' => Str::limit($t->description ?? '', 200, ''),'phase' => 'Foundation','workload_level' => $t->intensity_label,'estimated_minutes' => $t->estimated_duration_minutes,'status' => 'draft','buckets' => $service->buckets($t)]);
+            $plan = DailyPlan::create(['id' => $data['id'],'team_id' => $data['team_id'],'created_by' => $r->user()->id,'name' => $t->name,'date' => $data['date'],'primary_goal' => Str::limit($t->description ?? '', 191, ''),'phase' => 'Foundation','workload_level' => $t->intensity_label,'estimated_minutes' => $t->estimated_duration_minutes,'status' => 'draft','buckets' => $service->buckets($t)]);
             foreach($players as $player) {
                 DailyPlanAssignment::create(['plan_id' => $plan->id,'user_id' => $player]);
             }
