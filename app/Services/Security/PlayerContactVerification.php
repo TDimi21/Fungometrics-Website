@@ -10,6 +10,7 @@ class PlayerContactVerification {
         throw ValidationException::withMessages(['claim'=>$message]);
     }
     public function normalize(string $contact): string {
+        if (\App\Support\TestPhoneNumber::matches($contact)) $this->fail('Use your email address; the test phone number cannot receive verification codes.');
         $contact=trim($contact);
         if (filter_var($contact,FILTER_VALIDATE_EMAIL)) return strtolower($contact);
         if (!preg_match('/^[+()\d\s.-]+$/',$contact)) $this->fail();

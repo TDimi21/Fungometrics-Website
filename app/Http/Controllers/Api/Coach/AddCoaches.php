@@ -49,7 +49,7 @@ class AddCoaches extends Controller
                 ], HttpCodes::HTTP_FORBIDDEN);
             }
 
-            $user = (new ListServiceData(new User()))->byParamFirst('phone', $data['phone']);
+            $user = filled($data['phone'] ?? null) ? (new ListServiceData(new User()))->byParamFirst('phone', $data['phone']) : null;
 
             // Coach already actively on this team → no-op success, no seat consumed.
             $existing = null;

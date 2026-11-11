@@ -96,9 +96,9 @@ class FreeAssessmentController extends Controller
             // Serialize quick-add for this team; the users.phone unique constraint
             // also protects simultaneous creation from different teams.
             Team::whereKey($assessment->team_id)->lockForUpdate()->firstOrFail();
-            $existing = User::withTrashed()->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), '-', ''), ' ', ''), '(', ''), ')', '') = ?", [$phone])->exists();
+            $existing = !\App\Support\TestPhoneNumber::matches($phone) && User::withTrashed()->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), '-', ''), ' ', ''), '(', ''), ')', '') = ?", [$phone])->exists();
             abort_if($existing, 409, 'That phone is already associated with an account. Select the existing roster player or resolve the shared contact before creating another account.');
-            $created = CoachUtils::saveNewUser(['phone' => $phone, 'name' => ['first' => $data['first_name'], 'last' => $data['last_name']], 'team' => $assessment->team_id, 'player' => ['grad_year' => $data['grad_year']]]);
+            $created = CoachUtils::saveNewUser(['phone' => \App\Support\TestPhoneNumber::matches($phone) ? null : $phone, 'name' => ['first' => $data['first_name'], 'last' => $data['last_name']], 'team' => $assessment->team_id, 'player' => ['grad_year' => $data['grad_year']]]);
             $id = $created['user']->id;
             app(\App\Services\Consent\PlayerConsentService::class)->record($created['user'], $request->user(), $assessment->team_id, 'coach_assessment_create', $request);
             Player::updateOrCreate(['user_id' => $id], collect($data)->only(['born_date', 'grad_year', 'height_in_ft', 'height_in_inch', 'hit_side', 'throw_side'])->all());

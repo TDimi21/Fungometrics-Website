@@ -23,6 +23,24 @@ class AddPlayersTest extends TestCase
 {
     use \Tests\Concerns\VerifiesPlayerContact;
     use \Tests\Concerns\AcceptsPlayerPolicies;
+    public function test_dummy_phone_creates_distinct_roster_profiles(): void
+    {
+        $coach = User::factory()->create(['type'=>'coach','status'=>true]);
+        $team = Team::factory()->create();
+        $this->grantTeamAccess($coach,$team);
+        \Laravel\Sanctum\Sanctum::actingAs($coach,['coach']);
+        $ids = [];
+        foreach (['First','Second'] as $name) {
+            $result = $this->postJson('/api/coach/add/players', [
+                ...$this->policyAgreement(), 'phone'=>'000-000-0000',
+                'team'=>$team->id,'name'=>['first'=>$name,'last'=>'Test'],
+            ])->assertOk();
+            $ids[] = $result->json('data.id');
+            $this->assertNull(User::findOrFail(end($ids))->phone);
+        }
+        $this->assertNotSame($ids[0],$ids[1]);
+    }
+
     public function test_shared_family_contact_creates_separate_children_and_retries_reuse_the_same_child(): void
     {
         $coach = User::factory()->create(['type'=>'coach','status'=>true]);

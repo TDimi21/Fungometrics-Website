@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RegisterPlayerRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\NormalizesTestPhone;
+
     /**
      * Determine if the user is authorized to make this request.
      *
@@ -31,6 +33,7 @@ class RegisterPlayerRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        $this->normalizeTestPhone();
         if (filled($this->input('team_code'))) {
             $this->merge(['team_code' => strtoupper(trim((string) $this->input('team_code')))]);
         }
@@ -39,7 +42,7 @@ class RegisterPlayerRequest extends FormRequest
     public function rules()
     {
         $optionalRules = [
-            'phone' => ['required', 'unique:users'],
+            'phone' => [$this->testPhoneProvided ? 'nullable' : 'required', 'unique:users'],
             'email' => ['required', 'email', 'unique:users'],
         ];
 
@@ -47,7 +50,7 @@ class RegisterPlayerRequest extends FormRequest
         $existingUser = $this->route('user') ?? $claimedUser;
         if($existingUser) {
             $optionalRules = [
-                'phone' => ['required', Rule::unique('users')->ignore($existingUser->id)],
+                'phone' => [$this->testPhoneProvided ? 'nullable' : 'required', Rule::unique('users')->ignore($existingUser->id)],
                 'email' => ['required', 'email', Rule::unique('users')->ignore($existingUser->id)],
             ];
         }

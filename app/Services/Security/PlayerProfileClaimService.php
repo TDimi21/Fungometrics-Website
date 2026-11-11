@@ -63,7 +63,7 @@ class PlayerProfileClaimService
 
     private function normalizePhone(string $phone): string
     {
-        return preg_replace('/\D+/', '', $phone) ?? '';
+        return \App\Support\TestPhoneNumber::matches($phone) ? '' : (preg_replace('/\D+/', '', $phone) ?? '');
     }
 
     private function failClaim(): never

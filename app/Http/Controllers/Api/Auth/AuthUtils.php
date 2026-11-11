@@ -38,7 +38,7 @@ final class AuthUtils
         // attempts and risking a "too many attempts" lockout. Matching on the
         // phone the request already carries lets a single request succeed.
         $phone = $request->input('phone');
-        if ($phone) {
+        if ($phone && !\App\Support\TestPhoneNumber::matches($phone)) {
             $user = User::where('phone', $phone)->first();
             if ($user && Auth::attempt(['email' => $user->email, 'password' => $request->get('password')])) {
                 return $user;

@@ -11,6 +11,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AddUserRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\NormalizesTestPhone;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizeTestPhone();
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      *
@@ -33,9 +40,9 @@ class AddUserRequest extends FormRequest
             'terms_version' => ['sometimes', 'string', 'max:40'],
             'privacy_version' => ['sometimes', 'string', 'max:40'],
             'acknowledgment_version' => ['sometimes', 'string', 'max:40'],
-            'phone' => $this->is('api/coach/add/players') ? ['nullable', 'string', 'max:32'] : ['required'],
+            'phone' => $this->is('api/coach/add/players') ? ['nullable', 'string', 'max:32'] : [$this->testPhoneProvided ? 'nullable' : 'required'],
             'email' => ['nullable', 'email', 'max:191'],
-            'team' => $this->is('api/coach/add/players') ? ['required', 'uuid'] : ['required'],
+            'team' => $this->is('api/coach/add/players') ? ['required', 'uuid'] : [$this->testPhoneProvided ? 'nullable' : 'required'],
             'name.first' => ['required'],
             'name.last' => ['required'],
             'guardian_contact' => ['sometimes', 'nullable', 'string', 'max:191'],

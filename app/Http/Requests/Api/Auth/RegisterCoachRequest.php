@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RegisterCoachRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\NormalizesTestPhone;
+
     /**
      * Determine if the user is authorized to make this request.
      *
@@ -29,10 +31,15 @@ class RegisterCoachRequest extends FormRequest
      *
      * @return array<string, mixed>
      */
+    protected function prepareForValidation(): void
+    {
+        $this->normalizeTestPhone();
+    }
+
     public function rules()
     {
         $optionalRules = [
-            'phone' => ['required', 'unique:users'],
+            'phone' => [$this->testPhoneProvided ? 'nullable' : 'required', 'unique:users'],
             'email' => ['required', 'email', 'unique:users'],
             'logo' => ['required','file'],
             'team' => ['required'],
@@ -42,7 +49,7 @@ class RegisterCoachRequest extends FormRequest
         $existingUser = $this->route('user') ?? $claimedUser;
         if($existingUser) {
             $optionalRules = [
-                'phone' => ['required', Rule::unique('users')->ignore($existingUser->id)],
+                'phone' => [$this->testPhoneProvided ? 'nullable' : 'required', Rule::unique('users')->ignore($existingUser->id)],
                 'email' => ['required', 'email', Rule::unique('users')->ignore($existingUser->id)],
             ];
         }
