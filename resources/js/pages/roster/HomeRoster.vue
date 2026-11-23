@@ -1,4 +1,5 @@
 <script setup>
+import AccountConnections from "@/components/players/AccountConnections.vue"
 import { useCreatePlayer, playerCreationError } from "@/composables/create-player.js"
 import PlayerOnboardingFields from "@/components/communications/PlayerOnboardingFields.vue";
 import Layout from '@/layout/Layout.vue'
@@ -818,6 +819,7 @@ const openClaimInviteForPlayer = ({ firstName, lastName, phone }) => {
       <div class="opacity-70 fixed inset-0 z-40 bg-[#060b14]" @click="claimInviteModal.open = false" />
     </div>
 
+  <AccountConnections />
   </Layout>
 </template>
 

@@ -1,4 +1,5 @@
 <script setup>
+import AccountConnections from "@/components/players/AccountConnections.vue"
 import CommunicationSettings from '@/components/communications/CommunicationSettings.vue'
 import { reactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
@@ -132,6 +133,7 @@ const setTheme = (next) => {
       </div>
     </div>
     <CommunicationSettings />
+  <AccountConnections />
   </Layout>
 </template>
 

@@ -50,6 +50,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\UseApiTokenCookie::class,
             'throttle:api',
             \App\Http\Middleware\OfflineWriteReceipt::class,
+            \App\Http\Middleware\GuardConnectedPlayerWrites::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ];

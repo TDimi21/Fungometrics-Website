@@ -231,6 +231,15 @@ Route::middleware(['auth:sanctum', 'route.scope'])->group(function (): void {
     });
     Route::post('auth/web-session', \App\Http\Controllers\Api\Auth\CreateWebSession::class)->middleware('throttle:10,1');
     Route::post('logout', \App\Http\Controllers\Api\Auth\LogoutController::class)->middleware('throttle:20,1');
+    Route::prefix('player-account-connections')->middleware(['ability:coach,player', 'throttle:30,1,player-connections:'])->group(function () {
+        $controller = \App\Http\Controllers\Api\Player\PlayerAccountConnectionController::class;
+        Route::get('/', [$controller, 'index']);
+        Route::get('/candidates', [$controller, 'candidates']);
+        Route::post('/', [$controller, 'store']);
+        Route::get('/{id}/preview', [$controller, 'preview'])->whereUuid('id');
+        Route::post('/{id}/accept', [$controller, 'accept'])->whereUuid('id')->middleware('throttle:3,10,player-connection-confirm:');
+        Route::post('/{id}/cancel', [$controller, 'cancel'])->whereUuid('id');
+    });
     Route::get('me/access', \App\Http\Controllers\Api\Access\GetMyAccess::class);
     Route::get('me/account-deletion/status', [AccountDeletionController::class, 'status'])
         ->middleware('throttle:20,1');
